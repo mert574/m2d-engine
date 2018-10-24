@@ -1,41 +1,73 @@
 import '../node_modules/matter-js/build/matter-dev.js';
+import Entity from './entity.js';
+import SpriteSheet from './spritesheet.js';
 
 export default class m2d {
     constructor(context) {
         this.context = context;
         this.engine = Matter.Engine.create();
         this.update = this.update.bind(this);
+        this.entities = new Set();
     }
 
-    start() {
-        Matter.Engine.run(this.engine);
-        this.update();
+    start(preload=[]) {
+        let counter = preload.length;
+
+        const onload = ()=> {
+            if (--counter === 0) {
+                Matter.Engine.run(this.engine);
+                this.update();
+            }
+        };
+
+        preload.forEach(url=>{
+            const i = new Image();
+            i.src = url;
+            i.onload = onload;
+        });
     }
 
-    draw(vertices, style='#ff0000') {
-        this.context.beginPath();
-        
-        for (let v of vertices) {
-            this.context.lineTo(v.x, v.y);
-        }
-    
-        this.context.fillStyle = style;
-        this.context.fill();
-    }
-    
-    update() {
+    update(deltaTime) {
         this.context.fillStyle = '#000';
         this.context.fillRect(0, 0, 640, 480);
-        
-        for (let elem of this.engine.world.bodies) {
-            this.draw(elem.vertices, elem.render.fillStyle);
+
+        for (let elem of this.entities) {
+            elem.draw(deltaTime);
         }
     
         requestAnimationFrame(this.update);
     }
 
-    rectangle(x, y, w, h, options) {
-        const rect = Matter.Bodies.rectangle(x, y, w, h, options);
-        return Matter.World.add(this.engine.world, rect);
+    loadSprite(url) {
+        return new Promise((resolve, reject)=>{
+            const img = new Image();
+            img.src = url;
+
+            img.onerror = e=>reject(img, e);
+            img.onload = ()=>resolve(img);
+        })
+    }
+
+    rectangle(x, y, w, h, image, options) {
+        const ss = new SpriteSheet(image, 64, 64);
+        const body = Matter.Bodies.rectangle(x, y, w, h, options);
+        const entity = new Entity(this.context, body, ss);
+
+        this.entities.add(entity);
+        Matter.World.add(this.engine.world, body);
+
+        return entity;
+    }
+
+    circle(x, y, r, image, options) {
+        const body = Matter.Bodies.circle(x, y, r, options);
+
+        const sprite = new SpriteSheet(image, 64, 64, r, r);
+        const entity = new Entity(this.context, body, sprite);
+
+        this.entities.add(entity);
+        Matter.World.add(this.engine.world, body);
+
+        return entity;
     }
 }
