@@ -5,7 +5,7 @@ const context = canvas.getContext('2d');
 
 const engine = new m2d(context);
 
-engine.loadSprite('/img/towerDefense_tilesheet.png').then(img=>{
+engine.loadSprite('img/towerDefense_tilesheet.png').then(img=>{
     engine.rectangle(canvas.clientWidth/2, 470, canvas.clientWidth, 60, img, { "isStatic": true });
 
     engine.rectangle(100, 200, 64, 64, img)
@@ -19,4 +19,4 @@ engine.loadSprite('/img/towerDefense_tilesheet.png').then(img=>{
 });
 
 
-engine.start(['/img/towerDefense_tilesheet.png']);
+engine.start(['img/towerDefense_tilesheet.png']);
