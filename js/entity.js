@@ -15,15 +15,11 @@ export default class Entity {
         this.sprite.define('default', 1, 1);
     }
 
-    draw(deltaTime) {
-        //if (this.wireframe) {
-            
+    draw() {
+        this.sprite.draw('default', this.context, this.body.position, this.body.angle);
 
-        //} else {
-            this.sprite.draw('default', this.context, this.body.position, this.body.angle);
-        //}
-
-        this.context.beginPath();
+        if (this.wireframe) {
+            this.context.beginPath();
 
             const max = this.body.vertices.length-1;
             const last = this.body.vertices[max];
@@ -46,5 +42,6 @@ export default class Entity {
         
             this.context.strokeStyle = this.body.render.fillStyle;
             this.context.stroke();
+        }
     }
 }

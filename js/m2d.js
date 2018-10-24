@@ -1,4 +1,4 @@
-import '../node_modules/matter-js/build/matter-dev.js';
+import './matter-dev.js';
 import Entity from './entity.js';
 import SpriteSheet from './spritesheet.js';
 
@@ -49,7 +49,7 @@ export default class m2d {
     }
 
     rectangle(x, y, w, h, image, options) {
-        const ss = new SpriteSheet(image, 64, 64);
+        const ss = new SpriteSheet(image, 64, 64, x, y);
         const body = Matter.Bodies.rectangle(x, y, w, h, options);
         const entity = new Entity(this.context, body, ss);
 
