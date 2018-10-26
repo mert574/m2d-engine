@@ -1,33 +1,36 @@
 import './matter-dev.js';
 import Entity from './entity.js';
 import SpriteSheet from './spritesheet.js';
+import KeyStates from './keystate.js';
 
-export default class m2d {
+export default class M2D {
     constructor(context) {
         this.context = context;
         this.engine = Matter.Engine.create();
+        this.keys = new KeyStates();
         this.update = this.update.bind(this);
         this.entities = new Set();
+
+        this.Body = Matter.Body;
+        this.World = Matter.World;
     }
 
-    start(preload=[]) {
-        let counter = preload.length;
+    start() {
+        Matter.Engine.run(this.engine);
+        this.update();
+    }
 
-        const onload = ()=> {
-            if (--counter === 0) {
-                Matter.Engine.run(this.engine);
-                this.update();
-            }
-        };
+    beforeUpdate(deltaTime) {
 
-        preload.forEach(url=>{
-            const i = new Image();
-            i.src = url;
-            i.onload = onload;
-        });
+    }
+
+    afterUpdate(deltaTime) {
+
     }
 
     update(deltaTime) {
+        this.beforeUpdate(deltaTime);
+
         this.context.fillStyle = '#000';
         this.context.fillRect(0, 0, 640, 480);
 
@@ -35,6 +38,7 @@ export default class m2d {
             elem.draw(deltaTime);
         }
     
+        this.afterUpdate(deltaTime);
         requestAnimationFrame(this.update);
     }
 
@@ -49,9 +53,10 @@ export default class m2d {
     }
 
     rectangle(x, y, w, h, image, options) {
-        const ss = new SpriteSheet(image, 64, 64, x, y);
         const body = Matter.Bodies.rectangle(x, y, w, h, options);
-        const entity = new Entity(this.context, body, ss);
+
+        const sprite = new SpriteSheet(image, 64, 64, x, y);
+        const entity = new Entity(this.context, body, sprite);
 
         this.entities.add(entity);
         Matter.World.add(this.engine.world, body);
