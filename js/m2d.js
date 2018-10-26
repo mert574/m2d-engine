@@ -4,13 +4,16 @@ import SpriteSheet from './spritesheet.js';
 import KeyStates from './keystate.js';
 
 export default class M2D {
-    constructor(context) {
-        this.context = context;
+    constructor(canvas) {
+        this.context = canvas.getContext('2d');
         this.engine = Matter.Engine.create();
-        this.keys = new KeyStates();
         this.update = this.update.bind(this);
         this.entities = new Set();
 
+        this.mouse = Matter.Mouse.create(canvas);
+        const MouseConstraint = Matter.MouseConstraint.create(this.engine, { "mouse": this.mouse });
+        this.keys = new KeyStates(canvas, MouseConstraint, Matter.Events.on);
+        
         this.Body = Matter.Body;
         this.World = Matter.World;
     }
@@ -74,5 +77,9 @@ export default class M2D {
         Matter.World.add(this.engine.world, body);
 
         return entity;
+    }
+
+    collides(body, others) {
+        return Matter.Query.collides(body, others);
     }
 }

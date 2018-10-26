@@ -1,8 +1,7 @@
 import m2d from './m2d.js';
 
 const canvas = document.getElementById('screen');
-const context = canvas.getContext('2d');
-const M2D = new m2d(context);
+const M2D = new m2d(canvas);
 
 let player;
 

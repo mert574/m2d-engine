@@ -2,18 +2,34 @@ export const PRESSED = 1;
 export const NOT_PRESSED = 0;
 
 export default class KeyState {
-    constructor(selector=window) {
+    constructor(selector=window, matterMouseConstraint, eventAttacher) {
         this.keys = new Map();
         this.handlers = new Map();
-        this._eventListener = this._eventListener.bind(this);
+        this._handleKeyboard = this._handleKeyboard.bind(this);
+        this._handleMouse = this._handleMouse.bind(this);
         this.debug = false;
+        this.mouseConstraint = matterMouseConstraint;
+        
+        selector.addEventListener('contextmenu', e=>e.preventDefault());
 
         for (let eventName of ['keydown', 'keyup']) {
-            selector.addEventListener(eventName, this._eventListener);
+            selector.addEventListener(eventName, this._handleKeyboard);
+        }
+
+        for (let eventName of ['mousedown', 'mouseup', 'mousemove']) {
+            eventAttacher(matterMouseConstraint, eventName, this._handleMouse);
         }
     }
 
-    _eventListener(event) {
+    _handleMouse(event) {
+        const newState = event.name === 'mousedown' ? PRESSED : NOT_PRESSED;
+
+        if (event.name !== 'mousemove') {
+            console.log(this.mouseConstraint.mouse);
+        }
+    }
+
+    _handleKeyboard(event) {
         const {keyCode, type} = event;
         const newState = type === 'keydown' ? PRESSED : NOT_PRESSED;
 
@@ -22,6 +38,8 @@ export default class KeyState {
         }
 
         if (this.keys.get(keyCode) !== newState) {
+            event.preventDefault();
+
             this.keys.set(keyCode, newState);
             const f = this.handlers.get(keyCode);
 
