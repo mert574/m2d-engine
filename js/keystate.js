@@ -10,10 +10,11 @@ export default class KeyState {
         this.debug = false;
         this.mouseConstraint = matterMouseConstraint;
         
-        selector.addEventListener('contextmenu', e=>e.preventDefault());
-
+        document.addEventListener('contextmenu', e=>e.preventDefault());
+        
+        
         for (let eventName of ['keydown', 'keyup']) {
-            selector.addEventListener(eventName, this._handleKeyboard);
+            document.addEventListener(eventName, this._handleKeyboard);
         }
 
         for (let eventName of ['mousedown', 'mouseup', 'mousemove']) {
@@ -25,7 +26,7 @@ export default class KeyState {
         const newState = event.name === 'mousedown' ? PRESSED : NOT_PRESSED;
 
         if (event.name !== 'mousemove') {
-            console.log(this.mouseConstraint.mouse);
+            //console.log(this.mouseConstraint.mouse);
         }
     }
 
@@ -36,10 +37,10 @@ export default class KeyState {
         if (!this.keys.has(keyCode) && !this.debug) {
             return;
         }
+        
+        event.preventDefault();
 
         if (this.keys.get(keyCode) !== newState) {
-            event.preventDefault();
-
             this.keys.set(keyCode, newState);
             const f = this.handlers.get(keyCode);
 
