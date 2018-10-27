@@ -12,7 +12,7 @@ export default class M2D {
 
         this.mouse = Matter.Mouse.create(canvas);
         const MouseConstraint = Matter.MouseConstraint.create(this.engine, { "mouse": this.mouse });
-        this.keys = new KeyStates(canvas, MouseConstraint, Matter.Events.on);
+        this.keys = new KeyStates(MouseConstraint, Matter.Events.on);
         
         this.Body = Matter.Body;
         this.World = Matter.World;
