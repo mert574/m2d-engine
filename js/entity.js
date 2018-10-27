@@ -15,8 +15,8 @@ export default class Entity {
         this.sprite.define('default', 1, 1);
     }
 
-    draw() {
-        this.sprite.draw('default', this.context, this.body.position, this.body.angle);
+    draw(deltaTime, spriteName='default') {
+        this.sprite.draw(spriteName, this.context, this.body.position, this.body.angle);
 
         if (this.wireframe) {
             this.context.beginPath();
@@ -32,10 +32,8 @@ export default class Entity {
 
             for (let i=0; i<=max; i++) {
                 const v = this.body.vertices[i];
-                const n = this.body.vertices[max-i];
 
                 if (i%2 === 0) {
-                    //this.context.lineTo(n.x, n.y);
                     this.context.lineTo(v.x, v.y);
                 }
             }

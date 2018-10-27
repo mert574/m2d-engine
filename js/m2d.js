@@ -58,7 +58,7 @@ export default class M2D {
     rectangle(x, y, w, h, image, options) {
         const body = Matter.Bodies.rectangle(x, y, w, h, options);
 
-        const sprite = new SpriteSheet(image, 64, 64, x, y);
+        const sprite = new SpriteSheet(image, 64, 64, w, h);
         const entity = new Entity(this.context, body, sprite);
 
         this.entities.add(entity);

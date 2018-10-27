@@ -11,7 +11,7 @@ M2D.loadSprite('img/towerDefense_tilesheet.png').then(img=>{
     player = M2D.rectangle(100, 200, 64, 64, img);
     player.sprite.define('default', 1, 1);
 
-    M2D.rectangle(150, 100, 64, 64, img)
+    M2D.rectangle(150, 100, 96, 64, img)
         .sprite.define('default', 1, 1);
 
     M2D.keys.addKey(32);
