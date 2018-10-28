@@ -4,47 +4,64 @@ import SpriteSheet from './spritesheet.js';
 import KeyStates from './keystate.js';
 import LevelManager from './levelmanager.js';
 
+const defaultOptions = {
+    "levelsPath": 'levels',
+    "levelNames": undefined,
+    "levelsPath": 'levels',
+}
+
+const defaultEntityOptions = {
+}
+
 export default class M2D {
-    constructor(canvas, levelNames, levelsPath='levels') {
+    constructor(canvas, options) {
+        this.options = { ...defaultOptions, ...options }
+
+        this.canvas = canvas;
         this.width = canvas.clientWidth;
         this.height = canvas.clientHeight;
-
         this.context = canvas.getContext('2d');
-        this.engine = Matter.Engine.create();
+        
         this.update = this.update.bind(this);
         this.entities = new Set();
         this.player = null;
 
-        this.mouse = Matter.Mouse.create(canvas);
+        this.Body = Matter.Body;
+        this.World = Matter.World;
+
+        this.init();
+    }
+
+    init() {
+        this.engine = Matter.Engine.create();
+        this.mouse = Matter.Mouse.create(this.canvas);
+
         const MouseConstraint = Matter.MouseConstraint.create(this.engine, { "mouse": this.mouse });
         this.keys = new KeyStates(MouseConstraint, Matter.Events.on);
 
-        this.levelManager = new LevelManager(levelNames, levelsPath);
-
-        this.Body = Matter.Body;
-        this.World = Matter.World;
+        this.levelManager = new LevelManager({
+            "names": this.options.levelNames,
+            "path": this.options.levelsPath,
+            "currentLevel": this.options.currentLevel });
     }
 
-    start() {
+    reset() {
+        Matter.World.clear(this.engine.world);
+        Matter.Engine.clear(this.engine);
+        this.entities.clear();
+
+        this.start(true);
+    }
+
+    start(restarted=false) {
         const waitUntilLoaded = () => {
-            if (this.levelManager.levels.length) {
-                this.levelManager.loadLevel(this.levelManager.names[0]).then(level=>{
-                    console.log(`Loaded level: ${level.name}\n`, level);
-                    
-                    this.rectangle(this.width/2, 470, this.width, 60, level.sprites[0], { "isStatic": true })
-                        .sprite.define('default', 1, 1);
+            if (this.levelManager.currentLevel) {
+                this.levelManager.loadLevel(this.levelManager.currentLevel).then(level=>{
+                    this.parseLevel(level);
 
-                    for (let [x, y, w, h, spriteIndex, anims] of level.entities) {
-                        const sprite = level.sprites[spriteIndex];
-                        this.parseEntity(x, y, w, h, sprite, anims);
-                    }
+                    if (!restarted) this.update();
 
-                    const [x, y, w, h, spriteIndex, anims] = level.player;
-                    const sprite = level.sprites[spriteIndex];
-                    this.player = this.parseEntity(x, y, w, h, sprite, anims);
-
-                    Matter.Engine.run(this.engine);
-                    this.update();
+                    console.log('loaded level:', level.name, level.entities.length+1, this.entities.size);
                 });
             } else {
                 requestAnimationFrame(waitUntilLoaded);
@@ -54,8 +71,27 @@ export default class M2D {
         waitUntilLoaded();
     }
 
-    parseEntity(x, y, w, h, sprite, anims) {
-        const entity = this.rectangle(x, y, w, h, sprite);
+    parseLevel(level) {
+        if (level.gameType === 'topDown') {
+            this.engine.world.gravity.y = 0;
+            defaultEntityOptions.frictionAir = 0.2;
+        } else {
+            this.engine.world.gravity.y = 1;
+            defaultEntityOptions.frictionAir = 0.01;
+        }
+
+        for (let [x, y, w, h, spriteIndex, anims, options] of level.entities) {
+            const sprite = level.sprites[spriteIndex];
+            this.parseEntity(x, y, w, h, sprite, anims, options);
+        }
+
+        const [x, y, w, h, spriteIndex, anims] = level.player;
+        const sprite = level.sprites[spriteIndex];
+        this.player = this.parseEntity(x, y, w, h, sprite, anims);
+    }
+
+    parseEntity(x, y, w, h, sprite, anims, options) {
+        const entity = this.rectangle(x, y, w, h, sprite, options);
         
         for (let a of anims) {
             const [name, tileX, tileY] = a;
@@ -66,11 +102,9 @@ export default class M2D {
     }
 
     beforeUpdate(deltaTime) {
-
     }
 
-    afterUpdate(deltaTime) {
-
+    afterUpdate(deltaTime) {        
     }
 
     update(deltaTime) {
@@ -78,6 +112,8 @@ export default class M2D {
 
         this.context.fillStyle = '#000';
         this.context.fillRect(0, 0, 640, 480);
+
+        Matter.Engine.update(this.engine);
 
         for (let elem of this.entities) {
             elem.draw(deltaTime);
@@ -88,8 +124,9 @@ export default class M2D {
     }
 
     rectangle(x, y, w, h, image, options) {
-        const body = Matter.Bodies.rectangle(x, y, w, h, options);
+        options = { ...defaultEntityOptions, ...options };
 
+        const body = Matter.Bodies.rectangle(x, y, w, h, options);
         const sprite = new SpriteSheet(image, 64, 64, w, h);
         const entity = new Entity(this.context, body, sprite);
 
@@ -100,8 +137,9 @@ export default class M2D {
     }
 
     circle(x, y, r, image, options) {
-        const body = Matter.Bodies.circle(x, y, r, options);
+        options = { ...defaultEntityOptions, ...options };
 
+        const body = Matter.Bodies.circle(x, y, r, options);
         const sprite = new SpriteSheet(image, 64, 64, r, r);
         const entity = new Entity(this.context, body, sprite);
 

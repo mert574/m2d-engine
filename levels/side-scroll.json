@@ -1,10 +1,11 @@
 {
     "title": "Demo Level",
+    "gameType": "sideScroll",
     "sprites": [
         "img/towerDefense_tilesheet.png"
     ],
     "player": [100, 200, 64, 64, 0, [
-        ["default", 1, 1]
+        ["default", 3, 5]
     ]],
     "entities": [
         [150, 100, 96, 64, 0, [
@@ -18,6 +19,10 @@
         ]],
         [350, 100, 50, 50, 0, [
             ["default", 1, 1]
-        ]]
+        ]],
+
+        [320, 470, 640, 60, 0, [
+            ["default", 4, 2]
+        ], {"isStatic": true}]
     ]
 }

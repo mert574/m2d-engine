@@ -1,0 +1,33 @@
+{
+    "title": "Demo Level 2",
+    "gameType": "topDown",
+    "sprites": [
+        "img/towerDefense_tilesheet.png"
+    ],
+    "player": [50, 300, 64, 64, 0, [
+        ["default", 3, 5]
+    ]],
+    "entities": [
+        [150, 100, 90, 60, 0, [
+            ["default", 1, 1]
+        ]],
+        [210, 100, 50, 50, 0, [
+            ["default", 1, 1]
+        ]],
+        [290, 100, 50, 50, 0, [
+            ["default", 4, 5]
+        ]],
+        [340, 100, 50, 50, 0, [
+            ["default", 4, 5]
+        ]],
+
+
+        [100, 320, 20, 320, 0, [
+            ["default", 4, 2]
+        ], {"isStatic": true}],
+
+        [500, 160, 20, 320, 0, [
+            ["default", 4, 2]
+        ], {"isStatic": true}]
+    ]
+}

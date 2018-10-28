@@ -1,13 +1,14 @@
 import {loadSprite} from './loaders.js';
 
 export default class LevelManager {
-    constructor(levelNames, levelsPath) {
-        this.names = levelNames;
+    constructor(options) {
+        this.names = options.names;
         this.levels = [];
+        this.currentLevel = null;
 
         let promises = [];
-        for (let n of levelNames) {
-            const f = fetch(`${levelsPath}/${n}`)
+        for (let n of this.names) {
+            const f = fetch(`${options.path}/${n}`)
                 .then(r=>r.json())
                 .then(j=>({...j, "name": n})); // add name field
             promises.push(f);
@@ -20,6 +21,11 @@ export default class LevelManager {
             }
 
             this.levels = levelsData;
+            if (options.currentLevel) {
+                this.currentLevel = options.currentLevel;
+            } else {
+                this.currentLevel = this.levels[0].name;
+            }
         }, error=>{
             throw new Error('Cannot get levels.', error);
         });
@@ -28,7 +34,7 @@ export default class LevelManager {
     loadLevel(name) {
         const level = this.findLevel(name);
         if (!level) {
-            throw new Error(`Could\'nt find the level: ${name}`);
+            throw new Error(`Couldn\'t find the level: ${name}`);
         }
 
         return new Promise((resolve, reject)=>{
