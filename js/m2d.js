@@ -5,7 +5,7 @@ import KeyStates from './keystate.js';
 import LevelManager from './levelmanager.js';
 
 export default class M2D {
-    constructor(canvas, levelNames, levelsPath='../levels') {
+    constructor(canvas, levelNames, levelsPath='levels') {
         this.width = canvas.clientWidth;
         this.height = canvas.clientHeight;
 
