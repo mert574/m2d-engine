@@ -14,11 +14,17 @@ M2D.keys.addKey(39); // right
 M2D.keys.addKey(38); // up
 M2D.keys.addKey(40); // down
 
-M2D.keys.addKey(78, isPressed=>{
+M2D.keys.addKey(78, isPressed=>{ // n
     if (isPressed) {
         switchLevel();
     }
-}); // n
+});
+
+M2D.keys.addKey(86, isPressed=>{ // v
+    if (isPressed) {
+        toggleWireframe();
+    }
+});
 
 M2D.start();
 
@@ -56,4 +62,10 @@ function switchLevel() {
 
     console.log(current, nextLevel);
     M2D.reset();
+}
+
+function toggleWireframe() {
+    for (let e of M2D.entities) {
+        e.wireframe = !e.wireframe;
+    }
 }

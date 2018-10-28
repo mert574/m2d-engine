@@ -7,11 +7,12 @@ A small engine that will be used later for my game.
 
 ### Controls
 
-|Key        | Action         |
-|----------:|:--------------:|
-|Arrow Keys | Movement       |
-|Space      | Jump           |
-|n          | Switch levels  |
+|Key        | Action             |
+|----------:|:------------------:|
+|Arrow Keys | Movement           |
+|Space      | Jump               |
+|n          | Switch levels      |
+|v          | Toggle boundaries  |
 
 
 ### Level JSON Data Type
