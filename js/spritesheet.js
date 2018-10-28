@@ -14,12 +14,11 @@ export default class SpriteSheet {
         buffer.width = this.tileWidth;
         buffer
             .getContext('2d')
-            .drawImage(
-                this.image,
+            .drawImage(this.image,
                 this.tileWidth * x, this.tileHeight * y,
                 this.tileWidth, this.tileHeight,
                 0, 0,
-                this.width, this.height
+                this.tileWidth, this.tileHeight
             );
         this.tiles.set(name, buffer);
     }
@@ -30,7 +29,7 @@ export default class SpriteSheet {
         context.translate(position.x, position.y);
         context.rotate(angle);
 
-        context.drawImage(buffer, 
+        context.drawImage(buffer,
             0,0,
             this.tileWidth, this.tileHeight,
             -this.width/2, -this.height/2,
