@@ -1,0 +1,14 @@
+{
+    "title": "Demo Level",
+    "sprites": [
+        "img/towerDefense_tilesheet.png"
+    ],
+    "player": [100, 200, 64, 64, 0, [
+        ["default", 1, 1]
+    ]],
+    "entities": [
+        [150, 100, 96, 64, 0, [
+            ["default", 1, 1]
+        ]]
+    ]
+}

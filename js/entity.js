@@ -12,7 +12,6 @@ export default class Entity {
         };
 
         this.wireframe = false;
-        this.sprite.define('default', 1, 1);
     }
 
     draw(deltaTime, spriteName='default') {
