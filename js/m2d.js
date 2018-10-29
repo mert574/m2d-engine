@@ -22,6 +22,8 @@ export default class M2D {
         this.height = canvas.clientHeight;
         this.context = canvas.getContext('2d');
         
+        this.backgroundLayer = [];
+
         this.update = this.update.bind(this);
         this.entities = new Set();
         this.player = null;
@@ -49,6 +51,7 @@ export default class M2D {
         Matter.World.clear(this.engine.world);
         Matter.Engine.clear(this.engine);
         this.entities.clear();
+        this.backgroundLayer = [];
 
         this.start(true);
     }
@@ -60,7 +63,6 @@ export default class M2D {
                     this.parseLevel(level);
 
                     if (!restarted) this.update();
-
                     console.log('loaded level:', level.name, level.entities.length+1, this.entities.size);
                 });
             } else {
@@ -80,6 +82,28 @@ export default class M2D {
             defaultEntityOptions.frictionAir = 0.01;
         }
 
+        if (level.background) { // background layer
+            const [i, x, y] = level.background;
+            const image = level.sprites[i];
+            const tileCountX = Math.ceil(this.width / 64);
+            const tileCountY = Math.ceil(this.height / 64);
+            const sprite = new SpriteSheet(image, 64, 64, 64, 64);
+            
+            sprite.define('default', x, y);
+
+            for (let i=0;i<=tileCountX;i++) {
+                for (let j=0;j<=tileCountY;j++) {
+                    this.backgroundLayer.push({
+                        sprite,
+                        "draw": function(context) { 
+                            this.sprite.draw('default', context, {"x":i*64, "y":j*64}) 
+                        }
+                    });
+                }
+            }
+        }
+
+        // entitites
         for (let [x, y, w, h, spriteIndex, anims, options] of level.entities) {
             const sprite = level.sprites[spriteIndex];
             this.parseEntity(x, y, w, h, sprite, anims, options);
@@ -114,6 +138,10 @@ export default class M2D {
         this.context.fillRect(0, 0, 640, 480);
 
         Matter.Engine.update(this.engine);
+
+        for (let bg of this.backgroundLayer) {
+            bg.draw(this.context);
+        }
 
         for (let elem of this.entities) {
             elem.draw(deltaTime);

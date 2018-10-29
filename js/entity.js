@@ -11,7 +11,7 @@ export default class Entity {
             "y": max.y - min.y
         };
 
-        this.wireframe = true;
+        this.wireframe = false;
     }
 
     draw(deltaTime, spriteName='default') {

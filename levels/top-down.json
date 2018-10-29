@@ -5,20 +5,20 @@
         "img/towerDefense_tilesheet.png"
     ],
     "player": [50, 300, 64, 64, 0, [
-        ["default", 3, 5]
+        ["default", 21,1]
     ]],
     "entities": [
         [150, 100, 90, 60, 0, [
-            ["default", 1, 1]
+            ["default", 19,3]
         ]],
         [210, 100, 50, 50, 0, [
-            ["default", 1, 1]
+            ["default", 22, 1]
         ]],
         [290, 100, 50, 50, 0, [
-            ["default", 4, 5]
+            ["default", 22, 2]
         ]],
         [340, 100, 50, 50, 0, [
-            ["default", 4, 5]
+            ["default", 22, 3]
         ]],
 
 
@@ -29,5 +29,6 @@
         [500, 160, 20, 320, 0, [
             ["default", 4, 2]
         ], {"isStatic": true}]
-    ]
+    ],
+    "background": [ 0, 22, 6 ]
 }
