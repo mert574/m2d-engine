@@ -3,6 +3,7 @@ import Entity from './entity.js';
 import SpriteSheet from './spritesheet.js';
 import KeyStates from './keystate.js';
 import LevelManager from './levelmanager.js';
+import LayerManager from './layermanager.js';
 
 const defaultOptions = {
     "levelsPath": 'levels',
@@ -22,8 +23,6 @@ export default class M2D {
         this.height = canvas.clientHeight;
         this.context = canvas.getContext('2d');
         
-        this.backgroundLayer = [];
-
         this.update = this.update.bind(this);
         this.entities = new Set();
         this.player = null;
@@ -41,6 +40,8 @@ export default class M2D {
         const MouseConstraint = Matter.MouseConstraint.create(this.engine, { "mouse": this.mouse });
         this.keys = new KeyStates(MouseConstraint, Matter.Events.on);
 
+        this.layers = new LayerManager(this.context);
+
         this.levelManager = new LevelManager({
             "names": this.options.levelNames,
             "path": this.options.levelsPath,
@@ -51,7 +52,6 @@ export default class M2D {
         Matter.World.clear(this.engine.world);
         Matter.Engine.clear(this.engine);
         this.entities.clear();
-        this.backgroundLayer = [];
 
         this.start(true);
     }
@@ -85,22 +85,16 @@ export default class M2D {
         if (level.background) { // background layer
             const [i, x, y] = level.background;
             const image = level.sprites[i];
-            const tileCountX = Math.ceil(this.width / 64);
-            const tileCountY = Math.ceil(this.height / 64);
-            const sprite = new SpriteSheet(image, 64, 64, 64, 64);
-            
+            const tileSize = 64; // fix this
+            const tileCountX = Math.ceil(this.width / tileSize);
+            const tileCountY = Math.ceil(this.height / tileSize);
+
+            const sprite = new SpriteSheet(image, tileSize, tileSize);
             sprite.define('default', x, y);
 
-            for (let i=0;i<=tileCountX;i++) {
-                for (let j=0;j<=tileCountY;j++) {
-                    this.backgroundLayer.push({
-                        sprite,
-                        "draw": function(context) { 
-                            this.sprite.draw('default', context, {"x":i*64, "y":j*64}) 
-                        }
-                    });
-                }
-            }
+            const bgLayer = this.layers.constructLayer(sprite, tileCountX, tileCountY, tileSize, {"anim": 'default'});
+
+            this.layers.addLayer('background', bgLayer);
         }
 
         // entitites
@@ -139,9 +133,7 @@ export default class M2D {
 
         Matter.Engine.update(this.engine);
 
-        for (let bg of this.backgroundLayer) {
-            bg.draw(this.context);
-        }
+        this.layers.draw();
 
         for (let elem of this.entities) {
             elem.draw(deltaTime);
