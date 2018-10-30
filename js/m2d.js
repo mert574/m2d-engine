@@ -52,6 +52,7 @@ export default class M2D {
         Matter.World.clear(this.engine.world);
         Matter.Engine.clear(this.engine);
         this.entities.clear();
+        this.layers.clear();
 
         this.start(true);
     }

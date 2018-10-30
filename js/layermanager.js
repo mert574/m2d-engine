@@ -8,6 +8,10 @@ export default class LayerManager {
         this.layers.push([name, layer]);
     }
 
+    clear() {
+        this.layers = [];
+    }
+
     draw() {
         for (let [name, layer] of this.layers) {
             for (let tile of layer.tiles) {
