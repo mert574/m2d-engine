@@ -16,7 +16,7 @@ const defaultEntityOptions = {
 
 export default class M2D {
     constructor(canvas, options) {
-        this.options = { ...defaultOptions, ...options }
+        this.options = { ...defaultOptions, ...options };
 
         this.canvas = canvas;
         this.width = canvas.clientWidth;
@@ -85,11 +85,11 @@ export default class M2D {
 
         if (level.background) { // background layer
             const [i, x, y] = level.background;
-            const image = level.sprites[i];
-            const tileSize = 64; // fix this
+            const image = level.sprites[i][0];
+            const tileSize = level.sprites[i][1];
             const tileCountX = Math.ceil(this.width / tileSize);
             const tileCountY = Math.ceil(this.height / tileSize);
-
+            
             const sprite = new SpriteSheet(image, tileSize, tileSize);
             sprite.define('default', x, y);
 
@@ -110,7 +110,8 @@ export default class M2D {
     }
 
     parseEntity(x, y, w, h, sprite, anims, options) {
-        const entity = this.rectangle(x, y, w, h, sprite, options);
+        const [img, tileSize] = sprite;
+        const entity = this.rectangle(x, y, w, h, tileSize, img, options);
         
         for (let a of anims) {
             const [name, tileX, tileY] = a;
@@ -127,10 +128,10 @@ export default class M2D {
     }
 
     update(deltaTime) {
-        this.beforeUpdate(deltaTime);
-
         this.context.fillStyle = '#000';
-        this.context.fillRect(0, 0, 640, 480);
+        this.context.fillRect(0, 0, this.width, this.height);
+
+        this.beforeUpdate(deltaTime);
 
         Matter.Engine.update(this.engine);
 
@@ -144,11 +145,11 @@ export default class M2D {
         requestAnimationFrame(this.update);
     }
 
-    rectangle(x, y, w, h, image, options) {
+    rectangle(x, y, w, h, tileSize, image, options) {
         options = { ...defaultEntityOptions, ...options };
 
         const body = Matter.Bodies.rectangle(x, y, w, h, options);
-        const sprite = new SpriteSheet(image, 64, 64, w, h);
+        const sprite = new SpriteSheet(image, tileSize, tileSize, w, h);
         const entity = new Entity(this.context, body, sprite);
 
         this.entities.add(entity);
@@ -157,11 +158,11 @@ export default class M2D {
         return entity;
     }
 
-    circle(x, y, r, image, options) {
+    circle(x, y, r, tileSize, image, options) {
         options = { ...defaultEntityOptions, ...options };
 
         const body = Matter.Bodies.circle(x, y, r, options);
-        const sprite = new SpriteSheet(image, 64, 64, r, r);
+        const sprite = new SpriteSheet(image, tileSize, tileSize, r, r);
         const entity = new Entity(this.context, body, sprite);
 
         this.entities.add(entity);

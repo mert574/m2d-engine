@@ -2,7 +2,8 @@
     "title": "Demo Level 2",
     "gameType": "topDown",
     "sprites": [
-        "img/towerDefense_tilesheet.png"
+        ["img/towerDefense_tilesheet.png", 64],
+        ["img/towerDefense_tilesheet@2.png", 64]
     ],
     "player": [50, 300, 64, 64, 0, [
         ["default", 21,1]

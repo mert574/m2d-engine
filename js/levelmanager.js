@@ -16,8 +16,9 @@ export default class LevelManager {
 
         Promise.all(promises)
         .then(levelsData=>{
-            for (let l of levelsData) { // preload
-                loadSprite(l.sprites);
+            for (let level of levelsData) { // preload
+                const urls = level.sprites.map(data=>data[0]);
+                loadSprite(urls);
             }
 
             this.levels = levelsData;
@@ -38,18 +39,15 @@ export default class LevelManager {
         }
 
         return new Promise((resolve, reject)=>{
+            const urls = level.sprites.map(data=>data[0]);
+            
+            loadSprite(urls).then(images=>{
+                const sprites = images.map((img, i)=>{
+                    const tileSize = level.sprites[i][1];
+                    return [img, tileSize];
+                });
 
-            let promises = [];
-            for (let s of level.sprites) {
-                const p = loadSprite(s);
-                promises.push(p);
-            };
-
-            Promise.all(promises).then(sprites=>{
-                resolve({
-                    ...level,
-                    "sprites": sprites[0]
-                })
+                resolve({ ...level, "sprites": sprites });
             }, reject);
         });
     }
