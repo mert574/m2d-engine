@@ -55,11 +55,9 @@ export class Health extends Constraint {
     const barY = pos.y - size.y/2 - 10; // Position above entity
     const barX = pos.x - barWidth/2;
 
-    // Draw background
     ctx.fillStyle = '#333';
     ctx.fillRect(barX, barY, barWidth, barHeight);
 
-    // Draw health
     ctx.fillStyle = this.currentHealth > 30 ? '#2ecc71' : '#e74c3c';
     ctx.fillRect(
       barX,

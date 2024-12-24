@@ -8,7 +8,6 @@ export class Bee extends Entity {
   static name = 'Bee';
 
   constructor(context, body, sprite, game) {
-    // Light mass for better control
     Matter.Body.setMass(body, 1);
     body.frictionAir = 0.2;
     body.friction = 0.1;
@@ -25,27 +24,23 @@ export class Bee extends Entity {
     this.animSpeed = 0.1;
     this.setAnimation('idle');
     this.damageFlashTime = 0;
-    this.damageFlashDuration = 10; // frames
+    this.damageFlashDuration = 10;
 
-    // Add health constraint
     const health = new Health(this, 40);
-    health.invulnerableDuration = 30; // Half a second of invulnerability
+    health.invulnerableDuration = 30;
     health.onDeath = () => {
-      // Remove from game when dead
       this.game.entities.delete(this);
       Matter.Composite.remove(this.game.engine.world, this.body);
     };
     health.onDamage = () => {
-      // Start damage flash
       this.damageFlashTime = this.damageFlashDuration;
       this.setAnimation('idle');
     };
     this.addConstraint('health', health);
 
-    // Random movement
     this.targetPoint = this.getNewTargetPoint();
     this.targetChangeTime = 0;
-    this.targetChangeCooldown = 120; // frames until new target
+    this.targetChangeCooldown = 120;
   }
 
   getNewTargetPoint() {
@@ -60,7 +55,6 @@ export class Bee extends Entity {
     if (this.dead) return;
     super.update();
 
-    // Update damage flash
     if (this.damageFlashTime > 0) {
       this.damageFlashTime--;
     }
@@ -69,13 +63,11 @@ export class Bee extends Entity {
 
     const distance = Vec2.distance(this.position, this.game.player.position);
 
-    // Only chase if player is within range
     if (distance < this.detectionRange) {
       const dir = Vec2.direction(this.position, this.game.player.position);
       const velocity = Vec2.scale(Vec2.normalize(dir), this.speed);
       Matter.Body.setVelocity(this.body, velocity);
     } else {
-      // Random movement
       this.targetChangeTime++;
       if (this.targetChangeTime >= this.targetChangeCooldown) {
         this.targetPoint = this.getNewTargetPoint();
@@ -90,7 +82,6 @@ export class Bee extends Entity {
       }
     }
 
-    // Cycle through wing animations
     this.animTime += this.animSpeed;
     if (this.animTime >= 3) {
       this.animTime = 0;
@@ -100,15 +91,11 @@ export class Bee extends Entity {
 
   draw(deltaTime) {
     if (this.dead) return;
-
-    // Call parent draw method to handle sprite drawing
     super.draw(deltaTime);
 
-    // Add damage flash effect on top
     if (this.damageFlashTime > 0) {
       const pos = this.position;
       const ctx = this.context;
-
       ctx.save();
       ctx.globalAlpha = this.damageFlashTime / this.damageFlashDuration;
       ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';

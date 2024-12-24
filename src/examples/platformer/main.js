@@ -17,12 +17,10 @@ const game = new M2D(canvas, options);
 let debug = false;
 let showFPS = true;
 
-// Register actors
 game.registerActor('player', Player);
 game.registerActor('bee', Bee);
 game.registerActor('platform', Platform);
 
-// Create level data
 const levelData = {
   title: "Simple Platformer",
   gameType: "sideScroll",
@@ -43,14 +41,12 @@ const levelData = {
     ]
   },
   entities: [
-    // Ground
     {
       type: 'platform',
       position: [320, 450],
       size: [640, 32],
       sprite: 1
     },
-    // Platforms
     {
       type: 'platform',
       position: [100, 350],
@@ -69,7 +65,7 @@ const levelData = {
       size: [128, 32],
       sprite: 1
     },
-    // Invisible walls
+    // Invisible boundary walls
     {
       type: 'platform',
       position: [16, 240],
@@ -84,7 +80,6 @@ const levelData = {
       sprite: 1,
       render: { visible: false }
     },
-    // Bees
     {
       type: 'bee',
       position: [300, 200],
@@ -110,7 +105,6 @@ const levelData = {
   ]
 };
 
-// Set up level loading
 game.levelManager.setLevelData(levelData);
 
 function setDebugState(enabled) {
@@ -131,7 +125,6 @@ function setFPSState(enabled) {
   }
 }
 
-// Set up debug toggle
 game.keys.addKey(K_B, pressed => {
   if (!pressed) {
     debug = !debug;
@@ -139,7 +132,6 @@ game.keys.addKey(K_B, pressed => {
   }
 });
 
-// Set up FPS toggle
 game.keys.addKey(K_F, pressed => {
   if (!pressed) {
     showFPS = !showFPS;
@@ -147,7 +139,6 @@ game.keys.addKey(K_F, pressed => {
   }
 });
 
-// Set initial FPS state
 setFPSState(showFPS);
 
 game.start();

@@ -2,7 +2,6 @@ import { Entity } from '../core/entity.js';
 
 export class Platform extends Entity {
     constructor(context, body, sprite, game) {
-        // Make the body static with minimal friction
         body.isStatic = true;
         body.friction = 0.1;
         body.frictionStatic = 0.5;

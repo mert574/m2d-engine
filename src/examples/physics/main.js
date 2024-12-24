@@ -11,7 +11,7 @@ const K_SPACE = 32;
 const canvas = document.getElementById('screen');
 const game = new M2D(canvas, options);
 
-// Physics constants
+// These physics constants define material properties for different object types
 const PHYSICS = {
   BALL: {
     RESTITUTION: 0.8,
@@ -27,10 +27,8 @@ const PHYSICS = {
   }
 };
 
-// Add key controls
 game.keys.addKey(K_SPACE);
 
-// Create level data
 const levelData = {
   title: "Physics Playground",
   gameType: "sideScroll",
@@ -79,7 +77,6 @@ const levelData = {
       circleRadius: 16
     }],
 
-    // Boxes
     [400, 100, 40, 40, 1, [["default", 0, 0]], {
       restitution: PHYSICS.BOX.RESTITUTION,
       friction: PHYSICS.BOX.FRICTION,
@@ -103,13 +100,11 @@ let spawnTimer = 0;
 game.beforeUpdate = function update(deltaTime) {
   spawnTimer += deltaTime || 16.67; // Default to 60fps if deltaTime not provided
 
-  // Spawn new objects when spacebar is pressed (with cooldown)
   if (this.keys.pressedKeys().has(K_SPACE) && spawnTimer > 500) {
     spawnTimer = 0;
 
-    // Randomly spawn either a ball or a box
     const isBox = Math.random() > 0.5;
-    const x = Math.random() * 400 + 120; // Random x position
+    const x = Math.random() * 400 + 120;
 
     if (isBox) {
       const boxData = [x, 50, 40, 40, 1, [["default", 0, 0]], {
@@ -132,4 +127,4 @@ game.beforeUpdate = function update(deltaTime) {
   }
 }
 
-game.start(); 
+game.start();

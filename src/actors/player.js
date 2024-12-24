@@ -8,7 +8,7 @@ export class Player extends Entity {
   static name = 'Player';
 
   constructor(context, body, sprite, game) {
-    // Optimize physics settings
+    // Low friction values for smooth player movement, slight air resistance for better control
     body.friction = 0.001;
     body.frictionStatic = 0.001;
     body.frictionAir = 0.05;

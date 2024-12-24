@@ -8,13 +8,11 @@ export class Player extends Entity {
         super(context, body, sprite);
         this.game = game;
 
-        // Add keyboard control
         const control = new KeyboardControl(this, {
             moveForce: 0.01,
             maxSpeed: 3,
             continuous: false, // Use direct velocity for top-down movement
             onMove: (dx, dy) => {
-                // Update animation based on movement
                 if (dx !== 0 || dy !== 0) {
                     this.setAnimation('run');
                 } else {
@@ -22,7 +20,6 @@ export class Player extends Entity {
                 }
             },
             onDirectionChange: (direction) => {
-                // Flip sprite based on direction
                 this.sprite.flipX = direction < 0;
             }
         });

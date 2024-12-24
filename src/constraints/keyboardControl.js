@@ -5,7 +5,6 @@ export class KeyboardControl extends Constraint {
     constructor(entity, options = {}) {
         super(entity);
         
-        // Default key bindings
         this.keys = {
             left: 37,   // ArrowLeft
             right: 39,  // ArrowRight
@@ -16,13 +15,12 @@ export class KeyboardControl extends Constraint {
             ...options.keys
         };
 
-        // Movement settings
+        // Movement configuration
         this.moveForce = options.moveForce || 0.01;
         this.maxSpeed = options.maxSpeed || 5;
         this.continuous = options.continuous ?? true; // Whether to apply force continuously or set velocity
         this.verticalMovement = options.verticalMovement ?? true; // Whether to allow up/down movement
 
-        // Register keys with game
         Object.values(this.keys).forEach(key => {
             this.entity.game.keys.addKey(key);
         });
@@ -40,7 +38,6 @@ export class KeyboardControl extends Constraint {
         let dx = 0;
         let dy = 0;
 
-        // Calculate movement direction
         if (pressedKeys.has(this.keys.left)) dx -= 1;
         if (pressedKeys.has(this.keys.right)) dx += 1;
         if (this.verticalMovement) {
@@ -48,14 +45,13 @@ export class KeyboardControl extends Constraint {
             if (pressedKeys.has(this.keys.down)) dy += 1;
         }
 
-        // Normalize diagonal movement
+        // Normalize diagonal movement to prevent faster diagonal speed
         if (dx !== 0 && dy !== 0) {
             const norm = Math.sqrt(2);
             dx /= norm;
             dy /= norm;
         }
 
-        // Apply movement
         if (dx !== 0 || dy !== 0) {
             if (this.continuous) {
                 Matter.Body.applyForce(
@@ -76,31 +72,25 @@ export class KeyboardControl extends Constraint {
                 );
             }
 
-            // Call movement handler if provided
             if (this.onMove) {
                 this.onMove(dx, dy);
             }
 
-            // Call direction change handler if provided
             if (this.onDirectionChange && dx !== 0) {
                 this.onDirectionChange(dx > 0 ? 1 : -1);
             }
         } else if (this.onMove) {
-            // Call with zero movement
             this.onMove(0, 0);
         }
 
-        // Handle jumping
         if (pressedKeys.has(this.keys.jump) && this.onJump) {
             this.onJump();
         }
 
-        // Handle attacking
         if (pressedKeys.has(this.keys.attack) && this.onAttack) {
             this.onAttack();
         }
 
-        // Limit speed if using continuous force
         if (this.continuous) {
             const velocity = this.entity.velocity;
             const speed = Math.abs(velocity.x);
