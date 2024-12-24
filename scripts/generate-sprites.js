@@ -50,6 +50,36 @@ const generatePlatformerSprites = () => {
     ensureDirectoryExists(platformPath);
     writeFileSync(platformPath, platformCanvas.toBuffer());
 
+    // Moving Platform sprite
+    const movingPlatformCanvas = createCanvas(32, 32);
+    const movingPlatformCtx = movingPlatformCanvas.getContext('2d');
+
+    // Base metal color
+    movingPlatformCtx.fillStyle = '#708090';
+    movingPlatformCtx.fillRect(0, 0, 32, 32);
+
+    // Add metallic sheen
+    const gradient = movingPlatformCtx.createLinearGradient(0, 0, 32, 32);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+    movingPlatformCtx.fillStyle = gradient;
+    movingPlatformCtx.fillRect(0, 0, 32, 32);
+
+    // Add mechanical details
+    movingPlatformCtx.fillStyle = '#2F4F4F';
+    movingPlatformCtx.fillRect(4, 14, 24, 4);
+    movingPlatformCtx.fillRect(14, 4, 4, 24);
+
+    // Add border
+    movingPlatformCtx.strokeStyle = '#4682B4';
+    movingPlatformCtx.lineWidth = 2;
+    movingPlatformCtx.strokeRect(1, 1, 30, 30);
+
+    const movingPlatformPath = 'src/examples/platformer/assets/movingPlatform.png';
+    ensureDirectoryExists(movingPlatformPath);
+    writeFileSync(movingPlatformPath, movingPlatformCanvas.toBuffer());
+
     // Bee enemy sprite
     const beeCanvas = createCanvas(96, 32);  // 3 frames of 32x32
     const beeCtx = beeCanvas.getContext('2d');
@@ -103,6 +133,39 @@ const generatePlatformerSprites = () => {
     const beePath = 'src/examples/platformer/assets/enemy.png';
     ensureDirectoryExists(beePath);
     writeFileSync(beePath, beeCanvas.toBuffer());
+
+    // Coin sprite (32x32 with shine effect)
+    const coinCanvas = createCanvas(32, 32);
+    const coinCtx = coinCanvas.getContext('2d');
+
+    // Main circle (gold)
+    coinCtx.fillStyle = '#FFD700';
+    coinCtx.beginPath();
+    coinCtx.arc(16, 16, 12, 0, Math.PI * 2);
+    coinCtx.fill();
+
+    // Inner circle (darker gold)
+    coinCtx.fillStyle = '#DAA520';
+    coinCtx.beginPath();
+    coinCtx.arc(16, 16, 10, 0, Math.PI * 2);
+    coinCtx.fill();
+
+    // Dollar sign
+    coinCtx.fillStyle = '#FFD700';
+    coinCtx.font = 'bold 14px Arial';
+    coinCtx.textAlign = 'center';
+    coinCtx.textBaseline = 'middle';
+    coinCtx.fillText('$', 16, 16);
+
+    // Shine effect
+    coinCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    coinCtx.beginPath();
+    coinCtx.arc(12, 12, 3, 0, Math.PI * 2);
+    coinCtx.fill();
+
+    const coinPath = 'src/examples/platformer/assets/coin.png';
+    ensureDirectoryExists(coinPath);
+    writeFileSync(coinPath, coinCanvas.toBuffer());
 };
 
 // Maze Example Sprites
