@@ -15,7 +15,7 @@ export class Player extends Entity {
     body.restitution = 0;
     body.inertia = Infinity;
     Matter.Body.setMass(body, 1);
-    
+
     super(context, body, sprite);
     this.game = game;
     this.jumpForce = 0.15;
@@ -71,7 +71,7 @@ export class Player extends Entity {
 
   onCollisionStart(other) {
     super.onCollisionStart(other);
-    
+
     if (other.entity?.name === 'Bee') {
       const health = this.getConstraint('health');
       if (health) {

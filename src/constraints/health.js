@@ -52,8 +52,8 @@ export class Health extends Constraint {
 
     const barWidth = size.x;
     const barHeight = 4;
-    const barY = pos.y - size.y/2 - 10; // Position above entity
-    const barX = pos.x - barWidth/2;
+    const barY = pos.y - size.y / 2 - 10; // Position above entity
+    const barX = pos.x - barWidth / 2;
 
     ctx.fillStyle = '#333';
     ctx.fillRect(barX, barY, barWidth, barHeight);

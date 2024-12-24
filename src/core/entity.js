@@ -122,19 +122,19 @@ export class Entity {
   }
 
   isOnGround() {
-    const contacts = Matter.Query.collides(this.body, 
-        Matter.Composite.allBodies(this.game.engine.world)
+    const contacts = Matter.Query.collides(this.body,
+      Matter.Composite.allBodies(this.game.engine.world)
     );
 
     for (const { bodyA, bodyB } of contacts) {
-        const contact = bodyA === this.body ? bodyB : bodyA;
-        if (!contact.entity) continue;
-        if (contact.entity.name !== 'Platform') continue;
+      const contact = bodyA === this.body ? bodyB : bodyA;
+      if (!contact.entity) continue;
+      if (contact.entity.name !== 'Platform') continue;
 
-        const dy = contact.position.y - this.position.y;
-        if (dy > 0 && Math.abs(dy) < this.size.y) {
-            return true;
-        }
+      const dy = contact.position.y - this.position.y;
+      if (dy > 0 && Math.abs(dy) < this.size.y) {
+        return true;
+      }
     }
     return false;
   }
