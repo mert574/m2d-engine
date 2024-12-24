@@ -10,15 +10,6 @@ dist/
 *.swo
 .DS_Store
 
-# Image assets
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.bmp
-*.webp
-*.ico
-
 # Logs
 *.log
 npm-debug.log*
