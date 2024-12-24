@@ -8,15 +8,19 @@ export class KeyStates {
     document.addEventListener('keyup', this.handleKeyUp.bind(this));
   }
 
-  addKey(keyCode, callback) {
-    this.keys.set(keyCode, {
+  addKey(keyName, callback) {
+    this.keys.set(keyName, {
       isPressed: false,
       callback: callback
     });
   }
 
+  removeKey(keyName) {
+    this.keys.delete(keyName);
+  }
+
   handleKeyDown(event) {
-    const key = this.keys.get(event.keyCode);
+    const key = this.keys.get(event.key);
     if (key) {
       key.isPressed = true;
       if (key.callback) key.callback(true);
@@ -24,7 +28,7 @@ export class KeyStates {
   }
 
   handleKeyUp(event) {
-    const key = this.keys.get(event.keyCode);
+    const key = this.keys.get(event.key);
     if (key) {
       key.isPressed = false;
       if (key.callback) key.callback(false);
@@ -33,8 +37,8 @@ export class KeyStates {
 
   pressedKeys() {
     const pressed = new Set();
-    for (let [code, key] of this.keys) {
-      if (key.isPressed) pressed.add(code);
+    for (let [name, key] of this.keys) {
+      if (key.isPressed) pressed.add(name);
     }
     return pressed;
   }

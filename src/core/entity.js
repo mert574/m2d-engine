@@ -1,10 +1,9 @@
-import { Debug } from '../constraints/debug.js';
 import Matter from 'matter-js';
 
 export class Entity {
-  static name = 'Entity';
+  name = 'Entity';
 
-  constructor(context, body, sprite) {
+  constructor(context, body, sprite, game) {
     if (!context || !(context instanceof CanvasRenderingContext2D)) {
       throw new Error('Valid canvas context is required');
     }
@@ -14,10 +13,14 @@ export class Entity {
     if (!sprite) {
       throw new Error('Sprite is required');
     }
+    if (!game) {
+      throw new Error('Game instance is required');
+    }
 
     this.context = context;
     this.body = body;
     this.sprite = sprite;
+    this.game = game;
     this.constraints = new Map();
     this.currentAnim = null;
     this.dead = false;
@@ -29,9 +32,6 @@ export class Entity {
     };
 
     this._contacts = new Set();
-
-    // Add debug constraint by default
-    this.addConstraint('debug', new Debug(this));
   }
 
   addConstraint(name, constraint) {
@@ -96,7 +96,6 @@ export class Entity {
     }
   }
 
-  // Physics helper methods
   isFalling(threshold = 0.5) {
     return this.velocity.y > threshold;
   }
@@ -122,10 +121,9 @@ export class Entity {
   }
 
   isOnGround() {
-    const contacts = Matter.Query.collides(this.body,
-      Matter.Composite.allBodies(this.game.engine.world)
-    );
-
+    const world = this.game.engine.world;
+    const contacts = Matter.Query.collides(this.body, Matter.Composite.allBodies(world));
+    
     for (const { bodyA, bodyB } of contacts) {
       const contact = bodyA === this.body ? bodyB : bodyA;
       if (!contact.entity) continue;

@@ -1,21 +1,21 @@
 import Matter from 'matter-js';
 import { KeyStates } from './keyStates.js';
 import { LayerManager } from './layerManager.js';
-import { LevelManager } from './levelManager.js';
-import { Entity } from './entity.js';
-import { SpriteSheet } from './spriteSheet.js';
 import { CollisionCategories } from './constants.js';
+import { SceneManager } from './sceneManager.js';
+import { Camera } from './Camera.js';
+import { Renderer } from './Renderer.js';
+import { KEY_R, KEY_M } from './KeyCodes.js';
 
 const defaultOptions = {
   levelNames: [],
   currentLevel: null,
-  levelsPath: './levels/'
-};
-
-const defaultEntityOptions = {
-  frictionAir: 0.01,
-  friction: 0.1,
-  restitution: 0.1
+  levelsPath: './levels/',
+  initialScene: null,
+  width: 1280,
+  height: 720,
+  worldWidth: 1920,
+  worldHeight: 1080
 };
 
 export class M2D {
@@ -23,23 +23,166 @@ export class M2D {
     this.options = { ...defaultOptions, ...options };
     this.canvas = canvas;
     this.context = canvas.getContext('2d');
-    this.width = canvas.width;
-    this.height = canvas.height;
-
-    // Create engine with optimized settings
-    this.engine = Matter.Engine.create({
-      positionIterations: 4,
-      velocityIterations: 4,
-      constraintIterations: 2,
-      enableSleeping: true
+    
+    this.canvas.width = this.options.width;
+    this.canvas.height = this.options.height;
+    
+    this.camera = new Camera(this, {
+      worldWidth: this.options.worldWidth,
+      worldHeight: this.options.worldHeight,
+      smoothing: 0.1
     });
 
+    this.renderer = new Renderer(this);
+    this.engine = Matter.Engine.create();
     this.collisionCategories = CollisionCategories;
-
     this.Body = Matter.Body;
     this.Bodies = Matter.Bodies;
 
-    // Set up collision event handling
+    this.entities = new Set();
+    this.player = null;
+    this.actors = new Map();
+    this.isGameOver = false;
+
+    this.keys = new KeyStates();
+    this.layers = new LayerManager(this.context);
+    this.sceneManager = new SceneManager(this);
+
+    this.keys.addKey(KEY_R);
+    this.keys.addKey(KEY_M);
+
+    this.update = this.update.bind(this);
+    this.lastTime = 0;
+  }
+
+  resize() {
+    const container = this.canvas.parentElement;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    
+    const scale = Math.min(
+      containerWidth / this.baseWidth,
+      containerHeight / this.baseHeight
+    );
+    
+    this.width = Math.floor(this.baseWidth * scale);
+    this.height = Math.floor(this.baseHeight * scale);
+    
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
+    this.canvas.style.width = `${this.width}px`;
+    this.canvas.style.height = `${this.height}px`;
+  }
+
+  registerActor(type, ActorClass) {
+    this.actors.set(type, ActorClass);
+  }
+
+  beforeUpdate(deltaTime) { }
+  afterUpdate(deltaTime) { }
+
+  gameOver() {
+    this.isGameOver = true;
+  }
+
+  drawGameOver() {
+    this.renderer.drawScreen(ctx => {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 48px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Game Over', this.canvas.width / 2, this.canvas.height / 2 - 40);
+
+      ctx.font = '24px Arial';
+      ctx.fillText('Press R to restart', this.canvas.width / 2, this.canvas.height / 2 + 20);
+      ctx.fillText('Press M for menu', this.canvas.width / 2, this.canvas.height / 2 + 60);
+    });
+  }
+
+  update(currentTime) {
+    if (!this.lastTime) {
+      this.lastTime = currentTime;
+      requestAnimationFrame(this.update);
+      return;
+    }
+
+    let deltaTime = (currentTime - this.lastTime) / 1000;
+    this.lastTime = currentTime;
+
+    this.renderer.clear('#000');
+    this.beforeUpdate(deltaTime);
+
+    const currentScene = this.sceneManager.getCurrentScene();
+    
+    if (!this.isGameOver) {
+      if (currentScene) {
+        this.camera.update();
+        currentScene.update(deltaTime);
+        currentScene.draw(deltaTime);
+      }
+    } else {
+      if (currentScene) {
+        currentScene.draw(deltaTime);
+      }
+      this.drawGameOver();
+
+      if (this.keys.pressedKeys().has(KEY_R)) {
+        this.isGameOver = false;
+        this.reset();
+        currentScene.load();
+      } else if (this.keys.pressedKeys().has(KEY_M)) {
+        this.isGameOver = false;
+        this.reset();
+        this.sceneManager.switchTo('mainMenu');
+      }
+    }
+
+    this.afterUpdate(deltaTime);
+    requestAnimationFrame(this.update);
+  }
+
+  start() {
+    if (this.options.initialScene) {
+      this.sceneManager.switchTo(this.options.initialScene).then(() => {
+        this.update();
+      });
+    } else if (this.options.currentLevel) {
+      this.sceneManager.switchTo(this.options.currentLevel).then(() => {
+        this.update();
+      });
+    } else {
+      this.update();
+    }
+
+    this.setupCollisionHandlers();
+  }
+
+  reset() {
+    Matter.Events.off(this.engine);
+    Matter.World.clear(this.engine.world);
+    Matter.Engine.clear(this.engine);
+    Matter.Composite.clear(this.engine.world);
+
+    this.engine.world = Matter.World.create();
+    this.engine = null;
+    this.engine = Matter.Engine.create();
+
+    this.entities.clear();
+    this.layers.clear();
+    this.player = null;
+    this.lastTime = 0;
+
+    this.camera.x = 0;
+    this.camera.y = 0;
+    this.camera.target = null;
+
+    this.setupCollisionHandlers();
+  }
+
+  setupCollisionHandlers() {
     Matter.Events.on(this.engine, 'collisionStart', (event) => {
       event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
@@ -55,227 +198,18 @@ export class M2D {
         if (bodyB.entity) bodyB.entity.onCollisionEnd(bodyA);
       });
     });
-
-    this.entities = new Set();
-    this.player = null;
-    this.actors = new Map();
-    this.currentLevel = null;
-    this.isGameOver = false;
-
-    this.keys = new KeyStates();
-    this.layers = new LayerManager(this.context);
-    this.levelManager = new LevelManager(this);
-
-    // Register restart key
-    this.keys.addKey(82); // 'R' key
-
-    this.update = this.update.bind(this);
-    this.lastTime = 0;
   }
 
-  registerActor(type, ActorClass) {
-    this.actors.set(type, ActorClass);
-  }
+  getMousePosition(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    const screenX = event.clientX - rect.left;
+    const screenY = event.clientY - rect.top;
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
 
-  createActor(data) {
-    const { type, position: [x, y], size: [w, h], sprite: spriteIndex, animations = [], options = {} } = data;
-    const ActorClass = this.actors.get(type);
-    if (!ActorClass) {
-      console.error(`Actor type "${type}" not registered`);
-      return null;
-    }
-
-    const sprite = this.currentLevel.sprites[spriteIndex];
-    const [img, tileSize] = sprite;
-
-    // Set collision filters based on type
-    const category = this.collisionCategories[type] || this.collisionCategories.default;
-    let mask;
-
-    switch (type) {
-      case 'platform':
-        mask = this.collisionCategories.player | this.collisionCategories.enemy;
-        break;
-      case 'bee':
-        mask = this.collisionCategories.platform | this.collisionCategories.player;
-        break;
-      case 'player':
-        mask = this.collisionCategories.platform | this.collisionCategories.enemy;
-        break;
-      default:
-        mask = -1; // Collide with everything
-    }
-
-    const bodyOptions = {
-      ...defaultEntityOptions,
-      ...options,
-      collisionFilter: {
-        category: category,
-        mask: mask
-      }
-    };
-
-    const body = this.Bodies.rectangle(x, y, w, h, bodyOptions);
-    const spriteSheet = new SpriteSheet(img, tileSize, tileSize, w, h);
-
-    // Create actor instance
-    const entity = new ActorClass(this.context, body, spriteSheet, this);
-
-    // Set up animations
-    for (const [name, tileX, tileY, isDefault] of animations) {
-      entity.sprite.define(name, tileX, tileY);
-      if (isDefault) {
-        entity.currentAnim = name;
-      }
-    }
-
-    // Store reference to entity on the body for collision handling
-    body.entity = entity;
-
-    return entity;
-  }
-
-  parseLevel(level) {
-    this.currentLevel = level;
-
-    if (level.gameType === 'topDown') {
-      this.engine.world.gravity.y = 0;
-      defaultEntityOptions.frictionAir = 0.2;
-    } else {
-      this.engine.world.gravity.y = 1;
-      defaultEntityOptions.frictionAir = 0.01;
-    }
-
-    if (level.background) {
-      const [i, x, y] = level.background;
-      const image = level.sprites[i][0];
-      const tileSize = level.sprites[i][1];
-      const tileCountX = Math.ceil(this.width / tileSize);
-      const tileCountY = Math.ceil(this.height / tileSize);
-
-      const sprite = new SpriteSheet(image, tileSize, tileSize);
-      sprite.define('default', x, y);
-
-      const bgLayer = this.layers.constructLayer(sprite, tileCountX, tileCountY, tileSize, { anim: 'default' });
-      this.layers.addLayer('background', bgLayer);
-    }
-
-    // Parse entities
-    for (const entityData of level.entities) {
-      const entity = this.createActor(entityData);
-      if (entity) {
-        this.entities.add(entity);
-        Matter.Composite.add(this.engine.world, entity.body);
-      }
-    }
-
-    // Parse player
-    const player = this.createActor(level.player);
-    if (player) {
-      this.player = player;
-      Matter.Composite.add(this.engine.world, player.body);
-    }
-  }
-
-  beforeUpdate(deltaTime) { }
-  afterUpdate(deltaTime) { }
-
-  gameOver() {
-    this.isGameOver = true;
-  }
-
-  drawGameOver() {
-    this.context.save();
-    this.context.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    this.context.fillRect(0, 0, this.width, this.height);
-
-    this.context.fillStyle = '#fff';
-    this.context.font = '48px Arial';
-    this.context.textAlign = 'center';
-    this.context.textBaseline = 'middle';
-    this.context.fillText('Game Over', this.width / 2, this.height / 2);
-
-    this.context.font = '24px Arial';
-    this.context.fillText('Press R to restart', this.width / 2, this.height / 2 + 50);
-    this.context.restore();
-  }
-
-  update(currentTime) {
-    if (!this.lastTime) {
-      this.lastTime = currentTime;
-      requestAnimationFrame(this.update);
-      return;
-    }
-
-    // Calculate deltaTime in seconds
-    let deltaTime = (currentTime - this.lastTime) / 1000;
-    this.lastTime = currentTime;
-
-    // Clamp deltaTime between 1/120 and 1/30 seconds
-    deltaTime = Math.max(1 / 120, Math.min(deltaTime, 1 / 30));
-
-    // Clear screen
-    this.context.fillStyle = '#000';
-    this.context.fillRect(0, 0, this.width, this.height);
-
-    this.beforeUpdate(deltaTime);
-
-    if (!this.isGameOver) {
-      if (this.player?.update) {
-        this.player.update(deltaTime);
-      }
-      for (let entity of this.entities) {
-        if (entity.update) {
-          entity.update(deltaTime);
-        }
-      }
-
-      Matter.Engine.update(this.engine, deltaTime * 1000);
-
-      // Draw
-      this.layers.draw(deltaTime);
-
-      if (this.player) {
-        this.player.draw(deltaTime);
-      }
-      for (let elem of this.entities) {
-        elem.draw(deltaTime);
-      }
-    } else if (this.keys.pressedKeys().has(82)) { // Check for 'R' key
-      this.isGameOver = false;
-      this.reset();
-      return;
-    }
-
-    if (this.isGameOver) {
-      this.drawGameOver();
-    }
-
-    this.afterUpdate(deltaTime);
-    requestAnimationFrame(this.update);
-  }
-
-  start() {
-    const waitUntilLoaded = () => {
-      if (this.levelManager.currentLevel) {
-        this.levelManager.loadLevel(this.levelManager.currentLevel).then(level => {
-          this.parseLevel(level);
-          this.update();
-        });
-      } else {
-        requestAnimationFrame(waitUntilLoaded);
-      }
-    }
-
-    waitUntilLoaded();
-  }
-
-  reset() {
-    Matter.Composite.clear(this.engine.world);
-    Matter.Engine.clear(this.engine);
-    this.entities.clear();
-    this.layers.clear();
-    this.lastTime = 0;
-    this.start();
+    return this.camera.screenToWorld(
+      screenX * scaleX,
+      screenY * scaleY
+    );
   }
 } 
