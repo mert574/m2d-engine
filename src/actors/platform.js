@@ -1,13 +1,14 @@
 import { Entity } from '../core/entity.js';
 
 export class Platform extends Entity {
+  name = 'Platform';
+
   constructor(context, body, sprite, game) {
     body.isStatic = true;
-    body.friction = 0.1;
-    body.frictionStatic = 0.5;
+    body.friction = 0.65;
+    body.frictionStatic = 0.1;
     body.restitution = 0;
-    super(context, body, sprite);
-    this.game = game;
+    super(context, body, sprite, game);
     this.visible = !body.render?.visible === false;
   }
 

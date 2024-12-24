@@ -5,7 +5,7 @@ import { CollisionCategories } from '../core/constants.js';
 import { Vec2 } from '../core/math.js';
 
 export class Bee extends Entity {
-  static name = 'Bee';
+  name = 'Bee';
 
   constructor(context, body, sprite, game) {
     Matter.Body.setMass(body, 1);
@@ -15,11 +15,10 @@ export class Bee extends Entity {
     body.inertia = Infinity;
     body.collisionFilter.category = CollisionCategories.enemy;
 
-    super(context, body, sprite);
-    this.game = game;
+    super(context, body, sprite, game);
     this.speed = 0.5;
     this.idleSpeed = 0.3;
-    this.detectionRange = 200;
+    this.detectionRange = 400;
     this.animTime = 0;
     this.animSpeed = 0.1;
     this.setAnimation('idle');
