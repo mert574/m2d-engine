@@ -1,2 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# IDE and editor files
 .vscode/
-node_modules
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Image assets (except tilesheets)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.webp
+*.ico
+!img/towerDefense_tilesheet*.png
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
