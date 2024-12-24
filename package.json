@@ -1,13 +1,26 @@
 {
-  "name": "m2d-egine",
+  "name": "m2d-engine",
   "version": "1.0.0",
-  "description": "",
+  "description": "A small engine that will be used later for my game.",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "generate-sprites": "node scripts/generate-sprites.js"
   },
   "author": "IRL",
   "license": "ISC",
   "dependencies": {
+    "canvas": "^2.11.2",
     "matter-js": "^0.14.2"
+  },
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "keywords": [],
+  "devDependencies": {
+    "vite": "^5.0.0"
   }
 }
