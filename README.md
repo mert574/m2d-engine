@@ -2,11 +2,7 @@
 
 A lightweight 2D game engine built with Matter.js for physics and Canvas for rendering. Features a component-based architecture, scene management, and UI system.
 
-## Demo
-
-https://github.com/mert574/m2d-engine/assets/platformer.mp4
-
-[View on GitHub](https://github.com/mert574/m2d-engine)
+https://github.com/user-attachments/assets/6ae002af-22c0-4736-be9e-5ae3c7bb601d
 
 ## Features
 
