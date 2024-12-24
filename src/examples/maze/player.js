@@ -2,7 +2,7 @@ import { Entity } from '../../core/entity.js';
 import { KeyboardControl } from '../../constraints/keyboardControl.js';
 
 export class Player extends Entity {
-  static name = 'Player';
+  name = 'Player';
 
   constructor(context, body, sprite, game) {
     super(context, body, sprite);
