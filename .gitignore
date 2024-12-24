@@ -12,7 +12,7 @@ build/
 *.swo
 .DS_Store
 
-# Image assets (except tilesheets)
+# Image assets
 *.png
 *.jpg
 *.jpeg
@@ -20,7 +20,6 @@ build/
 *.bmp
 *.webp
 *.ico
-!img/towerDefense_tilesheet*.png
 
 # Logs
 *.log
