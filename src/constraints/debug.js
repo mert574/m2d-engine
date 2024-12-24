@@ -7,10 +7,12 @@ export class Debug extends Constraint {
     this.wireframeColor = options.wireframeColor || '#00ff00';
     this.wireframeWidth = options.wireframeWidth || 1;
     this.showFPS = options.showFPS ?? true;
-    this.fpsUpdateInterval = 500; // Update FPS display every 500ms
+    this.fpsUpdateInterval = 500;
     this.lastFPSUpdate = 0;
     this.frameCount = 0;
     this.currentFPS = 0;
+
+    console.log('Debug constraint added to entity:', entity);
   }
 
   update(deltaTime) {
@@ -26,29 +28,29 @@ export class Debug extends Constraint {
   }
 
   draw(deltaTime) {
-    const ctx = this.entity.context;
-
     if (this.showWireframe) {
-      const bounds = this.entity.body.bounds;
-      ctx.save();
-      ctx.strokeStyle = this.wireframeColor;
-      ctx.lineWidth = this.wireframeWidth;
-      ctx.strokeRect(
-        bounds.min.x,
-        bounds.min.y,
-        bounds.max.x - bounds.min.x,
-        bounds.max.y - bounds.min.y
-      );
-      ctx.restore();
+      this.entity.game.renderer.drawWorld(ctx => {
+        const bounds = this.entity.body.bounds;
+        ctx.strokeStyle = this.wireframeColor;
+        ctx.lineWidth = this.wireframeWidth;
+        ctx.strokeRect(
+          bounds.min.x,
+          bounds.min.y,
+          bounds.max.x - bounds.min.x,
+          bounds.max.y - bounds.min.y
+        );
+      });
     }
 
     if (this.showFPS) {
+      const ctx = this.entity.game.context;
       ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = '#fff';
       ctx.font = '16px monospace';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(`FPS: ${this.currentFPS}`, 10, 10);
+      ctx.fillText(`FPS: ${this.currentFPS}`, 40, 15);
       ctx.restore();
     }
   }

@@ -19,11 +19,10 @@ export class Attack extends Constraint {
     this.attackTime = 0;
     this.attackAnimEndTime = 20;
 
-    // Create circle for collision detection
     this.hitCircle = Matter.Bodies.circle(0, 0, this.range, {
       isSensor: true,
       isStatic: true,
-      collisionFilter: { category: 0x0000 }
+      collisionFilter: { category: CollisionCategories.enemy }
     });
 
     Matter.Composite.add(this.entity.game.engine.world, this.hitCircle);
@@ -34,9 +33,7 @@ export class Attack extends Constraint {
       this.currentCooldown--;
     }
 
-    // Update circle position
-    const pos = this.entity.position;
-    Matter.Body.setPosition(this.hitCircle, pos);
+    Matter.Body.setPosition(this.hitCircle, this.entity.position);
 
     if (this.isAttacking) {
       this.attackTime++;
@@ -44,12 +41,10 @@ export class Attack extends Constraint {
       if (this.attackTime === 1) {
         this.checkHits();
       }
-      // End attack and reset animation
       if (this.attackTime >= this.attackDuration) {
         this.isAttacking = false;
         this.attackTime = 0;
       }
-      // End attack animation
       if (this.attackTime >= this.attackAnimEndTime && this.entity.currentAnim.includes('attack')) {
         this.entity.setAnimation('idle');
       }
@@ -78,14 +73,8 @@ export class Attack extends Constraint {
         const health = body.entity.getConstraint('health');
         if (health && !health.isInvulnerable()) {
           health.takeDamage(this.damage);
-          Matter.Body.applyForce(
-            body,
-            body.position,
-            {
-              x: this.direction * 0.5,
-              y: -0.3
-            }
-          );
+          Matter.Body.applyForce(body, body.position,
+            { x: this.direction * 0.5, y: -0.3 });
         }
       }
     }

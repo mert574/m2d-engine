@@ -1,25 +1,28 @@
 import { Constraint } from '../core/constraint.js';
 import Matter from 'matter-js';
+import { KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_SPACE, KEY_X } from '../core/KeyCodes.js';
+
+const norm = Math.sqrt(2);
 
 export class KeyboardControl extends Constraint {
   constructor(entity, options = {}) {
     super(entity);
 
     this.keys = {
-      left: 37,   // ArrowLeft
-      right: 39,  // ArrowRight
-      up: 38,     // ArrowUp
-      down: 40,   // ArrowDown
-      jump: 32,   // Space
-      attack: 88, // X key
+      left: KEY_LEFT,
+      right: KEY_RIGHT,
+      up: KEY_UP,
+      down: KEY_DOWN,
+      jump: KEY_SPACE,
+      attack: KEY_X,
       ...options.keys
     };
 
     // Movement configuration
     this.moveForce = options.moveForce || 0.01;
     this.maxSpeed = options.maxSpeed || 5;
-    this.continuous = options.continuous ?? true; // Whether to apply force continuously or set velocity
-    this.verticalMovement = options.verticalMovement ?? true; // Whether to allow up/down movement
+    this.continuous = options.continuous ?? true;
+    this.verticalMovement = options.verticalMovement ?? true;
 
     Object.values(this.keys).forEach(key => {
       this.entity.game.keys.addKey(key);
@@ -47,48 +50,30 @@ export class KeyboardControl extends Constraint {
 
     // Normalize diagonal movement to prevent faster diagonal speed
     if (dx !== 0 && dy !== 0) {
-      const norm = Math.sqrt(2);
       dx /= norm;
       dy /= norm;
     }
 
     if (dx !== 0 || dy !== 0) {
       if (this.continuous) {
-        Matter.Body.applyForce(
-          this.entity.body,
-          this.entity.position,
-          {
-            x: dx * this.moveForce,
-            y: dy * this.moveForce
-          }
-        );
+        Matter.Body.applyForce(this.entity.body, this.entity.position,
+          { x: dx * this.moveForce, y: dy * this.moveForce });
       } else {
-        Matter.Body.setVelocity(
-          this.entity.body,
-          {
-            x: dx * this.maxSpeed,
-            y: dy * this.maxSpeed
-          }
-        );
+        Matter.Body.setVelocity(this.entity.body,
+          { x: dx * this.maxSpeed, y: dy * this.maxSpeed });
       }
-
-      if (this.onMove) {
-        this.onMove(dx, dy);
-      }
-
-      if (this.onDirectionChange && dx !== 0) {
-        this.onDirectionChange(dx > 0 ? 1 : -1);
-      }
-    } else if (this.onMove) {
-      this.onMove(0, 0);
     }
-
-    if (pressedKeys.has(this.keys.jump) && this.onJump) {
-      this.onJump();
+    if (this.onDirectionChange && dx !== 0) {
+      this.onDirectionChange(dx > 0 ? 1 : -1);
     }
-
-    if (pressedKeys.has(this.keys.attack) && this.onAttack) {
-      this.onAttack();
+    if (this.onMove) {
+      this.onMove(dx, dy)
+    }
+    if (pressedKeys.has(this.keys.jump)) {
+      this.onJump?.();
+    }
+    if (pressedKeys.has(this.keys.attack)) {
+      this.onAttack?.();
     }
 
     if (this.continuous) {
