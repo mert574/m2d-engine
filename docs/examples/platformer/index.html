@@ -17,6 +17,7 @@
       width: 100vw;
       height: 100vh;
       overflow: hidden;
+      font-family: system-ui;
     }
 
     body {
@@ -30,6 +31,7 @@
       max-width: 100vw;
       max-height: 100vh;
       object-fit: contain;
+      border-radius: 6px;
     }
 
     .game-container {
@@ -38,15 +40,26 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      flex-direction: column;
+    }
+
+    .keys {
+      color: #fff;
+      font-size: 12px;
+      margin-top: 10px;
+      font-size: 1rem;
     }
   </style>
-  <script type="module" crossorigin src="platformer-LEcuaA-2.js"></script>
-  <link rel="modulepreload" crossorigin href="m2d-g-8w6cCA.js">
+  <script type="module" crossorigin src="../../assets/platformer-DP-hlmWs.js"></script>
+  <link rel="modulepreload" crossorigin href="../../assets/m2d-g-8w6cCA.js">
 </head>
 
 <body>
   <div class="game-container">
     <canvas id="screen" width="640" height="480"></canvas>
+    <div class="keys">
+      <b>Arrow Keys:</b> Move · <b>Space:</b> Jump · <b>X:</b> Attack
+    </div>
   </div>
 </body>
 
