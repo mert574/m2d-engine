@@ -123,7 +123,7 @@ export default {
     },
     {
       type: 'bee',
-      position: [700, 850],
+      position: [650, 950],
       size: [32, 32],
       sprite: 2,
       animations: [
@@ -134,7 +134,7 @@ export default {
     },
     {
       type: 'bee',
-      position: [1300, 750],
+      position: [1600, 550],
       size: [32, 32],
       sprite: 2,
       animations: [
