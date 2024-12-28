@@ -33,9 +33,9 @@ const levelData = {
   title: "Physics Playground",
   gameType: "sideScroll",
   sprites: [
-    ["./assets/ball.png", 32],
-    ["./assets/box.png", 32],
-    ["./assets/platform.png", 32]
+    [() => import('./assets/ball.png'), 32],
+    [() => import('./assets/box.png'), 32],
+    [() => import('./assets/platform.png'), 32]
   ],
   player: [320, 50, 32, 32, 0, [["default", 0, 0]], {
     restitution: PHYSICS.BALL.RESTITUTION,

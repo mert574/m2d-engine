@@ -4,11 +4,11 @@ export default {
   title: "Simple Platformer",
   gameType: "sideScroll",
   sprites: [
-    ['assets/platform.png', 32],
-    ['assets/player.png', 32],
-    ['assets/enemy.png', 32],
-    ['assets/coin.png', 32],
-    ['assets/movingPlatform.png', 32]
+    [() => import('../assets/platform.png'), 32],
+    [() => import('../assets/player.png'), 32],
+    [() => import('../assets/enemy.png'), 32],
+    [() => import('../assets/coin.png'), 32],
+    [() => import('../assets/movingPlatform.png'), 32]
   ],
   player: {
     type: 'player',

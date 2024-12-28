@@ -30,30 +30,14 @@ export class Scene {
   async loadAssets() {
     if (!this.config.sprites) return;
 
-    const loadPromises = this.config.sprites.map(([path, tileSize]) => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          this.sprites.set(path, img);
-          resolve();
-        };
-        img.onerror = () => reject(new Error(`Failed to load sprite: ${path}`));
-        img.src = path;
-      });
+    const loadPromises = this.config.sprites.map(async ([importFn, tileSize]) => {
+      const module = await importFn();
+      const image = new Image();
+      image.src = module.default;
+      this.spriteSheets.set(importFn, new SpriteSheet(image, tileSize, tileSize));
     });
 
-    try {
-      await Promise.all(loadPromises);
-      this.config.sprites.forEach(([path, tileSize]) => {
-        const img = this.sprites.get(path);
-        if (img) {
-          this.spriteSheets.set(path, new SpriteSheet(img, tileSize, tileSize));
-        }
-      });
-    } catch (error) {
-      console.error('Error loading assets:', error);
-      throw error;
-    }
+    await Promise.all(loadPromises);
   }
 
   async load() {

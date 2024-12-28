@@ -28,9 +28,9 @@ const levelData = {
   title: "Maze Game",
   gameType: "topDown",
   sprites: [
-    ["./assets/player.png", 32],
-    ["./assets/wall.png", 32],
-    ["./assets/floor.png", 32]
+    [() => import('./assets/player.png'), 32],
+    [() => import('./assets/wall.png'), 32],
+    [() => import('./assets/floor.png'), 32]
   ],
   background: [2, 0, 0], // Floor tiles
   player: [50, 50, 32, 32, 0, [["default", 0, 0]], {
