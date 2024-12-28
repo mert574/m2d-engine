@@ -1,6 +1,6 @@
 import Matter from 'matter-js';
 import { SpriteSheet } from './spriteSheet.js';
-import { Container } from './ui/Container.js';
+import { Container } from './ui/container.js';
 
 export class Scene {
   constructor(game, config) {

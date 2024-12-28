@@ -2,7 +2,7 @@ import { Entity } from '../core/entity.js';
 import Matter from 'matter-js';
 
 export class MovingPlatform extends Entity {
-  name = 'MovingPlatform';
+  name = 'movingPlatform';
 
   constructor(context, body, sprite, game, options = {}) {
     body.isStatic = true;

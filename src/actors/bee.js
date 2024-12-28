@@ -34,6 +34,7 @@ export class Bee extends Entity {
     health.onDamage = () => {
       this.damageFlashTime = this.damageFlashDuration;
       this.setAnimation('idle');
+      this.game.soundManager.playSound('damage');
     };
     this.addConstraint('health', health);
 

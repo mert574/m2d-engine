@@ -1,4 +1,4 @@
-import { UIElement } from './UIElement.js';
+import { UIElement } from './uiElement.js';
 
 export class Text extends UIElement {
   constructor(x, y, text, options = {}) {

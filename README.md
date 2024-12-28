@@ -18,6 +18,7 @@ https://github.com/user-attachments/assets/6ae002af-22c0-4736-be9e-5ae3c7bb601d
 - **Asset Management**: Sprite loading and animation support
 - **Collision System**: Category-based collision filtering
 - **Debug Tools**: Built-in debug visualization for physics bodies
+- **Sound System**: Simple sound management with support for music and sound effects
 
 ## Setup
 

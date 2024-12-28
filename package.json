@@ -1,19 +1,19 @@
 {
   "name": "m2d-engine",
   "version": "1.0.0",
-  "description": "A small engine that will be used later for my game.",
+  "description": "A lightweight 2D game engine",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "generate-sprites": "node scripts/generate-sprites.js"
+    "generate-sprites": "node scripts/generateSprites.js"
   },
   "author": "IRL",
   "license": "ISC",
   "dependencies": {
     "canvas": "^2.11.2",
-    "matter-js": "^0.14.2"
+    "matter-js": "^0.19.0"
   },
   "main": "index.js",
   "directories": {

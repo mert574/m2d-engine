@@ -2,6 +2,8 @@ import { Entity } from '../core/entity.js';
 import Matter from 'matter-js';
 
 export class Coin extends Entity {
+  name = 'coin';
+  
   constructor(ctx, body, sprite, game) {
     super(ctx, body, sprite, game);
     

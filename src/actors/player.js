@@ -26,13 +26,17 @@ export class Player extends Entity {
       },
       onDamage: (amount) => {
         console.log(`Player took ${amount} damage!`);
+        this.game.soundManager.playSound('damage');
       }
     }));
 
     this.addConstraint('attack', new Attack(this, {
       damage: 65,
       range: 50,
-      cooldown: 60
+      cooldown: 60,
+      onStart: () => {
+        this.game.soundManager.playSound('attack');
+      }
     }));
 
     this.addConstraint('control', new KeyboardControl(this, {
@@ -54,6 +58,7 @@ export class Player extends Entity {
         if (this.isOnGround()) {
           Matter.Body.applyForce(this.body, this.position, { x: 0, y: -this.jumpForce });
           this.setAnimation('jump');
+          this.game.soundManager.playSound('jump');
         }
       },
       onAttack: () => {
@@ -70,13 +75,17 @@ export class Player extends Entity {
   onCollisionStart(other) {
     super.onCollisionStart(other);
 
+    if (other.entity?.name === 'coin') {
+      this.game.soundManager.playSound('coin');
+    }
+
     if (other.position.y > this.position.y + (this.size.y / 2)) {
-      if (other.entity?.name === 'Platform' || other.entity?.name === 'MovingPlatform') {
+      if (other.entity?.name === 'platform' || other.entity?.name === 'movingPlatform') {
         this.groundContacts.add(other.id);
       }
     }
 
-    if (other.entity?.name === 'Bee') {
+    if (other.entity?.name === 'bee') {
       const health = this.getConstraint('health');
       if (health) {
         health.takeDamage(33);

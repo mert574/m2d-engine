@@ -3,9 +3,10 @@ import { KeyStates } from './keyStates.js';
 import { LayerManager } from './layerManager.js';
 import { CollisionCategories } from './constants.js';
 import { SceneManager } from './sceneManager.js';
-import { Camera } from './Camera.js';
-import { Renderer } from './Renderer.js';
-import { KEY_R, KEY_M } from './KeyCodes.js';
+import { Camera } from './camera.js';
+import { Renderer } from './renderer.js';
+import { SoundManager } from './soundManager.js';
+import { KEY_R, KEY_M } from './keyCodes.js';
 
 const defaultOptions = {
   levelNames: [],
@@ -15,7 +16,9 @@ const defaultOptions = {
   width: 1280,
   height: 720,
   worldWidth: 1920,
-  worldHeight: 1080
+  worldHeight: 1080,
+  sounds: {},
+  music: {}
 };
 
 export class M2D {
@@ -47,6 +50,7 @@ export class M2D {
     this.keys = new KeyStates();
     this.layers = new LayerManager(this.context);
     this.sceneManager = new SceneManager(this);
+    this.soundManager = new SoundManager();
 
     this.keys.addKey(KEY_R);
     this.keys.addKey(KEY_M);
@@ -83,6 +87,7 @@ export class M2D {
 
   gameOver() {
     this.isGameOver = true;
+    this.soundManager.playSound('gameOver');
   }
 
   drawGameOver() {
@@ -109,14 +114,15 @@ export class M2D {
       return;
     }
 
-    let deltaTime = (currentTime - this.lastTime) / 1000;
+    const deltaTime = Math.min((currentTime - this.lastTime) / 1000, 0.1);
     this.lastTime = currentTime;
 
     this.renderer.clear('#000');
     this.beforeUpdate(deltaTime);
 
+    Matter.Engine.update(this.engine, deltaTime * 1000, 1);
     const currentScene = this.sceneManager.getCurrentScene();
-    
+
     if (!this.isGameOver) {
       if (currentScene) {
         this.camera.update();
@@ -144,7 +150,16 @@ export class M2D {
     requestAnimationFrame(this.update);
   }
 
-  start() {
+  async start() {
+    const soundPromises = Object.entries(this.options.sounds || {}).map(
+      ([key, path]) => this.soundManager.loadSound(key, path)
+    );
+    const musicPromises = Object.entries(this.options.music || {}).map(
+      ([key, path]) => this.soundManager.loadMusic(key, path)
+    );
+
+    await Promise.all([...soundPromises, ...musicPromises]);
+
     if (this.options.initialScene) {
       this.sceneManager.switchTo(this.options.initialScene).then(() => {
         this.update();
@@ -180,6 +195,7 @@ export class M2D {
     this.camera.target = null;
 
     this.setupCollisionHandlers();
+    this.soundManager.stopMusic();
   }
 
   setupCollisionHandlers() {

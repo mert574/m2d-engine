@@ -1,7 +1,7 @@
 import { Entity } from '../core/entity.js';
 
 export class Platform extends Entity {
-  name = 'Platform';
+  name = 'platform';
 
   constructor(context, body, sprite, game) {
     body.isStatic = true;

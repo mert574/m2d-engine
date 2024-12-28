@@ -10,6 +10,7 @@ export class Attack extends Constraint {
     this.range = options.range || 40;
     this.cooldown = options.cooldown || 30; // frames
     this.knockback = options.knockback || 0.02;
+    this.onStart = options.onStart;
 
     this.isAttacking = false;
     this.currentCooldown = 0;
@@ -89,6 +90,10 @@ export class Attack extends Constraint {
     this.currentCooldown = this.cooldown;
     this.attackTime = 0;
     this.entity.setAnimation(direction > 0 ? 'attackRight' : 'attackLeft');
+    
+    if (this.onStart) {
+      this.onStart();
+    }
   }
 
   draw() {

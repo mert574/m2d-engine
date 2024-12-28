@@ -20,11 +20,15 @@ export class Trigger extends Entity {
 
   onCollisionStart(other) {
     super.onCollisionStart(other);
-    console.log('onCollisionStart', other.entity.name);
     if (!this.active) return;
 
-    if (other.entity?.name === 'Player' && this.onEnter) {
-      this.onEnter(other.entity, this.data);
+    if (other.entity?.name === 'Player') {
+      if (this.category === 'levelComplete') {
+        this.game.soundManager.playSound('levelComplete');
+      }
+      if (this.onEnter) {
+        this.onEnter(other.entity, this.data);
+      }
     }
   }
 
