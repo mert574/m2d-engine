@@ -9,6 +9,16 @@ import { MenuScene } from './scenes/menuScene.js';
 import gameScene from './scenes/levelScene.js';
 import { Scene } from '../../core/scene.js';
 
+import jumpSound from './assets/sounds/jump.wav';
+import coinSound from './assets/sounds/coin.wav';
+import gameOverSound from './assets/sounds/gameover.wav';
+import levelCompleteSound from './assets/sounds/levelComplete.wav';
+import attackSound from './assets/sounds/attack.wav';
+import damageSound from './assets/sounds/damage.wav';
+
+import menuMusic from './assets/music/menu.mp3';
+import gameMusic from './assets/music/game.mp3';
+
 const canvas = document.getElementById('screen');
 const game = new M2D(canvas, {
   initialScene: 'mainMenu',
@@ -17,16 +27,16 @@ const game = new M2D(canvas, {
   worldWidth: 1920,
   worldHeight: 1440,
   sounds: {
-    jump: 'assets/sounds/jump.wav',
-    coin: 'assets/sounds/coin.wav',
-    gameOver: 'assets/sounds/gameover.wav',
-    levelComplete: 'assets/sounds/levelComplete.wav',
-    attack: 'assets/sounds/attack.wav',
-    damage: 'assets/sounds/damage.wav'
+    jump: jumpSound,
+    coin: coinSound,
+    gameOver: gameOverSound,
+    levelComplete: levelCompleteSound,
+    attack: attackSound,
+    damage: damageSound
   },
   music: {
-    menu: 'assets/music/menu.mp3',
-    game: 'assets/music/game.mp3'
+    menu: menuMusic,
+    game: gameMusic
   }
 });
 

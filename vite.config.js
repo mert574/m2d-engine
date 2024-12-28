@@ -1,10 +1,32 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import { execSync } from 'child_process';
 
-export default defineConfig({
+// Custom plugin to generate sprites
+const assetsPlugin = {
+  name: 'assets-plugin',
+  buildStart() {
+    console.log('Generating sprites...');
+    try {
+      // Generate sprites for each example
+      execSync('node scripts/generateSprites.js platformer', { stdio: 'inherit' });
+      execSync('node scripts/generateSprites.js maze', { stdio: 'inherit' });
+      execSync('node scripts/generateSprites.js physics', { stdio: 'inherit' });
+      console.log('Assets processed successfully');
+    } catch (error) {
+      console.error('Error processing assets:', error);
+      throw error;
+    }
+  }
+};
+
+export default defineConfig(({ command }) => ({
   root: 'src',
+  base: command === 'serve' ? '/' : '/m2d-engine/',
   build: {
-    outDir: '../dist',
+    outDir: '../docs',
+    emptyOutDir: true,
+    assetsDir: 'assets',
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'src/index.html'),
@@ -16,5 +38,7 @@ export default defineConfig({
   },
   server: {
     port: 3000
-  }
-}); 
+  },
+  plugins: [assetsPlugin],
+  publicDir: false
+})); 

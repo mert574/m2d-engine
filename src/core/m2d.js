@@ -151,23 +151,19 @@ export class M2D {
   }
 
   async start() {
-    const soundPromises = Object.entries(this.options.sounds || {}).map(
-      ([key, path]) => this.soundManager.loadSound(key, path)
+    Object.entries(this.options.sounds || {}).forEach(
+      ([key, file]) => this.soundManager.loadSound(key, file)
     );
-    const musicPromises = Object.entries(this.options.music || {}).map(
-      ([key, path]) => this.soundManager.loadMusic(key, path)
+    Object.entries(this.options.music || {}).forEach(
+      ([key, file]) => this.soundManager.loadMusic(key, file)
     );
-
-    await Promise.all([...soundPromises, ...musicPromises]);
 
     if (this.options.initialScene) {
-      this.sceneManager.switchTo(this.options.initialScene).then(() => {
-        this.update();
-      });
+      await this.sceneManager.switchTo(this.options.initialScene);
+      this.update();
     } else if (this.options.currentLevel) {
-      this.sceneManager.switchTo(this.options.currentLevel).then(() => {
-        this.update();
-      });
+      await this.sceneManager.switchTo(this.options.currentLevel);
+      this.update();
     } else {
       this.update();
     }

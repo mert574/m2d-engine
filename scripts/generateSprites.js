@@ -1,10 +1,19 @@
 import { createCanvas } from 'canvas';
 import { writeFileSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+
+// Get output directory from command line args
+const args = process.argv.slice(2);
+const targetDir = args[0] === '--docs' ? 'docs' : 'src';
+const example = args[args.length - 1];
 
 function ensureDirectoryExists(filePath) {
     const dir = dirname(filePath);
     mkdirSync(dir, { recursive: true });
+}
+
+function getOutputPath(example, filename) {
+    return join(targetDir, 'examples', example, 'assets', filename);
 }
 
 // Platformer Example Sprites
@@ -25,7 +34,7 @@ const generatePlatformerSprites = () => {
     playerCtx.fillStyle = '#FFC107';
     playerCtx.fillRect(64, 0, 32, 32);
 
-    const playerPath = 'src/examples/platformer/assets/player.png';
+    const playerPath = getOutputPath('platformer', 'player.png');
     ensureDirectoryExists(playerPath);
     writeFileSync(playerPath, playerCanvas.toBuffer());
 
@@ -46,7 +55,7 @@ const generatePlatformerSprites = () => {
     platformCtx.fillStyle = '#A0522D';
     platformCtx.fillRect(4, 4, 24, 24);
 
-    const platformPath = 'src/examples/platformer/assets/platform.png';
+    const platformPath = getOutputPath('platformer', 'platform.png');
     ensureDirectoryExists(platformPath);
     writeFileSync(platformPath, platformCanvas.toBuffer());
 
@@ -76,7 +85,7 @@ const generatePlatformerSprites = () => {
     movingPlatformCtx.lineWidth = 2;
     movingPlatformCtx.strokeRect(1, 1, 30, 30);
 
-    const movingPlatformPath = 'src/examples/platformer/assets/movingPlatform.png';
+    const movingPlatformPath = getOutputPath('platformer', 'movingPlatform.png');
     ensureDirectoryExists(movingPlatformPath);
     writeFileSync(movingPlatformPath, movingPlatformCanvas.toBuffer());
 
@@ -130,7 +139,7 @@ const generatePlatformerSprites = () => {
         beeCtx.globalAlpha = 1.0;
     });
 
-    const beePath = 'src/examples/platformer/assets/enemy.png';
+    const beePath = getOutputPath('platformer', 'enemy.png');
     ensureDirectoryExists(beePath);
     writeFileSync(beePath, beeCanvas.toBuffer());
 
@@ -163,7 +172,7 @@ const generatePlatformerSprites = () => {
     coinCtx.arc(12, 12, 3, 0, Math.PI * 2);
     coinCtx.fill();
 
-    const coinPath = 'src/examples/platformer/assets/coin.png';
+    const coinPath = getOutputPath('platformer', 'coin.png');
     ensureDirectoryExists(coinPath);
     writeFileSync(coinPath, coinCanvas.toBuffer());
 };
@@ -183,7 +192,7 @@ const generateMazeSprites = () => {
     playerCtx.arc(16, 16, 6, 0, Math.PI * 2);
     playerCtx.fill();
 
-    const playerPath = 'src/examples/maze/assets/player.png';
+    const playerPath = getOutputPath('maze', 'player.png');
     ensureDirectoryExists(playerPath);
     writeFileSync(playerPath, playerCanvas.toBuffer());
 
@@ -197,7 +206,7 @@ const generateMazeSprites = () => {
     wallCtx.fillRect(0, 0, 4, 32);
     wallCtx.fillRect(28, 0, 4, 32);
 
-    const wallPath = 'src/examples/maze/assets/wall.png';
+    const wallPath = getOutputPath('maze', 'wall.png');
     ensureDirectoryExists(wallPath);
     writeFileSync(wallPath, wallCanvas.toBuffer());
 
@@ -211,7 +220,7 @@ const generateMazeSprites = () => {
     floorCtx.fillRect(0, 0, 16, 16);
     floorCtx.fillRect(16, 16, 16, 16);
 
-    const floorPath = 'src/examples/maze/assets/floor.png';
+    const floorPath = getOutputPath('maze', 'floor.png');
     ensureDirectoryExists(floorPath);
     writeFileSync(floorPath, floorCanvas.toBuffer());
 };
@@ -231,7 +240,7 @@ const generatePhysicsSprites = () => {
     ballCtx.arc(12, 12, 4, 0, Math.PI * 2);
     ballCtx.fill();
 
-    const ballPath = 'src/examples/physics/assets/ball.png';
+    const ballPath = getOutputPath('physics', 'ball.png');
     ensureDirectoryExists(ballPath);
     writeFileSync(ballPath, ballCanvas.toBuffer());
 
@@ -247,7 +256,7 @@ const generatePhysicsSprites = () => {
     boxCtx.fillRect(2, 2, 4, 28);
     boxCtx.fillRect(26, 2, 4, 28);
 
-    const boxPath = 'src/examples/physics/assets/box.png';
+    const boxPath = getOutputPath('physics', 'box.png');
     ensureDirectoryExists(boxPath);
     writeFileSync(boxPath, boxCanvas.toBuffer());
 
@@ -261,12 +270,31 @@ const generatePhysicsSprites = () => {
     platformCtx.fillRect(0, 0, 32, 4);
     platformCtx.fillRect(0, 28, 32, 4);
 
-    const platformPath = 'src/examples/physics/assets/platform.png';
+    const platformPath = getOutputPath('physics', 'platform.png');
     ensureDirectoryExists(platformPath);
     writeFileSync(platformPath, platformCanvas.toBuffer());
 };
 
-// Generate all sprites
-generatePlatformerSprites();
-generateMazeSprites();
-generatePhysicsSprites(); 
+// Generate sprites based on command line argument
+if (!example || example === 'all') {
+    console.log(`Generating all sprites in ${targetDir}...`);
+    generatePlatformerSprites();
+    generateMazeSprites();
+    generatePhysicsSprites();
+} else {
+    console.log(`Generating ${example} sprites in ${targetDir}...`);
+    switch (example) {
+        case 'platformer':
+            generatePlatformerSprites();
+            break;
+        case 'maze':
+            generateMazeSprites();
+            break;
+        case 'physics':
+            generatePhysicsSprites();
+            break;
+        default:
+            console.error(`Unknown example: ${example}`);
+            process.exit(1);
+    }
+} 

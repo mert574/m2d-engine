@@ -23,47 +23,31 @@ export class SoundManager {
     }
   }
 
-  async loadSound(key, path) {
-    try {
-      const audio = new Audio();
-      audio.src = path;
-      await new Promise((resolve, reject) => {
-        audio.addEventListener('canplaythrough', resolve, { once: true });
-        audio.addEventListener('error', reject);
-        audio.load();
-      });
-      this.sounds.set(key, audio);
-    } catch (error) {
-      console.error(`Failed to load sound: ${path}`, error);
-    }
+  loadSound(key, file) {
+    const audio = new Audio(file);
+    this.sounds.set(key, audio);
   }
 
-  async loadMusic(key, path) {
-    try {
-      const audio = new Audio();
-      audio.src = path;
-      audio.loop = true;
-      await new Promise((resolve, reject) => {
-        audio.addEventListener('canplaythrough', resolve, { once: true });
-        audio.addEventListener('error', reject);
-        audio.load();
-      });
-      this.music.set(key, audio);
-    } catch (error) {
-      console.error(`Failed to load music: ${path}`, error);
-    }
+  loadMusic(key, file) {
+    const audio = new Audio(file);
+    audio.loop = true;
+    this.music.set(key, audio);
   }
 
   playSound(key) {
     if (this.isMuted) return;
+
     const sound = this.sounds.get(key);
-    if (sound) {
-      const clone = sound.cloneNode();
-      clone.volume = this.soundVolume;
-      clone.play().catch(error => {
-        console.warn(`Failed to play sound ${key}:`, error);
-      });
+    if (!sound) {
+      console.warn(`Sound not found: ${key}`);
+      return;
     }
+
+    const clone = sound.cloneNode();
+    clone.volume = this.soundVolume;
+    clone.play().catch(error => {
+      console.warn(`Failed to play sound ${key}:`, error);
+    });
   }
 
   playMusic(key) {
@@ -72,19 +56,24 @@ export class SoundManager {
       return;
     }
 
+    if (this.isMuted) return;
+
     if (this.currentMusic) {
       this.currentMusic.pause();
       this.currentMusic.currentTime = 0;
     }
 
-    const music = this.music.get(key);
-    if (music) {
-      music.volume = this.isMuted ? 0 : this.musicVolume;
-      music.play().catch(error => {
-        console.warn(`Failed to play music ${key}:`, error);
-      });
-      this.currentMusic = music;
+    const audio = this.music.get(key);
+    if (!audio) {
+      console.warn(`Music not found: ${key}`);
+      return;
     }
+
+    audio.volume = this.musicVolume;
+    this.currentMusic = audio;
+    audio.play().catch(error => {
+      console.warn(`Failed to play music ${key}:`, error);
+    });
   }
 
   stopMusic() {
@@ -93,32 +82,13 @@ export class SoundManager {
       this.currentMusic.currentTime = 0;
       this.currentMusic = null;
     }
-    this.pendingMusic = null;
   }
 
-  pauseMusic() {
-    if (this.currentMusic) {
-      this.currentMusic.pause();
+  toggleMute() {
+    this.isMuted = !this.isMuted;
+    if (this.isMuted) {
+      this.stopMusic();
     }
-  }
-
-  resumeMusic() {
-    if (this.currentMusic && !this.isMuted) {
-      this.currentMusic.play().catch(error => {
-        console.warn('Failed to resume music:', error);
-      });
-    }
-  }
-
-  setMute(muted) {
-    this.isMuted = muted;
-    if (this.currentMusic) {
-      this.currentMusic.volume = muted ? 0 : this.musicVolume;
-    }
-  }
-
-  setSoundVolume(volume) {
-    this.soundVolume = Math.max(0, Math.min(1, volume));
   }
 
   setMusicVolume(volume) {
@@ -126,5 +96,9 @@ export class SoundManager {
     if (this.currentMusic && !this.isMuted) {
       this.currentMusic.volume = this.musicVolume;
     }
+  }
+
+  setSoundVolume(volume) {
+    this.soundVolume = Math.max(0, Math.min(1, volume));
   }
 } 
