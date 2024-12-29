@@ -1,56 +1,86 @@
 export class Renderer {
-  constructor(game) {
-    this.game = game;
-    this.ctx = game.context;
-    this.camera = game.camera;
+  constructor(canvas) {
+    // Main canvas
+    this.canvas = canvas;
+    this.context = canvas.getContext('2d');
+    // World buffer (for camera view)
+    this.worldBuffer = document.createElement('canvas');
+    this.worldContext = this.worldBuffer.getContext('2d');
+    this.resize();
   }
 
-  drawWorld(callback) {
-    this.ctx.save();
-    this.camera.begin(this.ctx);
-    callback(this.ctx);
-    this.camera.end(this.ctx);
-    this.ctx.restore();
-  }
-
-  drawScreen(callback) {
-    this.ctx.save();
-    callback(this.ctx);
-    this.ctx.restore();
-  }
-
-  drawSprite(sprite, x, y, width, height) {
-    if (!this.camera.isVisible(x, y, width, height)) return;
-    sprite.draw(this.ctx, x, y, width, height);
-  }
-
-  drawRect(x, y, width, height, style) {
-    if (!this.camera.isVisible(x, y, width, height)) return;
-    this.ctx.fillStyle = style;
-    this.ctx.fillRect(x, y, width, height);
-  }
-
-  drawText(text, x, y, options = {}) {
-    this.ctx.fillStyle = options.color || '#fff';
-    this.ctx.font = options.font || '16px Arial';
-    this.ctx.textAlign = options.align || 'left';
-    this.ctx.textBaseline = options.baseline || 'top';
-    this.ctx.fillText(text, x, y);
+  resize() {
+    this.canvas.width = this.canvas.clientWidth;
+    this.canvas.height = this.canvas.clientHeight;
+    this.worldBuffer.width = this.canvas.width;
+    this.worldBuffer.height = this.canvas.height;
   }
 
   clear(color = '#000') {
-    this.ctx.save();
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.ctx.fillStyle = color;
-    this.ctx.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
-    this.ctx.restore();
+    this.context.fillStyle = color;
+    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.worldContext.fillStyle = color;
+    this.worldContext.fillRect(0, 0, this.worldBuffer.width, this.worldBuffer.height);
   }
 
-  worldToScreen(x, y) {
-    return this.camera.worldToScreen(x, y);
+  drawWorld(callback) {
+    this.worldContext.clearRect(0, 0, this.worldBuffer.width, this.worldBuffer.height);
+    
+    this.worldContext.save();
+    callback(this.worldContext);
+    this.worldContext.restore();
+
+    // Copy world buffer to main canvas
+    this.context.drawImage(this.worldBuffer, 0, 0);
   }
 
-  screenToWorld(x, y) {
-    return this.camera.screenToWorld(x, y);
+  drawScreen(callback) {
+    this.context.save();
+    callback(this.context);
+    this.context.restore();
+  }
+
+  drawDebugRect(x, y, width, height, color = '#f00', camera = null) {
+    const ctx = camera ? this.worldContext : this.context;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - width/2, y - height/2, width, height);
+    ctx.restore();
+  }
+
+  drawDebugCircle(x, y, radius, color = '#f00', camera = null) {
+    const ctx = camera ? this.worldContext : this.context;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawDebugLine(x1, y1, x2, y2, color = '#f00', camera = null) {
+    const ctx = camera ? this.worldContext : this.context;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawDebugText(text, x, y, color = '#f00', camera = null) {
+    const ctx = camera ? this.worldContext : this.context;
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+    ctx.restore();
   }
 } 

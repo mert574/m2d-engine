@@ -30,13 +30,13 @@ export class M2D {
     this.canvas.width = this.options.width;
     this.canvas.height = this.options.height;
     
-    this.camera = new Camera(this, {
+    this.camera = new Camera(this.options.width, this.options.height, {
       worldWidth: this.options.worldWidth,
       worldHeight: this.options.worldHeight,
       smoothing: 0.1
     });
 
-    this.renderer = new Renderer(this);
+    this.renderer = new Renderer(this.canvas);
     this.engine = Matter.Engine.create();
     this.collisionCategories = CollisionCategories;
     this.Body = Matter.Body;
@@ -82,8 +82,37 @@ export class M2D {
     this.actors.set(type, ActorClass);
   }
 
-  beforeUpdate(deltaTime) { }
-  afterUpdate(deltaTime) { }
+  createEntity(type, x, y, width, height, spritesheet, options = {}, physics = {}) {
+    const ActorClass = this.actors.get(type);
+    if (!ActorClass) {
+      console.error(`Actor type not registered: ${type}`);
+      return null;
+    }
+
+    console.debug(`Creating ${type} at ${x}, ${y} with size ${width}x${height}`);
+
+    const body = Matter.Bodies.rectangle(x, y, width, height, {
+      isStatic: physics.bodyType === 'static',
+      isSensor: physics.isSensor || false,
+      friction: physics.friction || 0.1,
+      frictionStatic: physics.frictionStatic || 0.5,
+      frictionAir: physics.frictionAir || 0.01,
+      restitution: physics.restitution || 0
+    });
+
+    body.entity = null;  // Will be set in the constructor
+
+    const entity = new ActorClass(
+      this.context,
+      body,
+      spritesheet,
+      this,
+      options
+    );
+
+    body.entity = entity;
+    return entity;
+  }
 
   gameOver() {
     this.isGameOver = true;
@@ -118,7 +147,12 @@ export class M2D {
     this.lastTime = currentTime;
 
     this.renderer.clear('#000');
-    this.beforeUpdate(deltaTime);
+
+    if (this.sceneManager.loading) {
+      this.drawLoading();
+      requestAnimationFrame(this.update);
+      return;
+    }
 
     Matter.Engine.update(this.engine, deltaTime * 1000, 1);
     const currentScene = this.sceneManager.getCurrentScene();
@@ -146,11 +180,25 @@ export class M2D {
       }
     }
 
-    this.afterUpdate(deltaTime);
     requestAnimationFrame(this.update);
   }
 
+  drawLoading() {
+    this.renderer.drawScreen(ctx => {
+      ctx.fillStyle = 'rgb(0, 0, 0)';
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.font = '100 64px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Loading...', this.canvas.width / 2, this.canvas.height / 2);
+    });
+    console.debug('drawing loading');
+  }
+
   async start() {
+    this.drawLoading();
+
     Object.entries(this.options.sounds || {}).forEach(
       ([key, file]) => this.soundManager.loadSound(key, file)
     );
@@ -160,15 +208,12 @@ export class M2D {
 
     if (this.options.initialScene) {
       await this.sceneManager.switchTo(this.options.initialScene);
-      this.update();
     } else if (this.options.currentLevel) {
       await this.sceneManager.switchTo(this.options.currentLevel);
-      this.update();
-    } else {
-      this.update();
     }
 
     this.setupCollisionHandlers();
+    this.update();
   }
 
   reset() {

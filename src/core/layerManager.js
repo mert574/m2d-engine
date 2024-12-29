@@ -1,6 +1,5 @@
 export class LayerManager {
   constructor(context) {
-    this.context = context;
     this.layers = [];
   }
 
@@ -12,21 +11,22 @@ export class LayerManager {
     this.layers = [];
   }
 
-  draw() {
+  draw(ctx) {
     for (let [name, layer] of this.layers) {
       for (let tile of layer.tiles) {
-        layer.sprite.draw(this.context, tile.pos.x, tile.pos.y, tile.anim);
+        layer.sprite.draw(ctx, tile.pos.x, tile.pos.y, tile.anim);
       }
     }
   }
 
-  drawLayer(layerName) {
+  drawLayer(ctx, layerName) {
     for (let [name, layer] of this.layers) {
-      if (layerName !== undefined && layerName !== name)
+      if (layerName !== undefined && layerName !== name) {
         continue;
+      }
 
       for (let tile of layer.tiles) {
-        layer.sprite.draw(this.context, tile.pos.x, tile.pos.y, tile.anim);
+        layer.sprite.draw(ctx, tile.pos.x, tile.pos.y, tile.anim);
       }
     }
   }

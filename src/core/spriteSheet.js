@@ -6,60 +6,37 @@ export class SpriteSheet {
     this.height = height;
     this.animations = new Map();
     this.currentFrame = 0;
-
-    if (image instanceof Image) {
-      this.image = image;
-      this.loaded = true;
-    } else {
-      this.loaded = false;
-      this.image = new Image();
-      this.image.onload = () => {
-        console.log('Sprite loaded:', image);
-        this.loaded = true;
-      };
-      this.image.onerror = (e) => {
-        console.error('Failed to load sprite:', image, e);
-      };
-      this.image.src = image;
-    }
+    this.image = image;
+    this.loaded = true;
   }
 
   define(name, tileX, tileY) {
-    const x = tileX * this.tileW;
-    const y = tileY * this.tileH;
-    this.animations.set(name, { x, y });
+    this.animations.set(name, { tileX, tileY });
   }
 
-  drawTiles(context, x, y, sourceX, sourceY) {
+  drawTiles(context, x, y, tileX, tileY) {
     if (!this.loaded) return;
 
-    const tilesX = Math.ceil(this.width / this.tileW);
-    const tilesY = Math.ceil(this.height / this.tileH);
-
-    for (let i = 0; i < tilesX; i++) {
-      for (let j = 0; j < tilesY; j++) {
-        context.drawImage(
-          this.image,
-          sourceX,
-          sourceY,
-          this.tileW,
-          this.tileH,
-          x - this.width / 2 + i * this.tileW,
-          y - this.height / 2 + j * this.tileH,
-          this.tileW,
-          this.tileH
-        );
-      }
-    }
+    context.drawImage(
+      this.image,
+      tileX * this.tileW,
+      tileY * this.tileH,
+      this.tileW,
+      this.tileH,
+      Math.floor(x - this.width / 2),
+      Math.floor(y - this.height / 2),
+      this.width,
+      this.height
+    );
   }
 
   drawStatic(context, x, y, tileX, tileY) {
-    this.drawTiles(context, x, y, tileX * this.tileW, tileY * this.tileH);
+    this.drawTiles(context, x, y, tileX, tileY);
   }
 
   draw(context, x, y, anim) {
     if (!anim) {
-      this.drawStatic(context, x, y, this.currentFrame, 0);
+      this.drawTiles(context, x, y, this.currentFrame, 0);
       return;
     }
 
@@ -69,6 +46,6 @@ export class SpriteSheet {
       return;
     }
 
-    this.drawTiles(context, x, y, animation.x + (this.currentFrame * this.tileW), animation.y);
+    this.drawTiles(context, x, y, animation.tileX + this.currentFrame, animation.tileY);
   }
 }
