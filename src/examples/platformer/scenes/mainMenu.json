@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "name": "mainMenu",
+  "type": "ui",
+  "title": "Main Menu",
+  
+  "assets": {},
+
+  "elements": [
+    {
+      "type": "rect",
+      "id": "background",
+      "x": 0,
+      "y": 0,
+      "width": 2560,
+      "height": 1532,
+      "color": "#298ccc"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 400,
+      "y": 250,
+      "properties": {
+        "text": "M2D Engine - Platformer Demo",
+        "fontSize": 48,
+        "align": "center",
+        "color": "#ffffff"
+      }
+    },
+    {
+      "type": "button",
+      "id": "startGame",
+      "x": 400,
+      "y": 350,
+      "properties": {
+        "text": "Start Game",
+        "onClick": "level1"
+      }
+    },
+    {
+      "type": "button",
+      "id": "settings",
+      "x": 400,
+      "y": 420,
+      "properties": {
+        "text": "Settings",
+        "onClick": "settings"
+      }
+    }
+  ]
+} 

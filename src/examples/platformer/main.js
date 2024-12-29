@@ -5,9 +5,6 @@ import { Platform } from '../../actors/platform.js';
 import { MovingPlatform } from '../../actors/movingPlatform.js';
 import { Coin } from '../../actors/coin.js';
 import { Trigger } from '../../actors/trigger.js';
-import { MenuScene } from './scenes/menuScene.js';
-import gameScene from './scenes/levelScene.js';
-import { Scene } from '../../core/scene.js';
 
 import jumpSound from './assets/sounds/jump.wav';
 import coinSound from './assets/sounds/coin.wav';
@@ -15,7 +12,6 @@ import gameOverSound from './assets/sounds/gameover.wav';
 import levelCompleteSound from './assets/sounds/levelComplete.wav';
 import attackSound from './assets/sounds/attack.wav';
 import damageSound from './assets/sounds/damage.wav';
-
 import menuMusic from './assets/music/menu.mp3';
 import gameMusic from './assets/music/game.mp3';
 
@@ -41,30 +37,23 @@ const game = new M2D(canvas, {
 });
 
 // Register actors
-game.registerActor('player', Player);
-game.registerActor('bee', Bee);
-game.registerActor('platform', Platform);
-game.registerActor('movingPlatform', MovingPlatform);
-game.registerActor('coin', Coin);
-game.registerActor('trigger', Trigger);
+[Player, Bee, Platform, MovingPlatform, Coin, Trigger].forEach(actor => {
+  game.registerActor(actor.name, actor);
+});
 
-game.sceneManager.scenes.set('mainMenu', new MenuScene(game, {
-  name: 'mainMenu',
-  type: 'menu',
-  gameType: 'menu',
-  sprites: [],
-  onEnter: () => {
+// Register scenes
+game.sceneManager.addScene('mainMenu', {
+  fetch: async () => (await import('./scenes/mainMenu.json')).default,
+  onEnter() {
     game.soundManager.playMusic('menu');
   }
-}));
+});
 
-game.sceneManager.scenes.set('game', new Scene(game, {
-  name: 'game',
-  type: 'level',
-  levelData: gameScene,
-  onEnter: () => {
+game.sceneManager.addScene('level1', {
+  fetch: async () => (await import('./scenes/level1.json')).default,
+  onEnter() {
     game.soundManager.playMusic('game');
   }
-}));
+});
 
 game.start();
