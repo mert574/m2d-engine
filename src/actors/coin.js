@@ -2,12 +2,10 @@ import { Entity } from '../core/entity.js';
 import Matter from 'matter-js';
 
 export class Coin extends Entity {
-  name = 'coin';
+  name = 'Coin';
   
-  constructor(ctx, body, sprite, game) {
+  constructor(ctx, body, sprite, game, options = {}) {
     super(ctx, body, sprite, game);
-    
-    body.isSensor = true;
     
     this.floatOffset = 0;
     this.floatSpeed = 2;

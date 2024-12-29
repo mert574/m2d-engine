@@ -2,7 +2,7 @@ import { Entity } from '../core/entity.js';
 import Matter from 'matter-js';
 
 export class MovingPlatform extends Entity {
-  name = 'movingPlatform';
+  name = 'MovingPlatform';
 
   constructor(context, body, sprite, game, options = {}) {
     body.isStatic = true;
@@ -11,9 +11,9 @@ export class MovingPlatform extends Entity {
     body.restitution = 0;
     super(context, body, sprite, game);
 
-    this.points = options.points || [];
-    this.speed = options.speed || 3;
-    this.waitTime = options.waitTime || 1000;
+    this.points = options.path.points || [];
+    this.speed = options.path.speed || 3;
+    this.waitTime = options.path.waitTime || 1000;
     this.currentPoint = 0;
     this.waiting = false;
     this.waitStart = 0;

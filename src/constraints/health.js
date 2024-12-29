@@ -43,12 +43,11 @@ export class Health extends Constraint {
     this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
   }
 
-  draw() {
+  draw(ctx) {
     if (this.entity.dead) return;
 
     const pos = this.entity.position;
     const size = this.entity.size;
-    const ctx = this.entity.context;
 
     const barWidth = size.x;
     const barHeight = 4;

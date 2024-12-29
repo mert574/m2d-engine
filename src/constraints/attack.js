@@ -98,7 +98,7 @@ export class Attack extends Constraint {
 
   draw() {
     const pos = this.entity.position;
-    const ctx = this.context;
+    const ctx = this.entity.game.renderer.worldContext;
 
     ctx.save();
     ctx.beginPath();

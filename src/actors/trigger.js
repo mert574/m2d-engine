@@ -5,16 +5,10 @@ export class Trigger extends Entity {
 
   constructor(context, body, sprite, game, options = {}) {
     super(context, body, sprite, game);
-    body.isSensor = true;
-    body.isStatic = true;
 
-    this.category = options.category || 'trigger';
+    this.active = options.active || false;
     this.visible = options.visible || false;
-    this.data = options.data || {};
-    this.onEnter = options.onEnter || null;
-    this.onExit = options.onExit || null;
-    this.active = true;
-
+    this.triggers = options.triggers || [];
     this.debugColor = options.debugColor || '#e7693166';
   }
 
@@ -42,31 +36,39 @@ export class Trigger extends Entity {
     }
   }
 
-  draw(deltaTime) {
+  setAnimation() {
+    // noop since it doesn't have a sprite.
+  }
+
+  draw(ctx) {
     if (!this.visible) return;
+
+    if (this.sprite) {
+      super.draw(ctx);
+    }
 
     const bounds = this.body.bounds;
     const width = bounds.max.x - bounds.min.x;
     const height = bounds.max.y - bounds.min.y;
 
-    this.context.save();
-    this.context.fillStyle = this.debugColor;
-    this.context.fillRect(
+    ctx.save();
+    ctx.fillStyle = this.debugColor;
+    ctx.fillRect(
       this.body.position.x - width/2,
       this.body.position.y - height/2,
       width,
       height
     );
 
-    this.context.fillStyle = '#ffffffaa';
-    this.context.font = '14px system-ui';
-    this.context.textAlign = 'center';
-    this.context.fillText(
-      this.category,
+    ctx.fillStyle = '#ffffffaa';
+    ctx.font = '14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      this.triggers,
       this.body.position.x,
       this.body.position.y + 3.5
     );
-    this.context.restore();
+    ctx.restore();
   }
 
   setActive(active) {
@@ -75,5 +77,10 @@ export class Trigger extends Entity {
 
   setVisible(visible) {
     this.visible = visible;
+  }
+
+  onEnter(entity, data) {
+    console.log('onEnter', entity, data);
+    this.game.sceneManager.switchTo('mainMenu');
   }
 }

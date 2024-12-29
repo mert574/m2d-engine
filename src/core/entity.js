@@ -10,9 +10,6 @@ export class Entity {
     if (!body) {
       throw new Error('Physics body is required');
     }
-    if (!sprite) {
-      throw new Error('Sprite is required');
-    }
     if (!game) {
       throw new Error('Game instance is required');
     }
@@ -64,21 +61,36 @@ export class Entity {
     }
   }
 
-  draw(deltaTime) {
+  draw(ctx) {
     if (this.dead) return;
 
     const pos = this.body.position;
+    const tileSize = this.sprite.width;
+    const tilesNeededX = Math.ceil(this.size.x / tileSize);
+    const tilesNeededY = Math.ceil(this.size.y / tileSize);
 
-    // Handle rotation
-    this.context.save();
-    this.context.translate(pos.x, pos.y);
-    this.context.rotate(this.body.angle);
-    this.sprite.draw(this.context, 0, 0, this.currentAnim);
-    this.context.restore();
+    if (this.body.angle) {
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.rotate(this.body.angle);
+    }
 
-    // Draw constraints
+    for (let i = 0; i < tilesNeededX; i++) {
+      for (let j = 0; j < tilesNeededY; j++) {
+        const baseX = this.body.angle ? -this.size.x/2 : pos.x - this.size.x/2;
+        const baseY = this.body.angle ? -this.size.y/2 : pos.y - this.size.y/2;
+        const x = baseX + i * tileSize + tileSize/2;
+        const y = baseY + j * tileSize + tileSize/2;
+        this.sprite.draw(ctx, x, y, this.currentAnim);
+      }
+    }
+
+    if (this.body.angle) {
+      ctx.restore();
+    }
+
     for (const constraint of this.constraints.values()) {
-      constraint.draw(deltaTime);
+      constraint.draw(ctx);
     }
   }
 

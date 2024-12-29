@@ -75,17 +75,19 @@ export class Player extends Entity {
   onCollisionStart(other) {
     super.onCollisionStart(other);
 
-    if (other.entity?.name === 'coin') {
+    // TODO don't hardcode entity names
+
+    if (other.entity?.name === 'Coin') {
       this.game.soundManager.playSound('coin');
     }
 
     if (other.position.y > this.position.y + (this.size.y / 2)) {
-      if (other.entity?.name === 'platform' || other.entity?.name === 'movingPlatform') {
+      if (other.entity?.name === 'Platform' || other.entity?.name === 'MovingPlatform') {
         this.groundContacts.add(other.id);
       }
     }
 
-    if (other.entity?.name === 'bee') {
+    if (other.entity?.name === 'Bee') {
       const health = this.getConstraint('health');
       if (health) {
         health.takeDamage(33);
