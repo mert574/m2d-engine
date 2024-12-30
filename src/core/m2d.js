@@ -10,6 +10,7 @@ import { CanvasRenderer } from './renderers/canvasRenderer.js';
 import { CanvasUIRenderer } from './renderers/canvasUIRenderer.js';
 
 const defaultOptions = {
+  basePath: '',
   levelNames: [],
   currentLevel: null,
   levelsPath: './levels/',

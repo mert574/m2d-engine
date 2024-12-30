@@ -81,7 +81,7 @@ export class Scene {
           console.error(`Failed to load sprite: ${spritesheet.url}`, error);
           reject(error);
         };
-        img.src = spritesheet.url;
+        img.src = this.game.options.basePath + spritesheet.url;
       })
     );
 

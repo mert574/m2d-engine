@@ -22,6 +22,7 @@ const game = new M2D(canvas, {
   height: 960,
   worldWidth: 1920,
   worldHeight: 1440,
+  basePath: import.meta.env.DEV ? '/examples/platformer/' : '/m2d-engine/examples/platformer/',
   sounds: {
     jump: jumpSound,
     coin: coinSound,
