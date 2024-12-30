@@ -3,7 +3,6 @@ import { Health } from '../constraints/health.js';
 import Matter from 'matter-js';
 import { CollisionCategories } from '../core/constants.js';
 import { Vec2 } from '../core/math.js';
-import { drawVelocityDebug, drawHealthDebug, drawBoundsDebug, drawCenterDebug } from '../core/debug.js';
 import { Debug } from '../constraints/debug.js';
 
 export class Bee extends Entity {

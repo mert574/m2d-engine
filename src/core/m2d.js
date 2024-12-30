@@ -188,7 +188,6 @@ export class M2D {
 
     this.renderer.clear('#000');
 
-    // Handle debug toggle
     if (this.keys.isJustPressed(KEY_D)) {
       this.renderer.setDebugEnabled(!this.renderer.isDebugEnabled());
     }

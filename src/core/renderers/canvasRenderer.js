@@ -443,7 +443,7 @@ export class CanvasRenderer extends BaseRenderer {
     this.context.drawImage(this.worldBuffer, 0, 0);
   }
 
-  #isDebugEnabled = false;
+  #isDebugEnabled = true;
   #debugLayer = 'default';
 
   setDebugEnabled(enabled) {
