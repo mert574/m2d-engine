@@ -1,0 +1,92 @@
+# M2D Engine Development Rules
+
+## General
+- Keep changes minimal and focused. Never make changes that are not related to the feature being 
+worked on. Don't refactor without proper justification.
+- Never apologize for your mistakes.
+- Don't assume anything, always verify it.
+- Don't ask for permission, just do it.
+- Do changes incrementally, never make big changes in one go.
+- Keep updating .cursorrules when you learn something new.
+
+## Code Style
+- Use Javascript for all code
+- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError)
+- Never write comments unless for complex logic
+- Use camelCase for directories and variables
+- Favor default exports for components
+- Follow instructions to the letter and do not make assumptions
+- Don't make assumptions about the codebase, always refer to the documentation or verify it
+- Extract math logic into a separate file
+
+## Documentation
+- Update .cursorrules when an important knowledge is gained or a new rule is created
+- Update ROADMAP.md when a new feature is started, add detailed progress and plan
+- Update PROJECT.md when a new feature is completed
+- Use JSDoc to document the codebase when it's a core feature
+
+## File Structure
+- src/core/: Engine core components
+- src/actors/: Game-specific actors
+- src/constraints/: Entity constraints/components
+- src/examples/: Example implementations
+- src/core/ui/: UI components
+- src/core/renderers/: Renderer implementations
+
+## Scene System
+- All scenes must be defined in JSON format
+- Scene files must include version and type
+- Use prefabs for reusable entity definitions
+- Organize objects in layers
+- Include lifecycle hooks (onEnter, onExit) in scene registration
+
+## Physics
+- Use Matter.js for physics simulation
+- Define physics properties in prefabs
+- Available body types: static, dynamic, kinematic
+- Use collision categories for filtering
+- Set friction and restitution in physics properties
+
+## Entity System
+- Extend Entity class for all game objects
+- Use constraints for behavior composition
+- Handle collisions through onCollisionStart/End
+- Define animations in sprite configuration
+- Set default animation in prefab
+- All entities must be instantiated through the prefab system in scene configuration, never directly in code
+- Entity creation is handled by SceneLoader and instantiated via Scene.createPrefabInstance
+
+## Asset Management
+- Store sprites in assets directory
+- Define spritesheets in scene JSON
+- Include frameWidth and frameHeight
+- Define animations with frames array
+- Support sound and music assets
+
+## UI System
+- Define UI scenes in JSON
+- Supported UI components: buttons, text, images, rectangles
+- Handle mouse events in UI components
+
+## Renderer System
+- Keep rendering logic separate from game logic
+- Use renderer-agnostic interfaces for drawing operations
+- Track performance metrics (FPS, draw calls, state changes)
+- Implement proper cleanup in renderers
+- Separate world and UI rendering contexts
+- Use clipping for UI elements when needed
+- Minimize state changes between draw calls
+
+## Git Workflow
+- Use semantic commit messages
+- Group related changes in focused commits
+- Document breaking changes in commit body
+- Keep documentation in sync with code
+- Update examples for new features
+
+## Workflow
+- Start by searching the planning directory for the feature being worked on
+- If the feature is not found, create a folder in the planning directory with the name of the feature
+- Include PRD, roadmap, RFC markdown files to document the feature
+- Keep the file updated with the latest information and progress
+- Always be brief and concise on these files, as they are meant to be used as a reference

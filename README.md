@@ -14,12 +14,33 @@ https://github.com/user-attachments/assets/6ae002af-22c0-4736-be9e-5ae3c7bb601d
 - **Component System**: Flexible entity-component architecture
 - **Input Handling**: Keyboard input with configurable controls
 - **Camera System**: Smooth camera following with deadzone
-- **UI System**: Simple UI framework with buttons and text elements
-- **Asset Management**: Sprite loading and animation support
-- **Collision System**: Category-based collision filtering
-- **Debug Tools**: Built-in debug visualization for physics bodies
-- **Sound System**: Simple sound management with support for music and sound effects
-- **Level Structure**: JSON-based level definition format
+
+### Renderer System
+- Abstracted rendering interface for multiple backends
+- Efficient Canvas renderer with double buffering
+- Separate world and UI rendering contexts
+- Built-in performance monitoring
+- Debug visualization system
+- State change tracking for optimization
+- FPS and render statistics
+
+### UI System
+- Simple UI framework with buttons and text elements
+- Screen-space rendering with no camera transforms
+- Event handling and hit testing
+- Clipping support for scrollable areas
+- Consistent styling system
+
+### Asset & Debug Features
+- Sprite loading and animation support
+- Category-based collision filtering
+- Built-in debug visualization for:
+  - Physics bodies
+  - Velocities and forces
+  - Entity states
+  - Performance metrics
+- Sound system with music and effects
+- JSON-based level definition format
   - Prefab system for reusable entity templates
   - Layered object organization
   - Flexible property system
