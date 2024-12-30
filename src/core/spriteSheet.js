@@ -1,5 +1,5 @@
 export class SpriteSheet {
-  constructor(image, tileW, tileH, width = tileW, height = tileH) {
+  constructor(image, tileW, tileH, game, width = tileW, height = tileH) {
     this.tileW = tileW;
     this.tileH = tileH;
     this.width = width;
@@ -8,35 +8,32 @@ export class SpriteSheet {
     this.currentFrame = 0;
     this.image = image;
     this.loaded = true;
+    this.game = game;
   }
 
   define(name, tileX, tileY) {
     this.animations.set(name, { tileX, tileY });
   }
 
-  drawTiles(context, x, y, tileX, tileY) {
+  draw(anim, x, y, options = {}) {
     if (!this.loaded) return;
 
-    context.drawImage(
-      this.image,
-      tileX * this.tileW,
-      tileY * this.tileH,
-      this.tileW,
-      this.tileH,
-      Math.floor(x - this.width / 2),
-      Math.floor(y - this.height / 2),
-      this.width,
-      this.height
-    );
-  }
+    if (!this.game) {
+      console.error('Game instance not found');
+      return;
+    }
 
-  drawStatic(context, x, y, tileX, tileY) {
-    this.drawTiles(context, x, y, tileX, tileY);
-  }
-
-  draw(context, x, y, anim) {
     if (!anim) {
-      this.drawTiles(context, x, y, this.currentFrame, 0);
+      this.game.renderer.drawSprite({
+        image: this.image,
+        x,
+        y,
+        tileWidth: this.tileW,
+        tileHeight: this.tileH,
+        tileX: this.currentFrame,
+        tileY: 0,
+        ...options
+      });
       return;
     }
 
@@ -46,6 +43,15 @@ export class SpriteSheet {
       return;
     }
 
-    this.drawTiles(context, x, y, animation.tileX + this.currentFrame, animation.tileY);
+    this.game.renderer.drawSprite({
+      image: this.image,
+      x,
+      y,
+      tileWidth: this.tileW,
+      tileHeight: this.tileH,
+      tileX: animation.tileX + this.currentFrame,
+      tileY: animation.tileY,
+      ...options
+    });
   }
 }

@@ -1,7 +1,6 @@
 export class Constraint {
   constructor(entity) {
     this.entity = entity;
-    this.context = entity.context;
   }
 
   update() {
