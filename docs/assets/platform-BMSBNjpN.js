@@ -1,0 +1,4 @@
+const platform = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAASElEQVRYhe3QMREAIBADwcB8QYUF5nXiBmN4oKIDGWkuBrJzZY71ZFx1ngOQpMjWrQB7AQAAAAAAAAAAAAAAAMS+xwqwFwDwAcb/BX+lM18tAAAAAElFTkSuQmCC";
+export {
+  platform as default
+};
