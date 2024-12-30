@@ -1,110 +1,63 @@
 import { Scene } from './scene.js';
+import { SceneLoader } from './sceneLoader.js';
 
 export class SceneManager {
   constructor(game) {
     this.game = game;
     this.scenes = new Map();
     this.currentScene = null;
-
-    this.levelNames = game.options.levelNames || [];
-    this.levelsPath = game.options.levelsPath || './levels/';
-    this.currentLevelIndex = -1;
-
-    if (this.levelNames.length > 0) {
-      this.levelNames.forEach(levelName => {
-        this.registerScene({
-          name: levelName,
-          type: 'level',
-          levelData: levelName
-        });
-      });
-
-      if (game.options.currentLevel) {
-        this.currentLevelIndex = this.levelNames.indexOf(game.options.currentLevel);
-      }
-    }
+    this.loader = new SceneLoader(game);
+    this.scenesToLoad = [];
+    this.loading = true;
   }
 
-  registerScene(config) {
-    const scene = new Scene(this.game, config);
-    this.scenes.set(config.name, scene);
+  addScene(name, scene) {
+    this.scenesToLoad.push({ name, scene });
+  }
+
+  async loadScene(sceneConfig, sceneName) {
+    this.loading = true;
+    try {
+      const loadedScene = await sceneConfig.fetch();
+      if (!loadedScene) {
+        console.error('Failed to load scene', sceneConfig);
+        throw new Error('Failed to load scene');
+      }
+
+      this.scenes.set(sceneName, new Scene(this.game, loadedScene));
+      this.scenesToLoad = this.scenesToLoad.filter(s => s.name !== sceneName);
+
+      return this.scenes.get(sceneName);
+    } catch (error) {
+      console.error('Error loading scene:', error);
+      throw error;
+    } finally {
+      this.loading = false;
+    }
   }
 
   async switchTo(sceneName) {
-    const currentScene = this.getCurrentScene();
-    if (currentScene) {
-      currentScene.unload();
-      this.currentScene = null;
-    }
-
-    const nextScene = this.scenes.get(sceneName);
-    if (!nextScene) {
-      const levelData = this.levelData.get(sceneName);
-      if (!levelData) {
-        console.error(`Scene "${sceneName}" not found`);
-        return;
+    let scene = this.scenes.get(sceneName);
+    if (!scene) {
+      const sceneToLoad = this.scenesToLoad.find(s => s.name === sceneName);
+      if (!sceneToLoad) {
+        throw new Error(`Scene ${sceneName} not found`);
       }
-      await this.loadLevel(sceneName);
+      scene = await this.loadScene(sceneToLoad.scene, sceneName);
     } else {
-      this.currentScene = sceneName;
-      await nextScene.load();
+      this.loading = false;
     }
-  }
+    if (this.currentScene) {
+      this.currentScene.unload();
+    }
 
-  async loadLevel(sceneName) {
-    const levelData = await this.loadLevelData(sceneName);
-    if (levelData) {
-      const scene = new Scene(this.game, {
-        name: sceneName,
-        type: 'level',
-        levelData
-      });
-      this.scenes.set(sceneName, scene);
-      this.currentScene = sceneName;
-      await scene.load();
-    }
+    this.currentScene = scene;
+    await scene.load();
+    
+    return scene;
   }
 
   getCurrentScene() {
-    return this.scenes.get(this.currentScene);
-  }
-
-  async loadLevelData(name) {
-    try {
-      const response = await fetch(this.levelsPath + name);
-      return await response.json();
-    } catch (error) {
-      console.error('Error loading level:', error);
-      return null;
-    }
-  }
-
-  async nextLevel() {
-    if (this.currentLevelIndex < this.levelNames.length - 1) {
-      this.currentLevelIndex++;
-      const nextLevelName = this.levelNames[this.currentLevelIndex];
-      await this.switchTo(nextLevelName);
-      return true;
-    }
-    return false;
-  }
-
-  async previousLevel() {
-    if (this.currentLevelIndex > 0) {
-      this.currentLevelIndex--;
-      const prevLevelName = this.levelNames[this.currentLevelIndex];
-      await this.switchTo(prevLevelName);
-      return true;
-    }
-    return false;
-  }
-
-  setLevelData(name, data) {
-    const scene = new Scene(this.game, {
-      name,
-      type: 'level',
-      levelData: data
-    });
-    this.scenes.set(name, scene);
+    return this.currentScene;
   }
 } 

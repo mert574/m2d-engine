@@ -7,15 +7,27 @@ export class UIElement {
     this.visible = true;
     this.isHovered = false;
     this.isFocused = false;
+    this.game = null;
+    this.stopPropagation = false;
+  }
+
+  setGame(game) {
+    this.game = game;
   }
 
   update(deltaTime) {}
 
-  draw(ctx) {}
+  draw(deltaTime) {}
 
   contains(x, y) {
-    return x >= this.x && x <= this.x + this.width &&
-           y >= this.y && y <= this.y + this.height;
+    const hit = this.game.uiRenderer.hitTest(x, y, {
+      type: 'rect',
+      x: this.x - this.width/2,
+      y: this.y - this.height/2,
+      width: this.width,
+      height: this.height
+    });
+    return hit;
   }
 
   onMouseMove(x, y) {
@@ -25,19 +37,20 @@ export class UIElement {
       if (this.isHovered) this.onMouseEnter();
       else this.onMouseLeave();
     }
+    return this.stopPropagation;
   }
 
   onMouseDown(x, y) {
     if (this.contains(x, y)) {
-      this.onClick?.(x, y);
-      return true;
+      this.onClick(x, y);
+      return this.stopPropagation;
     }
     return false;
   }
 
   onMouseEnter() {}
   onMouseLeave() {}
-  onClick() {}
+  onClick(x, y) {}
   onFocus() {
     this.isFocused = true;
   }

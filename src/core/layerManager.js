@@ -1,10 +1,15 @@
 export class LayerManager {
-  constructor(context) {
-    this.context = context;
+  constructor() {
     this.layers = [];
+    this.game = null;
+  }
+
+  setGame(game) {
+    this.game = game;
   }
 
   addLayer(name, layer) {
+    layer.sprite.game = this.game;
     this.layers.push([name, layer]);
   }
 
@@ -14,19 +19,23 @@ export class LayerManager {
 
   draw() {
     for (let [name, layer] of this.layers) {
-      for (let tile of layer.tiles) {
-        layer.sprite.draw(this.context, tile.pos.x, tile.pos.y, tile.anim);
-      }
+      this.drawLayer(name);
     }
   }
 
   drawLayer(layerName) {
     for (let [name, layer] of this.layers) {
-      if (layerName !== undefined && layerName !== name)
+      if (layerName !== undefined && layerName !== name) {
         continue;
+      }
 
       for (let tile of layer.tiles) {
-        layer.sprite.draw(this.context, tile.pos.x, tile.pos.y, tile.anim);
+        const anim = layer.sprite.animations.get(tile.anim);
+        if (!anim) continue;
+
+        layer.sprite.draw(tile.anim, tile.pos.x, tile.pos.y, {
+          game: this.game
+        });
       }
     }
   }

@@ -1,6 +1,12 @@
 import Matter from 'matter-js';
 import { SpriteSheet } from './spriteSheet.js';
 import { Container } from './ui/container.js';
+import { MovingPlatform } from '../actors/movingPlatform.js';
+import { UIButton } from './ui/Button.js';
+import { UIText } from './ui/Text.js';
+import { UIImage } from './ui/Image.js';
+import { UIRectangle } from './ui/Rectangle.js';
+import { PerformanceStats } from './ui/performanceStats.js';
 
 export class Scene {
   constructor(game, config) {
@@ -27,38 +33,21 @@ export class Scene {
     this.ui.onMouseDown(x, y);
   }
 
-  async loadAssets() {
-    if (!this.config.sprites) return;
-
-    const loadPromises = this.config.sprites.map(async ([importFn, tileSize]) => {
-      const module = await importFn();
-      const image = new Image();
-      image.src = module.default;
-      this.spriteSheets.set(importFn, new SpriteSheet(image, tileSize, tileSize));
-    });
-
-    await Promise.all(loadPromises);
-  }
-
   async load() {
     await this.loadAssets();
-
-    this.game.entities.clear();
-    Matter.Composite.clear(this.game.engine.world);
-    this.game.layers.clear();
-    this.game.player = null;
-    this.ui.clear();
-
+    this.setupScene();
+    
     this.game.canvas.addEventListener('mousemove', this._handleMouseMove);
     this.game.canvas.addEventListener('mousedown', this._handleMouseDown);
 
+    this.game.camera.init(this);
+
     if (this.config.type === 'level') {
-      await this._loadLevelScene();
-      if (this.game.player) {
-        this.game.camera.follow(this.game.player);
-      }
+      console.debug('Setting up level scene');
+      await this.setupLevelScene();
     } else {
-      await this._loadNormalScene();
+      console.debug('Setting up UI scene');
+      await this.setupUIScene();
     }
 
     if (this.config.onEnter) {
@@ -66,58 +55,69 @@ export class Scene {
     }
   }
 
-  async _loadLevelScene() {
-    let levelData;
-    
-    if (typeof this.config.levelData === 'string') {
-      levelData = await this.game.sceneManager.loadLevelData(this.config.levelData);
-    } else if (typeof this.config.levelData === 'object') {
-      levelData = this.config.levelData;
+  async loadAssets() {
+    if (!this.config.assets?.spritesheets) return;
+
+    const loadPromises = Object.entries(this.config.assets.spritesheets).map(([key, spritesheet]) => 
+      new Promise((resolve, reject) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const sheet = new SpriteSheet(img, spritesheet.frameWidth, spritesheet.frameHeight, this.game);
+          this.sprites.set(key, img);
+          this.spriteSheets.set(key, sheet);
+
+          if (spritesheet.animations) {
+            Object.entries(spritesheet.animations).forEach(([name, anim]) => {
+              anim.frames.forEach(([tileX, tileY]) => {
+                sheet.define(name, tileX, tileY);
+              });
+            });
+          } else {
+            sheet.define('default', 0, 0);
+          }
+          resolve();
+        };
+        img.onerror = (error) => {
+          console.error(`Failed to load sprite: ${spritesheet.url}`, error);
+          reject(error);
+        };
+        img.src = spritesheet.url;
+      })
+    );
+
+    try {
+      await Promise.all(loadPromises);
+    } catch (error) {
+      console.error('Error loading sprites:', error);
+      throw error;
     }
+  }
 
-    if (!levelData) {
-      console.error('Failed to load level data');
-      return;
-    }
+  setupScene() {
+    this.game.entities.clear();
+    Matter.Composite.clear(this.game.engine.world);
+    this.game.layers.clear();
+    this.game.player = null;
+    this.ui.clear();
 
-    this._setPhysics(levelData.gameType);
-    this.config.sprites = levelData.sprites;
-    await this.loadAssets();
+    const stats = new PerformanceStats(this.game, 20, 20, { textColor: '#00ff00', show: true });
+    this.ui.addElement(stats);
 
-    if (levelData.background) {
-      this._loadBackground(levelData.background);
-    }
-
-    if (levelData.entities) {
-      this._loadEntities(levelData.entities);
-    }
-
-    if (levelData.player) {
-      const player = this.createEntity(levelData.player);
-      if (player) {
-        this.game.player = player;
-        Matter.Composite.add(this.game.engine.world, player.body);
+    if (this.config.world) {
+      Matter.Engine.clear(this.game.engine);
+      Matter.Engine.update(this.game.engine, 0);
+      
+      if (this.config.world.gravity) {
+        this.game.engine.gravity = this.config.world.gravity;
       }
     }
-  }
-
-  async _loadNormalScene() {
-    this._setPhysics(this.config.gameType);
 
     if (this.config.background) {
-      this._loadBackground(this.config.background);
-    }
-
-    if (this.config.entities) {
-      this._loadEntities(this.config.entities);
+      this.setupBackground(this.config.background);
     }
   }
 
-  _setPhysics(gameType) {
-    this.game.engine.world.gravity.y = gameType === 'topDown' ? 0 : 2;
-  }
-
-  _loadBackground([spriteIndex, x, y]) {
+  setupBackground([spriteIndex, x, y]) {
     const [imagePath, tileSize] = this.config.sprites[spriteIndex];
     const spriteSheet = this.spriteSheets.get(imagePath);
     if (!spriteSheet) {
@@ -133,83 +133,156 @@ export class Scene {
     this.game.layers.addLayer('background', bgLayer);
   }
 
-  _loadEntities(entities) {
-    for (const entityData of entities) {
-      const entity = this.createEntity(entityData);
-      if (entity) {
-        this.game.entities.add(entity);
-        Matter.Composite.add(this.game.engine.world, entity.body);
-      }
+  async setupLevelScene() {
+    if (!this.config.layers) {
+      return
     }
+
+    this.config.layers.forEach(layer => {
+      layer.objects.forEach(object => {
+        const prefab = this.config.prefabs[object.prefab];
+        if (!prefab) {
+          console.error(`Prefab not found: ${object.prefab}`);
+          return;
+        }
+        const entity = this.createPrefabInstance({
+          type: prefab.actor,
+          position: [object.x, object.y],
+          size: [object.width, object.height],
+          sprite: prefab.spritesheet,
+          defaultAnimation: prefab.defaultAnimation,
+          physics: prefab.physics,
+          options: object.properties,
+        });
+
+        if (entity) {
+          if (prefab.actor === 'Player') {
+            this.game.player = entity;
+            this.game.camera.follow(entity);
+          }
+          this.game.entities.add(entity);
+          Matter.Composite.add(this.game.engine.world, entity.body);
+        }
+      });
+    });
   }
 
-  createEntity(data) {
-    const { type, position: [x, y], size: [w, h], sprite: spriteIndex, animations = [], options = {} } = data;
-    const ActorClass = this.game.actors.get(type);
-    if (!ActorClass) {
-      console.error(`Actor type "${type}" not registered`);
-      return null;
-    }
+  createPrefabInstance(data) {
+    const spritesheet = this.spriteSheets.get(data.sprite);
+    const entity = this.game.createEntity(
+      data.type,
+      data.position[0],
+      data.position[1],
+      data.size[0],
+      data.size[1],
+      spritesheet,
+      data.options,
+      data.physics,
+    );
 
-    const [imagePath, tileSize] = this.config.sprites[spriteIndex];
-    const spriteSheet = this.spriteSheets.get(imagePath);
-    if (!spriteSheet) {
-      console.error(`Sprite not found: ${imagePath}`);
-      return null;
-    }
+    if (!entity) return null;
 
-    const entitySprite = new SpriteSheet(spriteSheet.image, tileSize, tileSize, w, h);
-
-    const category = this.game.collisionCategories[type] || this.game.collisionCategories.default;
-    let mask;
-
-    switch (type) {
-      case 'platform':
-      case 'movingPlatform':
-        mask = this.game.collisionCategories.player | this.game.collisionCategories.enemy;
-        break;
-      case 'bee':
-        mask = this.game.collisionCategories.platform | 
-              this.game.collisionCategories.movingPlatform | 
-              this.game.collisionCategories.player;
-        break;
-      case 'player':
-        mask = this.game.collisionCategories.platform | 
-              this.game.collisionCategories.movingPlatform | 
-              this.game.collisionCategories.enemy | 
-              this.game.collisionCategories.coin |
-              this.game.collisionCategories.trigger;
-        break;
-      case 'coin':
-      case 'trigger':
-        mask = this.game.collisionCategories.player;
-        break;
-      default:
-        mask = -1;
-    }
-
-    const bodyOptions = {
-      frictionAir: 0.01,
-      friction: 0.1,
-      restitution: 0.1,
-      collisionFilter: { category, mask },
-      ...options
-    };
-
-    const body = this.game.Bodies.rectangle(x, y, w, h, bodyOptions);
-    const entity = new ActorClass(this.game.context, body, entitySprite, this.game, options);
-
-    body.entity = entity;
-    console.debug(`Created ${type} entity:`, body.entity);
-
-    for (const [name, tileX, tileY, isDefault] of animations) {
-      entity.sprite.define(name, tileX, tileY);
-      if (isDefault) {
-        entity.currentAnim = name;
-      }
-    }
+    entity.setAnimation(data.defaultAnimation || 'default');
 
     return entity;
+  }
+
+  async setupUIScene() {
+    if (!this.config.elements) return;
+
+    this.config.elements.forEach(element => {
+      switch (element.type) {
+        case 'button':
+          const button = new UIButton(
+            element.x,
+            element.y,
+            element.properties.width || 200,
+            element.properties.height || 40,
+            element.properties.text,
+            () => {
+              if (element.properties.onClick) {
+                this.game.sceneManager.switchTo(element.properties.onClick);
+              }
+            },
+            {
+              backgroundColor: element.properties.backgroundColor,
+              hoverColor: element.properties.hoverColor,
+              textColor: element.properties.textColor,
+              fontSize: element.properties.fontSize,
+              fontFamily: element.properties.fontFamily
+            }
+          );
+          button.setGame(this.game);
+          this.ui.addElement(button);
+          break;
+
+        case 'text':
+          const text = new UIText(
+            element.x,
+            element.y,
+            element.properties.text,
+            {
+              fontSize: element.properties.fontSize,
+              color: element.properties.color,
+              align: element.properties.align
+            }
+          );
+          text.setGame(this.game);
+          this.ui.addElement(text);
+          break;
+
+        case 'image':
+          if (element.sprite) {
+            const sprite = this.sprites.get(element.sprite);
+            const image = new UIImage(
+              element.x,
+              element.y,
+              sprite,
+              {
+                width: element.properties.width,
+                height: element.properties.height,
+                scale: element.properties.scale
+              }
+            );
+            image.setGame(this.game);
+            this.ui.addElement(image);
+          }
+          break;
+
+        case 'rect':
+          const rect = new UIRectangle(
+            element.x,
+            element.y,
+            element.width,
+            element.height,
+            element.color,
+            {
+              interactive: element.properties?.interactive || false
+            }
+          );
+          rect.setGame(this.game);
+          this.ui.addElement(rect);
+          break;
+      }
+    });
+  }
+
+  unload() {
+    // Call onExit callback if defined
+    if (this.config.onExit) {
+      this.config.onExit();
+    }
+
+    this.sprites.clear();
+    this.spriteSheets.clear();
+    this.ui.clear();
+
+    // Reset cursor style
+    this.game.renderer.setCursor('default');
+
+    // Remove event listeners
+    this.game.canvas.removeEventListener('mousemove', this._handleMouseMove);
+    this.game.canvas.removeEventListener('mousedown', this._handleMouseDown);
   }
 
   update(deltaTime) {
@@ -222,63 +295,24 @@ export class Scene {
         this.game.gameOver();
         return;
       }
-    }
 
-    if (this.game.player?.update) {
-      this.game.player.update(deltaTime);
+      this.game.camera.update();
+      this.game.entities.forEach(entity => entity.update(deltaTime));
     }
-
-    for (let entity of this.game.entities) {
-      if (entity.update) {
-        entity.update(deltaTime);
-      }
-    }
-
     this.ui.update(deltaTime);
   }
 
   draw(deltaTime) {
-    this.game.renderer.drawWorld(ctx => {
-      ctx.fillStyle = this.config.backgroundColor || '#000';
-      ctx.fillRect(
-        this.game.camera.x,
-        this.game.camera.y,
-        this.game.camera.width,
-        this.game.camera.height
-      );
+    if (this.config.type === 'level') {
+      // Draw background
+      this.game.layers.drawLayer('background');
 
-      this.game.layers.draw(deltaTime);
-      
-      if (this.game.player) {
-        this.game.player.draw(deltaTime);
-      }
-
-      for (let elem of this.game.entities) {
-        const pos = elem.body.position;
-        const bounds = elem.body.bounds;
-        const width = bounds.max.x - bounds.min.x;
-        const height = bounds.max.y - bounds.min.y;
-        
-        if (this.game.camera.isVisible(pos.x - width/2, pos.y - height/2, width, height)) {
-          elem.draw(deltaTime);
-        }
-      }
-    });
-
-    this.game.renderer.drawScreen(ctx => {
-      this.ui.draw(ctx);
-    });
+      // Draw entities
+      this.game.entities.forEach(entity => entity.draw(deltaTime));
+    }
   }
 
-  unload() {
-    if (this.config.onExit) {
-      this.config.onExit();
-    }
-
-    this.spriteSheets.clear();
-    this.ui.clear();
-
-    this.game.canvas.removeEventListener('mousemove', this._handleMouseMove);
-    this.game.canvas.removeEventListener('mousedown', this._handleMouseDown);
+  drawUI(deltaTime) {
+    this.ui.draw(deltaTime);
   }
 }

@@ -3,6 +3,7 @@ export class KeyStates {
     this.keys = new Map();
     this.mouseConstraint = mouseConstraint;
     this.eventsOn = eventsOn;
+    this.justPressed = new Set();
 
     document.addEventListener('keydown', this.handleKeyDown.bind(this));
     document.addEventListener('keyup', this.handleKeyUp.bind(this));
@@ -20,9 +21,13 @@ export class KeyStates {
   }
 
   handleKeyDown(event) {
+    // Ignore key repeat events
+    if (event.repeat) return;
+
     const key = this.keys.get(event.key);
-    if (key) {
+    if (key && !key.isPressed) {
       key.isPressed = true;
+      this.justPressed.add(event.key);
       if (key.callback) key.callback(true);
     }
   }
@@ -31,8 +36,17 @@ export class KeyStates {
     const key = this.keys.get(event.key);
     if (key) {
       key.isPressed = false;
+      this.justPressed.delete(event.key);
       if (key.callback) key.callback(false);
     }
+  }
+
+  update() {
+    this.justPressed.clear();
+  }
+
+  isJustPressed(keyName) {
+    return this.justPressed.has(keyName);
   }
 
   pressedKeys() {

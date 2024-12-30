@@ -1,41 +1,57 @@
 import { UIElement } from './uiElement.js';
 
-export class Button extends UIElement {
-  constructor(x, y, width, height, text, onClick) {
-    super(x, y, width, height);
+export class UIButton extends UIElement {
+  constructor(x, y, width, height, text, onClick, style = {}) {
+    super(x, y);
+    this.width = width;
+    this.height = height;
     this.text = text;
-    this.onClick = onClick;
-    this.backgroundColor = '#333';
-    this.hoverColor = '#555';
-    this.textColor = '#fff';
-    this.fontSize = '32px';
-    this.fontFamily = 'system-ui';
+    this.handleClick = onClick;
+    this.backgroundColor = style.backgroundColor || '#000';
+    this.hoverColor = style.hoverColor || '#333';
+    this.textColor = style.textColor || '#fff';
+    this.fontSize = style.fontSize || '16px';
+    this.fontFamily = style.fontFamily || 'system-ui';
+    this.isHovered = false;
   }
 
-  draw(ctx) {
-    if (!this.visible) return;
+  draw() {
+    if (!this.game) return;
+    
+    const fillStyle = this.isHovered ? this.hoverColor : this.backgroundColor;
+    this.game.uiRenderer.drawRect({
+      x: this.x - this.width/2,
+      y: this.y - this.height/2,
+      width: this.width,
+      height: this.height,
+      fillStyle
+    });
 
-    ctx.fillStyle = this.isHovered ? this.hoverColor : this.backgroundColor;
-    ctx.fillRect(this.x, this.y, this.width, this.height);
-
-    ctx.fillStyle = this.textColor;
-    ctx.font = `${this.fontSize} ${this.fontFamily}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(this.text, this.x + this.width / 2, this.y + this.height / 2);
+    this.game.uiRenderer.drawText({
+      text: this.text,
+      x: this.x,
+      y: this.y,
+      fillStyle: this.textColor,
+      fontSize: this.fontSize,
+      fontFamily: this.fontFamily,
+      textAlign: 'center',
+      textBaseline: 'middle'
+    });
   }
 
   onMouseEnter() {
-    document.body.style.cursor = 'pointer';
+    this.isHovered = true;
+    this.game.uiRenderer.setCursor('pointer');
   }
 
   onMouseLeave() {
-    document.body.style.cursor = 'default';
+    this.isHovered = false;
+    this.game.uiRenderer.setCursor('default');
   }
 
-  destroy() {
-    if (this.isHovered) {
-      document.body.style.cursor = 'default';
+  onClick() {
+    if (this.handleClick) {
+      this.handleClick();
     }
   }
 } 

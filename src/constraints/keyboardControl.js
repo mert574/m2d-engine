@@ -1,6 +1,6 @@
 import { Constraint } from '../core/constraint.js';
 import Matter from 'matter-js';
-import { KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_SPACE, KEY_X } from '../core/KeyCodes.js';
+import { KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_SPACE, KEY_X } from '../core/keyCodes.js';
 
 const norm = Math.sqrt(2);
 

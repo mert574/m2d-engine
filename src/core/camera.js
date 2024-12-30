@@ -1,20 +1,20 @@
 export class Camera {
-  constructor(game, options = {}) {
-    this.game = game;
+  constructor(width, height, options = {}) {
     this.x = 0;
     this.y = 0;
-    this.width = game.canvas.width;
-    this.height = game.canvas.height;
-    this.worldWidth = options.worldWidth || this.width;
-    this.worldHeight = options.worldHeight || this.height;
-    this.smoothing = options.smoothing || 0.1;
+    this.width = width;
+    this.height = height;
+    
     this.target = null;
-    this.deadzone = options.deadzone || {
-      x: this.width * 0.4,
-      y: this.height * 0.2,
-      width: this.width * 0.4,
-      height: this.height * 0.4
-    };
+    this.lerp = options.lerp || 0.1;
+    this.bounds = options.bounds || null;
+    this.padding = options.padding || { x: 100, y: 100 };
+  }
+
+  init(scene) {
+    this.scene = scene;
+    this.width = scene.game.canvas.width;
+    this.height = scene.game.canvas.height;
   }
 
   follow(target) {
@@ -27,56 +27,57 @@ export class Camera {
     const targetX = this.target.body.position.x;
     const targetY = this.target.body.position.y;
 
-    let desiredX = this.x;
-    let desiredY = this.y;
+    // Smooth camera movement
+    this.x += (targetX - this.x) * this.lerp;
+    this.y += (targetY - this.y) * this.lerp;
 
-    if (targetX < this.x + this.deadzone.x) {
-      desiredX = targetX - this.deadzone.x;
-    } else if (targetX > this.x + this.width - this.deadzone.x) {
-      desiredX = targetX - this.width + this.deadzone.x;
+    // Apply camera bounds if set
+    if (this.bounds) {
+      const halfWidth = this.width / 2;
+      const halfHeight = this.height / 2;
+
+      this.x = Math.max(this.bounds.left + halfWidth, Math.min(this.bounds.right - halfWidth, this.x));
+      this.y = Math.max(this.bounds.top + halfHeight, Math.min(this.bounds.bottom - halfHeight, this.y));
     }
-
-    if (targetY < this.y + this.deadzone.y) {
-      desiredY = targetY - this.deadzone.y;
-    } else if (targetY > this.y + this.height - this.deadzone.y) {
-      desiredY = targetY - this.height + this.deadzone.y;
-    }
-
-    this.x += (desiredX - this.x) * this.smoothing;
-    this.y += (desiredY - this.y) * this.smoothing;
-
-    // Clamp camera position to world bounds
-    this.x = Math.max(0, Math.min(this.x, this.worldWidth - this.width));
-    this.y = Math.max(0, Math.min(this.y, this.worldHeight - this.height));
-  }
-
-  worldToScreen(x, y) {
-    return {
-      x: x - this.x,
-      y: y - this.y
-    };
-  }
-
-  screenToWorld(x, y) {
-    return {
-      x: x + this.x,
-      y: y + this.y
-    };
   }
 
   isVisible(x, y, width, height) {
-    return (x + width >= this.x && 
-            x <= this.x + this.width &&
-            y + height >= this.y && 
-            y <= this.y + this.height);
+    const left = x - this.x + this.width / 2;
+    const top = y - this.y + this.height / 2;
+    
+    return (
+      left + width >= -this.padding.x &&
+      left <= this.width + this.padding.x &&
+      top + height >= -this.padding.y &&
+      top <= this.height + this.padding.y
+    );
   }
 
-  begin(ctx) {
-    ctx.save();
-    ctx.translate(-Math.floor(this.x), -Math.floor(this.y));
+  worldToScreen(worldX, worldY) {
+    return {
+      x: worldX - this.x + this.width / 2,
+      y: worldY - this.y + this.height / 2
+    };
   }
 
-  end(ctx) {
-    ctx.restore();
+  screenToWorld(screenX, screenY) {
+    return {
+      x: screenX + this.x - this.width / 2,
+      y: screenY + this.y - this.height / 2
+    };
+  }
+
+  getVisibleArea() {
+    return {
+      left: this.x - this.width / 2,
+      right: this.x + this.width / 2,
+      top: this.y - this.height / 2,
+      bottom: this.y + this.height / 2
+    };
+  }
+
+  resize(width, height) {
+    this.width = width;
+    this.height = height;
   }
 } 

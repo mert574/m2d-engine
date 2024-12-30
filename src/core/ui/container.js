@@ -1,67 +1,69 @@
-import { UIElement } from './uiElement.js';
-
-export class Container extends UIElement {
+export class Container {
   constructor(game) {
-    super(0, 0, game.canvas.width, game.canvas.height);
     this.game = game;
-    this.children = new Set();
-  }
-
-  add(element) {
-    this.children.add(element);
-  }
-
-  remove(element) {
-    if (element.destroy) {
-      element.destroy();
-    }
-    this.children.delete(element);
-  }
-
-  update(deltaTime) {
-    if (!this.visible) return;
-    this.children.forEach(child => child.update(deltaTime));
-  }
-
-  draw(ctx) {
-    if (!this.visible) return;
-    this.children.forEach(child => child.draw(ctx));
-  }
-
-  onMouseMove(x, y) {
-    if (!this.visible) return;
-    super.onMouseMove(x, y);
-    this.children.forEach(child => child.onMouseMove(x, y));
-  }
-
-  onMouseDown(x, y) {
-    if (!this.visible) return false;
-    if (!this.contains(x, y)) return false;
-
-    for (const child of this.children) {
-      if (child.onMouseDown(x, y)) {
-        return true;
-      }
-    }
-
-    return super.onMouseDown(x, y);
+    this.elements = new Set();
+    this.hoveredElement = null;
   }
 
   clear() {
-    this.children.forEach(child => {
-      if (child.destroy) {
-        child.destroy();
+    this.elements.clear();
+    this.hoveredElement = null;
+  }
+
+  addElement(element) {
+    element.setGame(this.game);
+    this.elements.add(element);
+    return element;
+  }
+
+  onMouseMove(x, y) {
+    let newHovered = null;
+    const hitElements = Array.from(this.elements)
+      .filter(element => element.contains(x, y))
+      .reverse(); // Process from top to bottom
+
+    // Handle hover states
+    hitElements.forEach(element => {
+      element.onMouseMove(x, y);
+      if (element.isHovered) {
+        newHovered = element;
       }
     });
-    this.children.clear();
+
+    if (this.hoveredElement !== newHovered) {
+      if (this.hoveredElement) {
+        this.hoveredElement.isHovered = false;
+        this.hoveredElement.onMouseLeave();
+      }
+      this.hoveredElement = newHovered;
+      if (newHovered) {
+        newHovered.onMouseEnter();
+      }
+    }
   }
 
-  destroy() {
-    this.clear();
+  onMouseDown(x, y) {
+    const hitElements = Array.from(this.elements)
+      .filter(element => element.contains(x, y))
+      .reverse(); // Process from top to bottom
+
+    for (const element of hitElements) {
+      const shouldStopPropagation = element.onMouseDown(x, y);
+      if (shouldStopPropagation) {
+        break;
+      }
+    }
   }
 
-  resize() {
-    this.width = this.game.canvas.width;
-    this.height = this.game.canvas.height;
+  update(deltaTime) {
+    for (const element of this.elements) {
+      element.update(deltaTime);
+    }
+  }
+
+  draw(deltaTime) {
+    for (const element of this.elements) {
+      element.draw(deltaTime);
+    }
   }
 } 
