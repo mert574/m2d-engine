@@ -4,9 +4,8 @@ import { KeyboardControl } from '../../constraints/keyboardControl.js';
 export class Player extends Entity {
   name = 'Player';
 
-  constructor(context, body, sprite, game) {
-    super(context, body, sprite);
-    this.game = game;
+  constructor(body, sprite, game) {
+    super(body, sprite, game);
 
     const control = new KeyboardControl(this, {
       moveForce: 0.01,

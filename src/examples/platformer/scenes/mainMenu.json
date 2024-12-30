@@ -10,20 +10,20 @@
     {
       "type": "rect",
       "id": "background",
-      "x": 0,
-      "y": 0,
-      "width": 2560,
-      "height": 1532,
+      "x": 640,
+      "y": 480,
+      "width": 1280,
+      "height": 960,
       "color": "#298ccc"
     },
     {
       "type": "text",
       "id": "title",
-      "x": 400,
-      "y": 250,
+      "x": 640,
+      "y": 200,
       "properties": {
-        "text": "M2D Engine - Platformer Demo",
-        "fontSize": 48,
+        "text": "Platformer Demo",
+        "fontSize": "128px",
         "align": "center",
         "color": "#ffffff"
       }
@@ -31,21 +31,33 @@
     {
       "type": "button",
       "id": "startGame",
-      "x": 400,
-      "y": 350,
+      "x": 640,
+      "y": 400,
       "properties": {
         "text": "Start Game",
-        "onClick": "level1"
+        "onClick": "level1",
+        "width": 200,
+        "height": 50,
+        "fontSize": "24px",
+        "backgroundColor": "#2E7D32",
+        "hoverColor": "#4CAF50",
+        "textColor": "#ffffff"
       }
     },
     {
       "type": "button",
       "id": "settings",
-      "x": 400,
-      "y": 420,
+      "x": 640,
+      "y": 470,
       "properties": {
         "text": "Settings",
-        "onClick": "settings"
+        "onClick": "settings",
+        "width": 200,
+        "height": 50,
+        "fontSize": "24px",
+        "backgroundColor": "#2E7D32",
+        "hoverColor": "#4CAF50",
+        "textColor": "#ffffff"
       }
     }
   ]
