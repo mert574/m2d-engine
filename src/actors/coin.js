@@ -4,8 +4,8 @@ import Matter from 'matter-js';
 export class Coin extends Entity {
   name = 'Coin';
   
-  constructor(ctx, body, sprite, game, options = {}) {
-    super(ctx, body, sprite, game);
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
     
     this.floatOffset = 0;
     this.floatSpeed = 2;

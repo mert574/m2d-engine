@@ -3,8 +3,8 @@ import { Entity } from '../core/entity.js';
 export class Trigger extends Entity {
   name = 'Trigger';
 
-  constructor(context, body, sprite, game, options = {}) {
-    super(context, body, sprite, game);
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
 
     this.active = options.active || false;
     this.visible = options.visible || false;
@@ -40,16 +40,17 @@ export class Trigger extends Entity {
     // noop since it doesn't have a sprite.
   }
 
-  draw(ctx) {
+  draw() {
     if (!this.visible) return;
 
     if (this.sprite) {
-      super.draw(ctx);
+      super.draw();
     }
 
     const bounds = this.body.bounds;
     const width = bounds.max.x - bounds.min.x;
     const height = bounds.max.y - bounds.min.y;
+    const ctx = this.game.renderer.worldContext;
 
     ctx.save();
     ctx.fillStyle = this.debugColor;

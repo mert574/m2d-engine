@@ -8,8 +8,8 @@ import Matter from 'matter-js';
 export class Player extends Entity {
   name = 'Player';
 
-  constructor(context, body, sprite, game, options = {}) {
-    super(context, body, sprite, game);
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
 
     Matter.Body.setMass(body, 1);
 
@@ -69,7 +69,14 @@ export class Player extends Entity {
       }
     }));
 
-    this.addConstraint('debug', new Debug(this));
+    this.addConstraint('debug', new Debug(this, {
+      boundsColor: '#00ff00',
+      boundsFillColor: 'rgba(0, 255, 0, 0.1)',
+      centerColor: '#ff0000',
+      textColor: '#00ff00',
+      healthyColor: '#00ff00',
+      lowHealthColor: '#ff0000'
+    }));
   }
 
   onCollisionStart(other) {
@@ -102,5 +109,34 @@ export class Player extends Entity {
 
   isOnGround() {
     return this.groundContacts.size > 0;
+  }
+
+  draw() {
+    super.draw();
+
+    if (this.game.renderer.isDebugEnabled()) {
+      // Draw facing direction
+      const directionLength = 20;
+      this.game.renderer.drawLine({
+        x1: this.position.x,
+        y1: this.position.y,
+        x2: this.position.x + (directionLength * this.facingDirection),
+        y2: this.position.y,
+        strokeStyle: '#ff0000',
+        lineWidth: 1
+      });
+
+      // Draw ground state
+      this.game.renderer.drawText({
+        text: `ground: ${this.isOnGround()}`,
+        x: this.body.bounds.min.x,
+        y: this.body.bounds.max.y + 5,
+        fillStyle: '#00ff00',
+        fontSize: '12px',
+        fontFamily: 'monospace',
+        textAlign: 'left',
+        textBaseline: 'top'
+      });
+    }
   }
 }

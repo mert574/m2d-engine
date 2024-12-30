@@ -77,6 +77,7 @@ export class Attack extends Constraint {
           Matter.Body.applyForce(body, body.position,
             { x: this.direction * 0.5, y: -0.3 });
         }
+
       }
     }
   }
@@ -98,33 +99,29 @@ export class Attack extends Constraint {
 
   draw() {
     const pos = this.entity.position;
-    const ctx = this.entity.game.renderer.worldContext;
-
-    ctx.save();
-    ctx.beginPath();
 
     // Draw full circle in light blue
-    ctx.strokeStyle = 'rgba(0, 150, 255, 0.3)';
-    ctx.arc(pos.x, pos.y, this.range, 0, Math.PI * 2);
-    ctx.stroke();
+    this.entity.game.renderer.drawArc({
+      x: pos.x,
+      y: pos.y,
+      radius: this.range,
+      startAngle: 0,
+      endAngle: Math.PI * 2,
+      strokeStyle: 'rgba(0, 150, 255, 0.3)',
+      fill: false
+    });
 
     // Draw active half in red when attacking
     if (this.isAttacking) {
-      ctx.beginPath();
-      ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-      ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-      ctx.arc(
-        pos.x,
-        pos.y,
-        this.range,
-        this.direction > 0 ? -Math.PI / 2 : Math.PI / 2,
-        this.direction > 0 ? Math.PI / 2 : 3 * Math.PI / 2,
-        false
-      );
-      ctx.fill();
-      ctx.stroke();
+      this.entity.game.renderer.drawArc({
+        x: pos.x,
+        y: pos.y,
+        radius: this.range,
+        startAngle: this.direction > 0 ? -Math.PI / 2 : Math.PI / 2,
+        endAngle: this.direction > 0 ? Math.PI / 2 : 3 * Math.PI / 2,
+        fillStyle: 'rgba(255, 0, 0, 0.2)',
+        strokeStyle: 'rgba(255, 0, 0, 0.5)'
+      });
     }
-
-    ctx.restore();
   }
 } 

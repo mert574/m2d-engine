@@ -43,7 +43,7 @@ export class Health extends Constraint {
     this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
   }
 
-  draw(ctx) {
+  draw() {
     if (this.entity.dead) return;
 
     const pos = this.entity.position;
@@ -54,6 +54,7 @@ export class Health extends Constraint {
     const barY = pos.y - size.y / 2 - 10; // Position above entity
     const barX = pos.x - barWidth / 2;
 
+    const ctx = this.entity.game.renderer.worldContext;
     ctx.fillStyle = '#333';
     ctx.fillRect(barX, barY, barWidth, barHeight);
 

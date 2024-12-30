@@ -4,20 +4,20 @@ import Matter from 'matter-js';
 export class MovingPlatform extends Entity {
   name = 'MovingPlatform';
 
-  constructor(context, body, sprite, game, options = {}) {
+  constructor(body, sprite, game, options = {}) {
     body.isStatic = true;
     body.friction = 1;
     body.frictionStatic = 1;
     body.restitution = 0;
-    super(context, body, sprite, game);
+    super(body, sprite, game);
 
-    this.points = options.path.points || [];
-    this.speed = options.path.speed || 3;
-    this.waitTime = options.path.waitTime || 1000;
+    this.points = options.path?.points || [];
+    this.speed = options.path?.speed || 3;
+    this.waitTime = options.path?.waitTime || 1000;
     this.currentPoint = 0;
     this.waiting = false;
     this.waitStart = 0;
-    this.lastPosition = { ...this.points[0] };
+    this.lastPosition = this.points[0] ? { ...this.points[0] } : { x: body.position.x, y: body.position.y };
     this.ridingEntities = new Set();
 
     if (this.points.length > 0) {
