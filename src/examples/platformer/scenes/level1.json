@@ -13,12 +13,12 @@
   "assets": {
     "spritesheets": {
       "platform": {
-        "url": "/examples/platformer/assets/platform.png",
+        "url": "assets/platform.png",
         "frameWidth": 32,
         "frameHeight": 32
       },
       "player": {
-        "url": "/examples/platformer/assets/player.png",
+        "url": "assets/player.png",
         "frameWidth": 32,
         "frameHeight": 32,
         "animations": {
@@ -37,7 +37,7 @@
         }
       },
       "enemy": {
-        "url": "/examples/platformer/assets/enemy.png",
+        "url": "assets/enemy.png",
         "frameWidth": 32,
         "frameHeight": 32,
         "animations": {
@@ -56,12 +56,12 @@
         }
       },
       "coin": {
-        "url": "/examples/platformer/assets/coin.png",
+        "url": "assets/coin.png",
         "frameWidth": 32,
         "frameHeight": 32
       },
       "movingPlatform": {
-        "url": "/examples/platformer/assets/movingPlatform.png",
+        "url": "assets/movingPlatform.png",
         "frameWidth": 32,
         "frameHeight": 32,
         "animations": {
