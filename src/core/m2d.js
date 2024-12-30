@@ -4,9 +4,10 @@ import { LayerManager } from './layerManager.js';
 import { CollisionCategories } from './constants.js';
 import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
-import { Renderer } from './renderer.js';
 import { SoundManager } from './soundManager.js';
-import { KEY_R, KEY_M } from './keyCodes.js';
+import { KEY_R, KEY_M, KEY_D } from './keyCodes.js';
+import { CanvasRenderer } from './renderers/canvasRenderer.js';
+import { CanvasUIRenderer } from './renderers/canvasUIRenderer.js';
 
 const defaultOptions = {
   levelNames: [],
@@ -24,8 +25,22 @@ const defaultOptions = {
 export class M2D {
   constructor(canvas, options = {}) {
     this.options = { ...defaultOptions, ...options };
+    
+    // Initialize renderers
+    this.renderer = new CanvasRenderer();
+    this.uiRenderer = new CanvasUIRenderer();
+    this.renderer.init(canvas, {
+      width: this.options.width,
+      height: this.options.height
+    });
+    this.uiRenderer.init(canvas, {
+      width: this.options.width,
+      height: this.options.height
+    });
+    
+    // For backward compatibility
     this.canvas = canvas;
-    this.context = canvas.getContext('2d');
+    this.context = this.renderer.getContext();
     
     this.canvas.width = this.options.width;
     this.canvas.height = this.options.height;
@@ -36,7 +51,6 @@ export class M2D {
       smoothing: 0.1
     });
 
-    this.renderer = new Renderer(this.canvas);
     this.engine = Matter.Engine.create();
     this.collisionCategories = CollisionCategories;
     this.Body = Matter.Body;
@@ -48,34 +62,24 @@ export class M2D {
     this.isGameOver = false;
 
     this.keys = new KeyStates();
-    this.layers = new LayerManager(this.context);
+    this.layers = new LayerManager();
+    this.layers.setGame(this);
     this.sceneManager = new SceneManager(this);
     this.soundManager = new SoundManager();
 
     this.keys.addKey(KEY_R);
     this.keys.addKey(KEY_M);
+    this.keys.addKey(KEY_D);
 
     this.update = this.update.bind(this);
     this.lastTime = 0;
   }
 
   resize() {
-    const container = this.canvas.parentElement;
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-    
-    const scale = Math.min(
-      containerWidth / this.baseWidth,
-      containerHeight / this.baseHeight
-    );
-    
-    this.width = Math.floor(this.baseWidth * scale);
-    this.height = Math.floor(this.baseHeight * scale);
-    
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
-    this.canvas.style.width = `${this.width}px`;
-    this.canvas.style.height = `${this.height}px`;
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+    this.renderer.resize(width, height);
+    this.uiRenderer.resize(width, height);
   }
 
   registerActor(type, ActorClass) {
@@ -103,7 +107,6 @@ export class M2D {
     body.entity = null;  // Will be set in the constructor
 
     const entity = new ActorClass(
-      this.context,
       body,
       spritesheet,
       this,
@@ -119,21 +122,58 @@ export class M2D {
     this.soundManager.playSound('gameOver');
   }
 
-  drawGameOver() {
-    this.renderer.drawScreen(ctx => {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 48px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('Game Over', this.canvas.width / 2, this.canvas.height / 2 - 40);
-
-      ctx.font = '24px Arial';
-      ctx.fillText('Press R to restart', this.canvas.width / 2, this.canvas.height / 2 + 20);
-      ctx.fillText('Press M for menu', this.canvas.width / 2, this.canvas.height / 2 + 60);
+  drawUIBackground() {
+    this.uiRenderer.drawRect({
+      x: 0,
+      y: 0,
+      width: this.canvas.width,
+      height: this.canvas.height,
+      fillStyle: 'rgba(0, 0, 0, 0.7)'
     });
+  }
+
+  drawUIText(text, y, fontSize = 24, isBold = false) {
+    this.uiRenderer.drawText({
+      text,
+      x: this.canvas.width / 2,
+      y,
+      fillStyle: '#fff',
+      fontSize: `${fontSize}px`,
+      fontFamily: 'system-ui',
+      fontWeight: isBold ? 'bold' : 'normal',
+      textAlign: 'center',
+      textBaseline: 'middle'
+    });
+  }
+
+  drawGameOver() {
+    this.uiRenderer.beginFrame();
+    this.drawUIBackground();
+    this.drawUIText('Game Over', this.canvas.height / 2 - 40, 48, true);
+    this.drawUIText('Press R to restart', this.canvas.height / 2 + 20);
+    this.drawUIText('Press M for menu', this.canvas.height / 2 + 60);
+    this.uiRenderer.endFrame();
+  }
+
+  drawLoading() {
+    this.uiRenderer.beginFrame();
+    this.drawUIBackground('rgb(0, 0, 0)');
+    this.drawUIText('Loading...', this.canvas.height / 2, 64);
+    this.uiRenderer.endFrame();
+    console.debug('drawing loading');
+  }
+
+  drawWorld(currentScene) {
+    this.renderer.beginFrame();
+    this.renderer.applyCamera(this.camera);
+    currentScene.draw();
+    this.renderer.endFrame();
+  }
+
+  drawUI(currentScene) {
+    this.uiRenderer.beginFrame();
+    currentScene.drawUI();
+    this.uiRenderer.endFrame();
   }
 
   update(currentTime) {
@@ -148,6 +188,11 @@ export class M2D {
 
     this.renderer.clear('#000');
 
+    // Handle debug toggle
+    if (this.keys.isJustPressed(KEY_D)) {
+      this.renderer.setDebugEnabled(!this.renderer.isDebugEnabled());
+    }
+
     if (this.sceneManager.loading) {
       this.drawLoading();
       requestAnimationFrame(this.update);
@@ -161,11 +206,12 @@ export class M2D {
       if (currentScene) {
         this.camera.update();
         currentScene.update(deltaTime);
-        currentScene.draw(deltaTime);
+        this.drawWorld(currentScene);
+        this.drawUI(currentScene);
       }
     } else {
       if (currentScene) {
-        currentScene.draw(deltaTime);
+        this.drawWorld(currentScene);
       }
       this.drawGameOver();
 
@@ -180,20 +226,10 @@ export class M2D {
       }
     }
 
-    requestAnimationFrame(this.update);
-  }
+    // Update key states at the end of the frame
+    this.keys.update();
 
-  drawLoading() {
-    this.renderer.drawScreen(ctx => {
-      ctx.fillStyle = 'rgb(0, 0, 0)';
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.font = '100 64px system-ui';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('Loading...', this.canvas.width / 2, this.canvas.height / 2);
-    });
-    console.debug('drawing loading');
+    requestAnimationFrame(this.update);
   }
 
   async start() {

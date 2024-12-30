@@ -1,6 +1,12 @@
 import Matter from 'matter-js';
 import { SpriteSheet } from './spriteSheet.js';
 import { Container } from './ui/container.js';
+import { MovingPlatform } from '../actors/movingPlatform.js';
+import { UIButton } from './ui/Button.js';
+import { UIText } from './ui/Text.js';
+import { UIImage } from './ui/Image.js';
+import { UIRectangle } from './ui/Rectangle.js';
+import { PerformanceStats } from './ui/performanceStats.js';
 
 export class Scene {
   constructor(game, config) {
@@ -54,9 +60,9 @@ export class Scene {
 
     const loadPromises = Object.entries(this.config.assets.spritesheets).map(([key, spritesheet]) => 
       new Promise((resolve, reject) => {
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
-          const sheet = new SpriteSheet(img, spritesheet.frameWidth, spritesheet.frameHeight);
+          const sheet = new SpriteSheet(img, spritesheet.frameWidth, spritesheet.frameHeight, this.game);
           this.sprites.set(key, img);
           this.spriteSheets.set(key, sheet);
 
@@ -73,7 +79,7 @@ export class Scene {
         };
         img.onerror = (error) => {
           console.error(`Failed to load sprite: ${spritesheet.url}`, error);
-          reject(new Error(`Failed to load sprite: ${spritesheet.url}`));
+          reject(error);
         };
         img.src = spritesheet.url;
       })
@@ -83,6 +89,7 @@ export class Scene {
       await Promise.all(loadPromises);
     } catch (error) {
       console.error('Error loading sprites:', error);
+      throw error;
     }
   }
 
@@ -92,6 +99,9 @@ export class Scene {
     this.game.layers.clear();
     this.game.player = null;
     this.ui.clear();
+
+    const stats = new PerformanceStats(this.game, 20, 20, { textColor: '#00ff00', show: true });
+    this.ui.addElement(stats);
 
     if (this.config.world) {
       Matter.Engine.clear(this.game.engine);
@@ -183,30 +193,75 @@ export class Scene {
     this.config.elements.forEach(element => {
       switch (element.type) {
         case 'button':
-          this.ui.addButton(element.x, element.y, element.properties.text, () => {
-            if (element.properties.onClick) {
-              this.game.sceneManager.switchTo(element.properties.onClick);
+          const button = new UIButton(
+            element.x,
+            element.y,
+            element.properties.width || 200,
+            element.properties.height || 40,
+            element.properties.text,
+            () => {
+              if (element.properties.onClick) {
+                this.game.sceneManager.switchTo(element.properties.onClick);
+              }
+            },
+            {
+              backgroundColor: element.properties.backgroundColor,
+              hoverColor: element.properties.hoverColor,
+              textColor: element.properties.textColor,
+              fontSize: element.properties.fontSize,
+              fontFamily: element.properties.fontFamily
             }
-          });
+          );
+          button.setGame(this.game);
+          this.ui.addElement(button);
           break;
 
         case 'text':
-          this.ui.addText(element.x, element.y, element.properties.text, {
-            fontSize: element.properties.fontSize,
-            color: element.properties.color,
-            align: element.properties.align
-          });
+          const text = new UIText(
+            element.x,
+            element.y,
+            element.properties.text,
+            {
+              fontSize: element.properties.fontSize,
+              color: element.properties.color,
+              align: element.properties.align
+            }
+          );
+          text.setGame(this.game);
+          this.ui.addElement(text);
           break;
 
         case 'image':
           if (element.sprite) {
             const sprite = this.sprites.get(element.sprite);
-            this.ui.addImage(element.x, element.y, sprite);
+            const image = new UIImage(
+              element.x,
+              element.y,
+              sprite,
+              {
+                width: element.properties.width,
+                height: element.properties.height,
+                scale: element.properties.scale
+              }
+            );
+            image.setGame(this.game);
+            this.ui.addElement(image);
           }
           break;
 
         case 'rect':
-          this.ui.addRect(element.x, element.y, element.width, element.height, element.color);
+          const rect = new UIRectangle(
+            element.x,
+            element.y,
+            element.width,
+            element.height,
+            element.color,
+            {
+              interactive: element.properties?.interactive || false
+            }
+          );
+          rect.setGame(this.game);
+          this.ui.addElement(rect);
           break;
       }
     });
@@ -221,6 +276,9 @@ export class Scene {
     this.sprites.clear();
     this.spriteSheets.clear();
     this.ui.clear();
+
+    // Reset cursor style
+    this.game.renderer.setCursor('default');
 
     // Remove event listeners
     this.game.canvas.removeEventListener('mousemove', this._handleMouseMove);
@@ -246,38 +304,15 @@ export class Scene {
 
   draw(deltaTime) {
     if (this.config.type === 'level') {
-      this.game.renderer.drawWorld(ctx => {
-        ctx.fillStyle = '#000';
+      // Draw background
+      this.game.layers.drawLayer('background');
 
-        ctx.save();
-        ctx.translate(
-          -this.game.camera.x + this.game.camera.width / 2,
-          -this.game.camera.y + this.game.camera.height / 2
-        );
-
-        this.game.layers.draw(ctx, deltaTime);
-
-        this.game.entities.forEach(entity => {
-          if (entity !== this.game.player) {
-            entity.draw(ctx, deltaTime);
-          }
-        });
-
-        if (this.game.player) {
-          this.game.player.draw(ctx, deltaTime);
-        }
-
-        ctx.restore();
-      });
-    } else {
-      this.game.renderer.drawWorld(ctx => {
-        ctx.fillStyle = this.config.backgroundColor || '#000';
-        ctx.fillRect(0, 0, this.game.renderer.worldBuffer.width, this.game.renderer.worldBuffer.height);
-      });
+      // Draw entities
+      this.game.entities.forEach(entity => entity.draw(deltaTime));
     }
+  }
 
-    this.game.renderer.drawScreen(ctx => {
-      this.ui.draw(ctx);
-    });
+  drawUI(deltaTime) {
+    this.ui.draw(deltaTime);
   }
 }

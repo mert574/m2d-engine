@@ -3,10 +3,7 @@ import Matter from 'matter-js';
 export class Entity {
   name = 'Entity';
 
-  constructor(context, body, sprite, game) {
-    if (!context || !(context instanceof CanvasRenderingContext2D)) {
-      throw new Error('Valid canvas context is required');
-    }
+  constructor(body, sprite, game) {
     if (!body) {
       throw new Error('Physics body is required');
     }
@@ -14,7 +11,6 @@ export class Entity {
       throw new Error('Game instance is required');
     }
 
-    this.context = context;
     this.body = body;
     this.sprite = sprite;
     this.game = game;
@@ -22,10 +18,9 @@ export class Entity {
     this.currentAnim = null;
     this.dead = false;
 
-    const { min, max } = this.body.bounds;
     this.size = {
-      x: max.x - min.x,
-      y: max.y - min.y
+      x: body.bounds.max.x - body.bounds.min.x,
+      y: body.bounds.max.y - body.bounds.min.y
     };
 
     this._contacts = new Set();
@@ -61,36 +56,39 @@ export class Entity {
     }
   }
 
-  draw(ctx) {
+  draw(deltaTime) {
     if (this.dead) return;
 
     const pos = this.body.position;
+    if (!this.sprite || !this.sprite.width) {
+      // Draw a placeholder rectangle if sprite is missing
+      this.game.renderer.drawRect({
+        x: pos.x - this.size.x/2,
+        y: pos.y - this.size.y/2,
+        width: this.size.x,
+        height: this.size.y,
+        fillStyle: '#ff0000'
+      });
+      return;
+    }
+
     const tileSize = this.sprite.width;
     const tilesNeededX = Math.ceil(this.size.x / tileSize);
     const tilesNeededY = Math.ceil(this.size.y / tileSize);
 
-    if (this.body.angle) {
-      ctx.save();
-      ctx.translate(pos.x, pos.y);
-      ctx.rotate(this.body.angle);
-    }
-
     for (let i = 0; i < tilesNeededX; i++) {
       for (let j = 0; j < tilesNeededY; j++) {
-        const baseX = this.body.angle ? -this.size.x/2 : pos.x - this.size.x/2;
-        const baseY = this.body.angle ? -this.size.y/2 : pos.y - this.size.y/2;
-        const x = baseX + i * tileSize + tileSize/2;
-        const y = baseY + j * tileSize + tileSize/2;
-        this.sprite.draw(ctx, x, y, this.currentAnim);
+        const x = pos.x - this.size.x/2 + i * tileSize + tileSize/2;
+        const y = pos.y - this.size.y/2 + j * tileSize + tileSize/2;
+        
+        this.sprite.draw(this.currentAnim, x, y, {
+          rotation: this.body.angle
+        });
       }
     }
 
-    if (this.body.angle) {
-      ctx.restore();
-    }
-
     for (const constraint of this.constraints.values()) {
-      constraint.draw(ctx);
+      constraint.draw(deltaTime);
     }
   }
 
@@ -103,6 +101,11 @@ export class Entity {
   }
 
   setAnimation(name) {
+    if (!this.sprite) return;
+    if (!name || !this.sprite.animations) {
+      this.currentAnim = null;
+      return;
+    }
     if (this.sprite.animations.has(name)) {
       this.currentAnim = name;
     }
