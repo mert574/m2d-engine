@@ -24,6 +24,8 @@ export default defineConfig(({ command }) => ({
   root: 'src',
   base: command === 'serve' ? '/' : '/m2d-engine/',
   build: {
+    // actor names are being minified, so we need to disable minification for now
+    minify: false,
     outDir: '../docs',
     emptyOutDir: true,
     assetsDir: 'assets',
