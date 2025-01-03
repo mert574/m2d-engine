@@ -38,7 +38,8 @@ export class PerformanceStats extends UIElement {
       fontSize: this.options.font.size,
       fontFamily: this.options.font.family,
       textAlign: 'left',
-      textBaseline: 'top'
+      textBaseline: 'top',
+      isScreenSpace: true
     });
   }
 } 

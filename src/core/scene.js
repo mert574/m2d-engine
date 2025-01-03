@@ -20,16 +20,16 @@ export class Scene {
   }
 
   _handleMouseMove(event) {
-    const rect = this.game.canvas.getBoundingClientRect();
-    const x = (event.clientX - rect.left) * (this.game.canvas.width / rect.width);
-    const y = (event.clientY - rect.top) * (this.game.canvas.height / rect.height);
+    const rect = this.game.container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
     this.ui.onMouseMove(x, y);
   }
 
   _handleMouseDown(event) {
-    const rect = this.game.canvas.getBoundingClientRect();
-    const x = (event.clientX - rect.left) * (this.game.canvas.width / rect.width);
-    const y = (event.clientY - rect.top) * (this.game.canvas.height / rect.height);
+    const rect = this.game.container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
     this.ui.onMouseDown(x, y);
   }
 
@@ -37,8 +37,8 @@ export class Scene {
     await this.loadAssets();
     this.setupScene();
     
-    this.game.canvas.addEventListener('mousemove', this._handleMouseMove);
-    this.game.canvas.addEventListener('mousedown', this._handleMouseDown);
+    this.game.container.addEventListener('mousemove', this._handleMouseMove);
+    this.game.container.addEventListener('mousedown', this._handleMouseDown);
 
     this.game.camera.init(this);
 
@@ -268,7 +268,9 @@ export class Scene {
   }
 
   unload() {
-    // Call onExit callback if defined
+    this.game.container.removeEventListener('mousemove', this._handleMouseMove);
+    this.game.container.removeEventListener('mousedown', this._handleMouseDown);
+
     if (this.config.onExit) {
       this.config.onExit();
     }
@@ -279,10 +281,6 @@ export class Scene {
 
     // Reset cursor style
     this.game.renderer.setCursor('default');
-
-    // Remove event listeners
-    this.game.canvas.removeEventListener('mousemove', this._handleMouseMove);
-    this.game.canvas.removeEventListener('mousedown', this._handleMouseDown);
   }
 
   update(deltaTime) {

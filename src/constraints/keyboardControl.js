@@ -37,15 +37,14 @@ export class KeyboardControl extends Constraint {
   update() {
     if (this.entity.dead) return;
 
-    const pressedKeys = this.entity.game.keys.pressedKeys();
     let dx = 0;
     let dy = 0;
 
-    if (pressedKeys.has(this.keys.left)) dx -= 1;
-    if (pressedKeys.has(this.keys.right)) dx += 1;
+    if (this.entity.game.keys.isPressed(this.keys.left)) dx -= 1;
+    if (this.entity.game.keys.isPressed(this.keys.right)) dx += 1;
     if (this.verticalMovement) {
-      if (pressedKeys.has(this.keys.up)) dy -= 1;
-      if (pressedKeys.has(this.keys.down)) dy += 1;
+      if (this.entity.game.keys.isPressed(this.keys.up)) dy -= 1;
+      if (this.entity.game.keys.isPressed(this.keys.down)) dy += 1;
     }
 
     // Normalize diagonal movement to prevent faster diagonal speed
@@ -69,10 +68,10 @@ export class KeyboardControl extends Constraint {
     if (this.onMove) {
       this.onMove(dx, dy)
     }
-    if (pressedKeys.has(this.keys.jump)) {
+    if (this.entity.game.keys.isJustPressed(this.keys.jump)) {
       this.onJump?.();
     }
-    if (pressedKeys.has(this.keys.attack)) {
+    if (this.entity.game.keys.isJustPressed(this.keys.attack)) {
       this.onAttack?.();
     }
 

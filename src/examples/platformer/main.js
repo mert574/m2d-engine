@@ -15,8 +15,8 @@ import damageSound from './assets/sounds/damage.wav';
 import menuMusic from './assets/music/menu.mp3';
 import gameMusic from './assets/music/game.mp3';
 
-const canvas = document.getElementById('screen');
-const game = new M2D(canvas, {
+const container = document.getElementById('game');
+const game = new M2D(container, {
   initialScene: 'mainMenu',
   width: 1280,
   height: 960,

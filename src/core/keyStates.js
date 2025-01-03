@@ -49,6 +49,10 @@ export class KeyStates {
     return this.justPressed.has(keyName);
   }
 
+  isPressed(keyName) {
+    return this.keys.get(keyName)?.isPressed ?? false;
+  }
+
   pressedKeys() {
     const pressed = new Set();
     for (let [name, key] of this.keys) {

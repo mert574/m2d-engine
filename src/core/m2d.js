@@ -6,8 +6,8 @@ import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
 import { SoundManager } from './soundManager.js';
 import { KEY_R, KEY_M, KEY_D } from './keyCodes.js';
-import { CanvasRenderer } from './renderers/canvasRenderer.js';
-import { CanvasUIRenderer } from './renderers/canvasUIRenderer.js';
+import { HTMLRenderer } from './renderers/htmlRenderer.js';
+import { HTMLUIRenderer } from './renderers/htmlUIRenderer.js';
 
 const defaultOptions = {
   basePath: '',
@@ -27,24 +27,31 @@ export class M2D {
   constructor(canvas, options = {}) {
     this.options = { ...defaultOptions, ...options };
     
+    // Create container elements
+    this.container = document.createElement('div');
+    this.container.style.position = 'relative';
+    this.container.style.width = `${this.options.width}px`;
+    this.container.style.height = `${this.options.height}px`;
+    canvas.parentNode.insertBefore(this.container, canvas);
+    canvas.remove(); // Remove the canvas as we'll use HTML elements
+
+    this.gameLayer = document.createElement('div');
+    this.uiLayer = document.createElement('div');
+    this.container.appendChild(this.gameLayer);
+    this.container.appendChild(this.uiLayer);
+    
     // Initialize renderers
-    this.renderer = new CanvasRenderer();
-    this.uiRenderer = new CanvasUIRenderer();
-    this.renderer.init(canvas, {
+    this.renderer = new HTMLRenderer();
+    this.uiRenderer = new HTMLUIRenderer();
+    this.renderer.init(this.gameLayer, {
+      width: this.options.width,
+      height: this.options.height,
+      poolSize: 1000 // Pre-create more elements for better performance
+    });
+    this.uiRenderer.init(this.uiLayer, {
       width: this.options.width,
       height: this.options.height
     });
-    this.uiRenderer.init(canvas, {
-      width: this.options.width,
-      height: this.options.height
-    });
-    
-    // For backward compatibility
-    this.canvas = canvas;
-    this.context = this.renderer.getContext();
-    
-    this.canvas.width = this.options.width;
-    this.canvas.height = this.options.height;
     
     this.camera = new Camera(this.options.width, this.options.height, {
       worldWidth: this.options.worldWidth,
@@ -77,8 +84,10 @@ export class M2D {
   }
 
   resize() {
-    const width = this.canvas.clientWidth;
-    const height = this.canvas.clientHeight;
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    this.container.style.width = `${width}px`;
+    this.container.style.height = `${height}px`;
     this.renderer.resize(width, height);
     this.uiRenderer.resize(width, height);
   }
@@ -127,8 +136,8 @@ export class M2D {
     this.uiRenderer.drawRect({
       x: 0,
       y: 0,
-      width: this.canvas.width,
-      height: this.canvas.height,
+      width: this.options.width,
+      height: this.options.height,
       fillStyle: 'rgba(0, 0, 0, 0.7)'
     });
   }
@@ -136,7 +145,7 @@ export class M2D {
   drawUIText(text, y, fontSize = 24, isBold = false) {
     this.uiRenderer.drawText({
       text,
-      x: this.canvas.width / 2,
+      x: this.options.width / 2,
       y,
       fillStyle: '#fff',
       fontSize: `${fontSize}px`,
@@ -150,16 +159,16 @@ export class M2D {
   drawGameOver() {
     this.uiRenderer.beginFrame();
     this.drawUIBackground();
-    this.drawUIText('Game Over', this.canvas.height / 2 - 40, 48, true);
-    this.drawUIText('Press R to restart', this.canvas.height / 2 + 20);
-    this.drawUIText('Press M for menu', this.canvas.height / 2 + 60);
+    this.drawUIText('Game Over', this.options.height / 2 - 40, 48, true);
+    this.drawUIText('Press R to restart', this.options.height / 2 + 20);
+    this.drawUIText('Press M for menu', this.options.height / 2 + 60);
     this.uiRenderer.endFrame();
   }
 
   drawLoading() {
     this.uiRenderer.beginFrame();
     this.drawUIBackground('rgb(0, 0, 0)');
-    this.drawUIText('Loading...', this.canvas.height / 2, 64);
+    this.drawUIText('Loading...', this.options.height / 2, 64);
     this.uiRenderer.endFrame();
     console.debug('drawing loading');
   }
@@ -294,15 +303,10 @@ export class M2D {
   }
 
   getMousePosition(event) {
-    const rect = this.canvas.getBoundingClientRect();
-    const screenX = event.clientX - rect.left;
-    const screenY = event.clientY - rect.top;
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
-
-    return this.camera.screenToWorld(
-      screenX * scaleX,
-      screenY * scaleY
-    );
+    const rect = this.container.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
   }
 } 

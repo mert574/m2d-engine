@@ -54,17 +54,25 @@ export class Health extends Constraint {
     const barY = pos.y - size.y / 2 - 10; // Position above entity
     const barX = pos.x - barWidth / 2;
 
-    const ctx = this.entity.game.renderer.worldContext;
-    ctx.fillStyle = '#333';
-    ctx.fillRect(barX, barY, barWidth, barHeight);
+    // Draw background bar
+    this.entity.game.renderer.drawRect({
+      x: barX,
+      y: barY,
+      width: barWidth,
+      height: barHeight,
+      fillStyle: '#333',
+      isScreenSpace: false
+    });
 
-    ctx.fillStyle = this.currentHealth > 30 ? '#2ecc71' : '#e74c3c';
-    ctx.fillRect(
-      barX,
-      barY,
-      barWidth * this.healthPercentage,
-      barHeight
-    );
+    // Draw health bar
+    this.entity.game.renderer.drawRect({
+      x: barX,
+      y: barY,
+      width: barWidth * this.healthPercentage,
+      height: barHeight,
+      fillStyle: this.currentHealth > 30 ? '#2ecc71' : '#e74c3c',
+      isScreenSpace: false
+    });
   }
 
   get healthPercentage() {

@@ -100,28 +100,47 @@ export class Attack extends Constraint {
   draw() {
     const pos = this.entity.position;
 
-    // Draw full circle in light blue
-    this.entity.game.renderer.drawArc({
-      x: pos.x,
-      y: pos.y,
-      radius: this.range,
-      startAngle: 0,
-      endAngle: Math.PI * 2,
-      strokeStyle: 'rgba(0, 150, 255, 0.3)',
-      fill: false
-    });
-
-    // Draw active half in red when attacking
-    if (this.isAttacking) {
-      this.entity.game.renderer.drawArc({
-        x: pos.x,
-        y: pos.y,
-        radius: this.range,
-        startAngle: this.direction > 0 ? -Math.PI / 2 : Math.PI / 2,
-        endAngle: this.direction > 0 ? Math.PI / 2 : 3 * Math.PI / 2,
-        fillStyle: 'rgba(255, 0, 0, 0.2)',
-        strokeStyle: 'rgba(255, 0, 0, 0.5)'
+    // Create a visual representation of the attack range using rectangles
+    const segments = 8; // Number of segments to approximate a circle
+    const angleStep = Math.PI / segments;
+    
+    // Draw full range indicator
+    for (let i = 0; i < segments * 2; i++) {
+      const angle = i * angleStep;
+      const x = pos.x + Math.cos(angle) * this.range;
+      const y = pos.y + Math.sin(angle) * this.range;
+      
+      this.entity.game.renderer.drawRect({
+        x: x,
+        y: y,
+        width: 4,
+        height: 4,
+        fillStyle: 'rgba(0, 150, 255, 0.3)',
+        isScreenSpace: false
       });
+    }
+
+    // Draw active attack area when attacking
+    if (this.isAttacking) {
+      const startAngle = this.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
+      const endAngle = this.direction > 0 ? Math.PI / 2 : 3 * Math.PI / 2;
+      
+      for (let i = 0; i < segments; i++) {
+        const angle = startAngle + (i * angleStep);
+        if (angle > endAngle) continue;
+        
+        const x = pos.x + Math.cos(angle) * this.range;
+        const y = pos.y + Math.sin(angle) * this.range;
+        
+        this.entity.game.renderer.drawRect({
+          x: x,
+          y: y,
+          width: 6,
+          height: 6,
+          fillStyle: 'rgba(255, 0, 0, 0.3)',
+          isScreenSpace: false
+        });
+      }
     }
   }
 } 

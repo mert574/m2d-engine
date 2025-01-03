@@ -13,8 +13,8 @@ export class Camera {
 
   init(scene) {
     this.scene = scene;
-    this.width = scene.game.canvas.width;
-    this.height = scene.game.canvas.height;
+    this.width = scene.game.options.width;
+    this.height = scene.game.options.height;
   }
 
   follow(target) {
