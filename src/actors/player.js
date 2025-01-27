@@ -13,7 +13,7 @@ export class Player extends Entity {
 
     Matter.Body.setMass(body, 1);
 
-    this.jumpForce = 0.133;
+    this.jumpForce = 0.06;
     this.facingDirection = 1;
     this.setAnimation('idle');
     this.groundContacts = new Set();
