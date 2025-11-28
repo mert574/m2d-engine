@@ -1,4 +1,4 @@
-import { f as M2D, _ as __vitePreload } from "./m2d-D7RYwzOZ.js";
+import { a as M2D, _ as __vitePreload } from "./m2d-DvcW-9SQ.js";
 const options = {
   levelNames: ["maze.json"],
   currentLevel: "maze.json",

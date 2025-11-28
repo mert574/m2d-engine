@@ -5018,7 +5018,8 @@ const CollisionCategories = {
   movingPlatform: 8,
   enemy: 16,
   coin: 32,
-  trigger: 64
+  trigger: 64,
+  projectile: 128
 };
 class SpriteSheet {
   constructor(image, tileW, tileH, game, width = tileW, height = tileH) {
@@ -5458,7 +5459,7 @@ class Scene {
           options: object.properties
         });
         if (entity) {
-          if (prefab.actor === "Player") {
+          if (entity.name === "Player") {
             this.game.player = entity;
             this.game.camera.follow(entity);
           }
@@ -5828,10 +5829,7 @@ class SoundManager {
   playSound(key) {
     if (this.isMuted) return;
     const sound = this.sounds.get(key);
-    if (!sound) {
-      console.warn(`Sound not found: ${key}`);
-      return;
-    }
+    if (!sound) return;
     const clone = sound.cloneNode();
     clone.volume = this.soundVolume;
     clone.play().catch((error) => {
@@ -5849,10 +5847,7 @@ class SoundManager {
       this.currentMusic.currentTime = 0;
     }
     const audio = this.music.get(key);
-    if (!audio) {
-      console.warn(`Music not found: ${key}`);
-      return;
-    }
+    if (!audio) return;
     audio.volume = this.musicVolume;
     this.currentMusic = audio;
     audio.play().catch((error) => {
@@ -7075,10 +7070,10 @@ export {
   KEY_LEFT as K,
   Matter as M,
   __vitePreload as _,
-  KEY_RIGHT as a,
-  KEY_UP as b,
-  KEY_DOWN as c,
-  KEY_SPACE as d,
-  KEY_X as e,
-  M2D as f
+  M2D as a,
+  KEY_RIGHT as b,
+  KEY_UP as c,
+  KEY_DOWN as d,
+  KEY_SPACE as e,
+  KEY_X as f
 };

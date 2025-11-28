@@ -1,19 +1,20 @@
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-import { M as Matter, C as CollisionCategories, K as KEY_LEFT, a as KEY_RIGHT, b as KEY_UP, c as KEY_DOWN, d as KEY_SPACE, e as KEY_X, f as M2D, _ as __vitePreload } from "./m2d-D7RYwzOZ.js";
+import { M as Matter, C as CollisionCategories, K as KEY_LEFT, b as KEY_RIGHT, c as KEY_UP, d as KEY_DOWN, e as KEY_SPACE, f as KEY_X } from "./m2d-DvcW-9SQ.js";
 class Entity {
-  constructor(body, sprite, game2) {
+  constructor(body, sprite, game) {
     __publicField(this, "name", "Entity");
     if (!body) {
       throw new Error("Physics body is required");
     }
-    if (!game2) {
+    if (!game) {
       throw new Error("Game instance is required");
     }
     this.body = body;
     this.sprite = sprite;
-    this.game = game2;
+    this.game = game;
+    body.entity = this;
     this.constraints = /* @__PURE__ */ new Map();
     this.currentAnim = null;
     this.dead = false;
@@ -125,76 +126,6 @@ class Entity {
     return false;
   }
 }
-class MovingPlatform extends Entity {
-  constructor(body, sprite, game2, options = {}) {
-    var _a, _b, _c;
-    body.isStatic = true;
-    body.friction = 1;
-    body.frictionStatic = 1;
-    body.restitution = 0;
-    super(body, sprite, game2);
-    __publicField(this, "name", "MovingPlatform");
-    this.points = ((_a = options.path) == null ? void 0 : _a.points) || [];
-    this.speed = ((_b = options.path) == null ? void 0 : _b.speed) || 3;
-    this.waitTime = ((_c = options.path) == null ? void 0 : _c.waitTime) || 1e3;
-    this.currentPoint = 0;
-    this.waiting = false;
-    this.waitStart = 0;
-    this.lastPosition = this.points[0] ? { ...this.points[0] } : { x: body.position.x, y: body.position.y };
-    this.ridingEntities = /* @__PURE__ */ new Set();
-    if (this.points.length > 0) {
-      Matter.Body.setPosition(this.body, this.points[0]);
-    }
-  }
-  onCollisionStart(other) {
-    super.onCollisionStart(other);
-    if (other.position.y < this.position.y && Math.abs(other.position.x - this.position.x) < this.size.x / 2 + other.bounds.max.x - other.bounds.min.x / 2) {
-      this.ridingEntities.add(other);
-    }
-  }
-  onCollisionEnd(other) {
-    super.onCollisionEnd(other);
-    this.ridingEntities.delete(other);
-  }
-  update(deltaTime) {
-    if (this.points.length < 2) return;
-    if (this.waiting) {
-      const elapsedTime = Date.now() - this.waitStart;
-      if (elapsedTime >= this.waitTime) {
-        this.waiting = false;
-        this.currentPoint = (this.currentPoint + 1) % this.points.length;
-      }
-      return;
-    }
-    const target = this.points[this.currentPoint];
-    const dx = target.x - this.body.position.x;
-    const dy = target.y - this.body.position.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    if (distance < 1) {
-      this.waiting = true;
-      this.waitStart = Date.now();
-      Matter.Body.setPosition(this.body, target);
-      return;
-    }
-    const actualMove = Math.min(this.speed * deltaTime, distance);
-    const vx = dx / distance * actualMove;
-    const vy = dy / distance * actualMove;
-    this.lastPosition = { x: this.body.position.x, y: this.body.position.y };
-    Matter.Body.setPosition(this.body, {
-      x: this.body.position.x + vx,
-      y: this.body.position.y + vy
-    });
-    const delta = {
-      x: this.body.position.x - this.lastPosition.x,
-      y: this.body.position.y - this.lastPosition.y
-    };
-    for (const body of this.ridingEntities) {
-      if (body.entity) {
-        Matter.Body.translate(body, delta);
-      }
-    }
-  }
-}
 class Constraint {
   constructor(entity) {
     this.entity = entity;
@@ -214,13 +145,13 @@ class Health extends Constraint {
     this.maxHealth = options.maxHealth || 100;
     this.currentHealth = this.maxHealth;
     this.invulnerableTime = 0;
-    this.invulnerableDuration = options.invulnerableDuration || 60;
+    this.invulnerableDuration = options.invulnerableDuration || 1;
     this.onDeath = options.onDeath || null;
     this.onDamage = options.onDamage || null;
   }
-  update() {
+  update(deltaTime) {
     if (this.invulnerableTime > 0) {
-      this.invulnerableTime--;
+      this.invulnerableTime -= deltaTime;
     }
   }
   isInvulnerable() {
@@ -311,16 +242,17 @@ class Attack extends Constraint {
     super(entity);
     this.damage = options.damage || 10;
     this.range = options.range || 40;
-    this.cooldown = options.cooldown || 30;
+    this.cooldown = (options.cooldown || 30) / 60;
     this.knockback = options.knockback || 0.02;
     this.onStart = options.onStart;
     this.isAttacking = false;
     this.currentCooldown = 0;
     this.direction = 1;
     this.hits = /* @__PURE__ */ new Set();
-    this.attackDuration = 10;
+    this.attackDuration = 0.167;
     this.attackTime = 0;
-    this.attackAnimEndTime = 20;
+    this.attackAnimEndTime = 0.333;
+    this.hasCheckedHits = false;
     this.hitCircle = Matter.Bodies.circle(0, 0, this.range, {
       isSensor: true,
       isStatic: true,
@@ -328,21 +260,24 @@ class Attack extends Constraint {
     });
     Matter.Composite.add(this.entity.game.engine.world, this.hitCircle);
   }
-  update() {
+  update(deltaTime) {
+    var _a;
     if (this.currentCooldown > 0) {
-      this.currentCooldown--;
+      this.currentCooldown -= deltaTime;
     }
     Matter.Body.setPosition(this.hitCircle, this.entity.position);
     if (this.isAttacking) {
-      this.attackTime++;
-      if (this.attackTime === 1) {
+      if (!this.hasCheckedHits) {
         this.checkHits();
+        this.hasCheckedHits = true;
       }
+      this.attackTime += deltaTime;
       if (this.attackTime >= this.attackDuration) {
         this.isAttacking = false;
         this.attackTime = 0;
+        this.hasCheckedHits = false;
       }
-      if (this.attackTime >= this.attackAnimEndTime && this.entity.currentAnim.includes("attack")) {
+      if (this.attackTime >= this.attackAnimEndTime && ((_a = this.entity.currentAnim) == null ? void 0 : _a.includes("attack"))) {
         this.entity.setAnimation("idle");
       }
     }
@@ -509,7 +444,7 @@ class KeyboardControl extends Constraint {
       attack: KEY_X,
       ...options.keys
     };
-    this.moveForce = options.moveForce || 0.01;
+    this.acceleration = options.acceleration || options.moveForce * 1e3 || 10;
     this.maxSpeed = options.maxSpeed || 5;
     this.continuous = options.continuous ?? true;
     this.verticalMovement = options.verticalMovement ?? true;
@@ -521,7 +456,7 @@ class KeyboardControl extends Constraint {
     this.onJump = (_c = options.onJump) == null ? void 0 : _c.bind(entity);
     this.onAttack = (_d = options.onAttack) == null ? void 0 : _d.bind(entity);
   }
-  update() {
+  update(deltaTime) {
     var _a, _b;
     if (this.entity.dead) return;
     const pressedKeys = this.entity.game.keys.pressedKeys();
@@ -539,11 +474,12 @@ class KeyboardControl extends Constraint {
     }
     if (dx !== 0 || dy !== 0) {
       if (this.continuous) {
-        Matter.Body.applyForce(
-          this.entity.body,
-          this.entity.position,
-          { x: dx * this.moveForce, y: dy * this.moveForce }
-        );
+        const currentVel = this.entity.body.velocity;
+        const accel = this.acceleration * deltaTime;
+        Matter.Body.setVelocity(this.entity.body, {
+          x: currentVel.x + dx * accel,
+          y: currentVel.y + dy * accel
+        });
       } else {
         Matter.Body.setVelocity(
           this.entity.body,
@@ -576,275 +512,77 @@ class KeyboardControl extends Constraint {
     }
   }
 }
-class Player extends Entity {
-  constructor(body, sprite, game2, options = {}) {
-    super(body, sprite, game2);
-    __publicField(this, "name", "Player");
-    Matter.Body.setMass(body, 1);
-    this.jumpForce = 0.06;
-    this.facingDirection = 1;
-    this.setAnimation("idle");
-    this.groundContacts = /* @__PURE__ */ new Set();
-    this.addConstraint("health", new Health(this, {
-      maxHealth: 100,
-      onDeath: () => {
-        console.log("Game Over!");
-        this.game.gameOver();
-      },
-      onDamage: (amount) => {
-        console.log(`Player took ${amount} damage!`);
-        this.game.soundManager.playSound("damage");
+class ContactDamage extends Constraint {
+  constructor(entity, options = {}) {
+    super(entity);
+    this.damage = options.damage ?? 33;
+    this.knockbackStrength = options.knockbackStrength ?? 12;
+    this.stunDuration = options.stunDuration ?? 0.5;
+    this.stunTime = 0;
+    this.collidingEntities = /* @__PURE__ */ new Set();
+  }
+  update(deltaTime) {
+    if (this.stunTime > 0) {
+      this.stunTime -= deltaTime;
+    }
+    for (const otherEntity of this.collidingEntities) {
+      if (otherEntity.dead) {
+        this.collidingEntities.delete(otherEntity);
+        continue;
       }
-    }));
-    this.addConstraint("attack", new Attack(this, {
-      damage: 65,
-      range: 50,
-      cooldown: 60,
-      onStart: () => {
-        this.game.soundManager.playSound("attack");
+      this.applyDamage(otherEntity);
+    }
+  }
+  isStunned() {
+    return this.stunTime > 0;
+  }
+  applyDamage(otherEntity) {
+    const health = otherEntity.getConstraint("health");
+    if (!health || health.isInvulnerable()) return;
+    if (otherEntity.getConstraint("contactDamage")) return;
+    health.takeDamage(this.damage);
+    if (this.knockbackStrength > 0) {
+      const dx = otherEntity.position.x - this.entity.position.x;
+      const dy = otherEntity.position.y - this.entity.position.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const dirX = dx / dist;
+      const dirY = dy / dist;
+      Matter.Body.setVelocity(otherEntity.body, {
+        x: dirX * this.knockbackStrength,
+        y: dirY * this.knockbackStrength
+      });
+      if (!this.entity.body.isStatic) {
+        this.stunTime = this.stunDuration;
       }
-    }));
-    this.addConstraint("control", new KeyboardControl(this, {
-      moveForce: 6e-3,
-      maxSpeed: 3,
-      continuous: true,
-      verticalMovement: false,
-      onMove: (dx, dy) => {
-        if (dx !== 0) {
-          this.setAnimation("run");
-        } else {
-          this.setAnimation("idle");
-        }
-      },
-      onDirectionChange: (direction) => {
-        this.facingDirection = direction;
-      },
-      onJump: () => {
-        if (this.isOnGround()) {
-          Matter.Body.applyForce(this.body, this.position, { x: 0, y: -this.jumpForce });
-          this.setAnimation("jump");
-          this.game.soundManager.playSound("jump");
-        }
-      },
-      onAttack: () => {
-        const attack = this.getConstraint("attack");
-        if (attack) {
-          attack.startAttack(this.facingDirection);
-        }
-      }
-    }));
-    this.addConstraint("debug", new Debug(this, {
-      boundsColor: "#00ff00",
-      boundsFillColor: "rgba(0, 255, 0, 0.1)",
-      centerColor: "#ff0000",
-      textColor: "#00ff00",
-      healthyColor: "#00ff00",
-      lowHealthColor: "#ff0000"
-    }));
+    }
   }
   onCollisionStart(other) {
-    var _a, _b, _c, _d;
-    super.onCollisionStart(other);
-    if (((_a = other.entity) == null ? void 0 : _a.name) === "Coin") {
-      this.game.soundManager.playSound("coin");
+    const otherEntity = other.entity;
+    if (!otherEntity) return;
+    if (!otherEntity.getConstraint("contactDamage")) {
+      this.collidingEntities.add(otherEntity);
     }
-    if (other.position.y > this.position.y + this.size.y / 2) {
-      if (((_b = other.entity) == null ? void 0 : _b.name) === "Platform" || ((_c = other.entity) == null ? void 0 : _c.name) === "MovingPlatform") {
-        this.groundContacts.add(other.id);
-      }
-    }
-    if (((_d = other.entity) == null ? void 0 : _d.name) === "Bee") {
-      const health = this.getConstraint("health");
-      if (health) {
-        health.takeDamage(33);
-      }
-    }
+    this.applyDamage(otherEntity);
   }
   onCollisionEnd(other) {
-    super.onCollisionEnd(other);
-    this.groundContacts.delete(other.id);
-  }
-  isOnGround() {
-    return this.groundContacts.size > 0;
-  }
-  draw() {
-    super.draw();
-    if (this.game.renderer.isDebugEnabled()) {
-      const directionLength = 20;
-      this.game.renderer.drawLine({
-        x1: this.position.x,
-        y1: this.position.y,
-        x2: this.position.x + directionLength * this.facingDirection,
-        y2: this.position.y,
-        strokeStyle: "#ff0000",
-        lineWidth: 1
-      });
-      this.game.renderer.drawText({
-        text: `ground: ${this.isOnGround()}`,
-        x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y + 5,
-        fillStyle: "#00ff00",
-        fontSize: "12px",
-        fontFamily: "monospace",
-        textAlign: "left",
-        textBaseline: "top"
-      });
-    }
-  }
-}
-class Bee extends Entity {
-  constructor(body, sprite, game2, options = {}) {
-    body.collisionFilter.category = CollisionCategories.enemy;
-    super(body, sprite, game2);
-    __publicField(this, "name", "Bee");
-    this.speed = 0.5;
-    this.idleSpeed = 0.3;
-    this.detectionRange = 400;
-    this.animTime = 0;
-    this.animSpeed = 0.1;
-    this.setAnimation("idle");
-    this.damageFlashTime = 0;
-    this.damageFlashDuration = 10;
-    const health = new Health(this, 40);
-    health.invulnerableDuration = 30;
-    health.onDeath = () => {
-      this.game.entities.delete(this);
-      Matter.Composite.remove(this.game.engine.world, this.body);
-    };
-    health.onDamage = () => {
-      this.damageFlashTime = this.damageFlashDuration;
-      this.setAnimation("idle");
-      this.game.soundManager.playSound("damage");
-    };
-    this.addConstraint("health", health);
-    this.addConstraint("debug", new Debug(this, {
-      boundsColor: "#ff6b6b",
-      boundsFillColor: "rgba(255, 107, 107, 0.1)",
-      centerColor: "#ff6b6b",
-      textColor: "#ff9999",
-      healthyColor: "#ff9999",
-      lowHealthColor: "#ff4d4d",
-      lowHealthThreshold: 15
-    }));
-    this.targetPoint = this.getNewTargetPoint();
-    this.targetChangeTime = 0;
-    this.targetChangeCooldown = 120;
-  }
-  getNewTargetPoint() {
-    const range = 50;
-    return {
-      x: this.position.x + (Math.random() * range * 2 - range),
-      y: this.position.y + (Math.random() * range * 2 - range)
-    };
-  }
-  update() {
-    if (this.dead) return;
-    super.update();
-    if (this.damageFlashTime > 0) {
-      this.damageFlashTime--;
-    }
-    if (!this.game.player) return;
-    const distance = Vec2.distance(this.position, this.game.player.position);
-    if (distance < this.detectionRange) {
-      const dir = Vec2.direction(this.position, this.game.player.position);
-      const velocity = Vec2.scale(Vec2.normalize(dir), this.speed);
-      Matter.Body.setVelocity(this.body, velocity);
-    } else {
-      this.targetChangeTime++;
-      if (this.targetChangeTime >= this.targetChangeCooldown) {
-        this.targetPoint = this.getNewTargetPoint();
-        this.targetChangeTime = 0;
-      }
-      const distance2 = Vec2.distance(this.position, this.targetPoint);
-      if (distance2 > 1) {
-        const dir = Vec2.direction(this.position, this.targetPoint);
-        const velocity = Vec2.scale(Vec2.normalize(dir), this.idleSpeed);
-        Matter.Body.setVelocity(this.body, velocity);
-      }
-    }
-    this.animTime += this.animSpeed;
-    if (this.animTime >= 3) {
-      this.animTime = 0;
-    }
-    this.sprite.currentFrame = Math.floor(this.animTime);
-  }
-  draw() {
-    if (this.dead) return;
-    super.draw();
-    if (this.damageFlashTime > 0) {
-      const pos = this.position;
-      this.game.renderer.drawRect({
-        x: pos.x - this.size.x / 2,
-        y: pos.y - this.size.y / 2,
-        width: this.size.x,
-        height: this.size.y,
-        fillStyle: "rgba(255, 0, 0, 0.5)"
-      });
-    }
-    if (this.game.renderer.isDebugEnabled()) {
-      this.game.renderer.drawArc({
-        x: this.position.x,
-        y: this.position.y,
-        radius: this.detectionRange,
-        startAngle: 0,
-        endAngle: Math.PI * 2,
-        strokeStyle: "rgba(255, 214, 51, 0.4)",
-        lineWidth: 1
-      });
-      this.game.renderer.drawArc({
-        x: this.targetPoint.x,
-        y: this.targetPoint.y,
-        radius: 3,
-        startAngle: 0,
-        endAngle: Math.PI * 2,
-        fillStyle: "#ffd633"
-      });
-      this.game.renderer.drawLine({
-        x1: this.position.x,
-        y1: this.position.y,
-        x2: this.targetPoint.x,
-        y2: this.targetPoint.y,
-        strokeStyle: "rgba(255, 214, 51, 0.4)",
-        lineWidth: 1
-      });
-      this.game.renderer.drawText({
-        text: `target: ${this.targetChangeTime}/${this.targetChangeCooldown}`,
-        x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y + 5,
-        fillStyle: "#ff9999",
-        fontSize: "12px",
-        fontFamily: "monospace",
-        textAlign: "left",
-        textBaseline: "top"
-      });
-      if (this.game.player) {
-        const distance = Vec2.distance(this.position, this.game.player.position);
-        if (distance < this.detectionRange) {
-          this.game.renderer.drawLine({
-            x1: this.position.x,
-            y1: this.position.y,
-            x2: this.game.player.position.x,
-            y2: this.game.player.position.y,
-            strokeStyle: "rgba(255, 107, 107, 0.4)",
-            lineWidth: 1
-          });
-        }
-      }
+    const otherEntity = other.entity;
+    if (otherEntity) {
+      this.collidingEntities.delete(otherEntity);
     }
   }
 }
 class Platform extends Entity {
-  constructor(body, sprite, game2, options = {}) {
+  constructor(body, sprite, game, options = {}) {
     var _a;
-    super(body, sprite, game2);
+    super(body, sprite, game);
     __publicField(this, "name", "Platform");
     this.visible = !((_a = body.render) == null ? void 0 : _a.visible) === false;
     this.setAnimation("default");
   }
 }
 class Coin extends Entity {
-  constructor(body, sprite, game2, options = {}) {
-    super(body, sprite, game2);
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
     __publicField(this, "name", "Coin");
     this.floatOffset = 0;
     this.floatSpeed = 2;
@@ -871,8 +609,8 @@ class Coin extends Entity {
   }
 }
 class Trigger extends Entity {
-  constructor(body, sprite, game2, options = {}) {
-    super(body, sprite, game2);
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
     __publicField(this, "name", "Trigger");
     this.active = options.active || false;
     this.visible = options.visible || false;
@@ -940,54 +678,15 @@ class Trigger extends Entity {
     this.game.sceneManager.switchTo("mainMenu");
   }
 }
-const jumpSound = "/m2d-engine/assets/jump-DbRpACDv.wav";
-const coinSound = "/m2d-engine/assets/coin-icAG3rpw.wav";
-const gameOverSound = "/m2d-engine/assets/gameover-DmpiVOiz.wav";
-const levelCompleteSound = "/m2d-engine/assets/levelComplete-CQt4W0jU.wav";
-const attackSound = "/m2d-engine/assets/attack-BnULeXjg.wav";
-const damageSound = "/m2d-engine/assets/damage-BU-jNE3L.wav";
-const menuMusic = "/m2d-engine/assets/menu-BqcfDrtw.mp3";
-const gameMusic = "/m2d-engine/assets/game-C8rRGqtg.mp3";
-const canvas = document.getElementById("screen");
-const game = new M2D(canvas, {
-  initialScene: "mainMenu",
-  width: 1280,
-  height: 960,
-  worldWidth: 1920,
-  worldHeight: 1440,
-  basePath: "/m2d-engine/examples/platformer/",
-  sounds: {
-    jump: jumpSound,
-    coin: coinSound,
-    gameOver: gameOverSound,
-    levelComplete: levelCompleteSound,
-    attack: attackSound,
-    damage: damageSound
-  },
-  music: {
-    menu: menuMusic,
-    game: gameMusic
-  }
-});
-[Player, Bee, Platform, MovingPlatform, Coin, Trigger].forEach((actor) => {
-  game.registerActor(actor.name, actor);
-});
-game.sceneManager.addScene("mainMenu", {
-  fetch: async () => (await __vitePreload(async () => {
-    const { default: __vite_default__ } = await import("./mainMenu-DFv_Y5ti.js");
-    return { default: __vite_default__ };
-  }, true ? [] : void 0)).default,
-  onEnter() {
-    game.soundManager.playMusic("menu");
-  }
-});
-game.sceneManager.addScene("level1", {
-  fetch: async () => (await __vitePreload(async () => {
-    const { default: __vite_default__ } = await import("./level1-CTX84xbv.js");
-    return { default: __vite_default__ };
-  }, true ? [] : void 0)).default,
-  onEnter() {
-    game.soundManager.playMusic("game");
-  }
-});
-game.start();
+export {
+  Attack as A,
+  ContactDamage as C,
+  Debug as D,
+  Entity as E,
+  Health as H,
+  KeyboardControl as K,
+  Platform as P,
+  Trigger as T,
+  Vec2 as V,
+  Coin as a
+};
