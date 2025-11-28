@@ -6,14 +6,14 @@ export class Health extends Constraint {
     this.maxHealth = options.maxHealth || 100;
     this.currentHealth = this.maxHealth;
     this.invulnerableTime = 0;
-    this.invulnerableDuration = options.invulnerableDuration || 60; // frames of invulnerability after taking damage
+    this.invulnerableDuration = options.invulnerableDuration || 1; // seconds of invulnerability after taking damage
     this.onDeath = options.onDeath || null;
     this.onDamage = options.onDamage || null;
   }
 
-  update() {
+  update(deltaTime) {
     if (this.invulnerableTime > 0) {
-      this.invulnerableTime--;
+      this.invulnerableTime -= deltaTime;
     }
   }
 
