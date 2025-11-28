@@ -1,192 +1,95 @@
-import { BaseRenderer } from './baseRenderer';
+import { BaseRenderer } from './baseRenderer.js';
+import { HTMLRendererBase } from './htmlRendererBase.js';
 
 export class HTMLRenderer extends BaseRenderer {
   constructor() {
     super();
-    this.container = null;
-    this.layers = new Map();
+    this.base = new HTMLRendererBase();
     this.camera = { x: 0, y: 0, width: 0, height: 0 };
     this.debugEnabled = false;
     this.debugLayer = 'default';
-    this.elementPool = {
-      sprites: new Map(),
-      rects: new Map(),
-      texts: new Map()
-    };
-    this.activeElements = new Set();
-
-    // Performance tracking
-    this.lastTime = performance.now();
-    this.frames = 0;
-    this.currentFPS = 0;
-    this.fpsUpdateInterval = 1000; // Update FPS every second
-    this.lastFPSUpdate = this.lastTime;
-    this.fpsHistory = new Array(60).fill(0);
-    this.fpsHistoryIndex = 0;
-    this.stats = {
-      drawCalls: 0,
-      stateChanges: 0,
-      spritesDrawn: 0,
-      textDrawn: 0,
-      shapesDrawn: 0,
-      activeElements: 0
-    };
   }
 
   init(element, options = {}) {
-    this.container = element;
-    this.container.style.position = 'relative';
-    this.container.style.overflow = 'hidden';
-    this.container.style.width = '100%';
-    this.container.style.height = '100%';
-    this.container.style.imageRendering = 'pixelated';
-    this.container.style.backgroundColor = '#000';
-    this.width = options.width || element.clientWidth;
-    this.height = options.height || element.clientHeight;
+    this.base.container = element;
+    this.base.width = options.width || element.clientWidth;
+    this.base.height = options.height || element.clientHeight;
 
-    // Pre-create pools of elements
-    this.initElementPools(options.poolSize || 100);
+    element.style.cssText = 'position:relative;overflow:hidden;width:100%;height:100%;image-rendering:pixelated;background-color:#000;';
+
+    // Register element pools
+    this.base.registerPool('sprites', 'position:absolute;display:none;background-repeat:no-repeat;image-rendering:pixelated;');
+    this.base.registerPool('rects', 'position:absolute;display:none;');
+    this.base.registerPool('texts', 'position:absolute;display:none;white-space:nowrap;');
+
+    this.base.initPools(options.poolSize || 100);
   }
 
-  initElementPools(poolSize) {
-    // Create sprite elements
-    for (let i = 0; i < poolSize; i++) {
-      const element = document.createElement('div');
-      element.style.position = 'absolute';
-      element.style.display = 'none';
-      element.style.backgroundRepeat = 'no-repeat';
-      element.style.imageRendering = 'pixelated';
-      this.container.appendChild(element);
-      this.elementPool.sprites.set(`sprite-${i}`, element);
-    }
-
-    // Create rect elements
-    for (let i = 0; i < poolSize; i++) {
-      const element = document.createElement('div');
-      element.style.position = 'absolute';
-      element.style.display = 'none';
-      this.container.appendChild(element);
-      this.elementPool.rects.set(`rect-${i}`, element);
-    }
-
-    // Create text elements
-    for (let i = 0; i < poolSize; i++) {
-      const element = document.createElement('div');
-      element.style.position = 'absolute';
-      element.style.display = 'none';
-      element.style.whiteSpace = 'nowrap';
-      this.container.appendChild(element);
-      this.elementPool.texts.set(`text-${i}`, element);
-    }
-  }
+  get width() { return this.base.width; }
+  get height() { return this.base.height; }
 
   destroy() {
-    // Remove all elements
-    Object.values(this.elementPool).forEach(pool => {
-      pool.forEach(element => element.remove());
-      pool.clear();
-    });
-    this.layers.clear();
-    this.activeElements.clear();
+    this.base.destroy();
   }
 
   resize(width, height) {
-    this.width = width;
-    this.height = height;
-    this.container.style.width = `${width}px`;
-    this.container.style.height = `${height}px`;
+    this.base.width = width;
+    this.base.height = height;
+    this.base.container.style.width = `${width}px`;
+    this.base.container.style.height = `${height}px`;
   }
 
   clear() {
-    // Hide all previously active elements
-    this.activeElements.forEach(element => {
-      element.style.display = 'none';
-    });
-    this.activeElements.clear();
+    this.base.hideActiveElements();
+    this.base.resetPools();
   }
 
   beginFrame() {
-    // Reset frame stats
-    this.stats.drawCalls = 0;
-    this.stats.stateChanges = 0;
-    this.stats.spritesDrawn = 0;
-    this.stats.textDrawn = 0;
-    this.stats.shapesDrawn = 0;
-    this.stats.activeElements = this.activeElements.size;
-
-    // Update FPS
-    const now = performance.now();
-    this.frames++;
-
-    if (now >= this.lastFPSUpdate + this.fpsUpdateInterval) {
-      this.currentFPS = Math.round((this.frames * 1000) / (now - this.lastFPSUpdate));
-      this.fpsHistory[this.fpsHistoryIndex] = this.currentFPS;
-      this.fpsHistoryIndex = (this.fpsHistoryIndex + 1) % this.fpsHistory.length;
-      this.frames = 0;
-      this.lastFPSUpdate = now;
-    }
+    this.base.beginFrameBase();
   }
 
   endFrame() {
-    // No cleanup needed as we're reusing elements
+    this.base.endFrameBase();
   }
 
-  getNextFreeElement(type) {
-    const pool = this.elementPool[type];
-    for (const [key, element] of pool) {
-      if (element.style.display === 'none') {
-        // Reset all styles when reusing an element
-        element.style.cssText = 'position: absolute; display: none;';
-        if (type === 'sprites') {
-          element.style.backgroundRepeat = 'no-repeat';
-          element.style.imageRendering = 'pixelated';
-        } else if (type === 'texts') {
-          element.style.whiteSpace = 'nowrap';
-        }
-        return element;
-      }
+  // Coordinate conversion with camera support
+  _convertCoordinates(x, y, isScreenSpace = false) {
+    const scale = this.base.cachedScale;
+
+    if (isScreenSpace) {
+      return {
+        x: x * scale + this.base.cachedOffsetX,
+        y: y * scale + this.base.cachedOffsetY,
+        scale
+      };
     }
-    // If no free element, create a new one
-    const element = document.createElement('div');
-    element.style.position = 'absolute';
-    element.style.display = 'none';
-    if (type === 'sprites') {
-      element.style.backgroundRepeat = 'no-repeat';
-      element.style.imageRendering = 'pixelated';
-    } else if (type === 'texts') {
-      element.style.whiteSpace = 'nowrap';
-    }
-    this.container.appendChild(element);
-    pool.set(`${type}-${pool.size}`, element);
-    return element;
+
+    return {
+      x: (x - (this.camera.x - this.base.width / 2)) * scale + this.base.cachedOffsetX,
+      y: (y - (this.camera.y - this.base.height / 2)) * scale + this.base.cachedOffsetY,
+      scale
+    };
   }
 
-  drawSprite({ image, x, y, tileX, tileY, tileWidth, tileHeight, width, height, rotation = 0, flipX = false, flipY = false, isScreenSpace = false }) {
-    const element = this.getNextFreeElement('sprites');
+  drawSprite({ image, x, y, tileX, tileY, tileWidth, tileHeight, width, height, rotation = 0, flipX = false, flipY = false }) {
+    const element = this.base.getElement('sprites');
     const { x: screenX, y: screenY, scale } = this._convertCoordinates(x, y);
 
     const finalWidth = (width || tileWidth) * scale;
     const finalHeight = (height || tileHeight) * scale;
 
     element.style.display = 'block';
-    element.style.position = 'absolute';
-    element.style.left = `${screenX - finalWidth/2}px`;
-    element.style.top = `${screenY - finalHeight/2}px`;
+    element.style.left = `${screenX - finalWidth / 2}px`;
+    element.style.top = `${screenY - finalHeight / 2}px`;
     element.style.width = `${finalWidth}px`;
     element.style.height = `${finalHeight}px`;
     element.style.backgroundImage = `url(${image.src})`;
-    element.style.backgroundPosition = `-${tileX}px -${tileY}px`;
-    element.style.backgroundSize = `${image.width}px ${image.height}px`;
-    element.style.imageRendering = 'pixelated';
-    element.style.transform = `${rotation ? `rotate(${rotation}rad)` : ''} ${flipX ? 'scaleX(-1)' : ''} ${flipY ? 'scaleY(-1)' : ''}`;
+    element.style.backgroundPosition = `-${tileX * scale}px -${tileY * scale}px`;
+    element.style.backgroundSize = `${image.width * scale}px ${image.height * scale}px`;
+    element.style.transform = `${rotation ? `rotate(${rotation}rad)` : ''} ${flipX ? 'scaleX(-1)' : ''} ${flipY ? 'scaleY(-1)' : ''}`.trim() || 'none';
     element.style.transformOrigin = 'center';
-    element.style.backfaceVisibility = 'hidden';
-    element.style.willChange = 'transform';
 
-    this.activeElements.add(element);
-    this.stats.drawCalls++;
-    this.stats.spritesDrawn++;
-    this.stats.stateChanges += 6;
+    this.base.markActive(element);
   }
 
   drawAnimation({ sprite, x, y, animation, frame = 0, transform = {} }) {
@@ -207,58 +110,121 @@ export class HTMLRenderer extends BaseRenderer {
     });
   }
 
-  drawRect({ x, y, width, height, fillStyle, strokeStyle, lineWidth = 1, fill = true, isScreenSpace = false }) {
-    const element = this.getNextFreeElement('rects');
+  drawRect({ x, y, width, height, fillStyle, strokeStyle, lineWidth = 1, isScreenSpace = false }) {
+    const element = this.base.getElement('rects');
     const { x: screenX, y: screenY, scale } = this._convertCoordinates(x, y, isScreenSpace);
-
-    element.style.display = 'block';
-    element.style.left = `${screenX - (width * scale)/2}px`;
-    element.style.top = `${screenY - (height * scale)/2}px`;
-    element.style.width = `${width * scale}px`;
-    element.style.height = `${height * scale}px`;
-    
-    if (fill && fillStyle) {
-      element.style.backgroundColor = fillStyle;
-    }
-    
-    if (strokeStyle) {
-      element.style.border = `${lineWidth * scale}px solid ${strokeStyle}`;
-    }
-
-    this.activeElements.add(element);
-    this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
-    this.stats.stateChanges += 4;
-  }
-
-  drawText({ text, x, y, color = '#000', font = '16px Arial', align = 'left', baseline = 'top', isScreenSpace = false }) {
-    const element = this.getNextFreeElement('texts');
-    const { x: screenX, y: screenY, scale } = this._convertCoordinates(x, y, isScreenSpace);
-
-    // Parse font string to scale the font size
-    const [fontSizeStr, ...fontRest] = font.split('px ');
-    const fontSize = parseFloat(fontSizeStr);
-    const scaledFont = `${fontSize * scale}px ${fontRest.join('px ')}`;
 
     element.style.display = 'block';
     element.style.left = `${screenX}px`;
     element.style.top = `${screenY}px`;
-    element.style.color = color;
-    element.style.font = scaledFont;
-    element.style.textAlign = align;
-    element.textContent = text;
+    element.style.width = `${width * scale}px`;
+    element.style.height = `${height * scale}px`;
+    element.style.backgroundColor = fillStyle || 'transparent';
+    element.style.border = strokeStyle ? `${lineWidth * scale}px solid ${strokeStyle}` : 'none';
+    element.style.borderRadius = '';
+    element.style.boxSizing = 'border-box';
 
-    // Apply alignment offset
-    if (align === 'center') {
-      element.style.transform = 'translate(-50%, 0)';
-    } else if (align === 'right') {
-      element.style.transform = 'translate(-100%, 0)';
+    this.base.markActive(element);
+  }
+
+  drawLine({ x1, y1, x2, y2, strokeStyle = '#000', lineWidth = 1, isScreenSpace = false }) {
+    const element = this.base.getElement('rects');
+    const { x: screenX1, y: screenY1, scale } = this._convertCoordinates(x1, y1, isScreenSpace);
+    const { x: screenX2, y: screenY2 } = this._convertCoordinates(x2, y2, isScreenSpace);
+
+    const dx = screenX2 - screenX1;
+    const dy = screenY2 - screenY1;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.atan2(dy, dx);
+
+    element.style.display = 'block';
+    element.style.left = `${screenX1}px`;
+    element.style.top = `${screenY1}px`;
+    element.style.width = `${length}px`;
+    element.style.height = `${lineWidth * scale}px`;
+    element.style.backgroundColor = strokeStyle;
+    element.style.border = 'none';
+    element.style.borderRadius = '';
+    element.style.transformOrigin = '0 50%';
+    element.style.transform = `rotate(${angle}rad)`;
+
+    this.base.markActive(element);
+  }
+
+  drawArc({ x, y, radius, startAngle = 0, endAngle = Math.PI * 2, fillStyle, strokeStyle, lineWidth = 1, fill = true, isScreenSpace = false }) {
+    const element = this.base.getElement('rects');
+    const { x: screenX, y: screenY, scale } = this._convertCoordinates(x, y, isScreenSpace);
+    const scaledRadius = radius * scale;
+    const scaledLineWidth = lineWidth * scale;
+
+    const isFullCircle = Math.abs(endAngle - startAngle - Math.PI * 2) < 0.01;
+
+    element.style.display = 'block';
+    element.style.left = `${screenX - scaledRadius}px`;
+    element.style.top = `${screenY - scaledRadius}px`;
+    element.style.width = `${scaledRadius * 2}px`;
+    element.style.height = `${scaledRadius * 2}px`;
+    element.style.borderRadius = '50%';
+    element.style.boxSizing = 'border-box';
+    element.style.transform = 'none';
+    element.style.transformOrigin = 'center';
+
+    if (isFullCircle) {
+      element.style.backgroundColor = (fill && fillStyle) ? fillStyle : 'transparent';
+      element.style.border = strokeStyle ? `${scaledLineWidth}px solid ${strokeStyle}` : 'none';
+      element.style.background = '';
+      element.style.mask = '';
+      element.style.webkitMask = '';
+    } else {
+      element.style.backgroundColor = 'transparent';
+      element.style.border = 'none';
+
+      const startDeg = (startAngle * 180 / Math.PI) + 90;
+      const endDeg = (endAngle * 180 / Math.PI) + 90;
+      const arcColor = (fill && fillStyle) ? fillStyle : strokeStyle;
+
+      element.style.background = `conic-gradient(from ${startDeg}deg, ${arcColor} 0deg, ${arcColor} ${endDeg - startDeg}deg, transparent ${endDeg - startDeg}deg)`;
+
+      if (!fill && strokeStyle) {
+        const innerRadius = scaledRadius - scaledLineWidth;
+        element.style.mask = `radial-gradient(circle, transparent ${innerRadius}px, black ${innerRadius}px)`;
+        element.style.webkitMask = element.style.mask;
+      }
     }
 
-    this.activeElements.add(element);
-    this.stats.drawCalls++;
-    this.stats.textDrawn++;
-    this.stats.stateChanges += 5;
+    this.base.markActive(element);
+  }
+
+  drawText({ text, x, y, color, fillStyle, font = '16px Arial', align, textAlign, baseline, textBaseline, fontSize, fontFamily, isScreenSpace = false }) {
+    const element = this.base.getElement('texts');
+    const { x: screenX, y: screenY, scale } = this._convertCoordinates(x, y, isScreenSpace);
+
+    const finalColor = color || fillStyle || '#000';
+    const finalAlign = align || textAlign || 'left';
+
+    let scaledFontSize, finalFontFamily;
+    if (fontSize) {
+      const size = typeof fontSize === 'string' ? parseFloat(fontSize) : fontSize;
+      scaledFontSize = size * scale;
+      finalFontFamily = fontFamily || 'Arial';
+    } else {
+      const [fontSizeStr, ...fontRest] = font.split('px ');
+      scaledFontSize = parseFloat(fontSizeStr) * scale;
+      finalFontFamily = fontRest.join('px ') || 'Arial';
+    }
+
+    element.style.display = 'block';
+    element.style.left = `${screenX}px`;
+    element.style.top = `${screenY}px`;
+    element.style.color = finalColor;
+    element.style.fontSize = `${scaledFontSize}px`;
+    element.style.fontFamily = finalFontFamily;
+    element.textContent = text;
+
+    element.style.transform = finalAlign === 'center' ? 'translate(-50%, 0)' :
+                              finalAlign === 'right' ? 'translate(-100%, 0)' : 'none';
+
+    this.base.markActive(element);
   }
 
   applyCamera(camera) {
@@ -266,7 +232,7 @@ export class HTMLRenderer extends BaseRenderer {
   }
 
   setCursor(style) {
-    this.container.style.cursor = style;
+    this.base.container.style.cursor = style;
   }
 
   setDebugEnabled(enabled) {
@@ -286,94 +252,14 @@ export class HTMLRenderer extends BaseRenderer {
   }
 
   getFPS() {
-    return this.currentFPS;
+    return this.base.getFPS();
   }
 
   getAverageFPS() {
-    const sum = this.fpsHistory.reduce((a, b) => a + b, 0);
-    return Math.round(sum / this.fpsHistory.length);
+    return this.base.getAverageFPS();
   }
 
   getStats() {
-    return { ...this.stats };
+    return this.base.getStats();
   }
-
-  drawArc({ x, y, radius, startAngle = 0, endAngle = Math.PI * 2, fillStyle, strokeStyle, fill = true, isScreenSpace = false }) {
-    const segments = 32; // Number of segments to approximate the arc
-    const angleStep = (endAngle - startAngle) / segments;
-    const finalX = isScreenSpace ? x : x - this.camera.x;
-    const finalY = isScreenSpace ? y : y - this.camera.y;
-
-    // Create a container for the arc segments
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = `${finalX}px`;
-    container.style.top = `${finalY}px`;
-    container.style.width = '0';
-    container.style.height = '0';
-    container.style.transform = 'translate(-50%, -50%)';
-    this.container.appendChild(container);
-    
-    // Create segments to approximate the arc
-    for (let i = 0; i <= segments; i++) {
-      const angle = startAngle + (i * angleStep);
-      const segX = Math.cos(angle) * radius;
-      const segY = Math.sin(angle) * radius;
-      
-      const segment = document.createElement('div');
-      segment.style.position = 'absolute';
-      segment.style.width = '4px';
-      segment.style.height = '4px';
-      segment.style.left = `${segX}px`;
-      segment.style.top = `${segY}px`;
-      segment.style.transform = 'translate(-50%, -50%)';
-      
-      if (fill && fillStyle) {
-        segment.style.backgroundColor = fillStyle;
-      }
-      if (strokeStyle) {
-        segment.style.border = `1px solid ${strokeStyle}`;
-      }
-      
-      container.appendChild(segment);
-    }
-
-    this.activeElements.add(container);
-    this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
-  }
-
-  // Helper method to convert game coordinates to screen coordinates
-  _convertCoordinates(x, y, isScreenSpace = false) {
-    // Calculate scale based on container size vs game size
-    const containerRect = this.container.getBoundingClientRect();
-    const scaleX = containerRect.width / this.width;
-    const scaleY = containerRect.height / this.height;
-    const scale = Math.min(scaleX, scaleY);
-
-    // For screen space coordinates, don't apply camera offset
-    if (isScreenSpace) {
-      // Calculate offset to center the game in the container
-      const offsetX = (containerRect.width - this.width * scale) / 2;
-      const offsetY = (containerRect.height - this.height * scale) / 2;
-      return {
-        x: x * scale + offsetX,
-        y: y * scale + offsetY,
-        scale
-      };
-    }
-
-    // For world space coordinates:
-    // 1. Apply camera offset (centered on camera)
-    // 2. Scale the coordinates
-    // 3. Center in container
-    const screenX = (x - (this.camera.x - this.width/2)) * scale + (containerRect.width - this.width * scale) / 2;
-    const screenY = (y - (this.camera.y - this.height/2)) * scale + (containerRect.height - this.height * scale) / 2;
-
-    return {
-      x: screenX,
-      y: screenY,
-      scale
-    };
-  }
-} 
+}
