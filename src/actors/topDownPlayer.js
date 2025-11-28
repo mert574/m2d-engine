@@ -5,7 +5,7 @@ import { Debug } from '../constraints/debug.js';
 import { KeyboardControl } from '../constraints/keyboardControl.js';
 import Matter from 'matter-js';
 
-export class Player extends Entity {
+export class TopDownPlayer extends Entity {
   name = 'Player';
 
   constructor(body, sprite, game, options = {}) {
@@ -13,10 +13,8 @@ export class Player extends Entity {
 
     Matter.Body.setMass(body, 1);
 
-    this.jumpVelocity = 12;
     this.facingDirection = 1;
     this.setAnimation('idle');
-    this.groundContacts = new Set();
 
     this.addConstraint('health', new Health(this, {
       maxHealth: 100,
@@ -43,9 +41,9 @@ export class Player extends Entity {
       acceleration: 50,
       maxSpeed: 3,
       continuous: true,
-      verticalMovement: false,
+      verticalMovement: true, // Enable vertical movement for top-down
       onMove: (dx, dy) => {
-        if (dx !== 0) {
+        if (dx !== 0 || dy !== 0) {
           this.setAnimation('run');
         } else {
           this.setAnimation('idle');
@@ -53,13 +51,6 @@ export class Player extends Entity {
       },
       onDirectionChange: (direction) => {
         this.facingDirection = direction;
-      },
-      onJump: () => {
-        if (this.isOnGround()) {
-          Matter.Body.setVelocity(this.body, { x: this.body.velocity.x, y: -this.jumpVelocity });
-          this.setAnimation('jump');
-          this.game.soundManager.playSound('jump');
-        }
       },
       onAttack: () => {
         const attack = this.getConstraint('attack');
@@ -85,21 +76,6 @@ export class Player extends Entity {
     if (other.entity?.name === 'Coin') {
       this.game.soundManager.playSound('coin');
     }
-
-    if (other.position.y > this.position.y + (this.size.y / 2)) {
-      if (other.entity?.name === 'Platform' || other.entity?.name === 'MovingPlatform') {
-        this.groundContacts.add(other.id);
-      }
-    }
-  }
-
-  onCollisionEnd(other) {
-    super.onCollisionEnd(other);
-    this.groundContacts.delete(other.id);
-  }
-
-  isOnGround() {
-    return this.groundContacts.size > 0;
   }
 
   draw() {
@@ -115,18 +91,6 @@ export class Player extends Entity {
         y2: this.position.y,
         strokeStyle: '#ff0000',
         lineWidth: 1
-      });
-
-      // Draw ground state
-      this.game.renderer.drawText({
-        text: `ground: ${this.isOnGround()}`,
-        x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y + 5,
-        fillStyle: '#00ff00',
-        fontSize: '12px',
-        fontFamily: 'monospace',
-        textAlign: 'left',
-        textBaseline: 'top'
       });
     }
   }

@@ -156,7 +156,7 @@ export class Scene {
         });
 
         if (entity) {
-          if (prefab.actor === 'Player') {
+          if (entity.name === 'Player') {
             this.game.player = entity;
             this.game.camera.follow(entity);
           }

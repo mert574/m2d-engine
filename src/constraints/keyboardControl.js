@@ -19,7 +19,7 @@ export class KeyboardControl extends Constraint {
     };
 
     // Movement configuration
-    this.moveForce = options.moveForce || 0.01;
+    this.acceleration = options.acceleration || options.moveForce * 1000 || 10; // units per second squared
     this.maxSpeed = options.maxSpeed || 5;
     this.continuous = options.continuous ?? true;
     this.verticalMovement = options.verticalMovement ?? true;
@@ -34,7 +34,7 @@ export class KeyboardControl extends Constraint {
     this.onAttack = options.onAttack?.bind(entity);
   }
 
-  update() {
+  update(deltaTime) {
     if (this.entity.dead) return;
 
     const pressedKeys = this.entity.game.keys.pressedKeys();
@@ -56,8 +56,13 @@ export class KeyboardControl extends Constraint {
 
     if (dx !== 0 || dy !== 0) {
       if (this.continuous) {
-        Matter.Body.applyForce(this.entity.body, this.entity.position,
-          { x: dx * this.moveForce, y: dy * this.moveForce });
+        // Apply velocity change directly scaled by deltaTime for frame-rate independence
+        const currentVel = this.entity.body.velocity;
+        const accel = this.acceleration * deltaTime;
+        Matter.Body.setVelocity(this.entity.body, {
+          x: currentVel.x + dx * accel,
+          y: currentVel.y + dy * accel
+        });
       } else {
         Matter.Body.setVelocity(this.entity.body,
           { x: dx * this.maxSpeed, y: dy * this.maxSpeed });

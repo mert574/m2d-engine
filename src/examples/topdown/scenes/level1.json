@@ -1,0 +1,435 @@
+{
+  "version": 1,
+  "name": "level1",
+  "type": "level",
+  "gameType": "topDown",
+
+  "world": {
+    "width": 3840,
+    "height": 2880,
+    "gravity": { "x": 0, "y": 0 }
+  },
+
+  "assets": {
+    "spritesheets": {
+      "wall": {
+        "url": "assets/wall.png",
+        "frameWidth": 32,
+        "frameHeight": 32
+      },
+      "player": {
+        "url": "assets/player.png",
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "animations": {
+          "idle": {
+            "frames": [[0, 0]],
+            "loop": true
+          },
+          "run": {
+            "frames": [[1, 0]],
+            "loop": true
+          }
+        }
+      },
+      "enemy": {
+        "url": "assets/enemy.png",
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "animations": {
+          "idle": {
+            "frames": [[0, 0]],
+            "loop": true
+          }
+        }
+      },
+      "coin": {
+        "url": "assets/coin.png",
+        "frameWidth": 32,
+        "frameHeight": 32
+      },
+      "trigger": {
+        "url": "assets/trigger.png",
+        "frameWidth": 32,
+        "frameHeight": 32
+      }
+    }
+  },
+
+  "prefabs": {
+    "player": {
+      "actor": "TopDownPlayer",
+      "spritesheet": "player",
+      "defaultAnimation": "idle",
+      "physics": {
+        "bodyType": "dynamic",
+        "friction": 0.1,
+        "frictionStatic": 0.1,
+        "frictionAir": 0.2
+      }
+    },
+    "wall": {
+      "actor": "Platform",
+      "spritesheet": "wall",
+      "physics": {
+        "bodyType": "static",
+        "friction": 1.0,
+        "frictionStatic": 1.0
+      }
+    },
+    "coin": {
+      "actor": "Coin",
+      "spritesheet": "coin",
+      "physics": {
+        "bodyType": "static",
+        "isSensor": true
+      }
+    },
+    "ghost": {
+      "actor": "Ghost",
+      "spritesheet": "enemy",
+      "defaultAnimation": "idle",
+      "physics": {
+        "bodyType": "dynamic",
+        "friction": 0.1,
+        "frictionAir": 0.2
+      }
+    },
+    "trigger": {
+      "actor": "Trigger",
+      "spritesheet": "trigger",
+      "physics": {
+        "bodyType": "static",
+        "isSensor": true
+      }
+    },
+    "turret": {
+      "actor": "Turret",
+      "physics": {
+        "bodyType": "static"
+      }
+    }
+  },
+
+  "layers": [
+    {
+      "name": "walls",
+      "type": "static",
+      "objects": [
+        { "id": 1, "prefab": "wall", "x": 1920, "y": 16, "width": 3840, "height": 32 },
+        { "id": 2, "prefab": "wall", "x": 1920, "y": 2864, "width": 3840, "height": 32 },
+        { "id": 3, "prefab": "wall", "x": 16, "y": 1440, "width": 32, "height": 2880 },
+        { "id": 4, "prefab": "wall", "x": 3824, "y": 1440, "width": 32, "height": 2880 },
+
+        { "id": 10, "prefab": "wall", "x": 200, "y": 200, "width": 32, "height": 300 },
+        { "id": 11, "prefab": "wall", "x": 350, "y": 200, "width": 300, "height": 32 },
+        { "id": 12, "prefab": "wall", "x": 500, "y": 350, "width": 32, "height": 300 },
+        { "id": 13, "prefab": "wall", "x": 200, "y": 500, "width": 300, "height": 32 },
+
+        { "id": 20, "prefab": "wall", "x": 700, "y": 100, "width": 32, "height": 200 },
+        { "id": 21, "prefab": "wall", "x": 850, "y": 200, "width": 300, "height": 32 },
+        { "id": 22, "prefab": "wall", "x": 700, "y": 400, "width": 400, "height": 32 },
+        { "id": 23, "prefab": "wall", "x": 900, "y": 300, "width": 32, "height": 200 },
+
+        { "id": 30, "prefab": "wall", "x": 1200, "y": 150, "width": 32, "height": 300 },
+        { "id": 31, "prefab": "wall", "x": 1350, "y": 150, "width": 300, "height": 32 },
+        { "id": 32, "prefab": "wall", "x": 1500, "y": 300, "width": 32, "height": 300 },
+        { "id": 33, "prefab": "wall", "x": 1350, "y": 450, "width": 300, "height": 32 },
+        { "id": 34, "prefab": "wall", "x": 1200, "y": 600, "width": 400, "height": 32 },
+
+        { "id": 40, "prefab": "wall", "x": 1800, "y": 100, "width": 32, "height": 250 },
+        { "id": 41, "prefab": "wall", "x": 1950, "y": 225, "width": 300, "height": 32 },
+        { "id": 42, "prefab": "wall", "x": 2100, "y": 100, "width": 32, "height": 250 },
+        { "id": 43, "prefab": "wall", "x": 1950, "y": 400, "width": 32, "height": 200 },
+
+        { "id": 50, "prefab": "wall", "x": 2300, "y": 200, "width": 32, "height": 400 },
+        { "id": 51, "prefab": "wall", "x": 2450, "y": 200, "width": 300, "height": 32 },
+        { "id": 52, "prefab": "wall", "x": 2600, "y": 350, "width": 32, "height": 300 },
+        { "id": 53, "prefab": "wall", "x": 2450, "y": 500, "width": 300, "height": 32 },
+
+        { "id": 60, "prefab": "wall", "x": 2900, "y": 150, "width": 32, "height": 300 },
+        { "id": 61, "prefab": "wall", "x": 3050, "y": 150, "width": 300, "height": 32 },
+        { "id": 62, "prefab": "wall", "x": 3200, "y": 300, "width": 32, "height": 300 },
+        { "id": 63, "prefab": "wall", "x": 3050, "y": 450, "width": 300, "height": 32 },
+
+        { "id": 70, "prefab": "wall", "x": 3400, "y": 200, "width": 32, "height": 400 },
+        { "id": 71, "prefab": "wall", "x": 3550, "y": 400, "width": 300, "height": 32 },
+
+        { "id": 100, "prefab": "wall", "x": 150, "y": 700, "width": 300, "height": 32 },
+        { "id": 101, "prefab": "wall", "x": 300, "y": 850, "width": 32, "height": 300 },
+        { "id": 102, "prefab": "wall", "x": 150, "y": 1000, "width": 300, "height": 32 },
+        { "id": 103, "prefab": "wall", "x": 500, "y": 750, "width": 32, "height": 350 },
+
+        { "id": 110, "prefab": "wall", "x": 700, "y": 650, "width": 32, "height": 300 },
+        { "id": 111, "prefab": "wall", "x": 850, "y": 650, "width": 300, "height": 32 },
+        { "id": 112, "prefab": "wall", "x": 1000, "y": 800, "width": 32, "height": 300 },
+        { "id": 113, "prefab": "wall", "x": 700, "y": 950, "width": 400, "height": 32 },
+        { "id": 114, "prefab": "wall", "x": 850, "y": 1100, "width": 300, "height": 32 },
+
+        { "id": 120, "prefab": "wall", "x": 1200, "y": 800, "width": 32, "height": 400 },
+        { "id": 121, "prefab": "wall", "x": 1350, "y": 800, "width": 300, "height": 32 },
+        { "id": 122, "prefab": "wall", "x": 1500, "y": 950, "width": 32, "height": 300 },
+        { "id": 123, "prefab": "wall", "x": 1350, "y": 1100, "width": 300, "height": 32 },
+
+        { "id": 130, "prefab": "wall", "x": 1700, "y": 700, "width": 32, "height": 350 },
+        { "id": 131, "prefab": "wall", "x": 1850, "y": 700, "width": 300, "height": 32 },
+        { "id": 132, "prefab": "wall", "x": 2000, "y": 850, "width": 32, "height": 300 },
+        { "id": 133, "prefab": "wall", "x": 1850, "y": 1000, "width": 300, "height": 32 },
+        { "id": 134, "prefab": "wall", "x": 1700, "y": 1150, "width": 400, "height": 32 },
+
+        { "id": 140, "prefab": "wall", "x": 2200, "y": 750, "width": 32, "height": 400 },
+        { "id": 141, "prefab": "wall", "x": 2350, "y": 750, "width": 300, "height": 32 },
+        { "id": 142, "prefab": "wall", "x": 2500, "y": 900, "width": 32, "height": 300 },
+        { "id": 143, "prefab": "wall", "x": 2350, "y": 1050, "width": 300, "height": 32 },
+
+        { "id": 150, "prefab": "wall", "x": 2700, "y": 650, "width": 32, "height": 350 },
+        { "id": 151, "prefab": "wall", "x": 2850, "y": 650, "width": 300, "height": 32 },
+        { "id": 152, "prefab": "wall", "x": 3000, "y": 800, "width": 32, "height": 300 },
+        { "id": 153, "prefab": "wall", "x": 2850, "y": 950, "width": 300, "height": 32 },
+        { "id": 154, "prefab": "wall", "x": 2700, "y": 1100, "width": 400, "height": 32 },
+
+        { "id": 160, "prefab": "wall", "x": 3200, "y": 700, "width": 32, "height": 400 },
+        { "id": 161, "prefab": "wall", "x": 3350, "y": 700, "width": 300, "height": 32 },
+        { "id": 162, "prefab": "wall", "x": 3500, "y": 850, "width": 32, "height": 300 },
+        { "id": 163, "prefab": "wall", "x": 3350, "y": 1000, "width": 300, "height": 32 },
+
+        { "id": 200, "prefab": "wall", "x": 200, "y": 1300, "width": 32, "height": 400 },
+        { "id": 201, "prefab": "wall", "x": 350, "y": 1300, "width": 300, "height": 32 },
+        { "id": 202, "prefab": "wall", "x": 500, "y": 1450, "width": 32, "height": 300 },
+        { "id": 203, "prefab": "wall", "x": 350, "y": 1600, "width": 300, "height": 32 },
+        { "id": 204, "prefab": "wall", "x": 200, "y": 1750, "width": 400, "height": 32 },
+
+        { "id": 210, "prefab": "wall", "x": 700, "y": 1250, "width": 32, "height": 350 },
+        { "id": 211, "prefab": "wall", "x": 850, "y": 1250, "width": 300, "height": 32 },
+        { "id": 212, "prefab": "wall", "x": 1000, "y": 1400, "width": 32, "height": 300 },
+        { "id": 213, "prefab": "wall", "x": 850, "y": 1550, "width": 300, "height": 32 },
+        { "id": 214, "prefab": "wall", "x": 700, "y": 1700, "width": 400, "height": 32 },
+
+        { "id": 220, "prefab": "wall", "x": 1200, "y": 1350, "width": 32, "height": 400 },
+        { "id": 221, "prefab": "wall", "x": 1350, "y": 1350, "width": 300, "height": 32 },
+        { "id": 222, "prefab": "wall", "x": 1500, "y": 1500, "width": 32, "height": 300 },
+        { "id": 223, "prefab": "wall", "x": 1350, "y": 1650, "width": 300, "height": 32 },
+
+        { "id": 230, "prefab": "wall", "x": 1700, "y": 1300, "width": 32, "height": 350 },
+        { "id": 231, "prefab": "wall", "x": 1850, "y": 1300, "width": 300, "height": 32 },
+        { "id": 232, "prefab": "wall", "x": 2000, "y": 1450, "width": 32, "height": 300 },
+        { "id": 233, "prefab": "wall", "x": 1850, "y": 1600, "width": 300, "height": 32 },
+        { "id": 234, "prefab": "wall", "x": 1700, "y": 1750, "width": 400, "height": 32 },
+
+        { "id": 240, "prefab": "wall", "x": 2200, "y": 1250, "width": 32, "height": 400 },
+        { "id": 241, "prefab": "wall", "x": 2350, "y": 1250, "width": 300, "height": 32 },
+        { "id": 242, "prefab": "wall", "x": 2500, "y": 1400, "width": 32, "height": 300 },
+        { "id": 243, "prefab": "wall", "x": 2350, "y": 1550, "width": 300, "height": 32 },
+        { "id": 244, "prefab": "wall", "x": 2200, "y": 1700, "width": 400, "height": 32 },
+
+        { "id": 250, "prefab": "wall", "x": 2700, "y": 1300, "width": 32, "height": 350 },
+        { "id": 251, "prefab": "wall", "x": 2850, "y": 1300, "width": 300, "height": 32 },
+        { "id": 252, "prefab": "wall", "x": 3000, "y": 1450, "width": 32, "height": 300 },
+        { "id": 253, "prefab": "wall", "x": 2850, "y": 1600, "width": 300, "height": 32 },
+
+        { "id": 260, "prefab": "wall", "x": 3200, "y": 1250, "width": 32, "height": 400 },
+        { "id": 261, "prefab": "wall", "x": 3350, "y": 1250, "width": 300, "height": 32 },
+        { "id": 262, "prefab": "wall", "x": 3500, "y": 1400, "width": 32, "height": 300 },
+        { "id": 263, "prefab": "wall", "x": 3350, "y": 1550, "width": 300, "height": 32 },
+        { "id": 264, "prefab": "wall", "x": 3200, "y": 1700, "width": 400, "height": 32 },
+
+        { "id": 300, "prefab": "wall", "x": 150, "y": 1950, "width": 300, "height": 32 },
+        { "id": 301, "prefab": "wall", "x": 300, "y": 2100, "width": 32, "height": 300 },
+        { "id": 302, "prefab": "wall", "x": 150, "y": 2250, "width": 300, "height": 32 },
+        { "id": 303, "prefab": "wall", "x": 500, "y": 2000, "width": 32, "height": 350 },
+        { "id": 304, "prefab": "wall", "x": 350, "y": 2400, "width": 300, "height": 32 },
+
+        { "id": 310, "prefab": "wall", "x": 700, "y": 1900, "width": 32, "height": 400 },
+        { "id": 311, "prefab": "wall", "x": 850, "y": 1900, "width": 300, "height": 32 },
+        { "id": 312, "prefab": "wall", "x": 1000, "y": 2050, "width": 32, "height": 300 },
+        { "id": 313, "prefab": "wall", "x": 850, "y": 2200, "width": 300, "height": 32 },
+        { "id": 314, "prefab": "wall", "x": 700, "y": 2350, "width": 400, "height": 32 },
+
+        { "id": 320, "prefab": "wall", "x": 1200, "y": 1950, "width": 32, "height": 350 },
+        { "id": 321, "prefab": "wall", "x": 1350, "y": 1950, "width": 300, "height": 32 },
+        { "id": 322, "prefab": "wall", "x": 1500, "y": 2100, "width": 32, "height": 300 },
+        { "id": 323, "prefab": "wall", "x": 1350, "y": 2250, "width": 300, "height": 32 },
+        { "id": 324, "prefab": "wall", "x": 1200, "y": 2400, "width": 400, "height": 32 },
+
+        { "id": 330, "prefab": "wall", "x": 1700, "y": 1900, "width": 32, "height": 400 },
+        { "id": 331, "prefab": "wall", "x": 1850, "y": 1900, "width": 300, "height": 32 },
+        { "id": 332, "prefab": "wall", "x": 2000, "y": 2050, "width": 32, "height": 300 },
+        { "id": 333, "prefab": "wall", "x": 1850, "y": 2200, "width": 300, "height": 32 },
+        { "id": 334, "prefab": "wall", "x": 1700, "y": 2350, "width": 400, "height": 32 },
+
+        { "id": 340, "prefab": "wall", "x": 2200, "y": 1950, "width": 32, "height": 350 },
+        { "id": 341, "prefab": "wall", "x": 2350, "y": 1950, "width": 300, "height": 32 },
+        { "id": 342, "prefab": "wall", "x": 2500, "y": 2100, "width": 32, "height": 300 },
+        { "id": 343, "prefab": "wall", "x": 2350, "y": 2250, "width": 300, "height": 32 },
+
+        { "id": 350, "prefab": "wall", "x": 2700, "y": 1900, "width": 32, "height": 400 },
+        { "id": 351, "prefab": "wall", "x": 2850, "y": 1900, "width": 300, "height": 32 },
+        { "id": 352, "prefab": "wall", "x": 3000, "y": 2050, "width": 32, "height": 300 },
+        { "id": 353, "prefab": "wall", "x": 2850, "y": 2200, "width": 300, "height": 32 },
+        { "id": 354, "prefab": "wall", "x": 2700, "y": 2350, "width": 400, "height": 32 },
+
+        { "id": 360, "prefab": "wall", "x": 3200, "y": 1950, "width": 32, "height": 350 },
+        { "id": 361, "prefab": "wall", "x": 3350, "y": 1950, "width": 300, "height": 32 },
+        { "id": 362, "prefab": "wall", "x": 3500, "y": 2100, "width": 32, "height": 300 },
+        { "id": 363, "prefab": "wall", "x": 3350, "y": 2250, "width": 300, "height": 32 },
+
+        { "id": 400, "prefab": "wall", "x": 200, "y": 2550, "width": 32, "height": 300 },
+        { "id": 401, "prefab": "wall", "x": 350, "y": 2550, "width": 300, "height": 32 },
+        { "id": 402, "prefab": "wall", "x": 500, "y": 2700, "width": 32, "height": 300 },
+
+        { "id": 410, "prefab": "wall", "x": 700, "y": 2500, "width": 32, "height": 350 },
+        { "id": 411, "prefab": "wall", "x": 850, "y": 2500, "width": 300, "height": 32 },
+        { "id": 412, "prefab": "wall", "x": 1000, "y": 2650, "width": 32, "height": 300 },
+
+        { "id": 420, "prefab": "wall", "x": 1200, "y": 2550, "width": 32, "height": 300 },
+        { "id": 421, "prefab": "wall", "x": 1350, "y": 2550, "width": 300, "height": 32 },
+        { "id": 422, "prefab": "wall", "x": 1500, "y": 2700, "width": 32, "height": 300 },
+
+        { "id": 430, "prefab": "wall", "x": 1700, "y": 2500, "width": 32, "height": 350 },
+        { "id": 431, "prefab": "wall", "x": 1850, "y": 2500, "width": 300, "height": 32 },
+        { "id": 432, "prefab": "wall", "x": 2000, "y": 2650, "width": 32, "height": 300 },
+
+        { "id": 440, "prefab": "wall", "x": 2200, "y": 2550, "width": 32, "height": 300 },
+        { "id": 441, "prefab": "wall", "x": 2350, "y": 2550, "width": 300, "height": 32 },
+        { "id": 442, "prefab": "wall", "x": 2500, "y": 2700, "width": 32, "height": 300 },
+
+        { "id": 450, "prefab": "wall", "x": 2700, "y": 2500, "width": 32, "height": 350 },
+        { "id": 451, "prefab": "wall", "x": 2850, "y": 2500, "width": 300, "height": 32 },
+        { "id": 452, "prefab": "wall", "x": 3000, "y": 2650, "width": 32, "height": 300 },
+
+        { "id": 460, "prefab": "wall", "x": 3200, "y": 2550, "width": 32, "height": 300 },
+        { "id": 461, "prefab": "wall", "x": 3350, "y": 2550, "width": 300, "height": 32 },
+        { "id": 462, "prefab": "wall", "x": 3500, "y": 2700, "width": 32, "height": 300 },
+
+        { "id": 500, "prefab": "wall", "x": 600, "y": 600, "width": 32, "height": 32 },
+        { "id": 501, "prefab": "wall", "x": 1100, "y": 500, "width": 32, "height": 32 },
+        { "id": 502, "prefab": "wall", "x": 1650, "y": 550, "width": 32, "height": 32 },
+        { "id": 503, "prefab": "wall", "x": 2750, "y": 550, "width": 32, "height": 32 },
+        { "id": 504, "prefab": "wall", "x": 600, "y": 1200, "width": 32, "height": 32 },
+        { "id": 505, "prefab": "wall", "x": 1100, "y": 1200, "width": 32, "height": 32 },
+        { "id": 506, "prefab": "wall", "x": 1650, "y": 1200, "width": 32, "height": 32 },
+        { "id": 507, "prefab": "wall", "x": 2150, "y": 1200, "width": 32, "height": 32 },
+        { "id": 508, "prefab": "wall", "x": 2650, "y": 1200, "width": 32, "height": 32 },
+        { "id": 509, "prefab": "wall", "x": 3150, "y": 1200, "width": 32, "height": 32 },
+        { "id": 510, "prefab": "wall", "x": 600, "y": 1850, "width": 32, "height": 32 },
+        { "id": 511, "prefab": "wall", "x": 1100, "y": 1850, "width": 32, "height": 32 },
+        { "id": 512, "prefab": "wall", "x": 1650, "y": 1850, "width": 32, "height": 32 },
+        { "id": 513, "prefab": "wall", "x": 2150, "y": 1850, "width": 32, "height": 32 },
+        { "id": 514, "prefab": "wall", "x": 2650, "y": 1850, "width": 32, "height": 32 },
+        { "id": 515, "prefab": "wall", "x": 3150, "y": 1850, "width": 32, "height": 32 },
+        { "id": 516, "prefab": "wall", "x": 600, "y": 2450, "width": 32, "height": 32 },
+        { "id": 517, "prefab": "wall", "x": 1100, "y": 2450, "width": 32, "height": 32 },
+        { "id": 518, "prefab": "wall", "x": 1650, "y": 2450, "width": 32, "height": 32 },
+        { "id": 519, "prefab": "wall", "x": 2150, "y": 2450, "width": 32, "height": 32 },
+        { "id": 520, "prefab": "wall", "x": 2650, "y": 2450, "width": 32, "height": 32 },
+        { "id": 521, "prefab": "wall", "x": 3150, "y": 2450, "width": 32, "height": 32 }
+      ]
+    },
+    {
+      "name": "entities",
+      "type": "dynamic",
+      "objects": [
+        { "id": 1000, "prefab": "player", "x": 100, "y": 100, "width": 32, "height": 32 },
+
+        { "id": 1001, "prefab": "coin", "x": 400, "y": 350, "width": 24, "height": 24 },
+        { "id": 1002, "prefab": "coin", "x": 800, "y": 300, "width": 24, "height": 24 },
+        { "id": 1003, "prefab": "coin", "x": 1350, "y": 300, "width": 24, "height": 24 },
+        { "id": 1004, "prefab": "coin", "x": 1950, "y": 150, "width": 24, "height": 24 },
+        { "id": 1005, "prefab": "coin", "x": 2450, "y": 350, "width": 24, "height": 24 },
+        { "id": 1006, "prefab": "coin", "x": 3050, "y": 300, "width": 24, "height": 24 },
+        { "id": 1007, "prefab": "coin", "x": 3600, "y": 300, "width": 24, "height": 24 },
+
+        { "id": 1008, "prefab": "coin", "x": 250, "y": 850, "width": 24, "height": 24 },
+        { "id": 1009, "prefab": "coin", "x": 850, "y": 800, "width": 24, "height": 24 },
+        { "id": 1010, "prefab": "coin", "x": 1350, "y": 950, "width": 24, "height": 24 },
+        { "id": 1011, "prefab": "coin", "x": 1850, "y": 850, "width": 24, "height": 24 },
+        { "id": 1012, "prefab": "coin", "x": 2350, "y": 900, "width": 24, "height": 24 },
+        { "id": 1013, "prefab": "coin", "x": 2850, "y": 800, "width": 24, "height": 24 },
+        { "id": 1014, "prefab": "coin", "x": 3350, "y": 850, "width": 24, "height": 24 },
+
+        { "id": 1015, "prefab": "coin", "x": 350, "y": 1450, "width": 24, "height": 24 },
+        { "id": 1016, "prefab": "coin", "x": 850, "y": 1400, "width": 24, "height": 24 },
+        { "id": 1017, "prefab": "coin", "x": 1350, "y": 1500, "width": 24, "height": 24 },
+        { "id": 1018, "prefab": "coin", "x": 1850, "y": 1450, "width": 24, "height": 24 },
+        { "id": 1019, "prefab": "coin", "x": 2350, "y": 1400, "width": 24, "height": 24 },
+        { "id": 1020, "prefab": "coin", "x": 2850, "y": 1450, "width": 24, "height": 24 },
+        { "id": 1021, "prefab": "coin", "x": 3350, "y": 1400, "width": 24, "height": 24 },
+
+        { "id": 1022, "prefab": "coin", "x": 250, "y": 2100, "width": 24, "height": 24 },
+        { "id": 1023, "prefab": "coin", "x": 850, "y": 2050, "width": 24, "height": 24 },
+        { "id": 1024, "prefab": "coin", "x": 1350, "y": 2100, "width": 24, "height": 24 },
+        { "id": 1025, "prefab": "coin", "x": 1850, "y": 2050, "width": 24, "height": 24 },
+        { "id": 1026, "prefab": "coin", "x": 2350, "y": 2100, "width": 24, "height": 24 },
+        { "id": 1027, "prefab": "coin", "x": 2850, "y": 2050, "width": 24, "height": 24 },
+        { "id": 1028, "prefab": "coin", "x": 3350, "y": 2100, "width": 24, "height": 24 },
+
+        { "id": 1029, "prefab": "coin", "x": 350, "y": 2650, "width": 24, "height": 24 },
+        { "id": 1030, "prefab": "coin", "x": 850, "y": 2650, "width": 24, "height": 24 },
+        { "id": 1031, "prefab": "coin", "x": 1350, "y": 2650, "width": 24, "height": 24 },
+        { "id": 1032, "prefab": "coin", "x": 1850, "y": 2650, "width": 24, "height": 24 },
+        { "id": 1033, "prefab": "coin", "x": 2350, "y": 2650, "width": 24, "height": 24 },
+        { "id": 1034, "prefab": "coin", "x": 2850, "y": 2650, "width": 24, "height": 24 },
+
+        { "id": 1100, "prefab": "ghost", "x": 450, "y": 300, "width": 32, "height": 32 },
+        { "id": 1101, "prefab": "ghost", "x": 950, "y": 250, "width": 32, "height": 32 },
+        { "id": 1102, "prefab": "ghost", "x": 1400, "y": 350, "width": 32, "height": 32 },
+        { "id": 1103, "prefab": "ghost", "x": 2000, "y": 300, "width": 32, "height": 32 },
+        { "id": 1104, "prefab": "ghost", "x": 2500, "y": 400, "width": 32, "height": 32 },
+        { "id": 1105, "prefab": "ghost", "x": 3100, "y": 350, "width": 32, "height": 32 },
+
+        { "id": 1106, "prefab": "ghost", "x": 350, "y": 900, "width": 32, "height": 32 },
+        { "id": 1107, "prefab": "ghost", "x": 900, "y": 850, "width": 32, "height": 32 },
+        { "id": 1108, "prefab": "ghost", "x": 1400, "y": 1000, "width": 32, "height": 32 },
+        { "id": 1109, "prefab": "ghost", "x": 1900, "y": 900, "width": 32, "height": 32 },
+        { "id": 1110, "prefab": "ghost", "x": 2400, "y": 950, "width": 32, "height": 32 },
+        { "id": 1111, "prefab": "ghost", "x": 2900, "y": 850, "width": 32, "height": 32 },
+        { "id": 1112, "prefab": "ghost", "x": 3400, "y": 900, "width": 32, "height": 32 },
+
+        { "id": 1113, "prefab": "ghost", "x": 400, "y": 1500, "width": 32, "height": 32 },
+        { "id": 1114, "prefab": "ghost", "x": 900, "y": 1450, "width": 32, "height": 32 },
+        { "id": 1115, "prefab": "ghost", "x": 1400, "y": 1550, "width": 32, "height": 32 },
+        { "id": 1116, "prefab": "ghost", "x": 1900, "y": 1500, "width": 32, "height": 32 },
+        { "id": 1117, "prefab": "ghost", "x": 2400, "y": 1450, "width": 32, "height": 32 },
+        { "id": 1118, "prefab": "ghost", "x": 2900, "y": 1500, "width": 32, "height": 32 },
+        { "id": 1119, "prefab": "ghost", "x": 3400, "y": 1450, "width": 32, "height": 32 },
+
+        { "id": 1120, "prefab": "ghost", "x": 350, "y": 2150, "width": 32, "height": 32 },
+        { "id": 1121, "prefab": "ghost", "x": 900, "y": 2100, "width": 32, "height": 32 },
+        { "id": 1122, "prefab": "ghost", "x": 1400, "y": 2150, "width": 32, "height": 32 },
+        { "id": 1123, "prefab": "ghost", "x": 1900, "y": 2100, "width": 32, "height": 32 },
+        { "id": 1124, "prefab": "ghost", "x": 2400, "y": 2150, "width": 32, "height": 32 },
+        { "id": 1125, "prefab": "ghost", "x": 2900, "y": 2100, "width": 32, "height": 32 },
+        { "id": 1126, "prefab": "ghost", "x": 3400, "y": 2150, "width": 32, "height": 32 },
+
+        { "id": 1127, "prefab": "ghost", "x": 450, "y": 2700, "width": 32, "height": 32 },
+        { "id": 1128, "prefab": "ghost", "x": 950, "y": 2700, "width": 32, "height": 32 },
+        { "id": 1129, "prefab": "ghost", "x": 1450, "y": 2700, "width": 32, "height": 32 },
+        { "id": 1130, "prefab": "ghost", "x": 1950, "y": 2700, "width": 32, "height": 32 },
+        { "id": 1131, "prefab": "ghost", "x": 2450, "y": 2700, "width": 32, "height": 32 },
+        { "id": 1132, "prefab": "ghost", "x": 2950, "y": 2700, "width": 32, "height": 32 },
+
+        { "id": 1200, "prefab": "trigger", "x": 3700, "y": 2750, "width": 96, "height": 96, "properties": { "visible": true, "triggers": "levelComplete", "active": true } },
+
+        { "id": 1300, "prefab": "turret", "x": 600, "y": 350, "width": 32, "height": 32 },
+        { "id": 1301, "prefab": "turret", "x": 1100, "y": 750, "width": 32, "height": 32 },
+        { "id": 1302, "prefab": "turret", "x": 1600, "y": 350, "width": 32, "height": 32 },
+        { "id": 1303, "prefab": "turret", "x": 2100, "y": 650, "width": 32, "height": 32 },
+        { "id": 1304, "prefab": "turret", "x": 2600, "y": 350, "width": 32, "height": 32 },
+        { "id": 1305, "prefab": "turret", "x": 3100, "y": 750, "width": 32, "height": 32 },
+        { "id": 1306, "prefab": "turret", "x": 450, "y": 1350, "width": 32, "height": 32 },
+        { "id": 1307, "prefab": "turret", "x": 1100, "y": 1500, "width": 32, "height": 32 },
+        { "id": 1308, "prefab": "turret", "x": 1600, "y": 1350, "width": 32, "height": 32 },
+        { "id": 1309, "prefab": "turret", "x": 2100, "y": 1550, "width": 32, "height": 32 },
+        { "id": 1310, "prefab": "turret", "x": 2600, "y": 1350, "width": 32, "height": 32 },
+        { "id": 1311, "prefab": "turret", "x": 3100, "y": 1550, "width": 32, "height": 32 },
+        { "id": 1312, "prefab": "turret", "x": 600, "y": 2000, "width": 32, "height": 32 },
+        { "id": 1313, "prefab": "turret", "x": 1100, "y": 2200, "width": 32, "height": 32 },
+        { "id": 1314, "prefab": "turret", "x": 1600, "y": 2000, "width": 32, "height": 32 },
+        { "id": 1315, "prefab": "turret", "x": 2100, "y": 2300, "width": 32, "height": 32 },
+        { "id": 1316, "prefab": "turret", "x": 2600, "y": 2000, "width": 32, "height": 32 },
+        { "id": 1317, "prefab": "turret", "x": 3100, "y": 2300, "width": 32, "height": 32 },
+        { "id": 1318, "prefab": "turret", "x": 3500, "y": 2550, "width": 32, "height": 32 }
+      ]
+    }
+  ]
+}
