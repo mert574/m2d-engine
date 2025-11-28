@@ -12,6 +12,7 @@ const assetsPlugin = {
       execSync('node scripts/generateSprites.js platformer', { stdio: 'inherit' });
       execSync('node scripts/generateSprites.js maze', { stdio: 'inherit' });
       execSync('node scripts/generateSprites.js physics', { stdio: 'inherit' });
+      execSync('node scripts/generateSprites.js topdown', { stdio: 'inherit' });
       console.log('Assets processed successfully');
     } catch (error) {
       console.error('Error processing assets:', error);
@@ -34,7 +35,8 @@ export default defineConfig(({ command }) => ({
         main: resolve(__dirname, 'src/index.html'),
         platformer: resolve(__dirname, 'src/examples/platformer/index.html'),
         maze: resolve(__dirname, 'src/examples/maze/index.html'),
-        physics: resolve(__dirname, 'src/examples/physics/index.html')
+        physics: resolve(__dirname, 'src/examples/physics/index.html'),
+        topdown: resolve(__dirname, 'src/examples/topdown/index.html')
       }
     }
   },

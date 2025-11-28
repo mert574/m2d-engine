@@ -6,8 +6,8 @@ import { CollisionCategories } from '../core/constants.js';
 import { Vec2 } from '../core/math.js';
 import { Debug } from '../constraints/debug.js';
 
-export class Bee extends Entity {
-  name = 'Bee';
+export class Ghost extends Entity {
+  name = 'Ghost';
 
   constructor(body, sprite, game, options = {}) {
     body.collisionFilter.category = CollisionCategories.enemy;
@@ -17,7 +17,7 @@ export class Bee extends Entity {
     this.idleSpeed = 0.3;
     this.detectionRange = 400;
     this.animTime = 0;
-    this.animSpeed = 6;
+    this.animSpeed = 6; // frames per second
     this.setAnimation('idle');
     this.damageFlashTime = 0;
     this.damageFlashDuration = 0.167; // ~10 frames at 60fps in seconds
@@ -47,7 +47,7 @@ export class Bee extends Entity {
 
     this.addConstraint('contactDamage', new ContactDamage(this, {
       damage: 33,
-      knockbackStrength: 12
+      knockbackStrength: 8
     }));
 
     this.targetPoint = this.getNewTargetPoint();

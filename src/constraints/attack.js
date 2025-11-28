@@ -8,7 +8,7 @@ export class Attack extends Constraint {
     super(entity);
     this.damage = options.damage || 10;
     this.range = options.range || 40;
-    this.cooldown = options.cooldown || 30; // frames
+    this.cooldown = (options.cooldown || 30) / 60; // convert frames to seconds (assuming 60fps baseline)
     this.knockback = options.knockback || 0.02;
     this.onStart = options.onStart;
 
@@ -16,9 +16,10 @@ export class Attack extends Constraint {
     this.currentCooldown = 0;
     this.direction = 1; // 1 for right, -1 for left
     this.hits = new Set();
-    this.attackDuration = 10;
+    this.attackDuration = 0.167; // ~10 frames at 60fps in seconds
     this.attackTime = 0;
-    this.attackAnimEndTime = 20;
+    this.attackAnimEndTime = 0.333; // ~20 frames at 60fps in seconds
+    this.hasCheckedHits = false;
 
     this.hitCircle = Matter.Bodies.circle(0, 0, this.range, {
       isSensor: true,
@@ -29,24 +30,26 @@ export class Attack extends Constraint {
     Matter.Composite.add(this.entity.game.engine.world, this.hitCircle);
   }
 
-  update() {
+  update(deltaTime) {
     if (this.currentCooldown > 0) {
-      this.currentCooldown--;
+      this.currentCooldown -= deltaTime;
     }
 
     Matter.Body.setPosition(this.hitCircle, this.entity.position);
 
     if (this.isAttacking) {
-      this.attackTime++;
-      // Check for hits only on first frame
-      if (this.attackTime === 1) {
+      // Check for hits only on first update of attack
+      if (!this.hasCheckedHits) {
         this.checkHits();
+        this.hasCheckedHits = true;
       }
+      this.attackTime += deltaTime;
       if (this.attackTime >= this.attackDuration) {
         this.isAttacking = false;
         this.attackTime = 0;
+        this.hasCheckedHits = false;
       }
-      if (this.attackTime >= this.attackAnimEndTime && this.entity.currentAnim.includes('attack')) {
+      if (this.attackTime >= this.attackAnimEndTime && this.entity.currentAnim?.includes('attack')) {
         this.entity.setAnimation('idle');
       }
     }
