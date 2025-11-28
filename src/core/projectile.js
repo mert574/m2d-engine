@@ -116,16 +116,23 @@ export class Projectile extends Entity {
 
     // Default draw: simple colored rectangle
     const pos = this.position;
-    const ctx = this.game.renderer.worldContext;
+    const renderer = this.game.renderer;
 
-    ctx.save();
-    ctx.translate(pos.x, pos.y);
-    ctx.rotate(this.rotation);
+    // Draw as a rotated line (simpler than rotated rect)
+    const halfLength = 8;
+    const endX = pos.x + Math.cos(this.rotation) * halfLength;
+    const endY = pos.y + Math.sin(this.rotation) * halfLength;
+    const startX = pos.x - Math.cos(this.rotation) * halfLength;
+    const startY = pos.y - Math.sin(this.rotation) * halfLength;
 
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(-8, -2, 16, 4);
-
-    ctx.restore();
+    renderer.drawLine({
+      x1: startX,
+      y1: startY,
+      x2: endX,
+      y2: endY,
+      strokeStyle: '#ff0000',
+      lineWidth: 4
+    });
   }
 
   setAnimation() {
