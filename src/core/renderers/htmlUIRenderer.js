@@ -1,346 +1,158 @@
-import { BaseUIRenderer } from './baseUIRenderer';
+import { BaseUIRenderer } from './baseUIRenderer.js';
+import { HTMLRendererBase } from './htmlRendererBase.js';
 
 export class HTMLUIRenderer extends BaseUIRenderer {
   constructor() {
     super();
-    this.container = null;
-    this.elements = new Map();
-    this.elementPool = {
-      rects: new Map(),
-      texts: new Map(),
-      images: new Map(),
-      buttons: new Map()
-    };
-    this.activeElements = new Set();
-
-    // Performance tracking
-    this.lastTime = performance.now();
-    this.frames = 0;
-    this.currentFPS = 0;
-    this.fpsUpdateInterval = 1000;
-    this.lastFPSUpdate = this.lastTime;
-    this.fpsHistory = new Array(60).fill(0);
-    this.fpsHistoryIndex = 0;
-    this.stats = {
-      drawCalls: 0,
-      stateChanges: 0,
-      spritesDrawn: 0,
-      textDrawn: 0,
-      shapesDrawn: 0,
-      activeElements: 0
-    };
+    this.base = new HTMLRendererBase();
   }
 
   init(element, options = {}) {
-    this.container = element;
-    this.container.style.position = 'absolute';
-    this.container.style.top = '0';
-    this.container.style.left = '0';
-    this.container.style.width = '100%';
-    this.container.style.height = '100%';
-    this.width = options.width || element.clientWidth;
-    this.height = options.height || element.clientHeight;
+    this.base.container = element;
+    this.base.width = options.width || element.clientWidth;
+    this.base.height = options.height || element.clientHeight;
 
-    // Pre-create element pools
-    this.initElementPools(options.poolSize || 100);
+    element.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
+
+    // Register element pools
+    this.base.registerPool('rects', 'position:absolute;display:none;');
+    this.base.registerPool('texts', 'position:absolute;display:none;white-space:nowrap;');
+    this.base.registerPool('buttons', 'position:absolute;display:none;cursor:pointer;border:none;outline:none;pointer-events:auto;', 'button');
+    this.base.registerPool('images', 'position:absolute;display:none;background-size:contain;background-repeat:no-repeat;');
+
+    this.base.initPools(options.poolSize || 100);
   }
 
-  initElementPools(poolSize) {
-    // Create rect elements
-    for (let i = 0; i < poolSize; i++) {
-      const element = document.createElement('div');
-      element.style.position = 'absolute';
-      element.style.display = 'none';
-      this.container.appendChild(element);
-      this.elementPool.rects.set(`rect-${i}`, element);
-    }
-
-    // Create text elements
-    for (let i = 0; i < poolSize; i++) {
-      const element = document.createElement('div');
-      element.style.position = 'absolute';
-      element.style.display = 'none';
-      element.style.whiteSpace = 'nowrap';
-      this.container.appendChild(element);
-      this.elementPool.texts.set(`text-${i}`, element);
-    }
-
-    // Create button elements
-    for (let i = 0; i < poolSize; i++) {
-      const element = document.createElement('button');
-      element.style.position = 'absolute';
-      element.style.display = 'none';
-      element.style.cursor = 'pointer';
-      element.style.border = 'none';
-      element.style.outline = 'none';
-      element.style.pointerEvents = 'auto';
-      this.container.appendChild(element);
-      this.elementPool.buttons.set(`button-${i}`, element);
-    }
-
-    // Create image elements
-    for (let i = 0; i < poolSize; i++) {
-      const element = document.createElement('div');
-      element.style.position = 'absolute';
-      element.style.display = 'none';
-      element.style.backgroundSize = 'contain';
-      element.style.backgroundRepeat = 'no-repeat';
-      this.container.appendChild(element);
-      this.elementPool.images.set(`image-${i}`, element);
-    }
-  }
+  get width() { return this.base.width; }
+  get height() { return this.base.height; }
 
   destroy() {
-    Object.values(this.elementPool).forEach(pool => {
-      pool.forEach(element => element.remove());
-      pool.clear();
-    });
-    this.activeElements.clear();
+    this.base.destroy();
   }
 
   resize(width, height) {
-    this.width = width;
-    this.height = height;
-    this.container.style.width = `${width}px`;
-    this.container.style.height = `${height}px`;
+    this.base.width = width;
+    this.base.height = height;
+    this.base.container.style.width = `${width}px`;
+    this.base.container.style.height = `${height}px`;
   }
 
   clear() {
-    // Reset all elements to initial state
-    Object.values(this.elementPool).forEach(pool => {
-      pool.forEach(element => {
-        element.style.display = 'none';
-        // Reset event listeners
-        element.onclick = null;
-        element.onmouseenter = null;
-        element.onmouseleave = null;
-        // Reset styles
-        element.style.cssText = 'position: absolute; display: none;';
-        // Reset text
-        element.textContent = '';
-      });
-    });
-    this.activeElements.clear();
-  }
-
-  beginFrame() {
-    // Hide all previously active elements first
-    this.activeElements.forEach(element => {
-      element.style.display = 'none';
-      // Reset event listeners
+    this.base.hideActiveElements(element => {
       element.onclick = null;
       element.onmouseenter = null;
       element.onmouseleave = null;
-      // Reset styles
-      element.style.cssText = 'position: absolute; display: none;';
-      // Reset text
-      element.textContent = '';
     });
-    this.activeElements.clear();
+    this.base.resetPools();
+  }
 
-    // Reset frame stats
-    this.stats.drawCalls = 0;
-    this.stats.stateChanges = 0;
-    this.stats.spritesDrawn = 0;
-    this.stats.textDrawn = 0;
-    this.stats.shapesDrawn = 0;
-    this.stats.activeElements = 0;
-
-    // Update FPS
-    const now = performance.now();
-    this.frames++;
-
-    if (now >= this.lastFPSUpdate + this.fpsUpdateInterval) {
-      this.currentFPS = Math.round((this.frames * 1000) / (now - this.lastFPSUpdate));
-      this.fpsHistory[this.fpsHistoryIndex] = this.currentFPS;
-      this.fpsHistoryIndex = (this.fpsHistoryIndex + 1) % this.fpsHistory.length;
-      this.frames = 0;
-      this.lastFPSUpdate = now;
-    }
+  beginFrame() {
+    this.base.updateLayoutCache();
+    this.base.hideActiveElements(element => {
+      element.onclick = null;
+      element.onmouseenter = null;
+      element.onmouseleave = null;
+    });
+    this.base.resetPools();
+    this.base.stats.drawCalls = 0;
+    this.base.updateFPS();
   }
 
   endFrame() {
-    // Update active elements count
-    this.stats.activeElements = this.activeElements.size;
-
-    // Log warning if we're creating too many elements
-    if (this.stats.activeElements > 1000) {
-      console.warn(`High element count: ${this.stats.activeElements}`);
+    this.base.endFrameBase();
+    if (this.base.stats.activeElements > 1000) {
+      console.warn(`High element count: ${this.base.stats.activeElements}`);
     }
   }
 
-  getNextFreeElement(type) {
-    const pool = this.elementPool[type];
-    
-    // First try to find an inactive element from the active set
-    for (const element of this.activeElements) {
-      if (element.style.display === 'none') {
-        return element;
-      }
-    }
-    
-    // Then try to find one from the pool
-    for (const [key, element] of pool) {
-      if (element.style.display === 'none') {
-        return element;
-      }
-    }
-
-    // If no free element, create a new one
-    console.warn(`Creating new ${type} element. Current pool size: ${pool.size}`);
-    const element = type === 'buttons' ? document.createElement('button') : document.createElement('div');
-    element.style.position = 'absolute';
-    element.style.display = 'none';
-
-    // Apply type-specific styles
-    switch (type) {
-      case 'texts':
-        element.style.whiteSpace = 'nowrap';
-        break;
-      case 'images':
-        element.style.backgroundSize = 'contain';
-        element.style.backgroundRepeat = 'no-repeat';
-        break;
-      case 'buttons':
-        element.style.cursor = 'pointer';
-        element.style.border = 'none';
-        element.style.outline = 'none';
-        element.style.pointerEvents = 'auto';
-        break;
-    }
-
-    this.container.appendChild(element);
-    pool.set(`${type}-${pool.size}`, element);
-    return element;
-  }
-
-  drawRect({ x, y, width, height, fillStyle, strokeStyle, lineWidth = 1, fill = true }) {
-    const element = this.getNextFreeElement('rects');
-    const { x: screenX, y: screenY, scale } = this._convertCoordinates(x, y);
+  drawRect({ x, y, width, height, fillStyle, strokeStyle, lineWidth = 1 }) {
+    const element = this.base.getElement('rects');
+    const { x: screenX, y: screenY, scale } = this.base.convertCoordinates(x, y);
 
     element.style.display = 'block';
-    element.style.left = `${screenX - (width * scale)/2}px`;
-    element.style.top = `${screenY - (height * scale)/2}px`;
+    element.style.left = `${screenX}px`;
+    element.style.top = `${screenY}px`;
     element.style.width = `${width * scale}px`;
     element.style.height = `${height * scale}px`;
-    
-    if (fill && fillStyle) {
-      element.style.backgroundColor = fillStyle;
-    }
-    
-    if (strokeStyle) {
-      element.style.border = `${lineWidth * scale}px solid ${strokeStyle}`;
-    }
+    element.style.backgroundColor = fillStyle || 'transparent';
+    element.style.border = strokeStyle ? `${lineWidth * scale}px solid ${strokeStyle}` : 'none';
 
-    this.activeElements.add(element);
-    this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
+    this.base.markActive(element);
   }
 
-  drawText({ text, x, y, color = '#000', font = '16px Arial', align = 'left', baseline = 'top', fontSize, fontFamily = 'Arial', properties = {} }) {
-    const element = this.getNextFreeElement('texts');
-    const { x: screenX, y: screenY, scale } = this._convertCoordinates(x, y);
+  drawText({ text, x, y, color, fillStyle, font = '16px Arial', align, textAlign, baseline = 'top', textBaseline, fontSize, fontFamily = 'Arial', properties = {} }) {
+    const element = this.base.getElement('texts');
+    const { x: screenX, y: screenY, scale } = this.base.convertCoordinates(x, y);
+
+    const finalColor = properties.color || color || fillStyle || '#000';
+    const finalAlign = align || textAlign || 'left';
+    const finalBaseline = baseline || textBaseline || 'top';
+
+    const size = properties.fontSize || fontSize || font.split('px')[0];
+    const scaledFontSize = (typeof size === 'string' ? parseFloat(size) : size) * scale;
 
     element.style.display = 'block';
     element.style.position = 'absolute';
-    // Use color from properties if available, fallback to color parameter
-    element.style.color = properties.color || color;
-    // Use fontSize from properties if available, fallback to fontSize parameter or parse from font
-    element.style.fontSize = properties.fontSize || fontSize || font.split('px')[0] + 'px';
+    element.style.color = finalColor;
+    element.style.fontSize = `${scaledFontSize}px`;
     element.style.fontFamily = fontFamily;
-    element.style.whiteSpace = 'nowrap';
-
-    // Set text content first so we can measure it
     element.textContent = text;
 
-    // Measure text width for alignment
+    // Measure for alignment
     const rect = element.getBoundingClientRect();
-    const width = rect.width;
 
-    // Adjust position based on alignment
-    switch (align) {
-      case 'center':
-        element.style.left = `${screenX - width/2}px`;
-        element.style.textAlign = 'center';
-        break;
-      case 'right':
-        element.style.left = `${screenX - width}px`;
-        element.style.textAlign = 'right';
-        break;
-      default: // 'left'
-        element.style.left = `${screenX}px`;
-        element.style.textAlign = 'left';
-    }
+    // Horizontal alignment
+    element.style.left = finalAlign === 'center' ? `${screenX - rect.width / 2}px` :
+                         finalAlign === 'right' ? `${screenX - rect.width}px` :
+                         `${screenX}px`;
 
-    // Adjust position based on baseline
-    switch (baseline) {
-      case 'middle':
-        element.style.top = `${screenY - rect.height/2}px`;
-        break;
-      case 'bottom':
-        element.style.top = `${screenY - rect.height}px`;
-        break;
-      default: // 'top'
-        element.style.top = `${screenY}px`;
-    }
+    // Vertical alignment
+    element.style.top = finalBaseline === 'middle' ? `${screenY - rect.height / 2}px` :
+                        finalBaseline === 'bottom' ? `${screenY - rect.height}px` :
+                        `${screenY}px`;
 
-    this.activeElements.add(element);
-    this.stats.drawCalls++;
-    this.stats.textDrawn++;
+    this.base.markActive(element);
   }
 
   drawButton({ x, y, width, height, text, style = {}, onClick }) {
-    const element = this.getNextFreeElement('buttons');
-    const { x: screenX, y: screenY, scale } = this._convertCoordinates(x, y);
-
-    // Reset any previous state
-    element.onclick = null;
-    element.onmouseenter = null;
-    element.onmouseleave = null;
+    const element = this.base.getElement('buttons');
+    const { x: screenX, y: screenY, scale } = this.base.convertCoordinates(x, y);
 
     element.style.display = 'block';
-    element.style.left = `${screenX - (width * scale)/2}px`;
-    element.style.top = `${screenY - (height * scale)/2}px`;
+    element.style.left = `${screenX - (width * scale) / 2}px`;
+    element.style.top = `${screenY - (height * scale) / 2}px`;
     element.style.width = `${width * scale}px`;
     element.style.height = `${height * scale}px`;
-    element.textContent = text;
-    element.onclick = onClick;
-
-    // Apply styles
     element.style.backgroundColor = style.backgroundColor || '#ffffff';
     element.style.color = style.textColor || '#000000';
     element.style.fontSize = `${(style.fontSize || 16) * scale}px`;
     element.style.fontFamily = style.fontFamily || 'Arial';
     element.style.borderRadius = `${(style.borderRadius || 4) * scale}px`;
-    element.style.cursor = 'pointer';
     element.style.transition = 'background-color 0.2s';
+    element.textContent = text;
+    element.onclick = onClick;
 
-    // Hover effect
     if (style.hoverColor) {
-      const defaultColor = style.backgroundColor;
-      const hoverColor = style.hoverColor;
-      element.onmouseenter = () => element.style.backgroundColor = hoverColor;
+      const defaultColor = style.backgroundColor || '#ffffff';
+      element.onmouseenter = () => element.style.backgroundColor = style.hoverColor;
       element.onmouseleave = () => element.style.backgroundColor = defaultColor;
     }
 
-    this.activeElements.add(element);
-    this.stats.drawCalls++;
+    this.base.markActive(element);
   }
 
   drawImage({ image, x, y, width, height }) {
-    const element = this.getNextFreeElement('images');
-    const { x: screenX, y: screenY, scale } = this._convertCoordinates(x, y);
+    const element = this.base.getElement('images');
+    const { x: screenX, y: screenY, scale } = this.base.convertCoordinates(x, y);
 
     element.style.display = 'block';
-    element.style.left = `${screenX - (width * scale)/2}px`;
-    element.style.top = `${screenY - (height * scale)/2}px`;
+    element.style.left = `${screenX - (width * scale) / 2}px`;
+    element.style.top = `${screenY - (height * scale) / 2}px`;
     element.style.width = `${width * scale}px`;
     element.style.height = `${height * scale}px`;
     element.style.backgroundImage = `url(${image.src})`;
 
-    this.activeElements.add(element);
-    this.stats.drawCalls++;
-    this.stats.spritesDrawn++;
+    this.base.markActive(element);
   }
 
   drawPath() {
@@ -356,19 +168,16 @@ export class HTMLUIRenderer extends BaseUIRenderer {
   }
 
   measureText(text, { font = '16px Arial' }) {
-    const element = this.getNextFreeElement('texts');
+    const element = this.base.getElement('texts');
     element.style.visibility = 'hidden';
     element.style.display = 'block';
     element.style.font = font;
     element.textContent = text;
-    
+
     const rect = element.getBoundingClientRect();
     element.style.display = 'none';
-    
-    return {
-      width: rect.width,
-      height: rect.height
-    };
+
+    return { width: rect.width, height: rect.height };
   }
 
   hitTest(x, y, shape) {
@@ -377,37 +186,18 @@ export class HTMLUIRenderer extends BaseUIRenderer {
   }
 
   setCursor(style) {
-    this.container.style.cursor = style;
+    this.base.container.style.cursor = style;
   }
 
   getFPS() {
-    return this.currentFPS;
+    return this.base.getFPS();
   }
 
   getAverageFPS() {
-    const sum = this.fpsHistory.reduce((a, b) => a + b, 0);
-    return Math.round(sum / this.fpsHistory.length);
+    return this.base.getAverageFPS();
   }
 
   getStats() {
-    return { ...this.stats };
+    return this.base.getStats();
   }
-
-  // Helper method to convert game coordinates to screen coordinates
-  _convertCoordinates(x, y) {
-    const containerRect = this.container.getBoundingClientRect();
-    const scaleX = containerRect.width / this.width;
-    const scaleY = containerRect.height / this.height;
-    const scale = Math.min(scaleX, scaleY);
-
-    // Calculate the offset to center the game in the container
-    const offsetX = (containerRect.width - this.width * scale) / 2;
-    const offsetY = (containerRect.height - this.height * scale) / 2;
-
-    return {
-      x: x * scale + offsetX,
-      y: y * scale + offsetY,
-      scale
-    };
-  }
-} 
+}
