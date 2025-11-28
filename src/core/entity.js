@@ -14,6 +14,9 @@ export class Entity {
     this.body = body;
     this.sprite = sprite;
     this.game = game;
+
+    // Link body to entity for collision detection
+    body.entity = this;
     this.constraints = new Map();
     this.currentAnim = null;
     this.dead = false;

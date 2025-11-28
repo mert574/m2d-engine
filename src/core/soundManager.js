@@ -38,10 +38,7 @@ export class SoundManager {
     if (this.isMuted) return;
 
     const sound = this.sounds.get(key);
-    if (!sound) {
-      console.warn(`Sound not found: ${key}`);
-      return;
-    }
+    if (!sound) return;
 
     const clone = sound.cloneNode();
     clone.volume = this.soundVolume;
@@ -64,10 +61,7 @@ export class SoundManager {
     }
 
     const audio = this.music.get(key);
-    if (!audio) {
-      console.warn(`Music not found: ${key}`);
-      return;
-    }
+    if (!audio) return;
 
     audio.volume = this.musicVolume;
     this.currentMusic = audio;

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M2D - Top-Down Example</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #1a1a2e;
+    }
+
+    #screen {
+      max-width: 100vw;
+      max-height: 100vh;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+
+    .game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .keys {
+      color: #eaeaea;
+      font-size: 12px;
+      margin-top: 10px;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="game-container">
+    <canvas id="screen" width="640" height="480"></canvas>
+    <div class="keys">
+      <b>Arrow Keys:</b> Move · <b>X:</b> Attack · <b>D:</b> Toggle Debug
+    </div>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+
+</html>

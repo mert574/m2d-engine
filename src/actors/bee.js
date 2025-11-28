@@ -1,5 +1,6 @@
 import { Entity } from '../core/entity.js';
 import { Health } from '../constraints/health.js';
+import { ContactDamage } from '../constraints/contactDamage.js';
 import Matter from 'matter-js';
 import { CollisionCategories } from '../core/constants.js';
 import { Vec2 } from '../core/math.js';
@@ -16,13 +17,13 @@ export class Bee extends Entity {
     this.idleSpeed = 0.3;
     this.detectionRange = 400;
     this.animTime = 0;
-    this.animSpeed = 0.1;
+    this.animSpeed = 6;
     this.setAnimation('idle');
     this.damageFlashTime = 0;
-    this.damageFlashDuration = 10;
+    this.damageFlashDuration = 0.167; // ~10 frames at 60fps in seconds
 
     const health = new Health(this, 40);
-    health.invulnerableDuration = 30;
+    health.invulnerableDuration = 0.5; // seconds
     health.onDeath = () => {
       this.game.entities.delete(this);
       Matter.Composite.remove(this.game.engine.world, this.body);
@@ -44,9 +45,14 @@ export class Bee extends Entity {
       lowHealthThreshold: 15
     }));
 
+    this.addConstraint('contactDamage', new ContactDamage(this, {
+      damage: 33,
+      knockbackStrength: 12
+    }));
+
     this.targetPoint = this.getNewTargetPoint();
     this.targetChangeTime = 0;
-    this.targetChangeCooldown = 120;
+    this.targetChangeCooldown = 2; // seconds
   }
 
   getNewTargetPoint() {
@@ -57,15 +63,19 @@ export class Bee extends Entity {
     };
   }
 
-  update() {
+  update(deltaTime) {
     if (this.dead) return;
-    super.update();
+    super.update(deltaTime);
 
     if (this.damageFlashTime > 0) {
-      this.damageFlashTime--;
+      this.damageFlashTime -= deltaTime;
     }
 
     if (!this.game.player) return;
+
+    // Don't move while stunned
+    const contactDamage = this.getConstraint('contactDamage');
+    if (contactDamage?.isStunned()) return;
 
     const distance = Vec2.distance(this.position, this.game.player.position);
 
@@ -74,7 +84,7 @@ export class Bee extends Entity {
       const velocity = Vec2.scale(Vec2.normalize(dir), this.speed);
       Matter.Body.setVelocity(this.body, velocity);
     } else {
-      this.targetChangeTime++;
+      this.targetChangeTime += deltaTime;
       if (this.targetChangeTime >= this.targetChangeCooldown) {
         this.targetPoint = this.getNewTargetPoint();
         this.targetChangeTime = 0;
@@ -88,11 +98,17 @@ export class Bee extends Entity {
       }
     }
 
-    this.animTime += this.animSpeed;
-    if (this.animTime >= 3) {
-      this.animTime = 0;
+    // Only animate if sprite has multiple frames
+    if (this.sprite && this.sprite.image) {
+      const frameCount = Math.floor(this.sprite.image.width / this.sprite.tileW);
+      if (frameCount > 1) {
+        this.animTime += this.animSpeed * deltaTime;
+        if (this.animTime >= frameCount) {
+          this.animTime = 0;
+        }
+        this.sprite.currentFrame = Math.floor(this.animTime);
+      }
     }
-    this.sprite.currentFrame = Math.floor(this.animTime);
   }
 
   draw() {

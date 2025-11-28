@@ -275,12 +275,136 @@ const generatePhysicsSprites = () => {
     writeFileSync(platformPath, platformCanvas.toBuffer());
 };
 
+// Top-Down Example Sprites
+const generateTopDownSprites = () => {
+    // Player sprite (64x32 with two frames: idle and run)
+    const playerCanvas = createCanvas(64, 32);
+    const playerCtx = playerCanvas.getContext('2d');
+
+    // Idle frame (cyan circle)
+    playerCtx.fillStyle = '#00BCD4';
+    playerCtx.beginPath();
+    playerCtx.arc(16, 16, 14, 0, Math.PI * 2);
+    playerCtx.fill();
+    playerCtx.fillStyle = '#0097A7';
+    playerCtx.beginPath();
+    playerCtx.arc(16, 16, 8, 0, Math.PI * 2);
+    playerCtx.fill();
+
+    // Run frame (lighter cyan)
+    playerCtx.fillStyle = '#4DD0E1';
+    playerCtx.beginPath();
+    playerCtx.arc(48, 16, 14, 0, Math.PI * 2);
+    playerCtx.fill();
+    playerCtx.fillStyle = '#00BCD4';
+    playerCtx.beginPath();
+    playerCtx.arc(48, 16, 8, 0, Math.PI * 2);
+    playerCtx.fill();
+
+    const playerPath = getOutputPath('topdown', 'player.png');
+    ensureDirectoryExists(playerPath);
+    writeFileSync(playerPath, playerCanvas.toBuffer());
+
+    // Wall sprite
+    const wallCanvas = createCanvas(32, 32);
+    const wallCtx = wallCanvas.getContext('2d');
+
+    wallCtx.fillStyle = '#37474F';
+    wallCtx.fillRect(0, 0, 32, 32);
+    wallCtx.fillStyle = '#263238';
+    wallCtx.fillRect(2, 2, 28, 28);
+    wallCtx.strokeStyle = '#546E7A';
+    wallCtx.lineWidth = 2;
+    wallCtx.strokeRect(4, 4, 24, 24);
+
+    const wallPath = getOutputPath('topdown', 'wall.png');
+    ensureDirectoryExists(wallPath);
+    writeFileSync(wallPath, wallCanvas.toBuffer());
+
+    // Enemy sprite (single frame)
+    const enemyCanvas = createCanvas(32, 32);
+    const enemyCtx = enemyCanvas.getContext('2d');
+
+    // Red enemy circle
+    enemyCtx.fillStyle = '#E53935';
+    enemyCtx.beginPath();
+    enemyCtx.arc(16, 16, 14, 0, Math.PI * 2);
+    enemyCtx.fill();
+    enemyCtx.fillStyle = '#B71C1C';
+    enemyCtx.beginPath();
+    enemyCtx.arc(16, 16, 8, 0, Math.PI * 2);
+    enemyCtx.fill();
+    // Eyes
+    enemyCtx.fillStyle = '#FFFFFF';
+    enemyCtx.beginPath();
+    enemyCtx.arc(12, 12, 3, 0, Math.PI * 2);
+    enemyCtx.fill();
+    enemyCtx.beginPath();
+    enemyCtx.arc(20, 12, 3, 0, Math.PI * 2);
+    enemyCtx.fill();
+    enemyCtx.fillStyle = '#000000';
+    enemyCtx.beginPath();
+    enemyCtx.arc(12, 12, 1.5, 0, Math.PI * 2);
+    enemyCtx.fill();
+    enemyCtx.beginPath();
+    enemyCtx.arc(20, 12, 1.5, 0, Math.PI * 2);
+    enemyCtx.fill();
+
+    const enemyPath = getOutputPath('topdown', 'enemy.png');
+    ensureDirectoryExists(enemyPath);
+    writeFileSync(enemyPath, enemyCanvas.toBuffer());
+
+    // Coin sprite
+    const coinCanvas = createCanvas(32, 32);
+    const coinCtx = coinCanvas.getContext('2d');
+
+    coinCtx.fillStyle = '#FFD700';
+    coinCtx.beginPath();
+    coinCtx.arc(16, 16, 12, 0, Math.PI * 2);
+    coinCtx.fill();
+    coinCtx.fillStyle = '#FFA000';
+    coinCtx.beginPath();
+    coinCtx.arc(16, 16, 8, 0, Math.PI * 2);
+    coinCtx.fill();
+    coinCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    coinCtx.beginPath();
+    coinCtx.arc(12, 12, 3, 0, Math.PI * 2);
+    coinCtx.fill();
+
+    const coinPath = getOutputPath('topdown', 'coin.png');
+    ensureDirectoryExists(coinPath);
+    writeFileSync(coinPath, coinCanvas.toBuffer());
+
+    // Trigger sprite (goal area)
+    const triggerCanvas = createCanvas(32, 32);
+    const triggerCtx = triggerCanvas.getContext('2d');
+
+    triggerCtx.fillStyle = '#4CAF50';
+    triggerCtx.fillRect(4, 4, 24, 24);
+    triggerCtx.strokeStyle = '#2E7D32';
+    triggerCtx.lineWidth = 2;
+    triggerCtx.strokeRect(4, 4, 24, 24);
+    // Checkmark
+    triggerCtx.strokeStyle = '#FFFFFF';
+    triggerCtx.lineWidth = 3;
+    triggerCtx.beginPath();
+    triggerCtx.moveTo(10, 16);
+    triggerCtx.lineTo(14, 20);
+    triggerCtx.lineTo(22, 12);
+    triggerCtx.stroke();
+
+    const triggerPath = getOutputPath('topdown', 'trigger.png');
+    ensureDirectoryExists(triggerPath);
+    writeFileSync(triggerPath, triggerCanvas.toBuffer());
+};
+
 // Generate sprites based on command line argument
 if (!example || example === 'all') {
     console.log(`Generating all sprites in ${targetDir}...`);
     generatePlatformerSprites();
     generateMazeSprites();
     generatePhysicsSprites();
+    generateTopDownSprites();
 } else {
     console.log(`Generating ${example} sprites in ${targetDir}...`);
     switch (example) {
@@ -292,6 +416,9 @@ if (!example || example === 'all') {
             break;
         case 'physics':
             generatePhysicsSprites();
+            break;
+        case 'topdown':
+            generateTopDownSprites();
             break;
         default:
             console.error(`Unknown example: ${example}`);

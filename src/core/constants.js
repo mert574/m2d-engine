@@ -5,5 +5,6 @@ export const CollisionCategories = {
   movingPlatform: 0x0008,
   enemy: 0x0010,
   coin: 0x0020,
-  trigger: 0x0040
+  trigger: 0x0040,
+  projectile: 0x0080
 };
