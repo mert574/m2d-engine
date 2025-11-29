@@ -1,6 +1,6 @@
 // DonerGame - Main game logic class for the Doner Rhythm Game
 
-import { INGREDIENTS, RECIPES, findIngredientByPattern, patternToString } from './ingredients.js';
+import { INGREDIENTS, NEGATIVE_ITEMS, RECIPES, findIngredientByPattern, getRandomNegativeItem, patternToString } from './ingredients.js';
 import { RhythmInput } from './rhythmInput.js';
 import { OrderManager } from './orderManager.js';
 
@@ -32,6 +32,10 @@ export class DonerGame {
     this.spritesLoaded = false;
     this.loadSprites();
 
+    // Audio
+    this.sounds = {};
+    this.loadSounds();
+
     // Register additional keys
     this.game.keys.addKey(' '); // Space to serve
     this.game.keys.addKey('Backspace'); // Clear sandwich
@@ -56,14 +60,24 @@ export class DonerGame {
   loadSprites() {
     const basePath = this.game.options.basePath + 'sprites/';
     const spriteFiles = {
-      background: 'BGImg.jpg',
+      background: 'new-bg.webp',
       plate: 'Plate.png',
+      // Regular ingredients
       bread: 'BreadOpen.png',
       meat: 'MeatVeal.png',
       salad: 'Salad.png',
       onion: 'Onion.png',
       sauce: 'SauceA.png',
-      sauerkraut: 'SauerKraut.png'
+      sauerkraut: 'SauerKraut.png',
+      specialSalad: 'SpecialSalad.webp',
+      breadClosed: 'BreadClosed.webp',
+      // Negative items
+      pills: 'Pills.webp',
+      book: 'Book.webp',
+      fish: 'Fish.webp',
+      key: 'Key.webp',
+      nails: 'Nails.webp',
+      oil: 'Oil.webp'
     };
 
     let loadedCount = 0;
@@ -79,6 +93,40 @@ export class DonerGame {
       };
       img.src = basePath + file;
       this.sprites[key] = img;
+    }
+  }
+
+  loadSounds() {
+    const basePath = this.game.options.basePath;
+
+    // Background loop music
+    this.sounds.loop = new Audio(basePath + 'bg.mp3');
+    this.sounds.loop.loop = true;
+    this.sounds.loop.volume = 0.05; // 5% volume
+
+    // Key press sound effect
+    this.sounds.keyPress = new Audio(basePath + 'MJoneshot.wav');
+    this.sounds.keyPress.volume = 0.7;
+  }
+
+  playKeySound() {
+    // Clone and play to allow overlapping sounds
+    const sound = this.sounds.keyPress.cloneNode();
+    sound.volume = 0.7;
+    sound.play().catch(() => {}); // Ignore autoplay errors
+  }
+
+  startMusic() {
+    if (this.sounds.loop) {
+      this.sounds.loop.currentTime = 0;
+      this.sounds.loop.play().catch(() => {}); // Ignore autoplay errors
+    }
+  }
+
+  stopMusic() {
+    if (this.sounds.loop) {
+      this.sounds.loop.pause();
+      this.sounds.loop.currentTime = 0;
     }
   }
 
@@ -260,11 +308,13 @@ export class DonerGame {
     this.isCountingDown = false;
     this.isGameActive = true;
     this.rhythmInput.startAutoMode();
+    this.startMusic();
     this.showFeedback('GO!', 500);
   }
 
   stop() {
     this.isGameActive = false;
+    this.stopMusic();
   }
 
   update(deltaTime) {
@@ -324,6 +374,11 @@ export class DonerGame {
   }
 
   handleBeatInput(beat, index, pattern) {
+    // Play key sound (only for actual key presses, not empty beats)
+    if (beat !== '_') {
+      this.playKeySound();
+    }
+
     // Add visual feedback for beat
     this.beatVisuals.push({
       beat,
@@ -334,6 +389,12 @@ export class DonerGame {
   }
 
   handlePatternComplete(pattern) {
+    // Skip empty patterns (all underscores)
+    const isEmptyPattern = pattern.every(beat => beat === '_');
+    if (isEmptyPattern) {
+      return; // Don't count as wrong input
+    }
+
     const ingredient = findIngredientByPattern(pattern);
 
     if (ingredient) {
@@ -344,13 +405,17 @@ export class DonerGame {
         this.maxCombo = this.combo;
       }
     } else {
-      this.showFeedback('Unknown pattern!', 800);
+      // Wrong pattern - add a random negative item
+      const negativeItem = getRandomNegativeItem();
+      this.addNegativeItem(negativeItem);
+      this.score = Math.max(0, this.score + negativeItem.penalty);
+      this.showFeedback(`${negativeItem.emoji} ${negativeItem.name}! ${negativeItem.penalty} pts`, 1200);
       this.combo = 0;
     }
   }
 
   addIngredient(ingredientId) {
-    this.currentSandwich.push(ingredientId);
+    this.currentSandwich.push({ id: ingredientId, isNegative: false });
     this.lastAddedIngredient = ingredientId;
     this.lastAddedTime = Date.now();
 
@@ -375,13 +440,34 @@ export class DonerGame {
     });
   }
 
+  addNegativeItem(item) {
+    this.currentSandwich.push({ id: item.id, isNegative: true, item });
+    this.lastAddedIngredient = item.id;
+    this.lastAddedTime = Date.now();
+
+    // Spawn red/dark particles for negative feedback
+    const width = this.game.options.width;
+    const height = this.game.options.height;
+    this.spawnParticles(width / 2, height / 2 - 30, 20, {
+      colors: ['#FF0000', '#880000', '#440000'],
+      speed: 180,
+      life: 1.0,
+      upward: false
+    });
+  }
+
   serveSandwich() {
     if (this.currentSandwich.length === 0) {
       this.showFeedback('Nothing to serve!', 800);
       return;
     }
 
-    const result = this.orderManager.checkSandwich(this.currentSandwich);
+    // Extract just the IDs for checking (only non-negative items count)
+    const ingredientIds = this.currentSandwich
+      .filter(item => !item.isNegative)
+      .map(item => item.id);
+
+    const result = this.orderManager.checkSandwich(ingredientIds);
 
     if (result.success) {
       this.score += result.points;
@@ -438,6 +524,7 @@ export class DonerGame {
 
   endGame() {
     this.isGameActive = false;
+    this.stopMusic();
     const stats = this.orderManager.getStats();
 
     // Store final results for display
@@ -776,14 +863,23 @@ export class DonerGame {
     } else {
       // Draw each ingredient as a sprite layer with shadows
       const baseY = sandwichY + 200;
-      this.currentSandwich.forEach((ingredientId, index) => {
-        const ingredient = INGREDIENTS[ingredientId];
+      this.currentSandwich.forEach((sandwichItem, index) => {
+        const isNegative = sandwichItem.isNegative;
+        const itemId = sandwichItem.id;
+        const itemData = isNegative ? sandwichItem.item : INGREDIENTS[itemId];
         const layerY = baseY - index * 28;
-        const sprite = this.sprites[ingredientId];
+        const sprite = this.sprites[itemId];
 
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.4)';
-        ctx.shadowBlur = 6;
+
+        // Red tint for negative items
+        if (isNegative) {
+          ctx.shadowColor = 'rgba(255,0,0,0.6)';
+          ctx.shadowBlur = 12;
+        } else {
+          ctx.shadowColor = 'rgba(0,0,0,0.4)';
+          ctx.shadowBlur = 6;
+        }
         ctx.shadowOffsetY = 3;
 
         if (this.spritesLoaded && sprite) {
@@ -792,19 +888,19 @@ export class DonerGame {
           // Fallback to styled rectangle
           this.drawRoundedRect(ctx, centerX - 65, layerY - 18, 130, 36, 6, {
             gradient: [
-              { pos: 0, color: ingredient.color },
-              { pos: 1, color: this.darkenColor(ingredient.color, 30) }
+              { pos: 0, color: itemData.color },
+              { pos: 1, color: this.darkenColor(itemData.color, 30) }
             ],
-            stroke: 'rgba(0,0,0,0.3)',
+            stroke: isNegative ? 'rgba(255,0,0,0.5)' : 'rgba(0,0,0,0.3)',
             strokeWidth: 2
           });
         }
         ctx.restore();
 
-        // Ingredient label
-        this.drawStyledText(ctx, ingredient.name, centerX + 85, layerY - 5, {
+        // Ingredient label (red for negative items)
+        this.drawStyledText(ctx, itemData.name, centerX + 85, layerY - 5, {
           fontSize: 11,
-          color: 'rgba(255,255,255,0.7)',
+          color: isNegative ? 'rgba(255,100,100,0.9)' : 'rgba(255,255,255,0.7)',
           align: 'left',
           baseline: 'middle'
         });

@@ -44,38 +44,111 @@ export const INGREDIENTS = {
     color: '#F0E68C',
     emoji: '🥗',
     sprite: 'SauerKraut.png'
+  },
+  specialSalad: {
+    name: 'Special Salad',
+    pattern: ['A', 'S', 'F'],
+    color: '#32CD32',
+    emoji: '🥗',
+    sprite: 'SpecialSalad.webp'
+  },
+  breadClosed: {
+    name: 'Bread Top',
+    pattern: ['A', 'A', 'A'],
+    color: '#D2691E',
+    emoji: '🥖',
+    sprite: 'BreadClosed.webp'
   }
 };
+
+// Negative/junk items - added when player enters wrong pattern
+export const NEGATIVE_ITEMS = {
+  pills: {
+    name: 'Pills',
+    color: '#FF4444',
+    emoji: '💊',
+    sprite: 'Pills.webp',
+    penalty: -30
+  },
+  book: {
+    name: 'Book',
+    color: '#8B4513',
+    emoji: '📖',
+    sprite: 'Book.webp',
+    penalty: -25
+  },
+  fish: {
+    name: 'Fish',
+    color: '#4169E1',
+    emoji: '🐟',
+    sprite: 'Fish.webp',
+    penalty: -20
+  },
+  key: {
+    name: 'Key',
+    color: '#FFD700',
+    emoji: '🔑',
+    sprite: 'Key.webp',
+    penalty: -25
+  },
+  nails: {
+    name: 'Nails',
+    color: '#808080',
+    emoji: '🔩',
+    sprite: 'Nails.webp',
+    penalty: -35
+  },
+  oil: {
+    name: 'Oil',
+    color: '#2F4F4F',
+    emoji: '🛢️',
+    sprite: 'Oil.webp',
+    penalty: -30
+  }
+};
+
+// Get a random negative item
+export function getRandomNegativeItem() {
+  const items = Object.entries(NEGATIVE_ITEMS);
+  const [id, item] = items[Math.floor(Math.random() * items.length)];
+  return { id, ...item };
+}
 
 // Recipe definitions - each recipe is a list of required ingredients in order
 export const RECIPES = {
   classicDoner: {
     name: 'Classic Doner',
-    ingredients: ['bread', 'meat', 'salad', 'sauce'],
+    ingredients: ['bread', 'meat', 'salad', 'sauce', 'breadClosed'],
     points: 100,
     timeBonus: 50
   },
   meatDoner: {
     name: 'Meat Lover',
-    ingredients: ['bread', 'meat', 'meat', 'sauce'],
+    ingredients: ['bread', 'meat', 'meat', 'sauce', 'breadClosed'],
     points: 120,
     timeBonus: 60
   },
   germanDoner: {
     name: 'German Style',
-    ingredients: ['bread', 'meat', 'sauerkraut', 'sauce'],
+    ingredients: ['bread', 'meat', 'sauerkraut', 'sauce', 'breadClosed'],
     points: 125,
     timeBonus: 60
   },
   veggieDoner: {
     name: 'Veggie Doner',
-    ingredients: ['bread', 'salad', 'onion', 'sauce'],
+    ingredients: ['bread', 'salad', 'onion', 'sauce', 'breadClosed'],
     points: 100,
     timeBonus: 50
   },
+  specialDoner: {
+    name: 'Special Doner',
+    ingredients: ['bread', 'meat', 'specialSalad', 'sauce', 'breadClosed'],
+    points: 150,
+    timeBonus: 75
+  },
   loadedDoner: {
     name: 'Loaded Doner',
-    ingredients: ['bread', 'meat', 'salad', 'onion', 'sauerkraut', 'sauce'],
+    ingredients: ['bread', 'meat', 'salad', 'onion', 'sauerkraut', 'sauce', 'breadClosed'],
     points: 200,
     timeBonus: 100
   }

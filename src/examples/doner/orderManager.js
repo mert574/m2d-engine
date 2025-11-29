@@ -24,10 +24,10 @@ export class OrderManager {
 
     if (level <= 1) {
       // Easy: only simple recipes (fewer ingredients)
-      return recipeKeys.filter(key => RECIPES[key].ingredients.length <= 4);
+      return recipeKeys.filter(key => RECIPES[key].ingredients.length <= 5);
     } else if (level <= 2) {
       // Medium: all except the hardest
-      return recipeKeys.filter(key => RECIPES[key].ingredients.length <= 5);
+      return recipeKeys.filter(key => RECIPES[key].ingredients.length <= 6);
     }
     // Hard: all recipes
     return recipeKeys;
