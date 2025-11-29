@@ -36,7 +36,8 @@ export default defineConfig(({ command }) => ({
         platformer: resolve(__dirname, 'src/examples/platformer/index.html'),
         maze: resolve(__dirname, 'src/examples/maze/index.html'),
         physics: resolve(__dirname, 'src/examples/physics/index.html'),
-        topdown: resolve(__dirname, 'src/examples/topdown/index.html')
+        topdown: resolve(__dirname, 'src/examples/topdown/index.html'),
+        doner: resolve(__dirname, 'src/examples/doner/index.html')
       }
     }
   },

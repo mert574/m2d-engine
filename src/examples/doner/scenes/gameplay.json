@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "name": "gameplay",
+  "type": "level",
+  "title": "Doner Rhythm - Gameplay",
+
+  "world": {
+    "width": 1280,
+    "height": 720,
+    "gravity": { "x": 0, "y": 0 }
+  },
+
+  "assets": {},
+  "prefabs": {},
+  "layers": []
+}
