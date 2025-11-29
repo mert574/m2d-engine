@@ -1,4 +1,4 @@
-import { a as M2D, _ as __vitePreload } from "./m2d-DvcW-9SQ.js";
+import { a as M2D, _ as __vitePreload } from "./m2d-BqOTLTDi.js";
 const options = {
   levelNames: ["physics.json"],
   currentLevel: "physics.json",

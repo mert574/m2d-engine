@@ -1,8 +1,8 @@
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-import { M as Matter, C as CollisionCategories, a as M2D, _ as __vitePreload } from "./m2d-DvcW-9SQ.js";
-import { E as Entity, H as Health, A as Attack, K as KeyboardControl, D as Debug, C as ContactDamage, V as Vec2, P as Platform, a as Coin, T as Trigger } from "./trigger-54YWyxpt.js";
+import { M as Matter, C as CollisionCategories, a as M2D, _ as __vitePreload } from "./m2d-BqOTLTDi.js";
+import { E as Entity, H as Health, A as Attack, K as KeyboardControl, D as Debug, C as ContactDamage, V as Vec2, P as Platform, a as Coin, T as Trigger } from "./trigger-jWeoQRfe.js";
 class MovingPlatform extends Entity {
   constructor(body, sprite, game2, options = {}) {
     var _a, _b, _c;

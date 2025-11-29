@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M2D - Doner Rhythm Game</title>
+  <style>
+    @font-face {
+      font-family: 'Helvetica Rounded';
+      src: url('/m2d-engine/assets/HelveticaRoundedLTStd-Black-B20rW0DS.otf') format('opentype');
+      font-weight: 900;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Helvetica Rounded';
+      src: url('/m2d-engine/assets/HelveticaRoundedLTStd-BlkO-MN9taQMm.otf') format('opentype');
+      font-weight: 900;
+      font-style: oblique;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #2d1b0e;
+    }
+
+    #screen {
+      max-width: 100vw;
+      max-height: 100vh;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+
+    .game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .keys {
+      color: #f5deb3;
+      font-size: 12px;
+      margin-top: 10px;
+      font-size: 1rem;
+    }
+  </style>
+  <script type="module" crossorigin src="/m2d-engine/assets/doner-Bwh2uOw0.js"></script>
+  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/m2d-BqOTLTDi.js">
+</head>
+
+<body>
+  <div class="game-container">
+    <canvas id="screen" width="1280" height="720" style="background: #2d1b0e;"></canvas>
+    <div class="keys">
+      <b>A / S / D / F:</b> Rhythm Keys (press in sequence) · <b>Space:</b> Serve Order · <b>Backspace:</b> Clear Sandwich
+    </div>
+  </div>
+</body>
+
+</html>

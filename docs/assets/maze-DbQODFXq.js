@@ -1,4 +1,4 @@
-import { a as M2D, _ as __vitePreload } from "./m2d-DvcW-9SQ.js";
+import { a as M2D, _ as __vitePreload } from "./m2d-BqOTLTDi.js";
 const options = {
   levelNames: ["maze.json"],
   currentLevel: "maze.json",
@@ -49,13 +49,13 @@ game.beforeUpdate = function update() {
   for (let key of this.keys.pressedKeys()) {
     switch (key) {
       case K_LEFT:
-        game.Body.applyForce(this.player.body, pos, { x: -PHYSICS.MOVE_FORCE, y: 0 });
+        game.Body.applyForce(this.player.body, pos, { x: -0.01, y: 0 });
         break;
       case K_RIGHT:
         game.Body.applyForce(this.player.body, pos, { x: PHYSICS.MOVE_FORCE, y: 0 });
         break;
       case K_UP:
-        game.Body.applyForce(this.player.body, pos, { x: 0, y: -PHYSICS.MOVE_FORCE });
+        game.Body.applyForce(this.player.body, pos, { x: 0, y: -0.01 });
         break;
       case K_DOWN:
         game.Body.applyForce(this.player.body, pos, { x: 0, y: PHYSICS.MOVE_FORCE });

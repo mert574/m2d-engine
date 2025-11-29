@@ -139,7 +139,7 @@ var matter = { exports: {} };
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-(function(module, exports) {
+(function(module, exports$1) {
   (function webpackUniversalModuleDefinition(root, factory) {
     module.exports = factory();
   })(commonjsGlobal, function() {
@@ -166,16 +166,16 @@ var matter = { exports: {} };
         }
         __webpack_require__.m = modules;
         __webpack_require__.c = installedModules;
-        __webpack_require__.d = function(exports2, name, getter) {
-          if (!__webpack_require__.o(exports2, name)) {
-            Object.defineProperty(exports2, name, { enumerable: true, get: getter });
+        __webpack_require__.d = function(exports$12, name, getter) {
+          if (!__webpack_require__.o(exports$12, name)) {
+            Object.defineProperty(exports$12, name, { enumerable: true, get: getter });
           }
         };
-        __webpack_require__.r = function(exports2) {
+        __webpack_require__.r = function(exports$12) {
           if (typeof Symbol !== "undefined" && Symbol.toStringTag) {
-            Object.defineProperty(exports2, Symbol.toStringTag, { value: "Module" });
+            Object.defineProperty(exports$12, Symbol.toStringTag, { value: "Module" });
           }
-          Object.defineProperty(exports2, "__esModule", { value: true });
+          Object.defineProperty(exports$12, "__esModule", { value: true });
         };
         __webpack_require__.t = function(value, mode) {
           if (mode & 1) value = __webpack_require__(value);
@@ -212,7 +212,7 @@ var matter = { exports: {} };
       }([
         /* 0 */
         /***/
-        function(module2, exports2) {
+        function(module2, exports$12) {
           var Common = {};
           module2.exports = Common;
           (function() {
@@ -489,7 +489,7 @@ var matter = { exports: {} };
         },
         /* 1 */
         /***/
-        function(module2, exports2) {
+        function(module2, exports$12) {
           var Bounds = {};
           module2.exports = Bounds;
           (function() {
@@ -550,7 +550,7 @@ var matter = { exports: {} };
         },
         /* 2 */
         /***/
-        function(module2, exports2) {
+        function(module2, exports$12) {
           var Vector = {};
           module2.exports = Vector;
           (function() {
@@ -637,7 +637,7 @@ var matter = { exports: {} };
         },
         /* 3 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Vertices = {};
           module2.exports = Vertices;
           var Vector = __webpack_require__(2);
@@ -847,7 +847,7 @@ var matter = { exports: {} };
         },
         /* 4 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Body = {};
           module2.exports = Body;
           var Vertices = __webpack_require__(3);
@@ -1336,7 +1336,7 @@ var matter = { exports: {} };
         },
         /* 5 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Events = {};
           module2.exports = Events;
           var Common = __webpack_require__(0);
@@ -1397,7 +1397,7 @@ var matter = { exports: {} };
         },
         /* 6 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Composite = {};
           module2.exports = Composite;
           var Events = __webpack_require__(5);
@@ -1686,7 +1686,7 @@ var matter = { exports: {} };
         },
         /* 7 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Sleeping = {};
           module2.exports = Sleeping;
           var Body = __webpack_require__(4);
@@ -1761,7 +1761,7 @@ var matter = { exports: {} };
         },
         /* 8 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Collision = {};
           module2.exports = Collision;
           var Vertices = __webpack_require__(3);
@@ -1927,7 +1927,7 @@ var matter = { exports: {} };
         },
         /* 9 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Pair = {};
           module2.exports = Pair;
           var Contact = __webpack_require__(16);
@@ -1998,7 +1998,7 @@ var matter = { exports: {} };
         },
         /* 10 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Constraint = {};
           module2.exports = Constraint;
           var Vertices = __webpack_require__(3);
@@ -2176,7 +2176,7 @@ var matter = { exports: {} };
         },
         /* 11 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Axes = {};
           module2.exports = Axes;
           var Vector = __webpack_require__(2);
@@ -2209,7 +2209,7 @@ var matter = { exports: {} };
         },
         /* 12 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Bodies = {};
           module2.exports = Bodies;
           var Vertices = __webpack_require__(3);
@@ -2399,7 +2399,7 @@ var matter = { exports: {} };
         },
         /* 13 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Detector = {};
           module2.exports = Detector;
           var Common = __webpack_require__(0);
@@ -2475,7 +2475,7 @@ var matter = { exports: {} };
         },
         /* 14 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Mouse = {};
           module2.exports = Mouse;
           var Common = __webpack_require__(0);
@@ -2598,7 +2598,7 @@ var matter = { exports: {} };
         },
         /* 15 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Plugin = {};
           module2.exports = Plugin;
           var Common = __webpack_require__(0);
@@ -2790,7 +2790,7 @@ var matter = { exports: {} };
         },
         /* 16 */
         /***/
-        function(module2, exports2) {
+        function(module2, exports$12) {
           var Contact = {};
           module2.exports = Contact;
           (function() {
@@ -2805,7 +2805,7 @@ var matter = { exports: {} };
         },
         /* 17 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Engine = {};
           module2.exports = Engine;
           var Sleeping = __webpack_require__(7);
@@ -2967,7 +2967,7 @@ var matter = { exports: {} };
         },
         /* 18 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Resolver = {};
           module2.exports = Resolver;
           var Vertices = __webpack_require__(3);
@@ -3149,7 +3149,7 @@ var matter = { exports: {} };
         },
         /* 19 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Pairs = {};
           module2.exports = Pairs;
           var Pair = __webpack_require__(9);
@@ -3221,7 +3221,7 @@ var matter = { exports: {} };
         },
         /* 20 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Matter2 = module2.exports = __webpack_require__(21);
           Matter2.Axes = __webpack_require__(11);
           Matter2.Bodies = __webpack_require__(12);
@@ -3257,7 +3257,7 @@ var matter = { exports: {} };
         },
         /* 21 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Matter2 = {};
           module2.exports = Matter2;
           var Plugin = __webpack_require__(15);
@@ -3282,7 +3282,7 @@ var matter = { exports: {} };
         },
         /* 22 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Composites = {};
           module2.exports = Composites;
           var Composite = __webpack_require__(6);
@@ -3450,7 +3450,7 @@ var matter = { exports: {} };
         },
         /* 23 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Grid = {};
           module2.exports = Grid;
           var Pair = __webpack_require__(9);
@@ -3578,7 +3578,7 @@ var matter = { exports: {} };
         },
         /* 24 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var MouseConstraint = {};
           module2.exports = MouseConstraint;
           var Vertices = __webpack_require__(3);
@@ -3681,7 +3681,7 @@ var matter = { exports: {} };
         },
         /* 25 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Query = {};
           module2.exports = Query;
           var Vector = __webpack_require__(2);
@@ -3747,7 +3747,7 @@ var matter = { exports: {} };
         },
         /* 26 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Render = {};
           module2.exports = Render;
           var Body = __webpack_require__(4);
@@ -4637,7 +4637,7 @@ var matter = { exports: {} };
         },
         /* 27 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Runner = {};
           module2.exports = Runner;
           var Events = __webpack_require__(5);
@@ -4732,7 +4732,7 @@ var matter = { exports: {} };
         },
         /* 28 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var SAT = {};
           module2.exports = SAT;
           var Collision = __webpack_require__(8);
@@ -4747,7 +4747,7 @@ var matter = { exports: {} };
         },
         /* 29 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var Svg = {};
           module2.exports = Svg;
           __webpack_require__(1);
@@ -4893,7 +4893,7 @@ var matter = { exports: {} };
         },
         /* 30 */
         /***/
-        function(module2, exports2, __webpack_require__) {
+        function(module2, exports$12, __webpack_require__) {
           var World = {};
           module2.exports = World;
           var Composite = __webpack_require__(6);
@@ -7067,13 +7067,13 @@ class M2D {
 }
 export {
   CollisionCategories as C,
-  KEY_LEFT as K,
+  KEY_X as K,
   Matter as M,
   __vitePreload as _,
   M2D as a,
-  KEY_RIGHT as b,
-  KEY_UP as c,
-  KEY_DOWN as d,
-  KEY_SPACE as e,
-  KEY_X as f
+  KEY_SPACE as b,
+  KEY_DOWN as c,
+  KEY_UP as d,
+  KEY_RIGHT as e,
+  KEY_LEFT as f
 };
