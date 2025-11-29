@@ -102,7 +102,7 @@ export class DonerGame {
     // Background loop music
     this.sounds.loop = new Audio(basePath + 'bg.mp3');
     this.sounds.loop.loop = true;
-    this.sounds.loop.volume = 0.05; // 5% volume
+    this.sounds.loop.volume = 0.15; // 15% volume
 
     // Key press sound effect
     this.sounds.keyPress = new Audio(basePath + 'MJoneshot.wav');
