@@ -432,7 +432,7 @@ export class DonerGame {
     const width = this.game.options.width;
     const height = this.game.options.height;
     const ingredient = INGREDIENTS[ingredientId];
-    this.spawnParticles(width / 2, height / 2 - 30, 15, {
+    this.spawnParticles(width / 2 - 60, height / 2 - 30, 15, {
       colors: [ingredient.color, '#FFD700', '#FFFFFF'],
       speed: 150,
       life: 0.8,
@@ -448,7 +448,7 @@ export class DonerGame {
     // Spawn red/dark particles for negative feedback
     const width = this.game.options.width;
     const height = this.game.options.height;
-    this.spawnParticles(width / 2, height / 2 - 30, 20, {
+    this.spawnParticles(width / 2 - 60, height / 2 - 30, 20, {
       colors: ['#FF0000', '#880000', '#440000'],
       speed: 180,
       life: 1.0,
@@ -471,9 +471,12 @@ export class DonerGame {
 
     if (result.success) {
       this.score += result.points;
-      this.showFeedback(`Order complete! +${result.points} (bonus: +${result.bonus})`, 1500);
+      // Add time bonus (10 seconds) for completing an order
+      const timeBonus = 10;
+      this.gameTime = Math.max(0, this.gameTime - timeBonus);
+      this.showFeedback(`Order complete! +${result.points} (+${timeBonus}s)`, 3000);
     } else {
-      this.showFeedback('Wrong order! Check the recipes.', 1000);
+      this.showFeedback('Wrong order! Check the recipes.', 3000);
       this.combo = 0;
     }
 
@@ -489,7 +492,7 @@ export class DonerGame {
   }
 
   handleOrderExpired(order) {
-    this.showFeedback(`Order expired: ${order.recipe.name}`, 1500);
+    this.showFeedback(`Order expired: ${order.recipe.name}`, 3000);
     this.combo = 0;
   }
 
@@ -826,48 +829,42 @@ export class DonerGame {
   }
 
   drawSandwichArea(ctx, width, height) {
-    const centerX = width / 2;
-    const sandwichY = height / 2 - 50;
-    const panelWidth = 300;
-    const panelHeight = 380;
+    const centerX = width / 2 - 60; // Shifted left
+    const sandwichY = height / 2 - 120; // Moved up
+    const plateScale = 1.5; // Bigger plate and ingredients
 
-    // Panel title
-    this.drawStyledText(ctx, 'YOUR SANDWICH', centerX, sandwichY - 15, {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: '#FFD700',
-      align: 'center',
-      shadow: { color: 'rgba(0,0,0,0.8)', blur: 6 },
-      glow: { color: '#FFD700', blur: 10 },
-      stroke: { color: 'rgba(0,0,0,0.6)', width: 3 }
-    });
-
-    // Draw plate
+    // Draw plate (bigger)
     if (this.spritesLoaded && this.sprites.plate) {
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 15;
-      ctx.shadowOffsetY = 8;
-      ctx.drawImage(this.sprites.plate, centerX - 100, sandwichY + 180, 200, 60);
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetY = 10;
+      const plateWidth = 300 * plateScale;
+      const plateHeight = 90 * plateScale;
+      ctx.drawImage(this.sprites.plate, centerX - plateWidth / 2, sandwichY + 200, plateWidth, plateHeight);
       ctx.restore();
     }
 
     // Draw sandwich stack
     if (this.currentSandwich.length === 0) {
       this.drawStyledText(ctx, 'Press A/S/D/F to add ingredients!', centerX, sandwichY + 130, {
-        fontSize: 14,
+        fontSize: 16,
         color: 'rgba(255,255,255,0.5)',
         align: 'center',
         baseline: 'middle'
       });
     } else {
-      // Draw each ingredient as a sprite layer with shadows
-      const baseY = sandwichY + 200;
+      // Draw each ingredient as a sprite layer with shadows (bigger)
+      const baseY = sandwichY + 220;
+      const ingredientWidth = 210 * plateScale;
+      const ingredientHeight = 68 * plateScale;
+      const layerSpacing = 42;
+
       this.currentSandwich.forEach((sandwichItem, index) => {
         const isNegative = sandwichItem.isNegative;
         const itemId = sandwichItem.id;
         const itemData = isNegative ? sandwichItem.item : INGREDIENTS[itemId];
-        const layerY = baseY - index * 28;
+        const layerY = baseY - index * layerSpacing;
         const sprite = this.sprites[itemId];
 
         ctx.save();
@@ -875,18 +872,18 @@ export class DonerGame {
         // Red tint for negative items
         if (isNegative) {
           ctx.shadowColor = 'rgba(255,0,0,0.6)';
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = 15;
         } else {
           ctx.shadowColor = 'rgba(0,0,0,0.4)';
-          ctx.shadowBlur = 6;
+          ctx.shadowBlur = 8;
         }
-        ctx.shadowOffsetY = 3;
+        ctx.shadowOffsetY = 4;
 
         if (this.spritesLoaded && sprite) {
-          ctx.drawImage(sprite, centerX - 70, layerY - 20, 140, 45);
+          ctx.drawImage(sprite, centerX - ingredientWidth / 2, layerY - 30, ingredientWidth, ingredientHeight);
         } else {
           // Fallback to styled rectangle
-          this.drawRoundedRect(ctx, centerX - 65, layerY - 18, 130, 36, 6, {
+          this.drawRoundedRect(ctx, centerX - ingredientWidth / 2 + 10, layerY - 25, ingredientWidth - 20, 55, 8, {
             gradient: [
               { pos: 0, color: itemData.color },
               { pos: 1, color: this.darkenColor(itemData.color, 30) }
@@ -897,56 +894,18 @@ export class DonerGame {
         }
         ctx.restore();
 
-        // Ingredient label (red for negative items)
-        this.drawStyledText(ctx, itemData.name, centerX + 85, layerY - 5, {
-          fontSize: 11,
-          color: isNegative ? 'rgba(255,100,100,0.9)' : 'rgba(255,255,255,0.7)',
+        // Ingredient label (red for negative items) - bigger text
+        this.drawStyledText(ctx, itemData.name, centerX + ingredientWidth / 2 + 20, layerY - 5, {
+          fontSize: 18,
+          fontWeight: 'bold',
+          color: isNegative ? 'rgba(255,100,100,0.95)' : 'rgba(255,255,255,0.9)',
           align: 'left',
-          baseline: 'middle'
+          baseline: 'middle',
+          shadow: { color: 'rgba(0,0,0,0.8)', blur: 4, offsetY: 2 }
         });
       });
     }
 
-    // Action buttons - positioned below the sandwich
-    const btnY = sandwichY + 260;
-
-    // Serve button
-    this.drawRoundedRect(ctx, centerX - 120, btnY, 110, 35, 8, {
-      gradient: [
-        { pos: 0, color: 'rgba(80, 160, 80, 0.95)' },
-        { pos: 1, color: 'rgba(50, 120, 50, 0.95)' }
-      ],
-      stroke: 'rgba(150, 255, 150, 0.5)',
-      strokeWidth: 2,
-      shadow: { color: 'rgba(0,0,0,0.5)', blur: 12, offsetY: 4 }
-    });
-    this.drawStyledText(ctx, '[SPACE] Serve', centerX - 65, btnY + 17, {
-      fontSize: 13,
-      fontWeight: 'bold',
-      color: '#FFFFFF',
-      align: 'center',
-      baseline: 'middle',
-      shadow: { color: 'rgba(0,0,0,0.5)', blur: 3 }
-    });
-
-    // Clear button
-    this.drawRoundedRect(ctx, centerX + 10, btnY, 110, 35, 8, {
-      gradient: [
-        { pos: 0, color: 'rgba(160, 80, 80, 0.95)' },
-        { pos: 1, color: 'rgba(120, 50, 50, 0.95)' }
-      ],
-      stroke: 'rgba(255, 150, 150, 0.5)',
-      strokeWidth: 2,
-      shadow: { color: 'rgba(0,0,0,0.5)', blur: 12, offsetY: 4 }
-    });
-    this.drawStyledText(ctx, '[⌫] Clear', centerX + 65, btnY + 17, {
-      fontSize: 13,
-      fontWeight: 'bold',
-      color: '#FFFFFF',
-      align: 'center',
-      baseline: 'middle',
-      shadow: { color: 'rgba(0,0,0,0.5)', blur: 3 }
-    });
   }
 
   // Helper to darken a color

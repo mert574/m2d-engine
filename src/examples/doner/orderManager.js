@@ -15,6 +15,11 @@ export class OrderManager {
     this.failedOrders = 0;
     this.nextOrderId = 1;
 
+    // Order spawn timing
+    this.orderSpawnInterval = options.orderSpawnInterval || 10000; // 10 seconds between new orders
+    this.timeSinceLastOrder = 0;
+    this.hasInitialOrder = false;
+
     // Available recipe keys based on difficulty
     this.availableRecipes = this.getRecipesForDifficulty(this.difficultyLevel);
   }
@@ -56,9 +61,19 @@ export class OrderManager {
       }
     }
 
-    // Generate new orders if needed
-    if (this.orders.length < this.maxOrders) {
+    // Generate initial order immediately
+    if (!this.hasInitialOrder) {
       this.generateOrder();
+      this.hasInitialOrder = true;
+      this.timeSinceLastOrder = 0;
+      return;
+    }
+
+    // Generate new orders on interval if below max
+    this.timeSinceLastOrder += deltaTime * 1000; // deltaTime is in seconds
+    if (this.orders.length < this.maxOrders && this.timeSinceLastOrder >= this.orderSpawnInterval) {
+      this.generateOrder();
+      this.timeSinceLastOrder = 0;
     }
   }
 
@@ -148,5 +163,7 @@ export class OrderManager {
     this.completedOrders = 0;
     this.failedOrders = 0;
     this.nextOrderId = 1;
+    this.timeSinceLastOrder = 0;
+    this.hasInitialOrder = false;
   }
 }
