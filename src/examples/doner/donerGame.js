@@ -60,7 +60,7 @@ export class DonerGame {
   loadSprites() {
     const basePath = this.game.options.basePath + 'sprites/';
     const spriteFiles = {
-      background: 'new-bg.webp',
+      background: 'bg-new.webp',
       plate: 'Plate.png',
       // Regular ingredients
       bread: 'BreadOpen.png',
