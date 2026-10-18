@@ -71,7 +71,7 @@ const elements = [
     x: 640,
     y: 490,
     properties: {
-      text: "Press X and Y in rhythm patterns to add ingredients",
+      text: "Press A, S, D, and F in rhythm patterns to add ingredients",
       fontSize: "18px",
       align: "center",
       color: "#AAAAAA"
@@ -83,7 +83,7 @@ const elements = [
     x: 640,
     y: 520,
     properties: {
-      text: "Each ingredient has a unique 3-beat pattern (0.5s per beat)",
+      text: "Each ingredient has a unique 3-beat pattern (1s per beat)",
       fontSize: "18px",
       align: "center",
       color: "#AAAAAA"

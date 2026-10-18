@@ -1564,7 +1564,7 @@ const game = new M2D(canvas, {
 let donerGame = null;
 game.sceneManager.addScene("mainMenu", {
   fetch: async () => (await __vitePreload(async () => {
-    const { default: __vite_default__ } = await import("./mainMenu-BPtHCIdM.js");
+    const { default: __vite_default__ } = await import("./mainMenu-Du8TsLcz.js");
     return { default: __vite_default__ };
   }, true ? [] : void 0)).default,
   onEnter() {

@@ -4,6 +4,9 @@ A lightweight 2D game engine built with Matter.js for physics and Canvas for ren
 
 [Check Demos](https://mert574.github.io/m2d-engine)
 
+For the next development priorities and acceptance criteria, see [ROADMAP.md](ROADMAP.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines.
+
 https://github.com/user-attachments/assets/1693e2b8-67f8-4b75-b6d7-31ce35f14397
 
 ## Features
