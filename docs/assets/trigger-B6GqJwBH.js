@@ -1,144 +1,9 @@
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-import { M as Matter, C as CollisionCategories, K as KEY_X, b as KEY_SPACE, c as KEY_DOWN, d as KEY_UP, e as KEY_RIGHT, f as KEY_LEFT } from "./m2d-BqOTLTDi.js";
-class Entity {
-  constructor(body, sprite, game) {
-    __publicField(this, "name", "Entity");
-    if (!body) {
-      throw new Error("Physics body is required");
-    }
-    if (!game) {
-      throw new Error("Game instance is required");
-    }
-    this.body = body;
-    this.sprite = sprite;
-    this.game = game;
-    body.entity = this;
-    this.constraints = /* @__PURE__ */ new Map();
-    this.currentAnim = null;
-    this.dead = false;
-    this.size = {
-      x: body.bounds.max.x - body.bounds.min.x,
-      y: body.bounds.max.y - body.bounds.min.y
-    };
-    this._contacts = /* @__PURE__ */ new Set();
-  }
-  addConstraint(name, constraint) {
-    this.constraints.set(name, constraint);
-  }
-  getConstraint(name) {
-    return this.constraints.get(name);
-  }
-  onCollisionStart(other) {
-    this._contacts.add(other);
-    for (const constraint of this.constraints.values()) {
-      constraint.onCollisionStart(other);
-    }
-  }
-  onCollisionEnd(other) {
-    this._contacts.delete(other);
-    for (const constraint of this.constraints.values()) {
-      constraint.onCollisionEnd(other);
-    }
-  }
-  update(deltaTime) {
-    if (this.dead) return;
-    for (const constraint of this.constraints.values()) {
-      constraint.update(deltaTime);
-    }
-  }
-  draw(deltaTime) {
-    if (this.dead) return;
-    const pos = this.body.position;
-    if (!this.sprite || !this.sprite.width) {
-      this.game.renderer.drawRect({
-        x: pos.x - this.size.x / 2,
-        y: pos.y - this.size.y / 2,
-        width: this.size.x,
-        height: this.size.y,
-        fillStyle: "#ff0000"
-      });
-      return;
-    }
-    const tileSize = this.sprite.width;
-    const tilesNeededX = Math.ceil(this.size.x / tileSize);
-    const tilesNeededY = Math.ceil(this.size.y / tileSize);
-    for (let i = 0; i < tilesNeededX; i++) {
-      for (let j = 0; j < tilesNeededY; j++) {
-        const x = pos.x - this.size.x / 2 + i * tileSize + tileSize / 2;
-        const y = pos.y - this.size.y / 2 + j * tileSize + tileSize / 2;
-        this.sprite.draw(this.currentAnim, x, y, {
-          rotation: this.body.angle
-        });
-      }
-    }
-    for (const constraint of this.constraints.values()) {
-      constraint.draw(deltaTime);
-    }
-  }
-  get position() {
-    return this.body.position;
-  }
-  get velocity() {
-    return this.body.velocity;
-  }
-  setAnimation(name) {
-    if (!this.sprite) return;
-    if (!name || !this.sprite.animations) {
-      this.currentAnim = null;
-      return;
-    }
-    if (this.sprite.animations.has(name)) {
-      this.currentAnim = name;
-    }
-  }
-  isFalling(threshold = 0.5) {
-    return this.velocity.y > threshold;
-  }
-  isJumping(threshold = -0.5) {
-    return this.velocity.y < threshold;
-  }
-  isMovingHorizontally(threshold = 0.1) {
-    return Math.abs(this.velocity.x) > threshold;
-  }
-  isMovingLeft(threshold = 0.1) {
-    return this.velocity.x < -threshold;
-  }
-  isMovingRight(threshold = 0.1) {
-    return this.velocity.x > threshold;
-  }
-  isInAir() {
-    return !this.isOnGround();
-  }
-  isOnGround() {
-    const world = this.game.engine.world;
-    const contacts = Matter.Query.collides(this.body, Matter.Composite.allBodies(world));
-    for (const { bodyA, bodyB } of contacts) {
-      const contact = bodyA === this.body ? bodyB : bodyA;
-      if (!contact.entity) continue;
-      if (contact.entity.name !== "Platform") continue;
-      const dy = contact.position.y - this.position.y;
-      if (dy > 0 && Math.abs(dy) < this.size.y) {
-        return true;
-      }
-    }
-    return false;
-  }
-}
-class Constraint {
-  constructor(entity) {
-    this.entity = entity;
-  }
-  update() {
-  }
-  onCollisionStart(other) {
-  }
-  onCollisionEnd(other) {
-  }
-  draw() {
-  }
-}
+import { C as Constraint } from "./keyboardControl-BNR0DhL_.js";
+import { a as Matter, C as CollisionCategories } from "./m2d-BNRWOeom.js";
+import { E as Entity } from "./entity-D3ytQWr6.js";
 class Health extends Constraint {
   constructor(entity, options = {}) {
     super(entity);
@@ -430,88 +295,6 @@ class Debug extends Constraint {
     }
   }
 }
-const norm = Math.sqrt(2);
-class KeyboardControl extends Constraint {
-  constructor(entity, options = {}) {
-    var _a, _b, _c, _d;
-    super(entity);
-    this.keys = {
-      left: KEY_LEFT,
-      right: KEY_RIGHT,
-      up: KEY_UP,
-      down: KEY_DOWN,
-      jump: KEY_SPACE,
-      attack: KEY_X,
-      ...options.keys
-    };
-    this.acceleration = options.acceleration || options.moveForce * 1e3 || 10;
-    this.maxSpeed = options.maxSpeed || 5;
-    this.continuous = options.continuous ?? true;
-    this.verticalMovement = options.verticalMovement ?? true;
-    Object.values(this.keys).forEach((key) => {
-      this.entity.game.keys.addKey(key);
-    });
-    this.onMove = (_a = options.onMove) == null ? void 0 : _a.bind(entity);
-    this.onDirectionChange = (_b = options.onDirectionChange) == null ? void 0 : _b.bind(entity);
-    this.onJump = (_c = options.onJump) == null ? void 0 : _c.bind(entity);
-    this.onAttack = (_d = options.onAttack) == null ? void 0 : _d.bind(entity);
-  }
-  update(deltaTime) {
-    var _a, _b;
-    if (this.entity.dead) return;
-    const pressedKeys = this.entity.game.keys.pressedKeys();
-    let dx = 0;
-    let dy = 0;
-    if (pressedKeys.has(this.keys.left)) dx -= 1;
-    if (pressedKeys.has(this.keys.right)) dx += 1;
-    if (this.verticalMovement) {
-      if (pressedKeys.has(this.keys.up)) dy -= 1;
-      if (pressedKeys.has(this.keys.down)) dy += 1;
-    }
-    if (dx !== 0 && dy !== 0) {
-      dx /= norm;
-      dy /= norm;
-    }
-    if (dx !== 0 || dy !== 0) {
-      if (this.continuous) {
-        const currentVel = this.entity.body.velocity;
-        const accel = this.acceleration * deltaTime;
-        Matter.Body.setVelocity(this.entity.body, {
-          x: currentVel.x + dx * accel,
-          y: currentVel.y + dy * accel
-        });
-      } else {
-        Matter.Body.setVelocity(
-          this.entity.body,
-          { x: dx * this.maxSpeed, y: dy * this.maxSpeed }
-        );
-      }
-    }
-    if (this.onDirectionChange && dx !== 0) {
-      this.onDirectionChange(dx > 0 ? 1 : -1);
-    }
-    if (this.onMove) {
-      this.onMove(dx, dy);
-    }
-    if (pressedKeys.has(this.keys.jump)) {
-      (_a = this.onJump) == null ? void 0 : _a.call(this);
-    }
-    if (pressedKeys.has(this.keys.attack)) {
-      (_b = this.onAttack) == null ? void 0 : _b.call(this);
-    }
-    if (this.continuous) {
-      const velocity = this.entity.velocity;
-      const speed = Math.abs(velocity.x);
-      if (speed > this.maxSpeed) {
-        const scale = this.maxSpeed / speed;
-        Matter.Body.setVelocity(this.entity.body, {
-          x: velocity.x * scale,
-          y: velocity.y
-        });
-      }
-    }
-  }
-}
 class ContactDamage extends Constraint {
   constructor(entity, options = {}) {
     super(entity);
@@ -569,15 +352,6 @@ class ContactDamage extends Constraint {
     if (otherEntity) {
       this.collidingEntities.delete(otherEntity);
     }
-  }
-}
-class Platform extends Entity {
-  constructor(body, sprite, game, options = {}) {
-    var _a;
-    super(body, sprite, game);
-    __publicField(this, "name", "Platform");
-    this.visible = !((_a = body.render) == null ? void 0 : _a.visible) === false;
-    this.setAnimation("default");
   }
 }
 class Coin extends Entity {
@@ -682,10 +456,7 @@ export {
   Attack as A,
   ContactDamage as C,
   Debug as D,
-  Entity as E,
   Health as H,
-  KeyboardControl as K,
-  Platform as P,
   Trigger as T,
   Vec2 as V,
   Coin as a

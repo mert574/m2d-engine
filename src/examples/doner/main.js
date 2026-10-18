@@ -117,7 +117,7 @@ function drawStyledText(ctx, text, x, y, options = {}) {
   ctx.save();
   const fontSize = options.fontSize || 16;
   const fontWeight = options.fontWeight || 'normal';
-  ctx.font = `${fontWeight} ${fontSize}px "Helvetica Rounded", "Arial Rounded MT Bold", system-ui, sans-serif`;
+  ctx.font = `${fontWeight} ${fontSize}px system-ui, sans-serif`;
   ctx.textAlign = options.align || 'left';
   ctx.textBaseline = options.baseline || 'top';
   if (options.glow) {

@@ -3,6 +3,13 @@
 import { INGREDIENTS, NEGATIVE_ITEMS, RECIPES, findIngredientByPattern, getRandomNegativeItem, patternToString } from './ingredients.js';
 import { RhythmInput } from './rhythmInput.js';
 import { OrderManager } from './orderManager.js';
+import { coinSound, gameMusic } from '../shared/audio.js';
+
+// Bundle available original artwork; absent optional sprites use the existing
+// emoji/shape rendering paths without requesting files that are not shipped.
+const spriteUrls = import.meta.glob('./sprites/*.{png,jpg,jpeg,webp}', {
+  eager: true, query: '?url', import: 'default'
+});
 
 export class DonerGame {
   constructor(game) {
@@ -58,7 +65,6 @@ export class DonerGame {
   }
 
   loadSprites() {
-    const basePath = this.game.options.basePath + 'sprites/';
     const spriteFiles = {
       background: 'bg-new.webp',
       plate: 'Plate.png',
@@ -80,32 +86,26 @@ export class DonerGame {
       oil: 'Oil.webp'
     };
 
-    let loadedCount = 0;
-    const totalSprites = Object.keys(spriteFiles).length;
-
     for (const [key, file] of Object.entries(spriteFiles)) {
+      const url = spriteUrls[`./sprites/${file}`];
+      if (!url) continue;
       const img = new Image();
       img.onload = () => {
-        loadedCount++;
-        if (loadedCount === totalSprites) {
-          this.spritesLoaded = true;
-        }
+        this.sprites[key] = img;
       };
-      img.src = basePath + file;
-      this.sprites[key] = img;
+      img.src = url;
     }
+    this.spritesLoaded = true;
   }
 
   loadSounds() {
-    const basePath = this.game.options.basePath;
-
     // Background loop music
-    this.sounds.loop = new Audio(basePath + 'bg.mp3');
+    this.sounds.loop = new Audio(gameMusic);
     this.sounds.loop.loop = true;
     this.sounds.loop.volume = 0.15; // 15% volume
 
     // Key press sound effect
-    this.sounds.keyPress = new Audio(basePath + 'MJoneshot.wav');
+    this.sounds.keyPress = new Audio(coinSound);
     this.sounds.keyPress.volume = 0.7;
   }
 
@@ -195,7 +195,7 @@ export class DonerGame {
 
     const fontSize = options.fontSize || 16;
     const fontWeight = options.fontWeight || 'normal';
-    const fontFamily = options.fontFamily || '"Helvetica Rounded", "Arial Rounded MT Bold", system-ui, sans-serif';
+    const fontFamily = options.fontFamily || 'system-ui, sans-serif';
 
     ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
     ctx.textAlign = options.align || 'left';

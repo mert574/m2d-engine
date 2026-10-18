@@ -1,4 +1,6 @@
-import { a as M2D, _ as __vitePreload } from "./m2d-BqOTLTDi.js";
+import { M as M2D } from "./m2d-BNRWOeom.js";
+import { _ as __vitePreload } from "./preload-helper-NSRvbUIY.js";
+const __vite_glob_0_0 = "/m2d-engine/assets/bg-new-C51osH7Q.webp";
 const INGREDIENTS = {
   bread: {
     name: "Bread",
@@ -397,6 +399,55 @@ class OrderManager {
     this.hasInitialOrder = false;
   }
 }
+function synthesizeAudio(notes, noteSeconds = 0.12) {
+  const sampleRate = 12e3;
+  const samplesPerNote = Math.round(sampleRate * noteSeconds);
+  const dataSize = samplesPerNote * notes.length * 2;
+  const bytes = new Uint8Array(44 + dataSize);
+  const view = new DataView(bytes.buffer);
+  const text = (offset, value) => {
+    for (let i = 0; i < value.length; i++) bytes[offset + i] = value.charCodeAt(i);
+  };
+  text(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  text(8, "WAVE");
+  text(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  text(36, "data");
+  view.setUint32(40, dataSize, true);
+  notes.forEach((frequency, note) => {
+    for (let i = 0; i < samplesPerNote; i++) {
+      const progress = i / samplesPerNote;
+      const envelope = Math.min(1, progress * 30) * (1 - progress) ** 2;
+      const sample = Math.sin(2 * Math.PI * frequency * i / sampleRate);
+      view.setInt16(
+        44 + (note * samplesPerNote + i) * 2,
+        Math.round(sample * envelope * 7e3),
+        true
+      );
+    }
+  });
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:audio/wav;base64,${btoa(binary)}`;
+}
+synthesizeAudio([220, 440, 660], 0.045);
+const coinSound = synthesizeAudio([660, 880], 0.07);
+synthesizeAudio([330, 220, 110], 0.18);
+synthesizeAudio([330, 440, 550, 660], 0.12);
+synthesizeAudio([180, 90], 0.04);
+synthesizeAudio([140, 100], 0.09);
+synthesizeAudio([220, 0, 330, 0, 275, 0, 330, 0], 0.25);
+const gameMusic = synthesizeAudio([220, 330, 440, 330, 275, 330, 550, 330], 0.25);
+const spriteUrls = /* @__PURE__ */ Object.assign({
+  "./sprites/bg-new.webp": __vite_glob_0_0
+});
 class DonerGame {
   constructor(game2) {
     this.game = game2;
@@ -437,9 +488,8 @@ class DonerGame {
     });
   }
   loadSprites() {
-    const basePath = this.game.options.basePath + "sprites/";
     const spriteFiles = {
-      background: "new-bg.webp",
+      background: "bg-new.webp",
       plate: "Plate.png",
       // Regular ingredients
       bread: "BreadOpen.png",
@@ -458,26 +508,22 @@ class DonerGame {
       nails: "Nails.webp",
       oil: "Oil.webp"
     };
-    let loadedCount = 0;
-    const totalSprites = Object.keys(spriteFiles).length;
     for (const [key, file] of Object.entries(spriteFiles)) {
+      const url = spriteUrls[`./sprites/${file}`];
+      if (!url) continue;
       const img = new Image();
       img.onload = () => {
-        loadedCount++;
-        if (loadedCount === totalSprites) {
-          this.spritesLoaded = true;
-        }
+        this.sprites[key] = img;
       };
-      img.src = basePath + file;
-      this.sprites[key] = img;
+      img.src = url;
     }
+    this.spritesLoaded = true;
   }
   loadSounds() {
-    const basePath = this.game.options.basePath;
-    this.sounds.loop = new Audio(basePath + "bg.mp3");
+    this.sounds.loop = new Audio(gameMusic);
     this.sounds.loop.loop = true;
     this.sounds.loop.volume = 0.15;
-    this.sounds.keyPress = new Audio(basePath + "MJoneshot.wav");
+    this.sounds.keyPress = new Audio(coinSound);
     this.sounds.keyPress.volume = 0.7;
   }
   playKeySound() {
@@ -548,7 +594,7 @@ class DonerGame {
     ctx.save();
     const fontSize = options.fontSize || 16;
     const fontWeight = options.fontWeight || "normal";
-    const fontFamily = options.fontFamily || '"Helvetica Rounded", "Arial Rounded MT Bold", system-ui, sans-serif';
+    const fontFamily = options.fontFamily || "system-ui, sans-serif";
     ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
     ctx.textAlign = options.align || "left";
     ctx.textBaseline = options.baseline || "top";
@@ -1628,7 +1674,7 @@ function drawStyledText(ctx, text, x, y, options = {}) {
   ctx.save();
   const fontSize = options.fontSize || 16;
   const fontWeight = options.fontWeight || "normal";
-  ctx.font = `${fontWeight} ${fontSize}px "Helvetica Rounded", "Arial Rounded MT Bold", system-ui, sans-serif`;
+  ctx.font = `${fontWeight} ${fontSize}px system-ui, sans-serif`;
   ctx.textAlign = options.align || "left";
   ctx.textBaseline = options.baseline || "top";
   if (options.glow) {
