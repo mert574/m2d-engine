@@ -8,56 +8,56 @@ export const INGREDIENTS = {
     pattern: ['A', 'A', '_'],
     color: '#D4A574',
     emoji: '🍞',
-    sprite: 'BreadOpen.png'
+    sprite: 'BreadOpen.svg'
   },
   meat: {
     name: 'Meat',
     pattern: ['A', 'S', 'D'],
     color: '#8B4513',
     emoji: '🥩',
-    sprite: 'MeatVeal.png'
+    sprite: 'MeatVeal.svg'
   },
   salad: {
     name: 'Salad',
     pattern: ['S', 'S', '_'],
     color: '#90EE90',
     emoji: '🥬',
-    sprite: 'Salad.png'
+    sprite: 'Salad.svg'
   },
   onion: {
     name: 'Onion',
     pattern: ['D', 'D', '_'],
     color: '#DDA0DD',
     emoji: '🧅',
-    sprite: 'Onion.png'
+    sprite: 'Onion.svg'
   },
   sauce: {
     name: 'Sauce',
     pattern: ['F', 'F', 'F'],
     color: '#FFFFFF',
     emoji: '🥛',
-    sprite: 'SauceA.png'
+    sprite: 'SauceA.svg'
   },
   sauerkraut: {
     name: 'Sauerkraut',
     pattern: ['S', 'D', 'F'],
     color: '#F0E68C',
     emoji: '🥗',
-    sprite: 'SauerKraut.png'
+    sprite: 'SauerKraut.svg'
   },
   specialSalad: {
     name: 'Special Salad',
     pattern: ['A', 'S', 'F'],
     color: '#32CD32',
     emoji: '🥗',
-    sprite: 'SpecialSalad.webp'
+    sprite: 'SpecialSalad.svg'
   },
   breadClosed: {
     name: 'Bread Top',
     pattern: ['A', 'A', 'A'],
     color: '#D2691E',
     emoji: '🥖',
-    sprite: 'BreadClosed.webp'
+    sprite: 'BreadClosed.svg'
   }
 };
 
@@ -67,42 +67,42 @@ export const NEGATIVE_ITEMS = {
     name: 'Pills',
     color: '#FF4444',
     emoji: '💊',
-    sprite: 'Pills.webp',
+    sprite: 'Pills.svg',
     penalty: -30
   },
   book: {
     name: 'Book',
     color: '#8B4513',
     emoji: '📖',
-    sprite: 'Book.webp',
+    sprite: 'Book.svg',
     penalty: -25
   },
   fish: {
     name: 'Fish',
     color: '#4169E1',
     emoji: '🐟',
-    sprite: 'Fish.webp',
+    sprite: 'Fish.svg',
     penalty: -20
   },
   key: {
     name: 'Key',
     color: '#FFD700',
     emoji: '🔑',
-    sprite: 'Key.webp',
+    sprite: 'Key.svg',
     penalty: -25
   },
   nails: {
     name: 'Nails',
     color: '#808080',
     emoji: '🔩',
-    sprite: 'Nails.webp',
+    sprite: 'Nails.svg',
     penalty: -35
   },
   oil: {
     name: 'Oil',
     color: '#2F4F4F',
     emoji: '🛢️',
-    sprite: 'Oil.webp',
+    sprite: 'Oil.svg',
     penalty: -30
   }
 };

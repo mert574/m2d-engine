@@ -46,6 +46,7 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'src/index.html'),
+        credits: resolve(__dirname, 'src/music-credits.html'),
         platformer: resolve(__dirname, 'src/examples/platformer/index.html'),
         maze: resolve(__dirname, 'src/examples/maze/index.html'),
         physics: resolve(__dirname, 'src/examples/physics/index.html'),

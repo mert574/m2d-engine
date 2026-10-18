@@ -2,6 +2,7 @@
 node_modules/
 
 dist/
+/docs/
 
 # IDE and editor files
 .vscode/

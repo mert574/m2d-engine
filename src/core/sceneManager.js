@@ -24,7 +24,8 @@ export class SceneManager {
         throw new Error('Failed to load scene');
       }
 
-      this.scenes.set(sceneName, new Scene(this.game, loadedScene));
+      // Keep registered hooks, including the platformer's music transitions.
+      this.scenes.set(sceneName, new Scene(this.game, { ...sceneConfig, ...loadedScene }));
       this.scenesToLoad = this.scenesToLoad.filter(s => s.name !== sceneName);
 
       return this.scenes.get(sceneName);
@@ -60,4 +61,4 @@ export class SceneManager {
   getCurrentScene() {
     return this.currentScene;
   }
-} 
+}

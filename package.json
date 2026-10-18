@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "generate-sprites": "node scripts/generateSprites.js"
   },
-  "author": "IRL",
-  "license": "ISC",
+  "author": "Mert Yildiz",
+  "license": "MIT",
   "dependencies": {
     "canvas": "^3.2.0",
     "matter-js": "^0.19.0"

@@ -1,5 +1,8 @@
-// Original example audio synthesized from sine waves. MIT License; see LICENSE.
+// Original sound effects synthesized from sine waves. MIT; see LICENSE.
 // Frequencies and note lengths are generated here rather than sampled from recordings.
+// Music recordings have separate CC BY 4.0 terms; see THIRD_PARTY_NOTICES.md.
+export { default as menuMusic } from './music/backed-vibes-clean.mp3';
+export { default as gameMusic } from './music/bossa-antigua.mp3';
 export function synthesizeAudio(notes, noteSeconds = 0.12) {
   const sampleRate = 12000;
   const samplesPerNote = Math.round(sampleRate * noteSeconds);
@@ -42,5 +45,3 @@ export const gameOverSound = synthesizeAudio([330, 220, 110], 0.18);
 export const levelCompleteSound = synthesizeAudio([330, 440, 550, 660], 0.12);
 export const attackSound = synthesizeAudio([180, 90], 0.04);
 export const damageSound = synthesizeAudio([140, 100], 0.09);
-export const menuMusic = synthesizeAudio([220, 0, 330, 0, 275, 0, 330, 0], 0.25);
-export const gameMusic = synthesizeAudio([220, 330, 440, 330, 275, 330, 550, 330], 0.25);

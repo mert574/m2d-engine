@@ -7,7 +7,7 @@ import { coinSound, gameMusic } from '../shared/audio.js';
 
 // Bundle available original artwork; absent optional sprites use the existing
 // emoji/shape rendering paths without requesting files that are not shipped.
-const spriteUrls = import.meta.glob('./sprites/*.{png,jpg,jpeg,webp}', {
+const spriteUrls = import.meta.glob('./sprites/*.{png,jpg,jpeg,webp,svg}', {
   eager: true, query: '?url', import: 'default'
 });
 
@@ -67,23 +67,9 @@ export class DonerGame {
   loadSprites() {
     const spriteFiles = {
       background: 'bg-new.webp',
-      plate: 'Plate.png',
-      // Regular ingredients
-      bread: 'BreadOpen.png',
-      meat: 'MeatVeal.png',
-      salad: 'Salad.png',
-      onion: 'Onion.png',
-      sauce: 'SauceA.png',
-      sauerkraut: 'SauerKraut.png',
-      specialSalad: 'SpecialSalad.webp',
-      breadClosed: 'BreadClosed.webp',
-      // Negative items
-      pills: 'Pills.webp',
-      book: 'Book.webp',
-      fish: 'Fish.webp',
-      key: 'Key.webp',
-      nails: 'Nails.webp',
-      oil: 'Oil.webp'
+      plate: 'Plate.svg',
+      ...Object.fromEntries(Object.entries({ ...INGREDIENTS, ...NEGATIVE_ITEMS })
+        .map(([id, item]) => [id, item.sprite]))
     };
 
     for (const [key, file] of Object.entries(spriteFiles)) {
@@ -956,15 +942,23 @@ export class DonerGame {
         });
       }
 
-      // Draw sprite with shadow
+      // Match the icon and badge used in order cards, including missing-sprite fallbacks.
+      const badgeX = guideX + 6;
+      const badgeY = y - 1;
+      this.drawRoundedRect(ctx, badgeX, badgeY, 40, 40, 8, {
+        fill: ingredient.color + '40',
+        stroke: ingredient.color,
+        strokeWidth: 2
+      });
       const sprite = this.sprites[id];
       if (this.spritesLoaded && sprite) {
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.4)';
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetY = 2;
-        ctx.drawImage(sprite, guideX + 5, y, 45, 35);
-        ctx.restore();
+        ctx.drawImage(sprite, badgeX + 4, badgeY + 4, 32, 32);
+      } else {
+        this.drawStyledText(ctx, ingredient.emoji, badgeX + 20, badgeY + 20, {
+          fontSize: 20,
+          align: 'center',
+          baseline: 'middle'
+        });
       }
 
       // Name
