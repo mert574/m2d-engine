@@ -2,7 +2,7 @@
 
 A lightweight 2D game engine built with Matter.js for physics and Canvas for rendering. Features a component-based architecture, scene management, and UI system.
 
-[Check Demos](https://mert.js.org/m2d-engine)
+[Check Demos](https://mert574.github.io/m2d-engine)
 
 https://github.com/user-attachments/assets/1693e2b8-67f8-4b75-b6d7-31ce35f14397
 
@@ -295,4 +295,4 @@ game.start();
 
 ## License
 
-ISC
+MIT. See [LICENSE](LICENSE). Third-party dependencies retain their own licenses.
