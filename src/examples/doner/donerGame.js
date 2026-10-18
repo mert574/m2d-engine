@@ -3,6 +3,13 @@
 import { INGREDIENTS, NEGATIVE_ITEMS, RECIPES, findIngredientByPattern, getRandomNegativeItem, patternToString } from './ingredients.js';
 import { RhythmInput } from './rhythmInput.js';
 import { OrderManager } from './orderManager.js';
+import { coinSound, gameMusic } from '../shared/audio.js';
+
+// Bundle available original artwork; absent optional sprites use the existing
+// emoji/shape rendering paths without requesting files that are not shipped.
+const spriteUrls = import.meta.glob('./sprites/*.{png,jpg,jpeg,webp,svg}', {
+  eager: true, query: '?url', import: 'default'
+});
 
 export class DonerGame {
   constructor(game) {
@@ -58,54 +65,33 @@ export class DonerGame {
   }
 
   loadSprites() {
-    const basePath = this.game.options.basePath + 'sprites/';
     const spriteFiles = {
-      background: 'new-bg.webp',
-      plate: 'Plate.png',
-      // Regular ingredients
-      bread: 'BreadOpen.png',
-      meat: 'MeatVeal.png',
-      salad: 'Salad.png',
-      onion: 'Onion.png',
-      sauce: 'SauceA.png',
-      sauerkraut: 'SauerKraut.png',
-      specialSalad: 'SpecialSalad.webp',
-      breadClosed: 'BreadClosed.webp',
-      // Negative items
-      pills: 'Pills.webp',
-      book: 'Book.webp',
-      fish: 'Fish.webp',
-      key: 'Key.webp',
-      nails: 'Nails.webp',
-      oil: 'Oil.webp'
+      background: 'bg-new.webp',
+      plate: 'Plate.svg',
+      ...Object.fromEntries(Object.entries({ ...INGREDIENTS, ...NEGATIVE_ITEMS })
+        .map(([id, item]) => [id, item.sprite]))
     };
 
-    let loadedCount = 0;
-    const totalSprites = Object.keys(spriteFiles).length;
-
     for (const [key, file] of Object.entries(spriteFiles)) {
+      const url = spriteUrls[`./sprites/${file}`];
+      if (!url) continue;
       const img = new Image();
       img.onload = () => {
-        loadedCount++;
-        if (loadedCount === totalSprites) {
-          this.spritesLoaded = true;
-        }
+        this.sprites[key] = img;
       };
-      img.src = basePath + file;
-      this.sprites[key] = img;
+      img.src = url;
     }
+    this.spritesLoaded = true;
   }
 
   loadSounds() {
-    const basePath = this.game.options.basePath;
-
     // Background loop music
-    this.sounds.loop = new Audio(basePath + 'bg.mp3');
+    this.sounds.loop = new Audio(gameMusic);
     this.sounds.loop.loop = true;
     this.sounds.loop.volume = 0.15; // 15% volume
 
     // Key press sound effect
-    this.sounds.keyPress = new Audio(basePath + 'MJoneshot.wav');
+    this.sounds.keyPress = new Audio(coinSound);
     this.sounds.keyPress.volume = 0.7;
   }
 
@@ -195,7 +181,7 @@ export class DonerGame {
 
     const fontSize = options.fontSize || 16;
     const fontWeight = options.fontWeight || 'normal';
-    const fontFamily = options.fontFamily || '"Helvetica Rounded", "Arial Rounded MT Bold", system-ui, sans-serif';
+    const fontFamily = options.fontFamily || 'system-ui, sans-serif';
 
     ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
     ctx.textAlign = options.align || 'left';
@@ -956,15 +942,23 @@ export class DonerGame {
         });
       }
 
-      // Draw sprite with shadow
+      // Match the icon and badge used in order cards, including missing-sprite fallbacks.
+      const badgeX = guideX + 6;
+      const badgeY = y - 1;
+      this.drawRoundedRect(ctx, badgeX, badgeY, 40, 40, 8, {
+        fill: ingredient.color + '40',
+        stroke: ingredient.color,
+        strokeWidth: 2
+      });
       const sprite = this.sprites[id];
       if (this.spritesLoaded && sprite) {
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.4)';
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetY = 2;
-        ctx.drawImage(sprite, guideX + 5, y, 45, 35);
-        ctx.restore();
+        ctx.drawImage(sprite, badgeX + 4, badgeY + 4, 32, 32);
+      } else {
+        this.drawStyledText(ctx, ingredient.emoji, badgeX + 20, badgeY + 20, {
+          fontSize: 20,
+          align: 'center',
+          baseline: 'middle'
+        });
       }
 
       // Name

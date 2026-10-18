@@ -1,11 +1,17 @@
 import { createCanvas } from 'canvas';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 
 // Get output directory from command line args
 const args = process.argv.slice(2);
 const targetDir = args[0] === '--docs' ? 'docs' : 'src';
 const example = args[args.length - 1];
+
+function writeSprite(filePath, buffer) {
+    if (!args.includes('--missing') || !existsSync(filePath)) {
+        writeFileSync(filePath, buffer);
+    }
+}
 
 function ensureDirectoryExists(filePath) {
     const dir = dirname(filePath);
@@ -36,7 +42,7 @@ const generatePlatformerSprites = () => {
 
     const playerPath = getOutputPath('platformer', 'player.png');
     ensureDirectoryExists(playerPath);
-    writeFileSync(playerPath, playerCanvas.toBuffer());
+    writeSprite(playerPath, playerCanvas.toBuffer());
 
     // Platform sprite
     const platformCanvas = createCanvas(32, 32);
@@ -57,7 +63,7 @@ const generatePlatformerSprites = () => {
 
     const platformPath = getOutputPath('platformer', 'platform.png');
     ensureDirectoryExists(platformPath);
-    writeFileSync(platformPath, platformCanvas.toBuffer());
+    writeSprite(platformPath, platformCanvas.toBuffer());
 
     // Moving Platform sprite
     const movingPlatformCanvas = createCanvas(32, 32);
@@ -87,7 +93,7 @@ const generatePlatformerSprites = () => {
 
     const movingPlatformPath = getOutputPath('platformer', 'movingPlatform.png');
     ensureDirectoryExists(movingPlatformPath);
-    writeFileSync(movingPlatformPath, movingPlatformCanvas.toBuffer());
+    writeSprite(movingPlatformPath, movingPlatformCanvas.toBuffer());
 
     // Bee enemy sprite
     const beeCanvas = createCanvas(96, 32);  // 3 frames of 32x32
@@ -141,7 +147,7 @@ const generatePlatformerSprites = () => {
 
     const beePath = getOutputPath('platformer', 'enemy.png');
     ensureDirectoryExists(beePath);
-    writeFileSync(beePath, beeCanvas.toBuffer());
+    writeSprite(beePath, beeCanvas.toBuffer());
 
     // Coin sprite (32x32 with shine effect)
     const coinCanvas = createCanvas(32, 32);
@@ -174,7 +180,7 @@ const generatePlatformerSprites = () => {
 
     const coinPath = getOutputPath('platformer', 'coin.png');
     ensureDirectoryExists(coinPath);
-    writeFileSync(coinPath, coinCanvas.toBuffer());
+    writeSprite(coinPath, coinCanvas.toBuffer());
 };
 
 // Maze Example Sprites
@@ -194,7 +200,7 @@ const generateMazeSprites = () => {
 
     const playerPath = getOutputPath('maze', 'player.png');
     ensureDirectoryExists(playerPath);
-    writeFileSync(playerPath, playerCanvas.toBuffer());
+    writeSprite(playerPath, playerCanvas.toBuffer());
 
     // Wall sprite
     const wallCanvas = createCanvas(32, 32);
@@ -208,7 +214,7 @@ const generateMazeSprites = () => {
 
     const wallPath = getOutputPath('maze', 'wall.png');
     ensureDirectoryExists(wallPath);
-    writeFileSync(wallPath, wallCanvas.toBuffer());
+    writeSprite(wallPath, wallCanvas.toBuffer());
 
     // Floor sprite
     const floorCanvas = createCanvas(32, 32);
@@ -222,7 +228,7 @@ const generateMazeSprites = () => {
 
     const floorPath = getOutputPath('maze', 'floor.png');
     ensureDirectoryExists(floorPath);
-    writeFileSync(floorPath, floorCanvas.toBuffer());
+    writeSprite(floorPath, floorCanvas.toBuffer());
 };
 
 // Physics Example Sprites
@@ -242,7 +248,7 @@ const generatePhysicsSprites = () => {
 
     const ballPath = getOutputPath('physics', 'ball.png');
     ensureDirectoryExists(ballPath);
-    writeFileSync(ballPath, ballCanvas.toBuffer());
+    writeSprite(ballPath, ballCanvas.toBuffer());
 
     // Box sprite
     const boxCanvas = createCanvas(32, 32);
@@ -258,7 +264,7 @@ const generatePhysicsSprites = () => {
 
     const boxPath = getOutputPath('physics', 'box.png');
     ensureDirectoryExists(boxPath);
-    writeFileSync(boxPath, boxCanvas.toBuffer());
+    writeSprite(boxPath, boxCanvas.toBuffer());
 
     // Platform sprite
     const platformCanvas = createCanvas(32, 32);
@@ -272,7 +278,7 @@ const generatePhysicsSprites = () => {
 
     const platformPath = getOutputPath('physics', 'platform.png');
     ensureDirectoryExists(platformPath);
-    writeFileSync(platformPath, platformCanvas.toBuffer());
+    writeSprite(platformPath, platformCanvas.toBuffer());
 };
 
 // Top-Down Example Sprites
@@ -303,7 +309,7 @@ const generateTopDownSprites = () => {
 
     const playerPath = getOutputPath('topdown', 'player.png');
     ensureDirectoryExists(playerPath);
-    writeFileSync(playerPath, playerCanvas.toBuffer());
+    writeSprite(playerPath, playerCanvas.toBuffer());
 
     // Wall sprite
     const wallCanvas = createCanvas(32, 32);
@@ -319,7 +325,7 @@ const generateTopDownSprites = () => {
 
     const wallPath = getOutputPath('topdown', 'wall.png');
     ensureDirectoryExists(wallPath);
-    writeFileSync(wallPath, wallCanvas.toBuffer());
+    writeSprite(wallPath, wallCanvas.toBuffer());
 
     // Enemy sprite (single frame)
     const enemyCanvas = createCanvas(32, 32);
@@ -352,7 +358,7 @@ const generateTopDownSprites = () => {
 
     const enemyPath = getOutputPath('topdown', 'enemy.png');
     ensureDirectoryExists(enemyPath);
-    writeFileSync(enemyPath, enemyCanvas.toBuffer());
+    writeSprite(enemyPath, enemyCanvas.toBuffer());
 
     // Coin sprite
     const coinCanvas = createCanvas(32, 32);
@@ -373,7 +379,7 @@ const generateTopDownSprites = () => {
 
     const coinPath = getOutputPath('topdown', 'coin.png');
     ensureDirectoryExists(coinPath);
-    writeFileSync(coinPath, coinCanvas.toBuffer());
+    writeSprite(coinPath, coinCanvas.toBuffer());
 
     // Trigger sprite (goal area)
     const triggerCanvas = createCanvas(32, 32);
@@ -395,7 +401,7 @@ const generateTopDownSprites = () => {
 
     const triggerPath = getOutputPath('topdown', 'trigger.png');
     ensureDirectoryExists(triggerPath);
-    writeFileSync(triggerPath, triggerCanvas.toBuffer());
+    writeSprite(triggerPath, triggerCanvas.toBuffer());
 };
 
 // Generate sprites based on command line argument

@@ -6,14 +6,10 @@ import { MovingPlatform } from '../../actors/movingPlatform.js';
 import { Coin } from '../../actors/coin.js';
 import { Trigger } from '../../actors/trigger.js';
 
-import jumpSound from './assets/sounds/jump.wav';
-import coinSound from './assets/sounds/coin.wav';
-import gameOverSound from './assets/sounds/gameover.wav';
-import levelCompleteSound from './assets/sounds/levelComplete.wav';
-import attackSound from './assets/sounds/attack.wav';
-import damageSound from './assets/sounds/damage.wav';
-import menuMusic from './assets/music/menu.mp3';
-import gameMusic from './assets/music/game.mp3';
+import {
+  jumpSound, coinSound, gameOverSound, levelCompleteSound,
+  attackSound, damageSound, menuMusic, gameMusic
+} from '../shared/audio.js';
 
 const canvas = document.getElementById('screen');
 const game = new M2D(canvas, {
