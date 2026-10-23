@@ -6,10 +6,10 @@ import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
 import { SoundManager } from './soundManager.js';
 import { KEY_R, KEY_M, KEY_D } from './keyCodes.js';
-import { createRenderer, UIRenderer } from './renderers/index.js';
+import { createRenderer, UIRenderer, DEFAULT_RENDERER, FALLBACK_RENDERER } from './renderers/index.js';
 
 const defaultOptions = {
-  renderer: 'canvas',
+  renderer: DEFAULT_RENDERER,
   basePath: '',
   levelNames: [],
   currentLevel: null,
@@ -23,16 +23,20 @@ const defaultOptions = {
   music: {}
 };
 
+function rendererOverrideFromURL() {
+  if (typeof location === 'undefined' || !location.search) return null;
+  return new URLSearchParams(location.search).get('renderer');
+}
+
 export class M2D {
   constructor(canvas, options = {}) {
     this.options = { ...defaultOptions, ...options };
+    this.constructorOptions = options;
     
-    // Initialize renderer backend and its screen-space (UI) view
-    this.renderer = createRenderer(this.options.renderer);
-    this.renderer.init(canvas, {
-      width: this.options.width,
-      height: this.options.height
-    });
+    // Initialize renderer backend and its screen-space (UI) view.
+    // A `?renderer=<name>` query parameter overrides the option so any
+    // example can be viewed with another backend without code changes.
+    this.renderer = this.#initRenderer(canvas, rendererOverrideFromURL() || this.options.renderer);
     this.uiRenderer = new UIRenderer(this.renderer);
 
     this.canvas = canvas;
@@ -65,6 +69,26 @@ export class M2D {
 
     this.update = this.update.bind(this);
     this.lastTime = 0;
+  }
+
+  /**
+   * Create and initialise the backend. When the *default* backend cannot
+   * start (typically no WebGL2), fall back to the Canvas backend with a
+   * warning; an explicitly requested backend that fails is an error.
+   */
+  #initRenderer(canvas, selection) {
+    const size = { width: this.options.width, height: this.options.height };
+    let renderer = createRenderer(selection);
+    try {
+      renderer.init(canvas, size);
+      return renderer;
+    } catch (error) {
+      if (selection !== DEFAULT_RENDERER || 'renderer' in (this.constructorOptions || {})) throw error;
+      console.warn(`M2D: '${DEFAULT_RENDERER}' renderer unavailable (${error.message}); falling back to '${FALLBACK_RENDERER}'`);
+      renderer = createRenderer(FALLBACK_RENDERER);
+      renderer.init(canvas, size);
+      return renderer;
+    }
   }
 
   resize() {

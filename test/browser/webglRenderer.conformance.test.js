@@ -5,10 +5,8 @@ import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js'
 /**
  * Runs the backend contract against the WebGL2 renderer.
  *
- * Every capability is false while the backend is a scaffold; the lifecycle,
- * clearing, camera, stats, debug and hitTest groups still run. Flip a flag to
- * true as soon as its feature lands: a true flag is a promise the suite
- * enforces.
+ * Every capability is enabled: the WebGL2 backend is held to the full
+ * contract, exactly like the Canvas backend.
  */
 describeRendererConformance({
   name: 'WebGLRenderer',

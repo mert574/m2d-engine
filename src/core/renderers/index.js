@@ -4,10 +4,15 @@ import { WebGLRenderer } from './webglRenderer.js';
 import { UIRenderer } from './uiRenderer.js';
 
 const registry = new Map([
-  ['canvas', CanvasRenderer],
-  // Scaffold: lifecycle works, draw primitives throw "not implemented yet".
-  ['webgl', WebGLRenderer]
+  ['webgl', WebGLRenderer],
+  ['canvas', CanvasRenderer]
 ]);
+
+/** Backend used when none is specified. */
+export const DEFAULT_RENDERER = 'webgl';
+
+/** Backend used when the default cannot initialise (no WebGL2). */
+export const FALLBACK_RENDERER = 'canvas';
 
 /**
  * Register a renderer backend under a name so it can be selected via the
@@ -25,7 +30,7 @@ export function registerRenderer(name, RendererClass) {
  * @param {string|typeof BaseRenderer|BaseRenderer} renderer - Backend selector
  * @returns {BaseRenderer} Renderer instance (not yet initialized)
  */
-export function createRenderer(renderer = 'canvas') {
+export function createRenderer(renderer = DEFAULT_RENDERER) {
   if (typeof renderer === 'string') {
     const RendererClass = registry.get(renderer);
     if (!RendererClass) {

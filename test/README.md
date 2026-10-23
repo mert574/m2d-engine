@@ -54,7 +54,8 @@ stats), so that code is exercised for real rather than stubbed.
 ## Validating a new backend
 
 A new backend is validated by one file. Nothing else changes. The WebGL2
-backend's file is the template:
+backend's file is the template (shown here with flags off, as a backend
+starts out; the real file has them all on):
 
 ```js
 // test/browser/webglRenderer.conformance.test.js

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-M2D is a lightweight 2D game engine using Matter.js for physics and Canvas for rendering. It follows an entity-constraint architecture similar to ECS.
+M2D is a lightweight 2D game engine using Matter.js for physics and WebGL2 (with a Canvas 2D fallback) for rendering. It follows an entity-constraint architecture similar to ECS.
 
 ## Quick Commands
 
@@ -53,15 +53,23 @@ silhouette shadows), never in the contract or in callers.
   report fewer).
 - **CanvasRenderer** (`canvasRenderer.js`) - Canvas 2D backend with a double-buffered
   world pass composited in `endFrame()`.
-- **WebGLRenderer** (`webglRenderer.js`) - WebGL2 backend, registered as `'webgl'`.
-  Currently a scaffold: lifecycle, clearing, and camera work; draw primitives,
-  transform/clip stacks, and `measureText` throw "not implemented yet".
+- **WebGLRenderer** (`webglRenderer.js`) - WebGL2 backend, the default. Geometry
+  is tessellated and transformed on the CPU (`geometry/`) and batched into as few
+  GPU draw calls as paint-state changes allow (`webgl/batch.js`). Text is
+  rasterized by the browser's 2D text engine into cached label textures; clips
+  use stencil reference counting; shadows render the silhouette offscreen and
+  blur it (`webgl/shadowPass.js`). The `geometry/` modules are API-neutral so a
+  WebGPU backend would reuse them and replace only `webgl/`.
 - **UIRenderer** (`uiRenderer.js`) - Generic screen-space view over any backend;
   forwards calls with `isScreenSpace: true`. `game.uiRenderer` is one of these, so a
   new backend only implements `BaseRenderer` and the UI layer works automatically.
 - **Registry** (`index.js`) - `registerRenderer(name, Class)` + the M2D `renderer`
-  option (`'canvas'` by default, or a class/instance) select the backend. A WebGL
-  backend plugs in by subclassing `BaseRenderer` and registering it.
+  option (`'webgl'` by default, `'canvas'`, or a class/instance) select the backend.
+  If the default backend cannot initialise (no WebGL2), M2D falls back to Canvas
+  with a warning; an explicitly requested backend that fails throws. A
+  `?renderer=<name>` URL query overrides the option, so any example can be viewed
+  with either backend. New backends plug in by subclassing `BaseRenderer` and
+  registering.
 
 The backend contract is enforced by an executable conformance suite
 (`test/conformance/rendererConformance.js`). A new backend is validated by one

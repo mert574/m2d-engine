@@ -80,48 +80,81 @@ export class WebGLRenderer extends BaseRenderer {
 
   init(element, options = {}) {
     this.canvas = element;
-    const gl = createContext(element, this.contextAttributes);
-    this.gl = gl;
+    this.gl = createContext(element, this.contextAttributes);
+    this.width = options.width || this.width;
+    this.height = options.height || this.height;
 
+    // GPU resources live in #createResources so a context restore can rebuild
+    // them; everything else about the renderer survives a loss untouched.
+    this.onContextLost = (event) => {
+      event.preventDefault();
+      this.contextLost = true;
+    };
+    this.onContextRestored = () => {
+      this.contextLost = false;
+      this.#createResources();
+      this.resize();
+    };
+    element.addEventListener('webglcontextlost', this.onContextLost, false);
+    element.addEventListener('webglcontextrestored', this.onContextRestored, false);
+
+    this.contextLost = false;
+    this.#createResources();
+    this.resize();
+  }
+
+  #createResources() {
+    const gl = this.gl;
     this.batch = new Batch(gl, this.stats);
     this.textures = new TextureCache(gl, this.imageSmoothing);
     this.labels = new TextLabels(gl);
     this.shadowPass = new ShadowPass(gl, this.width, this.height);
+    this.gradientCache.clear();
 
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.disable(gl.STENCIL_TEST);
-
-    this.width = options.width || this.width;
-    this.height = options.height || this.height;
-    this.resize();
   }
 
-  destroy() {
+  #releaseResources() {
     const gl = this.gl;
-    if (gl) {
-      this.batch?.destroy();
-      this.textures?.destroy();
-      this.labels?.destroy();
-      this.shadowPass?.destroy();
-      for (const entry of this.gradientCache.values()) gl.deleteTexture(entry.texture);
-    }
+    if (!gl) return;
+    this.batch?.destroy();
+    this.textures?.destroy();
+    this.labels?.destroy();
+    this.shadowPass?.destroy();
+    for (const entry of this.gradientCache.values()) gl.deleteTexture(entry.texture);
     this.gradientCache.clear();
     this.batch = null;
     this.textures = null;
     this.labels = null;
     this.shadowPass = null;
+  }
+
+  destroy() {
+    if (this.canvas) {
+      this.canvas.removeEventListener('webglcontextlost', this.onContextLost, false);
+      this.canvas.removeEventListener('webglcontextrestored', this.onContextRestored, false);
+    }
+    this.#releaseResources();
+    // Browsers cap live WebGL contexts per page; give this one back promptly.
+    this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
     this.canvas = null;
     this.gl = null;
     this.stateStack = [];
     this.clipDepth = 0;
   }
 
+  /** True while drawing is possible (initialized and context not lost). */
+  get #ready() {
+    return !!this.gl && !this.contextLost;
+  }
+
   resize(width, height) {
     const gl = this.gl;
-    if (!gl) return;
+    if (!this.#ready) return;
 
     if (width !== undefined && height !== undefined) {
       this.width = width;
@@ -137,7 +170,7 @@ export class WebGLRenderer extends BaseRenderer {
 
   clear(color) {
     const gl = this.gl;
-    if (!gl) return;
+    if (!this.#ready) return;
     this.batch.flush();
     const [r, g, b, a] = color ? parseColorPremultiplied(color) : [0, 0, 0, 0];
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -149,7 +182,7 @@ export class WebGLRenderer extends BaseRenderer {
   // === Frame control ===
 
   beginFrame() {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     this.frameIndex++;
     this.clear('#000');
     this.cameraMatrix = mat.identity();
@@ -159,24 +192,24 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   endFrame() {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     this.batch.flush();
     this.#evictGradients();
     this.labels.evict(this.frameIndex);
   }
 
   beginScreenFrame() {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     this.screenMatrix = mat.identity();
   }
 
   endScreenFrame() {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     this.batch.flush();
   }
 
   applyCamera(camera) {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     this.cameraMatrix = mat.translation(-camera.x + camera.width / 2, -camera.y + camera.height / 2);
     this.worldMatrix = mat.multiply(this.cameraMatrix, mat.identity());
   }
@@ -356,7 +389,7 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   drawSprite(options) {
-    if (!this.gl || !options.image) return;
+    if (!this.#ready || !options.image) return;
     const entry = this.textures.get(options.image);
     if (!entry) return;
     this.trackPrimitive('sprite');
@@ -381,7 +414,7 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   drawImage(options) {
-    if (!this.gl || !options.image) return;
+    if (!this.#ready || !options.image) return;
     const entry = this.textures.get(options.image);
     if (!entry) return;
     this.trackPrimitive('sprite');
@@ -402,7 +435,7 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   drawRect(options) {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     this.trackPrimitive('shape');
 
     const { x, y, width, height, cornerRadius } = options;
@@ -415,7 +448,7 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   drawLine(options) {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     this.trackPrimitive('shape');
 
     const { positions, indices } = strokePolyline(
@@ -425,7 +458,7 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   drawArc(options) {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     this.trackPrimitive('shape');
 
     const { points, full } = arcPoints(
@@ -440,7 +473,7 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   drawPath(options) {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     if (!options.points || options.points.length < 2) return;
     this.trackPrimitive('shape');
 
@@ -456,7 +489,7 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   drawText(options) {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     this.trackPrimitive('text');
 
     const entry = this.labels.get(options, this.frameIndex);
@@ -475,14 +508,14 @@ export class WebGLRenderer extends BaseRenderer {
   // === Transform & clip stacks ===
 
   pushTransform(transform = {}) {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     const current = this.#matrixFor(transform);
     this.stateStack.push({ kind: 'transform', screen: !!transform.isScreenSpace, matrix: current });
     this.#setMatrixFor(transform, mat.multiply(current, mat.fromTransform(transform)));
   }
 
   popTransform() {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     const entry = this.#popState('transform');
     if (!entry) return;
     if (entry.kind === 'transform') {
@@ -493,7 +526,7 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   pushClip(rect) {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     const outline = roundRectPoints(rect.x, rect.y, rect.width, rect.height, rect.cornerRadius || 0);
     const positions = mat.applyToPositions(this.#matrixFor(rect), outline);
     const indices = fanIndices(outline.length / 2);
@@ -503,7 +536,7 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   popClip() {
-    if (!this.gl) return;
+    if (!this.#ready) return;
     const entry = this.#popState('clip');
     if (!entry) return;
     if (entry.kind === 'clip') {
@@ -575,7 +608,7 @@ export class WebGLRenderer extends BaseRenderer {
   // === Queries ===
 
   measureText(text, style = {}) {
-    if (!this.gl) return { width: 0, height: 0 };
+    if (!this.#ready) return { width: 0, height: 0 };
     return this.labels.measure(text, style);
   }
 
