@@ -6,6 +6,7 @@ import { arcPoints, roundRectPoints, fanIndices, triangulate } from './geometry/
 import { bakeGradient, gradientKey, GRADIENT_LUT_SIZE } from './geometry/gradient.js';
 import { createContext, createTexture } from './webgl/device.js';
 import { Batch, MODE_SOLID, MODE_TEXTURE, MODE_GRADIENT } from './webgl/batch.js';
+import { TextureCache } from './webgl/textureCache.js';
 
 /**
  * WebGL2 implementation of the renderer interface.
@@ -49,6 +50,8 @@ export class WebGLRenderer extends BaseRenderer {
 
     /** @type {Batch|null} */
     this.batch = null;
+    /** @type {TextureCache|null} */
+    this.textures = null;
 
     // Pass matrices (pixel space). The camera is folded into worldMatrix.
     this.worldMatrix = mat.identity();
@@ -75,6 +78,7 @@ export class WebGLRenderer extends BaseRenderer {
     this.gl = gl;
 
     this.batch = new Batch(gl, this.stats);
+    this.textures = new TextureCache(gl, this.imageSmoothing);
 
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
@@ -91,10 +95,12 @@ export class WebGLRenderer extends BaseRenderer {
     const gl = this.gl;
     if (gl) {
       this.batch?.destroy();
+      this.textures?.destroy();
       for (const entry of this.gradientCache.values()) gl.deleteTexture(entry.texture);
     }
     this.gradientCache.clear();
     this.batch = null;
+    this.textures = null;
     this.canvas = null;
     this.gl = null;
     this.stateStack = [];
@@ -244,14 +250,73 @@ export class WebGLRenderer extends BaseRenderer {
 
   // === Draw primitives ===
 
+  /**
+   * Submit a textured quad. `local` is the quad's local-space corner list
+   * (top-left, top-right, bottom-right, bottom-left) and `localMatrix` places
+   * it before the pass matrix is applied.
+   */
+  #submitTexturedQuad(options, entry, local, localMatrix, source) {
+    const { width: tw, height: th } = entry;
+    const u0 = source.x / tw, v0 = source.y / th;
+    const u1 = (source.x + source.width) / tw, v1 = (source.y + source.height) / th;
+    const uvs = [u0, v0, u1, v0, u1, v1, u0, v1];
+    // Inset half a texel so linear filtering stays inside the source rect.
+    const hx = Math.min(0.5 / tw, (u1 - u0) / 2);
+    const hy = Math.min(0.5 / th, (v1 - v0) / 2);
+    const uvBounds = [u0 + hx, v0 + hy, u1 - hx, v1 - hy];
+
+    const alpha = options.globalAlpha ?? 1;
+    const m = localMatrix ? mat.multiply(this.#matrixFor(options), localMatrix) : this.#matrixFor(options);
+    const positions = mat.applyToPositions(m, local);
+
+    this.batch.begin({ mode: MODE_TEXTURE, texture: entry.texture });
+    this.batch.push(positions, uvs, [alpha, alpha, alpha, alpha], QUAD_INDICES, uvBounds);
+  }
+
   drawSprite(options) {
-    if (!this.gl) return;
-    this.#notImplemented('drawSprite');
+    if (!this.gl || !options.image) return;
+    const entry = this.textures.get(options.image);
+    if (!entry) return;
+    this.trackPrimitive('sprite');
+
+    const {
+      x, y, tileX = 0, tileY = 0, tileWidth, tileHeight,
+      width = tileWidth, height = tileHeight,
+      rotation = 0, flipX = false, flipY = false
+    } = options;
+
+    let local = mat.translation(x, y);
+    if (rotation) local = mat.multiply(local, mat.rotation(rotation));
+    if (flipX || flipY) local = mat.multiply(local, mat.scaling(flipX ? -1 : 1, flipY ? -1 : 1));
+
+    const hw = width / 2, hh = height / 2;
+    this.#submitTexturedQuad(
+      options, entry,
+      [-hw, -hh, hw, -hh, hw, hh, -hw, hh],
+      local,
+      { x: tileX * tileWidth, y: tileY * tileHeight, width: tileWidth, height: tileHeight }
+    );
   }
 
   drawImage(options) {
-    if (!this.gl) return;
-    this.#notImplemented('drawImage');
+    if (!this.gl || !options.image) return;
+    const entry = this.textures.get(options.image);
+    if (!entry) return;
+    this.trackPrimitive('sprite');
+
+    const width = options.width ?? entry.width;
+    const height = options.height ?? entry.height;
+    const source = options.sourceWidth !== undefined && options.sourceHeight !== undefined
+      ? { x: options.sourceX ?? 0, y: options.sourceY ?? 0, width: options.sourceWidth, height: options.sourceHeight }
+      : { x: 0, y: 0, width: entry.width, height: entry.height };
+
+    const { x, y } = options;
+    this.#submitTexturedQuad(
+      options, entry,
+      [x, y, x + width, y, x + width, y + height, x, y + height],
+      null,
+      source
+    );
   }
 
   drawRect(options) {
@@ -430,4 +495,4 @@ export class WebGLRenderer extends BaseRenderer {
   }
 }
 
-export { MODE_TEXTURE };
+const QUAD_INDICES = [0, 1, 2, 0, 2, 3];
