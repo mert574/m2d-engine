@@ -19,11 +19,11 @@ describeRendererConformance({
   createTarget: (width, height) => createCanvasElement(width, height),
   readPixels: readWebGLPixels,
   capabilities: {
-    gradients: false,
+    gradients: true,
     shadows: false,
     text: false,
-    roundedCorners: false,
-    clipping: false,
-    transforms: false
+    roundedCorners: true,
+    clipping: true,
+    transforms: true
   }
 });
