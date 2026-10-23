@@ -21,7 +21,7 @@ describeRendererConformance({
   capabilities: {
     gradients: true,
     shadows: false,
-    text: false,
+    text: true,
     roundedCorners: true,
     clipping: true,
     transforms: true

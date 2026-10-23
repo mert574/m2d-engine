@@ -7,6 +7,7 @@ import { bakeGradient, gradientKey, GRADIENT_LUT_SIZE } from './geometry/gradien
 import { createContext, createTexture } from './webgl/device.js';
 import { Batch, MODE_SOLID, MODE_TEXTURE, MODE_GRADIENT } from './webgl/batch.js';
 import { TextureCache } from './webgl/textureCache.js';
+import { TextLabels } from './webgl/textLabels.js';
 
 /**
  * WebGL2 implementation of the renderer interface.
@@ -52,6 +53,8 @@ export class WebGLRenderer extends BaseRenderer {
     this.batch = null;
     /** @type {TextureCache|null} */
     this.textures = null;
+    /** @type {TextLabels|null} */
+    this.labels = null;
 
     // Pass matrices (pixel space). The camera is folded into worldMatrix.
     this.worldMatrix = mat.identity();
@@ -79,6 +82,7 @@ export class WebGLRenderer extends BaseRenderer {
 
     this.batch = new Batch(gl, this.stats);
     this.textures = new TextureCache(gl, this.imageSmoothing);
+    this.labels = new TextLabels(gl);
 
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
@@ -96,11 +100,13 @@ export class WebGLRenderer extends BaseRenderer {
     if (gl) {
       this.batch?.destroy();
       this.textures?.destroy();
+      this.labels?.destroy();
       for (const entry of this.gradientCache.values()) gl.deleteTexture(entry.texture);
     }
     this.gradientCache.clear();
     this.batch = null;
     this.textures = null;
+    this.labels = null;
     this.canvas = null;
     this.gl = null;
     this.stateStack = [];
@@ -149,6 +155,7 @@ export class WebGLRenderer extends BaseRenderer {
     if (!this.gl) return;
     this.batch.flush();
     this.#evictGradients();
+    this.labels.evict(this.frameIndex);
   }
 
   beginScreenFrame() {
@@ -374,7 +381,19 @@ export class WebGLRenderer extends BaseRenderer {
 
   drawText(options) {
     if (!this.gl) return;
-    this.#notImplemented('drawText');
+    this.trackPrimitive('text');
+
+    const entry = this.labels.get(options, this.frameIndex);
+    if (!entry) return;
+
+    const x = options.x - entry.anchorX;
+    const y = options.y - entry.anchorY;
+    this.#submitTexturedQuad(
+      options, entry,
+      [x, y, x + entry.width, y, x + entry.width, y + entry.height, x, y + entry.height],
+      null,
+      { x: 0, y: 0, width: entry.width, height: entry.height }
+    );
   }
 
   // === Transform & clip stacks ===
@@ -479,19 +498,15 @@ export class WebGLRenderer extends BaseRenderer {
 
   // === Queries ===
 
-  measureText(text, style) {
+  measureText(text, style = {}) {
     if (!this.gl) return { width: 0, height: 0 };
-    this.#notImplemented('measureText');
+    return this.labels.measure(text, style);
   }
 
   setCursor(style) {
     if (this.canvas) {
       this.canvas.style.cursor = style;
     }
-  }
-
-  #notImplemented(method) {
-    throw new Error(`WebGLRenderer.${method} is not implemented yet`);
   }
 }
 
