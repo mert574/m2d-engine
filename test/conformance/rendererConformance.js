@@ -6,6 +6,7 @@ import {
   expectTransparentAt,
   differsFrom
 } from '../helpers/pixels.js';
+import { OPTIONAL_CAPABILITIES, PARTICLE_STRIDE } from '../../src/core/renderers/baseRenderer.js';
 import {
   makeTileSheet,
   makeAsymmetricTile,
@@ -44,6 +45,10 @@ export function describeRendererConformance(harness) {
     roundedCorners: true,
     clipping: true,
     transforms: true,
+    // Optional contract features default to unsupported, so a backend is only
+    // held to the ones it claims. Mandatory flags above default to true and
+    // exist for backends still under construction.
+    ...OPTIONAL_CAPABILITIES,
     ...(harness.capabilities || {})
   };
 
@@ -325,6 +330,48 @@ export function describeRendererConformance(harness) {
         expect(centre).toBeGreaterThan(200);
         // Relative check: exact falloff curves may differ between backends.
         expect(edge).toBeLessThan(centre - 120);
+      });
+
+      it.skipIf(!caps.gradients)('honours translucent gradient stops', () => {
+        // Absolute, not relative: a stop at alpha 0.5 over the opaque black
+        // world clear must land near 128. Backends that premultiply the ramp
+        // twice square the alpha and land near 64 instead, which stays
+        // invisible to a test whose stops are all opaque.
+        renderFrame({
+          world: r => r.drawRect({
+            x: 0, y: 0, width: W, height: H,
+            fillStyle: {
+              type: 'radial',
+              x: 100, y: 60, r0: 0, r1: 80,
+              stops: [
+                { offset: 0, color: 'rgba(255, 255, 255, 0.5)' },
+                { offset: 1, color: 'rgba(255, 255, 255, 0)' }
+              ]
+            }
+          })
+        });
+
+        expectColorAt(read(), 100, 60, '#808080', { tolerance: 10, label: 'half-alpha centre' });
+      });
+
+      it.skipIf(!caps.gradients)('honours a translucent linear gradient stop', () => {
+        renderFrame({
+          world: r => r.drawRect({
+            x: 0, y: 0, width: W, height: H,
+            fillStyle: {
+              type: 'linear',
+              x0: 0, y0: 0, x1: W, y1: 0,
+              stops: [
+                { offset: 0, color: 'rgba(255, 255, 255, 0.5)' },
+                { offset: 1, color: 'rgba(255, 255, 255, 0.5)' }
+              ]
+            }
+          })
+        });
+
+        const snap = read();
+        expectColorAt(snap, 20, 60, '#808080', { tolerance: 10, label: 'left' });
+        expectColorAt(snap, 180, 60, '#808080', { tolerance: 10, label: 'right' });
       });
 
       it('blends using globalAlpha', () => {
@@ -1264,6 +1311,300 @@ export function describeRendererConformance(harness) {
 
       it('falls back to the current FPS before any sample window closes', () => {
         expect(renderer.getAverageFPS()).toBe(renderer.getFPS());
+      });
+    });
+
+    // ===================================================================
+    describe('drawParticles', () => {
+      function particles(list) {
+        const data = new Float32Array(list.length * PARTICLE_STRIDE);
+        list.forEach((p, i) => {
+          const o = i * PARTICLE_STRIDE;
+          data[o] = p.x; data[o + 1] = p.y; data[o + 2] = p.size; data[o + 3] = p.rotation ?? 0;
+          data[o + 4] = p.r ?? 1; data[o + 5] = p.g ?? 1; data[o + 6] = p.b ?? 1; data[o + 7] = p.a ?? 1;
+        });
+        return data;
+      }
+
+      it('draws every particle at its position and size (any backend)', () => {
+        const sheet = makeSolidImage(TILE, TILE, '#ffffff');
+        renderFrame({
+          world: r => r.drawParticles({
+            image: sheet, tileWidth: TILE, tileHeight: TILE,
+            data: particles([{ x: 40, y: 60, size: 30 }, { x: 160, y: 60, size: 30 }])
+          })
+        });
+        const snap = read();
+        expectColorAt(snap, 40, 60, '#ffffff', { label: 'first particle' });
+        expectColorAt(snap, 160, 60, '#ffffff', { label: 'second particle' });
+        expectColorAt(snap, 100, 60, '#000000', { label: 'gap between them' });
+      });
+
+      it('honours per-particle alpha and skips fully transparent ones', () => {
+        const sheet = makeSolidImage(TILE, TILE, '#ffffff');
+        renderFrame({
+          world: r => r.drawParticles({
+            image: sheet, tileWidth: TILE, tileHeight: TILE,
+            data: particles([{ x: 40, y: 60, size: 30, a: 0.5 }, { x: 160, y: 60, size: 30, a: 0 }])
+          })
+        });
+        const snap = read();
+        expectColorAt(snap, 40, 60, '#808080', { tolerance: 6, label: 'half alpha' });
+        expectColorAt(snap, 160, 60, '#000000', { label: 'zero alpha' });
+      });
+
+      it('respects count over the buffer length', () => {
+        const sheet = makeSolidImage(TILE, TILE, '#ffffff');
+        renderFrame({
+          world: r => r.drawParticles({
+            image: sheet, tileWidth: TILE, tileHeight: TILE, count: 1,
+            data: particles([{ x: 40, y: 60, size: 30 }, { x: 160, y: 60, size: 30 }])
+          })
+        });
+        const snap = read();
+        expectColorAt(snap, 40, 60, '#ffffff', { label: 'counted' });
+        expectColorAt(snap, 160, 60, '#000000', { label: 'beyond count' });
+      });
+
+      it('counts each particle as a sprite primitive', () => {
+        const sheet = makeSolidImage(TILE, TILE, '#ffffff');
+        const list = [];
+        for (let i = 0; i < 50; i++) list.push({ x: 10 + (i % 10) * 18, y: 20 + Math.floor(i / 10) * 18, size: 8 });
+        renderFrame({
+          world: r => r.drawParticles({ image: sheet, tileWidth: TILE, tileHeight: TILE, data: particles(list) })
+        });
+        expect(renderer.getStats().spritesDrawn).toBe(50);
+        expect(renderer.getStats().primitives).toBe(50);
+      });
+
+      it.skipIf(!caps.particles)('submits a field in far fewer draw calls than particles', () => {
+        const sheet = makeSolidImage(TILE, TILE, '#ffffff');
+        const list = [];
+        for (let i = 0; i < 2000; i++) list.push({ x: (i * 7) % W, y: (i * 13) % H, size: 3 });
+        renderFrame({
+          world: r => r.drawParticles({ image: sheet, tileWidth: TILE, tileHeight: TILE, data: particles(list) })
+        });
+        expect(renderer.getStats().drawCalls).toBeLessThan(20);
+      });
+
+      it.skipIf(!caps.particles)('applies per-particle colour', () => {
+        const sheet = makeSolidImage(TILE, TILE, '#ffffff');
+        renderFrame({
+          world: r => r.drawParticles({
+            image: sheet, tileWidth: TILE, tileHeight: TILE,
+            data: particles([{ x: 40, y: 60, size: 30, r: 1, g: 0, b: 0 }, { x: 160, y: 60, size: 30, r: 0, g: 0, b: 1 }])
+          })
+        });
+        const snap = read();
+        expectColorAt(snap, 40, 60, '#ff0000', { label: 'red particle' });
+        expectColorAt(snap, 160, 60, '#0000ff', { label: 'blue particle' });
+      });
+    });
+
+    // ===================================================================
+    describe('optional: tint', () => {
+      it.skipIf(!caps.tint)('multiplies a sprite by the tint colour', () => {
+        const sheet = makeSolidImage(TILE, TILE, '#ffffff');
+        renderFrame({
+          world: r => r.drawSprite({
+            image: sheet, x: 100, y: 60, tileWidth: TILE, tileHeight: TILE,
+            width: 80, height: 60, tint: '#ff0000'
+          })
+        });
+        expectColorAt(read(), 100, 60, '#ff0000', { label: 'tinted white sprite' });
+      });
+
+      it.skipIf(!caps.tint)('leaves a sprite unchanged for a white tint', () => {
+        const sheet = makeSolidImage(TILE, TILE, '#3366cc');
+        renderFrame({
+          world: r => r.drawSprite({
+            image: sheet, x: 100, y: 60, tileWidth: TILE, tileHeight: TILE,
+            width: 80, height: 60, tint: '#ffffff'
+          })
+        });
+        expectColorAt(read(), 100, 60, '#3366cc', { label: 'white tint is identity' });
+      });
+
+      it.skipIf(!caps.tint)('scales coverage by the tint alpha', () => {
+        const sheet = makeSolidImage(TILE, TILE, '#ffffff');
+        renderFrame({
+          world: r => r.drawSprite({
+            image: sheet, x: 100, y: 60, tileWidth: TILE, tileHeight: TILE,
+            width: 80, height: 60, tint: 'rgba(255, 255, 255, 0.5)'
+          })
+        });
+        // Half-covered white over the opaque black world clear.
+        expectColorAt(read(), 100, 60, '#808080', { tolerance: 6, label: 'half-alpha tint' });
+      });
+    });
+
+    // ===================================================================
+    describe('optional: blend modes', () => {
+      it.skipIf(!caps.blendModes)('adds colour with the additive blend', () => {
+        renderFrame({
+          world: (r) => {
+            r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#0000ff' });
+            r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#ff0000', blend: 'additive' });
+          }
+        });
+        expectColorAt(read(), 100, 60, '#ff00ff', { label: 'red added onto blue' });
+      });
+
+      it.skipIf(!caps.blendModes)('darkens with the multiply blend', () => {
+        renderFrame({
+          world: (r) => {
+            r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#ffff00' });
+            r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#00ffff', blend: 'multiply' });
+          }
+        });
+        expectColorAt(read(), 100, 60, '#00ff00', { label: 'yellow x cyan' });
+      });
+
+      it.skipIf(!caps.blendModes)('draws normally when blend is omitted', () => {
+        renderFrame({
+          world: (r) => {
+            r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#0000ff' });
+            r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#ff0000' });
+          }
+        });
+        expectColorAt(read(), 100, 60, '#ff0000', { label: 'source-over default' });
+      });
+
+      it.skipIf(!caps.blendModes)('does not leak the blend mode into later draws', () => {
+        renderFrame({
+          world: (r) => {
+            r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#0000ff' });
+            r.drawRect({ x: 0, y: 0, width: 100, height: 120, fillStyle: '#ff0000', blend: 'additive' });
+            r.drawRect({ x: 100, y: 0, width: 100, height: 120, fillStyle: '#00ff00' });
+          }
+        });
+        const snap = read();
+        expectColorAt(snap, 50, 60, '#ff00ff', { label: 'additive half' });
+        expectColorAt(snap, 150, 60, '#00ff00', { label: 'normal half after additive' });
+      });
+    });
+
+    // ===================================================================
+    describe('optional: lights', () => {
+      it('accepts lighting calls on any backend without throwing', () => {
+        expect(() => {
+          renderFrame({
+            world: (r) => {
+              r.setAmbientLight('#404040');
+              r.drawLight({ x: 100, y: 60, radius: 50, color: '#ffffff' });
+              r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' });
+            }
+          });
+        }).not.toThrow();
+        renderer.setAmbientLight(null);
+      });
+
+      it.skipIf(!caps.lights)('darkens the world by the ambient colour', () => {
+        renderer.setAmbientLight('#808080');
+        renderFrame({
+          world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' })
+        });
+        expectColorAt(read(), 100, 60, '#808080', { tolerance: 8, label: 'ambient-lit white' });
+        renderer.setAmbientLight(null);
+      });
+
+      it.skipIf(!caps.lights)('brightens where a light falls and not outside it', () => {
+        renderer.setAmbientLight('#202020');
+        renderFrame({
+          world: (r) => {
+            r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' });
+            r.drawLight({ x: 50, y: 60, radius: 40, color: '#ffffff', intensity: 1 });
+          }
+        });
+        const snap = read();
+        const lit = snap.at(50, 60)[0];
+        const unlit = snap.at(180, 60)[0];
+        expect(lit).toBeGreaterThan(unlit + 60);
+        renderer.setAmbientLight(null);
+      });
+
+      it.skipIf(!caps.lights)('renders at full brightness once ambient is cleared', () => {
+        renderer.setAmbientLight('#303030');
+        renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
+        renderer.setAmbientLight(null);
+        renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
+        expectColorAt(read(), 100, 60, '#ffffff', { label: 'lighting disabled again' });
+      });
+
+      it.skipIf(!caps.lights)('keeps clipping working while lighting is on', () => {
+        renderer.setAmbientLight('#ffffff');
+        renderFrame({
+          world: (r) => {
+            r.pushClip({ x: 0, y: 0, width: 100, height: H });
+            r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ff0000' });
+            r.popClip();
+          }
+        });
+        const snap = read();
+        expectColorAt(snap, 50, 60, '#ff0000', { tolerance: 8, label: 'inside clip' });
+        expectColorAt(snap, 150, 60, '#000000', { tolerance: 8, label: 'outside clip' });
+        renderer.setAmbientLight(null);
+      });
+
+      it.skipIf(!caps.lights)('leaves the screen pass unlit', () => {
+        renderer.setAmbientLight('#202020');
+        renderFrame({
+          world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }),
+          screen: r => r.drawRect({ x: 120, y: 20, width: 60, height: 60, fillStyle: '#ffffff' })
+        });
+        const snap = read();
+        expectColorAt(snap, 150, 50, '#ffffff', { label: 'UI ignores ambient' });
+        renderer.setAmbientLight(null);
+      });
+    });
+
+    // ===================================================================
+    describe('optional: post effects', () => {
+      it('accepts post-effect calls on any backend without throwing', () => {
+        expect(() => {
+          renderer.setPostEffects({ vignette: { strength: 0.5 } });
+          renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
+        }).not.toThrow();
+        renderer.setPostEffects(null);
+      });
+
+      it.skipIf(!caps.postEffects)('darkens the corners with a vignette', () => {
+        renderer.setPostEffects({ vignette: { strength: 0.9, start: 0.2 } });
+        renderFrame({
+          world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' })
+        });
+        const snap = read();
+        const centre = snap.at(100, 60)[0];
+        const corner = snap.at(4, 4)[0];
+        expect(centre).toBeGreaterThan(200);
+        expect(corner).toBeLessThan(centre - 60);
+        renderer.setPostEffects(null);
+      });
+
+      it.skipIf(!caps.postEffects)('spreads light outward with bloom', () => {
+        // Sample just outside a bright square: unbloomed it is the black
+        // clear, bloomed it picks up the halo. The margin is calibrated to
+        // the actual Gaussian falloff at this distance rather than guessed.
+        const square = r => r.drawRect({ x: 80, y: 40, width: 40, height: 40, fillStyle: '#ffffff' });
+
+        renderer.setPostEffects({ bloom: { threshold: 0.3, strength: 1.8, blur: 48 } });
+        renderFrame({ world: square });
+        const bloomed = read().at(100, 28)[0];
+
+        renderer.setPostEffects(null);
+        renderFrame({ world: square });
+        const plain = read().at(100, 28)[0];
+
+        expect(plain).toBeLessThan(10);
+        expect(bloomed).toBeGreaterThan(plain + 15);
+      });
+
+      it.skipIf(!caps.postEffects)('returns to an untouched frame once disabled', () => {
+        renderer.setPostEffects({ vignette: { strength: 1, start: 0 } });
+        renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
+        renderer.setPostEffects(null);
+        renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
+        expectColorAt(read(), 4, 4, '#ffffff', { label: 'post disabled' });
       });
     });
 

@@ -35,6 +35,9 @@
  *   the image's alpha — offset by (offsetX, offsetY), blurred, tinted with
  *   `color`, and drawn once beneath the primitive. `blur` is a Gaussian blur
  *   whose standard deviation is blur / 2 (the Canvas 2D definition).
+ * - {string} blend - How the primitive combines with what is already there:
+ *   `'normal'` (default, source-over), `'additive'`, `'multiply'` or
+ *   `'screen'`. Optional; requires the `blendModes` capability.
  *
  * ## State stacks
  *
@@ -44,8 +47,66 @@
  * belongs to either the world or the screen pass, chosen by `isScreenSpace`
  * on the push.
  *
+ * ## Capabilities
+ *
+ * Everything documented above is mandatory: a backend that cannot do it is not
+ * a backend. Beyond that baseline the contract also describes *optional*
+ * features, which a backend advertises through `capabilities`. Callers query
+ * them and degrade; the conformance suite skips what a backend does not claim.
+ *
+ * Optional features exist because backends are genuinely different. Additive
+ * blending, per-draw tint and full-screen post effects are nearly free on a
+ * GPU and expensive or impossible on Canvas 2D. Rather than hold every backend
+ * to the slowest common denominator, the contract lets a backend decline, and
+ * the choice of backend becomes an informed one.
+ *
+ * A backend that does not support an optional feature **ignores** the option
+ * and draws as though it had been omitted. It must not throw: a scene written
+ * against a GPU backend still runs on Canvas, just without the glow. Callers
+ * that need to know ask `supports()` first — the showcase example prints the
+ * list so a viewer can see what is missing rather than guess.
+ *
  * This is an abstract class and cannot be instantiated directly.
  */
+
+/**
+ * Optional backend features, all defaulting to unsupported. A backend
+ * overrides `capabilities` with the subset it implements.
+ *
+ * - `tint` - Per-draw colour modulation on sprites and images
+ * - `blendModes` - `blend: 'additive' | 'multiply' | 'screen'` on draw calls
+ * - `particles` - Bulk particle submission: `drawParticles` goes to the GPU
+ *   as a few batched draw calls with per-particle colour. Every backend can
+ *   *call* it — `BaseRenderer` falls back to one `drawSprite` per particle,
+ *   honouring position, size, rotation and alpha but not colour — so the flag
+ *   means "fast and coloured", and callers use it to decide how many to emit.
+ * - `lights` - `drawLight` accumulates into a light map that is multiplied
+ *   over the world at `endFrame`. Lighting is switched on by
+ *   `setAmbientLight`: with no ambient set the map would be white and the
+ *   lights would have nothing to darken, so a backend that supports this
+ *   treats a null ambient as "lighting off" and skips the whole pass.
+ * - `postEffects` - `setPostEffects` applies a full-screen pass (bloom,
+ *   vignette) to the world between the world and screen passes, so UI drawn
+ *   in the screen pass stays untouched.
+ *
+ * @type {Readonly<Record<string, boolean>>}
+ */
+/**
+ * Floats per particle in a `drawParticles` buffer:
+ * x, y, size, rotation, r, g, b, a — colour is straight (not premultiplied),
+ * 0..1, and white means untinted. `size` is the drawn height; width follows
+ * the tile's aspect ratio.
+ */
+export const PARTICLE_STRIDE = 8;
+
+export const OPTIONAL_CAPABILITIES = Object.freeze({
+  tint: false,
+  blendModes: false,
+  particles: false,
+  lights: false,
+  postEffects: false
+});
+
 export class BaseRenderer {
   #debugEnabled = true;
   #debugLayer = 'default';
@@ -54,6 +115,13 @@ export class BaseRenderer {
     if (this.constructor === BaseRenderer) {
       throw new Error('BaseRenderer is an abstract class and cannot be instantiated directly');
     }
+
+    /**
+     * Optional features this backend supports. Subclasses override the ones
+     * they implement; everything unlisted stays unsupported.
+     * @type {Record<string, boolean>}
+     */
+    this.capabilities = { ...OPTIONAL_CAPABILITIES };
 
     // FPS tracking (backend-agnostic)
     this.frameCount = 0;
@@ -186,6 +254,9 @@ export class BaseRenderer {
    * @param {number} [options.rotation=0] - Rotation in radians
    * @param {boolean} [options.flipX=false] - Flip horizontally
    * @param {boolean} [options.flipY=false] - Flip vertically
+   * @param {string} [options.tint] - Colour multiplied into every texel, e.g.
+   *   `'#ff8080'` for a hit flash. The tint's own alpha scales the result.
+   *   Optional; requires the `tint` capability.
    */
   drawSprite(options) { throw new Error('Method not implemented'); }
 
@@ -217,6 +288,92 @@ export class BaseRenderer {
   }
 
   /**
+   * Set the ambient light the world is lit by, and switch lighting on.
+   *
+   * No-op unless the backend claims `lights`. Pass `null` to turn lighting
+   * back off; the world then renders at full brightness as if no light had
+   * ever been submitted.
+   * @param {string|null} color - Ambient colour, e.g. `'#303848'`
+   */
+  setAmbientLight(color) {}
+
+  /**
+   * Add a light to the current frame's light map.
+   *
+   * Lights are cleared at `beginFrame`, so they are submitted every frame
+   * like any other draw. No-op unless the backend claims `lights` and an
+   * ambient has been set.
+   * @param {Object} options - Light options
+   * @param {number} options.x - Centre X
+   * @param {number} options.y - Centre Y
+   * @param {number} options.radius - Radius at which the light reaches zero
+   * @param {string} [options.color='#ffffff'] - Light colour
+   * @param {number} [options.intensity=1] - Brightness multiplier
+   * @param {boolean} [options.isScreenSpace=false] - Position in screen space
+   */
+  drawLight(options) {}
+
+  /**
+   * Configure the full-screen post pass, or pass `null` to disable it.
+   *
+   * No-op unless the backend claims `postEffects`.
+   * @param {Object|null} effects - Effect configuration
+   * @param {Object} [effects.bloom] - { threshold, strength, blur }
+   * @param {Object} [effects.vignette] - { strength, start }
+   */
+  setPostEffects(effects) {}
+
+  /**
+   * Draw many copies of one sprite tile from a packed buffer.
+   *
+   * The default implementation is the fallback described under
+   * `OPTIONAL_CAPABILITIES.particles`: a `drawSprite` per particle. Backends
+   * that claim `particles` override it with a batched path.
+   *
+   * @param {Object} options - Drawing options
+   * @param {HTMLImageElement} options.image - Spritesheet image
+   * @param {number} [options.tileX=0] - Tile X index in spritesheet
+   * @param {number} [options.tileY=0] - Tile Y index in spritesheet
+   * @param {number} options.tileWidth - Tile width in pixels
+   * @param {number} options.tileHeight - Tile height in pixels
+   * @param {Float32Array|number[]} options.data - `PARTICLE_STRIDE` floats per particle
+   * @param {number} [options.count] - Particles to draw (defaults to the whole buffer)
+   * @param {string} [options.blend] - Blend mode for every particle
+   * @param {number} [options.globalAlpha] - Multiplied into every particle's alpha
+   */
+  drawParticles(options) {
+    const { image, tileX = 0, tileY = 0, tileWidth, tileHeight, data, blend, isScreenSpace } = options;
+    if (!image || !data) return;
+
+    const available = Math.floor(data.length / PARTICLE_STRIDE);
+    const count = Math.min(options.count ?? available, available);
+    const aspect = tileWidth / tileHeight;
+    const alphaScale = options.globalAlpha ?? 1;
+
+    for (let i = 0; i < count; i++) {
+      const o = i * PARTICLE_STRIDE;
+      const alpha = data[o + 7] * alphaScale;
+      if (alpha <= 0) continue;
+
+      this.drawSprite({
+        image,
+        tileX,
+        tileY,
+        tileWidth,
+        tileHeight,
+        x: data[o],
+        y: data[o + 1],
+        width: data[o + 2] * aspect,
+        height: data[o + 2],
+        rotation: data[o + 3],
+        globalAlpha: alpha,
+        blend,
+        isScreenSpace
+      });
+    }
+  }
+
+  /**
    * Draw an image stretched to a destination rectangle (top-left anchored).
    * @param {Object} options - Drawing options
    * @param {CanvasImageSource} options.image - Image to draw
@@ -228,6 +385,8 @@ export class BaseRenderer {
    * @param {number} [options.sourceY] - Source rect Y
    * @param {number} [options.sourceWidth] - Source rect width
    * @param {number} [options.sourceHeight] - Source rect height
+   * @param {string} [options.tint] - Colour multiplied into every texel.
+   *   Optional; requires the `tint` capability.
    */
   drawImage(options) { throw new Error('Method not implemented'); }
 
@@ -388,6 +547,23 @@ export class BaseRenderer {
    * @param {string} style - CSS cursor style
    */
   setCursor(style) { throw new Error('Method not implemented'); }
+
+  /**
+   * Whether this backend supports an optional feature.
+   * @param {keyof OPTIONAL_CAPABILITIES} feature - Capability name
+   * @returns {boolean} Whether the backend implements it
+   */
+  supports(feature) {
+    return this.capabilities[feature] === true;
+  }
+
+  /**
+   * Names of the optional features this backend supports.
+   * @returns {string[]} Supported capability names
+   */
+  supportedCapabilities() {
+    return Object.keys(this.capabilities).filter((name) => this.capabilities[name]);
+  }
 
   // === Debug rendering state (shared by all backends) ===
 

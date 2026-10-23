@@ -5,8 +5,8 @@ import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js'
 /**
  * Runs the backend contract against the WebGL2 renderer.
  *
- * Every capability is enabled: the WebGL2 backend is held to the full
- * contract, exactly like the Canvas backend.
+ * Every capability is enabled, mandatory and optional alike: the WebGL2
+ * backend is held to the full contract plus every optional feature it claims.
  */
 describeRendererConformance({
   name: 'WebGLRenderer',
@@ -22,6 +22,11 @@ describeRendererConformance({
     text: true,
     roundedCorners: true,
     clipping: true,
-    transforms: true
+    transforms: true,
+    tint: true,
+    blendModes: true,
+    particles: true,
+    lights: true,
+    postEffects: true
   }
 });

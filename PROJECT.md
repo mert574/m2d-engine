@@ -1,10 +1,12 @@
 # M2D Engine
 
-A lightweight 2D game engine built with Matter.js and Canvas, focusing on simplicity and performance.
+A lightweight 2D game engine built with Matter.js for physics and WebGL2 for
+rendering, with a Canvas 2D fallback. Focused on simplicity and performance.
 
 ## Core Features
 
 - Physics: Matter.js integration
+- Rendering: pluggable backends behind one contract (WebGL2 default, Canvas 2D fallback)
 - Scene Management: JSON-based scene definition
 - Component System: Constraint-based behaviors
 - Input System: Keyboard and mouse handling
@@ -17,7 +19,8 @@ A lightweight 2D game engine built with Matter.js and Canvas, focusing on simpli
 
 ```
 src/
-├── core/           # Engine core (renderer, physics, scene management)
+├── core/
+│   └── renderers/  # Backend contract, Canvas + WebGL2 backends, geometry
 ├── actors/         # Game-specific entities
 ├── constraints/    # Reusable entity behaviors
 ├── examples/       # Demo implementations
@@ -27,7 +30,7 @@ src/
 ## Technical Stack
 
 - **Physics**: Matter.js
-- **Rendering**: Canvas API
+- **Rendering**: WebGL2, falling back to the Canvas 2D API
 - **Sound**: Web Audio API
 - **Asset Loading**: Dynamic imports using Vite
 - **Scene Format**: JSON
@@ -36,10 +39,11 @@ src/
 
 - Entity-Component Architecture
 - JSON-based Scene Definition
+- Renderer Abstraction with Optional Capabilities
 - Layer-based Rendering
 - Prefab System
 - Collision Categories
-- Scene Lifecycle Hooks
+- Scene Lifecycle Hooks (`onEnter`, `onExit`, `onUpdate`, `onDraw`)
 
 ## Getting Started
 

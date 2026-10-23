@@ -63,6 +63,35 @@ silhouette shadows), never in the contract or in callers.
 - **UIRenderer** (`uiRenderer.js`) - Generic screen-space view over any backend;
   forwards calls with `isScreenSpace: true`. `game.uiRenderer` is one of these, so a
   new backend only implements `BaseRenderer` and the UI layer works automatically.
+- **Capabilities** - Everything in the contract above is mandatory. Beyond it,
+  backends advertise *optional* features through `renderer.capabilities`
+  (`tint`, `blendModes`, `particles`, `lights`, `postEffects`), queried with
+  `renderer.supports(name)`. The defaults live in `OPTIONAL_CAPABILITIES` in
+  `baseRenderer.js` and are all false; a backend overrides what it implements.
+  A backend that lacks an optional feature **ignores** the option rather than
+  throwing, so a scene written for the GPU still runs on Canvas. Implemented so
+  far: `tint` (WebGL only — it folds into the vertex colour the texture shader
+  already multiplies, so per-sprite tints cost no extra draw calls) and
+  `blendModes` (both backends — `gl.blendFunc` keyed into the batch state,
+  `globalCompositeOperation` on Canvas), and `particles` (`drawParticles` with
+  a packed `Float32Array`, `PARTICLE_STRIDE` floats per particle; WebGL
+  batches it with per-particle colour, `BaseRenderer` supplies a
+  sprite-per-particle fallback so the call works everywhere and the flag
+  means "fast and coloured"), `lights` and `postEffects` (WebGL only, both in
+  `webgl/effectsPass.js`). Lighting is switched on by `setAmbientLight`, not
+  by submitting lights: with no ambient the light map would be white and
+  there would be nothing for lights to do, so a null ambient skips the pass
+  entirely and costs nothing. When either is active the world pass is
+  redirected into a stencil-backed offscreen scene target — the stencil
+  matters, or clipping silently stops working there — and composited in
+  `endFrame`; the screen pass always goes straight to the default
+  framebuffer so UI is neither dimmed nor bloomed.
+  Optional features exist because the backends are genuinely unalike — additive
+  blending and post effects are nearly free on a GPU and expensive or
+  impossible on Canvas 2D — so callers query and degrade instead of every
+  backend being held to the slowest one. Do not confuse this with the
+  conformance harness's `capabilities` field, which gates *mandatory* contract
+  tests while a backend is still being built.
 - **Registry** (`index.js`) - `registerRenderer(name, Class)` + the M2D `renderer`
   option (`'webgl'` by default, `'canvas'`, or a class/instance) select the backend.
   If the default backend cannot initialise (no WebGL2), M2D falls back to Canvas
@@ -175,6 +204,69 @@ Each example in `src/examples/<name>/`:
 Must be added to `vite.config.js`:
 - Add to `rollupOptions.input`
 - Add sprite generation in `assetsPlugin.buildStart`
+- Add to the `writeBundle` asset-copy list if it has an `assets/` directory
+
+Scenes that draw something which is not an entity (bulk effects, directors)
+use the `onUpdate(deltaTime)` and `onDraw(deltaTime)` scene-config hooks
+alongside `onEnter`/`onExit`. `onDraw` runs inside the world pass with the
+camera applied, after entities.
+
+### Renderer showcase (`src/examples/showcase/`)
+
+Doubles as the renderer comparison harness (see ROADMAP.md). It reports
+`primitives` against `drawCalls` on screen, which is where the backends
+visibly differ. Seven toggleable layers, in HUD order: drifting motes
+(`moteField.js`), the reed bank (`reedBed.js`), the text storm
+(`labelStorm.js`), the harbour chart (`minimap.js`), rain (`rainEmitter.js`),
+lights (`lanterns.js`) and bloom. `backdrop.js` and `lighthouse.js` are
+always-on scenery; `showcase.js` is the director and `hud.js` the overlay.
+
+Clipping is covered in both spaces: the lighthouse beam (`lighthouse.js`)
+stacks clips under one transform in *world* space, and the harbour chart
+(`minimap.js`) nests a rounded panel clip, a rotation and a rect clip in
+*screen* space. The lamp rotates about a vertical axis and the beam is
+projected for a side view whose eye level is `horizonY` (foreshortened,
+widened and brightened toward the viewer, converging on the horizon and drawn
+behind the tower when pointing away); the chart plots the same horizontal
+angle top-down, so the two agree.
+The beam's gradient descriptor is built once and its per-frame intensity
+goes through `globalAlpha` — per-frame stop strings would re-bake the WebGL
+gradient lookup texture every frame.
+
+Rain (`rainEmitter.js`) is the `particles` layer: one packed buffer per
+frame, positions as pure functions of time so frame rate cannot change what
+is on screen, and a self-imposed cap on backends without the capability.
+
+Lanterns (`lanterns.js`) are the `lights` layer, and the showcase's sharpest
+backend contrast: on WebGL the harbour is genuinely dark and the lamps carve
+it open, on Canvas it stays evenly lit. The lighthouse beam pre-compensates
+for the ambient it is about to be multiplied by — it is geometry in the world
+pass, not a light, and a point light cannot express a shaft.
+
+`backdrop.js` owns the three bands everything else is positioned against —
+sky above `horizonY`, water down to `shoreY`, near bank below — and it draws
+in two calls, not one: `drawDistance()` before the reeds and `drawBank()`
+after them, because the reeds stand out in the shallows and the near shore
+has to occlude their feet. The water carries its own skyglow lights; under a
+night ambient no plausible sea colour survives the multiply, so lighting it
+is the only honest way to keep it from reading as more sky.
+
+Two scene-grounding rules worth keeping: anything standing in the world needs
+visible contact with a surface (the lanterns' posts are what stop them
+floating, not their glow), and the beam's screen heading must be measured
+against the *absolute* along-shore component and clamped — taking `atan2` of
+the raw components swings the shaft vertical as it turns toward the camera,
+which reads as a flat 2D rotation. The shaft fades out head-on and the lamp
+flare takes over instead.
+
+Two rules keep it a valid measurement:
+
+- **Deterministic.** Layers are built from seeded RNG (`rng.js`) and the camera
+  pans a fixed path instead of following a player, so both backends run the
+  identical workload.
+- **Unculled and unbatched by hand.** Layers submit every primitive every frame
+  and avoid per-sprite `pushTransform` (reeds pivot by arithmetic instead), so
+  the counters describe the backend's batching rather than the example's.
 
 ## Level JSON Structure
 

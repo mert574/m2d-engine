@@ -24,7 +24,7 @@ one of them, so a failure localises immediately.
 
 | Layer | File | Project | What it proves |
 | --- | --- | --- | --- |
-| Backend contract | `conformance/rendererConformance.js` (95 tests per backend) | node + browser | A backend rasterizes every primitive correctly |
+| Backend contract | `conformance/rendererConformance.js` (123 tests per backend) | node + browser | A backend rasterizes every primitive correctly |
 | Caller contract | `engineDrawCalls.test.js` | node | Engine/actor code emits the right draw calls |
 | UI + wiring | `uiRenderer.test.js`, `rendererRegistry.test.js` | node | Screen-space forwarding, widgets, backend selection |
 | Browser environment | `browser/environment.smoke.test.js` | browser | WebGL2 exists in the runner, pixel readback is top-left, fixtures upload as textures |
@@ -71,12 +71,20 @@ describeRendererConformance({
   createTarget: (width, height) => createCanvasElement(width, height),
   readPixels: readWebGLPixels,
   capabilities: {
+    // Mandatory contract features: default true, turned off only while a
+    // backend is still being built.
     gradients: false,
     shadows: false,
     text: false,
     roundedCorners: false,
     clipping: false,
-    transforms: false
+    transforms: false,
+    // Optional features: default false, turned on as a backend claims them.
+    tint: false,
+    blendModes: false,
+    particles: false,
+    lights: false,
+    postEffects: false
   }
 });
 ```
@@ -89,10 +97,29 @@ still there when the test reads it.
 
 ### Capabilities
 
-`capabilities` lets a partially-built backend skip what it does not support yet
-while still being held to everything it claims. Start with most flags `false`,
-flip them on as features land. A flag set to `true` is a promise the suite
-enforces.
+`capabilities` lets a backend skip what it does not support while still being
+held to everything it claims. A flag set to `true` is a promise the suite
+enforces. There are two kinds, and they default in opposite directions:
+
+- **Mandatory contract features** — `gradients`, `shadows`, `text`,
+  `roundedCorners`, `clipping`, `transforms`. These default to `true`: every
+  finished backend must do them. Turn one off only while a backend is still
+  under construction, and turn it back on as the feature lands.
+- **Optional features** — `tint`, `blendModes`, `particles`, `lights`,
+  `postEffects`. These default to `false` (from `OPTIONAL_CAPABILITIES` in
+  `baseRenderer.js`), because backends are genuinely unalike and declining one
+  is a legitimate permanent answer, not a gap. Canvas claims only
+  `blendModes`; WebGL claims all five.
+
+A backend also reports optional features at runtime through
+`renderer.capabilities` / `renderer.supports(name)`, which is what callers use
+to degrade. The harness flag and the runtime flag should agree.
+
+Some optional features still have tests that run on **every** backend, because
+`BaseRenderer` supplies a working fallback: `drawParticles` falls back to one
+`drawSprite` per particle, and `setAmbientLight` / `drawLight` /
+`setPostEffects` are no-ops. Those tests assert the call works and does not
+throw; the `skipIf` ones assert the fast or richer behaviour the flag promises.
 
 ### The browser project
 
@@ -115,7 +142,7 @@ Headless Chromium has no GPU. `vitest.browser.config.js` passes launch flags
 so WebGL2 falls back to the SwiftShader software rasterizer. The smoke test
 `browser/environment.smoke.test.js` fails fast with a clear message if WebGL2
 is still unavailable, so a broken runner shows up as one failure rather than
-ninety.
+a hundred and twenty.
 
 The suite itself is environment-agnostic: `helpers/environment.js` prefers a
 real DOM when one exists and only falls back to `node-canvas` in Node. The
@@ -134,6 +161,12 @@ Two behaviours are easy to implement differently and are pinned by tests:
   what the engine has always rendered.
 - **Frame order is world pass, then screen pass.** `beginFrame`/`endFrame`
   present world content; `beginScreenFrame`/`endScreenFrame` draw UI on top.
+- **Translucent gradient stops are not premultiplied twice.** A radial stop at
+  alpha 0.5 over the opaque black clear must land near 128, not 64. This is
+  pinned by absolute-value tests because every other gradient test uses opaque
+  stops, which is exactly how the WebGL backend shipped with squared alpha:
+  `UNPACK_PREMULTIPLY_ALPHA_WEBGL` applies to `ArrayBufferView` uploads too,
+  so the already-premultiplied gradient lookup row was premultiplied again.
 - **Shadows are cast by the whole silhouette, once.** A rect with fill, stroke
   and a shadow casts one shadow shaped like fill + stroke, and `globalAlpha`
   applies once to the composite. Canvas 2D's per-operation shadow does not do

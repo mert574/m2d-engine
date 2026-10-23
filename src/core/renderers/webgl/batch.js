@@ -7,6 +7,31 @@ import {
 const NO_BOUNDS = [0, 0, 1, 1];
 
 /**
+ * Blend mode name -> premultiplied-alpha blend function.
+ *
+ * Every colour reaching the blender is premultiplied, which is what makes
+ * these one-liners correct: `additive` is a plain sum because the source is
+ * already scaled by its own alpha, so a transparent pixel adds nothing.
+ * @param {WebGL2RenderingContext} gl
+ * @param {string} mode
+ */
+function applyBlendFunc(gl, mode) {
+  switch (mode) {
+    case 'additive':
+      gl.blendFunc(gl.ONE, gl.ONE);
+      break;
+    case 'multiply':
+      gl.blendFunc(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA);
+      break;
+    case 'screen':
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
+      break;
+    default:
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  }
+}
+
+/**
  * Accumulates vertices sharing one paint state (mode, texture, gradient,
  * shadow colour) and submits them in a single draw call.
  *
@@ -57,7 +82,7 @@ export class Batch {
     /** Paint state of the vertices currently accumulated. */
     this.key = null;
     /** Paint state last applied to the GPU, for stateChanges counting. */
-    this.applied = { mode: -1, texture: null, gradientType: -1, gradient: null, shadowColor: null };
+    this.applied = { mode: -1, texture: null, gradientType: -1, gradient: null, shadowColor: null, blend: null };
     this.resolution = [0, 0];
     this.flipY = -1;
 
@@ -94,7 +119,7 @@ export class Batch {
 
   /**
    * Start (or continue) a batch with the given paint state.
-   * @param {{mode: number, texture?: WebGLTexture, gradientType?: number, gradient?: number[], shadowColor?: number[]}} key
+   * @param {{mode: number, texture?: WebGLTexture, gradientType?: number, gradient?: number[], shadowColor?: number[], blend?: string}} key
    */
   begin(key) {
     if (this.key && !sameKey(this.key, key)) this.flush();
@@ -194,6 +219,12 @@ export class Batch {
       this.resolutionDirty = false;
       changes++;
     }
+    const blend = key.blend || 'normal';
+    if (applied.blend !== blend) {
+      applyBlendFunc(gl, blend);
+      applied.blend = blend;
+      changes++;
+    }
     if (applied.mode !== key.mode) {
       gl.uniform1i(u.u_mode, key.mode);
       applied.mode = key.mode;
@@ -228,13 +259,16 @@ export class Batch {
 
   /** Forget GPU-side state (after another program ran or a target switch). */
   invalidateState() {
-    this.applied = { mode: -1, texture: null, gradientType: -1, gradient: null, shadowColor: null };
+    this.applied = { mode: -1, texture: null, gradientType: -1, gradient: null, shadowColor: null, blend: null };
     this.resolutionDirty = true;
   }
 }
 
 function sameKey(a, b) {
   if (a.mode !== b.mode) return false;
+  // Blend is checked before the per-mode shortcuts: two solid fills with
+  // different blend modes are different paint states and must not merge.
+  if ((a.blend || 'normal') !== (b.blend || 'normal')) return false;
   if (a.mode === MODE_SOLID) return true;
   if ((a.texture || null) !== (b.texture || null)) return false;
   if (a.mode === MODE_GRADIENT) {

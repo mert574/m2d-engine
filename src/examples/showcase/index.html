@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M2D - Renderer Showcase</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #05070f;
+    }
+
+    #screen {
+      max-width: 100vw;
+      max-height: 100vh;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+
+    .game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .keys {
+      color: #9fb6d0;
+      font-size: 0.95rem;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .keys b {
+      color: #cfe8ff;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="game-container">
+    <canvas id="screen" width="1280" height="720"></canvas>
+    <div class="keys">
+      <b>[ / ]:</b> Load · <b>1-4:</b> Toggle layers · <b>B:</b> Swap backend ·
+      <b>P:</b> Pause camera · <b>H:</b> Hide HUD · <b>D:</b> Debug
+    </div>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+
+</html>

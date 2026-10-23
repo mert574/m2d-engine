@@ -12,9 +12,24 @@ import { BaseRenderer } from './baseRenderer.js';
  * primitive with a shadow and both fill and stroke is therefore rendered to a
  * scratch canvas first and composited with the shadow in one operation.
  */
+/**
+ * Contract blend mode -> Canvas 2D composite operation.
+ *
+ * Canvas has these natively, so the backend claims `blendModes` even though it
+ * cannot claim `tint`: a composite operation costs nothing here, while tinting
+ * a sprite would mean an offscreen pass per draw.
+ */
+const COMPOSITE_OPERATIONS = {
+  normal: 'source-over',
+  additive: 'lighter',
+  multiply: 'multiply',
+  screen: 'screen'
+};
+
 export class CanvasRenderer extends BaseRenderer {
   constructor() {
     super();
+    this.capabilities.blendModes = true;
     /** @type {HTMLCanvasElement|null} */
     this.canvas = null;
     /** @type {CanvasRenderingContext2D|null} */
@@ -188,6 +203,9 @@ export class CanvasRenderer extends BaseRenderer {
   #applyCommon(ctx, options) {
     if (options.globalAlpha !== undefined) {
       ctx.globalAlpha = options.globalAlpha;
+    }
+    if (options.blend) {
+      ctx.globalCompositeOperation = COMPOSITE_OPERATIONS[options.blend] || 'source-over';
     }
     if (options.shadow) {
       ctx.shadowColor = options.shadow.color || 'rgba(0,0,0,0.5)';

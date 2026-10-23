@@ -19,6 +19,9 @@ describeRendererConformance({
     text: true,
     roundedCorners: true,
     clipping: true,
-    transforms: true
+    transforms: true,
+    // Canvas 2D has composite operations natively. It declines `tint`:
+    // tinting a sprite would need an offscreen pass per draw.
+    blendModes: true
   }
 });

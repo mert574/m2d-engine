@@ -115,3 +115,72 @@ void main() {
   fragColor = sum / weightSum;
 }
 `;
+
+/**
+ * Light map accumulation. The quad's local uv runs -1..1, so the falloff is
+ * just the distance from its centre; `v_color.rgb` is the light's colour
+ * times its intensity. Drawn additively over an ambient clear.
+ */
+export const LIGHT_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+in vec4 v_color;
+
+out vec4 fragColor;
+
+void main() {
+  float d = length(v_uv);
+  float falloff = clamp(1.0 - d, 0.0, 1.0);
+  falloff *= falloff;
+  fragColor = vec4(v_color.rgb * falloff, 1.0);
+}
+`;
+
+/** Bright-pass over the lit scene, feeding the bloom blur. */
+export const BRIGHT_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+
+uniform sampler2D u_scene;
+uniform sampler2D u_light;
+uniform float u_threshold;
+
+out vec4 fragColor;
+
+void main() {
+  vec3 lit = texture(u_scene, v_uv).rgb * texture(u_light, v_uv).rgb;
+  float luma = max(max(lit.r, lit.g), lit.b);
+  // Keep the colour, scale by how far past the threshold it is, so a bright
+  // amber lamp blooms amber rather than white.
+  float keep = max(0.0, luma - u_threshold) / max(luma, 0.0001);
+  fragColor = vec4(lit * keep, 1.0);
+}
+`;
+
+/** Final composite: scene x light, plus bloom, then vignette. */
+export const COMPOSITE_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+
+uniform sampler2D u_scene;
+uniform sampler2D u_light;
+uniform sampler2D u_bloom;
+uniform float u_bloomStrength;
+uniform float u_vignette;
+uniform float u_vignetteStart;
+
+out vec4 fragColor;
+
+void main() {
+  vec3 color = texture(u_scene, v_uv).rgb * texture(u_light, v_uv).rgb;
+  color += texture(u_bloom, v_uv).rgb * u_bloomStrength;
+
+  float r = length(v_uv - 0.5) * 1.41421356;
+  color *= 1.0 - u_vignette * smoothstep(u_vignetteStart, 1.0, r);
+
+  fragColor = vec4(color, 1.0);
+}
+`;

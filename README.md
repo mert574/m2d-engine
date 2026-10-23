@@ -69,6 +69,34 @@ npm run dev
 
 ## Examples
 
+### Renderer Showcase
+A batching stress test that doubles as the renderer comparison harness:
+- Thousands of batched sprites, a flowering reed bank, and a text storm
+- A lighthouse whose beam sweeps in perspective, built from stacked clips in world space
+- Rain as a single packed particle buffer, thousands of drops per draw call
+- A harbour chart that nests clips in screen space and plots the same beam
+- Additive firefly glow and per-sprite depth tinting on the reed bank
+- A harbour at night: horizon, rippling water, reed bank and lantern-lit shore
+- Flickering lantern lights over a dark harbour, with bloom and a vignette
+- A live overlay reporting FPS, primitives, draw calls and state changes
+- The same deterministic scene on either backend, for a like-for-like comparison
+
+On the WebGL2 backend the field collapses into a handful of draw calls; on
+Canvas it costs one call per primitive. The overlay prints that ratio, and
+lists which optional renderer capabilities the active backend supports — on
+Canvas the reed tinting drops out, the rain is capped and the harbour stays
+evenly lit, because that backend declines `tint`, `particles`, `lights` and
+`postEffects`.
+
+**Controls:**
+- `[` / `]`: Decrease / increase load
+- `1`-`7`: Toggle layers (drift, reeds, labels, chart, rain, lights, bloom)
+- `B`: Swap renderer backend
+- `P`: Pause the camera pan
+- `H`: Hide the overlay
+
+Any example also accepts `?renderer=canvas` or `?renderer=webgl` in the URL.
+
 ### 1. Platformer Game
 A side-scrolling platformer showcasing:
 - Physics-based movement
@@ -100,6 +128,26 @@ An interactive physics sandbox featuring:
 **Controls:**
 - Space: Spawn random objects
 
+### 4. Top-Down Game
+A top-down game demonstrating:
+- 8-directional movement
+- Zero-gravity physics
+- Enemies, turrets and projectiles
+
+**Controls:**
+- Arrow keys: Move
+- X: Attack
+- D: Toggle debug overlay
+
+### 5. Doner
+A rhythm-and-order game built mostly in screen space, showing the UI layer
+driving a whole game rather than an overlay.
+
+**Controls:**
+- A / S / D / F: Rhythm keys, pressed in sequence
+- Space: Serve order
+- Backspace: Clear sandwich
+
 ## Project Structure
 
 ```
@@ -109,13 +157,20 @@ m2d-engine/
 │   │   ├── m2d.js        # Main engine class
 │   │   ├── scene.js      # Scene management
 │   │   ├── entity.js     # Base entity class
-│   │   ├── Camera.js     # Camera system
+│   │   ├── camera.js     # Camera system
+│   │   ├── renderers/    # Backend contract and backends
+│   │   │   ├── baseRenderer.js   # The contract every backend implements
+│   │   │   ├── canvasRenderer.js # Canvas 2D backend
+│   │   │   ├── webglRenderer.js  # WebGL2 backend (default)
+│   │   │   ├── geometry/         # API-neutral tessellation and matrices
+│   │   │   └── webgl/            # Batching, shaders, shadow and effect passes
 │   │   └── ui/           # UI components
 │   ├── actors/         # Game-specific actors
 │   ├── constraints/    # Entity constraints/components
 │   └── examples/       # Example implementations
 ├── scripts/           # Build and utility scripts
-└── assets/           # Game assets and sprites
+├── test/              # Renderer conformance and engine tests
+└── docs/              # Build output (GitHub Pages)
 ```
 
 ## Level File Structure

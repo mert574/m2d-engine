@@ -21,6 +21,20 @@ export class UIRenderer {
     return this.renderer.height;
   }
 
+  /** Optional features of the backing renderer. @type {Record<string, boolean>} */
+  get capabilities() {
+    return this.renderer.capabilities;
+  }
+
+  /**
+   * Whether the backing renderer supports an optional feature.
+   * @param {string} feature - Capability name
+   * @returns {boolean} Whether the backend implements it
+   */
+  supports(feature) {
+    return this.renderer.supports(feature);
+  }
+
   /**
    * Clear the presented surface (e.g. to paint a full-screen menu background).
    * @param {string} [color] - Background colour; transparent clear if omitted
@@ -51,6 +65,10 @@ export class UIRenderer {
 
   drawSprite(options) {
     this.renderer.drawSprite({ ...options, isScreenSpace: true });
+  }
+
+  drawParticles(options) {
+    this.renderer.drawParticles({ ...options, isScreenSpace: true });
   }
 
   drawLine(options) {

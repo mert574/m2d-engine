@@ -299,6 +299,12 @@ export class Scene {
       this.game.camera.update();
       this.game.entities.forEach(entity => entity.update(deltaTime));
     }
+
+    // Scene-level simulation that is not an entity (bulk effects, directors).
+    if (this.config.onUpdate) {
+      this.config.onUpdate(deltaTime);
+    }
+
     this.ui.update(deltaTime);
   }
 
@@ -309,6 +315,12 @@ export class Scene {
 
       // Draw entities
       this.game.entities.forEach(entity => entity.draw(deltaTime));
+    }
+
+    // World-space drawing that does not belong to an entity. Runs inside the
+    // world pass, after entities, with the camera transform applied.
+    if (this.config.onDraw) {
+      this.config.onDraw(deltaTime);
     }
   }
 

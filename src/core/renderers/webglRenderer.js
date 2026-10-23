@@ -1,6 +1,6 @@
-import { BaseRenderer } from './baseRenderer.js';
+import { BaseRenderer, PARTICLE_STRIDE } from './baseRenderer.js';
 import * as mat from './geometry/matrix.js';
-import { parseColorPremultiplied } from './geometry/color.js';
+import { parseColor, parseColorPremultiplied } from './geometry/color.js';
 import { strokePolyline } from './geometry/polyline.js';
 import { arcPoints, roundRectPoints, fanIndices, triangulate } from './geometry/shapes.js';
 import { bakeGradient, gradientKey, GRADIENT_LUT_SIZE } from './geometry/gradient.js';
@@ -9,6 +9,7 @@ import { Batch, MODE_SOLID, MODE_TEXTURE, MODE_GRADIENT, MODE_SHADOW } from './w
 import { TextureCache } from './webgl/textureCache.js';
 import { TextLabels } from './webgl/textLabels.js';
 import { ShadowPass, expand } from './webgl/shadowPass.js';
+import { EffectsPass } from './webgl/effectsPass.js';
 
 /**
  * WebGL2 implementation of the renderer interface.
@@ -34,6 +35,20 @@ export class WebGLRenderer extends BaseRenderer {
    */
   constructor(options = {}) {
     super();
+    this.capabilities.tint = true;
+    this.capabilities.blendModes = true;
+    this.capabilities.particles = true;
+    this.capabilities.lights = true;
+    this.capabilities.postEffects = true;
+
+    /** Ambient light colour, or null when lighting is off. */
+    this.ambientLight = null;
+    /** Lights submitted this frame, cleared at beginFrame. */
+    this.lights = [];
+    /** Post-effect configuration, or null. */
+    this.postEffects = null;
+    /** Which framebuffer world/screen draws currently belong to. */
+    this.targetIsScene = false;
     /** @type {HTMLCanvasElement|null} */
     this.canvas = null;
     /** @type {WebGL2RenderingContext|null} */
@@ -109,6 +124,7 @@ export class WebGLRenderer extends BaseRenderer {
     this.textures = new TextureCache(gl, this.imageSmoothing);
     this.labels = new TextLabels(gl);
     this.shadowPass = new ShadowPass(gl, this.width, this.height);
+    this.effectsPass = new EffectsPass(gl, this.width, this.height);
     this.gradientCache.clear();
 
     gl.disable(gl.DEPTH_TEST);
@@ -125,12 +141,14 @@ export class WebGLRenderer extends BaseRenderer {
     this.textures?.destroy();
     this.labels?.destroy();
     this.shadowPass?.destroy();
+    this.effectsPass?.destroy();
     for (const entry of this.gradientCache.values()) gl.deleteTexture(entry.texture);
     this.gradientCache.clear();
     this.batch = null;
     this.textures = null;
     this.labels = null;
     this.shadowPass = null;
+    this.effectsPass = null;
   }
 
   destroy() {
@@ -166,6 +184,7 @@ export class WebGLRenderer extends BaseRenderer {
     gl.viewport(0, 0, this.width, this.height);
     this.batch.setTarget(this.width, this.height, true);
     this.shadowPass.resize(this.width, this.height);
+    this.effectsPass.resize(this.width, this.height);
   }
 
   clear(color) {
@@ -187,19 +206,46 @@ export class WebGLRenderer extends BaseRenderer {
     this.clear('#000');
     this.cameraMatrix = mat.identity();
     this.worldMatrix = mat.identity();
+    this.lights.length = 0;
     this.#resetStencil();
+
+    // With lighting or post effects on, the world needs to end up in a
+    // texture rather than on screen, so it is drawn into the effects pass's
+    // scene target and composited in endFrame().
+    this.targetIsScene = this.#effectsActive;
+    if (this.targetIsScene) {
+      this.effectsPass.beginScene();
+      this.batch.setTarget(this.width, this.height, false);
+      this.batch.invalidateState();
+    }
+
     super.beginFrame();
   }
 
   endFrame() {
     if (!this.#ready) return;
     this.batch.flush();
+
+    if (this.targetIsScene) {
+      const ambient = this.ambientLight ? parseColor(this.ambientLight) : [1, 1, 1, 1];
+      this.stats.drawCalls += this.effectsPass.drawLights(this.lights, ambient);
+      this.stats.drawCalls += this.effectsPass.composite(this.postEffects);
+      this.targetIsScene = false;
+      this.#bindDefaultTarget();
+    }
+
     this.#evictGradients();
     this.labels.evict(this.frameIndex);
   }
 
   beginScreenFrame() {
     if (!this.#ready) return;
+    // The screen pass always goes straight to the default framebuffer, after
+    // the composite, so UI is never dimmed by ambient or smeared by bloom.
+    if (this.targetIsScene) {
+      this.targetIsScene = false;
+      this.#bindDefaultTarget();
+    }
     this.screenMatrix = mat.identity();
   }
 
@@ -230,16 +276,29 @@ export class WebGLRenderer extends BaseRenderer {
    * Resolve a fill/stroke style into a batch key plus per-vertex colour and
    * uvs for the given local-space positions.
    */
-  #paint(style, alpha, localPositions) {
+  /**
+   * Premultiplied vertex colour for a textured draw.
+   * @param {string} [tint] - Colour multiplied into every texel
+   * @param {number} alpha - globalAlpha
+   * @returns {number[]} Premultiplied [r, g, b, a]
+   */
+  #tintColor(tint, alpha) {
+    if (!tint) return [alpha, alpha, alpha, alpha];
+    const [r, g, b, a] = parseColor(tint);
+    const s = a * alpha;
+    return [r * s, g * s, b * s, s];
+  }
+
+  #paint(style, alpha, localPositions, blend) {
     if (style && typeof style === 'object' && style.type) {
       const texture = this.#gradientTexture(style);
       const key = style.type === 'radial'
-        ? { mode: MODE_GRADIENT, texture, gradientType: 1, gradient: [style.x, style.y, style.r0 ?? 0, style.r1] }
-        : { mode: MODE_GRADIENT, texture, gradientType: 0, gradient: [style.x0, style.y0, style.x1, style.y1] };
+        ? { mode: MODE_GRADIENT, texture, gradientType: 1, gradient: [style.x, style.y, style.r0 ?? 0, style.r1], blend }
+        : { mode: MODE_GRADIENT, texture, gradientType: 0, gradient: [style.x0, style.y0, style.x1, style.y1], blend };
       return { key, color: [alpha, alpha, alpha, alpha], uvs: localPositions };
     }
     const [r, g, b, a] = parseColorPremultiplied(style);
-    return { key: { mode: MODE_SOLID }, color: [r * alpha, g * alpha, b * alpha, a * alpha], uvs: null };
+    return { key: { mode: MODE_SOLID, blend }, color: [r * alpha, g * alpha, b * alpha, a * alpha], uvs: null };
   }
 
   #gradientTexture(style) {
@@ -278,7 +337,7 @@ export class WebGLRenderer extends BaseRenderer {
   #submitShape(options, localPositions, indices, style) {
     if (indices.length === 0) return;
     const alpha = options.globalAlpha ?? 1;
-    const { key, color, uvs } = this.#paint(style, alpha, localPositions);
+    const { key, color, uvs } = this.#paint(style, alpha, localPositions, options.blend);
     const positions = mat.applyToPositions(this.#matrixFor(options), localPositions);
     this.batch.begin(key);
     this.batch.push(positions, uvs, color, indices);
@@ -330,7 +389,7 @@ export class WebGLRenderer extends BaseRenderer {
       this.stats.drawCalls += pass.blur(region, shadow);
 
       // 3. Composite onto the frame, offset and tinted.
-      this.#bindDefaultTarget();
+      this.#bindCurrentTarget();
       const ox = shadow.offsetX || 0;
       const oy = shadow.offsetY || 0;
       const positions = [
@@ -342,15 +401,30 @@ export class WebGLRenderer extends BaseRenderer {
         region.maxX / this.width, region.maxY / this.height, region.minX / this.width, region.maxY / this.height
       ];
       const alpha = options.globalAlpha ?? 1;
-      batch.begin({ mode: MODE_SHADOW, texture: pass.texture, shadowColor: parseColorPremultiplied(shadow.color || 'rgba(0,0,0,0.5)') });
+      batch.begin({ mode: MODE_SHADOW, texture: pass.texture, shadowColor: parseColorPremultiplied(shadow.color || 'rgba(0,0,0,0.5)'), blend: options.blend });
       batch.push(positions, uvs, [alpha, alpha, alpha, alpha], QUAD_INDICES);
       batch.flush();
     } else {
-      this.#bindDefaultTarget();
+      this.#bindCurrentTarget();
     }
 
     // 4. The primitive itself.
     draw(options);
+  }
+
+  /**
+   * Re-bind whichever framebuffer the current pass draws into. The world pass
+   * owns the effects scene target when lighting or post effects are on;
+   * everything else owns the default framebuffer.
+   */
+  #bindCurrentTarget() {
+    if (this.targetIsScene) {
+      this.effectsPass.bindScene(this.clipDepth);
+      this.batch.setTarget(this.width, this.height, false);
+      this.batch.invalidateState();
+      return;
+    }
+    this.#bindDefaultTarget();
   }
 
   #bindDefaultTarget() {
@@ -384,8 +458,13 @@ export class WebGLRenderer extends BaseRenderer {
     const m = localMatrix ? mat.multiply(this.#matrixFor(options), localMatrix) : this.#matrixFor(options);
     const positions = mat.applyToPositions(m, local);
 
-    this.batch.begin({ mode: MODE_TEXTURE, texture: entry.texture });
-    this.batch.push(positions, uvs, [alpha, alpha, alpha, alpha], QUAD_INDICES, uvBounds);
+    // The texture path already evaluates `texel * v_color`, so a tint costs
+    // nothing extra: fold it into the vertex colour. White tint reduces to
+    // [a, a, a, a], which is exactly the untinted case.
+    const color = this.#tintColor(options.tint, alpha);
+
+    this.batch.begin({ mode: MODE_TEXTURE, texture: entry.texture, blend: options.blend });
+    this.batch.push(positions, uvs, color, QUAD_INDICES, uvBounds);
   }
 
   drawSprite(options) {
@@ -432,6 +511,110 @@ export class WebGLRenderer extends BaseRenderer {
       null,
       source
     ));
+  }
+
+  /**
+   * Batched particle path. Each particle becomes one textured quad pushed
+   * straight into the running batch with its own premultiplied colour, so a
+   * whole field shares one texture bind and flushes only when the vertex
+   * buffer fills. The quad is rotated and transformed inline rather than via
+   * the matrix helpers, which would allocate per particle.
+   */
+  drawParticles(options) {
+    if (!this.#ready || !options.image || !options.data) return;
+    const entry = this.textures.get(options.image);
+    if (!entry) return;
+
+    const { data, tileX = 0, tileY = 0, tileWidth, tileHeight } = options;
+    const available = Math.floor(data.length / PARTICLE_STRIDE);
+    const count = Math.min(options.count ?? available, available);
+    if (count <= 0) return;
+
+    const { width: tw, height: th } = entry;
+    const sx = tileX * tileWidth, sy = tileY * tileHeight;
+    const u0 = sx / tw, v0 = sy / th;
+    const u1 = (sx + tileWidth) / tw, v1 = (sy + tileHeight) / th;
+    const uvs = [u0, v0, u1, v0, u1, v1, u0, v1];
+    const hx = Math.min(0.5 / tw, (u1 - u0) / 2);
+    const hy = Math.min(0.5 / th, (v1 - v0) / 2);
+    const uvBounds = [u0 + hx, v0 + hy, u1 - hx, v1 - hy];
+
+    const [ma, mb, mc, md, me, mf] = this.#matrixFor(options);
+    const aspect = tileWidth / tileHeight;
+    const alphaScale = options.globalAlpha ?? 1;
+    const positions = this.#particleQuad;
+    const color = this.#particleColor;
+    let drawn = 0;
+
+    this.batch.begin({ mode: MODE_TEXTURE, texture: entry.texture, blend: options.blend });
+
+    for (let i = 0; i < count; i++) {
+      const o = i * PARTICLE_STRIDE;
+      const alpha = data[o + 7] * alphaScale;
+      if (alpha <= 0) continue;
+
+      const px = data[o], py = data[o + 1];
+      const hh = data[o + 2] / 2, hw = hh * aspect;
+      const rot = data[o + 3];
+      const c = rot ? Math.cos(rot) : 1;
+      const sn = rot ? Math.sin(rot) : 0;
+
+      // Rotated half-extents: corner = centre ± ex ± ey.
+      const exx = c * hw, exy = sn * hw;
+      const eyx = -sn * hh, eyy = c * hh;
+
+      let x, y;
+      x = px - exx - eyx; y = py - exy - eyy;
+      positions[0] = ma * x + mc * y + me; positions[1] = mb * x + md * y + mf;
+      x = px + exx - eyx; y = py + exy - eyy;
+      positions[2] = ma * x + mc * y + me; positions[3] = mb * x + md * y + mf;
+      x = px + exx + eyx; y = py + exy + eyy;
+      positions[4] = ma * x + mc * y + me; positions[5] = mb * x + md * y + mf;
+      x = px - exx + eyx; y = py - exy + eyy;
+      positions[6] = ma * x + mc * y + me; positions[7] = mb * x + md * y + mf;
+
+      color[0] = data[o + 4] * alpha;
+      color[1] = data[o + 5] * alpha;
+      color[2] = data[o + 6] * alpha;
+      color[3] = alpha;
+
+      this.batch.push(positions, uvs, color, QUAD_INDICES, uvBounds);
+      drawn++;
+    }
+
+    this.stats.primitives += drawn;
+    this.stats.spritesDrawn += drawn;
+  }
+
+  /** Scratch buffers for drawParticles, reused across particles and frames. */
+  #particleQuad = new Array(8);
+  #particleColor = new Array(4);
+
+  setAmbientLight(color) {
+    this.ambientLight = color ?? null;
+  }
+
+  setPostEffects(effects) {
+    this.postEffects = effects ?? null;
+  }
+
+  drawLight(options) {
+    if (!this.#ready || !this.#effectsActive) return;
+    const { x, y, radius, color = '#ffffff', intensity = 1 } = options;
+    const m = this.#matrixFor(options);
+    const [sx, sy] = mat.apply(m, x, y);
+    this.lights.push({
+      x: sx,
+      y: sy,
+      radius: radius * mat.maxScale(m),
+      color: parseColor(color),
+      intensity
+    });
+  }
+
+  /** Whether this frame routes the world pass through the effects target. */
+  get #effectsActive() {
+    return Boolean(this.ambientLight || this.postEffects);
   }
 
   drawRect(options) {
