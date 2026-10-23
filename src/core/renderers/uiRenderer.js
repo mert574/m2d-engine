@@ -22,11 +22,11 @@ export class UIRenderer {
   }
 
   /**
-   * Clear the visible screen.
-   * @param {string} [color] - Background color; transparent clear if omitted
+   * Clear the presented surface (e.g. to paint a full-screen menu background).
+   * @param {string} [color] - Background colour; transparent clear if omitted
    */
   clear(color) {
-    this.renderer.clearScreen(color);
+    this.renderer.clear(color);
   }
 
   beginFrame() {

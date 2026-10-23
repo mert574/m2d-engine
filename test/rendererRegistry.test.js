@@ -64,7 +64,6 @@ describe('BaseRenderer contract', () => {
       ['destroy', []],
       ['resize', [1, 1]],
       ['clear', ['#000']],
-      ['clearScreen', ['#000']],
       ['endFrame', []],
       ['beginScreenFrame', []],
       ['endScreenFrame', []],

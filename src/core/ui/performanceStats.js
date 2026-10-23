@@ -24,8 +24,9 @@ export class PerformanceStats extends UIElement {
 
     const text = 'FPS: ' + fps 
     + ' · Avg FPS: ' + avgFps 
-    + ' · Draw Calls: ' + stats.drawCalls 
-    + ' · State Changes: ' + stats.stateChanges 
+    + ' · Primitives: ' + stats.primitives
+    + ' · Draw Calls: ' + stats.drawCalls
+    + ' · State Changes: ' + stats.stateChanges
     + ' · Sprites: ' + stats.spritesDrawn 
     + ' · Text: ' + stats.textDrawn 
     + ' · Shapes: ' + stats.shapesDrawn;

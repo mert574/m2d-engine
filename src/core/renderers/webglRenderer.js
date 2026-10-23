@@ -69,17 +69,10 @@ export class WebGLRenderer extends BaseRenderer {
     this.gl.viewport(0, 0, this.width, this.height);
   }
 
-  clear(color = '#000') {
-    this.#clearTarget(parseColor(color));
-  }
-
-  clearScreen(color) {
-    this.#clearTarget(color ? parseColor(color) : [0, 0, 0, 0]);
-  }
-
-  #clearTarget([r, g, b, a]) {
+  clear(color) {
     const gl = this.gl;
     if (!gl) return;
+    const [r, g, b, a] = color ? parseColor(color) : [0, 0, 0, 0];
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.disable(gl.SCISSOR_TEST);
     gl.clearColor(r, g, b, a);

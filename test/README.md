@@ -133,6 +133,17 @@ Two behaviours are easy to implement differently and are pinned by tests:
   what the engine has always rendered.
 - **Frame order is world pass, then screen pass.** `beginFrame`/`endFrame`
   present world content; `beginScreenFrame`/`endScreenFrame` draw UI on top.
+- **Shadows are cast by the whole silhouette, once.** A rect with fill, stroke
+  and a shadow casts one shadow shaped like fill + stroke, and `globalAlpha`
+  applies once to the composite. Canvas 2D's per-operation shadow does not do
+  this on its own; the Canvas backend renders such primitives via a scratch
+  canvas. The pinned tests sample the shadow under the stroke.
+- **Transform and clip pushes share one strictly nested stack.** A clip pushed
+  inside a transform is popped first. The pinned test nests a clip in a
+  translate and checks both are restored.
+- **`primitives` vs `drawCalls`.** Stats tests assert `primitives` (what the
+  caller requested) exactly and only bound `drawCalls` (1 ≤ drawCalls ≤
+  primitives) so batching backends are not penalised.
 
 ## Keeping the suite honest
 

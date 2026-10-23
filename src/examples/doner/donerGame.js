@@ -538,8 +538,7 @@ export class DonerGame {
       x: 0, y: 0, width, height,
       fillStyle: {
         type: 'radial',
-        x0: width / 2, y0: height / 2, r0: 0,
-        x1: width / 2, y1: height / 2, r1: width * 0.7,
+        x: width / 2, y: height / 2, r1: width * 0.7,
         stops: [
           { offset: 0, color: 'rgba(0,0,0,0)' },
           { offset: 1, color: 'rgba(0,0,0,0.4)' }
@@ -577,8 +576,7 @@ export class DonerGame {
       x: 0, y: 0, width, height,
       fillStyle: {
         type: 'radial',
-        x0: width / 2, y0: height / 2, r0: 0,
-        x1: width / 2, y1: height / 2, r1: width * 0.6,
+        x: width / 2, y: height / 2, r1: width * 0.6,
         stops: [
           { offset: 0, color: 'rgba(0, 0, 0, 0.6)' },
           { offset: 1, color: 'rgba(0, 0, 0, 0.9)' }
@@ -1260,8 +1258,7 @@ export class DonerGame {
       x: 0, y: 0, width, height,
       fillStyle: {
         type: 'radial',
-        x0: width / 2, y0: height / 2, r0: 0,
-        x1: width / 2, y1: height / 2, r1: width * 0.6,
+        x: width / 2, y: height / 2, r1: width * 0.6,
         stops: [
           { offset: 0, color: 'rgba(20, 10, 5, 0.85)' },
           { offset: 1, color: 'rgba(0, 0, 0, 0.95)' }

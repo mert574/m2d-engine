@@ -31,7 +31,10 @@ node scripts/generateSprites.js <example>  # Generate sprites for an example
 ### Renderers (`src/core/renderers/`)
 
 Rendering is fully abstracted behind a backend interface; no game or engine code
-may touch a canvas context directly.
+may touch a canvas context directly. The contract describes rendering semantics,
+not Canvas 2D behaviour: when a backend needs a workaround to meet it, that
+workaround belongs in the backend (the Canvas backend already carries one for
+silhouette shadows), never in the contract or in callers.
 
 - **BaseRenderer** (`baseRenderer.js`) - The complete backend contract: lifecycle,
   world/screen frame passes, draw primitives (`drawSprite`, `drawImage`, `drawRect`,
@@ -39,8 +42,15 @@ may touch a canvas context directly.
   (`pushTransform`/`popTransform`, `pushClip`/`popClip`), and `measureText`.
   Backend-agnostic logic (FPS/stats tracking, debug flags, `hitTest`) lives here.
   Fill/stroke styles accept CSS colors or declarative gradient descriptors
-  (`{ type: 'linear'|'radial', ..., stops }`); all draw calls accept `isScreenSpace`,
-  `globalAlpha`, and `shadow` ({ color, blur, offsetX, offsetY }).
+  (`{ type: 'linear', x0, y0, x1, y1, stops }` or the concentric
+  `{ type: 'radial', x, y, r0, r1, stops }`); all draw calls accept `isScreenSpace`,
+  `globalAlpha`, and `shadow` ({ color, blur, offsetX, offsetY }). A shadow is cast
+  once by the primitive's whole silhouette (fill + stroke); `globalAlpha` applies
+  once to the whole primitive. `clear(color)` clears the presented surface
+  (transparent if no colour). Transform and clip pushes share one strictly
+  nested stack. Stats distinguish `primitives` (what callers asked for) from
+  `drawCalls`/`stateChanges` (what the backend submitted, so batching backends
+  report fewer).
 - **CanvasRenderer** (`canvasRenderer.js`) - Canvas 2D backend with a double-buffered
   world pass composited in `endFrame()`.
 - **WebGLRenderer** (`webglRenderer.js`) - WebGL2 backend, registered as `'webgl'`.

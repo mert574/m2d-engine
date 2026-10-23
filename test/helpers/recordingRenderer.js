@@ -65,7 +65,6 @@ export class RecordingRenderer extends BaseRenderer {
   }
 
   clear(color) { this.#record('clear', color); }
-  clearScreen(color) { this.#record('clearScreen', color); }
 
   // === Frame control ===
   beginFrame() {
@@ -79,44 +78,37 @@ export class RecordingRenderer extends BaseRenderer {
 
   // === Primitives ===
   drawSprite(options) {
-    this.stats.drawCalls++;
-    this.stats.spritesDrawn++;
+    this.trackPrimitive('sprite');
     this.#record('drawSprite', options);
   }
 
   drawImage(options) {
-    this.stats.drawCalls++;
-    this.stats.spritesDrawn++;
+    this.trackPrimitive('sprite');
     this.#record('drawImage', options);
   }
 
   drawRect(options) {
-    this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
+    this.trackPrimitive('shape');
     this.#record('drawRect', options);
   }
 
   drawLine(options) {
-    this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
+    this.trackPrimitive('shape');
     this.#record('drawLine', options);
   }
 
   drawArc(options) {
-    this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
+    this.trackPrimitive('shape');
     this.#record('drawArc', options);
   }
 
   drawPath(options) {
-    this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
+    this.trackPrimitive('shape');
     this.#record('drawPath', options);
   }
 
   drawText(options) {
-    this.stats.drawCalls++;
-    this.stats.textDrawn++;
+    this.trackPrimitive('text');
     this.#record('drawText', options);
   }
 
