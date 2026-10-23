@@ -5,16 +5,18 @@ import {
   registerRenderer,
   BaseRenderer,
   CanvasRenderer,
+  WebGLRenderer,
   UIRenderer
 } from '../src/core/renderers/index.js';
 
 describe('renderer registry', () => {
-  it('resolves the built-in canvas backend by name', () => {
+  it('resolves the built-in backends by name', () => {
     expect(createRenderer('canvas')).toBeInstanceOf(CanvasRenderer);
+    expect(createRenderer('webgl')).toBeInstanceOf(WebGLRenderer);
   });
 
-  it('defaults to the canvas backend', () => {
-    expect(createRenderer()).toBeInstanceOf(CanvasRenderer);
+  it('defaults to the WebGL2 backend', () => {
+    expect(createRenderer()).toBeInstanceOf(WebGLRenderer);
   });
 
   it('accepts a renderer class', () => {
@@ -64,7 +66,6 @@ describe('BaseRenderer contract', () => {
       ['destroy', []],
       ['resize', [1, 1]],
       ['clear', ['#000']],
-      ['clearScreen', ['#000']],
       ['endFrame', []],
       ['beginScreenFrame', []],
       ['endScreenFrame', []],

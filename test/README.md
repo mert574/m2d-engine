@@ -1,12 +1,20 @@
 # Renderer tests
 
 ```bash
-npm test          # run once
-npm run test:watch
+npm test               # both projects (node + browser)
+npm run test:node      # headless only, ~0.4s
+npm run test:browser   # headless Chromium only (needs one-time setup, see below)
+npm run test:watch     # watches the node project
 ```
 
-Tests run headless in Node. `node-canvas` provides a real rasterizer, so pixel
-assertions work in CI without a browser.
+Tests are split into two Vitest projects (`vitest.workspace.js`):
+
+- **node** (`vitest.config.js`) — everything outside `test/browser/`. Runs in
+  Node; `node-canvas` provides a real rasterizer so pixel assertions work
+  without a browser.
+- **browser** (`vitest.browser.config.js`) — `test/browser/**` only. Runs in
+  headless Chromium via Playwright. Node has no WebGL, so this is where the
+  WebGL2 backend is validated.
 
 ## Why three layers
 
@@ -14,11 +22,12 @@ The renderer abstraction has two sides that can break independently: callers
 that emit draw calls, and backends that execute them. Each layer below targets
 one of them, so a failure localises immediately.
 
-| Layer | File | Tests | What it proves |
+| Layer | File | Project | What it proves |
 | --- | --- | --- | --- |
-| Backend contract | `conformance/rendererConformance.js` | 95 | A backend rasterizes every primitive correctly |
-| Caller contract | `engineDrawCalls.test.js` | 28 | Engine/actor code emits the right draw calls |
-| UI + wiring | `uiRenderer.test.js`, `rendererRegistry.test.js` | 44 | Screen-space forwarding, widgets, backend selection |
+| Backend contract | `conformance/rendererConformance.js` (95 tests per backend) | node + browser | A backend rasterizes every primitive correctly |
+| Caller contract | `engineDrawCalls.test.js` | node | Engine/actor code emits the right draw calls |
+| UI + wiring | `uiRenderer.test.js`, `rendererRegistry.test.js` | node | Screen-space forwarding, widgets, backend selection |
+| Browser environment | `browser/environment.smoke.test.js` | browser | WebGL2 exists in the runner, pixel readback is top-left, fixtures upload as textures |
 
 ### 1. Backend conformance (pixels)
 
@@ -44,48 +53,39 @@ stats), so that code is exercised for real rather than stubbed.
 
 ## Validating a new backend
 
-A new backend is validated by one file. Nothing else changes:
+A new backend is validated by one file. Nothing else changes. The WebGL2
+backend's file is the template (shown here with flags off, as a backend
+starts out; the real file has them all on):
 
 ```js
-// test/webglRenderer.conformance.test.js
-import { WebGLRenderer } from '../src/core/renderers/webglRenderer.js';
-import { describeRendererConformance } from './conformance/rendererConformance.js';
-import { createCanvasElement } from './helpers/environment.js';
+// test/browser/webglRenderer.conformance.test.js
+import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.js';
+import { describeRendererConformance } from '../conformance/rendererConformance.js';
+import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js';
 
 describeRendererConformance({
   name: 'WebGLRenderer',
-  createRenderer: () => new WebGLRenderer(),
+  createRenderer: () => new WebGLRenderer({
+    contextAttributes: { preserveDrawingBuffer: true }
+  }),
   createTarget: (width, height) => createCanvasElement(width, height),
   readPixels: readWebGLPixels,
   capabilities: {
-    gradients: true,
-    shadows: false,   // not implemented yet -> those tests skip
-    text: true,
-    roundedCorners: true,
-    clipping: true,
-    transforms: true
+    gradients: false,
+    shadows: false,
+    text: false,
+    roundedCorners: false,
+    clipping: false,
+    transforms: false
   }
 });
 ```
 
-`readPixels` must return RGBA with a **top-left origin**. WebGL reads
-bottom-up, so flip the rows:
-
-```js
-function readWebGLPixels(target) {
-  const gl = target.getContext('webgl2') ?? target.getContext('webgl');
-  const { width, height } = target;
-  const raw = new Uint8Array(width * height * 4);
-  gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, raw);
-
-  const data = new Uint8ClampedArray(raw.length);
-  const stride = width * 4;
-  for (let y = 0; y < height; y++) {
-    data.set(raw.subarray((height - 1 - y) * stride, (height - y) * stride), y * stride);
-  }
-  return { width, height, data };
-}
-```
+`readPixels` must return RGBA with a **top-left origin**. `readWebGLPixels` in
+`helpers/environment.js` does the bottom-up row flip that `gl.readPixels`
+requires; `readCanvas2DPixels` is its 2D counterpart. The renderer must keep
+its drawing buffer (`preserveDrawingBuffer: true`) so the presented frame is
+still there when the test reads it.
 
 ### Capabilities
 
@@ -94,12 +94,35 @@ while still being held to everything it claims. Start with most flags `false`,
 flip them on as features land. A flag set to `true` is a promise the suite
 enforces.
 
-### Running WebGL
+### The browser project
 
-Node has no WebGL, so a WebGL backend needs a browser runner. Add
-`@vitest/browser` + Playwright and give that one file a browser environment;
-the suite itself is environment-agnostic (`test/helpers/environment.js` already
-prefers a real DOM when one exists).
+One-time setup downloads Chromium:
+
+```bash
+npx playwright install chromium
+```
+
+Chromium also needs a few system libraries that a minimal Linux/WSL2 install
+may lack (`libnspr4`, `libnss3`, `libasound2`). If `npm run test:browser`
+fails with `error while loading shared libraries`, install them:
+
+```bash
+sudo npx playwright install-deps chromium      # or, on Ubuntu 24.04:
+sudo apt-get install libnspr4 libnss3 libasound2t64
+```
+
+Headless Chromium has no GPU. `vitest.browser.config.js` passes launch flags
+so WebGL2 falls back to the SwiftShader software rasterizer. The smoke test
+`browser/environment.smoke.test.js` fails fast with a clear message if WebGL2
+is still unavailable, so a broken runner shows up as one failure rather than
+ninety.
+
+The suite itself is environment-agnostic: `helpers/environment.js` prefers a
+real DOM when one exists and only falls back to `node-canvas` in Node. The
+Canvas backend's conformance run is repeated in the browser project
+(`browser/canvasRenderer.conformance.test.js`) so the suite's antialiasing
+tolerances are proven against Chromium's rasterizer independently of any
+WebGL work: a test that fails only there is a tolerance bug, not a backend bug.
 
 ## Contract details worth knowing
 
@@ -111,6 +134,17 @@ Two behaviours are easy to implement differently and are pinned by tests:
   what the engine has always rendered.
 - **Frame order is world pass, then screen pass.** `beginFrame`/`endFrame`
   present world content; `beginScreenFrame`/`endScreenFrame` draw UI on top.
+- **Shadows are cast by the whole silhouette, once.** A rect with fill, stroke
+  and a shadow casts one shadow shaped like fill + stroke, and `globalAlpha`
+  applies once to the composite. Canvas 2D's per-operation shadow does not do
+  this on its own; the Canvas backend renders such primitives via a scratch
+  canvas. The pinned tests sample the shadow under the stroke.
+- **Transform and clip pushes share one strictly nested stack.** A clip pushed
+  inside a transform is popped first. The pinned test nests a clip in a
+  translate and checks both are restored.
+- **`primitives` vs `drawCalls`.** Stats tests assert `primitives` (what the
+  caller requested) exactly and only bound `drawCalls` (1 ≤ drawCalls ≤
+  primitives) so batching backends are not penalised.
 
 ## Keeping the suite honest
 

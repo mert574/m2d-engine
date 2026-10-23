@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "generate-sprites": "node scripts/generateSprites.js"
+    "test": "npm run test:node && npm run test:browser",
+    "test:watch": "vitest --project node",
+    "generate-sprites": "node scripts/generateSprites.js",
+    "test:node": "vitest run --project node",
+    "test:browser": "vitest run --project browser"
   },
   "author": "Mert Yildiz",
   "license": "MIT",
@@ -23,6 +25,8 @@
   },
   "keywords": [],
   "devDependencies": {
+    "@vitest/browser": "^2.1.9",
+    "playwright": "^1.64.1",
     "vite": "^5.0.0",
     "vitest": "^2.1.9"
   }

@@ -7,24 +7,42 @@
  * happens between beginScreenFrame() and endScreenFrame(), or by passing
  * `isScreenSpace: true` to any draw call.
  *
+ * ## Colours
+ *
+ * Colours are CSS strings. Backends must support `#rgb`, `#rgba`, `#rrggbb`,
+ * `#rrggbbaa`, `rgb()`, `rgba()`, `transparent`, and the CSS named colours.
+ *
  * ## Style descriptors
  *
  * Wherever a `fillStyle` or `strokeStyle` is accepted, backends must support
- * either a CSS color string or a declarative gradient descriptor:
+ * either a colour string or a declarative gradient descriptor:
  *
  *   { type: 'linear', x0, y0, x1, y1, stops: [{ offset, color }, ...] }
- *   { type: 'radial', x0, y0, r0, x1, y1, r1, stops: [{ offset, color }, ...] }
+ *   { type: 'radial', x, y, r0 = 0, r1, stops: [{ offset, color }, ...] }
  *
- * Coordinates are in the same space as the draw call they are used with.
+ * A radial gradient is concentric: it runs from radius `r0` to `r1` around
+ * the single centre (x, y). Coordinates are in the same space as the draw
+ * call they are used with.
  *
  * ## Common draw options
  *
  * All draw methods accept these optional fields:
  * - {boolean} isScreenSpace - Draw in screen space (ignores camera), default false
- * - {number} globalAlpha - Opacity multiplier in [0, 1]
+ * - {number} globalAlpha - Opacity multiplier in [0, 1], applied once to the
+ *   whole primitive (fill, stroke and shadow together).
  * - {Object} shadow - Drop shadow / glow: { color, blur, offsetX, offsetY }.
- *   When a shape has both fill and stroke, the shadow applies to the fill
- *   pass only. For text it applies to both stroke and fill passes.
+ *   The shadow is the primitive's complete silhouette — fill plus stroke, or
+ *   the image's alpha — offset by (offsetX, offsetY), blurred, tinted with
+ *   `color`, and drawn once beneath the primitive. `blur` is a Gaussian blur
+ *   whose standard deviation is blur / 2 (the Canvas 2D definition).
+ *
+ * ## State stacks
+ *
+ * pushTransform/popTransform and pushClip/popClip form one nested state
+ * stack: pushes and pops of either kind must nest strictly (a clip pushed
+ * inside a transform must be popped before that transform). Each stack entry
+ * belongs to either the world or the screen pass, chosen by `isScreenSpace`
+ * on the push.
  *
  * This is an abstract class and cannot be instantiated directly.
  */
@@ -47,8 +65,13 @@ export class BaseRenderer {
     this.fpsSum = 0; // Track running sum for average
     this.fpsCount = 0; // Track number of samples
 
-    // Render stats (backend-agnostic)
+    // Render stats. `primitives` and the per-type counters are what callers
+    // asked for and mean the same for every backend. `drawCalls` and
+    // `stateChanges` are what the backend actually submitted: one draw call
+    // per primitive and a change per style string in Canvas, one draw call per
+    // batch and a change per texture/program/clip switch in a GPU backend.
     this.stats = {
+      primitives: 0,
       drawCalls: 0,
       stateChanges: 0,
       spritesDrawn: 0,
@@ -87,23 +110,19 @@ export class BaseRenderer {
   resize(width, height) { throw new Error('Method not implemented'); }
 
   /**
-   * Clear all render targets to a color.
-   * @param {string} [color] - Background color
+   * Clear the presented surface.
+   * Backends that keep intermediate buffers (e.g. a world buffer) clear those
+   * in beginFrame(), not here.
+   * @param {string} [color] - Background colour; transparent clear if omitted
    */
   clear(color) { throw new Error('Method not implemented'); }
-
-  /**
-   * Clear only the visible screen (not intermediate world buffers).
-   * Used by the UI layer to paint a full-screen background.
-   * @param {string} [color] - Background color; transparent clear if omitted
-   */
-  clearScreen(color) { throw new Error('Method not implemented'); }
 
   // === Frame control ===
 
   /**
-   * Begin a new world frame. Subclasses must call super.beginFrame() to keep
-   * FPS and draw-call statistics up to date.
+   * Begin a new world frame. Clears the world to opaque black so no content
+   * from the previous frame survives. Subclasses must call super.beginFrame()
+   * to keep FPS and draw-call statistics up to date.
    */
   beginFrame() {
     this.frameCount++;
@@ -306,7 +325,8 @@ export class BaseRenderer {
   pushTransform(transform) { throw new Error('Method not implemented'); }
 
   /**
-   * Pop the most recent transform pushed with pushTransform().
+   * Pop the most recent transform pushed with pushTransform(). Must be the
+   * top of the shared transform/clip stack (see class docs).
    */
   popTransform() { throw new Error('Method not implemented'); }
 
@@ -323,7 +343,8 @@ export class BaseRenderer {
   pushClip(rect) { throw new Error('Method not implemented'); }
 
   /**
-   * Pop the most recent clipping rectangle.
+   * Pop the most recent clipping rectangle. Must be the top of the shared
+   * transform/clip stack (see class docs).
    */
   popClip() { throw new Error('Method not implemented'); }
 
@@ -418,6 +439,7 @@ export class BaseRenderer {
   }
 
   resetStats() {
+    this.stats.primitives = 0;
     this.stats.drawCalls = 0;
     this.stats.stateChanges = 0;
     this.stats.spritesDrawn = 0;
@@ -425,6 +447,23 @@ export class BaseRenderer {
     this.stats.shapesDrawn = 0;
   }
 
+  /**
+   * Count a primitive requested by the caller. Backends call this once per
+   * draw method invocation; how many GPU draw calls it becomes is theirs.
+   * @param {'sprite'|'text'|'shape'} kind
+   */
+  trackPrimitive(kind) {
+    this.stats.primitives++;
+    if (kind === 'sprite') this.stats.spritesDrawn++;
+    else if (kind === 'text') this.stats.textDrawn++;
+    else this.stats.shapesDrawn++;
+  }
+
+  /**
+   * Count backend state changes by diffing against the last seen values.
+   * Canvas backends track style strings; GPU backends may track bound
+   * textures/programs instead or count directly into stats.stateChanges.
+   */
   trackStateChange(newState) {
     const lastState = this.stats.lastState;
     let changes = 0;

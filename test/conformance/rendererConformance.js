@@ -136,15 +136,18 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 10, 10, '#112233');
       });
 
-      it('clearScreen() fills the visible surface with the given colour', () => {
-        renderer.clearScreen('#445566');
-        expectColorAt(read(), 100, 60, '#445566');
+      it('clear() with no colour leaves the surface transparent', () => {
+        renderer.clear('#ff0000');
+        renderer.clear();
+        expectTransparentAt(read(), 100, 60);
       });
 
-      it('clearScreen() with no colour leaves the surface transparent', () => {
-        renderer.clear('#ff0000');
-        renderer.clearScreen();
-        expectTransparentAt(read(), 100, 60);
+      it('clear() replaces presented world content', () => {
+        renderFrame({
+          world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ff0000' })
+        });
+        renderer.clear('#00ff00');
+        expectColorAt(read(), 100, 60, '#00ff00');
       });
     });
 
@@ -306,8 +309,7 @@ export function describeRendererConformance(harness) {
             x: 0, y: 0, width: W, height: H,
             fillStyle: {
               type: 'radial',
-              x0: 100, y0: 60, r0: 0,
-              x1: 100, y1: 60, r1: 80,
+              x: 100, y: 60, r0: 0, r1: 80,
               stops: [
                 { offset: 0, color: '#ffffff' },
                 { offset: 1, color: '#000000' }
@@ -347,6 +349,43 @@ export function describeRendererConformance(harness) {
         const snap = read();
         expectColorAt(snap, 80, 60, '#ff0000', { tolerance: 20, label: 'offset shadow' });
         expectColorAt(snap, 60, 60, '#ffffff', { label: 'shape itself' });
+      });
+
+      it.skipIf(!caps.shadows)('casts the shadow from the whole silhouette, stroke included', () => {
+        // A 20x20 rect with a 10px stroke covers 45..75; its shadow, offset by
+        // 40, covers 85..115. A fill-only shadow would start at 90.
+        renderFrame({
+          world: r => r.drawRect({
+            x: 50, y: 50, width: 20, height: 20,
+            fillStyle: '#ffffff', strokeStyle: '#ffffff', lineWidth: 10,
+            shadow: { color: '#ff0000', blur: 0, offsetX: 40, offsetY: 0 }
+          })
+        });
+
+        const snap = read();
+        expectColorAt(snap, 87, 60, '#ff0000', { tolerance: 20, label: 'shadow of the stroke' });
+        expectColorAt(snap, 100, 60, '#ff0000', { tolerance: 20, label: 'shadow of the fill' });
+        expectColorAt(snap, 60, 60, '#ffffff', { label: 'shape itself' });
+        expectColorAt(snap, 47, 60, '#ffffff', { label: 'stroke itself' });
+      });
+
+      it.skipIf(!caps.shadows)('casts a single shadow when globalAlpha is set', () => {
+        // Fill, stroke and shadow are one primitive: alpha applies once, so the
+        // shadow under the stroke is not darker than the shadow under the fill.
+        renderFrame({
+          world: r => r.drawRect({
+            x: 50, y: 50, width: 20, height: 20,
+            fillStyle: '#ffffff', strokeStyle: '#ffffff', lineWidth: 10,
+            globalAlpha: 0.5,
+            shadow: { color: '#ff0000', blur: 0, offsetX: 40, offsetY: 0 }
+          })
+        });
+
+        const snap = read();
+        const underStroke = snap.at(87, 60);
+        const underFill = snap.at(100, 60);
+        expect(Math.abs(underStroke[0] - underFill[0])).toBeLessThanOrEqual(8);
+        expectColorAt(snap, 100, 60, '#800000', { tolerance: 10, label: 'half-alpha shadow' });
       });
     });
 
@@ -950,6 +989,25 @@ export function describeRendererConformance(harness) {
         expect(bounds.minX).toBe(0);
         expect(bounds.minY).toBe(0);
       });
+
+      it.skipIf(!caps.clipping)('nests a clip inside a transform and restores both', () => {
+        renderFrame({
+          world: r => {
+            r.pushTransform({ x: 50, y: 30 });
+            r.pushClip({ x: 0, y: 0, width: 20, height: 20 });
+            r.drawRect({ x: -W, y: -H, width: 2 * W, height: 2 * H, fillStyle: '#ff0000' });
+            r.popClip();
+            r.popTransform();
+            r.drawRect({ x: 0, y: 0, width: 10, height: 10, fillStyle: '#00ff00' });
+          }
+        });
+
+        const snap = read();
+        expectColorAt(snap, 60, 40, '#ff0000', { label: 'inside translated clip' });
+        expectColorAt(snap, 100, 90, BG, { label: 'outside clip' });
+        expectColorAt(snap, 5, 5, '#00ff00', { label: 'transform restored after both pops' });
+        expectColorAt(snap, 55, 35, '#ff0000', { label: 'clip did not leak onto later draws' });
+      });
     });
 
     // ===================================================================
@@ -1148,9 +1206,13 @@ export function describeRendererConformance(harness) {
         });
 
         const stats = renderer.getStats();
+        expect(stats.primitives).toBe(6);
         expect(stats.shapesDrawn).toBe(5);
         expect(stats.textDrawn).toBe(1);
-        expect(stats.drawCalls).toBe(6);
+        // Backends may batch: one GPU draw per batch, but at least one and
+        // never more than one per primitive.
+        expect(stats.drawCalls).toBeGreaterThanOrEqual(1);
+        expect(stats.drawCalls).toBeLessThanOrEqual(stats.primitives);
       });
 
       it('counts sprites and images together', () => {
@@ -1171,9 +1233,10 @@ export function describeRendererConformance(harness) {
         renderFrame({
           world: r => r.drawRect({ x: 0, y: 0, width: 10, height: 10, fillStyle: '#fff' })
         });
-        expect(renderer.getStats().drawCalls).toBe(1);
+        expect(renderer.getStats().primitives).toBe(1);
 
         renderFrame({});
+        expect(renderer.getStats().primitives).toBe(0);
         expect(renderer.getStats().drawCalls).toBe(0);
       });
 

@@ -6,6 +6,11 @@ import { BaseRenderer } from './baseRenderer.js';
  * World-space content is drawn to an offscreen buffer (double buffering) and
  * composited onto the main canvas in endFrame(). Screen-space content is
  * drawn directly to the main canvas.
+ *
+ * Canvas 2D's native shadow is per fill/stroke operation, which is not the
+ * contract (the shadow is the primitive's whole silhouette, drawn once). A
+ * primitive with a shadow and both fill and stroke is therefore rendered to a
+ * scratch canvas first and composited with the shadow in one operation.
  */
 export class CanvasRenderer extends BaseRenderer {
   constructor() {
@@ -18,15 +23,21 @@ export class CanvasRenderer extends BaseRenderer {
     this.worldBuffer = null;
     /** @type {CanvasRenderingContext2D|null} */
     this.worldContext = null;
+    /** @type {HTMLCanvasElement|null} Lazily created; see #paint. */
+    this.scratchBuffer = null;
+    /** @type {CanvasRenderingContext2D|null} */
+    this.scratchContext = null;
     /** @type {number} */
     this.width = 800;
     /** @type {number} */
     this.height = 600;
 
-    /** @type {CanvasRenderingContext2D[]} */
-    this.transformStack = [];
-    /** @type {CanvasRenderingContext2D[]} */
-    this.clipStack = [];
+    /**
+     * Shared transform/clip stack. Entries are { kind: 'transform'|'clip', ctx }
+     * so mismatched pops can be detected (the contract requires strict nesting).
+     * @type {Array<{kind: string, ctx: CanvasRenderingContext2D}>}
+     */
+    this.stateStack = [];
   }
 
   /**
@@ -53,8 +64,9 @@ export class CanvasRenderer extends BaseRenderer {
     this.context = null;
     this.worldBuffer = null;
     this.worldContext = null;
-    this.transformStack = [];
-    this.clipStack = [];
+    this.scratchBuffer = null;
+    this.scratchContext = null;
+    this.stateStack = [];
   }
 
   /**
@@ -74,27 +86,17 @@ export class CanvasRenderer extends BaseRenderer {
     this.canvas.height = this.height;
     this.worldBuffer.width = this.width;
     this.worldBuffer.height = this.height;
+    if (this.scratchBuffer) {
+      this.scratchBuffer.width = this.width;
+      this.scratchBuffer.height = this.height;
+    }
   }
 
   /**
-   * Clear both main canvas and world buffer.
-   * @param {string} color - CSS color string for background
+   * Clear the presented surface.
+   * @param {string} [color] - Background colour; transparent clear if omitted
    */
-  clear(color = '#000') {
-    if (!this.context) return;
-
-    this.context.fillStyle = color;
-    this.context.fillRect(0, 0, this.width, this.height);
-
-    this.worldContext.fillStyle = color;
-    this.worldContext.fillRect(0, 0, this.width, this.height);
-  }
-
-  /**
-   * Clear only the main (screen) canvas.
-   * @param {string} [color] - Background color; transparent clear if omitted
-   */
-  clearScreen(color) {
+  clear(color) {
     if (!this.context) return;
     if (color) {
       this.context.fillStyle = color;
@@ -108,6 +110,8 @@ export class CanvasRenderer extends BaseRenderer {
     if (!this.worldContext) return;
 
     this.clear('#000');
+    this.worldContext.fillStyle = '#000';
+    this.worldContext.fillRect(0, 0, this.width, this.height);
     this.worldContext.save();
     super.beginFrame();
   }
@@ -153,8 +157,9 @@ export class CanvasRenderer extends BaseRenderer {
 
   /**
    * Resolve a style value into something assignable to fillStyle/strokeStyle.
-   * Accepts CSS color strings, canvas gradients/patterns, or declarative
-   * gradient descriptors (see BaseRenderer docs).
+   * Accepts colour strings or declarative gradient descriptors (see
+   * BaseRenderer docs). Gradients are created on the context they are used
+   * with.
    */
   #resolveStyle(ctx, style) {
     if (!style || typeof style !== 'object' || !style.type) return style;
@@ -164,8 +169,8 @@ export class CanvasRenderer extends BaseRenderer {
       gradient = ctx.createLinearGradient(style.x0, style.y0, style.x1, style.y1);
     } else if (style.type === 'radial') {
       gradient = ctx.createRadialGradient(
-        style.x0, style.y0, style.r0 ?? 0,
-        style.x1, style.y1, style.r1
+        style.x, style.y, style.r0 ?? 0,
+        style.x, style.y, style.r1
       );
     } else {
       return style;
@@ -192,11 +197,53 @@ export class CanvasRenderer extends BaseRenderer {
     }
   }
 
-  #clearShadow(ctx) {
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
+  #scratch() {
+    if (!this.scratchContext) {
+      this.scratchBuffer = document.createElement('canvas');
+      this.scratchBuffer.width = this.width;
+      this.scratchBuffer.height = this.height;
+      this.scratchContext = this.scratchBuffer.getContext('2d');
+    }
+    return this.scratchContext;
+  }
+
+  /**
+   * Paint a primitive with the common options applied.
+   *
+   * `drawShape(ctx)` must perform the primitive's fill and/or stroke on the
+   * context it is given, resolving styles against that context. When the
+   * primitive has a shadow and more than one pass, it is drawn to a scratch
+   * canvas (under the target's current transform) and composited once with
+   * the shadow and alpha, so the shadow is cast by the whole silhouette and
+   * alpha is applied once.
+   *
+   * @param {CanvasRenderingContext2D} ctx - Target context
+   * @param {Object} options - Draw options
+   * @param {number} passes - Number of fill/stroke passes the shape needs
+   * @param {(ctx: CanvasRenderingContext2D) => void} drawShape
+   */
+  #paint(ctx, options, passes, drawShape) {
+    if (options.shadow && passes > 1) {
+      const scratch = this.#scratch();
+      scratch.save();
+      scratch.setTransform(1, 0, 0, 1, 0, 0);
+      scratch.clearRect(0, 0, this.width, this.height);
+      scratch.setTransform(ctx.getTransform());
+      drawShape(scratch);
+      scratch.restore();
+
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.#applyCommon(ctx, options);
+      ctx.drawImage(this.scratchBuffer, 0, 0);
+      ctx.restore();
+      return;
+    }
+
+    ctx.save();
+    this.#applyCommon(ctx, options);
+    drawShape(ctx);
+    ctx.restore();
   }
 
   #buildFont(options) {
@@ -214,8 +261,8 @@ export class CanvasRenderer extends BaseRenderer {
     const ctx = this.#targetContext(options);
     if (!ctx || !options.image) return;
 
+    this.trackPrimitive('sprite');
     this.stats.drawCalls++;
-    this.stats.spritesDrawn++;
     this.trackStateChange({});
 
     const {
@@ -233,28 +280,23 @@ export class CanvasRenderer extends BaseRenderer {
       flipY = false
     } = options;
 
-    ctx.save();
-    this.#applyCommon(ctx, options);
+    this.#paint(ctx, options, 1, (c) => {
+      c.translate(x, y);
+      if (rotation) c.rotate(rotation);
+      if (flipX || flipY) c.scale(flipX ? -1 : 1, flipY ? -1 : 1);
 
-    // Position and rotation
-    ctx.translate(x, y);
-    if (rotation) ctx.rotate(rotation);
-    if (flipX || flipY) ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-
-    // Draw the sprite
-    ctx.drawImage(
-      image,
-      tileX * tileWidth,
-      tileY * tileHeight,
-      tileWidth,
-      tileHeight,
-      -width / 2,
-      -height / 2,
-      width,
-      height
-    );
-
-    ctx.restore();
+      c.drawImage(
+        image,
+        tileX * tileWidth,
+        tileY * tileHeight,
+        tileWidth,
+        tileHeight,
+        -width / 2,
+        -height / 2,
+        width,
+        height
+      );
+    });
   }
 
   /**
@@ -265,33 +307,30 @@ export class CanvasRenderer extends BaseRenderer {
     const ctx = this.#targetContext(options);
     if (!ctx || !options.image) return;
 
+    this.trackPrimitive('sprite');
     this.stats.drawCalls++;
-    this.stats.spritesDrawn++;
     this.trackStateChange({});
-
-    ctx.save();
-    this.#applyCommon(ctx, options);
 
     const width = options.width ?? options.image.width;
     const height = options.height ?? options.image.height;
 
-    if (options.sourceWidth !== undefined && options.sourceHeight !== undefined) {
-      ctx.drawImage(
-        options.image,
-        options.sourceX ?? 0,
-        options.sourceY ?? 0,
-        options.sourceWidth,
-        options.sourceHeight,
-        options.x,
-        options.y,
-        width,
-        height
-      );
-    } else {
-      ctx.drawImage(options.image, options.x, options.y, width, height);
-    }
-
-    ctx.restore();
+    this.#paint(ctx, options, 1, (c) => {
+      if (options.sourceWidth !== undefined && options.sourceHeight !== undefined) {
+        c.drawImage(
+          options.image,
+          options.sourceX ?? 0,
+          options.sourceY ?? 0,
+          options.sourceWidth,
+          options.sourceHeight,
+          options.x,
+          options.y,
+          width,
+          height
+        );
+      } else {
+        c.drawImage(options.image, options.x, options.y, width, height);
+      }
+    });
   }
 
   /**
@@ -302,47 +341,36 @@ export class CanvasRenderer extends BaseRenderer {
     const ctx = this.#targetContext(options);
     if (!ctx) return;
 
+    this.trackPrimitive('shape');
     this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
     this.trackStateChange({
       fillStyle: options.fillStyle,
       strokeStyle: options.strokeStyle,
       lineWidth: options.lineWidth
     });
 
-    ctx.save();
-    this.#applyCommon(ctx, options);
-
     const { x, y, width, height, cornerRadius } = options;
     const rounded = cornerRadius !== undefined && cornerRadius !== 0;
+    const doFill = options.fill !== false && !!options.fillStyle;
+    const doStroke = !!options.strokeStyle;
 
-    if (rounded) {
-      ctx.beginPath();
-      ctx.roundRect(x, y, width, height, cornerRadius);
-    }
-
-    if (options.fill !== false && options.fillStyle) {
-      ctx.fillStyle = this.#resolveStyle(ctx, options.fillStyle);
+    this.#paint(ctx, options, (doFill ? 1 : 0) + (doStroke ? 1 : 0), (c) => {
       if (rounded) {
-        ctx.fill();
-      } else {
-        ctx.fillRect(x, y, width, height);
+        c.beginPath();
+        c.roundRect(x, y, width, height, cornerRadius);
       }
-    }
 
-    if (options.strokeStyle) {
-      // Shadow applies to the fill pass only (avoids doubled shadows)
-      if (options.fill !== false && options.fillStyle) this.#clearShadow(ctx);
-      ctx.strokeStyle = this.#resolveStyle(ctx, options.strokeStyle);
-      ctx.lineWidth = options.lineWidth || 1;
-      if (rounded) {
-        ctx.stroke();
-      } else {
-        ctx.strokeRect(x, y, width, height);
+      if (doFill) {
+        c.fillStyle = this.#resolveStyle(c, options.fillStyle);
+        if (rounded) c.fill(); else c.fillRect(x, y, width, height);
       }
-    }
 
-    ctx.restore();
+      if (doStroke) {
+        c.strokeStyle = this.#resolveStyle(c, options.strokeStyle);
+        c.lineWidth = options.lineWidth || 1;
+        if (rounded) c.stroke(); else c.strokeRect(x, y, width, height);
+      }
+    });
   }
 
   /**
@@ -355,31 +383,30 @@ export class CanvasRenderer extends BaseRenderer {
 
     const font = this.#buildFont(options);
 
+    this.trackPrimitive('text');
     this.stats.drawCalls++;
-    this.stats.textDrawn++;
     this.trackStateChange({
       fillStyle: options.fillStyle,
       font
     });
 
-    ctx.save();
-    this.#applyCommon(ctx, options);
+    const doStroke = !!options.strokeStyle;
 
-    ctx.font = font;
-    ctx.textAlign = options.textAlign || 'left';
-    ctx.textBaseline = options.textBaseline || 'top';
+    this.#paint(ctx, options, doStroke ? 2 : 1, (c) => {
+      c.font = font;
+      c.textAlign = options.textAlign || 'left';
+      c.textBaseline = options.textBaseline || 'top';
 
-    if (options.strokeStyle) {
-      ctx.strokeStyle = this.#resolveStyle(ctx, options.strokeStyle);
-      ctx.lineWidth = options.lineWidth || 3;
-      ctx.lineJoin = 'round';
-      ctx.strokeText(options.text, options.x, options.y);
-    }
+      if (doStroke) {
+        c.strokeStyle = this.#resolveStyle(c, options.strokeStyle);
+        c.lineWidth = options.lineWidth || 3;
+        c.lineJoin = 'round';
+        c.strokeText(options.text, options.x, options.y);
+      }
 
-    ctx.fillStyle = this.#resolveStyle(ctx, options.fillStyle || '#000');
-    ctx.fillText(options.text, options.x, options.y);
-
-    ctx.restore();
+      c.fillStyle = this.#resolveStyle(c, options.fillStyle || '#000');
+      c.fillText(options.text, options.x, options.y);
+    });
   }
 
   /**
@@ -390,25 +417,22 @@ export class CanvasRenderer extends BaseRenderer {
     const ctx = this.#targetContext(options);
     if (!ctx) return;
 
+    this.trackPrimitive('shape');
     this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
     this.trackStateChange({
       strokeStyle: options.strokeStyle,
       lineWidth: options.lineWidth
     });
 
-    ctx.save();
-    this.#applyCommon(ctx, options);
+    this.#paint(ctx, options, 1, (c) => {
+      c.strokeStyle = this.#resolveStyle(c, options.strokeStyle || '#000');
+      c.lineWidth = options.lineWidth || 1;
 
-    ctx.strokeStyle = this.#resolveStyle(ctx, options.strokeStyle || '#000');
-    ctx.lineWidth = options.lineWidth || 1;
-
-    ctx.beginPath();
-    ctx.moveTo(options.x1, options.y1);
-    ctx.lineTo(options.x2, options.y2);
-    ctx.stroke();
-
-    ctx.restore();
+      c.beginPath();
+      c.moveTo(options.x1, options.y1);
+      c.lineTo(options.x2, options.y2);
+      c.stroke();
+    });
   }
 
   /**
@@ -419,40 +443,39 @@ export class CanvasRenderer extends BaseRenderer {
     const ctx = this.#targetContext(options);
     if (!ctx) return;
 
+    this.trackPrimitive('shape');
     this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
     this.trackStateChange({
       fillStyle: options.fillStyle,
       strokeStyle: options.strokeStyle,
       lineWidth: options.lineWidth
     });
 
-    ctx.save();
-    this.#applyCommon(ctx, options);
+    const doFill = options.fill !== false && !!options.fillStyle;
+    const doStroke = !!options.strokeStyle;
 
-    ctx.beginPath();
-    ctx.arc(
-      options.x,
-      options.y,
-      options.radius,
-      options.startAngle ?? 0,
-      options.endAngle ?? Math.PI * 2,
-      false
-    );
+    this.#paint(ctx, options, (doFill ? 1 : 0) + (doStroke ? 1 : 0), (c) => {
+      c.beginPath();
+      c.arc(
+        options.x,
+        options.y,
+        options.radius,
+        options.startAngle ?? 0,
+        options.endAngle ?? Math.PI * 2,
+        false
+      );
 
-    if (options.fill !== false && options.fillStyle) {
-      ctx.fillStyle = this.#resolveStyle(ctx, options.fillStyle);
-      ctx.fill();
-    }
+      if (doFill) {
+        c.fillStyle = this.#resolveStyle(c, options.fillStyle);
+        c.fill();
+      }
 
-    if (options.strokeStyle) {
-      if (options.fill !== false && options.fillStyle) this.#clearShadow(ctx);
-      ctx.strokeStyle = this.#resolveStyle(ctx, options.strokeStyle);
-      ctx.lineWidth = options.lineWidth || 1;
-      ctx.stroke();
-    }
-
-    ctx.restore();
+      if (doStroke) {
+        c.strokeStyle = this.#resolveStyle(c, options.strokeStyle);
+        c.lineWidth = options.lineWidth || 1;
+        c.stroke();
+      }
+    });
   }
 
   /**
@@ -463,39 +486,38 @@ export class CanvasRenderer extends BaseRenderer {
     const ctx = this.#targetContext(options);
     if (!ctx || !options.points || options.points.length < 2) return;
 
+    this.trackPrimitive('shape');
     this.stats.drawCalls++;
-    this.stats.shapesDrawn++;
     this.trackStateChange({
       fillStyle: options.fillStyle,
       strokeStyle: options.strokeStyle,
       lineWidth: options.lineWidth
     });
 
-    ctx.save();
-    this.#applyCommon(ctx, options);
+    const doFill = !!options.fillStyle;
+    const doStroke = !!options.strokeStyle;
 
-    ctx.beginPath();
-    ctx.moveTo(options.points[0].x, options.points[0].y);
-    for (let i = 1; i < options.points.length; i++) {
-      ctx.lineTo(options.points[i].x, options.points[i].y);
-    }
-    if (options.closed) {
-      ctx.closePath();
-    }
+    this.#paint(ctx, options, (doFill ? 1 : 0) + (doStroke ? 1 : 0), (c) => {
+      c.beginPath();
+      c.moveTo(options.points[0].x, options.points[0].y);
+      for (let i = 1; i < options.points.length; i++) {
+        c.lineTo(options.points[i].x, options.points[i].y);
+      }
+      if (options.closed) {
+        c.closePath();
+      }
 
-    if (options.fillStyle) {
-      ctx.fillStyle = this.#resolveStyle(ctx, options.fillStyle);
-      ctx.fill();
-    }
+      if (doFill) {
+        c.fillStyle = this.#resolveStyle(c, options.fillStyle);
+        c.fill();
+      }
 
-    if (options.strokeStyle) {
-      if (options.fillStyle) this.#clearShadow(ctx);
-      ctx.strokeStyle = this.#resolveStyle(ctx, options.strokeStyle);
-      ctx.lineWidth = options.lineWidth || 1;
-      ctx.stroke();
-    }
-
-    ctx.restore();
+      if (doStroke) {
+        c.strokeStyle = this.#resolveStyle(c, options.strokeStyle);
+        c.lineWidth = options.lineWidth || 1;
+        c.stroke();
+      }
+    });
   }
 
   /**
@@ -512,12 +534,11 @@ export class CanvasRenderer extends BaseRenderer {
     if (transform.scaleX !== undefined || transform.scaleY !== undefined) {
       ctx.scale(transform.scaleX ?? 1, transform.scaleY ?? 1);
     }
-    this.transformStack.push(ctx);
+    this.stateStack.push({ kind: 'transform', ctx });
   }
 
   popTransform() {
-    const ctx = this.transformStack.pop();
-    if (ctx) ctx.restore();
+    this.#popState('transform');
   }
 
   /**
@@ -536,12 +557,20 @@ export class CanvasRenderer extends BaseRenderer {
       ctx.rect(rect.x, rect.y, rect.width, rect.height);
     }
     ctx.clip();
-    this.clipStack.push(ctx);
+    this.stateStack.push({ kind: 'clip', ctx });
   }
 
   popClip() {
-    const ctx = this.clipStack.pop();
-    if (ctx) ctx.restore();
+    this.#popState('clip');
+  }
+
+  #popState(kind) {
+    const entry = this.stateStack.pop();
+    if (!entry) return;
+    if (entry.kind !== kind) {
+      console.warn(`CanvasRenderer: pop${kind === 'clip' ? 'Clip' : 'Transform'}() called but the top of the state stack is a ${entry.kind}; transform/clip pushes must nest`);
+    }
+    entry.ctx.restore();
   }
 
   /**
@@ -572,21 +601,5 @@ export class CanvasRenderer extends BaseRenderer {
     if (this.canvas) {
       this.canvas.style.cursor = style;
     }
-  }
-
-  /**
-   * @deprecated Canvas-specific escape hatch; prefer renderer draw methods
-   * @returns {CanvasRenderingContext2D} Main rendering context
-   */
-  getContext() {
-    return this.context;
-  }
-
-  /**
-   * @deprecated Canvas-specific escape hatch; prefer renderer draw methods
-   * @returns {CanvasRenderingContext2D} World buffer context
-   */
-  getWorldContext() {
-    return this.worldContext;
   }
 }

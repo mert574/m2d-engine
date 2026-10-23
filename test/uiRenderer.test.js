@@ -61,10 +61,14 @@ describe('UIRenderer', () => {
   });
 
   describe('lifecycle delegation', () => {
-    it('maps clear onto the backend screen clear', () => {
+    it('maps clear onto the backend clear', () => {
       ui.clear('#123456');
-      expect(backend.callsTo('clearScreen')[0].args[0]).toBe('#123456');
-      expect(backend.callsTo('clear')).toHaveLength(0);
+      expect(backend.callsTo('clear')[0].args[0]).toBe('#123456');
+    });
+
+    it('forwards a transparent clear when no colour is given', () => {
+      ui.clear();
+      expect(backend.callsTo('clear')[0].args[0]).toBeUndefined();
     });
 
     it('maps frame control onto the screen pass', () => {
@@ -225,7 +229,8 @@ describe('UI widgets', () => {
 
       const text = backend.optionsFor('drawText')[0].text;
       expect(text).toMatch(/FPS:/);
-      expect(text).toMatch(/Draw Calls: 2/);
+      expect(text).toMatch(/Primitives: 2/);
+      expect(text).toMatch(/Draw Calls: /);
       expect(text).toMatch(/Shapes: 1/);
       expect(text).toMatch(/Text: 1/);
     });

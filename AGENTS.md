@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-M2D is a lightweight 2D game engine using Matter.js for physics and Canvas for rendering. It follows an entity-constraint architecture similar to ECS.
+M2D is a lightweight 2D game engine using Matter.js for physics and WebGL2 (with a Canvas 2D fallback) for rendering. It follows an entity-constraint architecture similar to ECS.
 
 ## Quick Commands
 
@@ -10,8 +10,11 @@ M2D is a lightweight 2D game engine using Matter.js for physics and Canvas for r
 npm install          # Install dependencies
 npm run dev          # Start dev server (port 3000)
 npm run build        # Build to /docs
-npm test             # Run the renderer test suite (headless)
-npm run test:watch   # Re-run tests on change
+npm test             # Run both test projects (node + headless Chromium)
+npm run test:node    # Headless Node suite only (fast)
+npm run test:browser # Browser project only: WebGL2 conformance + env smoke test
+npm run test:watch   # Re-run the node project on change
+npx playwright install chromium   # One-time: download Chromium for test:browser
 node scripts/generateSprites.js <example>  # Generate sprites for an example
 ```
 
@@ -28,7 +31,10 @@ node scripts/generateSprites.js <example>  # Generate sprites for an example
 ### Renderers (`src/core/renderers/`)
 
 Rendering is fully abstracted behind a backend interface; no game or engine code
-may touch a canvas context directly.
+may touch a canvas context directly. The contract describes rendering semantics,
+not Canvas 2D behaviour: when a backend needs a workaround to meet it, that
+workaround belongs in the backend (the Canvas backend already carries one for
+silhouette shadows), never in the contract or in callers.
 
 - **BaseRenderer** (`baseRenderer.js`) - The complete backend contract: lifecycle,
   world/screen frame passes, draw primitives (`drawSprite`, `drawImage`, `drawRect`,
@@ -36,20 +42,42 @@ may touch a canvas context directly.
   (`pushTransform`/`popTransform`, `pushClip`/`popClip`), and `measureText`.
   Backend-agnostic logic (FPS/stats tracking, debug flags, `hitTest`) lives here.
   Fill/stroke styles accept CSS colors or declarative gradient descriptors
-  (`{ type: 'linear'|'radial', ..., stops }`); all draw calls accept `isScreenSpace`,
-  `globalAlpha`, and `shadow` ({ color, blur, offsetX, offsetY }).
+  (`{ type: 'linear', x0, y0, x1, y1, stops }` or the concentric
+  `{ type: 'radial', x, y, r0, r1, stops }`); all draw calls accept `isScreenSpace`,
+  `globalAlpha`, and `shadow` ({ color, blur, offsetX, offsetY }). A shadow is cast
+  once by the primitive's whole silhouette (fill + stroke); `globalAlpha` applies
+  once to the whole primitive. `clear(color)` clears the presented surface
+  (transparent if no colour). Transform and clip pushes share one strictly
+  nested stack. Stats distinguish `primitives` (what callers asked for) from
+  `drawCalls`/`stateChanges` (what the backend submitted, so batching backends
+  report fewer).
 - **CanvasRenderer** (`canvasRenderer.js`) - Canvas 2D backend with a double-buffered
   world pass composited in `endFrame()`.
+- **WebGLRenderer** (`webglRenderer.js`) - WebGL2 backend, the default. Geometry
+  is tessellated and transformed on the CPU (`geometry/`) and batched into as few
+  GPU draw calls as paint-state changes allow (`webgl/batch.js`). Text is
+  rasterized by the browser's 2D text engine into cached label textures; clips
+  use stencil reference counting; shadows render the silhouette offscreen and
+  blur it (`webgl/shadowPass.js`). The `geometry/` modules are API-neutral so a
+  WebGPU backend would reuse them and replace only `webgl/`.
 - **UIRenderer** (`uiRenderer.js`) - Generic screen-space view over any backend;
   forwards calls with `isScreenSpace: true`. `game.uiRenderer` is one of these, so a
   new backend only implements `BaseRenderer` and the UI layer works automatically.
 - **Registry** (`index.js`) - `registerRenderer(name, Class)` + the M2D `renderer`
-  option (`'canvas'` by default, or a class/instance) select the backend. A WebGL
-  backend plugs in by subclassing `BaseRenderer` and registering it.
+  option (`'webgl'` by default, `'canvas'`, or a class/instance) select the backend.
+  If the default backend cannot initialise (no WebGL2), M2D falls back to Canvas
+  with a warning; an explicitly requested backend that fails throws. A
+  `?renderer=<name>` URL query overrides the option, so any example can be viewed
+  with either backend. New backends plug in by subclassing `BaseRenderer` and
+  registering.
 
 The backend contract is enforced by an executable conformance suite
 (`test/conformance/rendererConformance.js`). A new backend is validated by one
-file that passes it a harness — see `test/README.md`. Two contract details are
+file that passes it a harness — see `test/README.md`. Tests are split into a
+`node` project (fast, node-canvas) and a `browser` project (`test/browser/**`,
+headless Chromium) because Node has no WebGL; the WebGL2 conformance file lives
+in the browser project with every capability flag `false` until its feature
+lands. Two contract details are
 easy to get wrong and are pinned by tests: partial `drawArc` fills produce
 circular **segments** (chord-closed), not pie sectors; and the frame order is
 world pass then screen pass.
