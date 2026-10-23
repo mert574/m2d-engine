@@ -1,14 +1,17 @@
 import { BaseRenderer } from './baseRenderer.js';
 import { CanvasRenderer } from './canvasRenderer.js';
+import { WebGLRenderer } from './webglRenderer.js';
 import { UIRenderer } from './uiRenderer.js';
 
 const registry = new Map([
-  ['canvas', CanvasRenderer]
+  ['canvas', CanvasRenderer],
+  // Scaffold: lifecycle works, draw primitives throw "not implemented yet".
+  ['webgl', WebGLRenderer]
 ]);
 
 /**
  * Register a renderer backend under a name so it can be selected via the
- * M2D `renderer` option, e.g. registerRenderer('webgl', WebGLRenderer).
+ * M2D `renderer` option, e.g. registerRenderer('webgpu', WebGPURenderer).
  * @param {string} name - Backend name
  * @param {typeof BaseRenderer} RendererClass - Backend class
  */
@@ -38,4 +41,4 @@ export function createRenderer(renderer = 'canvas') {
   return renderer;
 }
 
-export { BaseRenderer, CanvasRenderer, UIRenderer };
+export { BaseRenderer, CanvasRenderer, WebGLRenderer, UIRenderer };

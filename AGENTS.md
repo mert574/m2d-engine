@@ -10,8 +10,11 @@ M2D is a lightweight 2D game engine using Matter.js for physics and Canvas for r
 npm install          # Install dependencies
 npm run dev          # Start dev server (port 3000)
 npm run build        # Build to /docs
-npm test             # Run the renderer test suite (headless)
-npm run test:watch   # Re-run tests on change
+npm test             # Run both test projects (node + headless Chromium)
+npm run test:node    # Headless Node suite only (fast)
+npm run test:browser # Browser project only: WebGL2 conformance + env smoke test
+npm run test:watch   # Re-run the node project on change
+npx playwright install chromium   # One-time: download Chromium for test:browser
 node scripts/generateSprites.js <example>  # Generate sprites for an example
 ```
 
@@ -40,6 +43,9 @@ may touch a canvas context directly.
   `globalAlpha`, and `shadow` ({ color, blur, offsetX, offsetY }).
 - **CanvasRenderer** (`canvasRenderer.js`) - Canvas 2D backend with a double-buffered
   world pass composited in `endFrame()`.
+- **WebGLRenderer** (`webglRenderer.js`) - WebGL2 backend, registered as `'webgl'`.
+  Currently a scaffold: lifecycle, clearing, and camera work; draw primitives,
+  transform/clip stacks, and `measureText` throw "not implemented yet".
 - **UIRenderer** (`uiRenderer.js`) - Generic screen-space view over any backend;
   forwards calls with `isScreenSpace: true`. `game.uiRenderer` is one of these, so a
   new backend only implements `BaseRenderer` and the UI layer works automatically.
@@ -49,7 +55,11 @@ may touch a canvas context directly.
 
 The backend contract is enforced by an executable conformance suite
 (`test/conformance/rendererConformance.js`). A new backend is validated by one
-file that passes it a harness — see `test/README.md`. Two contract details are
+file that passes it a harness — see `test/README.md`. Tests are split into a
+`node` project (fast, node-canvas) and a `browser` project (`test/browser/**`,
+headless Chromium) because Node has no WebGL; the WebGL2 conformance file lives
+in the browser project with every capability flag `false` until its feature
+lands. Two contract details are
 easy to get wrong and are pinned by tests: partial `drawArc` fills produce
 circular **segments** (chord-closed), not pie sectors; and the frame order is
 world pass then screen pass.
