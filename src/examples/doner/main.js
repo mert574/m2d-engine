@@ -84,61 +84,65 @@ document.addEventListener('click', (event) => {
 });
 
 // Enhanced menu drawing helpers
-function drawRoundedRect(ctx, x, y, width, height, radius, options = {}) {
-  ctx.save();
-  if (options.shadow) {
-    ctx.shadowColor = options.shadow.color || 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = options.shadow.blur || 10;
-    ctx.shadowOffsetX = options.shadow.offsetX || 0;
-    ctx.shadowOffsetY = options.shadow.offsetY || 4;
-  }
-  ctx.beginPath();
-  ctx.roundRect(x, y, width, height, radius);
-  if (options.gradient) {
-    const grad = ctx.createLinearGradient(x, y, x, y + height);
-    options.gradient.forEach((stop, i) => {
-      grad.addColorStop(stop.pos !== undefined ? stop.pos : i / (options.gradient.length - 1), stop.color);
-    });
-    ctx.fillStyle = grad;
-  } else if (options.fill) {
-    ctx.fillStyle = options.fill;
-  }
-  if (options.fill || options.gradient) ctx.fill();
-  ctx.shadowColor = 'transparent';
-  if (options.stroke) {
-    ctx.strokeStyle = options.stroke;
-    ctx.lineWidth = options.strokeWidth || 2;
-    ctx.stroke();
-  }
-  ctx.restore();
+
+// Build a vertical linear-gradient descriptor from {pos, color} stops
+function verticalGradient(stops, x, y, height) {
+  return {
+    type: 'linear',
+    x0: x, y0: y, x1: x, y1: y + height,
+    stops: stops.map((stop, i) => ({
+      offset: stop.pos !== undefined ? stop.pos : i / (stops.length - 1),
+      color: stop.color
+    }))
+  };
 }
 
-function drawStyledText(ctx, text, x, y, options = {}) {
-  ctx.save();
-  const fontSize = options.fontSize || 16;
-  const fontWeight = options.fontWeight || 'normal';
-  ctx.font = `${fontWeight} ${fontSize}px system-ui, sans-serif`;
-  ctx.textAlign = options.align || 'left';
-  ctx.textBaseline = options.baseline || 'top';
-  if (options.glow) {
-    ctx.shadowColor = options.glow.color || options.color || '#fff';
-    ctx.shadowBlur = options.glow.blur || 10;
-  }
+function drawRoundedRect(x, y, width, height, radius, options = {}) {
+  game.uiRenderer.drawRect({
+    x, y, width, height,
+    cornerRadius: radius,
+    fillStyle: options.gradient
+      ? verticalGradient(options.gradient, x, y, height)
+      : options.fill,
+    strokeStyle: options.stroke,
+    lineWidth: options.strokeWidth || 2,
+    shadow: options.shadow && {
+      color: options.shadow.color || 'rgba(0,0,0,0.5)',
+      blur: options.shadow.blur || 10,
+      offsetX: options.shadow.offsetX || 0,
+      offsetY: options.shadow.offsetY || 4
+    }
+  });
+}
+
+function drawStyledText(text, x, y, options = {}) {
+  let shadow;
   if (options.shadow) {
-    ctx.shadowColor = options.shadow.color || 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = options.shadow.blur || 4;
-    ctx.shadowOffsetX = options.shadow.offsetX || 2;
-    ctx.shadowOffsetY = options.shadow.offsetY || 2;
+    shadow = {
+      color: options.shadow.color || 'rgba(0,0,0,0.8)',
+      blur: options.shadow.blur || 4,
+      offsetX: options.shadow.offsetX ?? 2,
+      offsetY: options.shadow.offsetY ?? 2
+    };
+  } else if (options.glow) {
+    shadow = {
+      color: options.glow.color || options.color || '#fff',
+      blur: options.glow.blur || 10
+    };
   }
-  if (options.stroke) {
-    ctx.strokeStyle = options.stroke.color || '#000';
-    ctx.lineWidth = options.stroke.width || 3;
-    ctx.lineJoin = 'round';
-    ctx.strokeText(text, x, y);
-  }
-  ctx.fillStyle = options.color || '#fff';
-  ctx.fillText(text, x, y);
-  ctx.restore();
+
+  game.uiRenderer.drawText({
+    text, x, y,
+    fillStyle: options.color || '#fff',
+    strokeStyle: options.stroke && (options.stroke.color || '#000'),
+    lineWidth: options.stroke && (options.stroke.width || 3),
+    fontSize: options.fontSize || 16,
+    fontFamily: 'system-ui, sans-serif',
+    fontWeight: options.fontWeight || 'normal',
+    textAlign: options.align || 'left',
+    textBaseline: options.baseline || 'top',
+    shadow
+  });
 }
 
 let menuPulse = 0;
@@ -147,28 +151,40 @@ let menuPulse = 0;
 function drawMenu() {
   const width = game.options.width;
   const height = game.options.height;
-  const ctx = game.uiRenderer.context;
 
   menuPulse += 0.03;
 
   // Background gradient
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-  bgGrad.addColorStop(0, '#1a0f0a');
-  bgGrad.addColorStop(0.5, '#2d1b0e');
-  bgGrad.addColorStop(1, '#1a0f0a');
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, width, height);
+  game.uiRenderer.drawRect({
+    x: 0, y: 0, width, height,
+    fillStyle: {
+      type: 'linear',
+      x0: 0, y0: 0, x1: 0, y1: height,
+      stops: [
+        { offset: 0, color: '#1a0f0a' },
+        { offset: 0.5, color: '#2d1b0e' },
+        { offset: 1, color: '#1a0f0a' }
+      ]
+    }
+  });
 
   // Vignette
-  const vignetteGrad = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width * 0.7);
-  vignetteGrad.addColorStop(0, 'rgba(0,0,0,0)');
-  vignetteGrad.addColorStop(1, 'rgba(0,0,0,0.5)');
-  ctx.fillStyle = vignetteGrad;
-  ctx.fillRect(0, 0, width, height);
+  game.uiRenderer.drawRect({
+    x: 0, y: 0, width, height,
+    fillStyle: {
+      type: 'radial',
+      x0: width / 2, y0: height / 2, r0: 0,
+      x1: width / 2, y1: height / 2, r1: width * 0.7,
+      stops: [
+        { offset: 0, color: 'rgba(0,0,0,0)' },
+        { offset: 1, color: 'rgba(0,0,0,0.5)' }
+      ]
+    }
+  });
 
   // Title with animated glow
   const titlePulse = 1 + Math.sin(menuPulse * 2) * 0.03;
-  drawStyledText(ctx, 'DONER RHYTHM', width / 2, 100, {
+  drawStyledText('DONER RHYTHM', width / 2, 100, {
     fontSize: 72 * titlePulse,
     fontWeight: 'bold',
     color: '#FFD700',
@@ -179,7 +195,7 @@ function drawMenu() {
   });
 
   // Subtitle
-  drawStyledText(ctx, 'Build orders to the beat!', width / 2, 170, {
+  drawStyledText('Build orders to the beat!', width / 2, 170, {
     fontSize: 26,
     color: '#F5DEB3',
     align: 'center',
@@ -194,7 +210,7 @@ function drawMenu() {
   const btnY = 340 - buttonHeight / 2;
   const btnGlow = 0.7 + Math.sin(menuPulse * 3) * 0.2;
 
-  drawRoundedRect(ctx, btnX, btnY, buttonWidth, buttonHeight, 16, {
+  drawRoundedRect(btnX, btnY, buttonWidth, buttonHeight, 16, {
     gradient: [
       { pos: 0, color: `rgba(90, 180, 90, ${btnGlow})` },
       { pos: 1, color: `rgba(50, 130, 50, ${btnGlow})` }
@@ -204,7 +220,7 @@ function drawMenu() {
     shadow: { color: 'rgba(100, 255, 100, 0.4)', blur: 25, offsetY: 5 }
   });
 
-  drawStyledText(ctx, 'START GAME', width / 2, 340, {
+  drawStyledText('START GAME', width / 2, 340, {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
@@ -216,7 +232,7 @@ function drawMenu() {
   // Instructions panel
   const panelY = 420;
   const panelHeight = 200;
-  drawRoundedRect(ctx, width / 2 - 350, panelY, 700, panelHeight, 20, {
+  drawRoundedRect(width / 2 - 350, panelY, 700, panelHeight, 20, {
     gradient: [
       { pos: 0, color: 'rgba(30, 20, 10, 0.8)' },
       { pos: 1, color: 'rgba(20, 10, 5, 0.85)' }
@@ -226,7 +242,7 @@ function drawMenu() {
     shadow: { color: 'rgba(0,0,0,0.5)', blur: 20, offsetY: 8 }
   });
 
-  drawStyledText(ctx, 'HOW TO PLAY', width / 2, panelY + 25, {
+  drawStyledText('HOW TO PLAY', width / 2, panelY + 25, {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFD700',
@@ -243,7 +259,7 @@ function drawMenu() {
   ];
 
   instructions.forEach((text, i) => {
-    drawStyledText(ctx, text, width / 2, panelY + 65 + i * 32, {
+    drawStyledText(text, width / 2, panelY + 65 + i * 32, {
       fontSize: 17,
       color: 'rgba(200, 190, 180, 0.9)',
       align: 'center',
@@ -252,7 +268,7 @@ function drawMenu() {
   });
 
   // Footer
-  drawStyledText(ctx, 'Built with M2D Engine', width / 2, height - 30, {
+  drawStyledText('Built with M2D Engine', width / 2, height - 30, {
     fontSize: 14,
     color: 'rgba(100, 90, 80, 0.6)',
     align: 'center',

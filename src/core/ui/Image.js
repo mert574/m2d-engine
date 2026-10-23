@@ -11,10 +11,14 @@ export class UIImage extends UIElement {
 
   draw() {
     if (!this.game) return;
-    this.game.uiRenderer.drawImage(this.image, this.x, this.y, {
-      width: this.width,
-      height: this.height,
-      scale: this.scale
+    const width = this.width * this.scale;
+    const height = this.height * this.scale;
+    this.game.uiRenderer.drawImage({
+      image: this.image,
+      x: this.x - width / 2,
+      y: this.y - height / 2,
+      width,
+      height
     });
   }
 } 

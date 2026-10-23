@@ -50,26 +50,26 @@ export class Trigger extends Entity {
     const bounds = this.body.bounds;
     const width = bounds.max.x - bounds.min.x;
     const height = bounds.max.y - bounds.min.y;
-    const ctx = this.game.renderer.worldContext;
+    const renderer = this.game.renderer;
 
-    ctx.save();
-    ctx.fillStyle = this.debugColor;
-    ctx.fillRect(
-      this.body.position.x - width/2,
-      this.body.position.y - height/2,
+    renderer.drawRect({
+      x: this.body.position.x - width/2,
+      y: this.body.position.y - height/2,
       width,
-      height
-    );
+      height,
+      fillStyle: this.debugColor
+    });
 
-    ctx.fillStyle = '#ffffffaa';
-    ctx.font = '14px system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillText(
-      this.triggers,
-      this.body.position.x,
-      this.body.position.y + 3.5
-    );
-    ctx.restore();
+    renderer.drawText({
+      text: `${this.triggers}`,
+      x: this.body.position.x,
+      y: this.body.position.y + 3.5,
+      fillStyle: '#ffffffaa',
+      fontSize: '14px',
+      fontFamily: 'system-ui',
+      textAlign: 'center',
+      textBaseline: 'alphabetic'
+    });
   }
 
   setActive(active) {

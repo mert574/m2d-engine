@@ -6,10 +6,10 @@ import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
 import { SoundManager } from './soundManager.js';
 import { KEY_R, KEY_M, KEY_D } from './keyCodes.js';
-import { CanvasRenderer } from './renderers/canvasRenderer.js';
-import { CanvasUIRenderer } from './renderers/canvasUIRenderer.js';
+import { createRenderer, UIRenderer } from './renderers/index.js';
 
 const defaultOptions = {
+  renderer: 'canvas',
   basePath: '',
   levelNames: [],
   currentLevel: null,
@@ -27,25 +27,16 @@ export class M2D {
   constructor(canvas, options = {}) {
     this.options = { ...defaultOptions, ...options };
     
-    // Initialize renderers
-    this.renderer = new CanvasRenderer();
-    this.uiRenderer = new CanvasUIRenderer();
+    // Initialize renderer backend and its screen-space (UI) view
+    this.renderer = createRenderer(this.options.renderer);
     this.renderer.init(canvas, {
       width: this.options.width,
       height: this.options.height
     });
-    this.uiRenderer.init(canvas, {
-      width: this.options.width,
-      height: this.options.height
-    });
-    
-    // For backward compatibility
+    this.uiRenderer = new UIRenderer(this.renderer);
+
     this.canvas = canvas;
-    this.context = this.renderer.getContext();
-    
-    this.canvas.width = this.options.width;
-    this.canvas.height = this.options.height;
-    
+
     this.camera = new Camera(this.options.width, this.options.height, {
       worldWidth: this.options.worldWidth,
       worldHeight: this.options.worldHeight,
@@ -80,7 +71,6 @@ export class M2D {
     const width = this.canvas.clientWidth;
     const height = this.canvas.clientHeight;
     this.renderer.resize(width, height);
-    this.uiRenderer.resize(width, height);
   }
 
   registerActor(type, ActorClass) {

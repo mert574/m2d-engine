@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "generate-sprites": "node scripts/generateSprites.js"
   },
   "author": "Mert Yildiz",
@@ -21,6 +23,7 @@
   },
   "keywords": [],
   "devDependencies": {
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "vitest": "^2.1.9"
   }
 }
