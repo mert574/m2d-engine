@@ -20,7 +20,7 @@ describeRendererConformance({
   readPixels: readWebGLPixels,
   capabilities: {
     gradients: true,
-    shadows: false,
+    shadows: true,
     text: true,
     roundedCorners: true,
     clipping: true,

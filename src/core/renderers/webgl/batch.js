@@ -60,6 +60,14 @@ export class Batch {
     this.applied = { mode: -1, texture: null, gradientType: -1, gradient: null, shadowColor: null };
     this.resolution = [0, 0];
     this.flipY = -1;
+
+    /** Optional pixel-space bounds of everything pushed since trackBounds(). */
+    this.bounds = null;
+  }
+
+  /** Start recording the bounds of pushed positions (null to stop). */
+  trackBounds(enabled) {
+    this.bounds = enabled ? { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity } : null;
   }
 
   destroy() {
@@ -109,9 +117,18 @@ export class Batch {
     const base = this.vertexCount;
     let o = base * VERTEX_FLOATS;
     const vd = this.vertexData;
+    const b = this.bounds;
     for (let i = 0; i < vertexCount; i++) {
-      vd[o++] = positions[2 * i];
-      vd[o++] = positions[2 * i + 1];
+      const x = positions[2 * i];
+      const y = positions[2 * i + 1];
+      if (b) {
+        if (x < b.minX) b.minX = x;
+        if (x > b.maxX) b.maxX = x;
+        if (y < b.minY) b.minY = y;
+        if (y > b.maxY) b.maxY = y;
+      }
+      vd[o++] = x;
+      vd[o++] = y;
       vd[o++] = uvs ? uvs[2 * i] : 0;
       vd[o++] = uvs ? uvs[2 * i + 1] : 0;
       vd[o++] = color[0]; vd[o++] = color[1]; vd[o++] = color[2]; vd[o++] = color[3];

@@ -5,9 +5,10 @@ import { strokePolyline } from './geometry/polyline.js';
 import { arcPoints, roundRectPoints, fanIndices, triangulate } from './geometry/shapes.js';
 import { bakeGradient, gradientKey, GRADIENT_LUT_SIZE } from './geometry/gradient.js';
 import { createContext, createTexture } from './webgl/device.js';
-import { Batch, MODE_SOLID, MODE_TEXTURE, MODE_GRADIENT } from './webgl/batch.js';
+import { Batch, MODE_SOLID, MODE_TEXTURE, MODE_GRADIENT, MODE_SHADOW } from './webgl/batch.js';
 import { TextureCache } from './webgl/textureCache.js';
 import { TextLabels } from './webgl/textLabels.js';
+import { ShadowPass, expand } from './webgl/shadowPass.js';
 
 /**
  * WebGL2 implementation of the renderer interface.
@@ -18,9 +19,9 @@ import { TextLabels } from './webgl/textLabels.js';
  * World and screen passes draw straight to the default framebuffer in
  * submission order, so they can share batches.
  *
- * STATUS: shapes, transforms, clipping and gradients. Sprites/images, text
- * and shadows are the next steps; see the capability flags in
- * test/browser/webglRenderer.conformance.test.js.
+ * Shadows (the contract's silhouette shadow) render the primitive to an
+ * offscreen target, blur the bounding region, and composite it tinted before
+ * drawing the primitive; see ShadowPass.
  */
 export class WebGLRenderer extends BaseRenderer {
   /**
@@ -55,6 +56,8 @@ export class WebGLRenderer extends BaseRenderer {
     this.textures = null;
     /** @type {TextLabels|null} */
     this.labels = null;
+    /** @type {ShadowPass|null} */
+    this.shadowPass = null;
 
     // Pass matrices (pixel space). The camera is folded into worldMatrix.
     this.worldMatrix = mat.identity();
@@ -83,6 +86,7 @@ export class WebGLRenderer extends BaseRenderer {
     this.batch = new Batch(gl, this.stats);
     this.textures = new TextureCache(gl, this.imageSmoothing);
     this.labels = new TextLabels(gl);
+    this.shadowPass = new ShadowPass(gl, this.width, this.height);
 
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
@@ -101,12 +105,14 @@ export class WebGLRenderer extends BaseRenderer {
       this.batch?.destroy();
       this.textures?.destroy();
       this.labels?.destroy();
+      this.shadowPass?.destroy();
       for (const entry of this.gradientCache.values()) gl.deleteTexture(entry.texture);
     }
     this.gradientCache.clear();
     this.batch = null;
     this.textures = null;
     this.labels = null;
+    this.shadowPass = null;
     this.canvas = null;
     this.gl = null;
     this.stateStack = [];
@@ -126,6 +132,7 @@ export class WebGLRenderer extends BaseRenderer {
     this.canvas.height = this.height;
     gl.viewport(0, 0, this.width, this.height);
     this.batch.setTarget(this.width, this.height, true);
+    this.shadowPass.resize(this.width, this.height);
   }
 
   clear(color) {
@@ -255,6 +262,74 @@ export class WebGLRenderer extends BaseRenderer {
     }
   }
 
+  /**
+   * Run a primitive's submissions, casting its silhouette shadow first when
+   * options.shadow is set. The silhouette is whatever `draw` submits (fill
+   * and stroke, or the textured quad), so every primitive shares this path.
+   */
+  #withShadow(options, draw) {
+    const shadow = options.shadow;
+    if (!shadow) {
+      draw(options);
+      return;
+    }
+    const gl = this.gl;
+    const batch = this.batch;
+    const pass = this.shadowPass;
+
+    // 1. Silhouette into the offscreen target, with the primitive's own alpha
+    //    forced to 1: alpha is applied once, at composite time.
+    batch.flush();
+    pass.beginSilhouette();
+    batch.setTarget(this.width, this.height, false);
+    batch.invalidateState();
+    batch.trackBounds(true);
+    const opaque = { ...options, globalAlpha: 1, shadow: null };
+    draw(opaque);
+    batch.flush();
+    const bounds = batch.bounds;
+    batch.trackBounds(false);
+
+    if (bounds && bounds.minX <= bounds.maxX) {
+      // 2. Blur over the bounding region.
+      const radius = ShadowPass.radius(shadow);
+      const region = expand(bounds, radius + 1, radius + 1, this.width, this.height);
+      this.stats.drawCalls += pass.blur(region, shadow);
+
+      // 3. Composite onto the frame, offset and tinted.
+      this.#bindDefaultTarget();
+      const ox = shadow.offsetX || 0;
+      const oy = shadow.offsetY || 0;
+      const positions = [
+        region.minX + ox, region.minY + oy, region.maxX + ox, region.minY + oy,
+        region.maxX + ox, region.maxY + oy, region.minX + ox, region.maxY + oy
+      ];
+      const uvs = [
+        region.minX / this.width, region.minY / this.height, region.maxX / this.width, region.minY / this.height,
+        region.maxX / this.width, region.maxY / this.height, region.minX / this.width, region.maxY / this.height
+      ];
+      const alpha = options.globalAlpha ?? 1;
+      batch.begin({ mode: MODE_SHADOW, texture: pass.texture, shadowColor: parseColorPremultiplied(shadow.color || 'rgba(0,0,0,0.5)') });
+      batch.push(positions, uvs, [alpha, alpha, alpha, alpha], QUAD_INDICES);
+      batch.flush();
+    } else {
+      this.#bindDefaultTarget();
+    }
+
+    // 4. The primitive itself.
+    draw(options);
+  }
+
+  #bindDefaultTarget() {
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.width, this.height);
+    gl.disable(gl.SCISSOR_TEST);
+    if (this.clipDepth > 0) gl.enable(gl.STENCIL_TEST);
+    this.batch.setTarget(this.width, this.height, true);
+    this.batch.invalidateState();
+  }
+
   // === Draw primitives ===
 
   /**
@@ -297,12 +372,12 @@ export class WebGLRenderer extends BaseRenderer {
     if (flipX || flipY) local = mat.multiply(local, mat.scaling(flipX ? -1 : 1, flipY ? -1 : 1));
 
     const hw = width / 2, hh = height / 2;
-    this.#submitTexturedQuad(
-      options, entry,
+    this.#withShadow(options, (opts) => this.#submitTexturedQuad(
+      opts, entry,
       [-hw, -hh, hw, -hh, hw, hh, -hw, hh],
       local,
       { x: tileX * tileWidth, y: tileY * tileHeight, width: tileWidth, height: tileHeight }
-    );
+    ));
   }
 
   drawImage(options) {
@@ -318,12 +393,12 @@ export class WebGLRenderer extends BaseRenderer {
       : { x: 0, y: 0, width: entry.width, height: entry.height };
 
     const { x, y } = options;
-    this.#submitTexturedQuad(
-      options, entry,
+    this.#withShadow(options, (opts) => this.#submitTexturedQuad(
+      opts, entry,
       [x, y, x + width, y, x + width, y + height, x, y + height],
       null,
       source
-    );
+    ));
   }
 
   drawRect(options) {
@@ -332,11 +407,11 @@ export class WebGLRenderer extends BaseRenderer {
 
     const { x, y, width, height, cornerRadius } = options;
     const outline = roundRectPoints(x, y, width, height, cornerRadius || 0);
-    this.#fillAndStroke(options, outline, true, {
+    this.#withShadow(options, (opts) => this.#fillAndStroke(opts, outline, true, {
       fill: options.fill !== false ? options.fillStyle : null,
       stroke: options.strokeStyle,
       lineWidth: options.lineWidth
-    });
+    }));
   }
 
   drawLine(options) {
@@ -346,7 +421,7 @@ export class WebGLRenderer extends BaseRenderer {
     const { positions, indices } = strokePolyline(
       [options.x1, options.y1, options.x2, options.y2], false, options.lineWidth || 1
     );
-    this.#submitShape(options, positions, indices, options.strokeStyle || '#000');
+    this.#withShadow(options, (opts) => this.#submitShape(opts, positions, indices, options.strokeStyle || '#000'));
   }
 
   drawArc(options) {
@@ -357,11 +432,11 @@ export class WebGLRenderer extends BaseRenderer {
       options.x, options.y, options.radius, options.startAngle ?? 0, options.endAngle ?? Math.PI * 2
     );
     // A chord-closed circular segment is always convex, so a fan is exact.
-    this.#fillAndStroke(options, points, full, {
+    this.#withShadow(options, (opts) => this.#fillAndStroke(opts, points, full, {
       fill: options.fill !== false ? options.fillStyle : null,
       stroke: options.strokeStyle,
       lineWidth: options.lineWidth
-    });
+    }));
   }
 
   drawPath(options) {
@@ -371,12 +446,13 @@ export class WebGLRenderer extends BaseRenderer {
 
     const flat = [];
     for (const p of options.points) flat.push(p.x, p.y);
-    this.#fillAndStroke(options, flat, !!options.closed, {
+    const fillIndices = triangulate(flat);
+    this.#withShadow(options, (opts) => this.#fillAndStroke(opts, flat, !!options.closed, {
       fill: options.fillStyle,
       stroke: options.strokeStyle,
       lineWidth: options.lineWidth,
-      fillIndices: triangulate(flat)
-    });
+      fillIndices
+    }));
   }
 
   drawText(options) {
@@ -388,12 +464,12 @@ export class WebGLRenderer extends BaseRenderer {
 
     const x = options.x - entry.anchorX;
     const y = options.y - entry.anchorY;
-    this.#submitTexturedQuad(
-      options, entry,
+    this.#withShadow(options, (opts) => this.#submitTexturedQuad(
+      opts, entry,
       [x, y, x + entry.width, y, x + entry.width, y + entry.height, x, y + entry.height],
       null,
       { x: 0, y: 0, width: entry.width, height: entry.height }
-    );
+    ));
   }
 
   // === Transform & clip stacks ===
