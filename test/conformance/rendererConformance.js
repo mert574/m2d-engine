@@ -132,10 +132,11 @@ export function describeRendererConformance(harness) {
          * A 200x120 view rendered into a 20x12 world surface (a tenth of the
          * linear resolution) and presented on a 200x120 backing store.
          */
-        function setupSplitResolution() {
+        function setupSplitResolution(worldFilter) {
           target = harness.createTarget(W, H);
           renderer = harness.createRenderer();
           renderer.init(target, {
+            worldFilter,
             viewport: {
               backingWidth: W, backingHeight: H, pixelRatio: 1,
               viewWidth: W, viewHeight: H,
@@ -144,6 +145,43 @@ export function describeRendererConformance(harness) {
               uiWidth: W, uiHeight: H, uiScale: 1
             }
           });
+        }
+
+        /** A shape with curved edges, so detail exists at every scale. */
+        const circle = r => {
+          r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#000000' });
+          r.drawArc({
+            x: 100, y: 60, radius: 50,
+            startAngle: 0, endAngle: Math.PI * 2,
+            fillStyle: '#00ff00'
+          });
+        };
+
+        /**
+         * Find an upscale block whose pixels are not all one colour.
+         *
+         * With a world surface a tenth of the backing store and nearest
+         * filtering, every 10x10 block of output is one world texel, so it
+         * must be uniform. A block that varies means the world was rasterized
+         * finer than the surface it was supposed to be rasterized into.
+         *
+         * @returns {Object|null} The first varying block, or null if none
+         */
+        function findVaryingBlock(snap, blockW, blockH) {
+          for (let by = 0; by + blockH <= snap.height; by += blockH) {
+            for (let bx = 0; bx + blockW <= snap.width; bx += blockW) {
+              const want = snap.at(bx, by);
+              for (let y = by; y < by + blockH; y++) {
+                for (let x = bx; x < bx + blockW; x++) {
+                  const got = snap.at(x, y);
+                  if ([0, 1, 2].some(c => Math.abs(got[c] - want[c]) > 2)) {
+                    return { block: [bx, by], pixel: [x, y], want: want.slice(0, 3), got: got.slice(0, 3) };
+                  }
+                }
+              }
+            }
+          }
+          return null;
         }
 
         it('presents a low-resolution world across the whole backing store', () => {
@@ -174,6 +212,42 @@ export function describeRendererConformance(harness) {
           expectColorAt(snap, 100, 60, '#00ff00');
           expectNotColorAt(snap, 97, 60, '#00ff00');
           expectNotColorAt(snap, 103, 60, '#00ff00');
+        });
+
+        // The assertion the earlier cases miss: they pin where the world lands
+        // and that the UI stays sharp, but neither fails if a backend quietly
+        // rasterizes the world at display resolution and ignores the setting.
+        it('rasterizes the world into the world surface, not the backing store', () => {
+          setupSplitResolution('nearest');
+          renderFrame({ world: circle });
+
+          expect(findVaryingBlock(read(), 10, 10)).toBeNull();
+        });
+
+        it('keeps sub-block detail when the world is not downscaled', () => {
+          // The control for the case above: at an unscaled viewport the same
+          // circle must show detail finer than a 10x10 block, or "uniform
+          // blocks" would prove nothing about the resolution setting.
+          setup();
+          renderer.setWorldFilter('nearest');
+          renderFrame({ world: circle });
+
+          expect(findVaryingBlock(read(), 10, 10)).not.toBeNull();
+        });
+
+        it('upscales the world surface with the requested filter', () => {
+          setupSplitResolution('nearest');
+          renderFrame({ world: circle });
+          const nearest = read();
+
+          setupSplitResolution('linear');
+          renderFrame({ world: circle });
+          const linear = read();
+
+          // Nearest replicates each texel as a flat block; linear interpolates
+          // between them, so the same block varies across its width.
+          expect(findVaryingBlock(nearest, 10, 10)).toBeNull();
+          expect(findVaryingBlock(linear, 10, 10)).not.toBeNull();
         });
 
         it('keeps UI geometry in UI units, not world units', () => {

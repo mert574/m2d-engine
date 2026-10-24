@@ -1,12 +1,28 @@
 export class KeyStates {
-  constructor(mouseConstraint, eventsOn) {
+  constructor() {
     this.keys = new Map();
-    this.mouseConstraint = mouseConstraint;
-    this.eventsOn = eventsOn;
     this.justPressed = new Set();
 
-    document.addEventListener('keydown', this.handleKeyDown.bind(this));
-    document.addEventListener('keyup', this.handleKeyUp.bind(this));
+    // Kept on the instance so destroy() can remove them again: `.bind()`
+    // returns a *new* function every call, so binding inline at
+    // addEventListener leaves nothing removeEventListener could match — which
+    // is how these outlived every game that created them.
+    this.onKeyDown = this.handleKeyDown.bind(this);
+    this.onKeyUp = this.handleKeyUp.bind(this);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('keydown', this.onKeyDown);
+      document.addEventListener('keyup', this.onKeyUp);
+    }
+  }
+
+  /** Release the document listeners and forget every binding. */
+  destroy() {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('keydown', this.onKeyDown);
+      document.removeEventListener('keyup', this.onKeyUp);
+    }
+    this.keys.clear();
+    this.justPressed.clear();
   }
 
   addKey(keyName, callback) {

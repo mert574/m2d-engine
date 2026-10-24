@@ -50,9 +50,11 @@ export class Trigger extends Entity {
     const bounds = this.body.bounds;
     const width = bounds.max.x - bounds.min.x;
     const height = bounds.max.y - bounds.min.y;
-    const renderer = this.game.renderer;
+    // A trigger's tinted area and its name are one annotation: both go to the
+    // world overlay so the patch and the text on it stay equally sharp.
+    const overlay = this.game.worldOverlay;
 
-    renderer.drawRect({
+    overlay.drawRect({
       x: this.body.position.x - width/2,
       y: this.body.position.y - height/2,
       width,
@@ -60,10 +62,11 @@ export class Trigger extends Entity {
       fillStyle: this.debugColor
     });
 
-    renderer.drawText({
+    overlay.drawText({
       text: `${this.triggers}`,
       x: this.body.position.x,
-      y: this.body.position.y + 3.5,
+      y: this.body.position.y,
+      offsetY: 3.5,
       fillStyle: '#ffffffaa',
       fontSize: '14px',
       fontFamily: 'system-ui',

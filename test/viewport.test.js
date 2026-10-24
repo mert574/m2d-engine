@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeViewport, identityViewport, mapPointer, MAX_PIXEL_RATIO } from '../src/core/viewport.js';
+import { computeViewport, identityViewport, mapPointer, viewToUI, sameResolution, MAX_PIXEL_RATIO } from '../src/core/viewport.js';
 
 /**
  * Viewport sizing: the contract that keeps the three resolutions independent.
@@ -189,6 +189,73 @@ describe('viewport', () => {
         const p = mapPointer({ clientX: w, clientY: h / 2, rect: rect(w, h), viewport });
         expect(p.ui.x).toBeCloseTo(viewport.uiWidth, 5);
       }
+    });
+  });
+
+  describe('sameResolution', () => {
+    it('matches object presets structurally', () => {
+      expect(sameResolution({ width: 640, height: 360 }, { width: 640, height: 360 })).toBe(true);
+      expect(sameResolution({ width: 640, height: 360 }, { width: 320, height: 180 })).toBe(false);
+    });
+
+    it("treats 'native' and null as the same setting", () => {
+      expect(sameResolution('native', null)).toBe(true);
+      expect(sameResolution(undefined, 'native')).toBe(true);
+      expect(sameResolution('native', 0.5)).toBe(false);
+      expect(sameResolution('native', { width: 640, height: 360 })).toBe(false);
+    });
+
+    it('compares scale factors by value', () => {
+      expect(sameResolution(0.5, 0.5)).toBe(true);
+      expect(sameResolution(0.5, 0.25)).toBe(false);
+    });
+  });
+
+  describe('viewToUI', () => {
+    const rect = (width, height) => ({ left: 0, top: 0, width, height });
+
+    it('is the inverse of mapPointer across aspects, DPRs and resolutions', () => {
+      const cases = [
+        { displayWidth: 1280, displayHeight: 720 },
+        { displayWidth: 2100, displayHeight: 900 }, // letterbox bars left/right
+        { displayWidth: 900, displayHeight: 900 },  // bars top/bottom
+        { displayWidth: 1280, displayHeight: 720, pixelRatio: 2 },
+        { displayWidth: 1280, displayHeight: 720, resolution: 0.25 },
+        { displayWidth: 2100, displayHeight: 900, aspectMode: 'expand' }
+      ];
+
+      for (const params of cases) {
+        const viewport = computeViewport({ ...design, ...params });
+        const p = mapPointer({
+          clientX: 700, clientY: 400,
+          rect: rect(params.displayWidth, params.displayHeight),
+          viewport
+        });
+
+        // A pointer mapped into view space and projected back must land on the
+        // same UI point — this is what pins a label to the thing under it.
+        const ui = viewToUI({ x: p.view.x, y: p.view.y, viewport });
+        expect(ui.x).toBeCloseTo(p.ui.x, 5);
+        expect(ui.y).toBeCloseTo(p.ui.y, 5);
+      }
+    });
+
+    it('offsets by the letterbox bars, not a 1:1 copy', () => {
+      const viewport = computeViewport({ ...design, displayWidth: 2100, displayHeight: 900 });
+      const origin = viewToUI({ x: 0, y: 0, viewport });
+
+      // The view's origin sits at the content rect's corner in UI units.
+      expect(origin.x).toBeCloseTo(viewport.contentX / viewport.uiScale, 5);
+      expect(origin.x).toBeGreaterThan(0);
+      expect(origin.y).toBeCloseTo(0, 5);
+    });
+
+    it('does not move with the render resolution', () => {
+      const base = { ...design, displayWidth: 1280, displayHeight: 720 };
+      const native = viewToUI({ x: 300, y: 200, viewport: computeViewport(base) });
+      const coarse = viewToUI({ x: 300, y: 200, viewport: computeViewport({ ...base, resolution: 0.25 }) });
+
+      expect(coarse).toEqual(native);
     });
   });
 });

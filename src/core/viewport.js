@@ -155,6 +155,29 @@ export function computeViewport({
 }
 
 /**
+ * Whether two resolution settings mean the same thing.
+ *
+ * Settings are often object literals (`{width, height}`), so identity
+ * comparison never matches a value that was set earlier — anything cycling
+ * through presets (the settings menu, a hotkey) needs structural equality.
+ * `'native'` and `null`/`undefined` are the same setting; see
+ * `resolveWorldScale`.
+ *
+ * @param {'native'|number|{width?: number, height: number}|null} a
+ * @param {'native'|number|{width?: number, height: number}|null} b
+ * @returns {boolean}
+ */
+export function sameResolution(a, b) {
+  const nativeA = a === 'native' || a == null;
+  const nativeB = b === 'native' || b == null;
+  if (nativeA || nativeB) return nativeA && nativeB;
+  if (typeof a === 'object' && typeof b === 'object') {
+    return a.width === b.width && a.height === b.height;
+  }
+  return a === b;
+}
+
+/**
  * A viewport with no scaling anywhere: view, world surface, UI and backing
  * store all the same size. This is what the bare `renderer.resize(w, h)`
  * contract means, and the baseline the conformance suite tests against.
@@ -201,6 +224,30 @@ export function sameViewport(a, b) {
     if (a[key] !== b[key]) return false;
   }
   return true;
+}
+
+/**
+ * Map a point in view space — world units, origin at the view's top-left
+ * corner, the space `camera.worldToScreen` returns — into UI coordinates.
+ *
+ * This is the inverse of the `view` mapping in `mapPointer`: pointer input
+ * travels UI -> view -> world, and world-anchored screen content (a label
+ * pinned to an entity, a marker over a world object) travels world -> view ->
+ * UI through here. Going through the content rect matters: in letterbox mode
+ * the view does not start at the UI origin, and a naive 1:1 copy would park
+ * every label one bar-width away from its entity.
+ *
+ * @param {Object} params
+ * @param {number} params.x - View-space X in world units
+ * @param {number} params.y - View-space Y in world units
+ * @param {Viewport} params.viewport - Current viewport
+ * @returns {{x: number, y: number}} The same point in UI units
+ */
+export function viewToUI({ x, y, viewport }) {
+  return {
+    x: (viewport.contentX + x * (viewport.contentWidth / viewport.viewWidth)) / viewport.uiScale,
+    y: (viewport.contentY + y * (viewport.contentHeight / viewport.viewHeight)) / viewport.uiScale
+  };
 }
 
 /**

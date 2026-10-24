@@ -7,7 +7,8 @@ import { Camera } from './camera.js';
 import { SoundManager } from './soundManager.js';
 import { KEY_R, KEY_M, KEY_D } from './keyCodes.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, FALLBACK_RENDERER } from './renderers/index.js';
-import { computeViewport, mapPointer, sameViewport } from './viewport.js';
+import { computeViewport, mapPointer, sameViewport, viewToUI } from './viewport.js';
+import { WorldOverlay } from './ui/worldOverlay.js';
 
 const defaultOptions = {
   renderer: DEFAULT_RENDERER,
@@ -81,6 +82,15 @@ export class M2D {
       lerp: 0.1
     });
 
+    /**
+     * Annotations drawn *on* the world rather than in it: debug geometry
+     * (ranges, target dots, facing vectors) and world-anchored readouts.
+     * Submitted in world coordinates, rasterized in the overlay pass at
+     * display resolution, so they stay sharp however coarse the world's
+     * render resolution is. See ui/worldOverlay.js.
+     */
+    this.worldOverlay = new WorldOverlay(this);
+
     if (this.options.autoResize) this.#watchDisplaySize();
 
     this.engine = Matter.Engine.create();
@@ -92,6 +102,20 @@ export class M2D {
     this.player = null;
     this.actors = new Map();
     this.isGameOver = false;
+    /**
+     * While true the engine loop stops simulating — no physics, no entity or
+     * camera updates — but keeps drawing, so the frozen frame stays visible
+     * under overlays like the settings menu. Toggle it directly; the settings
+     * menu's Paused row does. A game that replaces the engine loop honours it
+     * itself.
+     */
+    this.paused = false;
+    /**
+     * The mounted SettingsMenu, if the game created one. Set by the menu's
+     * constructor; scene UI reaches it through the 'settings' button action.
+     * @type {import('./ui/settingsMenu.js').SettingsMenu|null}
+     */
+    this.settings = null;
 
     this.keys = new KeyStates();
     this.layers = new LayerManager();
@@ -247,6 +271,23 @@ export class M2D {
   }
 
   /**
+   * Choose how the world is filtered when it is upscaled from its render
+   * resolution to the screen. `'nearest'` keeps pixel art crisp; `'linear'`
+   * (the default) smooths it. Only visible below `'native'`, where there is
+   * something to upscale.
+   * @param {'linear'|'nearest'} filter
+   */
+  setWorldFilter(filter) {
+    this.options.worldFilter = filter;
+    this.renderer.setWorldFilter(filter);
+  }
+
+  /** The filter the world is upscaled with. @type {'linear'|'nearest'} */
+  get worldFilter() {
+    return this.renderer.worldFilter;
+  }
+
+  /**
    * Choose what happens when the display's aspect ratio differs from the
    * design aspect: 'letterbox' (bars, nothing extra revealed) or 'expand'
    * (the view widens and more world becomes visible).
@@ -283,7 +324,8 @@ export class M2D {
 
   /**
    * Stop the loop and release everything this instance registered: display
-   * listeners, the renderer's GPU resources and the current scene.
+   * and input listeners, audio, the renderer's GPU resources and the current
+   * scene. After this the instance is inert and holds nothing global.
    */
   destroy() {
     if (this.frameHandle !== null && typeof cancelAnimationFrame === 'function') {
@@ -294,8 +336,12 @@ export class M2D {
     for (const remove of this.resizeListeners) remove();
     this.resizeListeners = [];
     this.onResizeHandlers.clear();
+    // Overlays first: they unregister their own key bindings and listeners,
+    // which means reaching back into this.keys while it still exists.
     for (const overlay of [...this.overlays]) overlay.destroy?.();
     this.overlays.clear();
+    this.keys.destroy();
+    this.soundManager.destroy();
     this.sceneManager?.getCurrentScene()?.unload?.();
     this.renderer.destroy();
   }
@@ -383,6 +429,10 @@ export class M2D {
   }
 
   drawWorld(currentScene) {
+    // Overlay annotations are per-frame submissions made during the world
+    // pass below; clearing here (not when they are drawn) means a game loop
+    // that never reaches drawOverlays cannot accumulate them across frames.
+    this.worldOverlay.clear();
     this.renderer.beginFrame();
     this.renderer.applyCamera(this.camera);
     currentScene.draw();
@@ -433,13 +483,17 @@ export class M2D {
       return;
     }
 
-    Matter.Engine.update(this.engine, deltaTime * 1000, 1);
+    // Paused: freeze the simulation but keep presenting the frame, so the
+    // game stays visible (and crisp at the current settings) behind overlays.
+    if (!this.paused) Matter.Engine.update(this.engine, deltaTime * 1000, 1);
     const currentScene = this.sceneManager.getCurrentScene();
 
     if (!this.isGameOver) {
       if (currentScene) {
-        this.camera.update();
-        currentScene.update(deltaTime);
+        if (!this.paused) {
+          this.camera.update();
+          currentScene.update(deltaTime);
+        }
         this.drawWorld(currentScene);
         this.drawUI(currentScene);
       }
@@ -565,5 +619,19 @@ export class M2D {
    */
   getUIPosition(event) {
     return this.#mapPointer(event).ui;
+  }
+
+  /**
+   * Project a world position into UI coordinates: where that point sits in
+   * the space UI elements are drawn and hit-tested in. The inverse direction
+   * of `getMousePosition`, for pinning screen-space content (labels, markers,
+   * off-screen indicators) to a world object.
+   * @param {number} x - World X
+   * @param {number} y - World Y
+   * @returns {{x: number, y: number}}
+   */
+  worldToUI(x, y) {
+    const view = this.camera.worldToScreen(x, y);
+    return viewToUI({ x: view.x, y: view.y, viewport: this.viewport });
   }
 } 

@@ -1,19 +1,34 @@
-import { createProgram, createRenderTarget, resizeRenderTarget, deleteRenderTarget } from './device.js';
+import {
+  createProgram, createRenderTarget, resizeRenderTarget, deleteRenderTarget,
+  setRenderTargetFiltering
+} from './device.js';
 import {
   ATTRIBUTES, VERTEX_FLOATS, VERTEX_SHADER, BLUR_FRAGMENT_SHADER,
-  LIGHT_FRAGMENT_SHADER, BRIGHT_FRAGMENT_SHADER, COMPOSITE_FRAGMENT_SHADER
+  LIGHT_FRAGMENT_SHADER, BRIGHT_FRAGMENT_SHADER, COMPOSITE_FRAGMENT_SHADER,
+  PRESENT_FRAGMENT_SHADER
 } from './shaders.js';
 
 /**
- * Lighting and full-screen post effects for the GPU backend.
+ * The world's offscreen surface, plus lighting and full-screen post effects.
  *
- * Both features need the world as a *texture* rather than as pixels already
- * on screen, so when either is active the renderer points the world pass at
- * this pass's scene target instead of the default framebuffer. Nothing else
- * about world drawing changes — the scene target carries a stencil buffer so
- * clipping keeps working exactly as it does on screen.
+ * Three things need the world in a *texture* rather than as pixels already on
+ * screen, and all three share the one `scene` target:
  *
- * The frame then becomes:
+ * - **a world render resolution of its own** — the resolution setting. The
+ *   world rasterizes into `scene` at `pixelWidth x pixelHeight` and is scaled
+ *   to the content rect on presentation (`present`).
+ * - **lighting** — `scene` is multiplied by the accumulated light map.
+ * - **post effects** — bloom samples `scene`, and the composite vignettes it.
+ *
+ * Nothing else about world drawing changes: the scene target carries a stencil
+ * buffer, so clipping works exactly as it does on screen.
+ *
+ * The frame is then one of two shapes. With no lighting or post effects:
+ *
+ *   1. world pass draws into `scene` (with stencil)
+ *   2. `present` blits `scene` to the content rect — one draw call
+ *
+ * and with either of them on:
  *
  *   1. world pass draws into `scene` (with stencil)
  *   2. lights accumulate additively into `light`, over the ambient clear
@@ -21,14 +36,25 @@ import {
  *   4. composite `scene * light + bloom`, vignetted, to the default framebuffer
  *
  * The screen (UI) pass runs after all of that, straight to the default
- * framebuffer, so the HUD is never dimmed by ambient or smeared by bloom.
+ * framebuffer, so the HUD is never dimmed by ambient or smeared by bloom — and
+ * never resampled by the world's resolution.
  */
 
 /** Floats per light vertex, matching the shared vertex layout. */
 const LIGHT_VERTS = 6;
 
 export class EffectsPass {
-  constructor(gl, width, height, pixelWidth = width, pixelHeight = height) {
+  /**
+   * @param {WebGL2RenderingContext} gl
+   * @param {number} width - Coordinate-space width in world units
+   * @param {number} height - Coordinate-space height in world units
+   * @param {number} [pixelWidth=width] - Scene target width in pixels
+   * @param {number} [pixelHeight=height] - Scene target height in pixels
+   * @param {Object} [options]
+   * @param {boolean} [options.smooth=true] - Filter the scene is upscaled
+   *   with. False is the `worldFilter: 'nearest'` setting.
+   */
+  constructor(gl, width, height, pixelWidth = width, pixelHeight = height, options = {}) {
     this.gl = gl;
     /** Coordinate space of the world pass, in world units. */
     this.width = width;
@@ -37,8 +63,14 @@ export class EffectsPass {
     this.pixelWidth = pixelWidth;
     this.pixelHeight = pixelHeight;
 
-    // The world renders here, so this one needs a stencil for clips.
-    this.scene = createRenderTarget(gl, pixelWidth, pixelHeight, { stencil: true });
+    // The world renders here, so this one needs a stencil for clips, and it is
+    // the only target whose filter is the game's to choose — the light and
+    // bloom maps are always sampled smoothly, since a blur is meaningless
+    // otherwise.
+    this.scene = createRenderTarget(gl, pixelWidth, pixelHeight, {
+      stencil: true,
+      smooth: options.smooth ?? true
+    });
     this.light = createRenderTarget(gl, pixelWidth, pixelHeight);
     this.bloomA = createRenderTarget(gl, pixelWidth, pixelHeight);
     this.bloomB = createRenderTarget(gl, pixelWidth, pixelHeight);
@@ -47,6 +79,7 @@ export class EffectsPass {
     this.brightProgram = createProgram(gl, VERTEX_SHADER, BRIGHT_FRAGMENT_SHADER, ATTRIBUTES);
     this.blurProgram = createProgram(gl, VERTEX_SHADER, BLUR_FRAGMENT_SHADER, ATTRIBUTES);
     this.compositeProgram = createProgram(gl, VERTEX_SHADER, COMPOSITE_FRAGMENT_SHADER, ATTRIBUTES);
+    this.presentProgram = createProgram(gl, VERTEX_SHADER, PRESENT_FRAGMENT_SHADER, ATTRIBUTES);
 
     this.quadVao = gl.createVertexArray();
     this.quadBuffer = gl.createBuffer();
@@ -88,6 +121,15 @@ export class EffectsPass {
     gl.deleteProgram(this.brightProgram.program);
     gl.deleteProgram(this.blurProgram.program);
     gl.deleteProgram(this.compositeProgram.program);
+    gl.deleteProgram(this.presentProgram.program);
+  }
+
+  /**
+   * Choose the filter the world is upscaled with on presentation.
+   * @param {boolean} smooth - Linear (true) or nearest (false, for pixel art)
+   */
+  setSceneFiltering(smooth) {
+    setRenderTargetFiltering(this.gl, this.scene, smooth);
   }
 
   /**
@@ -183,6 +225,42 @@ export class EffectsPass {
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, data, 0, needed);
     gl.drawArrays(gl.TRIANGLES, 0, lights.length * LIGHT_VERTS);
     gl.bindVertexArray(null);
+    return 1;
+  }
+
+  /**
+   * Present the world to the default framebuffer with no lighting and no post
+   * effects — a straight scaled blit of the scene target into the content
+   * rect, at whatever filter `setSceneFiltering` last chose.
+   *
+   * This is the path every game that only sets a resolution takes, so it does
+   * the minimum: no light map to clear, no bloom texture to clear, one draw.
+   *
+   * @param {{x: number, y: number, width: number, height: number}} [content] -
+   *   Where the world lands on the backing store, in GL (bottom-left) pixels
+   * @returns {number} GPU draw calls issued
+   */
+  present(content) {
+    const gl = this.gl;
+    const { program, uniforms } = this.presentProgram;
+
+    gl.disable(gl.BLEND);
+    gl.disable(gl.STENCIL_TEST);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (content) {
+      gl.viewport(content.x, content.y, content.width, content.height);
+    } else {
+      gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
+    }
+    gl.useProgram(program);
+    gl.bindVertexArray(this.quadVao);
+    gl.uniform2f(uniforms.u_resolution, this.width, this.height);
+    gl.uniform1f(uniforms.u_flipY, -1);
+    this.#bindUnit(uniforms.u_scene, 0, this.scene.texture);
+    this.#drawFullQuad();
+    gl.bindVertexArray(null);
+    gl.enable(gl.BLEND);
     return 1;
   }
 

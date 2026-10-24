@@ -9,6 +9,8 @@ import { Debug } from '../src/constraints/debug.js';
 import { Rocket } from '../src/actors/rocket.js';
 import { Turret } from '../src/actors/turret.js';
 import { Trigger } from '../src/actors/trigger.js';
+import { UIRectangle } from '../src/core/ui/Rectangle.js';
+import { PerformanceStats } from '../src/core/ui/performanceStats.js';
 import { makeTestGame, makeBody, expectBalancedStacks } from './helpers/testGame.js';
 
 /**
@@ -23,10 +25,12 @@ import { makeTestGame, makeBody, expectBalancedStacks } from './helpers/testGame
 describe('engine draw calls', () => {
   let game;
   let renderer;
+  let overlay;
 
   beforeEach(() => {
     game = makeTestGame();
     renderer = game.renderer;
+    overlay = game.worldOverlay;
   });
 
   describe('Entity', () => {
@@ -164,8 +168,34 @@ describe('engine draw calls', () => {
       health.draw();
 
       const [background] = renderer.optionsFor('drawRect');
-      expect(background.y).toBeCloseTo(80, 5); // 100 - 20/2 - 10
+      expect(background.y).toBeCloseTo(80, 5); // 100 - 20/2 - 6 - barHeight(4)
       expect(background.x).toBeCloseTo(80, 5);
+    });
+
+    it('thickens the bar so it survives a low world render resolution', () => {
+      const entity = new Entity(makeBody(100, 100, 40, 20), null, game);
+      const health = new Health(entity, { maxHealth: 100 });
+
+      // At a quarter resolution a 4-world-unit bar is a single surface pixel;
+      // the bar grows in world units to stay ~2 pixels on the surface.
+      renderer.viewport = { ...renderer.viewport, worldScale: 0.25 };
+      renderer.reset();
+      health.draw();
+
+      const [background] = renderer.optionsFor('drawRect');
+      expect(background.height).toBe(8); // 2 / 0.25
+      // Grown upward, away from the entity, not into it.
+      expect(background.y).toBeCloseTo(100 - 10 - 6 - 8, 5);
+    });
+
+    it('can be switched off for entities whose health lives in a HUD', () => {
+      const entity = new Entity(makeBody(100, 100, 40, 20), null, game);
+      const health = new Health(entity, { maxHealth: 100, showBar: false });
+
+      renderer.reset();
+      health.draw();
+
+      expect(renderer.calls).toHaveLength(0);
     });
   });
 
@@ -183,18 +213,23 @@ describe('engine draw calls', () => {
 
       entity.getConstraint('debug').draw();
       expect(renderer.calls).toHaveLength(0);
+      expect(overlay.shapes).toHaveLength(0);
+      expect(overlay.labels).toHaveLength(0);
     });
 
-    it('draws bounds, centre and velocity readout when enabled', () => {
+    it('sends every annotation to the overlay, nothing to the world pass', () => {
       const entity = makeDebugEntity();
       renderer.setDebugEnabled(true);
       renderer.reset();
 
       entity.getConstraint('debug').draw();
 
-      expect(renderer.callsTo('drawRect')).toHaveLength(1);
-      expect(renderer.callsTo('drawArc')).toHaveLength(1);
-      expect(renderer.optionsFor('drawText')[0].text).toMatch(/^vel:/);
+      // Bounds box and centre dot are annotations on top of the game, not
+      // world content, so they are rasterized at display resolution too — a
+      // 2-unit centre dot would not survive a low render resolution.
+      expect(renderer.calls).toHaveLength(0);
+      expect(overlay.shapes.map(s => s.method)).toEqual(['drawRect', 'drawArc']);
+      expect(overlay.labels[0].text).toMatch(/^vel:/);
     });
 
     it('includes a health readout when the entity has health', () => {
@@ -205,8 +240,66 @@ describe('engine draw calls', () => {
 
       entity.getConstraint('debug').draw();
 
-      const texts = renderer.optionsFor('drawText').map(o => o.text);
+      const texts = overlay.labels.map(label => label.text);
       expect(texts.some(t => t === 'hp: 70/70')).toBe(true);
+    });
+
+    it('stacks the readouts upward from a shared anchor', () => {
+      const entity = makeDebugEntity();
+      entity.addConstraint('health', new Health(entity, { maxHealth: 70 }));
+      renderer.setDebugEnabled(true);
+
+      entity.getConstraint('debug').draw();
+
+      const [velocity, health] = overlay.labels;
+      // Same world anchor (the bounds' top-left), separated in UI units so the
+      // lines keep their spacing at any world resolution.
+      expect(health.x).toBe(velocity.x);
+      expect(health.y).toBe(velocity.y);
+      expect(velocity.offsetY).toBe(-50);
+      expect(health.offsetY).toBe(-65);
+    });
+  });
+
+  describe('UIRectangle', () => {
+    it('stretches over the whole UI space when fill is set', () => {
+      const rect = new UIRectangle(640, 480, 1280, 960, '#298ccc', { fill: true });
+      rect.setGame(game);
+      rect.draw();
+
+      // The recording game's UI space is 800x600: a fill rect reads the live
+      // size instead of its own, so menu backgrounds cover any aspect ratio.
+      expect(renderer.optionsFor('drawRect')[0]).toMatchObject({
+        x: 0, y: 0, width: 800, height: 600, fillStyle: '#298ccc', isScreenSpace: true
+      });
+    });
+
+    it('draws centred at a fixed size without fill', () => {
+      const rect = new UIRectangle(100, 100, 40, 20, '#fff');
+      rect.setGame(game);
+      rect.draw();
+
+      expect(renderer.optionsFor('drawRect')[0]).toMatchObject({
+        x: 80, y: 90, width: 40, height: 20
+      });
+    });
+  });
+
+  describe('PerformanceStats', () => {
+    it('resolves its anchor against the live UI size', () => {
+      const stats = new PerformanceStats(game, 20, -34, { anchor: 'bottom-left', show: true });
+      stats.draw();
+
+      // The recording game's UI space is 800x600: bottom-left plus the offset
+      // puts the readout at the real bottom edge at any aspect ratio.
+      expect(renderer.optionsFor('drawText')[0]).toMatchObject({ x: 20, y: 566 });
+    });
+
+    it('draws nothing unless shown', () => {
+      const stats = new PerformanceStats(game, 20, -34, { anchor: 'bottom-left' });
+      stats.draw();
+
+      expect(renderer.callsTo('drawText')).toHaveLength(0);
     });
   });
 
@@ -256,12 +349,15 @@ describe('engine draw calls', () => {
       renderer.setDebugEnabled(false);
       renderer.reset();
       rocket.draw();
-      expect(renderer.callsTo('drawLine')).toHaveLength(0);
+      expect(overlay.shapes).toHaveLength(0);
 
       renderer.setDebugEnabled(true);
       renderer.reset();
       rocket.draw();
-      expect(renderer.callsTo('drawLine')).toHaveLength(1);
+      // The vector is an annotation, so it goes to the sharp overlay, while
+      // the rocket's own body stays in the world pass.
+      expect(renderer.callsTo('drawLine')).toHaveLength(0);
+      expect(overlay.shapes.map(s => s.method)).toEqual(['drawLine']);
     });
 
     it('closes every polygon it draws', () => {
@@ -314,9 +410,24 @@ describe('engine draw calls', () => {
       renderer.reset();
       turret.draw();
 
-      expect(renderer.callsTo('drawLine')).toHaveLength(1);
-      expect(renderer.optionsFor('drawText')[0].text).toMatch(/^fire:/);
+      // Range ring and aim line annotate the turret rather than being part of
+      // it, so they go to the sharp overlay; the turret's own body does not.
+      expect(renderer.callsTo('drawLine')).toHaveLength(0);
+      expect(overlay.shapes.map(s => s.method)).toEqual(['drawArc', 'drawLine']);
+      expect(overlay.labels[0].text).toMatch(/^fire:/);
       expectBalancedStacks(renderer);
+    });
+
+    it('keeps the turret body itself in the world pass', () => {
+      const turret = makeTurret();
+      renderer.setDebugEnabled(true);
+      renderer.reset();
+      turret.draw();
+
+      // base, outer ring, centre dot — the actor's actual appearance, which
+      // should blur with the world like any other sprite would.
+      expect(renderer.callsTo('drawArc')).toHaveLength(3);
+      expect(renderer.callsTo('drawRect')).toHaveLength(2);
     });
 
     it('draws a damage flash while recently hit', () => {
@@ -342,9 +453,11 @@ describe('engine draw calls', () => {
       trigger.draw();
 
       expect(renderer.calls).toHaveLength(0);
+      expect(overlay.shapes).toHaveLength(0);
+      expect(overlay.labels).toHaveLength(0);
     });
 
-    it('draws its area and label when visible', () => {
+    it('draws its area and its name as one sharp annotation', () => {
       const trigger = new Trigger(makeBody(60, 60, 40, 40), null, game, {
         visible: true,
         triggers: 'levelComplete'
@@ -352,12 +465,15 @@ describe('engine draw calls', () => {
       renderer.reset();
       trigger.draw();
 
-      const [rect] = renderer.optionsFor('drawRect');
+      // Patch and label travel together, so neither is sharper than the other.
+      expect(renderer.calls).toHaveLength(0);
+      const [{ options: rect }] = overlay.shapes;
       expect(rect).toMatchObject({ width: 40, height: 40, fillStyle: '#e7693166' });
 
-      const [text] = renderer.optionsFor('drawText');
+      const [text] = overlay.labels;
       expect(text.text).toBe('levelComplete');
       expect(text.textAlign).toBe('center');
+      expect(text).toMatchObject({ x: 60, y: 60 });
     });
 
     it('stringifies a non-string trigger label', () => {
@@ -368,7 +484,7 @@ describe('engine draw calls', () => {
       renderer.reset();
       trigger.draw();
 
-      expect(typeof renderer.optionsFor('drawText')[0].text).toBe('string');
+      expect(typeof overlay.labels[0].text).toBe('string');
     });
   });
 });

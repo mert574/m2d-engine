@@ -38,12 +38,25 @@ export class Camera {
 
     // Apply camera bounds if set
     if (this.bounds) {
-      const halfWidth = this.width / 2;
-      const halfHeight = this.height / 2;
-
-      this.x = Math.max(this.bounds.left + halfWidth, Math.min(this.bounds.right - halfWidth, this.x));
-      this.y = Math.max(this.bounds.top + halfHeight, Math.min(this.bounds.bottom - halfHeight, this.y));
+      this.x = Camera.#clampAxis(this.x, this.bounds.left, this.bounds.right, this.width);
+      this.y = Camera.#clampAxis(this.y, this.bounds.top, this.bounds.bottom, this.height);
     }
+  }
+
+  /**
+   * Clamp the camera centre so the view stays inside [min, max].
+   *
+   * When the view is *larger* than the bounded span — an expanded aspect on a
+   * small board — the two clamp limits cross and naive min/max would pin the
+   * camera to whichever limit wins, parking the board off-centre. Centring on
+   * the span is the graceful version: the whole board stays in the middle and
+   * only the surrounding void grows.
+   */
+  static #clampAxis(value, min, max, viewSize) {
+    const lo = min + viewSize / 2;
+    const hi = max - viewSize / 2;
+    if (lo > hi) return (min + max) / 2;
+    return Math.max(lo, Math.min(hi, value));
   }
 
   isVisible(x, y, width, height) {

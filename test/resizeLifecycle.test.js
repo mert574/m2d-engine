@@ -81,6 +81,24 @@ describe('resize lifecycle', () => {
       expect(expanded.camera.width).toBeCloseTo(1680, 5);
       expect(expanded.camera.height).toBe(720);
     });
+
+    it('centres a bounded camera when expand makes the view wider than the bounds', () => {
+      // A fixed-board game (maze): the board is exactly one view, with camera
+      // bounds to match. In expand mode on a wide display the view outgrows
+      // the board, which inverts the clamp limits — the camera must centre on
+      // the board, not pin to whichever limit wins.
+      const canvas = displayCanvas(2100, 900);
+      const game = makeGame(canvas, { width: 640, height: 480, aspectMode: 'expand' });
+      game.camera.bounds = { left: 0, top: 0, right: 640, bottom: 480 };
+      game.camera.follow({ body: { position: { x: 600, y: 400 } } });
+
+      for (let i = 0; i < 50; i++) game.camera.update();
+
+      expect(game.camera.width).toBeGreaterThan(640);
+      expect(game.camera.x).toBe(320);
+      // The vertical span still fits exactly, so normal clamping applies.
+      expect(game.camera.y).toBeCloseTo(240, 5);
+    });
   });
 
   describe('render resolution', () => {
@@ -108,6 +126,27 @@ describe('resize lifecycle', () => {
       game.setResolution('native');
 
       expect(game.viewport.worldWidth).toBe(native);
+    });
+
+    // The option used to reach the Canvas backend and be dropped silently by
+    // the WebGL one, so pin that it arrives and that it can change later.
+    it('passes the world filter through to the backend', () => {
+      const canvas = displayCanvas(1280, 720);
+      const game = makeGame(canvas, { worldFilter: 'nearest' });
+
+      expect(game.renderer.worldFilter).toBe('nearest');
+      expect(game.worldFilter).toBe('nearest');
+
+      game.setWorldFilter('linear');
+      expect(game.renderer.worldFilter).toBe('linear');
+    });
+
+    it('defaults the world filter to linear and ignores unknown values', () => {
+      const game = makeGame(displayCanvas(1280, 720));
+      expect(game.worldFilter).toBe('linear');
+
+      game.setWorldFilter('bicubic');
+      expect(game.worldFilter).toBe('linear');
     });
   });
 
@@ -259,6 +298,48 @@ describe('resize lifecycle', () => {
       const game = makeGame(displayCanvas(1280, 720));
       game.destroy();
       expect(game.renderer.canvas).toBeNull();
+    });
+
+    // These listeners were bound inline with `.bind(this)`, so there was no
+    // stable reference to remove and every destroyed game left a pair of
+    // document listeners behind, still holding the whole engine alive.
+    it('removes the input and audio listeners it registered', () => {
+      const live = new Set();
+      globalThis.document.addEventListener = (type, handler) => live.add(handler);
+      globalThis.document.removeEventListener = (type, handler) => live.delete(handler);
+
+      const game = makeGame(displayCanvas(1280, 720));
+      const added = live.size;
+      expect(added).toBeGreaterThan(0);
+
+      game.destroy();
+
+      expect(live.size).toBe(0);
+    });
+
+    it('stops audio so a destroyed game cannot keep playing', () => {
+      const game = makeGame(displayCanvas(1280, 720));
+      const track = { loop: true, paused: false, currentTime: 12, volume: 1, pause() { this.paused = true; } };
+      game.soundManager.music.set('theme', track);
+      game.soundManager.currentMusic = track;
+
+      game.destroy();
+
+      expect(track.paused).toBe(true);
+      expect(game.soundManager.music.size).toBe(0);
+    });
+
+    it('leaves key bindings inert rather than firing into a dead game', () => {
+      const game = makeGame(displayCanvas(1280, 720));
+      let fired = false;
+      game.keys.addKey('x', () => { fired = true; });
+
+      game.destroy();
+      // Even if a stray event reaches the handler, there is nothing bound.
+      game.keys.handleKeyDown({ key: 'x' });
+
+      expect(fired).toBe(false);
+      expect(game.keys.keys.size).toBe(0);
     });
   });
 });

@@ -56,8 +56,9 @@ export class Rocket extends Projectile {
     renderer.popTransform();
 
     if (this.game.renderer.isDebugEnabled()) {
-      // Draw velocity vector
-      this.game.renderer.drawLine({
+      // Draw velocity vector, as a sharp overlay annotation rather than into
+      // the world surface.
+      this.game.worldOverlay.drawLine({
         x1: pos.x,
         y1: pos.y,
         x2: pos.x + this.direction.x * 30,

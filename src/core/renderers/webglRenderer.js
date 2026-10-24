@@ -74,6 +74,8 @@ export class WebGLRenderer extends BaseRenderer {
     this.labels = null;
     /** @type {ShadowPass|null} */
     this.shadowPass = null;
+    /** @type {EffectsPass|null} */
+    this.effectsPass = null;
 
     // Pass matrices (pixel space). The camera is folded into worldMatrix.
     this.worldMatrix = mat.identity();
@@ -97,6 +99,9 @@ export class WebGLRenderer extends BaseRenderer {
   init(element, options = {}) {
     this.canvas = element;
     this.gl = createContext(element, this.contextAttributes);
+    // Stored, not applied: #createResources below reads it to build the scene
+    // target with the right filter, and there is no pass to retune yet.
+    if (options.worldFilter) super.setWorldFilter(options.worldFilter);
     const viewport = options.viewport || identityViewport(
       options.width || this.viewport.viewWidth,
       options.height || this.viewport.viewHeight
@@ -129,7 +134,9 @@ export class WebGLRenderer extends BaseRenderer {
     this.textures = new TextureCache(gl, this.imageSmoothing);
     this.labels = new TextLabels(gl);
     this.shadowPass = new ShadowPass(gl, viewWidth, viewHeight, worldWidth, worldHeight);
-    this.effectsPass = new EffectsPass(gl, viewWidth, viewHeight, worldWidth, worldHeight);
+    this.effectsPass = new EffectsPass(gl, viewWidth, viewHeight, worldWidth, worldHeight, {
+      smooth: this.worldFilter !== 'nearest'
+    });
     this.gradientCache.clear();
 
     gl.disable(gl.DEPTH_TEST);
@@ -191,6 +198,42 @@ export class WebGLRenderer extends BaseRenderer {
     this.#bindDefaultTarget();
   }
 
+  setWorldFilter(filter) {
+    super.setWorldFilter(filter);
+    // Stored by super first: like a viewport change, the setting has to stick
+    // even while the context is lost, so #createResources can rebuild with it.
+    if (this.#ready && this.effectsPass) {
+      this.effectsPass.setSceneFiltering(this.worldFilter !== 'nearest');
+    }
+  }
+
+  /**
+   * Whether the world surface differs in size from the area it is presented
+   * into — i.e. whether the resolution setting is actually asking for a
+   * resample.
+   *
+   * When it is not (the `'native'` case), the world draws straight to the
+   * default framebuffer: no offscreen round trip, and the context's own
+   * multisampling still applies. A sub-pixel difference is rounding, not a
+   * resolution choice, so the comparison carries a one-pixel tolerance.
+   */
+  get #worldIsResampled() {
+    const v = this.viewport;
+    return Math.abs(v.worldWidth - v.contentWidth) > 1 ||
+           Math.abs(v.worldHeight - v.contentHeight) > 1;
+  }
+
+  /** The content rect in GL pixels, which measure y from the bottom. */
+  #contentRect() {
+    const v = this.viewport;
+    return {
+      x: v.contentX,
+      y: v.backingHeight - v.contentY - v.contentHeight,
+      width: v.contentWidth,
+      height: v.contentHeight
+    };
+  }
+
   clear(color) {
     const gl = this.gl;
     if (!this.#ready) return;
@@ -213,13 +256,14 @@ export class WebGLRenderer extends BaseRenderer {
     this.lights.length = 0;
     this.#resetStencil();
 
-    // With lighting or post effects on, the world needs to end up in a
-    // texture rather than on screen, so it is drawn into the effects pass's
-    // scene target and composited in endFrame().
+    // The world needs to end up in a texture rather than straight on screen
+    // when it is rendered at a resolution of its own, and when lighting or
+    // post effects have to sample it. Either way it draws into the effects
+    // pass's scene target and is presented in endFrame().
     this.inScreenPass = false;
-    this.#bindDefaultTarget();
+    this.targetIsScene = this.#effectsActive || this.#worldIsResampled;
+    if (!this.targetIsScene) this.#bindDefaultTarget();
 
-    this.targetIsScene = this.#effectsActive;
     if (this.targetIsScene) {
       this.effectsPass.beginScene();
       this.batch.setTarget(this.width, this.height, false);
@@ -234,15 +278,16 @@ export class WebGLRenderer extends BaseRenderer {
     this.batch.flush();
 
     if (this.targetIsScene) {
-      const v = this.viewport;
-      const ambient = this.ambientLight ? parseColor(this.ambientLight) : [1, 1, 1, 1];
-      this.stats.drawCalls += this.effectsPass.drawLights(this.lights, ambient);
-      this.stats.drawCalls += this.effectsPass.composite(this.postEffects, {
-        x: v.contentX,
-        y: v.backingHeight - v.contentY - v.contentHeight,
-        width: v.contentWidth,
-        height: v.contentHeight
-      });
+      const content = this.#contentRect();
+      if (this.#effectsActive) {
+        const ambient = this.ambientLight ? parseColor(this.ambientLight) : [1, 1, 1, 1];
+        this.stats.drawCalls += this.effectsPass.drawLights(this.lights, ambient);
+        this.stats.drawCalls += this.effectsPass.composite(this.postEffects, content);
+      } else {
+        // Resolution alone: scale the world surface up to its content rect and
+        // nothing else.
+        this.stats.drawCalls += this.effectsPass.present(content);
+      }
       this.targetIsScene = false;
       this.#bindDefaultTarget();
     }

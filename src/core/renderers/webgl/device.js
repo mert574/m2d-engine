@@ -84,9 +84,15 @@ export function setTextureFiltering(gl, smooth) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
 }
 
-/** A colour-only render target (no depth/stencil). */
-export function createRenderTarget(gl, width, height, { stencil = false } = {}) {
-  const texture = createTexture(gl, { width, height, smooth: true });
+/**
+ * A colour-only render target (no depth/stencil by default).
+ *
+ * `smooth` is the filter used when the target is sampled — which for the
+ * scene target is the filter the world is *upscaled* with on its way to the
+ * screen. Pixel-art games want it off; see `worldFilter`.
+ */
+export function createRenderTarget(gl, width, height, { stencil = false, smooth = true } = {}) {
+  const texture = createTexture(gl, { width, height, smooth });
   const framebuffer = gl.createFramebuffer();
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
@@ -103,7 +109,25 @@ export function createRenderTarget(gl, width, height, { stencil = false } = {}) 
   }
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  return { texture, framebuffer, stencilBuffer, width, height };
+  return { texture, framebuffer, stencilBuffer, width, height, smooth };
+}
+
+/**
+ * Change the filter a render target is sampled with, in place.
+ *
+ * Filtering is texture state and survives the `texImage2D` in
+ * `resizeRenderTarget`, so this only has to run when the setting itself
+ * changes.
+ *
+ * @param {WebGL2RenderingContext} gl
+ * @param {{texture: WebGLTexture, smooth: boolean}} target
+ * @param {boolean} smooth - Linear (true) or nearest (false)
+ */
+export function setRenderTargetFiltering(gl, target, smooth) {
+  if (!target || target.smooth === smooth) return;
+  gl.bindTexture(gl.TEXTURE_2D, target.texture);
+  setTextureFiltering(gl, smooth);
+  target.smooth = smooth;
 }
 
 export function resizeRenderTarget(gl, target, width, height) {

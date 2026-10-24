@@ -160,6 +160,27 @@ void main() {
 `;
 
 /** Final composite: scene x light, plus bloom, then vignette. */
+/**
+ * Straight blit of the scene target, for the common case: a world rendered at
+ * a resolution of its own but with no lighting and no post effects. Going
+ * through COMPOSITE would mean clearing and sampling a white light map and a
+ * black bloom map to compute `scene * 1 + 0`, so this exists to keep the
+ * no-effects path at one draw call and two texture-free state changes.
+ */
+export const PRESENT_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+
+uniform sampler2D u_scene;
+
+out vec4 fragColor;
+
+void main() {
+  fragColor = vec4(texture(u_scene, v_uv).rgb, 1.0);
+}
+`;
+
 export const COMPOSITE_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 

@@ -127,6 +127,15 @@ export class BaseRenderer {
     this.viewport = identityViewport(800, 600);
 
     /**
+     * How the world surface is filtered when it is upscaled — that is, when
+     * the render resolution is below the display's. `'nearest'` keeps pixel
+     * art crisp instead of smearing it. Has no effect at `'native'`, where
+     * there is nothing to upscale.
+     * @type {'linear'|'nearest'}
+     */
+    this.worldFilter = 'linear';
+
+    /**
      * Optional features this backend supports. Subclasses override the ones
      * they implement; everything unlisted stays unsupported.
      * @type {Record<string, boolean>}
@@ -172,8 +181,24 @@ export class BaseRenderer {
    * @param {Object} options - Renderer options
    * @param {number} [options.width] - Initial width
    * @param {number} [options.height] - Initial height
+   * @param {import('../viewport.js').Viewport} [options.viewport] - Initial
+   *   sizing; an identity viewport of width x height when omitted
+   * @param {'linear'|'nearest'} [options.worldFilter='linear'] - Filter the
+   *   world surface is upscaled with; see `setWorldFilter`
    */
   init(element, options) { throw new Error('Method not implemented'); }
+
+  /**
+   * Choose how the world surface is filtered when it is upscaled to the
+   * screen, which happens whenever the render resolution is below the
+   * display's. Backends that need to act on the change override this and call
+   * super; the stored value is what a backend reads at presentation time.
+   *
+   * @param {'linear'|'nearest'} filter - 'nearest' for pixel art
+   */
+  setWorldFilter(filter) {
+    this.worldFilter = filter === 'nearest' ? 'nearest' : 'linear';
+  }
 
   /**
    * Clean up renderer resources.

@@ -106,9 +106,14 @@ export class Player extends Entity {
     super.draw();
 
     if (this.game.renderer.isDebugEnabled()) {
+      // Debug annotations go to the world overlay: world coordinates, but
+      // rasterized at display resolution so they stay sharp and legible
+      // however coarse the world's render resolution is.
+      const overlay = this.game.worldOverlay;
+
       // Draw facing direction
       const directionLength = 20;
-      this.game.renderer.drawLine({
+      overlay.drawLine({
         x1: this.position.x,
         y1: this.position.y,
         x2: this.position.x + (directionLength * this.facingDirection),
@@ -117,11 +122,11 @@ export class Player extends Entity {
         lineWidth: 1
       });
 
-      // Draw ground state
-      this.game.renderer.drawText({
+      overlay.drawText({
         text: `ground: ${this.isOnGround()}`,
         x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y + 5,
+        y: this.body.bounds.max.y,
+        offsetY: 5,
         fillStyle: '#00ff00',
         fontSize: '12px',
         fontFamily: 'monospace',

@@ -127,8 +127,15 @@ export class Bee extends Entity {
     }
 
     if (this.game.renderer.isDebugEnabled()) {
+      // The attention radius, its target dot and the lines between them are
+      // annotations on top of the game, so they go to the world overlay:
+      // world coordinates and world sizes, rasterized at display resolution.
+      // The 3-unit target dot in particular would vanish at a low render
+      // resolution if it were drawn into the world surface.
+      const overlay = this.game.worldOverlay;
+
       // Draw detection range
-      this.game.renderer.drawArc({
+      overlay.drawArc({
         x: this.position.x,
         y: this.position.y,
         radius: this.detectionRange,
@@ -139,7 +146,7 @@ export class Bee extends Entity {
       });
 
       // Draw target point and line to it
-      this.game.renderer.drawArc({
+      overlay.drawArc({
         x: this.targetPoint.x,
         y: this.targetPoint.y,
         radius: 3,
@@ -148,7 +155,7 @@ export class Bee extends Entity {
         fillStyle: '#ffd633'
       });
 
-      this.game.renderer.drawLine({
+      overlay.drawLine({
         x1: this.position.x,
         y1: this.position.y,
         x2: this.targetPoint.x,
@@ -157,11 +164,11 @@ export class Bee extends Entity {
         lineWidth: 1
       });
 
-      // Draw target change timer
-      this.game.renderer.drawText({
+      overlay.drawText({
         text: `target: ${this.targetChangeTime}/${this.targetChangeCooldown}`,
         x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y + 5,
+        y: this.body.bounds.max.y,
+        offsetY: 5,
         fillStyle: '#ff9999',
         fontSize: '12px',
         fontFamily: 'monospace',
@@ -173,7 +180,7 @@ export class Bee extends Entity {
       if (this.game.player) {
         const distance = Vec2.distance(this.position, this.game.player.position);
         if (distance < this.detectionRange) {
-          this.game.renderer.drawLine({
+          overlay.drawLine({
             x1: this.position.x,
             y1: this.position.y,
             x2: this.game.player.position.x,

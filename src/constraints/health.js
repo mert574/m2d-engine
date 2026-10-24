@@ -9,6 +9,8 @@ export class Health extends Constraint {
     this.invulnerableDuration = options.invulnerableDuration || 1; // seconds of invulnerability after taking damage
     this.onDeath = options.onDeath || null;
     this.onDamage = options.onDamage || null;
+    /** Whether to draw the bar above the entity. Off for entities whose health is shown elsewhere (a HUD). */
+    this.showBar = options.showBar ?? true;
   }
 
   update(deltaTime) {
@@ -44,14 +46,18 @@ export class Health extends Constraint {
   }
 
   draw() {
-    if (this.entity.dead) return;
+    if (this.entity.dead || !this.showBar) return;
 
     const pos = this.entity.position;
     const size = this.entity.size;
 
     const barWidth = size.x;
-    const barHeight = 4;
-    const barY = pos.y - size.y / 2 - 10; // Position above entity
+    // The bar is world-space geometry (its width is the entity's), but its
+    // thickness is clamped so it cannot thin out below ~2 world-surface
+    // pixels: at a low render resolution a fixed 4-unit bar rounds to nothing.
+    const worldScale = this.entity.game.viewport?.worldScale || 1;
+    const barHeight = Math.max(4, 2 / worldScale);
+    const barY = pos.y - size.y / 2 - 6 - barHeight; // Position above entity
     const barX = pos.x - barWidth / 2;
 
     const renderer = this.entity.game.renderer;

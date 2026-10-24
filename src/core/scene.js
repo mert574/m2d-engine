@@ -96,7 +96,14 @@ export class Scene {
     this.game.player = null;
     this.ui.clear();
 
-    const stats = new PerformanceStats(this.game, 20, 20, { textColor: '#00ff00', show: true });
+    // Anchored to the bottom-left so it sits at the *real* screen corner at
+    // any aspect ratio, and stays clear of game HUDs, which conventionally
+    // occupy the top of the screen.
+    const stats = new PerformanceStats(this.game, 20, -34, {
+      anchor: 'bottom-left',
+      textColor: '#00ff00',
+      show: true
+    });
     this.ui.addElement(stats);
 
     if (this.config.world) {
@@ -113,17 +120,22 @@ export class Scene {
     }
   }
 
-  setupBackground([spriteIndex, x, y]) {
-    const [imagePath, tileSize] = this.config.sprites[spriteIndex];
-    const spriteSheet = this.spriteSheets.get(imagePath);
-    if (!spriteSheet) {
-      console.error(`Sprite not found: ${imagePath}`);
-      return;
-    }
+  /**
+   * Tile one spritesheet frame across the world as a background layer.
+   *
+   * @param {Object} background - `{ spritesheet, tileX, tileY }`; the loader
+   *   has already checked the spritesheet exists.
+   */
+  setupBackground({ spritesheet, tileX = 0, tileY = 0 }) {
+    const spriteSheet = this.spriteSheets.get(spritesheet);
+    const tileSize = this.config.assets.spritesheets[spritesheet].frameWidth;
 
-    spriteSheet.define('default', x, y);
-    const tileCountX = Math.ceil(this.game.width / tileSize);
-    const tileCountY = Math.ceil(this.game.height / tileSize);
+    spriteSheet.define('default', tileX, tileY);
+    // The layer's tiles live at fixed world coordinates and draw under the
+    // camera, so the background tiles the *world* — a size in world units,
+    // independent of the display, the render resolution and resizes.
+    const tileCountX = Math.ceil(this.game.options.worldWidth / tileSize);
+    const tileCountY = Math.ceil(this.game.options.worldHeight / tileSize);
 
     const bgLayer = this.game.layers.constructLayer(spriteSheet, tileCountX, tileCountY, tileSize, { anim: 'default' });
     this.game.layers.addLayer('background', bgLayer);
@@ -183,6 +195,34 @@ export class Scene {
     return entity;
   }
 
+  /**
+   * What a scene-JSON button does when clicked.
+   *
+   * `"action"` names a behaviour rather than a scene: `'settings'` opens the
+   * mounted settings menu (`game.settings`), anything else is handed to the
+   * scene config's `onAction(action)` hook. `"onClick"` switches scenes, as
+   * before — but a missing scene now logs an error instead of surfacing as an
+   * unhandled rejection inside a click handler, which is how the platformer's
+   * Settings button sat broken without anything saying so.
+   */
+  #runButtonAction({ action, onClick }) {
+    if (action) {
+      if (action === 'settings' && this.game.settings) {
+        this.game.settings.open();
+      } else if (this.config.onAction) {
+        this.config.onAction(action);
+      } else {
+        console.warn(`Scene button action '${action}' has no handler` +
+          (action === 'settings' ? ' (no SettingsMenu mounted)' : ''));
+      }
+      return;
+    }
+    if (onClick) {
+      Promise.resolve(this.game.sceneManager.switchTo(onClick))
+        .catch(error => console.error(`Scene button: cannot switch to scene '${onClick}'`, error));
+    }
+  }
+
   async setupUIScene() {
     if (!this.config.elements) return;
 
@@ -195,11 +235,7 @@ export class Scene {
             element.properties.width || 200,
             element.properties.height || 40,
             element.properties.text,
-            () => {
-              if (element.properties.onClick) {
-                this.game.sceneManager.switchTo(element.properties.onClick);
-              }
-            },
+            () => this.#runButtonAction(element.properties),
             {
               backgroundColor: element.properties.backgroundColor,
               hoverColor: element.properties.hoverColor,
@@ -257,6 +293,7 @@ export class Scene {
             element.color,
             {
               interactive: element.properties?.interactive || false,
+              fill: element.fill || false,
               anchor: element.anchor
             }
           );

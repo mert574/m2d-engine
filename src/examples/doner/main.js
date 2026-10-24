@@ -15,9 +15,12 @@ const game = new M2D(canvas, {
 // Doner game instance (initialized when entering gameplay scene)
 let donerGame = null;
 
-// Register scenes
+// Register scenes. The menu scene is an empty shell: this example replaces
+// the engine loop and paints its own menu (drawMenu below), so scene JSON
+// elements would never be drawn — the scene exists only to anchor the
+// mainMenu/gameplay switching and its onEnter/onExit hooks.
 game.sceneManager.addScene('mainMenu', {
-  fetch: async () => (await import('./scenes/mainMenu.json')).default,
+  fetch: async () => ({ version: 1, name: 'mainMenu', type: 'ui', assets: {}, elements: [] }),
   onEnter() {
     donerGame = null;
   }
@@ -42,18 +45,30 @@ game.sceneManager.addScene('gameplay', {
 game.keys.addKey('r');
 game.keys.addKey('m');
 
-// Menu button bounds (updated for enhanced button)
-// Resolved against the live UI width so the hit area tracks the drawn button
-// at any aspect ratio (the menu is centred on UI space, which fills the
-// display). Must stay in step with the geometry in drawMenu().
-function menuButtonBounds() {
-  const width = 280;
-  const height = 65;
+// Single source of truth for the menu's geometry, shared by drawMenu() and
+// the click handler, so the drawn button and its hit area cannot drift apart.
+// The layout lives in a 1280x720 design box centred in UI space: width is read
+// live (UI space widens with the display), and `top` shifts the whole column
+// down when the display is taller than 16:9 instead of bunching it at the top.
+function menuLayout() {
+  const width = game.uiRenderer.width;
+  const height = game.uiRenderer.height;
+  const top = (height - 720) / 2;
+  const buttonWidth = 280;
+  const buttonHeight = 65;
   return {
-    x: game.uiRenderer.width / 2 - width / 2,
-    y: 340 - height / 2,
     width,
-    height
+    height,
+    titleY: top + 100,
+    subtitleY: top + 170,
+    buttonCentreY: top + 340,
+    button: {
+      x: width / 2 - buttonWidth / 2,
+      y: top + 340 - buttonHeight / 2,
+      width: buttonWidth,
+      height: buttonHeight
+    },
+    panelY: top + 420
   };
 }
 
@@ -79,7 +94,7 @@ document.addEventListener('click', (event) => {
   // the viewport letterboxes, and the backing store is in device pixels.
   const { x, y } = game.getUIPosition(event);
 
-  const menuButton = menuButtonBounds();
+  const menuButton = menuLayout().button;
   console.log('Click at:', x, y, 'Button:', menuButton);
 
   // Check if click is within button bounds
@@ -156,10 +171,10 @@ let menuPulse = 0;
 
 // Draw main menu
 function drawMenu() {
-  // Live UI size: UI space covers the whole display, so a menu centred
-  // against it stays centred at any aspect ratio.
-  const width = game.uiRenderer.width;
-  const height = game.uiRenderer.height;
+  // All geometry comes from menuLayout(), the same source the click handler
+  // hit-tests against, resolved fresh so it tracks any aspect ratio.
+  const l = menuLayout();
+  const { width, height } = l;
 
   menuPulse += 0.03;
 
@@ -192,7 +207,7 @@ function drawMenu() {
 
   // Title with animated glow
   const titlePulse = 1 + Math.sin(menuPulse * 2) * 0.03;
-  drawStyledText('DONER RHYTHM', width / 2, 100, {
+  drawStyledText('DONER RHYTHM', width / 2, l.titleY, {
     fontSize: 72 * titlePulse,
     fontWeight: 'bold',
     color: '#FFD700',
@@ -203,7 +218,7 @@ function drawMenu() {
   });
 
   // Subtitle
-  drawStyledText('Build orders to the beat!', width / 2, 170, {
+  drawStyledText('Build orders to the beat!', width / 2, l.subtitleY, {
     fontSize: 26,
     color: '#F5DEB3',
     align: 'center',
@@ -211,11 +226,8 @@ function drawMenu() {
     shadow: { color: 'rgba(0,0,0,0.8)', blur: 6 }
   });
 
-  // Start button with glow
-  const buttonWidth = 280;
-  const buttonHeight = 65;
-  const btnX = width / 2 - buttonWidth / 2;
-  const btnY = 340 - buttonHeight / 2;
+  // Start button with glow, drawn from the same rect the click handler tests.
+  const { x: btnX, y: btnY, width: buttonWidth, height: buttonHeight } = l.button;
   const btnGlow = 0.7 + Math.sin(menuPulse * 3) * 0.2;
 
   drawRoundedRect(btnX, btnY, buttonWidth, buttonHeight, 16, {
@@ -228,7 +240,7 @@ function drawMenu() {
     shadow: { color: 'rgba(100, 255, 100, 0.4)', blur: 25, offsetY: 5 }
   });
 
-  drawStyledText('START GAME', width / 2, 340, {
+  drawStyledText('START GAME', width / 2, l.buttonCentreY, {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
@@ -238,7 +250,7 @@ function drawMenu() {
   });
 
   // Instructions panel
-  const panelY = 420;
+  const panelY = l.panelY;
   const panelHeight = 200;
   drawRoundedRect(width / 2 - 350, panelY, 700, panelHeight, 20, {
     gradient: [
@@ -329,8 +341,10 @@ function donerUpdate(currentTime) {
   // Normal game update
   if (currentScene) {
     if (donerGame && (donerGame.isGameActive || donerGame.isCountingDown)) {
-      // Update doner game (handles countdown and gameplay)
-      donerGame.update(deltaTime);
+      // Update doner game (handles countdown and gameplay). Replacing the
+      // engine loop means honouring the engine's pause flag here too — the
+      // settings menu's Paused row toggles it.
+      if (!game.paused) donerGame.update(deltaTime);
 
       // Draw doner game UI - clear first, then draw
       game.uiRenderer.clear('#2d1b0e');

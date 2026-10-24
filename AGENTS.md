@@ -26,6 +26,7 @@ node scripts/generateSprites.js <example>  # Generate sprites for an example
 - **Constraint** (`constraint.js`) - Reusable behaviors attached to entities (health, attack, movement, debug)
 - **Projectile** (`projectile.js`) - Base class for projectiles (rockets, bullets). Handles movement, lifetime, collision, damage.
 - **Scene** (`scene.js`) - Manages level loading, entities, UI. Checks `entity.name === 'Player'` for camera follow.
+- **SceneLoader** (`sceneLoader.js`) - Validates and normalizes scene JSON before a Scene is built from it. See "Level JSON Structure".
 - **M2D** (`m2d.js`) - Main engine class. Collision handlers are set up in `setupCollisionHandlers()`.
 
 ### Renderers (`src/core/renderers/`)
@@ -64,34 +65,24 @@ silhouette shadows), never in the contract or in callers.
   forwards calls with `isScreenSpace: true`. `game.uiRenderer` is one of these, so a
   new backend only implements `BaseRenderer` and the UI layer works automatically.
 - **Capabilities** - Everything in the contract above is mandatory. Beyond it,
-  backends advertise *optional* features through `renderer.capabilities`
-  (`tint`, `blendModes`, `particles`, `lights`, `postEffects`), queried with
-  `renderer.supports(name)`. The defaults live in `OPTIONAL_CAPABILITIES` in
-  `baseRenderer.js` and are all false; a backend overrides what it implements.
-  A backend that lacks an optional feature **ignores** the option rather than
-  throwing, so a scene written for the GPU still runs on Canvas. Implemented so
-  far: `tint` (WebGL only — it folds into the vertex colour the texture shader
-  already multiplies, so per-sprite tints cost no extra draw calls) and
-  `blendModes` (both backends — `gl.blendFunc` keyed into the batch state,
-  `globalCompositeOperation` on Canvas), and `particles` (`drawParticles` with
-  a packed `Float32Array`, `PARTICLE_STRIDE` floats per particle; WebGL
-  batches it with per-particle colour, `BaseRenderer` supplies a
-  sprite-per-particle fallback so the call works everywhere and the flag
-  means "fast and coloured"), `lights` and `postEffects` (WebGL only, both in
-  `webgl/effectsPass.js`). Lighting is switched on by `setAmbientLight`, not
-  by submitting lights: with no ambient the light map would be white and
-  there would be nothing for lights to do, so a null ambient skips the pass
-  entirely and costs nothing. When either is active the world pass is
-  redirected into a stencil-backed offscreen scene target — the stencil
-  matters, or clipping silently stops working there — and composited in
-  `endFrame`; the screen pass always goes straight to the default
-  framebuffer so UI is neither dimmed nor bloomed.
-  Optional features exist because the backends are genuinely unalike — additive
-  blending and post effects are nearly free on a GPU and expensive or
-  impossible on Canvas 2D — so callers query and degrade instead of every
-  backend being held to the slowest one. Do not confuse this with the
+  backends advertise *optional* features through `renderer.capabilities`,
+  queried with `renderer.supports(name)`; defaults live in
+  `OPTIONAL_CAPABILITIES` (`baseRenderer.js`) and are all false. A backend
+  lacking one **ignores** the option rather than throwing, so a scene written
+  for the GPU still runs on Canvas. They exist because the backends are
+  genuinely unalike — additive blending and post effects are nearly free on a
+  GPU and expensive or impossible on Canvas 2D — so callers query and degrade
+  instead of holding every backend to the slowest. Not to be confused with the
   conformance harness's `capabilities` field, which gates *mandatory* contract
   tests while a backend is still being built.
+
+  | Feature | Backends | Notes |
+  | --- | --- | --- |
+  | `tint` | WebGL | Folds into the vertex colour the texture shader already multiplies, so it costs no extra draw calls |
+  | `blendModes` | both | `gl.blendFunc` keyed into the batch state; `globalCompositeOperation` on Canvas |
+  | `particles` | WebGL | `drawParticles` takes a packed `Float32Array` (`PARTICLE_STRIDE` floats each). `BaseRenderer` falls back to one `drawSprite` per particle, so the call works everywhere and the flag means "fast and coloured" |
+  | `lights` | WebGL | Switched on by `setAmbientLight`, not by submitting lights: with no ambient the light map is white and lights have nothing to do, so a null ambient skips the pass entirely |
+  | `postEffects` | WebGL | Bloom and vignette, with `lights`, in `webgl/effectsPass.js` |
 - **Registry** (`index.js`) - `registerRenderer(name, Class)` + the M2D `renderer`
   option (`'webgl'` by default, `'canvas'`, or a class/instance) select the backend.
   If the default backend cannot initialise (no WebGL2), M2D falls back to Canvas
@@ -104,12 +95,10 @@ The backend contract is enforced by an executable conformance suite
 (`test/conformance/rendererConformance.js`). A new backend is validated by one
 file that passes it a harness — see `test/README.md`. Tests are split into a
 `node` project (fast, node-canvas) and a `browser` project (`test/browser/**`,
-headless Chromium) because Node has no WebGL; the WebGL2 conformance file lives
-in the browser project with every capability flag `false` until its feature
-lands. Two contract details are
-easy to get wrong and are pinned by tests: partial `drawArc` fills produce
-circular **segments** (chord-closed), not pie sectors; and the frame order is
-world pass then screen pass.
+headless Chromium) because Node has no WebGL. Two contract details are easy to
+get wrong and are pinned by tests: partial `drawArc` fills produce circular
+**segments** (chord-closed), not pie sectors; and the frame order is world
+pass then screen pass.
 
 ### Viewport, resolution and resize (`src/core/viewport.js`)
 
@@ -134,6 +123,24 @@ Rules that follow from this, all pinned by tests:
   WebGL the two passes bind the default framebuffer differently
   (`#bindDefaultTarget`), and label textures are rasterized at the active
   pass's density.
+- **The world surface is a real surface, on both backends.** Canvas renders
+  the world into `worldBuffer` and blits it to the content rect. WebGL renders
+  into the effects pass's `scene` target and presents it — whenever the world
+  is resampled (`#worldIsResampled`) *or* lighting/post effects need the world
+  as a texture. The no-effects case goes through `EffectsPass.present`, a
+  one-draw blit, rather than the full composite. At `'native'` neither backend
+  resamples, and WebGL draws straight to the default framebuffer so the
+  context's own multisampling still applies. The scene target carries a
+  stencil buffer — without it, clipping silently stops working whenever the
+  world is routed through it. A backend that rasterizes the world at display
+  resolution and only *reports* the lower one is the bug the conformance
+  suite's "rasterizes the world into the world surface" case exists to catch
+  — it is not enough to test that the UI stayed sharp.
+- **`worldFilter` is how the surface is upscaled**, and both backends honour
+  it: `'nearest'` for pixel art, `'linear'` (default) otherwise. It is a
+  `BaseRenderer` method (`setWorldFilter`), set from `options.worldFilter` at
+  init and changeable at runtime through `game.setWorldFilter(...)`. It has no
+  effect at `'native'`, where there is nothing to upscale.
 - **UI fills the screen; the world may letterbox.** UI space always covers the
   whole display (fixed height, width follows the aspect), so elements can
   anchor to real screen edges. `options.aspectMode` picks `'letterbox'`
@@ -142,6 +149,15 @@ Rules that follow from this, all pinned by tests:
 - **UI positions are anchor-relative.** `UIElement` stores `offsetX/offsetY`
   against an `anchor` (`'top-left'` by default, so existing absolute layouts
   are unchanged); `x`/`y` resolve against the current UI size on every read.
+  Full-screen backgrounds use `UIRectangle`'s `fill: true` (scene JSON:
+  `"fill": true`), which stretches over live UI space every draw — no fixed
+  design-sized rect can cover a space that widens with the display.
+- **Bounded cameras centre when the view outgrows the bounds.** Example games
+  set `camera.bounds` from their world size so player-following and the
+  `'expand'` aspect mode never reveal the void past the map; when the view is
+  larger than the bounded span (expand on a one-screen board, like the maze),
+  the clamp limits invert and `Camera` centres on the span instead of pinning
+  to a corner.
 - **Backends implement `setViewport(viewport)`**, not a bare resize.
   `BaseRenderer.resize(w, h)` is a convenience that builds an
   `identityViewport` (everything the same size) and is what the conformance
@@ -152,24 +168,74 @@ Rules that follow from this, all pinned by tests:
   drawn area (CSS letterboxing) and the world occupies only its content rect
   inside it. Use `game.getMousePosition(event)` for world coordinates and
   `game.getUIPosition(event)` for UI coordinates; never scale by the bounding
-  rect by hand.
+  rect by hand. The opposite direction is `game.worldToUI(x, y)`
+  (`viewToUI` in viewport.js), for pinning screen-space content to a world
+  object.
+- **Annotations do not belong in the world pass.** Anything drawn *on* the
+  game rather than *in* it — debug geometry (attention radii, attack ranges,
+  target dots, facing vectors, bounds boxes), world-anchored readouts, a
+  trigger's tinted area and name — is rasterized into the world surface if it
+  goes through `game.renderer`, so it inherits the render resolution: at 0.25x
+  a range ring becomes a staircase and a 3-unit target dot disappears, while
+  the sprites it annotates merely look blocky, which is the intended effect.
+  Submit it to `game.worldOverlay` (`src/core/ui/worldOverlay.js`) instead.
+  Its API mirrors the renderer's, so moving a call is a one-word change:
+  `game.renderer.drawArc(...)` -> `game.worldOverlay.drawArc(...)`.
+  - **Shapes keep world units.** Coordinates *and* sizes go through the
+    world-to-UI transform, so a 200-unit ring stays glued to the 200 units it
+    describes. Only the rasterization changes.
+  - **Text keeps a fixed UI size.** The anchor is world coordinates, but
+    `fontSize` and `offsetX/offsetY` are UI units, so a readout is as legible
+    at 0.25x as at native and never scales with the view.
+  - Submissions are per-frame, cleared at the top of `drawWorld`, drawn
+    shapes-then-text, and clipped to the content rect so nothing runs onto the
+    letterbox bars.
+  - The line is "is this the thing, or a note about the thing": an actor's own
+    appearance stays in the world pass (the turret's base and barrel, the
+    rocket's fins, a damage flash tinting a sprite), as does the health bar,
+    whose thickness is clamped against the resolution instead. Text that *is*
+    world content rendered en masse on purpose stays too — the showcase's
+    label-storm stress layer.
 
 **Settings menu** (`src/core/ui/settingsMenu.js`): a scene-independent overlay
-with resolution presets, fullscreen and aspect mode, toggled with O. Every
-example mounts one (`new SettingsMenu(game)`). It registers in `game.overlays`,
-drawn by `game.drawOverlays()` after the scene's UI each frame — a game that
-replaces the engine loop (doner) must call `drawOverlays()` itself. Its pointer
-listeners sit on `window` in the capture phase so that, while open, clicks
-never reach scene UI or document-level handlers underneath.
+with resolution presets, fullscreen, aspect mode and a Paused row, toggled with
+O. Every example mounts one (`new SettingsMenu(game)`); the instance registers
+itself as `game.settings`, which is how scene UI reaches it — a scene-JSON
+button with `"action": "settings"` ends up calling `game.settings.open()`
+(`Scene.#runButtonAction`; other action names go to the scene config's
+`onAction` hook, and `onClick` scene switches log failures instead of rejecting
+unhandled). It registers in `game.overlays`, drawn by `game.drawOverlays()`
+after the scene's UI each frame — a game that replaces the engine loop (doner)
+must call `drawOverlays()` itself. Its pointer *and keyboard* listeners sit on
+`window` in the capture phase so that, while open, input never reaches scene
+UI, document-level handlers or the game's key bindings underneath; key
+*releases* pass through on purpose so a key held when the menu opened still
+releases in `KeyStates`. Resolution presets are compared structurally
+(`sameResolution`), so `{width, height}` objects cycle correctly.
+
+**Pause** (`game.paused`): a plain flag the engine loop honours — while set,
+no physics, entity or camera updates run, but the frame is still drawn, so the
+frozen game stays visible under overlays. The settings menu's Paused row
+toggles it; opening the menu pauses only if the game opts in with
+`new SettingsMenu(game, { pauseWhenOpen: true })`, which restores the previous
+pause state on close. A game that replaces the engine loop honours the flag
+itself (doner gates `donerGame.update` on it).
 
 Display changes (ResizeObserver, `fullscreenchange`, DPR via `matchMedia`) are
 coalesced and applied at the top of a frame, never mid-draw. `game.resize()`
 drops no-op changes, which also breaks the feedback loop a ResizeObserver would
 otherwise form with the `canvas.width` the engine sets. Example pages therefore
 give the canvas an explicit CSS size and let the engine letterbox internally,
-rather than using `object-fit: contain`. `game.destroy()` tears the listeners
-down; `game.onResize(fn)` and the scene config's `onResize` hook notify game
-code that lays out its own HUD.
+rather than using `object-fit: contain`. `game.onResize(fn)` and the scene
+config's `onResize` hook notify game code that lays out its own HUD.
+
+`game.destroy()` is the full teardown and must leave nothing global behind:
+display listeners, overlays (first, since they unregister their own key
+bindings), `KeyStates` and `SoundManager` document listeners, playing audio,
+the current scene, and the renderer's GPU resources. Anything that attaches
+to `window` or `document` keeps a stable reference to its handler so it can
+be removed again — binding inline at `addEventListener` is unremovable, which
+is how the input listeners used to outlive every game that created them.
 
 ### Actors (`src/actors/`)
 
@@ -210,6 +276,9 @@ Note: Platform doesn't set a category, so it uses `default`. Projectiles must co
 3. Add constraints in constructor
 4. Register in example's `main.js`: `game.registerActor('ActorName', ActorClass)`
 5. Add prefab in level JSON
+6. Draw the actor itself through `game.renderer`; draw anything *about* it —
+   ranges, markers, readouts — through `game.worldOverlay`, so annotations
+   stay sharp at any world render resolution (see the viewport section)
 
 ### FPS-Independent Timing
 
@@ -330,8 +399,28 @@ Two rules keep it a valid measurement:
 
 ## Level JSON Structure
 
+Scene JSON is **validated strictly** by `SceneLoader` before `Scene` touches
+it (`SceneManager.loadScene` calls `loader.load`). It throws
+`SceneValidationError` naming the scene and the path to the bad field, rather
+than letting a mistake surface as a half-built level, a per-object console
+error, or — as with the platformer's Settings button — a control that simply
+does nothing. Checks cover the format (`version` must be the number `1`,
+known `type`), every cross-reference (object→prefab, prefab→spritesheet and
+→registered actor, defaultAnimation→that sheet's animations,
+button `onClick`→registered scene), and **unknown keys**, which are errors:
+silently ignoring a field the author believed in is the failure being
+designed against. It applies the format's defaults (object size 32) and
+returns the same shape `Scene` already reads — there is deliberately no
+intermediate representation, so there is only one scene format to know.
+
+Adding a field to the format means adding it to the key lists at the top of
+`sceneLoader.js`, or it will be rejected. `test/sceneLoader.test.js`
+validates every scene the repo ships, so a schema change that breaks an
+example fails there.
+
 ```javascript
 {
+  "version": 1,                                 // the number 1, not "1.0"
   "world": { "gravity": { "x": 0, "y": 0 } },  // y:0 for top-down
   "prefabs": {
     "enemy": {

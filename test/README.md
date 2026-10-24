@@ -16,7 +16,7 @@ Tests are split into two Vitest projects (`vitest.workspace.js`):
   headless Chromium via Playwright. Node has no WebGL, so this is where the
   WebGL2 backend is validated.
 
-## Why three layers
+## Why layered
 
 The renderer abstraction has two sides that can break independently: callers
 that emit draw calls, and backends that execute them. Each layer below targets
@@ -24,10 +24,19 @@ one of them, so a failure localises immediately.
 
 | Layer | File | Project | What it proves |
 | --- | --- | --- | --- |
-| Backend contract | `conformance/rendererConformance.js` (123 tests per backend) | node + browser | A backend rasterizes every primitive correctly |
+| Backend contract | `conformance/rendererConformance.js` (one suite, run per backend) | node + browser | A backend rasterizes every primitive correctly |
 | Caller contract | `engineDrawCalls.test.js` | node | Engine/actor code emits the right draw calls |
 | UI + wiring | `uiRenderer.test.js`, `rendererRegistry.test.js` | node | Screen-space forwarding, widgets, backend selection |
 | Browser environment | `browser/environment.smoke.test.js` | browser | WebGL2 exists in the runner, pixel readback is top-left, fixtures upload as textures |
+
+Beyond the renderer abstraction, engine-level suites cover the display
+pipeline and what sits on it: `viewport.test.js` (sizing math, pointer and
+label projection, `sameResolution`), `resizeLifecycle.test.js` (camera, input
+mapping, hit testing and `worldFilter` plumbing across resizes),
+`worldOverlay.test.js` (world-anchored annotations drawn sharp in the UI
+pass), `settingsMenu.test.js` (the overlay, its input capture and pause),
+`pause.test.js` (the loop freezes simulation but keeps presenting) and
+`sceneActions.test.js` (scene-JSON buttons and background layers).
 
 ### 1. Backend conformance (pixels)
 

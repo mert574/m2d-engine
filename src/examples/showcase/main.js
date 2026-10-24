@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { sameResolution } from '../../core/viewport.js';
 import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Showcase } from './showcase.js';
 import moteSprite from './assets/mote.png';
@@ -82,12 +83,13 @@ game.keys.addKey('f', (pressed) => { if (pressed) game.toggleFullscreen(); });
 
 // Resolution, the way a settings menu would set it. Only the world gets
 // coarser — the same amount of world stays visible and the HUD stays sharp.
+// The hotkey keeps no index of its own: it reads `game.resolution` back, so
+// it stays in step with the settings overlay changing the same setting.
 const RESOLUTIONS = ['native', { width: 1280, height: 720 }, { width: 854, height: 480 }, { width: 426, height: 240 }];
-let resolutionIndex = 0;
 game.keys.addKey('v', (pressed) => {
   if (!pressed) return;
-  resolutionIndex = (resolutionIndex + 1) % RESOLUTIONS.length;
-  game.setResolution(RESOLUTIONS[resolutionIndex]);
+  const index = RESOLUTIONS.findIndex(r => sameResolution(r, game.resolution));
+  game.setResolution(RESOLUTIONS[(index + 1) % RESOLUTIONS.length]);
 });
 
 // Aspect behaviour, so the difference is visible side by side.
@@ -106,7 +108,8 @@ game.keys.addKey('b', (pressed) => {
   location.search = params.toString();
 });
 
-// Settings overlay (O): resolution, fullscreen, aspect mode.
-new SettingsMenu(game);
+// Settings overlay (O), sharing the V hotkey's preset list so the two ways of
+// changing the resolution cycle through the same choices.
+new SettingsMenu(game, { resolutions: RESOLUTIONS });
 
 game.start();

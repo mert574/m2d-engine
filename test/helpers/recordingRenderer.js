@@ -48,8 +48,10 @@ export class RecordingRenderer extends BaseRenderer {
   // === Lifecycle ===
   init(element, options = {}) {
     this.element = element;
-    this.width = options.width ?? this.width;
-    this.height = options.height ?? this.height;
+    // Like real backends: adopt the engine's viewport (width/height are
+    // derived from it, not stored — BaseRenderer's getters own them).
+    if (options.viewport) this.viewport = options.viewport;
+    else if (options.width && options.height) this.viewport = identityViewport(options.width, options.height);
     this.#record('init', element, options);
   }
 

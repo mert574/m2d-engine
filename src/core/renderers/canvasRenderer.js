@@ -43,12 +43,6 @@ export class CanvasRenderer extends BaseRenderer {
     this.scratchBuffer = null;
     /** @type {CanvasRenderingContext2D|null} */
     this.scratchContext = null;
-    /**
-     * How the world surface is filtered when the render resolution is below
-     * the display's. 'nearest' keeps pixel art crisp.
-     * @type {'linear'|'nearest'}
-     */
-    this.worldFilter = 'linear';
 
     /**
      * Shared transform/clip stack. Entries are { kind: 'transform'|'clip', ctx }
@@ -71,7 +65,7 @@ export class CanvasRenderer extends BaseRenderer {
     this.worldBuffer = document.createElement('canvas');
     this.worldContext = this.worldBuffer.getContext('2d');
 
-    if (options.worldFilter) this.worldFilter = options.worldFilter;
+    if (options.worldFilter) this.setWorldFilter(options.worldFilter);
 
     this.setViewport(options.viewport || identityViewport(
       options.width || this.viewport.viewWidth,

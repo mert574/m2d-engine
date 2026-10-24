@@ -214,8 +214,14 @@ export class Turret extends Entity {
     }
 
     if (this.game.renderer.isDebugEnabled()) {
+      // Range and aim are annotations on top of the game, not part of the
+      // turret, so they go to the world overlay: world coordinates and world
+      // sizes, rasterized at display resolution. A hairline ring drawn into
+      // a quarter-resolution world surface would break up into steps.
+      const overlay = this.game.worldOverlay;
+
       // Draw detection range
-      this.game.renderer.drawArc({
+      overlay.drawArc({
         x: pos.x,
         y: pos.y,
         radius: this.detectionRange,
@@ -227,7 +233,7 @@ export class Turret extends Entity {
 
       // Draw aim line
       if (this.isPlayerInRange) {
-        this.game.renderer.drawLine({
+        overlay.drawLine({
           x1: pos.x,
           y1: pos.y,
           x2: pos.x + this.aimDirection.x * this.detectionRange,
@@ -237,11 +243,11 @@ export class Turret extends Entity {
         });
       }
 
-      // Draw cooldown text
-      this.game.renderer.drawText({
+      overlay.drawText({
         text: `fire: ${this.fireCooldown.toFixed(1)}s`,
         x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y + 5,
+        y: this.body.bounds.max.y,
+        offsetY: 5,
         fillStyle: '#CE93D8',
         fontSize: '12px',
         fontFamily: 'monospace',

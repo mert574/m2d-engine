@@ -10,17 +10,17 @@
     {
       "type": "rect",
       "id": "background",
-      "x": 640,
-      "y": 480,
-      "width": 1280,
-      "height": 960,
+      "x": 0,
+      "y": 0,
+      "fill": true,
       "color": "#1a1a2e"
     },
     {
       "type": "text",
       "id": "title",
-      "x": 640,
-      "y": 200,
+      "anchor": "center",
+      "x": 0,
+      "y": -280,
       "properties": {
         "text": "Top-Down Demo",
         "fontSize": "128px",
@@ -31,11 +31,29 @@
     {
       "type": "button",
       "id": "startGame",
-      "x": 640,
-      "y": 400,
+      "anchor": "center",
+      "x": 0,
+      "y": -80,
       "properties": {
         "text": "Start Game",
         "onClick": "level1",
+        "width": 200,
+        "height": 50,
+        "fontSize": "24px",
+        "backgroundColor": "#0f3460",
+        "hoverColor": "#16213e",
+        "textColor": "#eaeaea"
+      }
+    },
+    {
+      "type": "button",
+      "id": "settings",
+      "anchor": "center",
+      "x": 0,
+      "y": -10,
+      "properties": {
+        "text": "Settings",
+        "action": "settings",
         "width": 200,
         "height": 50,
         "fontSize": "24px",

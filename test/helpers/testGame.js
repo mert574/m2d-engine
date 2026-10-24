@@ -2,6 +2,9 @@ import Matter from 'matter-js';
 import { expect } from 'vitest';
 import { RecordingRenderer } from './recordingRenderer.js';
 import { UIRenderer } from '../../src/core/renderers/uiRenderer.js';
+import { WorldOverlay } from '../../src/core/ui/worldOverlay.js';
+import { Camera } from '../../src/core/camera.js';
+import { viewToUI } from '../../src/core/viewport.js';
 
 /**
  * A minimal stand-in for the M2D instance that entities, constraints and UI
@@ -11,7 +14,7 @@ import { UIRenderer } from '../../src/core/renderers/uiRenderer.js';
 export function makeTestGame(options = {}) {
   const renderer = new RecordingRenderer();
 
-  return {
+  const game = {
     renderer,
     uiRenderer: new UIRenderer(renderer),
     engine: Matter.Engine.create(),
@@ -20,8 +23,24 @@ export function makeTestGame(options = {}) {
     canvas: { width: 800, height: 600, style: {} },
     soundManager: { playSound() {}, stopMusic() {} },
     sceneManager: { switchTo() {} },
-    options: { width: 800, height: 600, worldWidth: 1600, worldHeight: 1200, ...options }
+    overlays: new Set(),
+    // Camera centred on the view, so world (0..800, 0..600) is on screen and
+    // worldToUI is the identity under the recording renderer's 800x600
+    // identity viewport — assertions can reason in plain world numbers.
+    camera: new Camera(800, 600),
+    options: { width: 800, height: 600, worldWidth: 1600, worldHeight: 1200, ...options },
+    get viewport() {
+      return renderer.viewport;
+    },
+    worldToUI(x, y) {
+      const view = this.camera.worldToScreen(x, y);
+      return viewToUI({ x: view.x, y: view.y, viewport: this.viewport });
+    }
   };
+  game.camera.x = 400;
+  game.camera.y = 300;
+  game.worldOverlay = new WorldOverlay(game);
+  return game;
 }
 
 /** A Matter body positioned and sized for entity tests. */
