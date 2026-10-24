@@ -97,6 +97,8 @@
  * 0..1, and white means untinted. `size` is the drawn height; width follows
  * the tile's aspect ratio.
  */
+import { identityViewport } from '../viewport.js';
+
 export const PARTICLE_STRIDE = 8;
 
 export const OPTIONAL_CAPABILITIES = Object.freeze({
@@ -115,6 +117,14 @@ export class BaseRenderer {
     if (this.constructor === BaseRenderer) {
       throw new Error('BaseRenderer is an abstract class and cannot be instantiated directly');
     }
+
+    /**
+     * Current sizing. Backends read every size they need from here rather than
+     * from the canvas, so the world surface, the UI layer and the backing store
+     * can differ. Replaced wholesale by setViewport().
+     * @type {import('../viewport.js').Viewport}
+     */
+    this.viewport = identityViewport(800, 600);
 
     /**
      * Optional features this backend supports. Subclasses override the ones
@@ -171,11 +181,46 @@ export class BaseRenderer {
   destroy() { throw new Error('Method not implemented'); }
 
   /**
-   * Resize the renderer.
+   * Visible world width, in world units. This is the camera's view size, not a
+   * pixel count: it does not change when the render resolution changes.
+   * @type {number}
+   */
+  get width() { return this.viewport.viewWidth; }
+
+  /**
+   * Visible world height, in world units.
+   * @type {number}
+   */
+  get height() { return this.viewport.viewHeight; }
+
+  /**
+   * Adopt a new viewport: resize the backing store, the world surface and any
+   * size-dependent resources, and re-establish the world and UI transforms.
+   *
+   * Backends must store the viewport even when they cannot act on it yet (a
+   * WebGL context may be lost), so the size can be replayed on recovery.
+   *
+   * @param {import('../viewport.js').Viewport} viewport - The sizes to adopt
+   */
+  setViewport(viewport) { throw new Error('Method not implemented'); }
+
+  /**
+   * Resize the renderer to an unscaled `width` x `height` — view, world
+   * surface, UI space and backing store all the same size. Called with no
+   * arguments it re-applies the current viewport, which is how a backend
+   * rebuilds after losing its drawing resources.
+   *
+   * This is the simple entry point; `setViewport` is the full one.
+   *
    * @param {number} [width] - New width
    * @param {number} [height] - New height
    */
-  resize(width, height) { throw new Error('Method not implemented'); }
+  resize(width, height) {
+    const next = (width !== undefined && height !== undefined)
+      ? identityViewport(width, height)
+      : this.viewport;
+    this.setViewport(next);
+  }
 
   /**
    * Clear the presented surface.

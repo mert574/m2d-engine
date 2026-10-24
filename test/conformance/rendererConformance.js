@@ -124,6 +124,71 @@ export function describeRendererConformance(harness) {
         expectColorAt(snap, 40, 30, '#ff0000');
       });
 
+      // A backend must size the world surface, the UI layer and the backing
+      // store independently. This is what lets a game expose a resolution
+      // setting that coarsens the world while the HUD stays sharp.
+      describe('independent world and UI resolution', () => {
+        /**
+         * A 200x120 view rendered into a 20x12 world surface (a tenth of the
+         * linear resolution) and presented on a 200x120 backing store.
+         */
+        function setupSplitResolution() {
+          target = harness.createTarget(W, H);
+          renderer = harness.createRenderer();
+          renderer.init(target, {
+            viewport: {
+              backingWidth: W, backingHeight: H, pixelRatio: 1,
+              viewWidth: W, viewHeight: H,
+              worldWidth: 20, worldHeight: 12, worldScale: 0.1,
+              contentX: 0, contentY: 0, contentWidth: W, contentHeight: H,
+              uiWidth: W, uiHeight: H, uiScale: 1
+            }
+          });
+        }
+
+        it('presents a low-resolution world across the whole backing store', () => {
+          setupSplitResolution();
+          renderFrame({
+            world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ff0000' })
+          });
+
+          const snap = read();
+          expect(snap.width).toBe(W);
+          expect(snap.height).toBe(H);
+          // Upscaled to fill the surface, corners included.
+          expectColorAt(snap, 5, 5, '#ff0000');
+          expectColorAt(snap, W - 5, H - 5, '#ff0000');
+        });
+
+        it('rasterizes the world coarsely but the UI at full resolution', () => {
+          setupSplitResolution();
+          renderFrame({
+            // A one-unit-wide world stripe cannot survive a 10x downscale as
+            // a crisp edge; a one-unit-wide UI stripe must.
+            world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#000000' }),
+            screen: r => r.drawRect({ x: 100, y: 0, width: 1, height: H, fillStyle: '#00ff00', isScreenSpace: true })
+          });
+
+          const snap = read();
+          // The UI stripe lands exactly where it was asked to, one pixel wide.
+          expectColorAt(snap, 100, 60, '#00ff00');
+          expectNotColorAt(snap, 97, 60, '#00ff00');
+          expectNotColorAt(snap, 103, 60, '#00ff00');
+        });
+
+        it('keeps UI geometry in UI units, not world units', () => {
+          setupSplitResolution();
+          renderFrame({
+            screen: r => r.drawRect({ x: 0, y: 0, width: 50, height: 30, fillStyle: '#00ff00', isScreenSpace: true })
+          });
+
+          const snap = read();
+          // 50x30 UI units on a 200x120 UI space: a quarter of the surface.
+          expectColorAt(snap, 25, 15, '#00ff00');
+          expectNotColorAt(snap, 75, 15, '#00ff00');
+        });
+      });
+
       it('tolerates draw calls after destroy without throwing', () => {
         renderer.destroy();
         expect(() => {

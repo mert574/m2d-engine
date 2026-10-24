@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Player } from '../../actors/player.js';
 import { Bee } from '../../actors/bee.js';
 import { Platform } from '../../actors/platform.js';
@@ -52,5 +53,8 @@ game.sceneManager.addScene('level1', {
     game.soundManager.playMusic('game');
   }
 });
+
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
 
 game.start();

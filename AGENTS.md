@@ -111,6 +111,66 @@ easy to get wrong and are pinned by tests: partial `drawArc` fills produce
 circular **segments** (chord-closed), not pie sectors; and the frame order is
 world pass then screen pass.
 
+### Viewport, resolution and resize (`src/core/viewport.js`)
+
+The engine keeps **three resolutions independent**, because they answer three
+different questions. Confusing them is the main hazard when touching this code.
+
+| | What it is | Set by | Renderer field |
+| --- | --- | --- | --- |
+| **View** | How much world is visible, in *world units* | `options.width/height` (design size) | `renderer.width/height`, `camera.width/height` |
+| **World surface** | How many pixels that view rasterizes into | `game.setResolution(...)` | `viewport.worldWidth/worldHeight` |
+| **UI** | Screen-space layer, in UI units at display pixel density | Display size + DPR | `uiRenderer.width/height` |
+
+Rules that follow from this, all pinned by tests:
+
+- **Resolution is fidelity, not zoom.** `setResolution({width, height})` changes
+  only the world surface. The camera's view is untouched, so a low resolution
+  makes the world coarser and never reveals anything past the designed view.
+  `'native'` matches the display.
+- **UI never gets coarser.** The world is composited from its surface into the
+  content rect, then the UI draws straight onto the backing store at full
+  display resolution — so a 426x240 world can carry a razor-sharp HUD. On
+  WebGL the two passes bind the default framebuffer differently
+  (`#bindDefaultTarget`), and label textures are rasterized at the active
+  pass's density.
+- **UI fills the screen; the world may letterbox.** UI space always covers the
+  whole display (fixed height, width follows the aspect), so elements can
+  anchor to real screen edges. `options.aspectMode` picks `'letterbox'`
+  (default, designed aspect preserved with bars) or `'expand'` (the view
+  widens and more world becomes visible — opt in only if the map can take it).
+- **UI positions are anchor-relative.** `UIElement` stores `offsetX/offsetY`
+  against an `anchor` (`'top-left'` by default, so existing absolute layouts
+  are unchanged); `x`/`y` resolve against the current UI size on every read.
+- **Backends implement `setViewport(viewport)`**, not a bare resize.
+  `BaseRenderer.resize(w, h)` is a convenience that builds an
+  `identityViewport` (everything the same size) and is what the conformance
+  suite's baseline uses. A backend must store the viewport even when it cannot
+  act on it — a WebGL context may be lost — so the *latest* size is replayed on
+  restore.
+- **Pointer mapping goes through `mapPointer`.** The canvas rect is not the
+  drawn area (CSS letterboxing) and the world occupies only its content rect
+  inside it. Use `game.getMousePosition(event)` for world coordinates and
+  `game.getUIPosition(event)` for UI coordinates; never scale by the bounding
+  rect by hand.
+
+**Settings menu** (`src/core/ui/settingsMenu.js`): a scene-independent overlay
+with resolution presets, fullscreen and aspect mode, toggled with O. Every
+example mounts one (`new SettingsMenu(game)`). It registers in `game.overlays`,
+drawn by `game.drawOverlays()` after the scene's UI each frame — a game that
+replaces the engine loop (doner) must call `drawOverlays()` itself. Its pointer
+listeners sit on `window` in the capture phase so that, while open, clicks
+never reach scene UI or document-level handlers underneath.
+
+Display changes (ResizeObserver, `fullscreenchange`, DPR via `matchMedia`) are
+coalesced and applied at the top of a frame, never mid-draw. `game.resize()`
+drops no-op changes, which also breaks the feedback loop a ResizeObserver would
+otherwise form with the `canvas.width` the engine sets. Example pages therefore
+give the canvas an explicit CSS size and let the engine letterbox internally,
+rather than using `object-fit: contain`. `game.destroy()` tears the listeners
+down; `game.onResize(fn)` and the scene config's `onResize` hook notify game
+code that lays out its own HUD.
+
 ### Actors (`src/actors/`)
 
 Game-specific entities extending Entity:

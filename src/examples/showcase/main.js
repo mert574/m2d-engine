@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Showcase } from './showcase.js';
 import moteSprite from './assets/mote.png';
 import reedSprite from './assets/reed.png';
@@ -74,6 +75,27 @@ game.keys.addKey(']', (pressed) => { if (pressed && showcase) showcase.stepLoad(
 game.keys.addKey('p', (pressed) => { if (pressed && showcase) showcase.toggleCamera(); });
 game.keys.addKey('h', (pressed) => { if (pressed && showcase) showcase.toggleHud(); });
 
+// Fullscreen. The engine's resize lifecycle does the rest: the view keeps its
+// aspect ratio, the camera keeps its coordinates, and the anchored HUD moves
+// to the new screen edges.
+game.keys.addKey('f', (pressed) => { if (pressed) game.toggleFullscreen(); });
+
+// Resolution, the way a settings menu would set it. Only the world gets
+// coarser — the same amount of world stays visible and the HUD stays sharp.
+const RESOLUTIONS = ['native', { width: 1280, height: 720 }, { width: 854, height: 480 }, { width: 426, height: 240 }];
+let resolutionIndex = 0;
+game.keys.addKey('v', (pressed) => {
+  if (!pressed) return;
+  resolutionIndex = (resolutionIndex + 1) % RESOLUTIONS.length;
+  game.setResolution(RESOLUTIONS[resolutionIndex]);
+});
+
+// Aspect behaviour, so the difference is visible side by side.
+game.keys.addKey('a', (pressed) => {
+  if (!pressed) return;
+  game.setAspectMode(game.aspectMode === 'letterbox' ? 'expand' : 'letterbox');
+});
+
 // Backend swap. The engine already honours `?renderer=`, so swapping is a
 // reload with the other name — no second code path to keep in sync.
 game.keys.addKey('b', (pressed) => {
@@ -83,5 +105,8 @@ game.keys.addKey('b', (pressed) => {
   params.set('renderer', current === 'webgl' ? 'canvas' : 'webgl');
   location.search = params.toString();
 });
+
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
 
 game.start();

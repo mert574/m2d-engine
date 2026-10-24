@@ -398,8 +398,8 @@ export class DonerGame {
     });
 
     // Spawn particles for visual feedback
-    const width = this.game.options.width;
-    const height = this.game.options.height;
+    const width = this.game.uiRenderer.width;
+    const height = this.game.uiRenderer.height;
     const ingredient = INGREDIENTS[ingredientId];
     this.spawnParticles(width / 2 - 60, height / 2 - 30, 15, {
       colors: [ingredient.color, '#FFD700', '#FFFFFF'],
@@ -415,8 +415,8 @@ export class DonerGame {
     this.lastAddedTime = Date.now();
 
     // Spawn red/dark particles for negative feedback
-    const width = this.game.options.width;
-    const height = this.game.options.height;
+    const width = this.game.uiRenderer.width;
+    const height = this.game.uiRenderer.height;
     this.spawnParticles(width / 2 - 60, height / 2 - 30, 20, {
       colors: ['#FF0000', '#880000', '#440000'],
       speed: 180,
@@ -511,8 +511,8 @@ export class DonerGame {
   // Drawing methods
   draw() {
     const renderer = this.game.uiRenderer;
-    const width = this.game.options.width;
-    const height = this.game.options.height;
+    const width = this.game.uiRenderer.width;
+    const height = this.game.uiRenderer.height;
 
     // Draw background
     if (this.spritesLoaded && this.sprites.background) {

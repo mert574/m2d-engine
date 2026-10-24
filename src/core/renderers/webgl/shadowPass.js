@@ -13,12 +13,22 @@ import { ATTRIBUTES, VERTEX_FLOATS, VERTEX_SHADER, BLUR_FRAGMENT_SHADER } from '
  *   3. the renderer composites A onto the frame in shadow-tint mode
  */
 export class ShadowPass {
-  constructor(gl, width, height) {
+  constructor(gl, width, height, pixelWidth = width, pixelHeight = height) {
     this.gl = gl;
-    this.a = createRenderTarget(gl, width, height);
-    this.b = createRenderTarget(gl, width, height);
+    this.a = createRenderTarget(gl, pixelWidth, pixelHeight);
+    this.b = createRenderTarget(gl, pixelWidth, pixelHeight);
+    /**
+     * Coordinate space of the pass this shadow belongs to: world units for the
+     * world pass, UI units for the screen pass. Geometry and UVs use these.
+     */
     this.width = width;
     this.height = height;
+    /**
+     * Pixel size of the targets. Separate from the coordinate space, so a
+     * shadow rasterizes at the render resolution of the pass that casts it.
+     */
+    this.pixelWidth = pixelWidth;
+    this.pixelHeight = pixelHeight;
 
     const { program, uniforms } = createProgram(gl, VERTEX_SHADER, BLUR_FRAGMENT_SHADER, ATTRIBUTES);
     this.program = program;
@@ -48,11 +58,35 @@ export class ShadowPass {
     gl.deleteProgram(this.program);
   }
 
-  resize(width, height) {
-    resizeRenderTarget(this.gl, this.a, width, height);
-    resizeRenderTarget(this.gl, this.b, width, height);
+  /**
+   * @param {number} width - Coordinate-space width (world or UI units)
+   * @param {number} height - Coordinate-space height
+   * @param {number} [pixelWidth=width] - Target width in pixels
+   * @param {number} [pixelHeight=height] - Target height in pixels
+   */
+  resize(width, height, pixelWidth = width, pixelHeight = height) {
+    resizeRenderTarget(this.gl, this.a, pixelWidth, pixelHeight);
+    resizeRenderTarget(this.gl, this.b, pixelWidth, pixelHeight);
     this.width = width;
     this.height = height;
+    this.pixelWidth = pixelWidth;
+    this.pixelHeight = pixelHeight;
+  }
+
+  /** Coordinate units -> target pixels. */
+  get #pixelScaleX() { return this.pixelWidth / this.width; }
+  get #pixelScaleY() { return this.pixelHeight / this.height; }
+
+  /** Convert coordinate-space bounds to the integer pixel rect for scissoring. */
+  #pixelRect(r) {
+    const sx = this.#pixelScaleX;
+    const sy = this.#pixelScaleY;
+    return {
+      minX: Math.max(0, Math.floor(r.minX * sx)),
+      minY: Math.max(0, Math.floor(r.minY * sy)),
+      maxX: Math.min(this.pixelWidth, Math.ceil(r.maxX * sx)),
+      maxY: Math.min(this.pixelHeight, Math.ceil(r.maxY * sy))
+    };
   }
 
   /** Blur radius in pixels for a shadow descriptor. */
@@ -65,7 +99,7 @@ export class ShadowPass {
   beginSilhouette() {
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.a.framebuffer);
-    gl.viewport(0, 0, this.width, this.height);
+    gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
     gl.disable(gl.SCISSOR_TEST);
     gl.disable(gl.STENCIL_TEST);
     gl.clearColor(0, 0, 0, 0);
@@ -88,8 +122,11 @@ export class ShadowPass {
     gl.uniform2f(this.uniforms.u_resolution, this.width, this.height);
     gl.uniform1f(this.uniforms.u_flipY, 1);
     gl.uniform1i(this.uniforms.u_texture, 0);
-    gl.uniform1f(this.uniforms.u_sigma, sigma);
-    gl.uniform1i(this.uniforms.u_radius, radius);
+    // The shader steps in texels, so a blur specified in coordinate units has
+    // to be converted or it would shrink as the render resolution rises.
+    const texelScale = this.#pixelScaleX;
+    gl.uniform1f(this.uniforms.u_sigma, sigma * texelScale);
+    gl.uniform1i(this.uniforms.u_radius, Math.min(128, Math.ceil(radius * texelScale)));
     gl.disable(gl.BLEND);
     gl.activeTexture(gl.TEXTURE0);
 
@@ -97,17 +134,18 @@ export class ShadowPass {
     const tall = expand(region, 0, radius, this.width, this.height);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.b.framebuffer);
     gl.enable(gl.SCISSOR_TEST);
-    scissor(gl, tall, this.height);
+    scissor(gl, this.#pixelRect(tall));
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    scissor(gl, region, this.height);
+    scissor(gl, this.#pixelRect(region));
     gl.bindTexture(gl.TEXTURE_2D, this.a.texture);
-    gl.uniform2f(this.uniforms.u_direction, 1 / this.width, 0);
+    // One step is one texel of the target, not one coordinate unit.
+    gl.uniform2f(this.uniforms.u_direction, 1 / this.pixelWidth, 0);
     this.#drawQuad(region);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.a.framebuffer);
     gl.bindTexture(gl.TEXTURE_2D, this.b.texture);
-    gl.uniform2f(this.uniforms.u_direction, 0, 1 / this.height);
+    gl.uniform2f(this.uniforms.u_direction, 0, 1 / this.pixelHeight);
     this.#drawQuad(region);
 
     gl.disable(gl.SCISSOR_TEST);
@@ -148,7 +186,7 @@ export function expand(r, dx, dy, width, height) {
   };
 }
 
-function scissor(gl, r, height) {
+function scissor(gl, r) {
   // Offscreen targets are rendered un-flipped: pixel y maps straight to GL y.
   gl.scissor(r.minX, r.minY, Math.max(0, r.maxX - r.minX), Math.max(0, r.maxY - r.minY));
 }

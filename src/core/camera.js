@@ -1,10 +1,17 @@
+/**
+ * The camera's width and height are the size of the visible world *in world
+ * units* — how much of the world is on screen, not how many pixels it is drawn
+ * with. They come from the viewport's view size, so changing the render
+ * resolution leaves them untouched; only an aspect-ratio change in `'expand'`
+ * mode moves them. See `viewport.js`.
+ */
 export class Camera {
   constructor(width, height, options = {}) {
     this.x = 0;
     this.y = 0;
     this.width = width;
     this.height = height;
-    
+
     this.target = null;
     this.lerp = options.lerp || 0.1;
     this.bounds = options.bounds || null;
@@ -13,8 +20,6 @@ export class Camera {
 
   init(scene) {
     this.scene = scene;
-    this.width = scene.game.canvas.width;
-    this.height = scene.game.canvas.height;
   }
 
   follow(target) {

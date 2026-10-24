@@ -51,11 +51,20 @@ export class TextLabels {
    * The returned anchor is the point inside the label that maps onto the
    * call's (x, y), so position = (x - anchorX, y - anchorY).
    */
-  get(options, frame) {
-    const key = labelKey(options);
+  /**
+   * @param {Object} options - drawText options
+   * @param {number} frame - Current frame index, for eviction
+   * @param {number} [scale=1] - Texels per coordinate unit. Labels are
+   *   rasterized at this density and drawn at their coordinate-space size, so
+   *   UI text stays sharp on HiDPI displays and at high render resolutions.
+   */
+  get(options, frame, scale = 1) {
+    // Round so a continuously changing scale cannot thrash the cache.
+    const quantized = Math.max(0.25, Math.min(4, Math.round(scale * 4) / 4));
+    const key = `${labelKey(options)}\u0001${quantized}`;
     let entry = this.cache.get(key);
     if (!entry) {
-      entry = this.#rasterize(options);
+      entry = this.#rasterize(options, quantized);
       if (!entry) return null;
       this.cache.set(key, entry);
     }
@@ -73,7 +82,7 @@ export class TextLabels {
     }
   }
 
-  #rasterize(options) {
+  #rasterize(options, scale = 1) {
     const text = String(options.text ?? '');
     const font = TextLabels.font(options);
     const size = TextLabels.fontSizePx(options);
@@ -98,10 +107,13 @@ export class TextLabels {
       : baseline === 'middle' ? pad + size
       : pad + size * 1.5; // alphabetic / bottom / ideographic: room for descenders
 
+    // The texture carries `scale` texels per coordinate unit; the quad the
+    // renderer draws stays `width` x `height` units, so only sharpness changes.
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = Math.max(1, Math.ceil(width * scale));
+    canvas.height = Math.max(1, Math.ceil(height * scale));
     const c = canvas.getContext('2d');
+    c.scale(scale, scale);
     c.font = font;
     c.textAlign = align;
     c.textBaseline = baseline;

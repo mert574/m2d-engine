@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { TopDownPlayer } from '../../actors/topDownPlayer.js';
 import { Ghost } from '../../actors/ghost.js';
 import { Platform } from '../../actors/platform.js';
@@ -29,5 +30,8 @@ game.sceneManager.addScene('mainMenu', {
 game.sceneManager.addScene('level1', {
   fetch: async () => (await import('./scenes/level1.json')).default
 });
+
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
 
 game.start();

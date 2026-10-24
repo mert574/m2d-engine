@@ -2,7 +2,7 @@ import { UIElement } from './uiElement.js';
 
 export class UIText extends UIElement {
   constructor(x, y, text, options = {}) {
-    super(x, y);
+    super(x, y, undefined, undefined, options);
     this.text = text;
     this.fontSize = options.fontSize || '16px';
     this.color = options.color || '#000';

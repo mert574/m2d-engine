@@ -2,7 +2,7 @@ import { UIElement } from './uiElement.js';
 
 export class PerformanceStats extends UIElement {
   constructor(game, x, y, options = {}) {
-    super(x, y);
+    super(x, y, undefined, undefined, options);
     this.options = {
       show: options.show ?? false,
       textColor: options.textColor ?? '#00ff00',

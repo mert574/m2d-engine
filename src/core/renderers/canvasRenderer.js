@@ -1,4 +1,5 @@
 import { BaseRenderer } from './baseRenderer.js';
+import { identityViewport } from '../viewport.js';
 
 /**
  * Canvas 2D implementation of the renderer interface.
@@ -42,10 +43,12 @@ export class CanvasRenderer extends BaseRenderer {
     this.scratchBuffer = null;
     /** @type {CanvasRenderingContext2D|null} */
     this.scratchContext = null;
-    /** @type {number} */
-    this.width = 800;
-    /** @type {number} */
-    this.height = 600;
+    /**
+     * How the world surface is filtered when the render resolution is below
+     * the display's. 'nearest' keeps pixel art crisp.
+     * @type {'linear'|'nearest'}
+     */
+    this.worldFilter = 'linear';
 
     /**
      * Shared transform/clip stack. Entries are { kind: 'transform'|'clip', ctx }
@@ -68,10 +71,12 @@ export class CanvasRenderer extends BaseRenderer {
     this.worldBuffer = document.createElement('canvas');
     this.worldContext = this.worldBuffer.getContext('2d');
 
-    this.width = options.width || this.width;
-    this.height = options.height || this.height;
+    if (options.worldFilter) this.worldFilter = options.worldFilter;
 
-    this.resize();
+    this.setViewport(options.viewport || identityViewport(
+      options.width || this.viewport.viewWidth,
+      options.height || this.viewport.viewHeight
+    ));
   }
 
   destroy() {
@@ -85,26 +90,19 @@ export class CanvasRenderer extends BaseRenderer {
   }
 
   /**
-   * Resize canvas and world buffer.
-   * @param {number} [width] - New width
-   * @param {number} [height] - New height
+   * Adopt a new viewport: size the backing store to the display and the world
+   * buffer to the (independent) render resolution.
+   * @param {import('../viewport.js').Viewport} viewport - The sizes to adopt
    */
-  resize(width, height) {
+  setViewport(viewport) {
+    this.viewport = viewport;
     if (!this.canvas) return;
 
-    if (width !== undefined && height !== undefined) {
-      this.width = width;
-      this.height = height;
-    }
-
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
-    this.worldBuffer.width = this.width;
-    this.worldBuffer.height = this.height;
-    if (this.scratchBuffer) {
-      this.scratchBuffer.width = this.width;
-      this.scratchBuffer.height = this.height;
-    }
+    this.canvas.width = viewport.backingWidth;
+    this.canvas.height = viewport.backingHeight;
+    this.worldBuffer.width = viewport.worldWidth;
+    this.worldBuffer.height = viewport.worldHeight;
+    if (this.scratchBuffer) this.#sizeScratch();
   }
 
   /**
@@ -113,34 +111,54 @@ export class CanvasRenderer extends BaseRenderer {
    */
   clear(color) {
     if (!this.context) return;
+    const { backingWidth, backingHeight } = this.viewport;
+    // Clears address the backing store directly, not the UI transform that
+    // beginScreenFrame installs, so reset before clearing.
+    this.context.save();
+    this.context.setTransform(1, 0, 0, 1, 0, 0);
     if (color) {
       this.context.fillStyle = color;
-      this.context.fillRect(0, 0, this.width, this.height);
+      this.context.fillRect(0, 0, backingWidth, backingHeight);
     } else {
-      this.context.clearRect(0, 0, this.width, this.height);
+      this.context.clearRect(0, 0, backingWidth, backingHeight);
     }
+    this.context.restore();
   }
 
   beginFrame() {
     if (!this.worldContext) return;
 
     this.clear('#000');
+    const { worldWidth, worldHeight, worldScale } = this.viewport;
+    this.worldContext.setTransform(1, 0, 0, 1, 0, 0);
     this.worldContext.fillStyle = '#000';
-    this.worldContext.fillRect(0, 0, this.width, this.height);
+    this.worldContext.fillRect(0, 0, worldWidth, worldHeight);
     this.worldContext.save();
+    // World drawing is in world units; the surface is in pixels.
+    this.worldContext.scale(worldScale, worldScale);
     super.beginFrame();
   }
 
   endFrame() {
     if (!this.worldContext) return;
     this.worldContext.restore();
-    // Copy world buffer to main canvas
-    this.context.drawImage(this.worldBuffer, 0, 0);
+    // Present the world surface into its content rect, upscaling when the
+    // render resolution is below the display's.
+    const { contentX, contentY, contentWidth, contentHeight } = this.viewport;
+    this.context.save();
+    this.context.setTransform(1, 0, 0, 1, 0, 0);
+    this.context.imageSmoothingEnabled = this.worldFilter !== 'nearest';
+    this.context.drawImage(this.worldBuffer, contentX, contentY, contentWidth, contentHeight);
+    this.context.restore();
   }
 
   beginScreenFrame() {
     if (!this.context) return;
     this.context.save();
+    // UI is drawn in UI units straight onto the backing store, so it
+    // rasterizes at full display resolution however coarse the world is.
+    this.context.setTransform(1, 0, 0, 1, 0, 0);
+    this.context.scale(this.viewport.uiScale, this.viewport.uiScale);
   }
 
   endScreenFrame() {
@@ -215,11 +233,21 @@ export class CanvasRenderer extends BaseRenderer {
     }
   }
 
+  /**
+   * The scratch buffer mirrors whichever context is being painted, so it has
+   * to cover the larger of the two surfaces: the world render target or the
+   * backing store the UI draws on.
+   */
+  #sizeScratch() {
+    const { worldWidth, worldHeight, backingWidth, backingHeight } = this.viewport;
+    this.scratchBuffer.width = Math.max(worldWidth, backingWidth);
+    this.scratchBuffer.height = Math.max(worldHeight, backingHeight);
+  }
+
   #scratch() {
     if (!this.scratchContext) {
       this.scratchBuffer = document.createElement('canvas');
-      this.scratchBuffer.width = this.width;
-      this.scratchBuffer.height = this.height;
+      this.#sizeScratch();
       this.scratchContext = this.scratchBuffer.getContext('2d');
     }
     return this.scratchContext;
@@ -245,7 +273,7 @@ export class CanvasRenderer extends BaseRenderer {
       const scratch = this.#scratch();
       scratch.save();
       scratch.setTransform(1, 0, 0, 1, 0, 0);
-      scratch.clearRect(0, 0, this.width, this.height);
+      scratch.clearRect(0, 0, this.scratchBuffer.width, this.scratchBuffer.height);
       scratch.setTransform(ctx.getTransform());
       drawShape(scratch);
       scratch.restore();

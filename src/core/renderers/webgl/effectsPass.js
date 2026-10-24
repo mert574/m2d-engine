@@ -28,16 +28,20 @@ import {
 const LIGHT_VERTS = 6;
 
 export class EffectsPass {
-  constructor(gl, width, height) {
+  constructor(gl, width, height, pixelWidth = width, pixelHeight = height) {
     this.gl = gl;
+    /** Coordinate space of the world pass, in world units. */
     this.width = width;
     this.height = height;
+    /** Pixel size of the offscreen targets — the world render resolution. */
+    this.pixelWidth = pixelWidth;
+    this.pixelHeight = pixelHeight;
 
     // The world renders here, so this one needs a stencil for clips.
-    this.scene = createRenderTarget(gl, width, height, { stencil: true });
-    this.light = createRenderTarget(gl, width, height);
-    this.bloomA = createRenderTarget(gl, width, height);
-    this.bloomB = createRenderTarget(gl, width, height);
+    this.scene = createRenderTarget(gl, pixelWidth, pixelHeight, { stencil: true });
+    this.light = createRenderTarget(gl, pixelWidth, pixelHeight);
+    this.bloomA = createRenderTarget(gl, pixelWidth, pixelHeight);
+    this.bloomB = createRenderTarget(gl, pixelWidth, pixelHeight);
 
     this.lightProgram = createProgram(gl, VERTEX_SHADER, LIGHT_FRAGMENT_SHADER, ATTRIBUTES);
     this.brightProgram = createProgram(gl, VERTEX_SHADER, BRIGHT_FRAGMENT_SHADER, ATTRIBUTES);
@@ -86,21 +90,29 @@ export class EffectsPass {
     gl.deleteProgram(this.compositeProgram.program);
   }
 
-  resize(width, height) {
+  /**
+   * @param {number} width - Coordinate-space width in world units
+   * @param {number} height - Coordinate-space height in world units
+   * @param {number} [pixelWidth=width] - Target width in pixels
+   * @param {number} [pixelHeight=height] - Target height in pixels
+   */
+  resize(width, height, pixelWidth = width, pixelHeight = height) {
     const gl = this.gl;
-    resizeRenderTarget(gl, this.scene, width, height, { stencil: true });
-    resizeRenderTarget(gl, this.light, width, height);
-    resizeRenderTarget(gl, this.bloomA, width, height);
-    resizeRenderTarget(gl, this.bloomB, width, height);
+    resizeRenderTarget(gl, this.scene, pixelWidth, pixelHeight, { stencil: true });
+    resizeRenderTarget(gl, this.light, pixelWidth, pixelHeight);
+    resizeRenderTarget(gl, this.bloomA, pixelWidth, pixelHeight);
+    resizeRenderTarget(gl, this.bloomB, pixelWidth, pixelHeight);
     this.width = width;
     this.height = height;
+    this.pixelWidth = pixelWidth;
+    this.pixelHeight = pixelHeight;
   }
 
   /** Bind the scene target, cleared to opaque black like the world pass. */
   beginScene() {
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene.framebuffer);
-    gl.viewport(0, 0, this.width, this.height);
+    gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
     gl.disable(gl.SCISSOR_TEST);
     gl.disable(gl.STENCIL_TEST);
     gl.clearColor(0, 0, 0, 1);
@@ -111,7 +123,7 @@ export class EffectsPass {
   bindScene(clipDepth) {
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene.framebuffer);
-    gl.viewport(0, 0, this.width, this.height);
+    gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
     gl.disable(gl.SCISSOR_TEST);
     if (clipDepth > 0) gl.enable(gl.STENCIL_TEST);
   }
@@ -125,7 +137,7 @@ export class EffectsPass {
   drawLights(lights, ambient) {
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.light.framebuffer);
-    gl.viewport(0, 0, this.width, this.height);
+    gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
     gl.disable(gl.SCISSOR_TEST);
     gl.disable(gl.STENCIL_TEST);
     gl.clearColor(ambient[0], ambient[1], ambient[2], 1);
@@ -177,9 +189,12 @@ export class EffectsPass {
   /**
    * Composite the frame to the default framebuffer.
    * @param {Object|null} post - { bloom: {threshold, strength, blur}, vignette: {strength, start} }
+   * @param {{x: number, y: number, width: number, height: number}} [content] - Where
+   *   the world lands on the backing store. Defaults to the full offscreen size,
+   *   which is the unscaled, unletterboxed case.
    * @returns {number} GPU draw calls issued
    */
-  composite(post) {
+  composite(post, content) {
     const gl = this.gl;
     const bloom = post?.bloom;
     let calls = 0;
@@ -193,7 +208,7 @@ export class EffectsPass {
     } else {
       // Nothing to add: clear the bloom texture so the composite reads zero.
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomA.framebuffer);
-      gl.viewport(0, 0, this.width, this.height);
+      gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
@@ -201,7 +216,13 @@ export class EffectsPass {
     const vignette = post?.vignette;
     const { program, uniforms } = this.compositeProgram;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, this.width, this.height);
+    // The world is presented into its content rect, which is letterboxed and
+    // at display resolution — not the offscreen render resolution.
+    if (content) {
+      gl.viewport(content.x, content.y, content.width, content.height);
+    } else {
+      gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
+    }
     gl.useProgram(program);
     gl.bindVertexArray(this.quadVao);
     gl.uniform2f(uniforms.u_resolution, this.width, this.height);
@@ -227,7 +248,7 @@ export class EffectsPass {
     // Bright pass over the lit scene, into bloomA.
     const bright = this.brightProgram;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomA.framebuffer);
-    gl.viewport(0, 0, this.width, this.height);
+    gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
     gl.useProgram(bright.program);
     gl.bindVertexArray(this.quadVao);
     gl.uniform2f(bright.uniforms.u_resolution, this.width, this.height);
@@ -242,17 +263,20 @@ export class EffectsPass {
     gl.useProgram(blur.program);
     gl.uniform2f(blur.uniforms.u_resolution, this.width, this.height);
     gl.uniform1f(blur.uniforms.u_flipY, 1);
-    gl.uniform1f(blur.uniforms.u_sigma, sigma);
-    gl.uniform1i(blur.uniforms.u_radius, radius);
+    // The blur steps in texels, so a radius given in world units has to be
+    // converted or bloom would tighten as the render resolution rises.
+    const texelScale = this.pixelWidth / this.width;
+    gl.uniform1f(blur.uniforms.u_sigma, sigma * texelScale);
+    gl.uniform1i(blur.uniforms.u_radius, Math.min(128, Math.ceil(radius * texelScale)));
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomB.framebuffer);
     this.#bindUnit(blur.uniforms.u_texture, 0, this.bloomA.texture);
-    gl.uniform2f(blur.uniforms.u_direction, 1 / this.width, 0);
+    gl.uniform2f(blur.uniforms.u_direction, 1 / this.pixelWidth, 0);
     this.#drawFullQuad();
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomA.framebuffer);
     this.#bindUnit(blur.uniforms.u_texture, 0, this.bloomB.texture);
-    gl.uniform2f(blur.uniforms.u_direction, 0, 1 / this.height);
+    gl.uniform2f(blur.uniforms.u_direction, 0, 1 / this.pixelHeight);
     this.#drawFullQuad();
 
     gl.bindVertexArray(null);

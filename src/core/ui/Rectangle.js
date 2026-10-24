@@ -2,7 +2,7 @@ import { UIElement } from './uiElement.js';
 
 export class UIRectangle extends UIElement {
   constructor(x, y, width, height, color, options = {}) {
-    super(x, y);
+    super(x, y, undefined, undefined, options);
     this.width = width;
     this.height = height;
     this.color = color;

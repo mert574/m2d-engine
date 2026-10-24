@@ -140,7 +140,10 @@ export class Showcase {
     });
 
     this.minimap = new Minimap(game, {
-      x: game.canvas.width - 110,
+      // Anchored, so the chart stays in the real top-right corner at any
+      // aspect ratio and in fullscreen.
+      anchor: 'top-right',
+      x: -110,
       y: 110,
       size: 180,
       bounds,

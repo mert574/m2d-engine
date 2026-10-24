@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Entity } from '../../core/entity.js';
 import { Platform } from '../../actors/platform.js';
 import { KeyboardControl } from '../../constraints/keyboardControl.js';
@@ -41,4 +42,7 @@ game.sceneManager.addScene('maze', {
     ] }]
   })
 });
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
+
 game.start();

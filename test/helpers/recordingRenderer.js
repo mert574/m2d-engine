@@ -1,4 +1,5 @@
 import { BaseRenderer } from '../../src/core/renderers/baseRenderer.js';
+import { identityViewport } from '../../src/core/viewport.js';
 
 /**
  * A renderer backend that records calls instead of rasterizing.
@@ -16,8 +17,7 @@ export class RecordingRenderer extends BaseRenderer {
     super();
     /** @type {Array<{method: string, args: any[]}>} */
     this.calls = [];
-    this.width = 800;
-    this.height = 600;
+    this.viewport = identityViewport(800, 600);
     this.cursor = 'default';
     this.destroyed = false;
   }
@@ -59,9 +59,13 @@ export class RecordingRenderer extends BaseRenderer {
   }
 
   resize(width, height) {
-    if (width !== undefined) this.width = width;
-    if (height !== undefined) this.height = height;
     this.#record('resize', width, height);
+    super.resize(width, height);
+  }
+
+  setViewport(viewport) {
+    this.viewport = viewport;
+    this.#record('setViewport', viewport);
   }
 
   clear(color) { this.#record('clear', color); }

@@ -24,11 +24,23 @@
       align-items: center;
       background-color: #333;
     }
+
+    /*
+     * The engine letterboxes internally and sets canvas.width/height from the
+     * element's measured size, so the element needs a CSS size of its own -
+     * sizing from its own attributes would feed the resize observer.
+     */
+    #screen {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
   </style>
 </head>
 
 <body>
-  <canvas id="screen" width="640px" height="480px"></canvas>
+  <canvas id="screen" width="640" height="480"></canvas>
+  <div style="position:fixed;bottom:6px;left:10px;color:#aaa;font-size:12px;font-family:system-ui;pointer-events:none"><b>O:</b> Settings</div>
   <script type="module" src="./main.js"></script>
 </body>
 

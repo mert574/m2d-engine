@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { DonerGame } from './donerGame.js';
 
 const canvas = document.getElementById('screen');
@@ -42,12 +43,19 @@ game.keys.addKey('r');
 game.keys.addKey('m');
 
 // Menu button bounds (updated for enhanced button)
-const menuButton = {
-  x: 640 - 140,  // width/2 - buttonWidth/2
-  y: 340 - 32,   // buttonY - buttonHeight/2
-  width: 280,
-  height: 65
-};
+// Resolved against the live UI width so the hit area tracks the drawn button
+// at any aspect ratio (the menu is centred on UI space, which fills the
+// display). Must stay in step with the geometry in drawMenu().
+function menuButtonBounds() {
+  const width = 280;
+  const height = 65;
+  return {
+    x: game.uiRenderer.width / 2 - width / 2,
+    y: 340 - height / 2,
+    width,
+    height
+  };
+}
 
 // Start the doner game
 function startGame() {
@@ -67,12 +75,11 @@ function returnToMenu() {
 document.addEventListener('click', (event) => {
   if (donerGame) return; // Only handle clicks when on menu
 
-  const rect = game.canvas.getBoundingClientRect();
-  const scaleX = game.canvas.width / rect.width;
-  const scaleY = game.canvas.height / rect.height;
-  const x = (event.clientX - rect.left) * scaleX;
-  const y = (event.clientY - rect.top) * scaleY;
+  // The engine maps the pointer: the canvas rect is not the drawn area once
+  // the viewport letterboxes, and the backing store is in device pixels.
+  const { x, y } = game.getUIPosition(event);
 
+  const menuButton = menuButtonBounds();
   console.log('Click at:', x, y, 'Button:', menuButton);
 
   // Check if click is within button bounds
@@ -149,8 +156,10 @@ let menuPulse = 0;
 
 // Draw main menu
 function drawMenu() {
-  const width = game.options.width;
-  const height = game.options.height;
+  // Live UI size: UI space covers the whole display, so a menu centred
+  // against it stays centred at any aspect ratio.
+  const width = game.uiRenderer.width;
+  const height = game.uiRenderer.height;
 
   menuPulse += 0.03;
 
@@ -277,6 +286,10 @@ function drawMenu() {
 
 // Custom update function for doner game
 function donerUpdate(currentTime) {
+  // This example replaces the engine's loop, so it takes on the loop's
+  // responsibility of applying coalesced display changes between frames.
+  if (game.pendingResize) game.resize();
+
   if (!game.lastTime) {
     game.lastTime = currentTime;
     requestAnimationFrame(donerUpdate);
@@ -333,11 +346,17 @@ function donerUpdate(currentTime) {
     }
   }
 
+  // Replacing the engine loop also means drawing its overlays (settings menu).
+  game.drawOverlays();
+
   game.keys.update();
   requestAnimationFrame(donerUpdate);
 }
 
 // Override the game's update method
 game.update = donerUpdate;
+
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
 
 game.start();

@@ -351,6 +351,63 @@ game.sceneManager.addScene('level1', {
 game.start();
 ```
 
+## Display, resolution and fullscreen
+
+`width` and `height` are the **design size**: how much world is visible, in
+world units. The engine tracks the canvas's displayed size, the device pixel
+ratio and fullscreen transitions on its own, and keeps three resolutions
+independent so each can be set for the right reason.
+
+```javascript
+const game = new M2D(canvas, {
+  width: 1280, height: 720,   // design size = the camera's view, in world units
+  aspectMode: 'letterbox',    // or 'expand' to widen the view on wider displays
+  resolution: 'native',       // world render resolution; see setResolution
+  worldFilter: 'linear'       // 'nearest' for pixel art
+});
+
+// A settings menu changes only how sharply the world is drawn. The same
+// amount of world stays visible, and the UI stays at display resolution.
+game.setResolution({ width: 1280, height: 720 });
+game.setResolution('native');
+
+game.toggleFullscreen();      // also requestFullscreen() / exitFullscreen()
+game.onResize((width, height) => { /* relayout a custom HUD */ });
+```
+
+Give the canvas an explicit CSS size (`width: 100%; height: 100%`) and let the
+engine letterbox inside it — `object-fit: contain` is not needed and sizing the
+element from its own `width`/`height` attributes fights the engine's resize
+tracking.
+
+UI is drawn at the display's full pixel density regardless of the world
+resolution, and UI space always covers the whole screen. Position UI against an
+anchor so it tracks the real screen edges at any aspect ratio:
+
+```javascript
+new UIButton(-20, -20, 160, 40, 'Settings', onClick, { anchor: 'bottom-right' });
+```
+
+Scene JSON elements take the same `"anchor"` field. The default is
+`'top-left'`, where the offset is just an absolute position.
+
+For pointer input use `game.getMousePosition(event)` (world coordinates) and
+`game.getUIPosition(event)` (UI coordinates); both account for letterboxing and
+pixel ratio.
+
+A ready-made settings overlay ships with the engine and is mounted in every
+example — resolution presets, fullscreen and aspect mode, toggled with **O**:
+
+```javascript
+import { SettingsMenu } from 'm2d/core/ui/settingsMenu.js';
+new SettingsMenu(game);                      // that's all
+new SettingsMenu(game, { hotkey: 'Escape', resolutions: ['native', 0.5] });
+```
+
+It draws above every scene via the engine's overlay pass (`game.overlays`,
+rendered by `game.drawOverlays()`); a game that replaces the engine loop calls
+`drawOverlays()` at the end of its own frame.
+
 ## License
 
 MIT. See [LICENSE](LICENSE). Third-party dependencies retain their own licenses.

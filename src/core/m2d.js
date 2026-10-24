@@ -7,6 +7,7 @@ import { Camera } from './camera.js';
 import { SoundManager } from './soundManager.js';
 import { KEY_R, KEY_M, KEY_D } from './keyCodes.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, FALLBACK_RENDERER } from './renderers/index.js';
+import { computeViewport, mapPointer, sameViewport } from './viewport.js';
 
 const defaultOptions = {
   renderer: DEFAULT_RENDERER,
@@ -19,6 +20,25 @@ const defaultOptions = {
   height: 720,
   worldWidth: 1920,
   worldHeight: 1080,
+  /**
+   * What happens when the display's aspect ratio differs from width:height.
+   * 'letterbox' keeps the designed view and adds bars, so nothing past the
+   * edge of the designed view is ever revealed; 'expand' widens the view to
+   * fill the display, showing more world. The UI fills the display either way.
+   * @type {import('./viewport.js').AspectMode}
+   */
+  aspectMode: 'letterbox',
+  /**
+   * World render resolution — a fidelity/performance setting, like a game's
+   * resolution menu. 'native' matches the display. A `{width, height}` or a
+   * scale factor renders the world coarser or finer *without* changing how
+   * much world is visible. See `setResolution`.
+   */
+  resolution: 'native',
+  /** 'nearest' keeps pixel art crisp when the world is upscaled. */
+  worldFilter: 'linear',
+  /** Track the canvas's displayed size and follow it automatically. */
+  autoResize: true,
   sounds: {},
   music: {}
 };
@@ -36,16 +56,32 @@ export class M2D {
     // Initialize renderer backend and its screen-space (UI) view.
     // A `?renderer=<name>` query parameter overrides the option so any
     // example can be viewed with another backend without code changes.
+    this.canvas = canvas;
+    this.resolution = this.options.resolution;
+    this.aspectMode = this.options.aspectMode;
+    /** Listeners registered on window/document, torn down by destroy(). */
+    this.resizeListeners = [];
+    /** Callbacks invoked after every viewport change. */
+    this.onResizeHandlers = new Set();
+    /**
+     * Scene-independent UI drawn above everything each frame (settings menu,
+     * debug consoles). Members implement draw() and optionally destroy().
+     */
+    this.overlays = new Set();
+    /** Set by a resize event, applied at the top of the next frame. */
+    this.pendingResize = false;
+
+    this.viewport = this.#computeViewport();
     this.renderer = this.#initRenderer(canvas, rendererOverrideFromURL() || this.options.renderer);
     this.uiRenderer = new UIRenderer(this.renderer);
 
-    this.canvas = canvas;
-
-    this.camera = new Camera(this.options.width, this.options.height, {
+    this.camera = new Camera(this.viewport.viewWidth, this.viewport.viewHeight, {
       worldWidth: this.options.worldWidth,
       worldHeight: this.options.worldHeight,
-      smoothing: 0.1
+      lerp: 0.1
     });
+
+    if (this.options.autoResize) this.#watchDisplaySize();
 
     this.engine = Matter.Engine.create();
     this.collisionCategories = CollisionCategories;
@@ -69,6 +105,9 @@ export class M2D {
 
     this.update = this.update.bind(this);
     this.lastTime = 0;
+    /** rAF handle, so the loop can be cancelled by destroy(). */
+    this.frameHandle = null;
+    this.running = false;
   }
 
   /**
@@ -77,7 +116,12 @@ export class M2D {
    * warning; an explicitly requested backend that fails is an error.
    */
   #initRenderer(canvas, selection) {
-    const size = { width: this.options.width, height: this.options.height };
+    const size = {
+      width: this.options.width,
+      height: this.options.height,
+      viewport: this.viewport,
+      worldFilter: this.options.worldFilter
+    };
     let renderer = createRenderer(selection);
     try {
       renderer.init(canvas, size);
@@ -91,10 +135,169 @@ export class M2D {
     }
   }
 
-  resize() {
-    const width = this.canvas.clientWidth;
-    const height = this.canvas.clientHeight;
-    this.renderer.resize(width, height);
+  // === Display lifecycle ===
+
+  /** Resolve the current display state into a viewport. */
+  #computeViewport() {
+    const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+    return computeViewport({
+      displayWidth: this.canvas.clientWidth,
+      displayHeight: this.canvas.clientHeight,
+      designWidth: this.options.width,
+      designHeight: this.options.height,
+      pixelRatio: dpr,
+      aspectMode: this.aspectMode,
+      resolution: this.resolution
+    });
+  }
+
+  /**
+   * Follow the canvas's displayed size, the device pixel ratio and fullscreen
+   * transitions.
+   *
+   * A ResizeObserver is the precise signal (it catches layout changes that
+   * never touch the window), with window `resize` as the fallback where it is
+   * unavailable. `fullscreenchange` is observed too because entering
+   * fullscreen can change the pixel ratio without changing the CSS size.
+   */
+  #watchDisplaySize() {
+    if (typeof window === 'undefined') return;
+
+    const schedule = () => { this.pendingResize = true; };
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(schedule);
+      observer.observe(this.canvas);
+      this.resizeListeners.push(() => observer.disconnect());
+    } else {
+      window.addEventListener('resize', schedule);
+      this.resizeListeners.push(() => window.removeEventListener('resize', schedule));
+    }
+
+    document.addEventListener('fullscreenchange', schedule);
+    this.resizeListeners.push(() => document.removeEventListener('fullscreenchange', schedule));
+
+    // A matchMedia query on the current ratio fires exactly when the ratio
+    // leaves it (moving the window to another monitor, zooming the page).
+    if (typeof window.matchMedia === 'function') {
+      let query = null;
+      const watchRatio = () => {
+        query?.removeEventListener?.('change', onChange);
+        const dpr = window.devicePixelRatio || 1;
+        query = window.matchMedia(`(resolution: ${dpr}dppx)`);
+        query.addEventListener?.('change', onChange);
+      };
+      const onChange = () => { schedule(); watchRatio(); };
+      watchRatio();
+      this.resizeListeners.push(() => query?.removeEventListener?.('change', onChange));
+    }
+  }
+
+  /**
+   * Recompute the viewport and push it through the renderer and camera.
+   *
+   * Safe to call at any time; the engine coalesces display events and calls
+   * this at the top of a frame so a resize never lands mid-draw.
+   */
+  resize(force = false) {
+    this.pendingResize = false;
+    const viewport = this.#computeViewport();
+    // Dropping no-op resizes also breaks the feedback loop a ResizeObserver
+    // would otherwise form with the canvas attributes this sets.
+    if (!force && sameViewport(viewport, this.viewport)) return;
+    this.viewport = viewport;
+    this.renderer.setViewport(viewport);
+    // The camera's size is the *view* in world units, so it only moves when
+    // the aspect ratio does — never when the render resolution changes.
+    this.camera.resize(viewport.viewWidth, viewport.viewHeight);
+
+    const scene = this.sceneManager?.getCurrentScene();
+    scene?.config?.onResize?.(viewport.viewWidth, viewport.viewHeight, viewport);
+    for (const handler of this.onResizeHandlers) {
+      handler(viewport.viewWidth, viewport.viewHeight, viewport);
+    }
+  }
+
+  /**
+   * Subscribe to viewport changes, for HUD and layout code that has to
+   * recompute positions itself.
+   * @param {(width: number, height: number, viewport: object) => void} handler
+   * @returns {() => void} Unsubscribe
+   */
+  onResize(handler) {
+    this.onResizeHandlers.add(handler);
+    return () => this.onResizeHandlers.delete(handler);
+  }
+
+  /**
+   * Set the world render resolution — the settings-menu knob.
+   *
+   * This changes only how many pixels the world is rasterized into. It does
+   * *not* change how much world is visible: the camera's view is fixed by the
+   * game's design size, so lowering the resolution makes the world coarser,
+   * never wider. The UI is unaffected and stays at display resolution.
+   *
+   * @param {'native'|number|{width?: number, height: number}} resolution -
+   *   'native' to match the display, a `{width, height}` preset, or a scale
+   *   factor (0.5 renders at half linear resolution).
+   */
+  setResolution(resolution) {
+    this.resolution = resolution;
+    this.resize(true);
+  }
+
+  /**
+   * Choose what happens when the display's aspect ratio differs from the
+   * design aspect: 'letterbox' (bars, nothing extra revealed) or 'expand'
+   * (the view widens and more world becomes visible).
+   * @param {import('./viewport.js').AspectMode} mode
+   */
+  setAspectMode(mode) {
+    this.aspectMode = mode;
+    this.resize(true);
+  }
+
+  /** Whether the canvas is currently the fullscreen element. */
+  get isFullscreen() {
+    return typeof document !== 'undefined' && document.fullscreenElement === this.canvas;
+  }
+
+  /**
+   * Enter fullscreen on the canvas. The resize lifecycle handles the rest.
+   * @returns {Promise<void>}
+   */
+  async requestFullscreen() {
+    await this.canvas.requestFullscreen?.();
+  }
+
+  /** Leave fullscreen if this canvas is the fullscreen element. */
+  async exitFullscreen() {
+    if (this.isFullscreen) await document.exitFullscreen?.();
+  }
+
+  /** Enter fullscreen if not in it, otherwise leave. */
+  async toggleFullscreen() {
+    if (this.isFullscreen) await this.exitFullscreen();
+    else await this.requestFullscreen();
+  }
+
+  /**
+   * Stop the loop and release everything this instance registered: display
+   * listeners, the renderer's GPU resources and the current scene.
+   */
+  destroy() {
+    if (this.frameHandle !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this.frameHandle);
+    }
+    this.frameHandle = null;
+    this.running = false;
+    for (const remove of this.resizeListeners) remove();
+    this.resizeListeners = [];
+    this.onResizeHandlers.clear();
+    for (const overlay of [...this.overlays]) overlay.destroy?.();
+    this.overlays.clear();
+    this.sceneManager?.getCurrentScene()?.unload?.();
+    this.renderer.destroy();
   }
 
   registerActor(type, ActorClass) {
@@ -141,8 +344,8 @@ export class M2D {
     this.uiRenderer.drawRect({
       x: 0,
       y: 0,
-      width: this.canvas.width,
-      height: this.canvas.height,
+      width: this.uiRenderer.width,
+      height: this.uiRenderer.height,
       fillStyle: 'rgba(0, 0, 0, 0.7)'
     });
   }
@@ -150,7 +353,7 @@ export class M2D {
   drawUIText(text, y, fontSize = 24, isBold = false) {
     this.uiRenderer.drawText({
       text,
-      x: this.canvas.width / 2,
+      x: this.uiRenderer.width / 2,
       y,
       fillStyle: '#fff',
       fontSize: `${fontSize}px`,
@@ -164,16 +367,17 @@ export class M2D {
   drawGameOver() {
     this.uiRenderer.beginFrame();
     this.drawUIBackground();
-    this.drawUIText('Game Over', this.canvas.height / 2 - 40, 48, true);
-    this.drawUIText('Press R to restart', this.canvas.height / 2 + 20);
-    this.drawUIText('Press M for menu', this.canvas.height / 2 + 60);
+    const midY = this.uiRenderer.height / 2;
+    this.drawUIText('Game Over', midY - 40, 48, true);
+    this.drawUIText('Press R to restart', midY + 20);
+    this.drawUIText('Press M for menu', midY + 60);
     this.uiRenderer.endFrame();
   }
 
   drawLoading() {
     this.uiRenderer.beginFrame();
     this.drawUIBackground('rgb(0, 0, 0)');
-    this.drawUIText('Loading...', this.canvas.height / 2, 64);
+    this.drawUIText('Loading...', this.uiRenderer.height / 2, 64);
     this.uiRenderer.endFrame();
     console.debug('drawing loading');
   }
@@ -191,10 +395,26 @@ export class M2D {
     this.uiRenderer.endFrame();
   }
 
+  /**
+   * Draw scene-independent overlays (e.g. the settings menu) above everything
+   * else. The engine loop calls this last every frame; a game that replaces
+   * the loop must call it at the end of its own frame.
+   */
+  drawOverlays() {
+    if (this.overlays.size === 0) return;
+    this.uiRenderer.beginFrame();
+    for (const overlay of this.overlays) overlay.draw();
+    this.uiRenderer.endFrame();
+  }
+
   update(currentTime) {
+    // Display events are coalesced and applied here, between frames, so a
+    // resize can never land in the middle of a draw.
+    if (this.pendingResize) this.resize();
+
     if (!this.lastTime) {
       this.lastTime = currentTime;
-      requestAnimationFrame(this.update);
+      this.frameHandle = requestAnimationFrame(this.update);
       return;
     }
 
@@ -209,7 +429,7 @@ export class M2D {
 
     if (this.sceneManager.loading) {
       this.drawLoading();
-      requestAnimationFrame(this.update);
+      this.frameHandle = requestAnimationFrame(this.update);
       return;
     }
 
@@ -240,10 +460,12 @@ export class M2D {
       }
     }
 
+    this.drawOverlays();
+
     // Update key states at the end of the frame
     this.keys.update();
 
-    requestAnimationFrame(this.update);
+    this.frameHandle = requestAnimationFrame(this.update);
   }
 
   async start() {
@@ -263,6 +485,7 @@ export class M2D {
     }
 
     this.setupCollisionHandlers();
+    this.running = true;
     this.update();
   }
 
@@ -307,16 +530,40 @@ export class M2D {
     });
   }
 
-  getMousePosition(event) {
-    const rect = this.canvas.getBoundingClientRect();
-    const screenX = event.clientX - rect.left;
-    const screenY = event.clientY - rect.top;
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
+  /**
+   * Map a pointer event into both coordinate spaces at once.
+   *
+   * Mapping through the canvas's bounding rect alone is wrong: CSS letterboxes
+   * the canvas (`object-fit: contain`), so the rect can be larger than the
+   * drawn pixels, and the world occupies only its content rect inside those.
+   * @param {MouseEvent} event
+   */
+  #mapPointer(event) {
+    return mapPointer({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      rect: this.canvas.getBoundingClientRect(),
+      viewport: this.viewport
+    });
+  }
 
-    return this.camera.screenToWorld(
-      screenX * scaleX,
-      screenY * scaleY
-    );
+  /**
+   * Pointer position in world coordinates.
+   * @param {MouseEvent} event
+   * @returns {{x: number, y: number}}
+   */
+  getMousePosition(event) {
+    const { view } = this.#mapPointer(event);
+    return this.camera.screenToWorld(view.x, view.y);
+  }
+
+  /**
+   * Pointer position in UI coordinates — the space UI elements and hit
+   * testing use.
+   * @param {MouseEvent} event
+   * @returns {{x: number, y: number}}
+   */
+  getUIPosition(event) {
+    return this.#mapPointer(event).ui;
   }
 } 

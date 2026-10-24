@@ -20,16 +20,12 @@ export class Scene {
   }
 
   _handleMouseMove(event) {
-    const rect = this.game.canvas.getBoundingClientRect();
-    const x = (event.clientX - rect.left) * (this.game.canvas.width / rect.width);
-    const y = (event.clientY - rect.top) * (this.game.canvas.height / rect.height);
+    const { x, y } = this.game.getUIPosition(event);
     this.ui.onMouseMove(x, y);
   }
 
   _handleMouseDown(event) {
-    const rect = this.game.canvas.getBoundingClientRect();
-    const x = (event.clientX - rect.left) * (this.game.canvas.width / rect.width);
-    const y = (event.clientY - rect.top) * (this.game.canvas.height / rect.height);
+    const { x, y } = this.game.getUIPosition(event);
     this.ui.onMouseDown(x, y);
   }
 
@@ -209,7 +205,8 @@ export class Scene {
               hoverColor: element.properties.hoverColor,
               textColor: element.properties.textColor,
               fontSize: element.properties.fontSize,
-              fontFamily: element.properties.fontFamily
+              fontFamily: element.properties.fontFamily,
+              anchor: element.anchor
             }
           );
           button.setGame(this.game);
@@ -224,7 +221,8 @@ export class Scene {
             {
               fontSize: element.properties.fontSize,
               color: element.properties.color,
-              align: element.properties.align
+              align: element.properties.align,
+              anchor: element.anchor
             }
           );
           text.setGame(this.game);
@@ -241,7 +239,8 @@ export class Scene {
               {
                 width: element.properties.width,
                 height: element.properties.height,
-                scale: element.properties.scale
+                scale: element.properties.scale,
+                anchor: element.anchor
               }
             );
             image.setGame(this.game);
@@ -257,7 +256,8 @@ export class Scene {
             element.height,
             element.color,
             {
-              interactive: element.properties?.interactive || false
+              interactive: element.properties?.interactive || false,
+              anchor: element.anchor
             }
           );
           rect.setGame(this.game);

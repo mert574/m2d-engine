@@ -13,12 +13,28 @@ export class UIRenderer {
     this.renderer = renderer;
   }
 
+  /**
+   * Width of the UI coordinate space, in UI units.
+   *
+   * This is *not* the renderer's world size and *not* a pixel count. UI space
+   * always covers the whole display, so this grows and shrinks with the
+   * display's aspect ratio while the height stays put — which is what lets an
+   * element anchored to the right edge sit at the real right edge. UI is
+   * rasterized at the display's full pixel density regardless of the world's
+   * render resolution, so it stays sharp. See `viewport.js`.
+   * @type {number}
+   */
   get width() {
-    return this.renderer.width;
+    return this.renderer.viewport.uiWidth;
   }
 
+  /**
+   * Height of the UI coordinate space, in UI units. Fixed at the design
+   * height, so UI layout is stable as the window changes.
+   * @type {number}
+   */
   get height() {
-    return this.renderer.height;
+    return this.renderer.viewport.uiHeight;
   }
 
   /** Optional features of the backing renderer. @type {Record<string, boolean>} */

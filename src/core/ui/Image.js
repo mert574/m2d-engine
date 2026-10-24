@@ -2,7 +2,7 @@ import { UIElement } from './uiElement.js';
 
 export class UIImage extends UIElement {
   constructor(x, y, image, options = {}) {
-    super(x, y);
+    super(x, y, undefined, undefined, options);
     this.image = image;
     this.width = options.width || image.width;
     this.height = options.height || image.height;

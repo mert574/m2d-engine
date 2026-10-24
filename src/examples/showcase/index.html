@@ -27,11 +27,25 @@
       background-color: #05070f;
     }
 
+    /*
+     * The canvas fills its box and the engine letterboxes inside it: the
+     * viewport keeps the designed aspect ratio and centres the world, so CSS
+     * must not also scale the element. Sizing the canvas from its own
+     * width/height attributes (the default) would feed back into the resize
+     * observer, since the engine sets those attributes from the measured
+     * size.
+     */
     #screen {
-      max-width: 100vw;
-      max-height: 100vh;
-      object-fit: contain;
+      display: block;
+      width: 100%;
+      height: 100%;
       border-radius: 6px;
+    }
+
+    .stage {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
     }
 
     .game-container {
@@ -58,10 +72,11 @@
 
 <body>
   <div class="game-container">
-    <canvas id="screen" width="1280" height="720"></canvas>
+    <div class="stage"><canvas id="screen" width="1280" height="720"></canvas></div>
     <div class="keys">
       <b>[ / ]:</b> Load · <b>1-4:</b> Toggle layers · <b>B:</b> Swap backend ·
-      <b>P:</b> Pause camera · <b>H:</b> Hide HUD · <b>D:</b> Debug
+      <b>P:</b> Pause camera · <b>H:</b> Hide HUD · <b>D:</b> Debug<br />
+      <b>F:</b> Fullscreen · <b>V:</b> World resolution · <b>A:</b> Aspect mode · <b>O:</b> Settings
     </div>
   </div>
   <script type="module" src="./main.js"></script>

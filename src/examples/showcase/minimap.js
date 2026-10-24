@@ -16,16 +16,17 @@ export class Minimap extends UIElement {
   /**
    * @param {Object} game - M2D instance
    * @param {Object} options - Chart options
-   * @param {number} options.x - Panel centre X in screen space
-   * @param {number} options.y - Panel centre Y in screen space
+   * @param {number} options.x - Panel centre X, offset from the anchor
+   * @param {number} options.y - Panel centre Y, offset from the anchor
+   * @param {string} [options.anchor] - Corner the offset is measured from
    * @param {number} options.size - Panel width and height
    * @param {{width: number, height: number}} options.bounds - World bounds to map
    * @param {import('./moteField.js').MoteField} options.field - Field to plot
    * @param {import('./lighthouse.js').Lighthouse} options.lighthouse - Beam source
    * @param {number} options.shoreY - World Y of the water/bank boundary
    */
-  constructor(game, { x, y, size, bounds, field, lighthouse, shoreY }) {
-    super(x, y, size, size);
+  constructor(game, { x, y, size, bounds, field, lighthouse, shoreY, anchor }) {
+    super(x, y, size, size, { anchor });
     this.game = game;
     this.size = size;
     this.bounds = bounds;

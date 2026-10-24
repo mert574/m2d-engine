@@ -33,6 +33,18 @@ export class Hud extends UIElement {
     return this.game.renderer.constructor.name.replace(/Renderer$/, '').toLowerCase();
   }
 
+  /**
+   * World render resolution, with the visible view size alongside it. The two
+   * are deliberately independent: lowering the resolution must not change how
+   * much world is on screen.
+   * @returns {string}
+   */
+  resolutionLabel() {
+    const view = this.game.viewport;
+    const native = this.game.resolution === 'native' ? ' (native)' : '';
+    return `${view.worldWidth}x${view.worldHeight}${native}  view ${Math.round(view.viewWidth)}x${Math.round(view.viewHeight)}`;
+  }
+
   draw() {
     if (!this.visible) return;
 
@@ -40,6 +52,7 @@ export class Hud extends UIElement {
     const backend = this.game.renderer;
     const stats = this.showcase.worldStats;
     if (!stats) return;
+    const view = this.game.viewport;
 
     const padding = 12;
     const lineHeight = 17;
@@ -61,7 +74,13 @@ export class Hud extends UIElement {
       `text        ${stats.textDrawn.toLocaleString()}`,
       `shapes      ${stats.shapesDrawn.toLocaleString()}`,
       '',
-      `load        ${this.showcase.loadLabel()}   ([ / ] to change)`
+      `load        ${this.showcase.loadLabel()}   ([ / ] to change)`,
+      '',
+      'display',
+      `world res   ${this.resolutionLabel()}   (V to change)`,
+      `ui res      ${Math.round(view.uiWidth)}x${Math.round(view.uiHeight)} @ ${view.pixelRatio}x   (always native)`,
+      `aspect      ${this.game.aspectMode}   (A to change)`,
+      `fullscreen  ${this.game.isFullscreen ? 'on' : 'off'}   (F to toggle)`
     ];
 
     const width = 330;

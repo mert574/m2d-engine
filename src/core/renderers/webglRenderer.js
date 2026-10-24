@@ -10,6 +10,7 @@ import { TextureCache } from './webgl/textureCache.js';
 import { TextLabels } from './webgl/textLabels.js';
 import { ShadowPass, expand } from './webgl/shadowPass.js';
 import { EffectsPass } from './webgl/effectsPass.js';
+import { identityViewport } from '../viewport.js';
 
 /**
  * WebGL2 implementation of the renderer interface.
@@ -49,12 +50,12 @@ export class WebGLRenderer extends BaseRenderer {
     this.postEffects = null;
     /** Which framebuffer world/screen draws currently belong to. */
     this.targetIsScene = false;
+    /** True between beginScreenFrame and endScreenFrame. */
+    this.inScreenPass = false;
     /** @type {HTMLCanvasElement|null} */
     this.canvas = null;
     /** @type {WebGL2RenderingContext|null} */
     this.gl = null;
-    this.width = 800;
-    this.height = 600;
     this.imageSmoothing = options.imageSmoothing ?? true;
     this.contextAttributes = {
       alpha: true,
@@ -96,8 +97,10 @@ export class WebGLRenderer extends BaseRenderer {
   init(element, options = {}) {
     this.canvas = element;
     this.gl = createContext(element, this.contextAttributes);
-    this.width = options.width || this.width;
-    this.height = options.height || this.height;
+    const viewport = options.viewport || identityViewport(
+      options.width || this.viewport.viewWidth,
+      options.height || this.viewport.viewHeight
+    );
 
     // GPU resources live in #createResources so a context restore can rebuild
     // them; everything else about the renderer survives a loss untouched.
@@ -114,17 +117,19 @@ export class WebGLRenderer extends BaseRenderer {
     element.addEventListener('webglcontextrestored', this.onContextRestored, false);
 
     this.contextLost = false;
+    this.viewport = viewport;
     this.#createResources();
-    this.resize();
+    this.setViewport(viewport);
   }
 
   #createResources() {
     const gl = this.gl;
+    const { viewWidth, viewHeight, worldWidth, worldHeight } = this.viewport;
     this.batch = new Batch(gl, this.stats);
     this.textures = new TextureCache(gl, this.imageSmoothing);
     this.labels = new TextLabels(gl);
-    this.shadowPass = new ShadowPass(gl, this.width, this.height);
-    this.effectsPass = new EffectsPass(gl, this.width, this.height);
+    this.shadowPass = new ShadowPass(gl, viewWidth, viewHeight, worldWidth, worldHeight);
+    this.effectsPass = new EffectsPass(gl, viewWidth, viewHeight, worldWidth, worldHeight);
     this.gradientCache.clear();
 
     gl.disable(gl.DEPTH_TEST);
@@ -170,21 +175,20 @@ export class WebGLRenderer extends BaseRenderer {
     return !!this.gl && !this.contextLost;
   }
 
-  resize(width, height) {
+  setViewport(viewport) {
+    // Store first: a resize that arrives while the context is lost must still
+    // be the size that gets replayed once it is restored.
+    this.viewport = viewport;
+
     const gl = this.gl;
     if (!this.#ready) return;
 
-    if (width !== undefined && height !== undefined) {
-      this.width = width;
-      this.height = height;
-    }
-
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
-    gl.viewport(0, 0, this.width, this.height);
-    this.batch.setTarget(this.width, this.height, true);
-    this.shadowPass.resize(this.width, this.height);
-    this.effectsPass.resize(this.width, this.height);
+    const { backingWidth, backingHeight, viewWidth, viewHeight, worldWidth, worldHeight } = viewport;
+    this.canvas.width = backingWidth;
+    this.canvas.height = backingHeight;
+    this.shadowPass.resize(viewWidth, viewHeight, worldWidth, worldHeight);
+    this.effectsPass.resize(viewWidth, viewHeight, worldWidth, worldHeight);
+    this.#bindDefaultTarget();
   }
 
   clear(color) {
@@ -212,6 +216,9 @@ export class WebGLRenderer extends BaseRenderer {
     // With lighting or post effects on, the world needs to end up in a
     // texture rather than on screen, so it is drawn into the effects pass's
     // scene target and composited in endFrame().
+    this.inScreenPass = false;
+    this.#bindDefaultTarget();
+
     this.targetIsScene = this.#effectsActive;
     if (this.targetIsScene) {
       this.effectsPass.beginScene();
@@ -227,9 +234,15 @@ export class WebGLRenderer extends BaseRenderer {
     this.batch.flush();
 
     if (this.targetIsScene) {
+      const v = this.viewport;
       const ambient = this.ambientLight ? parseColor(this.ambientLight) : [1, 1, 1, 1];
       this.stats.drawCalls += this.effectsPass.drawLights(this.lights, ambient);
-      this.stats.drawCalls += this.effectsPass.composite(this.postEffects);
+      this.stats.drawCalls += this.effectsPass.composite(this.postEffects, {
+        x: v.contentX,
+        y: v.backingHeight - v.contentY - v.contentHeight,
+        width: v.contentWidth,
+        height: v.contentHeight
+      });
       this.targetIsScene = false;
       this.#bindDefaultTarget();
     }
@@ -242,16 +255,18 @@ export class WebGLRenderer extends BaseRenderer {
     if (!this.#ready) return;
     // The screen pass always goes straight to the default framebuffer, after
     // the composite, so UI is never dimmed by ambient or smeared by bloom.
-    if (this.targetIsScene) {
-      this.targetIsScene = false;
-      this.#bindDefaultTarget();
-    }
+    // It also covers the whole backing store at display resolution, which is
+    // what keeps UI text sharp however coarse the world resolution is.
+    this.targetIsScene = false;
+    this.inScreenPass = true;
+    this.#bindDefaultTarget();
     this.screenMatrix = mat.identity();
   }
 
   endScreenFrame() {
     if (!this.#ready) return;
     this.batch.flush();
+    this.inScreenPass = false;
   }
 
   applyCamera(camera) {
@@ -371,9 +386,15 @@ export class WebGLRenderer extends BaseRenderer {
 
     // 1. Silhouette into the offscreen target, with the primitive's own alpha
     //    forced to 1: alpha is applied once, at composite time.
+    // Shadows are cast in the active pass's space: world units at the world
+    // render resolution, or UI units at display resolution. Sizes usually
+    // match what the pass already has, in which case this costs nothing.
+    const space = this.#passSpace();
+    pass.resize(space.width, space.height, space.pixelWidth, space.pixelHeight);
+
     batch.flush();
     pass.beginSilhouette();
-    batch.setTarget(this.width, this.height, false);
+    batch.setTarget(space.width, space.height, false);
     batch.invalidateState();
     batch.trackBounds(true);
     const opaque = { ...options, globalAlpha: 1, shadow: null };
@@ -385,7 +406,7 @@ export class WebGLRenderer extends BaseRenderer {
     if (bounds && bounds.minX <= bounds.maxX) {
       // 2. Blur over the bounding region.
       const radius = ShadowPass.radius(shadow);
-      const region = expand(bounds, radius + 1, radius + 1, this.width, this.height);
+      const region = expand(bounds, radius + 1, radius + 1, space.width, space.height);
       this.stats.drawCalls += pass.blur(region, shadow);
 
       // 3. Composite onto the frame, offset and tinted.
@@ -397,8 +418,8 @@ export class WebGLRenderer extends BaseRenderer {
         region.maxX + ox, region.maxY + oy, region.minX + ox, region.maxY + oy
       ];
       const uvs = [
-        region.minX / this.width, region.minY / this.height, region.maxX / this.width, region.minY / this.height,
-        region.maxX / this.width, region.maxY / this.height, region.minX / this.width, region.maxY / this.height
+        region.minX / space.width, region.minY / space.height, region.maxX / space.width, region.minY / space.height,
+        region.maxX / space.width, region.maxY / space.height, region.minX / space.width, region.maxY / space.height
       ];
       const alpha = options.globalAlpha ?? 1;
       batch.begin({ mode: MODE_SHADOW, texture: pass.texture, shadowColor: parseColorPremultiplied(shadow.color || 'rgba(0,0,0,0.5)'), blend: options.blend });
@@ -410,6 +431,17 @@ export class WebGLRenderer extends BaseRenderer {
 
     // 4. The primitive itself.
     draw(options);
+  }
+
+  /**
+   * Coordinate space and pixel resolution of the pass currently drawing.
+   * @returns {{width: number, height: number, pixelWidth: number, pixelHeight: number}}
+   */
+  #passSpace() {
+    const v = this.viewport;
+    return this.inScreenPass
+      ? { width: v.uiWidth, height: v.uiHeight, pixelWidth: v.backingWidth, pixelHeight: v.backingHeight }
+      : { width: v.viewWidth, height: v.viewHeight, pixelWidth: v.worldWidth, pixelHeight: v.worldHeight };
   }
 
   /**
@@ -427,13 +459,30 @@ export class WebGLRenderer extends BaseRenderer {
     this.#bindDefaultTarget();
   }
 
+  /**
+   * Bind the default framebuffer for whichever pass is active.
+   *
+   * The two passes address it differently, and that difference is what keeps
+   * the UI sharp: the world covers only its content rect and is measured in
+   * world units, while the UI covers the whole backing store at full display
+   * resolution and is measured in UI units.
+   */
   #bindDefaultTarget() {
     const gl = this.gl;
+    const v = this.viewport;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, this.width, this.height);
     gl.disable(gl.SCISSOR_TEST);
     if (this.clipDepth > 0) gl.enable(gl.STENCIL_TEST);
-    this.batch.setTarget(this.width, this.height, true);
+
+    if (this.inScreenPass) {
+      gl.viewport(0, 0, v.backingWidth, v.backingHeight);
+      this.batch.setTarget(v.uiWidth, v.uiHeight, true);
+    } else {
+      // GL measures y from the bottom; the content rect measures from the top.
+      const glY = v.backingHeight - v.contentY - v.contentHeight;
+      gl.viewport(v.contentX, glY, v.contentWidth, v.contentHeight);
+      this.batch.setTarget(v.viewWidth, v.viewHeight, true);
+    }
     this.batch.invalidateState();
   }
 
@@ -675,7 +724,10 @@ export class WebGLRenderer extends BaseRenderer {
     if (!this.#ready) return;
     this.trackPrimitive('text');
 
-    const entry = this.labels.get(options, this.frameIndex);
+    // Rasterize at the density the active pass is presented with: UI text
+    // follows the display, world text follows the render resolution.
+    const space = this.#passSpace();
+    const entry = this.labels.get(options, this.frameIndex, space.pixelWidth / space.width);
     if (!entry) return;
 
     const x = options.x - entry.anchorX;
