@@ -66,6 +66,19 @@ npm run generate-sprites
 npm run dev
 ```
 
+## Demo deployment
+
+The [Pages workflow](.github/workflows/pages.yml) installs dependencies, runs
+the Node and Chromium tests, builds the demo, and deploys `docs/` on every
+push to `master`. It can also be started from Actions → Deploy demo to GitHub
+Pages → Run workflow (select `master`). A failed test or build prevents deployment.
+
+To enable it, set Settings → Pages → Build and deployment → Source to
+**GitHub Actions**. If the `github-pages` environment has branch restrictions,
+allow `master` to deploy. No personal access token is needed. The `docs` branch
+is retained as deployment history; this workflow publishes build artifacts
+directly and does not update that branch.
+
 ## Examples
 
 ### Renderer Showcase
