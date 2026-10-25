@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { DonerGame } from './donerGame.js';
 
 const canvas = document.getElementById('screen');
@@ -14,9 +15,12 @@ const game = new M2D(canvas, {
 // Doner game instance (initialized when entering gameplay scene)
 let donerGame = null;
 
-// Register scenes
+// Register scenes. The menu scene is an empty shell: this example replaces
+// the engine loop and paints its own menu (drawMenu below), so scene JSON
+// elements would never be drawn — the scene exists only to anchor the
+// mainMenu/gameplay switching and its onEnter/onExit hooks.
 game.sceneManager.addScene('mainMenu', {
-  fetch: async () => (await import('./scenes/mainMenu.json')).default,
+  fetch: async () => ({ version: 1, name: 'mainMenu', type: 'ui', assets: {}, elements: [] }),
   onEnter() {
     donerGame = null;
   }
@@ -41,13 +45,32 @@ game.sceneManager.addScene('gameplay', {
 game.keys.addKey('r');
 game.keys.addKey('m');
 
-// Menu button bounds (updated for enhanced button)
-const menuButton = {
-  x: 640 - 140,  // width/2 - buttonWidth/2
-  y: 340 - 32,   // buttonY - buttonHeight/2
-  width: 280,
-  height: 65
-};
+// Single source of truth for the menu's geometry, shared by drawMenu() and
+// the click handler, so the drawn button and its hit area cannot drift apart.
+// The layout lives in a 1280x720 design box centred in UI space: width is read
+// live (UI space widens with the display), and `top` shifts the whole column
+// down when the display is taller than 16:9 instead of bunching it at the top.
+function menuLayout() {
+  const width = game.uiRenderer.width;
+  const height = game.uiRenderer.height;
+  const top = (height - 720) / 2;
+  const buttonWidth = 280;
+  const buttonHeight = 65;
+  return {
+    width,
+    height,
+    titleY: top + 100,
+    subtitleY: top + 170,
+    buttonCentreY: top + 340,
+    button: {
+      x: width / 2 - buttonWidth / 2,
+      y: top + 340 - buttonHeight / 2,
+      width: buttonWidth,
+      height: buttonHeight
+    },
+    panelY: top + 420
+  };
+}
 
 // Start the doner game
 function startGame() {
@@ -67,12 +90,11 @@ function returnToMenu() {
 document.addEventListener('click', (event) => {
   if (donerGame) return; // Only handle clicks when on menu
 
-  const rect = game.canvas.getBoundingClientRect();
-  const scaleX = game.canvas.width / rect.width;
-  const scaleY = game.canvas.height / rect.height;
-  const x = (event.clientX - rect.left) * scaleX;
-  const y = (event.clientY - rect.top) * scaleY;
+  // The engine maps the pointer: the canvas rect is not the drawn area once
+  // the viewport letterboxes, and the backing store is in device pixels.
+  const { x, y } = game.getUIPosition(event);
 
+  const menuButton = menuLayout().button;
   console.log('Click at:', x, y, 'Button:', menuButton);
 
   // Check if click is within button bounds
@@ -84,91 +106,108 @@ document.addEventListener('click', (event) => {
 });
 
 // Enhanced menu drawing helpers
-function drawRoundedRect(ctx, x, y, width, height, radius, options = {}) {
-  ctx.save();
-  if (options.shadow) {
-    ctx.shadowColor = options.shadow.color || 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = options.shadow.blur || 10;
-    ctx.shadowOffsetX = options.shadow.offsetX || 0;
-    ctx.shadowOffsetY = options.shadow.offsetY || 4;
-  }
-  ctx.beginPath();
-  ctx.roundRect(x, y, width, height, radius);
-  if (options.gradient) {
-    const grad = ctx.createLinearGradient(x, y, x, y + height);
-    options.gradient.forEach((stop, i) => {
-      grad.addColorStop(stop.pos !== undefined ? stop.pos : i / (options.gradient.length - 1), stop.color);
-    });
-    ctx.fillStyle = grad;
-  } else if (options.fill) {
-    ctx.fillStyle = options.fill;
-  }
-  if (options.fill || options.gradient) ctx.fill();
-  ctx.shadowColor = 'transparent';
-  if (options.stroke) {
-    ctx.strokeStyle = options.stroke;
-    ctx.lineWidth = options.strokeWidth || 2;
-    ctx.stroke();
-  }
-  ctx.restore();
+
+// Build a vertical linear-gradient descriptor from {pos, color} stops
+function verticalGradient(stops, x, y, height) {
+  return {
+    type: 'linear',
+    x0: x, y0: y, x1: x, y1: y + height,
+    stops: stops.map((stop, i) => ({
+      offset: stop.pos !== undefined ? stop.pos : i / (stops.length - 1),
+      color: stop.color
+    }))
+  };
 }
 
-function drawStyledText(ctx, text, x, y, options = {}) {
-  ctx.save();
-  const fontSize = options.fontSize || 16;
-  const fontWeight = options.fontWeight || 'normal';
-  ctx.font = `${fontWeight} ${fontSize}px system-ui, sans-serif`;
-  ctx.textAlign = options.align || 'left';
-  ctx.textBaseline = options.baseline || 'top';
-  if (options.glow) {
-    ctx.shadowColor = options.glow.color || options.color || '#fff';
-    ctx.shadowBlur = options.glow.blur || 10;
-  }
+function drawRoundedRect(x, y, width, height, radius, options = {}) {
+  game.uiRenderer.drawRect({
+    x, y, width, height,
+    cornerRadius: radius,
+    fillStyle: options.gradient
+      ? verticalGradient(options.gradient, x, y, height)
+      : options.fill,
+    strokeStyle: options.stroke,
+    lineWidth: options.strokeWidth || 2,
+    shadow: options.shadow && {
+      color: options.shadow.color || 'rgba(0,0,0,0.5)',
+      blur: options.shadow.blur || 10,
+      offsetX: options.shadow.offsetX || 0,
+      offsetY: options.shadow.offsetY || 4
+    }
+  });
+}
+
+function drawStyledText(text, x, y, options = {}) {
+  let shadow;
   if (options.shadow) {
-    ctx.shadowColor = options.shadow.color || 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = options.shadow.blur || 4;
-    ctx.shadowOffsetX = options.shadow.offsetX || 2;
-    ctx.shadowOffsetY = options.shadow.offsetY || 2;
+    shadow = {
+      color: options.shadow.color || 'rgba(0,0,0,0.8)',
+      blur: options.shadow.blur || 4,
+      offsetX: options.shadow.offsetX ?? 2,
+      offsetY: options.shadow.offsetY ?? 2
+    };
+  } else if (options.glow) {
+    shadow = {
+      color: options.glow.color || options.color || '#fff',
+      blur: options.glow.blur || 10
+    };
   }
-  if (options.stroke) {
-    ctx.strokeStyle = options.stroke.color || '#000';
-    ctx.lineWidth = options.stroke.width || 3;
-    ctx.lineJoin = 'round';
-    ctx.strokeText(text, x, y);
-  }
-  ctx.fillStyle = options.color || '#fff';
-  ctx.fillText(text, x, y);
-  ctx.restore();
+
+  game.uiRenderer.drawText({
+    text, x, y,
+    fillStyle: options.color || '#fff',
+    strokeStyle: options.stroke && (options.stroke.color || '#000'),
+    lineWidth: options.stroke && (options.stroke.width || 3),
+    fontSize: options.fontSize || 16,
+    fontFamily: 'system-ui, sans-serif',
+    fontWeight: options.fontWeight || 'normal',
+    textAlign: options.align || 'left',
+    textBaseline: options.baseline || 'top',
+    shadow
+  });
 }
 
 let menuPulse = 0;
 
 // Draw main menu
 function drawMenu() {
-  const width = game.options.width;
-  const height = game.options.height;
-  const ctx = game.uiRenderer.context;
+  // All geometry comes from menuLayout(), the same source the click handler
+  // hit-tests against, resolved fresh so it tracks any aspect ratio.
+  const l = menuLayout();
+  const { width, height } = l;
 
   menuPulse += 0.03;
 
   // Background gradient
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-  bgGrad.addColorStop(0, '#1a0f0a');
-  bgGrad.addColorStop(0.5, '#2d1b0e');
-  bgGrad.addColorStop(1, '#1a0f0a');
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, width, height);
+  game.uiRenderer.drawRect({
+    x: 0, y: 0, width, height,
+    fillStyle: {
+      type: 'linear',
+      x0: 0, y0: 0, x1: 0, y1: height,
+      stops: [
+        { offset: 0, color: '#1a0f0a' },
+        { offset: 0.5, color: '#2d1b0e' },
+        { offset: 1, color: '#1a0f0a' }
+      ]
+    }
+  });
 
   // Vignette
-  const vignetteGrad = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width * 0.7);
-  vignetteGrad.addColorStop(0, 'rgba(0,0,0,0)');
-  vignetteGrad.addColorStop(1, 'rgba(0,0,0,0.5)');
-  ctx.fillStyle = vignetteGrad;
-  ctx.fillRect(0, 0, width, height);
+  game.uiRenderer.drawRect({
+    x: 0, y: 0, width, height,
+    fillStyle: {
+      type: 'radial',
+      x: width / 2, y: height / 2, r1: width * 0.7,
+      stops: [
+        { offset: 0, color: 'rgba(0,0,0,0)' },
+        { offset: 1, color: 'rgba(0,0,0,0.5)' }
+      ]
+    }
+  });
 
   // Title with animated glow
   const titlePulse = 1 + Math.sin(menuPulse * 2) * 0.03;
-  drawStyledText(ctx, 'DONER RHYTHM', width / 2, 100, {
+  drawStyledText('DONER RHYTHM', width / 2, l.titleY, {
     fontSize: 72 * titlePulse,
     fontWeight: 'bold',
     color: '#FFD700',
@@ -179,7 +218,7 @@ function drawMenu() {
   });
 
   // Subtitle
-  drawStyledText(ctx, 'Build orders to the beat!', width / 2, 170, {
+  drawStyledText('Build orders to the beat!', width / 2, l.subtitleY, {
     fontSize: 26,
     color: '#F5DEB3',
     align: 'center',
@@ -187,14 +226,11 @@ function drawMenu() {
     shadow: { color: 'rgba(0,0,0,0.8)', blur: 6 }
   });
 
-  // Start button with glow
-  const buttonWidth = 280;
-  const buttonHeight = 65;
-  const btnX = width / 2 - buttonWidth / 2;
-  const btnY = 340 - buttonHeight / 2;
+  // Start button with glow, drawn from the same rect the click handler tests.
+  const { x: btnX, y: btnY, width: buttonWidth, height: buttonHeight } = l.button;
   const btnGlow = 0.7 + Math.sin(menuPulse * 3) * 0.2;
 
-  drawRoundedRect(ctx, btnX, btnY, buttonWidth, buttonHeight, 16, {
+  drawRoundedRect(btnX, btnY, buttonWidth, buttonHeight, 16, {
     gradient: [
       { pos: 0, color: `rgba(90, 180, 90, ${btnGlow})` },
       { pos: 1, color: `rgba(50, 130, 50, ${btnGlow})` }
@@ -204,7 +240,7 @@ function drawMenu() {
     shadow: { color: 'rgba(100, 255, 100, 0.4)', blur: 25, offsetY: 5 }
   });
 
-  drawStyledText(ctx, 'START GAME', width / 2, 340, {
+  drawStyledText('START GAME', width / 2, l.buttonCentreY, {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
@@ -214,9 +250,9 @@ function drawMenu() {
   });
 
   // Instructions panel
-  const panelY = 420;
+  const panelY = l.panelY;
   const panelHeight = 200;
-  drawRoundedRect(ctx, width / 2 - 350, panelY, 700, panelHeight, 20, {
+  drawRoundedRect(width / 2 - 350, panelY, 700, panelHeight, 20, {
     gradient: [
       { pos: 0, color: 'rgba(30, 20, 10, 0.8)' },
       { pos: 1, color: 'rgba(20, 10, 5, 0.85)' }
@@ -226,7 +262,7 @@ function drawMenu() {
     shadow: { color: 'rgba(0,0,0,0.5)', blur: 20, offsetY: 8 }
   });
 
-  drawStyledText(ctx, 'HOW TO PLAY', width / 2, panelY + 25, {
+  drawStyledText('HOW TO PLAY', width / 2, panelY + 25, {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFD700',
@@ -243,7 +279,7 @@ function drawMenu() {
   ];
 
   instructions.forEach((text, i) => {
-    drawStyledText(ctx, text, width / 2, panelY + 65 + i * 32, {
+    drawStyledText(text, width / 2, panelY + 65 + i * 32, {
       fontSize: 17,
       color: 'rgba(200, 190, 180, 0.9)',
       align: 'center',
@@ -252,7 +288,7 @@ function drawMenu() {
   });
 
   // Footer
-  drawStyledText(ctx, 'Built with M2D Engine', width / 2, height - 30, {
+  drawStyledText('Built with M2D Engine', width / 2, height - 30, {
     fontSize: 14,
     color: 'rgba(100, 90, 80, 0.6)',
     align: 'center',
@@ -262,6 +298,10 @@ function drawMenu() {
 
 // Custom update function for doner game
 function donerUpdate(currentTime) {
+  // This example replaces the engine's loop, so it takes on the loop's
+  // responsibility of applying coalesced display changes between frames.
+  if (game.pendingResize) game.resize();
+
   if (!game.lastTime) {
     game.lastTime = currentTime;
     requestAnimationFrame(donerUpdate);
@@ -301,8 +341,10 @@ function donerUpdate(currentTime) {
   // Normal game update
   if (currentScene) {
     if (donerGame && (donerGame.isGameActive || donerGame.isCountingDown)) {
-      // Update doner game (handles countdown and gameplay)
-      donerGame.update(deltaTime);
+      // Update doner game (handles countdown and gameplay). Replacing the
+      // engine loop means honouring the engine's pause flag here too — the
+      // settings menu's Paused row toggles it.
+      if (!game.paused) donerGame.update(deltaTime);
 
       // Draw doner game UI - clear first, then draw
       game.uiRenderer.clear('#2d1b0e');
@@ -318,11 +360,17 @@ function donerUpdate(currentTime) {
     }
   }
 
+  // Replacing the engine loop also means drawing its overlays (settings menu).
+  game.drawOverlays();
+
   game.keys.update();
   requestAnimationFrame(donerUpdate);
 }
 
 // Override the game's update method
 game.update = donerUpdate;
+
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
 
 game.start();

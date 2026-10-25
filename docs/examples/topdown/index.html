@@ -28,10 +28,23 @@
     }
 
     #screen {
-      max-width: 100vw;
-      max-height: 100vh;
-      object-fit: contain;
+      display: block;
+      width: 100%;
+      height: 100%;
       border-radius: 6px;
+    }
+
+    /*
+     * The engine letterboxes internally (it keeps the designed aspect ratio
+     * and centres the world), so the canvas fills its box and CSS does not
+     * scale it. Letting the element size itself from its width/height
+     * attributes would feed back into the engine's resize observer, which
+     * sets those attributes from the measured size.
+     */
+    .stage {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
     }
 
     .game-container {
@@ -50,22 +63,21 @@
       font-size: 1rem;
     }
   </style>
-  <script type="module" crossorigin src="/m2d-engine/assets/topdown-dgr6AZLr.js"></script>
-  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/m2d-CDY0_Diy.js">
+  <script type="module" crossorigin src="/m2d-engine/assets/topdown-DJC6Prxq.js"></script>
+  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/settingsMenu-BRSbyVHp.js">
   <link rel="modulepreload" crossorigin href="/m2d-engine/assets/preload-helper-NSRvbUIY.js">
-  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/entity-CbymdIyX.js">
-  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/keyboardControl-C7zt8LKV.js">
-  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/trigger-BKCz5xnV.js">
+  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/entity-l-Ak0laZ.js">
+  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/keyboardControl-4d7Ic6_Y.js">
+  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/trigger-Cp_E4hVD.js">
 </head>
 
 <body>
   <div class="game-container">
-    <canvas id="screen" width="640" height="480"></canvas>
+    <div class="stage"><canvas id="screen" width="640" height="480"></canvas></div>
     <div class="keys">
-      <b>Arrow Keys:</b> Move · <b>X:</b> Attack · <b>D:</b> Toggle Debug
+      <b>Arrow Keys:</b> Move · <b>X:</b> Attack · <b>D:</b> Toggle Debug · <b>O:</b> Settings
     </div>
   </div>
-
 </body>
 
 </html>

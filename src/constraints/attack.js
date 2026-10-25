@@ -102,21 +102,28 @@ export class Attack extends Constraint {
 
   draw() {
     const pos = this.entity.position;
+    // Attack range is an annotation on top of the game: it describes a world
+    // region but is not world content, so it goes to the overlay and is
+    // rasterized at display resolution instead of blurring with the world.
+    const overlay = this.entity.game.worldOverlay;
 
-    // Draw full circle in light blue
-    this.entity.game.renderer.drawArc({
-      x: pos.x,
-      y: pos.y,
-      radius: this.range,
-      startAngle: 0,
-      endAngle: Math.PI * 2,
-      strokeStyle: 'rgba(0, 150, 255, 0.3)',
-      fill: false
-    });
+    // The passive range ring is a diagnostic, not gameplay feedback, so it
+    // only shows in debug mode. The attack flash below stays unconditional.
+    if (this.entity.game.renderer.isDebugEnabled()) {
+      overlay.drawArc({
+        x: pos.x,
+        y: pos.y,
+        radius: this.range,
+        startAngle: 0,
+        endAngle: Math.PI * 2,
+        strokeStyle: 'rgba(0, 150, 255, 0.3)',
+        fill: false
+      });
+    }
 
     // Draw active half in red when attacking
     if (this.isAttacking) {
-      this.entity.game.renderer.drawArc({
+      overlay.drawArc({
         x: pos.x,
         y: pos.y,
         radius: this.range,

@@ -26,11 +26,15 @@ export class Debug extends Constraint {
     if (!this.entity.game.renderer.isDebugEnabled()) return;
 
     const bounds = this.entity.body.bounds;
-    const renderer = this.entity.game.renderer;
+    // Everything here is an annotation on top of the game, not world content,
+    // so all of it goes through the world overlay and is rasterized at
+    // display resolution. A 2-unit centre dot would not survive a low render
+    // resolution otherwise.
+    const overlay = this.entity.game.worldOverlay;
 
     // Draw bounds
     if (this.options.showBounds) {
-      renderer.drawRect({
+      overlay.drawRect({
         x: bounds.min.x,
         y: bounds.min.y,
         width: bounds.max.x - bounds.min.x,
@@ -43,7 +47,7 @@ export class Debug extends Constraint {
 
     // Draw center point
     if (this.options.showCenter) {
-      renderer.drawArc({
+      overlay.drawArc({
         x: this.entity.position.x,
         y: this.entity.position.y,
         radius: 2,
@@ -53,42 +57,39 @@ export class Debug extends Constraint {
       });
     }
 
-    // Draw text info above the entity
-    let textY = bounds.min.y - 50;  // Start higher up to avoid collision with entity-specific debug info
-
-    // Draw velocity
-    if (this.options.showVelocity) {
-      const vx = Math.abs(this.entity.body.velocity.x) < 0.01 ? 0 : this.entity.body.velocity.x;
-      const vy = Math.abs(this.entity.body.velocity.y) < 0.01 ? 0 : this.entity.body.velocity.y;
-      renderer.drawText({
-        text: `vel: ${vx.toFixed(1)}, ${vy.toFixed(1)}`,
+    // Readouts are anchored to the entity but sized in UI units, so they stay
+    // equally legible at any resolution. The offset stacks upward, starting
+    // clear of entity-specific debug info.
+    let offsetY = -50;
+    const label = (text, fillStyle) => {
+      overlay.drawText({
         x: bounds.min.x,
-        y: textY,
-        fillStyle: this.options.textColor,
+        y: bounds.min.y,
+        offsetY,
+        text,
+        fillStyle,
         fontSize: this.options.font.size,
         fontFamily: this.options.font.family,
         textAlign: 'left',
         textBaseline: 'top'
       });
-      textY -= 15;
+      offsetY -= 15;
+    };
+
+    if (this.options.showVelocity) {
+      const vx = Math.abs(this.entity.body.velocity.x) < 0.01 ? 0 : this.entity.body.velocity.x;
+      const vy = Math.abs(this.entity.body.velocity.y) < 0.01 ? 0 : this.entity.body.velocity.y;
+      label(`vel: ${vx.toFixed(1)}, ${vy.toFixed(1)}`, this.options.textColor);
     }
 
-    // Draw health
     if (this.options.showHealth) {
       const health = this.entity.getConstraint('health');
       if (health) {
-        renderer.drawText({
-          text: `hp: ${health.currentHealth}/${health.maxHealth}`,
-          x: bounds.min.x,
-          y: textY,
-          fillStyle: health.currentHealth > this.options.lowHealthThreshold ? 
-            this.options.healthyColor : this.options.lowHealthColor,
-          fontSize: this.options.font.size,
-          fontFamily: this.options.font.family,
-          textAlign: 'left',
-          textBaseline: 'top'
-        });
-        textY -= 15;
+        label(
+          `hp: ${health.currentHealth}/${health.maxHealth}`,
+          health.currentHealth > this.options.lowHealthThreshold ?
+            this.options.healthyColor : this.options.lowHealthColor
+        );
       }
     }
   }

@@ -18,11 +18,16 @@ export class SceneManager {
   async loadScene(sceneConfig, sceneName) {
     this.loading = true;
     try {
-      const loadedScene = await sceneConfig.fetch();
-      if (!loadedScene) {
+      const fetched = await sceneConfig.fetch();
+      if (!fetched) {
         console.error('Failed to load scene', sceneConfig);
         throw new Error('Failed to load scene');
       }
+
+      // Validate and apply defaults before anything tries to build the scene,
+      // so a bad reference names itself instead of surfacing as a half-built
+      // level. Throws SceneValidationError; see sceneLoader.js.
+      const loadedScene = this.loader.load(fetched, sceneName);
 
       // Keep registered hooks, including the platformer's music transitions.
       this.scenes.set(sceneName, new Scene(this.game, { ...sceneConfig, ...loadedScene }));

@@ -17,6 +17,7 @@ const assetsPlugin = {
       execSync('node scripts/generateSprites.js --missing maze', { stdio: 'inherit' });
       execSync('node scripts/generateSprites.js --missing physics', { stdio: 'inherit' });
       execSync('node scripts/generateSprites.js --missing topdown', { stdio: 'inherit' });
+      execSync('node scripts/generateSprites.js --missing showcase', { stdio: 'inherit' });
       console.log('Assets processed successfully');
     } catch (error) {
       console.error('Error processing assets:', error);
@@ -25,7 +26,7 @@ const assetsPlugin = {
   },
   writeBundle() {
     // Scene JSON contains runtime image paths that Vite cannot discover as imports.
-    for (const example of ['platformer', 'maze', 'physics', 'topdown', 'doner']) {
+    for (const example of ['platformer', 'maze', 'physics', 'topdown', 'doner', 'showcase']) {
       const source = resolve(__dirname, `src/examples/${example}/assets`);
       if (existsSync(source)) {
         cpSync(source, resolve(__dirname, `docs/examples/${example}/assets`), { recursive: true });
@@ -51,7 +52,8 @@ export default defineConfig(({ command }) => ({
         maze: resolve(__dirname, 'src/examples/maze/index.html'),
         physics: resolve(__dirname, 'src/examples/physics/index.html'),
         topdown: resolve(__dirname, 'src/examples/topdown/index.html'),
-        doner: resolve(__dirname, 'src/examples/doner/index.html')
+        doner: resolve(__dirname, 'src/examples/doner/index.html'),
+        showcase: resolve(__dirname, 'src/examples/showcase/index.html')
       }
     }
   },

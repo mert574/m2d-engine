@@ -1,34 +1,43 @@
 # M2D Engine
 
-A lightweight 2D game engine built with Matter.js and Canvas, focusing on simplicity and performance.
+A lightweight 2D game engine built with Matter.js for physics and WebGL2 for
+rendering, with a Canvas 2D fallback. Focused on simplicity and performance.
+
+This file is the one-page overview. [README.md](README.md) is the user guide,
+[AGENTS.md](AGENTS.md) the architecture detail, [ROADMAP.md](ROADMAP.md) the
+work ahead.
 
 ## Core Features
 
 - Physics: Matter.js integration
-- Scene Management: JSON-based scene definition
-- Component System: Constraint-based behaviors
-- Input System: Keyboard and mouse handling
-- Camera: Smooth following with deadzone
-- UI Framework: Basic UI components
-- Asset Management: Sprites and sounds
-- Debug Tools: Physics visualization
+- Rendering: pluggable backends behind one contract (WebGL2 default, Canvas 2D fallback)
+- Display: independent view, world-render and UI resolutions, with aspect
+  modes, fullscreen and a reusable settings overlay
+- Scene Management: JSON scene definition, validated on load
+- Component System: constraint-based behaviours
+- Input System: keyboard and pointer handling
+- Camera: smooth lerped following with optional world bounds
+- UI Framework: anchored screen-space components
+- Asset Management: sprites and sounds
+- Debug Tools: physics and state visualization, drawn at display resolution
 
 ## Architecture
 
 ```
 src/
-├── core/           # Engine core (renderer, physics, scene management)
+├── core/
+│   ├── renderers/  # Backend contract, Canvas + WebGL2 backends, geometry
+│   └── ui/         # Screen-space components, settings and world overlays
 ├── actors/         # Game-specific entities
 ├── constraints/    # Reusable entity behaviors
-├── examples/       # Demo implementations
-└── assets/         # Game resources
+└── examples/       # Demo implementations, each owning its assets/
 ```
 
 ## Technical Stack
 
 - **Physics**: Matter.js
-- **Rendering**: Canvas API
-- **Sound**: Web Audio API
+- **Rendering**: WebGL2, falling back to the Canvas 2D API
+- **Sound**: HTML5 `Audio` elements (a Web Audio mixer is on the roadmap)
 - **Asset Loading**: Dynamic imports using Vite
 - **Scene Format**: JSON
 
@@ -36,10 +45,11 @@ src/
 
 - Entity-Component Architecture
 - JSON-based Scene Definition
+- Renderer Abstraction with Optional Capabilities
 - Layer-based Rendering
 - Prefab System
 - Collision Categories
-- Scene Lifecycle Hooks
+- Scene Lifecycle Hooks (`onEnter`, `onExit`, `onUpdate`, `onDraw`, `onResize`, `onAction`)
 
 ## Getting Started
 
@@ -49,29 +59,26 @@ npm run generate-sprites
 npm run dev
 ```
 
-See examples directory for implementation samples. 
+See the examples directory for implementation samples.
 
-# Entity System
+## Entity Instantiation
 
-## Entity Instantiation Pattern
-All game entities in M2D must be instantiated through the prefab system defined in scene configuration files. Direct entity creation in code is not allowed. This pattern ensures:
+Entities are normally declared through the prefab system in scene JSON rather
+than constructed in game code, so configuration stays data-driven and every
+reference is validated at load:
 
-1. Consistent entity creation through SceneLoader
-2. Data-driven approach to entity configuration
-3. Proper initialization through Scene.createPrefabInstance
-4. Maintainable and scalable entity management
-
-Example:
 ```json
 {
   "prefabs": {
     "movingPlatform": {
       "actor": "MovingPlatform",
-      "spritesheet": "platformSprite",
-      "physics": {
-        "isStatic": true
-      }
+      "spritesheet": "platform",
+      "physics": { "bodyType": "kinematic" }
     }
   }
 }
-``` 
+```
+
+Entities that do not exist until runtime — projectiles, spawned pickups — are
+created directly with `game.createEntity(...)` and added to `game.entities`
+and the Matter world. See "Dynamic Entity Creation" in AGENTS.md.

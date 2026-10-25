@@ -2,7 +2,7 @@ import { UIElement } from './uiElement.js';
 
 export class UIButton extends UIElement {
   constructor(x, y, width, height, text, onClick, style = {}) {
-    super(x, y);
+    super(x, y, undefined, undefined, style);
     this.width = width;
     this.height = height;
     this.text = text;

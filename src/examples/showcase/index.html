@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M2D - Renderer Showcase</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #05070f;
+    }
+
+    /*
+     * The canvas fills its box and the engine letterboxes inside it: the
+     * viewport keeps the designed aspect ratio and centres the world, so CSS
+     * must not also scale the element. Sizing the canvas from its own
+     * width/height attributes (the default) would feed back into the resize
+     * observer, since the engine sets those attributes from the measured
+     * size.
+     */
+    #screen {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+    }
+
+    .stage {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+    }
+
+    .game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .keys {
+      color: #9fb6d0;
+      font-size: 0.95rem;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .keys b {
+      color: #cfe8ff;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="game-container">
+    <div class="stage"><canvas id="screen" width="1280" height="720"></canvas></div>
+    <div class="keys">
+      <b>[ / ]:</b> Load · <b>1-7:</b> Toggle layers · <b>B:</b> Swap backend ·
+      <b>P:</b> Pause camera · <b>H:</b> Hide HUD · <b>D:</b> Debug<br />
+      <b>F:</b> Fullscreen · <b>V:</b> World resolution · <b>A:</b> Aspect mode · <b>O:</b> Settings
+    </div>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+
+</html>

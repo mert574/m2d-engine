@@ -9,8 +9,30 @@ export class SoundManager {
     this.pendingMusic = null;
     this.isInitialized = false;
 
-    document.addEventListener('click', () => this.initialize(), { once: true });
-    document.addEventListener('keydown', () => this.initialize(), { once: true });
+    // Browsers refuse to start audio before a user gesture, so the first
+    // click or keypress unblocks it. Kept on the instance so destroy() can
+    // detach them: `{ once: true }` only clears them if the gesture actually
+    // happens, and a game can be torn down before anyone touches it.
+    this.onFirstGesture = () => this.initialize();
+    if (typeof document !== 'undefined') {
+      document.addEventListener('click', this.onFirstGesture, { once: true });
+      document.addEventListener('keydown', this.onFirstGesture, { once: true });
+    }
+  }
+
+  /** Stop everything this manager is playing and release its listeners. */
+  destroy() {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('click', this.onFirstGesture);
+      document.removeEventListener('keydown', this.onFirstGesture);
+    }
+    this.stopMusic();
+    // Music elements are shared across plays, so pausing the map covers a
+    // track that was started and then swapped out without stopMusic().
+    for (const audio of this.music.values()) audio.pause();
+    this.sounds.clear();
+    this.music.clear();
+    this.pendingMusic = null;
   }
 
   initialize() {

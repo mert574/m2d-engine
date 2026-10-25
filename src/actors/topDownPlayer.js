@@ -82,9 +82,10 @@ export class TopDownPlayer extends Entity {
     super.draw();
 
     if (this.game.renderer.isDebugEnabled()) {
-      // Draw facing direction
+      // Draw facing direction, as a sharp overlay annotation rather than
+      // into the world surface.
       const directionLength = 20;
-      this.game.renderer.drawLine({
+      this.game.worldOverlay.drawLine({
         x1: this.position.x,
         y1: this.position.y,
         x2: this.position.x + (directionLength * this.facingDirection),

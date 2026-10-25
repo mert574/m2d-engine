@@ -1,5 +1,6 @@
 import Matter from 'matter-js';
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Entity } from '../../core/entity.js';
 import ballSprite from './assets/ball.png';
 import boxSprite from './assets/box.png';
@@ -68,4 +69,7 @@ game.keys.addKey(' ', (pressed) => {
   game.entities.add(entity);
   Matter.Composite.add(game.engine.world, entity.body);
 });
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
+
 game.start();

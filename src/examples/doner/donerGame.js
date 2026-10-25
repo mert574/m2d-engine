@@ -118,101 +118,85 @@ export class DonerGame {
 
   // === ENHANCED GRAPHICS HELPERS ===
 
+  // Build a vertical linear-gradient descriptor from {pos, color} stops
+  verticalGradient(stops, x, y, height) {
+    return {
+      type: 'linear',
+      x0: x, y0: y, x1: x, y1: y + height,
+      stops: stops.map((stop, i) => ({
+        offset: stop.pos !== undefined ? stop.pos : i / (stops.length - 1),
+        color: stop.color
+      }))
+    };
+  }
+
   // Draw a rounded rectangle with optional gradient, shadow, and glow
-  drawRoundedRect(ctx, x, y, width, height, radius, options = {}) {
-    ctx.save();
+  drawRoundedRect(x, y, width, height, radius, options = {}) {
+    const renderer = this.game.uiRenderer;
 
-    // Shadow
-    if (options.shadow) {
-      ctx.shadowColor = options.shadow.color || 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = options.shadow.blur || 10;
-      ctx.shadowOffsetX = options.shadow.offsetX || 0;
-      ctx.shadowOffsetY = options.shadow.offsetY || 4;
-    }
+    renderer.drawRect({
+      x, y, width, height,
+      cornerRadius: radius,
+      fillStyle: options.gradient
+        ? this.verticalGradient(options.gradient, x, y, height)
+        : options.fill,
+      strokeStyle: options.stroke,
+      lineWidth: options.strokeWidth || 2,
+      globalAlpha: options.globalAlpha,
+      shadow: options.shadow && {
+        color: options.shadow.color || 'rgba(0,0,0,0.5)',
+        blur: options.shadow.blur || 10,
+        offsetX: options.shadow.offsetX || 0,
+        offsetY: options.shadow.offsetY || 4
+      }
+    });
 
-    ctx.beginPath();
-    ctx.roundRect(x, y, width, height, radius);
-
-    // Fill with gradient or solid color
-    if (options.gradient) {
-      const grad = ctx.createLinearGradient(x, y, x, y + height);
-      options.gradient.forEach((stop, i) => {
-        grad.addColorStop(stop.pos !== undefined ? stop.pos : i / (options.gradient.length - 1), stop.color);
-      });
-      ctx.fillStyle = grad;
-    } else if (options.fill) {
-      ctx.fillStyle = options.fill;
-    }
-
-    if (options.fill || options.gradient) {
-      ctx.fill();
-    }
-
-    // Reset shadow for stroke
-    ctx.shadowColor = 'transparent';
-
-    // Stroke/border
-    if (options.stroke) {
-      ctx.strokeStyle = options.stroke;
-      ctx.lineWidth = options.strokeWidth || 2;
-      ctx.stroke();
-    }
-
-    // Inner glow effect
+    // Inner glow effect: stroke a glowing border clipped to the rect
     if (options.innerGlow) {
-      ctx.save();
-      ctx.clip();
-      ctx.shadowColor = options.innerGlow.color || 'rgba(255,255,255,0.3)';
-      ctx.shadowBlur = options.innerGlow.blur || 15;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.strokeStyle = options.innerGlow.color || 'rgba(255,255,255,0.3)';
-      ctx.lineWidth = options.innerGlow.width || 10;
-      ctx.stroke();
-      ctx.restore();
+      const glowColor = options.innerGlow.color || 'rgba(255,255,255,0.3)';
+      renderer.pushClip({ x, y, width, height, cornerRadius: radius });
+      renderer.drawRect({
+        x, y, width, height,
+        cornerRadius: radius,
+        strokeStyle: glowColor,
+        lineWidth: options.innerGlow.width || 10,
+        globalAlpha: options.globalAlpha,
+        shadow: { color: glowColor, blur: options.innerGlow.blur || 15 }
+      });
+      renderer.popClip();
     }
-
-    ctx.restore();
   }
 
   // Draw text with shadow and optional glow
-  drawStyledText(ctx, text, x, y, options = {}) {
-    ctx.save();
-
-    const fontSize = options.fontSize || 16;
-    const fontWeight = options.fontWeight || 'normal';
-    const fontFamily = options.fontFamily || 'system-ui, sans-serif';
-
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-    ctx.textAlign = options.align || 'left';
-    ctx.textBaseline = options.baseline || 'top';
-
-    // Glow effect
-    if (options.glow) {
-      ctx.shadowColor = options.glow.color || options.color || '#fff';
-      ctx.shadowBlur = options.glow.blur || 10;
-    }
-
-    // Text shadow
+  drawStyledText(text, x, y, options = {}) {
+    let shadow;
     if (options.shadow) {
-      ctx.shadowColor = options.shadow.color || 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = options.shadow.blur || 4;
-      ctx.shadowOffsetX = options.shadow.offsetX || 2;
-      ctx.shadowOffsetY = options.shadow.offsetY || 2;
+      shadow = {
+        color: options.shadow.color || 'rgba(0,0,0,0.8)',
+        blur: options.shadow.blur || 4,
+        offsetX: options.shadow.offsetX ?? 2,
+        offsetY: options.shadow.offsetY ?? 2
+      };
+    } else if (options.glow) {
+      shadow = {
+        color: options.glow.color || options.color || '#fff',
+        blur: options.glow.blur || 10
+      };
     }
 
-    // Stroke/outline
-    if (options.stroke) {
-      ctx.strokeStyle = options.stroke.color || '#000';
-      ctx.lineWidth = options.stroke.width || 3;
-      ctx.lineJoin = 'round';
-      ctx.strokeText(text, x, y);
-    }
-
-    ctx.fillStyle = options.color || '#fff';
-    ctx.fillText(text, x, y);
-
-    ctx.restore();
+    this.game.uiRenderer.drawText({
+      text, x, y,
+      fillStyle: options.color || '#fff',
+      strokeStyle: options.stroke && (options.stroke.color || '#000'),
+      lineWidth: options.stroke && (options.stroke.width || 3),
+      fontSize: options.fontSize || 16,
+      fontFamily: options.fontFamily || 'system-ui, sans-serif',
+      fontWeight: options.fontWeight || 'normal',
+      textAlign: options.align || 'left',
+      textBaseline: options.baseline || 'top',
+      globalAlpha: options.globalAlpha,
+      shadow
+    });
   }
 
   // Create particles for effects
@@ -247,18 +231,17 @@ export class DonerGame {
   }
 
   // Draw all particles
-  drawParticles(ctx) {
+  drawParticles() {
     this.particles.forEach(p => {
       const alpha = p.life / p.maxLife;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = p.color;
-      ctx.shadowColor = p.color;
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      this.game.uiRenderer.drawArc({
+        x: p.x,
+        y: p.y,
+        radius: p.size * alpha,
+        fillStyle: p.color,
+        globalAlpha: alpha,
+        shadow: { color: p.color, blur: 8 }
+      });
     });
   }
 
@@ -415,8 +398,8 @@ export class DonerGame {
     });
 
     // Spawn particles for visual feedback
-    const width = this.game.options.width;
-    const height = this.game.options.height;
+    const width = this.game.uiRenderer.width;
+    const height = this.game.uiRenderer.height;
     const ingredient = INGREDIENTS[ingredientId];
     this.spawnParticles(width / 2 - 60, height / 2 - 30, 15, {
       colors: [ingredient.color, '#FFD700', '#FFFFFF'],
@@ -432,8 +415,8 @@ export class DonerGame {
     this.lastAddedTime = Date.now();
 
     // Spawn red/dark particles for negative feedback
-    const width = this.game.options.width;
-    const height = this.game.options.height;
+    const width = this.game.uiRenderer.width;
+    const height = this.game.uiRenderer.height;
     this.spawnParticles(width / 2 - 60, height / 2 - 30, 20, {
       colors: ['#FF0000', '#880000', '#440000'],
       speed: 180,
@@ -528,75 +511,93 @@ export class DonerGame {
   // Drawing methods
   draw() {
     const renderer = this.game.uiRenderer;
-    const ctx = renderer.context;
-    const width = this.game.options.width;
-    const height = this.game.options.height;
+    const width = this.game.uiRenderer.width;
+    const height = this.game.uiRenderer.height;
 
     // Draw background
     if (this.spritesLoaded && this.sprites.background) {
-      ctx.drawImage(this.sprites.background, 0, 0, width, height);
+      renderer.drawImage({ image: this.sprites.background, x: 0, y: 0, width, height });
     } else {
       // Gradient fallback background
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-      bgGrad.addColorStop(0, '#1a0f0a');
-      bgGrad.addColorStop(0.5, '#2d1b0e');
-      bgGrad.addColorStop(1, '#1a0f0a');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, width, height);
+      renderer.drawRect({
+        x: 0, y: 0, width, height,
+        fillStyle: {
+          type: 'linear',
+          x0: 0, y0: 0, x1: 0, y1: height,
+          stops: [
+            { offset: 0, color: '#1a0f0a' },
+            { offset: 0.5, color: '#2d1b0e' },
+            { offset: 1, color: '#1a0f0a' }
+          ]
+        }
+      });
     }
 
     // Add subtle vignette overlay
-    const vignetteGrad = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width * 0.7);
-    vignetteGrad.addColorStop(0, 'rgba(0,0,0,0)');
-    vignetteGrad.addColorStop(1, 'rgba(0,0,0,0.4)');
-    ctx.fillStyle = vignetteGrad;
-    ctx.fillRect(0, 0, width, height);
+    renderer.drawRect({
+      x: 0, y: 0, width, height,
+      fillStyle: {
+        type: 'radial',
+        x: width / 2, y: height / 2, r1: width * 0.7,
+        stops: [
+          { offset: 0, color: 'rgba(0,0,0,0)' },
+          { offset: 1, color: 'rgba(0,0,0,0.4)' }
+        ]
+      }
+    });
 
     // Draw game area sections
-    this.drawHeader(ctx, width, height);
-    this.drawOrders(ctx, width, height);
-    this.drawSandwichArea(ctx, width, height);
-    this.drawIngredientGuide(ctx, width, height);
-    this.drawRhythmIndicator(ctx, width, height);
-    this.drawFeedback(ctx, width, height);
+    this.drawHeader(width, height);
+    this.drawOrders(width, height);
+    this.drawSandwichArea(width, height);
+    this.drawIngredientGuide(width, height);
+    this.drawRhythmIndicator(width, height);
+    this.drawFeedback(width, height);
 
     // Draw particles on top
-    this.drawParticles(ctx);
+    this.drawParticles();
 
     // Draw countdown if counting down
     if (this.isCountingDown) {
-      this.drawCountdown(ctx, width, height);
+      this.drawCountdown(width, height);
     }
 
     // Draw game over screen if ended
     if (!this.isGameActive && !this.isCountingDown && this.finalResults) {
-      this.drawGameOver(ctx, width, height);
+      this.drawGameOver(width, height);
     }
   }
 
-  drawCountdown(ctx, width, height) {
+  drawCountdown(width, height) {
+    const renderer = this.game.uiRenderer;
+
     // Semi-transparent overlay with gradient
-    const overlayGrad = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width * 0.6);
-    overlayGrad.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
-    overlayGrad.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
-    ctx.fillStyle = overlayGrad;
-    ctx.fillRect(0, 0, width, height);
+    renderer.drawRect({
+      x: 0, y: 0, width, height,
+      fillStyle: {
+        type: 'radial',
+        x: width / 2, y: height / 2, r1: width * 0.6,
+        stops: [
+          { offset: 0, color: 'rgba(0, 0, 0, 0.6)' },
+          { offset: 1, color: 'rgba(0, 0, 0, 0.9)' }
+        ]
+      }
+    });
 
     // Animated ring around countdown
     const ringRadius = 120 + Math.sin(this.glowPulse * 2) * 10;
-    ctx.save();
-    ctx.strokeStyle = '#FFD700';
-    ctx.lineWidth = 6;
-    ctx.shadowColor = '#FFD700';
-    ctx.shadowBlur = 30;
-    ctx.beginPath();
-    ctx.arc(width / 2, height / 2 - 20, ringRadius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
+    renderer.drawArc({
+      x: width / 2,
+      y: height / 2 - 20,
+      radius: ringRadius,
+      strokeStyle: '#FFD700',
+      lineWidth: 6,
+      shadow: { color: '#FFD700', blur: 30 }
+    });
 
     // Countdown number with glow
     const pulse = 1 + Math.sin(this.glowPulse * 4) * 0.05;
-    this.drawStyledText(ctx, this.countdownValue.toString(), width / 2, height / 2 - 20, {
+    this.drawStyledText(this.countdownValue.toString(), width / 2, height / 2 - 20, {
       fontSize: 150 * pulse,
       fontWeight: 'bold',
       color: '#FFD700',
@@ -607,7 +608,7 @@ export class DonerGame {
     });
 
     // "Get Ready" text with shadow
-    this.drawStyledText(ctx, 'GET READY!', width / 2, height / 2 + 100, {
+    this.drawStyledText('GET READY!', width / 2, height / 2 + 100, {
       fontSize: 42,
       fontWeight: 'bold',
       color: '#FFFFFF',
@@ -618,9 +619,9 @@ export class DonerGame {
     });
   }
 
-  drawHeader(ctx, width, height) {
+  drawHeader(width, height) {
     // Header background with gradient
-    this.drawRoundedRect(ctx, 10, 10, width - 20, 55, 12, {
+    this.drawRoundedRect(10, 10, width - 20, 55, 12, {
       gradient: [
         { pos: 0, color: 'rgba(20, 10, 5, 0.9)' },
         { pos: 1, color: 'rgba(40, 25, 15, 0.85)' }
@@ -631,7 +632,7 @@ export class DonerGame {
     });
 
     // Score with glow
-    this.drawStyledText(ctx, `Score: ${this.score}`, 30, 38, {
+    this.drawStyledText(`Score: ${this.score}`, 30, 38, {
       fontSize: 28,
       fontWeight: 'bold',
       color: '#FFD700',
@@ -644,7 +645,7 @@ export class DonerGame {
     // Combo with animation
     if (this.combo > 1) {
       const comboPulse = 1 + Math.sin(this.glowPulse * 5) * 0.1;
-      this.drawStyledText(ctx, `x${this.combo}`, 220, 38, {
+      this.drawStyledText(`x${this.combo}`, 220, 38, {
         fontSize: 26 * comboPulse,
         fontWeight: 'bold',
         color: '#FF6B6B',
@@ -662,7 +663,7 @@ export class DonerGame {
     const timeColor = timeLeft < 30 ? '#FF4444' : '#FFFFFF';
     const timeGlow = timeLeft < 30 ? { color: '#FF4444', blur: 15 } : null;
 
-    this.drawStyledText(ctx, `${minutes}:${seconds.toString().padStart(2, '0')}`, width - 30, 38, {
+    this.drawStyledText(`${minutes}:${seconds.toString().padStart(2, '0')}`, width - 30, 38, {
       fontSize: 32,
       fontWeight: 'bold',
       color: timeColor,
@@ -674,7 +675,7 @@ export class DonerGame {
 
     // Title with glow
     const titlePulse = 1 + Math.sin(this.glowPulse) * 0.02;
-    this.drawStyledText(ctx, 'DONER RHYTHM', width / 2, 38, {
+    this.drawStyledText('DONER RHYTHM', width / 2, 38, {
       fontSize: 32 * titlePulse,
       fontWeight: 'bold',
       color: '#FFD700',
@@ -685,7 +686,7 @@ export class DonerGame {
     });
   }
 
-  drawOrders(ctx, width, height) {
+  drawOrders(width, height) {
     const orders = this.orderManager.getOrders();
     const orderWidth = 290;
     const orderHeight = 140;
@@ -693,7 +694,7 @@ export class DonerGame {
     const startY = 80;
 
     // Orders panel background with glassmorphism
-    this.drawRoundedRect(ctx, startX, startY - 10, orderWidth + 20, 3 * (orderHeight + 12) + 50, 16, {
+    this.drawRoundedRect(startX, startY - 10, orderWidth + 20, 3 * (orderHeight + 12) + 50, 16, {
       gradient: [
         { pos: 0, color: 'rgba(30, 20, 10, 0.85)' },
         { pos: 1, color: 'rgba(20, 10, 5, 0.9)' }
@@ -704,7 +705,7 @@ export class DonerGame {
     });
 
     // Panel title
-    this.drawStyledText(ctx, 'ORDERS', startX + 15, startY + 10, {
+    this.drawStyledText('ORDERS', startX + 15, startY + 10, {
       fontSize: 18,
       fontWeight: 'bold',
       color: '#FFD700',
@@ -720,7 +721,7 @@ export class DonerGame {
 
       // Order card with urgency indication
       const cardGlow = isUrgent ? { color: 'rgba(255,68,68,0.4)', blur: 15, width: 8 } : null;
-      this.drawRoundedRect(ctx, x, y, orderWidth, orderHeight, 12, {
+      this.drawRoundedRect(x, y, orderWidth, orderHeight, 12, {
         gradient: [
           { pos: 0, color: isUrgent ? 'rgba(80, 30, 30, 0.9)' : 'rgba(60, 40, 25, 0.9)' },
           { pos: 1, color: isUrgent ? 'rgba(50, 20, 20, 0.9)' : 'rgba(40, 25, 15, 0.9)' }
@@ -732,7 +733,7 @@ export class DonerGame {
       });
 
       // Order name
-      this.drawStyledText(ctx, order.recipe.name, x + 12, y + 15, {
+      this.drawStyledText(order.recipe.name, x + 12, y + 15, {
         fontSize: 16,
         fontWeight: 'bold',
         color: '#FFD700',
@@ -740,7 +741,7 @@ export class DonerGame {
       });
 
       // Points badge
-      this.drawRoundedRect(ctx, x + orderWidth - 65, y + 8, 55, 24, 8, {
+      this.drawRoundedRect(x + orderWidth - 65, y + 8, 55, 24, 8, {
         gradient: [
           { pos: 0, color: 'rgba(100, 180, 100, 0.9)' },
           { pos: 1, color: 'rgba(60, 140, 60, 0.9)' }
@@ -748,7 +749,7 @@ export class DonerGame {
         stroke: 'rgba(150, 255, 150, 0.4)',
         strokeWidth: 1
       });
-      this.drawStyledText(ctx, `${order.points}`, x + orderWidth - 38, y + 20, {
+      this.drawStyledText(`${order.points}`, x + orderWidth - 38, y + 20, {
         fontSize: 14,
         fontWeight: 'bold',
         color: '#FFFFFF',
@@ -763,7 +764,7 @@ export class DonerGame {
         const badgeX = x + 12 + i * 44;
 
         // Ingredient badge
-        this.drawRoundedRect(ctx, badgeX, ingredientY, 40, 40, 8, {
+        this.drawRoundedRect(badgeX, ingredientY, 40, 40, 8, {
           fill: ingredient.color + '40',
           stroke: ingredient.color,
           strokeWidth: 2
@@ -772,9 +773,9 @@ export class DonerGame {
         // Draw sprite if available
         const sprite = this.sprites[id];
         if (this.spritesLoaded && sprite) {
-          ctx.drawImage(sprite, badgeX + 4, ingredientY + 4, 32, 32);
+          this.game.uiRenderer.drawImage({ image: sprite, x: badgeX + 4, y: ingredientY + 4, width: 32, height: 32 });
         } else {
-          this.drawStyledText(ctx, ingredient.emoji, badgeX + 20, ingredientY + 20, {
+          this.drawStyledText(ingredient.emoji, badgeX + 20, ingredientY + 20, {
             fontSize: 20,
             align: 'center',
             baseline: 'middle'
@@ -788,25 +789,30 @@ export class DonerGame {
       const barY = y + orderHeight - 20;
 
       // Bar background
-      this.drawRoundedRect(ctx, x + 12, barY, barWidth, barHeight, 4, {
+      this.drawRoundedRect(x + 12, barY, barWidth, barHeight, 4, {
         fill: 'rgba(0,0,0,0.5)'
       });
 
       // Bar fill with gradient
       if (timeRatio > 0) {
         const fillWidth = barWidth * timeRatio;
-        const barGrad = ctx.createLinearGradient(x + 12, 0, x + 12 + fillWidth, 0);
+        let barColors;
         if (isUrgent) {
-          barGrad.addColorStop(0, '#FF6666');
-          barGrad.addColorStop(1, '#FF4444');
+          barColors = ['#FF6666', '#FF4444'];
         } else if (timeRatio < 0.6) {
-          barGrad.addColorStop(0, '#FFAA44');
-          barGrad.addColorStop(1, '#FF8800');
+          barColors = ['#FFAA44', '#FF8800'];
         } else {
-          barGrad.addColorStop(0, '#66DD66');
-          barGrad.addColorStop(1, '#44AA44');
+          barColors = ['#66DD66', '#44AA44'];
         }
-        this.drawRoundedRect(ctx, x + 12, barY, fillWidth, barHeight, 4, {
+        const barGrad = {
+          type: 'linear',
+          x0: x + 12, y0: 0, x1: x + 12 + fillWidth, y1: 0,
+          stops: [
+            { offset: 0, color: barColors[0] },
+            { offset: 1, color: barColors[1] }
+          ]
+        };
+        this.drawRoundedRect(x + 12, barY, fillWidth, barHeight, 4, {
           fill: barGrad,
           innerGlow: isUrgent ? { color: '#FF4444', blur: 8 } : null
         });
@@ -814,26 +820,28 @@ export class DonerGame {
     });
   }
 
-  drawSandwichArea(ctx, width, height) {
+  drawSandwichArea(width, height) {
     const centerX = width / 2 - 60; // Shifted left
     const sandwichY = height / 2 - 120; // Moved up
     const plateScale = 1.5; // Bigger plate and ingredients
 
     // Draw plate (bigger)
     if (this.spritesLoaded && this.sprites.plate) {
-      ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 20;
-      ctx.shadowOffsetY = 10;
       const plateWidth = 300 * plateScale;
       const plateHeight = 90 * plateScale;
-      ctx.drawImage(this.sprites.plate, centerX - plateWidth / 2, sandwichY + 200, plateWidth, plateHeight);
-      ctx.restore();
+      this.game.uiRenderer.drawImage({
+        image: this.sprites.plate,
+        x: centerX - plateWidth / 2,
+        y: sandwichY + 200,
+        width: plateWidth,
+        height: plateHeight,
+        shadow: { color: 'rgba(0,0,0,0.5)', blur: 20, offsetY: 10 }
+      });
     }
 
     // Draw sandwich stack
     if (this.currentSandwich.length === 0) {
-      this.drawStyledText(ctx, 'Press A/S/D/F to add ingredients!', centerX, sandwichY + 130, {
+      this.drawStyledText('Press A/S/D/F to add ingredients!', centerX, sandwichY + 130, {
         fontSize: 16,
         color: 'rgba(255,255,255,0.5)',
         align: 'center',
@@ -853,35 +861,35 @@ export class DonerGame {
         const layerY = baseY - index * layerSpacing;
         const sprite = this.sprites[itemId];
 
-        ctx.save();
-
         // Red tint for negative items
-        if (isNegative) {
-          ctx.shadowColor = 'rgba(255,0,0,0.6)';
-          ctx.shadowBlur = 15;
-        } else {
-          ctx.shadowColor = 'rgba(0,0,0,0.4)';
-          ctx.shadowBlur = 8;
-        }
-        ctx.shadowOffsetY = 4;
+        const layerShadow = isNegative
+          ? { color: 'rgba(255,0,0,0.6)', blur: 15, offsetY: 4 }
+          : { color: 'rgba(0,0,0,0.4)', blur: 8, offsetY: 4 };
 
         if (this.spritesLoaded && sprite) {
-          ctx.drawImage(sprite, centerX - ingredientWidth / 2, layerY - 30, ingredientWidth, ingredientHeight);
+          this.game.uiRenderer.drawImage({
+            image: sprite,
+            x: centerX - ingredientWidth / 2,
+            y: layerY - 30,
+            width: ingredientWidth,
+            height: ingredientHeight,
+            shadow: layerShadow
+          });
         } else {
           // Fallback to styled rectangle
-          this.drawRoundedRect(ctx, centerX - ingredientWidth / 2 + 10, layerY - 25, ingredientWidth - 20, 55, 8, {
+          this.drawRoundedRect(centerX - ingredientWidth / 2 + 10, layerY - 25, ingredientWidth - 20, 55, 8, {
             gradient: [
               { pos: 0, color: itemData.color },
               { pos: 1, color: this.darkenColor(itemData.color, 30) }
             ],
             stroke: isNegative ? 'rgba(255,0,0,0.5)' : 'rgba(0,0,0,0.3)',
-            strokeWidth: 2
+            strokeWidth: 2,
+            shadow: layerShadow
           });
         }
-        ctx.restore();
 
         // Ingredient label (red for negative items) - bigger text
-        this.drawStyledText(ctx, itemData.name, centerX + ingredientWidth / 2 + 20, layerY - 5, {
+        this.drawStyledText(itemData.name, centerX + ingredientWidth / 2 + 20, layerY - 5, {
           fontSize: 18,
           fontWeight: 'bold',
           color: isNegative ? 'rgba(255,100,100,0.95)' : 'rgba(255,255,255,0.9)',
@@ -904,7 +912,7 @@ export class DonerGame {
     return `rgb(${R},${G},${B})`;
   }
 
-  drawIngredientGuide(ctx, width, height) {
+  drawIngredientGuide(width, height) {
     const guideX = width - 330;
     const guideY = 80;
     const lineHeight = 52;
@@ -912,7 +920,7 @@ export class DonerGame {
     const panelHeight = Object.keys(INGREDIENTS).length * lineHeight + 55;
 
     // Background panel with glassmorphism
-    this.drawRoundedRect(ctx, guideX - 10, guideY - 10, panelWidth, panelHeight, 16, {
+    this.drawRoundedRect(guideX - 10, guideY - 10, panelWidth, panelHeight, 16, {
       gradient: [
         { pos: 0, color: 'rgba(30, 20, 10, 0.85)' },
         { pos: 1, color: 'rgba(20, 10, 5, 0.9)' }
@@ -923,7 +931,7 @@ export class DonerGame {
     });
 
     // Panel title
-    this.drawStyledText(ctx, 'INGREDIENTS', guideX + 5, guideY + 8, {
+    this.drawStyledText('INGREDIENTS', guideX + 5, guideY + 8, {
       fontSize: 18,
       fontWeight: 'bold',
       color: '#FFD700',
@@ -937,7 +945,7 @@ export class DonerGame {
 
       // Row background on hover-like effect for alternate rows
       if (index % 2 === 0) {
-        this.drawRoundedRect(ctx, guideX - 2, y - 5, panelWidth - 16, lineHeight - 4, 8, {
+        this.drawRoundedRect(guideX - 2, y - 5, panelWidth - 16, lineHeight - 4, 8, {
           fill: 'rgba(255, 255, 255, 0.03)'
         });
       }
@@ -945,16 +953,16 @@ export class DonerGame {
       // Match the icon and badge used in order cards, including missing-sprite fallbacks.
       const badgeX = guideX + 6;
       const badgeY = y - 1;
-      this.drawRoundedRect(ctx, badgeX, badgeY, 40, 40, 8, {
+      this.drawRoundedRect(badgeX, badgeY, 40, 40, 8, {
         fill: ingredient.color + '40',
         stroke: ingredient.color,
         strokeWidth: 2
       });
       const sprite = this.sprites[id];
       if (this.spritesLoaded && sprite) {
-        ctx.drawImage(sprite, badgeX + 4, badgeY + 4, 32, 32);
+        this.game.uiRenderer.drawImage({ image: sprite, x: badgeX + 4, y: badgeY + 4, width: 32, height: 32 });
       } else {
-        this.drawStyledText(ctx, ingredient.emoji, badgeX + 20, badgeY + 20, {
+        this.drawStyledText(ingredient.emoji, badgeX + 20, badgeY + 20, {
           fontSize: 20,
           align: 'center',
           baseline: 'middle'
@@ -962,7 +970,7 @@ export class DonerGame {
       }
 
       // Name
-      this.drawStyledText(ctx, ingredient.name, guideX + 60, y + 10, {
+      this.drawStyledText(ingredient.name, guideX + 60, y + 10, {
         fontSize: 15,
         fontWeight: 'bold',
         color: '#FFFFFF',
@@ -977,7 +985,7 @@ export class DonerGame {
         const badgeX = patternStartX + i * 38;
 
         // Key badge
-        this.drawRoundedRect(ctx, badgeX, y + 3, 32, 32, 6, {
+        this.drawRoundedRect(badgeX, y + 3, 32, 32, 6, {
           gradient: [
             { pos: 0, color: keyColor.main + 'CC' },
             { pos: 1, color: keyColor.glow + 'AA' }
@@ -988,7 +996,7 @@ export class DonerGame {
         });
 
         // Key letter
-        this.drawStyledText(ctx, beat, badgeX + 16, y + 19, {
+        this.drawStyledText(beat, badgeX + 16, y + 19, {
           fontSize: 16,
           fontWeight: 'bold',
           color: '#FFFFFF',
@@ -1000,14 +1008,14 @@ export class DonerGame {
     });
   }
 
-  drawRhythmIndicator(ctx, width, height) {
+  drawRhythmIndicator(width, height) {
     const indicatorY = height - 150;
     const centerX = width / 2;
     const panelWidth = 360;
     const panelHeight = 100;
 
     // Background panel with glassmorphism
-    this.drawRoundedRect(ctx, centerX - panelWidth / 2, indicatorY, panelWidth, panelHeight, 16, {
+    this.drawRoundedRect(centerX - panelWidth / 2, indicatorY, panelWidth, panelHeight, 16, {
       gradient: [
         { pos: 0, color: 'rgba(20, 15, 10, 0.9)' },
         { pos: 1, color: 'rgba(10, 5, 0, 0.95)' }
@@ -1018,7 +1026,7 @@ export class DonerGame {
     });
 
     // Panel title
-    this.drawStyledText(ctx, 'RHYTHM INPUT', centerX, indicatorY + 12, {
+    this.drawStyledText('RHYTHM INPUT', centerX, indicatorY + 12, {
       fontSize: 12,
       fontWeight: 'bold',
       color: 'rgba(255, 215, 0, 0.6)',
@@ -1048,7 +1056,7 @@ export class DonerGame {
         const keyColor = this.getKeyColor(beat);
 
         // Filled slot with glow
-        this.drawRoundedRect(ctx, x, y, slotW, slotH, 10, {
+        this.drawRoundedRect(x, y, slotW, slotH, 10, {
           gradient: [
             { pos: 0, color: keyColor.main + '60' },
             { pos: 1, color: keyColor.glow + '40' }
@@ -1059,7 +1067,7 @@ export class DonerGame {
         });
 
         // Beat letter with glow
-        this.drawStyledText(ctx, beat, x + slotW / 2, y + slotH / 2, {
+        this.drawStyledText(beat, x + slotW / 2, y + slotH / 2, {
           fontSize: 28,
           fontWeight: 'bold',
           color: keyColor.main,
@@ -1076,7 +1084,7 @@ export class DonerGame {
           // Show the pending input with a "locked in" style
           const keyColor = this.getKeyColor(patternState.pendingInput);
 
-          this.drawRoundedRect(ctx, x, y, slotW, slotH, 10, {
+          this.drawRoundedRect(x, y, slotW, slotH, 10, {
             gradient: [
               { pos: 0, color: keyColor.main + '80' },
               { pos: 1, color: keyColor.glow + '60' }
@@ -1087,7 +1095,7 @@ export class DonerGame {
           });
 
           // Beat letter with glow
-          this.drawStyledText(ctx, patternState.pendingInput, x + slotW / 2, y + 18, {
+          this.drawStyledText(patternState.pendingInput, x + slotW / 2, y + 18, {
             fontSize: 26,
             fontWeight: 'bold',
             color: keyColor.main,
@@ -1098,7 +1106,7 @@ export class DonerGame {
           });
         } else {
           // No input yet - show pulsing waiting state
-          this.drawRoundedRect(ctx, x, y, slotW, slotH, 10, {
+          this.drawRoundedRect(x, y, slotW, slotH, 10, {
             gradient: [
               { pos: 0, color: `rgba(80, 70, 40, ${pulseIntensity})` },
               { pos: 1, color: `rgba(50, 45, 25, ${pulseIntensity})` }
@@ -1109,7 +1117,7 @@ export class DonerGame {
           });
 
           // Prompt
-          this.drawStyledText(ctx, '?', x + slotW / 2, y + 18, {
+          this.drawStyledText('?', x + slotW / 2, y + 18, {
             fontSize: 20,
             fontWeight: 'bold',
             color: 'rgba(255, 215, 0, 0.7)',
@@ -1126,40 +1134,41 @@ export class DonerGame {
         const barY = y + slotH - 14;
 
         // Bar background
-        this.drawRoundedRect(ctx, x + 8, barY, barWidth, barHeight, 3, {
+        this.drawRoundedRect(x + 8, barY, barWidth, barHeight, 3, {
           fill: 'rgba(0,0,0,0.5)'
         });
 
         // Bar fill with color based on time
         if (timeRemaining > 0) {
-          let barGrad;
+          let barColors;
           if (timeRemaining < 0.3) {
-            barGrad = ctx.createLinearGradient(x + 8, 0, x + 8 + barWidth * timeRemaining, 0);
-            barGrad.addColorStop(0, '#FF6666');
-            barGrad.addColorStop(1, '#FF4444');
+            barColors = ['#FF6666', '#FF4444'];
           } else if (timeRemaining < 0.6) {
-            barGrad = ctx.createLinearGradient(x + 8, 0, x + 8 + barWidth * timeRemaining, 0);
-            barGrad.addColorStop(0, '#FFCC44');
-            barGrad.addColorStop(1, '#FF9900');
+            barColors = ['#FFCC44', '#FF9900'];
           } else {
-            barGrad = ctx.createLinearGradient(x + 8, 0, x + 8 + barWidth * timeRemaining, 0);
-            barGrad.addColorStop(0, '#66FF66');
-            barGrad.addColorStop(1, '#44CC44');
+            barColors = ['#66FF66', '#44CC44'];
           }
 
-          this.drawRoundedRect(ctx, x + 8, barY, barWidth * timeRemaining, barHeight, 3, {
-            fill: barGrad
+          this.drawRoundedRect(x + 8, barY, barWidth * timeRemaining, barHeight, 3, {
+            fill: {
+              type: 'linear',
+              x0: x + 8, y0: 0, x1: x + 8 + barWidth * timeRemaining, y1: 0,
+              stops: [
+                { offset: 0, color: barColors[0] },
+                { offset: 1, color: barColors[1] }
+              ]
+            }
           });
         }
       } else {
         // Waiting slot
-        this.drawRoundedRect(ctx, x, y, slotW, slotH, 10, {
+        this.drawRoundedRect(x, y, slotW, slotH, 10, {
           fill: 'rgba(30, 25, 20, 0.6)',
           stroke: 'rgba(80, 70, 60, 0.4)',
           strokeWidth: 2
         });
 
-        this.drawStyledText(ctx, '-', x + slotW / 2, y + slotH / 2, {
+        this.drawStyledText('-', x + slotW / 2, y + slotH / 2, {
           fontSize: 20,
           color: 'rgba(100, 90, 80, 0.5)',
           align: 'center',
@@ -1177,12 +1186,12 @@ export class DonerGame {
       const keyColor = this.getKeyColor(key);
       const kx = legendStartX + i * 50;
 
-      this.drawRoundedRect(ctx, kx, legendY - 10, 28, 22, 4, {
+      this.drawRoundedRect(kx, legendY - 10, 28, 22, 4, {
         fill: keyColor.main + '40',
         stroke: keyColor.main,
         strokeWidth: 1
       });
-      this.drawStyledText(ctx, key, kx + 14, legendY + 1, {
+      this.drawStyledText(key, kx + 14, legendY + 1, {
         fontSize: 13,
         fontWeight: 'bold',
         color: keyColor.main,
@@ -1191,7 +1200,7 @@ export class DonerGame {
       });
     });
 
-    this.drawStyledText(ctx, '1s per beat', centerX + 90, legendY, {
+    this.drawStyledText('1s per beat', centerX + 90, legendY, {
       fontSize: 12,
       color: 'rgba(150, 140, 130, 0.7)',
       align: 'left',
@@ -1203,66 +1212,64 @@ export class DonerGame {
       const alpha = visual.time / 300;
       const keyColor = this.getKeyColor(visual.beat);
 
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.shadowColor = keyColor.glow;
-      ctx.shadowBlur = 15;
-
-      this.drawStyledText(ctx, visual.beat, centerX + (visual.index - 1) * 100, indicatorY - visual.y - 15, {
+      this.drawStyledText(visual.beat, centerX + (visual.index - 1) * 100, indicatorY - visual.y - 15, {
         fontSize: 30,
         fontWeight: 'bold',
         color: keyColor.main,
         align: 'center',
         baseline: 'middle',
-        stroke: { color: 'rgba(0,0,0,0.5)', width: 2 }
+        stroke: { color: 'rgba(0,0,0,0.5)', width: 2 },
+        glow: { color: keyColor.glow, blur: 15 },
+        globalAlpha: alpha
       });
-
-      ctx.restore();
     });
   }
 
-  drawFeedback(ctx, width, height) {
+  drawFeedback(width, height) {
     if (this.feedbackTime > 0) {
       const alpha = Math.min(1, this.feedbackTime / 300);
       const scale = 1 + (1 - alpha) * 0.2;
 
-      ctx.save();
-      ctx.globalAlpha = alpha;
-
       // Background pill
       const textWidth = this.feedbackMessage.length * 12;
-      this.drawRoundedRect(ctx, width / 2 - textWidth / 2 - 20, height / 2 - 180, textWidth + 40, 50, 25, {
+      this.drawRoundedRect(width / 2 - textWidth / 2 - 20, height / 2 - 180, textWidth + 40, 50, 25, {
         fill: 'rgba(0, 0, 0, 0.7)',
         stroke: 'rgba(255, 215, 0, 0.5)',
-        strokeWidth: 2
+        strokeWidth: 2,
+        globalAlpha: alpha
       });
 
-      this.drawStyledText(ctx, this.feedbackMessage, width / 2, height / 2 - 155, {
+      this.drawStyledText(this.feedbackMessage, width / 2, height / 2 - 155, {
         fontSize: 24 * scale,
         fontWeight: 'bold',
         color: '#FFD700',
         align: 'center',
         baseline: 'middle',
         glow: { color: '#FFD700', blur: 15 },
-        stroke: { color: 'rgba(0,0,0,0.5)', width: 2 }
+        stroke: { color: 'rgba(0,0,0,0.5)', width: 2 },
+        globalAlpha: alpha
       });
-
-      ctx.restore();
     }
   }
 
-  drawGameOver(ctx, width, height) {
+  drawGameOver(width, height) {
     // Gradient overlay
-    const overlayGrad = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width * 0.6);
-    overlayGrad.addColorStop(0, 'rgba(20, 10, 5, 0.85)');
-    overlayGrad.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
-    ctx.fillStyle = overlayGrad;
-    ctx.fillRect(0, 0, width, height);
+    this.game.uiRenderer.drawRect({
+      x: 0, y: 0, width, height,
+      fillStyle: {
+        type: 'radial',
+        x: width / 2, y: height / 2, r1: width * 0.6,
+        stops: [
+          { offset: 0, color: 'rgba(20, 10, 5, 0.85)' },
+          { offset: 1, color: 'rgba(0, 0, 0, 0.95)' }
+        ]
+      }
+    });
 
     // Results panel
     const panelWidth = 450;
     const panelHeight = 380;
-    this.drawRoundedRect(ctx, width / 2 - panelWidth / 2, height / 2 - panelHeight / 2, panelWidth, panelHeight, 24, {
+    this.drawRoundedRect(width / 2 - panelWidth / 2, height / 2 - panelHeight / 2, panelWidth, panelHeight, 24, {
       gradient: [
         { pos: 0, color: 'rgba(50, 35, 20, 0.95)' },
         { pos: 1, color: 'rgba(30, 20, 10, 0.98)' }
@@ -1274,7 +1281,7 @@ export class DonerGame {
 
     // "TIME UP!" with animated glow
     const pulse = 1 + Math.sin(this.glowPulse * 2) * 0.05;
-    this.drawStyledText(ctx, 'TIME UP!', width / 2, height / 2 - 140, {
+    this.drawStyledText('TIME UP!', width / 2, height / 2 - 140, {
       fontSize: 56 * pulse,
       fontWeight: 'bold',
       color: '#FFD700',
@@ -1285,7 +1292,7 @@ export class DonerGame {
     });
 
     // Final score with large display
-    this.drawStyledText(ctx, `${this.finalResults.score}`, width / 2, height / 2 - 60, {
+    this.drawStyledText(`${this.finalResults.score}`, width / 2, height / 2 - 60, {
       fontSize: 64,
       fontWeight: 'bold',
       color: '#FFFFFF',
@@ -1295,7 +1302,7 @@ export class DonerGame {
       stroke: { color: 'rgba(0,0,0,0.5)', width: 3 }
     });
 
-    this.drawStyledText(ctx, 'FINAL SCORE', width / 2, height / 2 - 15, {
+    this.drawStyledText('FINAL SCORE', width / 2, height / 2 - 15, {
       fontSize: 16,
       color: 'rgba(255, 215, 0, 0.7)',
       align: 'center',
@@ -1308,12 +1315,12 @@ export class DonerGame {
     const statSpacing = 140;
 
     // Orders Completed
-    this.drawRoundedRect(ctx, width / 2 - statSpacing - statBoxWidth / 2, statsY, statBoxWidth, 70, 12, {
+    this.drawRoundedRect(width / 2 - statSpacing - statBoxWidth / 2, statsY, statBoxWidth, 70, 12, {
       fill: 'rgba(100, 200, 100, 0.2)',
       stroke: 'rgba(100, 255, 100, 0.4)',
       strokeWidth: 2
     });
-    this.drawStyledText(ctx, `${this.finalResults.ordersCompleted}`, width / 2 - statSpacing, statsY + 25, {
+    this.drawStyledText(`${this.finalResults.ordersCompleted}`, width / 2 - statSpacing, statsY + 25, {
       fontSize: 32,
       fontWeight: 'bold',
       color: '#88FF88',
@@ -1321,7 +1328,7 @@ export class DonerGame {
       baseline: 'middle',
       glow: { color: '#88FF88', blur: 8 }
     });
-    this.drawStyledText(ctx, 'Completed', width / 2 - statSpacing, statsY + 55, {
+    this.drawStyledText('Completed', width / 2 - statSpacing, statsY + 55, {
       fontSize: 12,
       color: 'rgba(150, 255, 150, 0.7)',
       align: 'center',
@@ -1329,12 +1336,12 @@ export class DonerGame {
     });
 
     // Orders Failed
-    this.drawRoundedRect(ctx, width / 2 - statBoxWidth / 2, statsY, statBoxWidth, 70, 12, {
+    this.drawRoundedRect(width / 2 - statBoxWidth / 2, statsY, statBoxWidth, 70, 12, {
       fill: 'rgba(200, 100, 100, 0.2)',
       stroke: 'rgba(255, 100, 100, 0.4)',
       strokeWidth: 2
     });
-    this.drawStyledText(ctx, `${this.finalResults.ordersFailed}`, width / 2, statsY + 25, {
+    this.drawStyledText(`${this.finalResults.ordersFailed}`, width / 2, statsY + 25, {
       fontSize: 32,
       fontWeight: 'bold',
       color: '#FF8888',
@@ -1342,7 +1349,7 @@ export class DonerGame {
       baseline: 'middle',
       glow: { color: '#FF8888', blur: 8 }
     });
-    this.drawStyledText(ctx, 'Failed', width / 2, statsY + 55, {
+    this.drawStyledText('Failed', width / 2, statsY + 55, {
       fontSize: 12,
       color: 'rgba(255, 150, 150, 0.7)',
       align: 'center',
@@ -1350,12 +1357,12 @@ export class DonerGame {
     });
 
     // Max Combo
-    this.drawRoundedRect(ctx, width / 2 + statSpacing - statBoxWidth / 2, statsY, statBoxWidth, 70, 12, {
+    this.drawRoundedRect(width / 2 + statSpacing - statBoxWidth / 2, statsY, statBoxWidth, 70, 12, {
       fill: 'rgba(100, 200, 255, 0.2)',
       stroke: 'rgba(100, 200, 255, 0.4)',
       strokeWidth: 2
     });
-    this.drawStyledText(ctx, `x${this.finalResults.maxCombo}`, width / 2 + statSpacing, statsY + 25, {
+    this.drawStyledText(`x${this.finalResults.maxCombo}`, width / 2 + statSpacing, statsY + 25, {
       fontSize: 32,
       fontWeight: 'bold',
       color: '#88FFFF',
@@ -1363,7 +1370,7 @@ export class DonerGame {
       baseline: 'middle',
       glow: { color: '#88FFFF', blur: 8 }
     });
-    this.drawStyledText(ctx, 'Max Combo', width / 2 + statSpacing, statsY + 55, {
+    this.drawStyledText('Max Combo', width / 2 + statSpacing, statsY + 55, {
       fontSize: 12,
       color: 'rgba(150, 255, 255, 0.7)',
       align: 'center',
@@ -1375,7 +1382,7 @@ export class DonerGame {
 
     // Restart button
     const restartHover = 0.8 + Math.sin(this.glowPulse * 3) * 0.1;
-    this.drawRoundedRect(ctx, width / 2 - 150, btnY, 130, 45, 10, {
+    this.drawRoundedRect(width / 2 - 150, btnY, 130, 45, 10, {
       gradient: [
         { pos: 0, color: `rgba(80, 160, 80, ${restartHover})` },
         { pos: 1, color: `rgba(50, 120, 50, ${restartHover})` }
@@ -1384,7 +1391,7 @@ export class DonerGame {
       strokeWidth: 2,
       shadow: { color: 'rgba(100, 255, 100, 0.3)', blur: 15 }
     });
-    this.drawStyledText(ctx, '[R] Restart', width / 2 - 85, btnY + 22, {
+    this.drawStyledText('[R] Restart', width / 2 - 85, btnY + 22, {
       fontSize: 18,
       fontWeight: 'bold',
       color: '#FFFFFF',
@@ -1393,7 +1400,7 @@ export class DonerGame {
     });
 
     // Menu button
-    this.drawRoundedRect(ctx, width / 2 + 20, btnY, 130, 45, 10, {
+    this.drawRoundedRect(width / 2 + 20, btnY, 130, 45, 10, {
       gradient: [
         { pos: 0, color: 'rgba(100, 100, 160, 0.8)' },
         { pos: 1, color: 'rgba(60, 60, 120, 0.8)' }
@@ -1402,7 +1409,7 @@ export class DonerGame {
       strokeWidth: 2,
       shadow: { color: 'rgba(100, 100, 255, 0.2)', blur: 10 }
     });
-    this.drawStyledText(ctx, '[M] Menu', width / 2 + 85, btnY + 22, {
+    this.drawStyledText('[M] Menu', width / 2 + 85, btnY + 22, {
       fontSize: 18,
       fontWeight: 'bold',
       color: '#FFFFFF',

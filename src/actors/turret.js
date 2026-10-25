@@ -151,67 +151,77 @@ export class Turret extends Entity {
     if (this.dead) return;
 
     const pos = this.position;
-    const ctx = this.game.renderer.worldContext;
+    const renderer = this.game.renderer;
 
     // Draw base
-    ctx.fillStyle = '#4A148C';
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, 16, 0, Math.PI * 2);
-    ctx.fill();
+    renderer.drawArc({ x: pos.x, y: pos.y, radius: 16, fillStyle: '#4A148C' });
 
     // Draw outer ring
-    ctx.strokeStyle = '#7B1FA2';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, 14, 0, Math.PI * 2);
-    ctx.stroke();
+    renderer.drawArc({ x: pos.x, y: pos.y, radius: 14, strokeStyle: '#7B1FA2', lineWidth: 3 });
 
     // Draw cannon barrel
     const barrelLength = 20;
     const barrelWidth = 6;
     const angle = Math.atan2(this.aimDirection.y, this.aimDirection.x);
 
-    ctx.save();
-    ctx.translate(pos.x, pos.y);
-    ctx.rotate(angle);
+    renderer.pushTransform({ x: pos.x, y: pos.y, rotation: angle });
 
     // Barrel
-    ctx.fillStyle = '#6A1B9A';
-    ctx.fillRect(0, -barrelWidth / 2, barrelLength, barrelWidth);
+    renderer.drawRect({
+      x: 0,
+      y: -barrelWidth / 2,
+      width: barrelLength,
+      height: barrelWidth,
+      fillStyle: '#6A1B9A'
+    });
 
     // Barrel tip
-    ctx.fillStyle = '#8E24AA';
-    ctx.fillRect(barrelLength - 4, -barrelWidth / 2 - 2, 6, barrelWidth + 4);
+    renderer.drawRect({
+      x: barrelLength - 4,
+      y: -barrelWidth / 2 - 2,
+      width: 6,
+      height: barrelWidth + 4,
+      fillStyle: '#8E24AA'
+    });
 
-    ctx.restore();
+    renderer.popTransform();
 
     // Draw center dot
-    ctx.fillStyle = this.isPlayerInRange ? '#E91E63' : '#9C27B0';
-    ctx.beginPath();
-    ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
-    ctx.fill();
+    renderer.drawArc({
+      x: pos.x,
+      y: pos.y,
+      radius: 5,
+      fillStyle: this.isPlayerInRange ? '#E91E63' : '#9C27B0'
+    });
 
     // Damage flash
     if (this.damageFlashTime > 0) {
-      ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 18, 0, Math.PI * 2);
-      ctx.fill();
+      renderer.drawArc({ x: pos.x, y: pos.y, radius: 18, fillStyle: 'rgba(255, 0, 0, 0.5)' });
     }
 
     // Cooldown indicator
     if (this.isPlayerInRange && this.fireCooldown > 0) {
       const cooldownPercent = this.fireCooldown / this.fireRate;
-      ctx.strokeStyle = 'rgba(255, 255, 0, 0.6)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 20, -Math.PI / 2, -Math.PI / 2 + (1 - cooldownPercent) * Math.PI * 2);
-      ctx.stroke();
+      renderer.drawArc({
+        x: pos.x,
+        y: pos.y,
+        radius: 20,
+        startAngle: -Math.PI / 2,
+        endAngle: -Math.PI / 2 + (1 - cooldownPercent) * Math.PI * 2,
+        strokeStyle: 'rgba(255, 255, 0, 0.6)',
+        lineWidth: 2
+      });
     }
 
     if (this.game.renderer.isDebugEnabled()) {
+      // Range and aim are annotations on top of the game, not part of the
+      // turret, so they go to the world overlay: world coordinates and world
+      // sizes, rasterized at display resolution. A hairline ring drawn into
+      // a quarter-resolution world surface would break up into steps.
+      const overlay = this.game.worldOverlay;
+
       // Draw detection range
-      this.game.renderer.drawArc({
+      overlay.drawArc({
         x: pos.x,
         y: pos.y,
         radius: this.detectionRange,
@@ -223,7 +233,7 @@ export class Turret extends Entity {
 
       // Draw aim line
       if (this.isPlayerInRange) {
-        this.game.renderer.drawLine({
+        overlay.drawLine({
           x1: pos.x,
           y1: pos.y,
           x2: pos.x + this.aimDirection.x * this.detectionRange,
@@ -233,11 +243,11 @@ export class Turret extends Entity {
         });
       }
 
-      // Draw cooldown text
-      this.game.renderer.drawText({
+      overlay.drawText({
         text: `fire: ${this.fireCooldown.toFixed(1)}s`,
         x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y + 5,
+        y: this.body.bounds.max.y,
+        offsetY: 5,
         fillStyle: '#CE93D8',
         fontSize: '12px',
         fontFamily: 'monospace',

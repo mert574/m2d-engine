@@ -19,55 +19,46 @@ export class Rocket extends Projectile {
     if (this.dead) return;
 
     const pos = this.position;
-    const ctx = this.game.renderer.worldContext;
+    const renderer = this.game.renderer;
 
-    ctx.save();
-    ctx.translate(pos.x, pos.y);
-    ctx.rotate(this.rotation);
+    renderer.pushTransform({ x: pos.x, y: pos.y, rotation: this.rotation });
 
     // Rocket body (red)
-    ctx.fillStyle = '#E53935';
-    ctx.fillRect(-12, -4, 20, 8);
+    renderer.drawRect({ x: -12, y: -4, width: 20, height: 8, fillStyle: '#E53935' });
 
     // Rocket tip (darker red)
-    ctx.fillStyle = '#B71C1C';
-    ctx.beginPath();
-    ctx.moveTo(8, -4);
-    ctx.lineTo(14, 0);
-    ctx.lineTo(8, 4);
-    ctx.closePath();
-    ctx.fill();
+    renderer.drawPath({
+      points: [{ x: 8, y: -4 }, { x: 14, y: 0 }, { x: 8, y: 4 }],
+      closed: true,
+      fillStyle: '#B71C1C'
+    });
 
     // Rocket fins (orange)
-    ctx.fillStyle = '#FF5722';
-    ctx.beginPath();
-    ctx.moveTo(-12, -4);
-    ctx.lineTo(-16, -8);
-    ctx.lineTo(-8, -4);
-    ctx.closePath();
-    ctx.fill();
+    renderer.drawPath({
+      points: [{ x: -12, y: -4 }, { x: -16, y: -8 }, { x: -8, y: -4 }],
+      closed: true,
+      fillStyle: '#FF5722'
+    });
 
-    ctx.beginPath();
-    ctx.moveTo(-12, 4);
-    ctx.lineTo(-16, 8);
-    ctx.lineTo(-8, 4);
-    ctx.closePath();
-    ctx.fill();
+    renderer.drawPath({
+      points: [{ x: -12, y: 4 }, { x: -16, y: 8 }, { x: -8, y: 4 }],
+      closed: true,
+      fillStyle: '#FF5722'
+    });
 
     // Exhaust flame (yellow/orange, animated)
-    ctx.fillStyle = '#FFC107';
-    ctx.beginPath();
-    ctx.moveTo(-12, -3);
-    ctx.lineTo(-18 - Math.random() * 4, 0);
-    ctx.lineTo(-12, 3);
-    ctx.closePath();
-    ctx.fill();
+    renderer.drawPath({
+      points: [{ x: -12, y: -3 }, { x: -18 - Math.random() * 4, y: 0 }, { x: -12, y: 3 }],
+      closed: true,
+      fillStyle: '#FFC107'
+    });
 
-    ctx.restore();
+    renderer.popTransform();
 
     if (this.game.renderer.isDebugEnabled()) {
-      // Draw velocity vector
-      this.game.renderer.drawLine({
+      // Draw velocity vector, as a sharp overlay annotation rather than into
+      // the world surface.
+      this.game.worldOverlay.drawLine({
         x1: pos.x,
         y1: pos.y,
         x2: pos.x + this.direction.x * 30,

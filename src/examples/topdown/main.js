@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { TopDownPlayer } from '../../actors/topDownPlayer.js';
 import { Ghost } from '../../actors/ghost.js';
 import { Platform } from '../../actors/platform.js';
@@ -13,8 +14,17 @@ const game = new M2D(canvas, {
   height: 960,
   worldWidth: 3840,
   worldHeight: 2880,
+  // 32px pixel-art tiles: upscale them blocky, not smeared, below native.
+  worldFilter: 'nearest',
   basePath: import.meta.env.DEV ? '/examples/topdown/' : '/m2d-engine/examples/topdown/'
 });
+
+// Keep the camera inside the level: without bounds, following the player (or
+// an 'expand' aspect mode widening the view) reveals the void past the map.
+game.camera.bounds = {
+  left: 0, top: 0,
+  right: game.options.worldWidth, bottom: game.options.worldHeight
+};
 
 // Register actors
 [TopDownPlayer, Ghost, Platform, Coin, Trigger, Turret].forEach(actor => {
@@ -29,5 +39,8 @@ game.sceneManager.addScene('mainMenu', {
 game.sceneManager.addScene('level1', {
   fetch: async () => (await import('./scenes/level1.json')).default
 });
+
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
 
 game.start();

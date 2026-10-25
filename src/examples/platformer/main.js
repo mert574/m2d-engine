@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Player } from '../../actors/player.js';
 import { Bee } from '../../actors/bee.js';
 import { Platform } from '../../actors/platform.js';
@@ -18,6 +19,9 @@ const game = new M2D(canvas, {
   height: 960,
   worldWidth: 1920,
   worldHeight: 1440,
+  // The tiles are 32px pixel art: upscale them blocky, not smeared, when the
+  // render resolution drops below native.
+  worldFilter: 'nearest',
   basePath: import.meta.env.DEV ? '/examples/platformer/' : '/m2d-engine/examples/platformer/',
   sounds: {
     jump: jumpSound,
@@ -32,6 +36,13 @@ const game = new M2D(canvas, {
     game: gameMusic
   }
 });
+
+// Keep the camera inside the level: without bounds, following the player (or
+// an 'expand' aspect mode widening the view) reveals the void past the map.
+game.camera.bounds = {
+  left: 0, top: 0,
+  right: game.options.worldWidth, bottom: game.options.worldHeight
+};
 
 // Register actors
 [Player, Bee, Platform, MovingPlatform, Coin, Trigger].forEach(actor => {
@@ -52,5 +63,8 @@ game.sceneManager.addScene('level1', {
     game.soundManager.playMusic('game');
   }
 });
+
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
 
 game.start();

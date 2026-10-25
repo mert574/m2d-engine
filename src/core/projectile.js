@@ -116,16 +116,11 @@ export class Projectile extends Entity {
 
     // Default draw: simple colored rectangle
     const pos = this.position;
-    const ctx = this.game.renderer.worldContext;
+    const renderer = this.game.renderer;
 
-    ctx.save();
-    ctx.translate(pos.x, pos.y);
-    ctx.rotate(this.rotation);
-
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(-8, -2, 16, 4);
-
-    ctx.restore();
+    renderer.pushTransform({ x: pos.x, y: pos.y, rotation: this.rotation });
+    renderer.drawRect({ x: -8, y: -2, width: 16, height: 4, fillStyle: '#ff0000' });
+    renderer.popTransform();
   }
 
   setAnimation() {

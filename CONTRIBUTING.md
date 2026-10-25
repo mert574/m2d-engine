@@ -1,8 +1,10 @@
 # Contributing
 
-M2D is a small browser game engine built with JavaScript, Matter.js, and Canvas.
-The README explains the engine and demos; [ROADMAP.md](ROADMAP.md) describes
-the next proposed slices of work.
+M2D is a small browser game engine built with JavaScript, Matter.js, and a
+pluggable renderer (WebGL2 by default, Canvas 2D as a fallback). The README
+explains the engine and demos; [ROADMAP.md](ROADMAP.md) describes the next
+proposed slices of work. [AGENTS.md](AGENTS.md) is the detailed architecture
+note, and `test/README.md` covers the renderer conformance suite.
 
 ## Setup
 
@@ -17,9 +19,18 @@ is unavailable for your platform.
 - Keep engine behavior separate from example-specific actors and game rules.
 - Use elapsed time for timers and movement, and cover multiple frame rates when
   changing simulation behavior.
-- When adding a demo, register its entry in `vite.config.js` and its generated
-  assets in `scripts/generateSprites.js`.
-- Run `npm run build`, then smoke-test affected demos with `npm run preview`.
+- When adding a demo, register its entry in `vite.config.js` three times: the
+  `rollupOptions.input` entry, the sprite generation in `assetsPlugin.buildStart`,
+  and the `writeBundle` asset-copy list if it ships an `assets/` directory.
+  Add its generated sprites to `scripts/generateSprites.js`.
+- Renderer changes must keep both backends passing `npm test`. A new backend
+  feature is either mandatory (every backend implements it) or optional
+  (declared through `renderer.capabilities`, with callers degrading); see
+  the capabilities section of `test/README.md` before adding one.
+- Check rendering changes on both backends. Every example accepts
+  `?renderer=canvas` and `?renderer=webgl`.
+- Run `npm test` and `npm run build`, then smoke-test affected demos with
+  `npm run preview`.
   Check rendering, controls, scene transitions, and audio after a user gesture.
 - Include the verification steps and any remaining limitations in the change.
 

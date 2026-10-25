@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Entity } from '../../core/entity.js';
 import { Platform } from '../../actors/platform.js';
 import { KeyboardControl } from '../../constraints/keyboardControl.js';
@@ -14,8 +15,12 @@ class MazePlayer extends Entity {
 }
 
 const game = new M2D(document.getElementById('screen'), {
-  initialScene: 'maze', width: 640, height: 480, worldWidth: 640, worldHeight: 480
+  initialScene: 'maze', width: 640, height: 480, worldWidth: 640, worldHeight: 480,
+  // 32px pixel-art tiles: upscale them blocky, not smeared, below native.
+  worldFilter: 'nearest'
 });
+// The board is exactly one view; in 'expand' mode the camera centres on it
+// (bounds smaller than the view centre rather than pin — see Camera).
 game.camera.bounds = { left: 0, top: 0, right: 640, bottom: 480 };
 game.registerActor('MazePlayer', MazePlayer);
 game.registerActor('Platform', Platform);
@@ -41,4 +46,7 @@ game.sceneManager.addScene('maze', {
     ] }]
   })
 });
+// Settings overlay (O): resolution, fullscreen, aspect mode.
+new SettingsMenu(game);
+
 game.start();

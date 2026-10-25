@@ -24,15 +24,26 @@
       align-items: center;
       background-color: #333;
     }
+
+    /*
+     * The engine letterboxes internally and sets canvas.width/height from the
+     * element's measured size, so the element needs a CSS size of its own -
+     * sizing from its own attributes would feed the resize observer.
+     */
+    #screen {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
   </style>
-  <script type="module" crossorigin src="/m2d-engine/assets/physics-Cg1E9jV6.js"></script>
-  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/m2d-CDY0_Diy.js">
-  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/entity-CbymdIyX.js">
+  <script type="module" crossorigin src="/m2d-engine/assets/physics-DE3lxCru.js"></script>
+  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/settingsMenu-BRSbyVHp.js">
+  <link rel="modulepreload" crossorigin href="/m2d-engine/assets/entity-l-Ak0laZ.js">
 </head>
 
 <body>
-  <canvas id="screen" width="640px" height="480px"></canvas>
-
+  <canvas id="screen" width="640" height="480"></canvas>
+  <div style="position:fixed;bottom:6px;left:10px;color:#aaa;font-size:12px;font-family:system-ui;pointer-events:none"><b>Space:</b> Spawn object · <b>D:</b> Toggle Debug · <b>O:</b> Settings</div>
 </body>
 
 </html>
