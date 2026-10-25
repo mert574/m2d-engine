@@ -30,7 +30,8 @@ https://github.com/user-attachments/assets/1693e2b8-67f8-4b75-b6d7-31ce35f14397
 - Letterbox or expand on a differing display aspect; fullscreen and DPR
   tracked automatically
 - `nearest` or `linear` upscaling for pixel art
-- A ready-made settings overlay (resolution, aspect, fullscreen, pause)
+- A ready-made settings overlay (resolution, aspect, fullscreen, debug
+  overlay, renderer backend, pause)
 
 ### UI System
 - Simple UI framework with buttons, text, images and rects
@@ -103,9 +104,9 @@ evenly lit, because that backend declines `tint`, `particles`, `lights` and
 **Controls:**
 - `[` / `]`: Decrease / increase load
 - `1`-`7`: Toggle layers (drift, reeds, labels, chart, rain, lights, bloom)
-- `B`: Swap renderer backend
 - `P`: Pause the camera pan
 - `H`: Hide the overlay
+- `O`: Settings (resolution, fullscreen, aspect, debug, backend swap)
 
 Any example also accepts `?renderer=canvas` or `?renderer=webgl` in the URL.
 
@@ -121,29 +122,27 @@ A side-scrolling platformer showcasing:
 - Arrow keys: Move left/right
 - Space: Jump
 - X: Attack
-- D: Toggle debug overlay
 - O: Settings
 
 ### 2. Top-down Maze
 A top-down maze game demonstrating:
-- Top-down physics
-- Collision detection
-- Smooth movement
+- A deterministic, procedurally carved maze (wall cells merged into few static bodies)
+- A camera following the player through a world larger than the view
+- A sensor goal: touching it shows a banner and resets the run
+- Top-down physics with direct-velocity movement
 
 **Controls:**
 - Arrow keys: Move in all directions
-- D: Toggle debug overlay
 - O: Settings
 
 ### 3. Physics Playground
 An interactive physics sandbox featuring:
 - Dynamic object spawning
-- Different physics materials
-- Object interactions
+- Rotated static geometry: a funnel, a splitter and a peg field
+- Different physics materials and object interactions
 
 **Controls:**
 - Space: Spawn random objects
-- D: Toggle debug overlay
 - O: Settings
 
 ### 4. Top-Down Game
@@ -155,7 +154,6 @@ A top-down game demonstrating:
 **Controls:**
 - Arrow keys: Move
 - X: Attack
-- D: Toggle debug overlay
 - O: Settings
 
 ### 5. Doner
@@ -515,13 +513,14 @@ overlay.drawText({ x: enemy.x, y: enemy.y,   // world anchor
 ```
 
 The engine's own debug visuals — detection ranges, aim lines, facing vectors,
-bounds boxes and every readout — already go through this, so toggling debug
-with **D** stays readable at any resolution. An actor's actual appearance
-stays in the world pass, where it is meant to share the world's fidelity.
+bounds boxes and every readout — already go through this, so the debug
+overlay (toggled from the settings menu) stays readable at any resolution. An
+actor's actual appearance stays in the world pass, where it is meant to share
+the world's fidelity.
 
 A ready-made settings overlay ships with the engine and is mounted in every
-example — resolution presets, fullscreen, aspect mode and pause, toggled with
-**O** (Escape closes it too):
+example — resolution presets, fullscreen, aspect mode, debug overlay,
+renderer backend and pause, toggled with **O** (Escape closes it too):
 
 ```javascript
 import { SettingsMenu } from 'm2d/core/ui/settingsMenu.js';

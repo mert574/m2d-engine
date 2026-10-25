@@ -5,7 +5,7 @@ import { CollisionCategories } from './constants.js';
 import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
 import { SoundManager } from './soundManager.js';
-import { KEY_R, KEY_M, KEY_D } from './keyCodes.js';
+import { KEY_R, KEY_M } from './keyCodes.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, FALLBACK_RENDERER } from './renderers/index.js';
 import { computeViewport, mapPointer, sameViewport, viewToUI } from './viewport.js';
 import { WorldOverlay } from './ui/worldOverlay.js';
@@ -125,7 +125,6 @@ export class M2D {
 
     this.keys.addKey(KEY_R);
     this.keys.addKey(KEY_M);
-    this.keys.addKey(KEY_D);
 
     this.update = this.update.bind(this);
     this.lastTime = 0;
@@ -472,10 +471,6 @@ export class M2D {
     this.lastTime = currentTime;
 
     this.renderer.clear('#000');
-
-    if (this.keys.isJustPressed(KEY_D)) {
-      this.renderer.setDebugEnabled(!this.renderer.isDebugEnabled());
-    }
 
     if (this.sceneManager.loading) {
       this.drawLoading();

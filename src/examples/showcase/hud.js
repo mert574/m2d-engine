@@ -34,15 +34,15 @@ export class Hud extends UIElement {
   }
 
   /**
-   * World render resolution, with the visible view size alongside it. The two
-   * are deliberately independent: lowering the resolution must not change how
-   * much world is on screen.
+   * World render resolution. Printed next to the view size (its own line),
+   * because the two are deliberately independent: lowering the resolution
+   * must not change how much world is on screen.
    * @returns {string}
    */
   resolutionLabel() {
     const view = this.game.viewport;
     const native = this.game.resolution === 'native' ? ' (native)' : '';
-    return `${view.worldWidth}x${view.worldHeight}${native}  view ${Math.round(view.viewWidth)}x${Math.round(view.viewHeight)}`;
+    return `${view.worldWidth}x${view.worldHeight}${native}`;
   }
 
   draw() {
@@ -62,25 +62,26 @@ export class Hud extends UIElement {
       : '0.0';
 
     const lines = [
-      `backend     ${this.backendName()}   (B to swap)`,
+      `backend     ${this.backendName()}`,
       `fps         ${backend.getFPS()}   avg ${backend.getAverageFPS()}`,
       '',
       'world pass',
       `primitives  ${stats.primitives.toLocaleString()}`,
-      `draw calls  ${stats.drawCalls.toLocaleString()}   (${ratio} primitives per call)`,
+      `draw calls  ${stats.drawCalls.toLocaleString()}   (${ratio} per call)`,
       `state chg   ${stats.stateChanges.toLocaleString()}`,
       '',
       `sprites     ${stats.spritesDrawn.toLocaleString()}`,
       `text        ${stats.textDrawn.toLocaleString()}`,
       `shapes      ${stats.shapesDrawn.toLocaleString()}`,
       '',
-      `load        ${this.showcase.loadLabel()}   ([ / ] to change)`,
+      `load        ${this.showcase.loadLabel()}   ([ or ] to change)`,
       '',
       'display',
-      `world res   ${this.resolutionLabel()}   (V to change)`,
-      `ui res      ${Math.round(view.uiWidth)}x${Math.round(view.uiHeight)} @ ${view.pixelRatio}x   (always native)`,
-      `aspect      ${this.game.aspectMode}   (A to change)`,
-      `fullscreen  ${this.game.isFullscreen ? 'on' : 'off'}   (F to toggle)`
+      `world res   ${this.resolutionLabel()}`,
+      `view        ${Math.round(view.viewWidth)}x${Math.round(view.viewHeight)}`,
+      `ui res      ${Math.round(view.uiWidth)}x${Math.round(view.uiHeight)} @ ${view.pixelRatio}x`,
+      `aspect      ${this.game.aspectMode}`,
+      `fullscreen  ${this.game.isFullscreen ? 'on' : 'off'}`
     ];
 
     const width = 330;

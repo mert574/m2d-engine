@@ -251,7 +251,7 @@ function drawMenu() {
 
   // Instructions panel
   const panelY = l.panelY;
-  const panelHeight = 200;
+  const panelHeight = 232;
   drawRoundedRect(width / 2 - 350, panelY, 700, panelHeight, 20, {
     gradient: [
       { pos: 0, color: 'rgba(30, 20, 10, 0.8)' },
@@ -275,7 +275,8 @@ function drawMenu() {
     'Press A, S, D, F in rhythm patterns to add ingredients',
     'Each ingredient has a unique 3-beat pattern (1s per beat)',
     'Match customer orders by building the right sandwich',
-    'Press SPACE to serve, BACKSPACE to clear'
+    'Press SPACE to serve, BACKSPACE to clear',
+    'Press O for settings'
   ];
 
   instructions.forEach((text, i) => {

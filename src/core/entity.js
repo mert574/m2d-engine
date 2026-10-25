@@ -75,18 +75,29 @@ export class Entity {
       return;
     }
 
+    // Tile the sprite across the body's exact footprint: a size that is not a
+    // tile multiple squashes the tiles slightly rather than overdrawing past
+    // the body, and tile offsets rotate *around the body centre* with the
+    // body's angle, so a rotated entity draws as one coherent rotated block
+    // in the same place the physics sees it.
     const tileSize = this.sprite.width;
-    const tilesNeededX = Math.ceil(this.size.x / tileSize);
-    const tilesNeededY = Math.ceil(this.size.y / tileSize);
+    const cols = Math.max(1, Math.ceil(this.size.x / tileSize));
+    const rows = Math.max(1, Math.ceil(this.size.y / tileSize));
+    const tileW = this.size.x / cols;
+    const tileH = this.size.y / rows;
+    const angle = this.body.angle;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
 
-    for (let i = 0; i < tilesNeededX; i++) {
-      for (let j = 0; j < tilesNeededY; j++) {
-        const x = pos.x - this.size.x/2 + i * tileSize + tileSize/2;
-        const y = pos.y - this.size.y/2 + j * tileSize + tileSize/2;
-        
-        this.sprite.draw(this.currentAnim, x, y, {
-          rotation: this.body.angle
-        });
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        const localX = -this.size.x / 2 + (i + 0.5) * tileW;
+        const localY = -this.size.y / 2 + (j + 0.5) * tileH;
+
+        this.sprite.draw(this.currentAnim,
+          pos.x + localX * cos - localY * sin,
+          pos.y + localX * sin + localY * cos,
+          { rotation: angle, width: tileW, height: tileH });
       }
     }
 

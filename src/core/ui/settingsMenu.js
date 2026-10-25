@@ -1,5 +1,6 @@
 /**
- * In-game settings overlay: resolution, fullscreen, aspect mode and pause.
+ * In-game settings overlay: resolution, fullscreen, aspect mode, debug
+ * overlay, renderer backend and pause.
  *
  * One instance per game covers every scene: it is an *overlay*, drawn by the
  * engine after the scene's own UI (`M2D.drawOverlays`), and it listens for
@@ -154,6 +155,16 @@ export class SettingsMenu {
         onClick: () => game.setAspectMode(game.aspectMode === 'expand' ? 'letterbox' : 'expand')
       },
       {
+        label: 'Debug overlay',
+        value: game.renderer.isDebugEnabled() ? 'On' : 'Off',
+        onClick: () => game.renderer.setDebugEnabled(!game.renderer.isDebugEnabled())
+      },
+      {
+        label: 'Renderer',
+        value: this.#backendName(),
+        onClick: () => this.#swapBackend()
+      },
+      {
         label: 'Paused',
         value: game.paused ? 'On' : 'Off',
         onClick: () => { game.paused = !game.paused; }
@@ -164,6 +175,21 @@ export class SettingsMenu {
         onClick: () => this.close()
       }
     ];
+  }
+
+  /** Active backend name as registered, e.g. 'webgl' or 'canvas'. */
+  #backendName() {
+    return this.game.renderer.constructor.name.replace(/Renderer$/, '').toLowerCase();
+  }
+
+  /**
+   * Swap to the other backend. The engine already honours `?renderer=` in the
+   * URL, so swapping is a reload with the other name — no second code path.
+   */
+  #swapBackend() {
+    const params = new URLSearchParams(location.search);
+    params.set('renderer', this.#backendName() === 'webgl' ? 'canvas' : 'webgl');
+    location.search = params.toString();
   }
 
   /**

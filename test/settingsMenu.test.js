@@ -69,8 +69,20 @@ describe('SettingsMenu', () => {
   it('lays out hit rects for every row when open', () => {
     const { game, menu } = makeGameWithMenu();
     openAndLayout(game, menu);
-    // Resolution, Fullscreen, Aspect, Paused, Close.
-    expect(menu.rows).toHaveLength(5);
+    // Resolution, Fullscreen, Aspect, Debug overlay, Renderer, Paused, Close.
+    expect(menu.rows).toHaveLength(7);
+  });
+
+  it('offers a Debug overlay row that toggles the renderer flag', () => {
+    const { game, menu } = makeGameWithMenu();
+    openAndLayout(game, menu);
+
+    // Debug rendering starts enabled (the renderer contract's default).
+    expect(game.renderer.isDebugEnabled()).toBe(true);
+    menu.handleMouseDown(rowCentre(menu, 3).x, rowCentre(menu, 3).y);
+    expect(game.renderer.isDebugEnabled()).toBe(false);
+    menu.handleMouseDown(rowCentre(menu, 3).x, rowCentre(menu, 3).y);
+    expect(game.renderer.isDebugEnabled()).toBe(true);
   });
 
   it('cycles the resolution presets on click, world surface only', () => {
@@ -111,7 +123,7 @@ describe('SettingsMenu', () => {
   it('closes via the Close row', () => {
     const { game, menu } = makeGameWithMenu();
     openAndLayout(game, menu);
-    menu.handleMouseDown(rowCentre(menu, 4).x, rowCentre(menu, 4).y);
+    menu.handleMouseDown(rowCentre(menu, 6).x, rowCentre(menu, 6).y);
     expect(menu.isOpen).toBe(false);
   });
 
@@ -212,9 +224,9 @@ describe('SettingsMenu', () => {
       const { game, menu } = makeGameWithMenu();
       openAndLayout(game, menu);
 
-      menu.handleMouseDown(rowCentre(menu, 3).x, rowCentre(menu, 3).y);
+      menu.handleMouseDown(rowCentre(menu, 5).x, rowCentre(menu, 5).y);
       expect(game.paused).toBe(true);
-      menu.handleMouseDown(rowCentre(menu, 3).x, rowCentre(menu, 3).y);
+      menu.handleMouseDown(rowCentre(menu, 5).x, rowCentre(menu, 5).y);
       expect(game.paused).toBe(false);
     });
   });

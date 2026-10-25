@@ -61,6 +61,19 @@
         "hoverColor": "#16213e",
         "textColor": "#eaeaea"
       }
+    },
+    {
+      "type": "text",
+      "id": "controls",
+      "anchor": "center",
+      "x": 0,
+      "y": 80,
+      "properties": {
+        "text": "Arrow Keys: Move · X: Attack · O: Settings",
+        "fontSize": "24px",
+        "align": "center",
+        "color": "#b8bedf"
+      }
     }
   ]
 }

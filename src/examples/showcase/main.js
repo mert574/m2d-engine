@@ -1,5 +1,4 @@
 import { M2D } from '../../core/m2d.js';
-import { sameResolution } from '../../core/viewport.js';
 import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Showcase } from './showcase.js';
 import moteSprite from './assets/mote.png';
@@ -12,8 +11,10 @@ const VIEW = { width: 1280, height: 720 };
 const WORLD = { width: 2560, height: 1440 };
 
 const canvas = document.getElementById('screen');
+// B swaps the backend by reloading with ?renderer=; skip the menu on that
+// reload so the two backends can be compared without re-clicking Start.
 const game = new M2D(canvas, {
-  initialScene: 'showcase',
+  initialScene: new URLSearchParams(location.search).has('renderer') ? 'showcase' : 'mainMenu',
   width: VIEW.width,
   height: VIEW.height,
   worldWidth: WORLD.width,
@@ -22,6 +23,27 @@ const game = new M2D(canvas, {
 
 /** @type {Showcase|null} */
 let showcase = null;
+
+game.sceneManager.addScene('mainMenu', {
+  fetch: async () => ({
+    version: 1, name: 'mainMenu', type: 'ui', title: 'Main Menu', assets: {},
+    elements: [
+      { type: 'rect', id: 'background', x: 0, y: 0, fill: true, color: '#05070f' },
+      { type: 'text', id: 'title', anchor: 'center', x: 0, y: -250,
+        properties: { text: 'Renderer Showcase', fontSize: '72px', align: 'center', color: '#cfe8ff' } },
+      { type: 'button', id: 'startGame', anchor: 'center', x: 0, y: -60,
+        properties: { text: 'Start', onClick: 'showcase', width: 220, height: 54, fontSize: '22px',
+          backgroundColor: '#14304f', hoverColor: '#1f4a79', textColor: '#cfe8ff' } },
+      { type: 'button', id: 'settings', anchor: 'center', x: 0, y: 6,
+        properties: { text: 'Settings', action: 'settings', width: 220, height: 54, fontSize: '22px',
+          backgroundColor: '#14304f', hoverColor: '#1f4a79', textColor: '#cfe8ff' } },
+      { type: 'text', id: 'controlsLine1', anchor: 'center', x: 0, y: 70,
+        properties: { text: '[ and ]: Decrease / increase load · 1-7: Toggle layers', fontSize: '20px', align: 'center', color: '#9fb6d0' } },
+      { type: 'text', id: 'controlsLine2', anchor: 'center', x: 0, y: 100,
+        properties: { text: 'P: Pause camera · H: Hide HUD · O: Settings', fontSize: '20px', align: 'center', color: '#9fb6d0' } }
+    ]
+  })
+});
 
 game.sceneManager.addScene('showcase', {
   fetch: async () => ({
@@ -76,40 +98,10 @@ game.keys.addKey(']', (pressed) => { if (pressed && showcase) showcase.stepLoad(
 game.keys.addKey('p', (pressed) => { if (pressed && showcase) showcase.toggleCamera(); });
 game.keys.addKey('h', (pressed) => { if (pressed && showcase) showcase.toggleHud(); });
 
-// Fullscreen. The engine's resize lifecycle does the rest: the view keeps its
-// aspect ratio, the camera keeps its coordinates, and the anchored HUD moves
-// to the new screen edges.
-game.keys.addKey('f', (pressed) => { if (pressed) game.toggleFullscreen(); });
-
-// Resolution, the way a settings menu would set it. Only the world gets
-// coarser — the same amount of world stays visible and the HUD stays sharp.
-// The hotkey keeps no index of its own: it reads `game.resolution` back, so
-// it stays in step with the settings overlay changing the same setting.
+// Settings overlay (O): fullscreen, aspect mode, debug, backend swap, and
+// these resolution presets (only the world gets coarser — the same amount of
+// world stays visible and the HUD stays sharp).
 const RESOLUTIONS = ['native', { width: 1280, height: 720 }, { width: 854, height: 480 }, { width: 426, height: 240 }];
-game.keys.addKey('v', (pressed) => {
-  if (!pressed) return;
-  const index = RESOLUTIONS.findIndex(r => sameResolution(r, game.resolution));
-  game.setResolution(RESOLUTIONS[(index + 1) % RESOLUTIONS.length]);
-});
-
-// Aspect behaviour, so the difference is visible side by side.
-game.keys.addKey('a', (pressed) => {
-  if (!pressed) return;
-  game.setAspectMode(game.aspectMode === 'letterbox' ? 'expand' : 'letterbox');
-});
-
-// Backend swap. The engine already honours `?renderer=`, so swapping is a
-// reload with the other name — no second code path to keep in sync.
-game.keys.addKey('b', (pressed) => {
-  if (!pressed) return;
-  const params = new URLSearchParams(location.search);
-  const current = params.get('renderer') || 'webgl';
-  params.set('renderer', current === 'webgl' ? 'canvas' : 'webgl');
-  location.search = params.toString();
-});
-
-// Settings overlay (O), sharing the V hotkey's preset list so the two ways of
-// changing the resolution cycle through the same choices.
 new SettingsMenu(game, { resolutions: RESOLUTIONS });
 
 game.start();
