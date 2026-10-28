@@ -25,7 +25,7 @@ export class Debug extends Constraint {
   draw() {
     if (!this.entity.game.renderer.isDebugEnabled()) return;
 
-    const bounds = this.entity.body.bounds;
+    const bounds = this.entity.renderBounds;
     // Everything here is an annotation on top of the game, not world content,
     // so all of it goes through the world overlay and is rasterized at
     // display resolution. A 2-unit centre dot would not survive a low render
@@ -48,8 +48,8 @@ export class Debug extends Constraint {
     // Draw center point
     if (this.options.showCenter) {
       overlay.drawArc({
-        x: this.entity.position.x,
-        y: this.entity.position.y,
+        x: this.entity.renderPosition.x,
+        y: this.entity.renderPosition.y,
         radius: 2,
         startAngle: 0,
         endAngle: Math.PI * 2,
@@ -77,8 +77,8 @@ export class Debug extends Constraint {
     };
 
     if (this.options.showVelocity) {
-      const vx = Math.abs(this.entity.body.velocity.x) < 0.01 ? 0 : this.entity.body.velocity.x;
-      const vy = Math.abs(this.entity.body.velocity.y) < 0.01 ? 0 : this.entity.body.velocity.y;
+      const vx = Math.abs(this.entity.body.velocity.x) < 0.6 ? 0 : this.entity.body.velocity.x;
+      const vy = Math.abs(this.entity.body.velocity.y) < 0.6 ? 0 : this.entity.body.velocity.y;
       label(`vel: ${vx.toFixed(1)}, ${vy.toFixed(1)}`, this.options.textColor);
     }
 

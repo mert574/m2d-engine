@@ -1,11 +1,10 @@
 import { Constraint } from '../core/constraint.js';
-import Matter from 'matter-js';
 
 export class ContactDamage extends Constraint {
   constructor(entity, options = {}) {
     super(entity);
     this.damage = options.damage ?? 33;
-    this.knockbackStrength = options.knockbackStrength ?? 12;
+    this.knockbackStrength = options.knockbackStrength ?? 720; // px/s
     this.stunDuration = options.stunDuration ?? 0.5;
     this.stunTime = 0;
     this.collidingEntities = new Set();
@@ -48,7 +47,7 @@ export class ContactDamage extends Constraint {
       const dirY = dy / dist;
 
       // Push target away
-      Matter.Body.setVelocity(otherEntity.body, {
+      otherEntity.body.setVelocity({
         x: dirX * this.knockbackStrength,
         y: dirY * this.knockbackStrength
       });

@@ -1,4 +1,4 @@
-import Matter from 'matter-js';
+import { createPhysicsWorld } from './physics/index.js';
 import { KeyStates } from './keyStates.js';
 import { LayerManager } from './layerManager.js';
 import { CollisionCategories } from './constants.js';
@@ -40,6 +40,32 @@ const defaultOptions = {
   worldFilter: 'linear',
   /** Track the canvas's displayed size and follow it automatically. */
   autoResize: true,
+  /**
+   * Seconds per physics step. The solver always sees exactly this dt no
+   * matter how long a frame took, which is what keeps resting contacts from
+   * jittering; the loop runs as many steps as the elapsed time paid for.
+   */
+  fixedTimestep: 1 / 60,
+  /**
+   * Most physics steps one frame may run. Bounds catch-up work after a stall
+   * so a slow frame cannot cascade into slower ones. Six steps of 1/60s is
+   * 0.1s — exactly the cap the loop already clamps a frame's delta to, so an
+   * ordinary frame, however slow, is always simulated in full.
+   */
+  maxSubSteps: 6,
+  /**
+   * Multiplier on simulated time — 0.5 is slow motion, 2 runs physics at
+   * double speed. A game tuned against a faster simulation can set this
+   * instead of re-tuning every speed constant.
+   */
+  physicsTimeScale: 1,
+  /**
+   * Draw bodies blended between physics steps instead of snapping to the
+   * latest one. Without this, a display faster than `fixedTimestep` shows
+   * each solver position for several frames and motion visibly stair-steps.
+   * Costs up to one step of render latency.
+   */
+  interpolatePhysics: true,
   sounds: {},
   music: {}
 };
@@ -93,10 +119,17 @@ export class M2D {
 
     if (this.options.autoResize) this.#watchDisplaySize();
 
-    this.engine = Matter.Engine.create();
+    /**
+     * The simulation. Games and actors reach physics only through this; see
+     * core/physics/index.js for the contract it implements.
+     */
+    this.physics = createPhysicsWorld({
+      fixedTimestep: this.options.fixedTimestep,
+      maxSubSteps: this.options.maxSubSteps,
+      timeScale: this.options.physicsTimeScale,
+      interpolate: this.options.interpolatePhysics
+    });
     this.collisionCategories = CollisionCategories;
-    this.Body = Matter.Body;
-    this.Bodies = Matter.Bodies;
 
     this.entities = new Set();
     this.player = null;
@@ -341,6 +374,7 @@ export class M2D {
     this.overlays.clear();
     this.keys.destroy();
     this.soundManager.destroy();
+    this.physics.destroy();
     this.sceneManager?.getCurrentScene()?.unload?.();
     this.renderer.destroy();
   }
@@ -358,7 +392,8 @@ export class M2D {
 
     console.debug(`Creating ${type} at ${x}, ${y} with size ${width}x${height}`);
 
-    const body = Matter.Bodies.rectangle(x, y, width, height, {
+    const body = this.physics.createBox({
+      x, y, width, height,
       isStatic: physics.bodyType === 'static',
       isSensor: physics.isSensor || false,
       friction: physics.friction || 0.1,
@@ -366,8 +401,6 @@ export class M2D {
       frictionAir: physics.frictionAir || 0.01,
       restitution: physics.restitution || 0
     });
-
-    body.entity = null;  // Will be set in the constructor
 
     const entity = new ActorClass(
       body,
@@ -480,7 +513,11 @@ export class M2D {
 
     // Paused: freeze the simulation but keep presenting the frame, so the
     // game stays visible (and crisp at the current settings) behind overlays.
-    if (!this.paused) Matter.Engine.update(this.engine, deltaTime * 1000, 1);
+    //
+    // Physics advances on its own fixed-step clock, decoupled from the frame
+    // rate; entity and camera updates stay per-frame on the real delta, since
+    // animation and timers want elapsed wall time, not solver ticks.
+    if (!this.paused) this.physics.advance(deltaTime);
     const currentScene = this.sceneManager.getCurrentScene();
 
     if (!this.isGameOver) {
@@ -539,14 +576,9 @@ export class M2D {
   }
 
   reset() {
-    Matter.Events.off(this.engine);
-    Matter.World.clear(this.engine.world);
-    Matter.Engine.clear(this.engine);
-    Matter.Composite.clear(this.engine.world);
-
-    this.engine.world = Matter.World.create();
-    this.engine = null;
-    this.engine = Matter.Engine.create();
+    // Collision handlers survive the reset — they belong to the engine, not
+    // to the scene being torn down.
+    this.physics.reset();
 
     this.entities.clear();
     this.layers.clear();
@@ -561,21 +593,17 @@ export class M2D {
     this.soundManager.stopMusic();
   }
 
+  /** Route collisions to the entities involved. Idempotent — it replaces. */
   setupCollisionHandlers() {
-    Matter.Events.on(this.engine, 'collisionStart', (event) => {
-      event.pairs.forEach((pair) => {
-        const { bodyA, bodyB } = pair;
-        if (bodyA.entity) bodyA.entity.onCollisionStart(bodyB);
-        if (bodyB.entity) bodyB.entity.onCollisionStart(bodyA);
-      });
-    });
-
-    Matter.Events.on(this.engine, 'collisionEnd', (event) => {
-      event.pairs.forEach((pair) => {
-        const { bodyA, bodyB } = pair;
-        if (bodyA.entity) bodyA.entity.onCollisionEnd(bodyB);
-        if (bodyB.entity) bodyB.entity.onCollisionEnd(bodyA);
-      });
+    this.physics.setCollisionHandlers({
+      onStart: (a, b) => {
+        a.entity?.onCollisionStart(b);
+        b.entity?.onCollisionStart(a);
+      },
+      onEnd: (a, b) => {
+        a.entity?.onCollisionEnd(b);
+        b.entity?.onCollisionEnd(a);
+      }
     });
   }
 

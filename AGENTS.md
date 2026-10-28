@@ -2,7 +2,17 @@
 
 ## Project Overview
 
-M2D is a lightweight 2D game engine using Matter.js for physics and WebGL2 (with a Canvas 2D fallback) for rendering. It follows an entity-constraint architecture similar to ECS.
+M2D is a lightweight 2D game engine with a pluggable physics backend (Matter.js today) and WebGL2 rendering (with a Canvas 2D fallback). It follows an entity-constraint architecture similar to ECS.
+
+### Physics boundary
+
+Nothing outside `src/core/physics/` imports a physics library. Engine, actor and game code use `game.physics` (the world) and the `PhysicsBody` handles it returns; `src/core/physics/index.js` documents the contract and two backends implement it: **Rapier** (`rapierBackend.js`, the default — WASM, accurate solver, CCD) and **Matter.js** (`matterBackend.js`, plain-JS fallback and what headless tests use). `worldBase.js` holds the backend-independent fixed-step machinery. Append `?physics=matter` or `?physics=rapier` to any example URL to compare them live. If you find yourself importing `matter-js` or `@dimforge/rapier2d-compat` anywhere else, the abstraction has sprung a leak.
+
+Physics runs on a **fixed timestep** (1/60s by default), decoupled from the frame rate: the loop calls `game.physics.advance(deltaTime)`, which spends elapsed real time in whole constant-size steps and carries the remainder. Entity and constraint `update(deltaTime)` still receive real frame time, because animation and timers want wall clock, not solver ticks.
+
+**Units are pixels and seconds**: velocity in px/s, gravity in px/s² (`{x: 0, y: 1000}` is normal down), impulses as a velocity change in px/s. No backend unit (steps, meters, force constants) appears outside `src/core/physics/`. Call `await initPhysics()` once before constructing M2D — it resolves the backend choice (URL override, else Rapier), fetches and compiles Rapier's WASM when selected, and is instant for Matter. Fast movers should set `body.bullet = true` (projectiles do): on Rapier that enables continuous collision detection so they cannot tunnel through thin walls; on Matter it is advisory.
+
+Because the solver runs slower than a fast display refreshes, several frames share one physics position and motion would visibly stair-step. The engine fixes this with **render interpolation**: draw using `entity.renderPosition` / `entity.renderAngle` (or `body.renderPosition` / `body.renderAngle`), which blend between the last two steps. Use `position` for everything else — collision checks, AI, queries and distances all want the true current state. Direct moves (`setPosition`, `setAngle`, `translate`) reset the baseline, so a teleport is never smeared across frames.
 
 ## Quick Commands
 
@@ -28,6 +38,7 @@ node scripts/generateSprites.js <example>  # Generate sprites for an example
 - **Scene** (`scene.js`) - Manages level loading, entities, UI. Checks `entity.name === 'Player'` for camera follow.
 - **SceneLoader** (`sceneLoader.js`) - Validates and normalizes scene JSON before a Scene is built from it. See "Level JSON Structure".
 - **M2D** (`m2d.js`) - Main engine class. Collision handlers are set up in `setupCollisionHandlers()`.
+- **PhysicsWorld** (`physics/`) - The simulation, reached as `game.physics`. See "Physics boundary" above.
 
 ### Renderers (`src/core/renderers/`)
 
@@ -293,33 +304,38 @@ this.cooldownFrames--;
 if (this.cooldownFrames === 0) { ... }
 ```
 
-Movement should use velocity, not force, for FPS independence:
+Movement should use velocity (px/s), not forces, for FPS independence;
+`applyImpulse` is for instantaneous kicks like knockback:
 ```javascript
-// Good - velocity-based
-Matter.Body.setVelocity(body, { x: velocity.x + accel * deltaTime, y: velocity.y });
+// Steady movement: set velocity, accelerating by px/s per second
+body.setVelocity({ x: body.velocity.x + accel * deltaTime, y: body.velocity.y });
 
-// Bad - force is frame-rate dependent
-Matter.Body.applyForce(body, pos, force);
+// One-off kick: an instantaneous velocity change in px/s
+body.applyImpulse({ x: -300, y: -150 });
 ```
 
 ### Dynamic Entity Creation
 
 When creating entities outside of scene loading (like projectiles):
 - The `body.entity` link is set automatically in Entity constructor
-- Add to `game.entities` and Matter world manually:
+- Create the body through the world, then add it to `game.entities` and the
+  simulation manually. `createBox`/`createCircle` build a body but do not
+  simulate it until `add`:
 ```javascript
+const body = game.physics.createBox({ x, y, width: 24, height: 8, frictionAir: 0 });
 const entity = new MyEntity(body, sprite, game, options);
 game.entities.add(entity);
-Matter.Composite.add(game.engine.world, body);
+game.physics.add(body);
 ```
 
 ### Line-of-Sight Checks
 
-Use Matter.Query.ray for visibility checks:
+Use `physics.raycast` for visibility checks. The filter narrows candidates
+before the test, so it is a cost saver as well as a predicate:
 ```javascript
-const walls = bodies.filter(b => b.isStatic && b.entity?.name === 'Platform');
-const collisions = Matter.Query.ray(walls, start, target);
-const hasLineOfSight = collisions.length === 0;
+const blockers = game.physics.raycast(start, target,
+  (body) => body.isStatic && body.entity?.name === 'Platform');
+const hasLineOfSight = blockers.length === 0;
 ```
 
 ## Examples Structure
@@ -445,5 +461,5 @@ example fails there.
 1. **Entity collisions not working**: Ensure `body.entity` is set (done automatically in Entity constructor)
 2. **Projectiles passing through walls**: Check collision mask uses `CollisionCategories.default` not `platform`
 3. **Camera not following player**: Entity's `name` property must be exactly `'Player'`
-4. **Enemies shooting through walls**: Add line-of-sight check using `Matter.Query.ray`
+4. **Enemies shooting through walls**: Add line-of-sight check using `game.physics.raycast`
 5. **Movement speed varies with FPS**: Use velocity-based movement, not force-based

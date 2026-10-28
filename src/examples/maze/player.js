@@ -9,7 +9,7 @@ export class Player extends Entity {
 
     const control = new KeyboardControl(this, {
       moveForce: 0.01,
-      maxSpeed: 3,
+      maxSpeed: 180,
       continuous: false, // Use direct velocity for top-down movement
       onMove: (dx, dy) => {
         if (dx !== 0 || dy !== 0) {

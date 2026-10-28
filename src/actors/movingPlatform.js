@@ -1,5 +1,4 @@
 import { Entity } from '../core/entity.js';
-import Matter from 'matter-js';
 
 export class MovingPlatform extends Entity {
   name = 'MovingPlatform';
@@ -21,16 +20,18 @@ export class MovingPlatform extends Entity {
     this.ridingEntities = new Set();
 
     if (this.points.length > 0) {
-      Matter.Body.setPosition(this.body, this.points[0]);
+      this.body.setPosition(this.points[0]);
     }
   }
 
   onCollisionStart(other) {
     super.onCollisionStart(other);
     
-    // Check if entity is on top of the platform
-    if (other.position.y < this.position.y && 
-        Math.abs(other.position.x - this.position.x) < (this.size.x / 2 + other.bounds.max.x - other.bounds.min.x / 2)) {
+    // Riding means above the platform and horizontally overlapping it: the
+    // gap between centres is less than the two half-widths combined.
+    const otherHalfWidth = (other.bounds.max.x - other.bounds.min.x) / 2;
+    if (other.position.y < this.position.y &&
+        Math.abs(other.position.x - this.position.x) < this.size.x / 2 + otherHalfWidth) {
       this.ridingEntities.add(other);
     }
   }
@@ -60,7 +61,7 @@ export class MovingPlatform extends Entity {
     if (distance < 1) {
       this.waiting = true;
       this.waitStart = Date.now();
-      Matter.Body.setPosition(this.body, target);
+      this.body.setPosition(target);
       return;
     }
 
@@ -70,7 +71,7 @@ export class MovingPlatform extends Entity {
 
     this.lastPosition = { x: this.body.position.x, y: this.body.position.y };
 
-    Matter.Body.setPosition(this.body, {
+    this.body.setPosition({
       x: this.body.position.x + vx,
       y: this.body.position.y + vy
     });
@@ -82,7 +83,7 @@ export class MovingPlatform extends Entity {
 
     for (const body of this.ridingEntities) {
       if (body.entity) {
-        Matter.Body.translate(body, delta);
+        body.translate(delta);
       }
     }
   }

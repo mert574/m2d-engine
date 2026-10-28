@@ -1,5 +1,3 @@
-import Matter from 'matter-js';
-
 export class Entity {
   name = 'Entity';
 
@@ -21,10 +19,7 @@ export class Entity {
     this.currentAnim = null;
     this.dead = false;
 
-    this.size = {
-      x: body.bounds.max.x - body.bounds.min.x,
-      y: body.bounds.max.y - body.bounds.min.y
-    };
+    this.size = body.size;
 
     this._contacts = new Set();
   }
@@ -62,7 +57,7 @@ export class Entity {
   draw(deltaTime) {
     if (this.dead) return;
 
-    const pos = this.body.position;
+    const pos = this.renderPosition;
     if (!this.sprite || !this.sprite.width) {
       // Draw a placeholder rectangle if sprite is missing
       this.game.renderer.drawRect({
@@ -85,7 +80,7 @@ export class Entity {
     const rows = Math.max(1, Math.ceil(this.size.y / tileSize));
     const tileW = this.size.x / cols;
     const tileH = this.size.y / rows;
-    const angle = this.body.angle;
+    const angle = this.renderAngle;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
@@ -110,6 +105,25 @@ export class Entity {
     return this.body.position;
   }
 
+  /**
+   * Where to draw this entity, blended between physics steps so motion stays
+   * smooth on displays faster than the solver's fixed rate. Use this in
+   * `draw`, and `position` everywhere else. See PhysicsBody.renderPosition.
+   */
+  get renderPosition() {
+    return this.body.renderPosition;
+  }
+
+  /** The angle to draw this entity at. See `renderPosition`. */
+  get renderAngle() {
+    return this.body.renderAngle;
+  }
+
+  /** Bounds at the drawn position, for edge-anchored annotations. */
+  get renderBounds() {
+    return this.body.renderBounds;
+  }
+
   get velocity() {
     return this.body.velocity;
   }
@@ -125,23 +139,23 @@ export class Entity {
     }
   }
 
-  isFalling(threshold = 0.5) {
+  isFalling(threshold = 30) {
     return this.velocity.y > threshold;
   }
 
-  isJumping(threshold = -0.5) {
+  isJumping(threshold = -30) {
     return this.velocity.y < threshold;
   }
 
-  isMovingHorizontally(threshold = 0.1) {
+  isMovingHorizontally(threshold = 6) {
     return Math.abs(this.velocity.x) > threshold;
   }
 
-  isMovingLeft(threshold = 0.1) {
+  isMovingLeft(threshold = 6) {
     return this.velocity.x < -threshold;
   }
 
-  isMovingRight(threshold = 0.1) {
+  isMovingRight(threshold = 6) {
     return this.velocity.x > threshold;
   }
 
@@ -150,14 +164,12 @@ export class Entity {
   }
 
   isOnGround() {
-    const world = this.game.engine.world;
-    const contacts = Matter.Query.collides(this.body, Matter.Composite.allBodies(world));
-    
-    for (const { bodyA, bodyB } of contacts) {
-      const contact = bodyA === this.body ? bodyB : bodyA;
-      if (!contact.entity) continue;
-      if (contact.entity.name !== 'Platform') continue;
+    const contacts = this.game.physics.contactsWith(
+      this.body,
+      (other) => other.entity?.name === 'Platform'
+    );
 
+    for (const contact of contacts) {
       const dy = contact.position.y - this.position.y;
       if (dy > 0 && Math.abs(dy) < this.size.y) {
         return true;

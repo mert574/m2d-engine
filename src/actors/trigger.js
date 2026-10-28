@@ -47,7 +47,7 @@ export class Trigger extends Entity {
       super.draw();
     }
 
-    const bounds = this.body.bounds;
+    const bounds = this.body.renderBounds;
     const width = bounds.max.x - bounds.min.x;
     const height = bounds.max.y - bounds.min.y;
     // A trigger's tinted area and its name are one annotation: both go to the
@@ -55,8 +55,8 @@ export class Trigger extends Entity {
     const overlay = this.game.worldOverlay;
 
     overlay.drawRect({
-      x: this.body.position.x - width/2,
-      y: this.body.position.y - height/2,
+      x: bounds.min.x,
+      y: bounds.min.y,
       width,
       height,
       fillStyle: this.debugColor
@@ -64,8 +64,8 @@ export class Trigger extends Entity {
 
     overlay.drawText({
       text: `${this.triggers}`,
-      x: this.body.position.x,
-      y: this.body.position.y,
+      x: this.body.renderPosition.x,
+      y: this.body.renderPosition.y,
       offsetY: 3.5,
       fillStyle: '#ffffffaa',
       fontSize: '14px',

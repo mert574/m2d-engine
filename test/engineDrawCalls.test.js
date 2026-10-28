@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import Matter from 'matter-js';
 
 import { Entity } from '../src/core/entity.js';
 import { Projectile } from '../src/core/projectile.js';
@@ -35,7 +34,7 @@ describe('engine draw calls', () => {
 
   describe('Entity', () => {
     it('draws a placeholder rectangle when no sprite is present', () => {
-      const entity = new Entity(makeBody(100, 50, 40, 20), null, game);
+      const entity = new Entity(makeBody(game, 100, 50, 40, 20), null, game);
       entity.draw();
 
       const rects = renderer.optionsFor('drawRect');
@@ -47,7 +46,7 @@ describe('engine draw calls', () => {
 
     it('tiles the sprite across the body bounds', () => {
       const sprite = new SpriteSheet({ width: 16, height: 16 }, 16, 16, game, 16, 16);
-      const entity = new Entity(makeBody(100, 100, 32, 32), sprite, game);
+      const entity = new Entity(makeBody(game, 100, 100, 32, 32), sprite, game);
       entity.draw();
 
       // A 32x32 body with 16px tiles needs a 2x2 grid.
@@ -56,8 +55,8 @@ describe('engine draw calls', () => {
 
     it('passes the body angle through as sprite rotation', () => {
       const sprite = new SpriteSheet({ width: 16, height: 16 }, 16, 16, game, 16, 16);
-      const body = makeBody(100, 100, 16, 16);
-      Matter.Body.setAngle(body, 0.75);
+      const body = makeBody(game, 100, 100, 16, 16);
+      body.setAngle(0.75);
 
       new Entity(body, sprite, game).draw();
 
@@ -65,7 +64,7 @@ describe('engine draw calls', () => {
     });
 
     it('draws nothing once dead', () => {
-      const entity = new Entity(makeBody(100, 50, 40, 20), null, game);
+      const entity = new Entity(makeBody(game, 100, 50, 40, 20), null, game);
       entity.dead = true;
       entity.draw();
 
@@ -74,7 +73,7 @@ describe('engine draw calls', () => {
 
     it('draws its constraints after the sprite', () => {
       const sprite = new SpriteSheet({ width: 16, height: 16 }, 16, 16, game, 16, 16);
-      const entity = new Entity(makeBody(100, 100, 16, 16), sprite, game);
+      const entity = new Entity(makeBody(game, 100, 100, 16, 16), sprite, game);
       entity.addConstraint('health', new Health(entity, { maxHealth: 100 }));
       entity.draw();
 
@@ -86,7 +85,7 @@ describe('engine draw calls', () => {
     // its health bar or debug overlay. Locked in so a fix is a deliberate,
     // visible change rather than an accident.
     it('skips constraints on the sprite-less placeholder path', () => {
-      const entity = new Entity(makeBody(100, 50, 40, 20), null, game);
+      const entity = new Entity(makeBody(game, 100, 50, 40, 20), null, game);
       entity.addConstraint('health', new Health(entity, { maxHealth: 100 }));
       entity.draw();
 
@@ -132,7 +131,7 @@ describe('engine draw calls', () => {
 
   describe('Health constraint', () => {
     it('draws a background bar and a proportional fill bar', () => {
-      const entity = new Entity(makeBody(100, 100, 40, 20), null, game);
+      const entity = new Entity(makeBody(game, 100, 100, 40, 20), null, game);
       const health = new Health(entity, { maxHealth: 100 });
       health.currentHealth = 50;
 
@@ -146,7 +145,7 @@ describe('engine draw calls', () => {
     });
 
     it('turns the bar red below the low-health threshold', () => {
-      const entity = new Entity(makeBody(100, 100, 40, 20), null, game);
+      const entity = new Entity(makeBody(game, 100, 100, 40, 20), null, game);
       const health = new Health(entity, { maxHealth: 100 });
 
       health.currentHealth = 80;
@@ -161,7 +160,7 @@ describe('engine draw calls', () => {
     });
 
     it('positions the bar above the entity', () => {
-      const entity = new Entity(makeBody(100, 100, 40, 20), null, game);
+      const entity = new Entity(makeBody(game, 100, 100, 40, 20), null, game);
       const health = new Health(entity, { maxHealth: 100 });
 
       renderer.reset();
@@ -173,7 +172,7 @@ describe('engine draw calls', () => {
     });
 
     it('thickens the bar so it survives a low world render resolution', () => {
-      const entity = new Entity(makeBody(100, 100, 40, 20), null, game);
+      const entity = new Entity(makeBody(game, 100, 100, 40, 20), null, game);
       const health = new Health(entity, { maxHealth: 100 });
 
       // At a quarter resolution a 4-world-unit bar is a single surface pixel;
@@ -189,7 +188,7 @@ describe('engine draw calls', () => {
     });
 
     it('can be switched off for entities whose health lives in a HUD', () => {
-      const entity = new Entity(makeBody(100, 100, 40, 20), null, game);
+      const entity = new Entity(makeBody(game, 100, 100, 40, 20), null, game);
       const health = new Health(entity, { maxHealth: 100, showBar: false });
 
       renderer.reset();
@@ -201,7 +200,7 @@ describe('engine draw calls', () => {
 
   describe('Debug constraint', () => {
     function makeDebugEntity() {
-      const entity = new Entity(makeBody(100, 100, 40, 20), null, game);
+      const entity = new Entity(makeBody(game, 100, 100, 40, 20), null, game);
       entity.addConstraint('debug', new Debug(entity));
       return entity;
     }
@@ -305,7 +304,7 @@ describe('engine draw calls', () => {
 
   describe('Projectile', () => {
     it('draws a rotated body inside a balanced transform', () => {
-      const projectile = new Projectile(makeBody(50, 50, 16, 4), null, game, {
+      const projectile = new Projectile(makeBody(game, 50, 50, 16, 4), null, game, {
         direction: { x: 0, y: 1 }
       });
       renderer.reset();
@@ -318,7 +317,7 @@ describe('engine draw calls', () => {
     });
 
     it('draws nothing once dead', () => {
-      const projectile = new Projectile(makeBody(50, 50, 16, 4), null, game, {});
+      const projectile = new Projectile(makeBody(game, 50, 50, 16, 4), null, game, {});
       projectile.dead = true;
       renderer.reset();
       projectile.draw();
@@ -329,7 +328,7 @@ describe('engine draw calls', () => {
 
   describe('Rocket', () => {
     it('draws its body and fins within one balanced transform', () => {
-      const rocket = new Rocket(makeBody(80, 40, 24, 8), null, game, {
+      const rocket = new Rocket(makeBody(game, 80, 40, 24, 8), null, game, {
         direction: { x: 1, y: 0 }
       });
       renderer.setDebugEnabled(false);
@@ -342,7 +341,7 @@ describe('engine draw calls', () => {
     });
 
     it('adds a velocity vector only while debug rendering is on', () => {
-      const rocket = new Rocket(makeBody(80, 40, 24, 8), null, game, {
+      const rocket = new Rocket(makeBody(game, 80, 40, 24, 8), null, game, {
         direction: { x: 1, y: 0 }
       });
 
@@ -361,7 +360,7 @@ describe('engine draw calls', () => {
     });
 
     it('closes every polygon it draws', () => {
-      const rocket = new Rocket(makeBody(80, 40, 24, 8), null, game, {
+      const rocket = new Rocket(makeBody(game, 80, 40, 24, 8), null, game, {
         direction: { x: 1, y: 0 }
       });
       renderer.setDebugEnabled(false);
@@ -377,7 +376,7 @@ describe('engine draw calls', () => {
 
   describe('Turret', () => {
     function makeTurret() {
-      return new Turret(makeBody(120, 90, 32, 32, { isStatic: true }), null, game, {});
+      return new Turret(makeBody(game, 120, 90, 32, 32, { isStatic: true }), null, game, {});
     }
 
     it('draws base, ring, barrel and centre dot with a balanced transform', () => {
@@ -448,7 +447,7 @@ describe('engine draw calls', () => {
 
   describe('Trigger', () => {
     it('draws nothing while invisible', () => {
-      const trigger = new Trigger(makeBody(60, 60, 40, 40), null, game, { visible: false });
+      const trigger = new Trigger(makeBody(game, 60, 60, 40, 40), null, game, { visible: false });
       renderer.reset();
       trigger.draw();
 
@@ -458,7 +457,7 @@ describe('engine draw calls', () => {
     });
 
     it('draws its area and its name as one sharp annotation', () => {
-      const trigger = new Trigger(makeBody(60, 60, 40, 40), null, game, {
+      const trigger = new Trigger(makeBody(game, 60, 60, 40, 40), null, game, {
         visible: true,
         triggers: 'levelComplete'
       });
@@ -477,7 +476,7 @@ describe('engine draw calls', () => {
     });
 
     it('stringifies a non-string trigger label', () => {
-      const trigger = new Trigger(makeBody(60, 60, 40, 40), null, game, {
+      const trigger = new Trigger(makeBody(game, 60, 60, 40, 40), null, game, {
         visible: true,
         triggers: ['a', 'b']
       });

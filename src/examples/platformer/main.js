@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { initPhysics } from '../../core/physics/index.js';
 import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Player } from '../../actors/player.js';
 import { Bee } from '../../actors/bee.js';
@@ -13,6 +14,9 @@ import {
 } from '../shared/audio.js';
 
 const canvas = document.getElementById('screen');
+// Backend warm-up: a no-op today, the WASM compile for a future backend.
+await initPhysics();
+
 const game = new M2D(canvas, {
   initialScene: 'mainMenu',
   width: 1280,

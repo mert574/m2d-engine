@@ -27,9 +27,9 @@ const assetsPlugin = {
   writeBundle() {
     // Scene JSON contains runtime image paths that Vite cannot discover as imports.
     for (const example of ['platformer', 'maze', 'physics', 'topdown', 'doner', 'showcase']) {
-      const source = resolve(__dirname, `src/examples/${example}/assets`);
+      const source = resolve(import.meta.dirname, `src/examples/${example}/assets`);
       if (existsSync(source)) {
-        cpSync(source, resolve(__dirname, `docs/examples/${example}/assets`), { recursive: true });
+        cpSync(source, resolve(import.meta.dirname, `docs/examples/${example}/assets`), { recursive: true });
       }
     }
   }
@@ -46,14 +46,14 @@ export default defineConfig(({ command }) => ({
     assetsDir: 'assets',
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'src/index.html'),
-        credits: resolve(__dirname, 'src/music-credits.html'),
-        platformer: resolve(__dirname, 'src/examples/platformer/index.html'),
-        maze: resolve(__dirname, 'src/examples/maze/index.html'),
-        physics: resolve(__dirname, 'src/examples/physics/index.html'),
-        topdown: resolve(__dirname, 'src/examples/topdown/index.html'),
-        doner: resolve(__dirname, 'src/examples/doner/index.html'),
-        showcase: resolve(__dirname, 'src/examples/showcase/index.html')
+        main: resolve(import.meta.dirname, 'src/index.html'),
+        credits: resolve(import.meta.dirname, 'src/music-credits.html'),
+        platformer: resolve(import.meta.dirname, 'src/examples/platformer/index.html'),
+        maze: resolve(import.meta.dirname, 'src/examples/maze/index.html'),
+        physics: resolve(import.meta.dirname, 'src/examples/physics/index.html'),
+        topdown: resolve(import.meta.dirname, 'src/examples/topdown/index.html'),
+        doner: resolve(import.meta.dirname, 'src/examples/doner/index.html'),
+        showcase: resolve(import.meta.dirname, 'src/examples/showcase/index.html')
       }
     }
   },

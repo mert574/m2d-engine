@@ -1,5 +1,4 @@
 import { Entity } from './entity.js';
-import Matter from 'matter-js';
 import { CollisionCategories } from './constants.js';
 import { Vec2 } from './math.js';
 
@@ -12,17 +11,22 @@ export class Projectile extends Entity {
 
   constructor(body, sprite, game, options = {}) {
     // Set up collision filtering before super()
-    body.collisionFilter.category = CollisionCategories.projectile;
-    // Use 'default' for walls/platforms since Platform doesn't set a specific category
-    body.collisionFilter.mask = options.collisionMask ?? (CollisionCategories.player | CollisionCategories.default);
+    body.setCollisionFilter({
+      category: CollisionCategories.projectile,
+      // 'default' covers walls/platforms, which set no specific category.
+      mask: options.collisionMask ?? (CollisionCategories.player | CollisionCategories.default)
+    });
     body.isSensor = options.isSensor ?? false;
+    // Projectiles are the fast movers; CCD stops them tunneling through thin
+    // walls on backends that support it.
+    body.bullet = true;
     body.frictionAir = 0;
     body.friction = 0;
     body.frictionStatic = 0;
 
     super(body, sprite, game);
 
-    this.speed = options.speed ?? 4;
+    this.speed = options.speed ?? 480; // px/s
     this.damage = options.damage ?? 10;
     this.direction = Vec2.normalize(options.direction ?? { x: 1, y: 0 });
     this.lifetime = 0;
@@ -41,7 +45,7 @@ export class Projectile extends Entity {
 
   applyVelocity() {
     const velocity = Vec2.scale(this.direction, this.speed);
-    Matter.Body.setVelocity(this.body, velocity);
+    this.body.setVelocity(velocity);
   }
 
   update(deltaTime) {
@@ -108,14 +112,14 @@ export class Projectile extends Entity {
     if (this.dead) return;
     this.dead = true;
     this.game.entities.delete(this);
-    Matter.Composite.remove(this.game.engine.world, this.body);
+    this.game.physics.remove(this.body);
   }
 
   draw() {
     if (this.dead) return;
 
     // Default draw: simple colored rectangle
-    const pos = this.position;
+    const pos = this.renderPosition;
     const renderer = this.game.renderer;
 
     renderer.pushTransform({ x: pos.x, y: pos.y, rotation: this.rotation });

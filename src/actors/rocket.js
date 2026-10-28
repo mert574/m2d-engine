@@ -5,7 +5,7 @@ export class Rocket extends Projectile {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, {
-      speed: options.speed ?? 4,
+      speed: options.speed ?? 480,
       damage: options.damage ?? 25,
       direction: options.direction,
       maxLifetime: options.maxLifetime ?? 6,
@@ -18,7 +18,7 @@ export class Rocket extends Projectile {
   draw() {
     if (this.dead) return;
 
-    const pos = this.position;
+    const pos = this.renderPosition;
     const renderer = this.game.renderer;
 
     renderer.pushTransform({ x: pos.x, y: pos.y, rotation: this.rotation });

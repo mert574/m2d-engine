@@ -48,7 +48,7 @@ export class Health extends Constraint {
   draw() {
     if (this.entity.dead || !this.showBar) return;
 
-    const pos = this.entity.position;
+    const pos = this.entity.renderPosition;
     const size = this.entity.size;
 
     const barWidth = size.x;

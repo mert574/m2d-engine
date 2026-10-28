@@ -1,7 +1,7 @@
 # M2D Engine
 
-A lightweight 2D game engine built with Matter.js for physics and WebGL2 for
-rendering, with a Canvas 2D fallback. Focused on simplicity and performance.
+A lightweight 2D game engine with pluggable physics (Rapier via WASM by
+default, Matter.js fallback) and WebGL2 rendering, with a Canvas 2D fallback. Focused on simplicity and performance.
 
 This file is the one-page overview. [README.md](README.md) is the user guide,
 [AGENTS.md](AGENTS.md) the architecture detail, [ROADMAP.md](ROADMAP.md) the
@@ -9,7 +9,7 @@ work ahead.
 
 ## Core Features
 
-- Physics: Matter.js integration
+- Physics: fixed-timestep simulation behind a backend-agnostic contract
 - Rendering: pluggable backends behind one contract (WebGL2 default, Canvas 2D fallback)
 - Display: independent view, world-render and UI resolutions, with aspect
   modes, fullscreen and a reusable settings overlay
@@ -35,7 +35,7 @@ src/
 
 ## Technical Stack
 
-- **Physics**: Matter.js
+- **Physics**: Rapier 2D (default) or Matter.js, behind the `core/physics/` boundary
 - **Rendering**: WebGL2, falling back to the Canvas 2D API
 - **Sound**: HTML5 `Audio` elements (a Web Audio mixer is on the roadmap)
 - **Asset Loading**: Dynamic imports using Vite
@@ -81,4 +81,4 @@ reference is validated at load:
 
 Entities that do not exist until runtime — projectiles, spawned pickups — are
 created directly with `game.createEntity(...)` and added to `game.entities`
-and the Matter world. See "Dynamic Entity Creation" in AGENTS.md.
+and the physics world. See "Dynamic Entity Creation" in AGENTS.md.

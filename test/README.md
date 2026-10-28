@@ -7,9 +7,10 @@ npm run test:browser   # headless Chromium only (needs one-time setup, see below
 npm run test:watch     # watches the node project
 ```
 
-Tests are split into two Vitest projects (`vitest.workspace.js`):
+Tests are split into two Vitest projects (declared in `test.projects` in
+`vitest.config.js`):
 
-- **node** (`vitest.config.js`) — everything outside `test/browser/`. Runs in
+- **node** (inline in `vitest.config.js`) — everything outside `test/browser/`. Runs in
   Node; `node-canvas` provides a real rasterizer so pixel assertions work
   without a browser.
 - **browser** (`vitest.browser.config.js`) — `test/browser/**` only. Runs in
@@ -37,6 +38,18 @@ mapping, hit testing and `worldFilter` plumbing across resizes),
 pass), `settingsMenu.test.js` (the overlay, its input capture and pause),
 `pause.test.js` (the loop freezes simulation but keeps presenting) and
 `sceneActions.test.js` (scene-JSON buttons and background layers).
+
+`physics.test.js` characterizes the physics boundary (`src/core/physics/`),
+running the identical suite against **both backends** (Matter and Rapier):
+unit semantics (px/s and px/s²), fixed-step pacing, gravity and resting
+contact, body mutation, collision
+events, queries and world lifecycle. It asserts the *contract* with
+tolerances, never the backend's internals, so it doubles as the specification
+a replacement solver has to satisfy — a failure there names the behaviour that
+changed. The one
+intentional divergence is continuous collision detection: on Matter the suite
+documents that fast bodies tunnel through thin walls, on Rapier it asserts a
+`bullet` body is stopped by them.
 
 ### 1. Backend conformance (pixels)
 

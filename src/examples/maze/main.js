@@ -1,5 +1,5 @@
-import Matter from 'matter-js';
 import { M2D } from '../../core/m2d.js';
+import { initPhysics } from '../../core/physics/index.js';
 import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Entity } from '../../core/entity.js';
 import { UIElement } from '../../core/ui/uiElement.js';
@@ -97,7 +97,7 @@ class MazePlayer extends Entity {
     // Direct-velocity movement (continuous: false): crisp stop-and-go suits a
     // maze better than building momentum against air friction.
     this.addConstraint('movement', new KeyboardControl(this, {
-      verticalMovement: true, continuous: false, maxSpeed: 4
+      verticalMovement: true, continuous: false, maxSpeed: 240
     }));
   }
 }
@@ -133,8 +133,8 @@ class Goal extends Entity {
     super.onCollisionStart(other);
     if (other.entity?.name !== 'Player') return;
     solvedAt = performance.now();
-    Matter.Body.setPosition(this.game.player.body, { x: START.x, y: START.y });
-    Matter.Body.setVelocity(this.game.player.body, { x: 0, y: 0 });
+    this.game.player.body.setPosition({ x: START.x, y: START.y });
+    this.game.player.body.setVelocity({ x: 0, y: 0 });
   }
 
   draw() {
@@ -147,6 +147,9 @@ class Goal extends Entity {
     });
   }
 }
+
+// Backend warm-up: a no-op today, the WASM compile for a future backend.
+await initPhysics();
 
 const game = new M2D(document.getElementById('screen'), {
   initialScene: 'mainMenu', width: 640, height: 480,

@@ -1,6 +1,6 @@
 # M2D Engine
 
-A lightweight 2D game engine built with Matter.js for physics and WebGL2 for rendering (Canvas 2D fallback). Features a component-based architecture, scene management, and UI system.
+A lightweight 2D game engine with pluggable physics (Rapier by default, Matter.js fallback) and WebGL2 rendering (Canvas 2D fallback). Features a component-based architecture, scene management, and UI system.
 
 [Check Demos](https://mert574.github.io/m2d-engine)
 
@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/1693e2b8-67f8-4b75-b6d7-31ce35f14397
 
 ## Features
 
-- **Physics Engine**: Powered by Matter.js for accurate 2D physics simulation
+- **Physics Engine**: Fixed-timestep 2D simulation behind a swappable backend contract (Rapier default, Matter.js fallback, `?physics=` to switch)
 - **Scene Management**: JSON scene definitions, validated on load
 - **Component System**: Flexible entity-component architecture
 - **Input Handling**: Keyboard input with configurable controls
@@ -210,7 +210,7 @@ error, including misspellings like `"anchour"`.
   "title": "Level 1",
   "gameType": "platformer",
   "world": {
-    "gravity": { "x": 0, "y": 1 }
+    "gravity": { "x": 0, "y": 1000 }
   },
   "assets": {
     "spritesheets": {

@@ -1,4 +1,3 @@
-import Matter from 'matter-js';
 import { SpriteSheet } from './spriteSheet.js';
 import { Container } from './ui/container.js';
 import { MovingPlatform } from '../actors/movingPlatform.js';
@@ -91,7 +90,7 @@ export class Scene {
 
   setupScene() {
     this.game.entities.clear();
-    Matter.Composite.clear(this.game.engine.world);
+    this.game.physics.clear();
     this.game.layers.clear();
     this.game.player = null;
     this.ui.clear();
@@ -107,11 +106,10 @@ export class Scene {
     this.ui.addElement(stats);
 
     if (this.config.world) {
-      Matter.Engine.clear(this.game.engine);
-      Matter.Engine.update(this.game.engine, 0);
-      
+      this.game.physics.clearContacts();
+
       if (this.config.world.gravity) {
-        this.game.engine.gravity = this.config.world.gravity;
+        this.game.physics.setGravity(this.config.world.gravity);
       }
     }
 
@@ -169,7 +167,7 @@ export class Scene {
             this.game.camera.follow(entity);
           }
           this.game.entities.add(entity);
-          Matter.Composite.add(this.game.engine.world, entity.body);
+          this.game.physics.add(entity.body);
         }
       });
     });
@@ -324,8 +322,8 @@ export class Scene {
 
   update(deltaTime) {
     if (this.config.type === 'level') {
-      Matter.Engine.update(this.game.engine, deltaTime * 1000);
-
+      // Physics is stepped once per frame by the engine loop, on its own
+      // fixed-step clock. This runs the entity-side update that follows it.
       if (this.game.player && 
           this.game.player.body.position.y > this.game.options.worldHeight + 50) {
         console.log('Game Over!');
@@ -333,7 +331,7 @@ export class Scene {
         return;
       }
 
-      this.game.camera.update();
+      // The camera is updated by the engine loop before this runs.
       this.game.entities.forEach(entity => entity.update(deltaTime));
     }
 

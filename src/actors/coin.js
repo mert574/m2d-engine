@@ -1,5 +1,4 @@
 import { Entity } from '../core/entity.js';
-import Matter from 'matter-js';
 
 export class Coin extends Entity {
   name = 'Coin';
@@ -22,19 +21,19 @@ export class Coin extends Entity {
     
     this.rotation += this.rotationSpeed * deltaTime;
     
-    Matter.Body.setPosition(this.body, {
+    this.body.setPosition({
       x: this.body.position.x,
       y: newY
     });
-    
-    Matter.Body.setAngle(this.body, this.rotation);
+
+    this.body.setAngle(this.rotation);
   }
 
   onCollisionStart(other) {
     if (other.entity && other.entity === this.game.player) {
       // TODO: Add score/collection logic
       this.game.entities.delete(this);
-      Matter.World.remove(this.game.engine.world, this.body);
+      this.game.physics.remove(this.body);
     }
   }
 } 

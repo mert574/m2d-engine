@@ -3,7 +3,6 @@ import { Health } from '../constraints/health.js';
 import { Attack } from '../constraints/attack.js';
 import { Debug } from '../constraints/debug.js';
 import { KeyboardControl } from '../constraints/keyboardControl.js';
-import Matter from 'matter-js';
 
 export class TopDownPlayer extends Entity {
   name = 'Player';
@@ -11,7 +10,7 @@ export class TopDownPlayer extends Entity {
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
 
-    Matter.Body.setMass(body, 1);
+    body.setMass(1);
 
     this.facingDirection = 1;
     this.setAnimation('idle');
@@ -38,8 +37,8 @@ export class TopDownPlayer extends Entity {
     }));
 
     this.addConstraint('control', new KeyboardControl(this, {
-      acceleration: 50,
-      maxSpeed: 3,
+      acceleration: 3000,
+      maxSpeed: 180,
       continuous: true,
       verticalMovement: true, // Enable vertical movement for top-down
       onMove: (dx, dy) => {
@@ -86,10 +85,10 @@ export class TopDownPlayer extends Entity {
       // into the world surface.
       const directionLength = 20;
       this.game.worldOverlay.drawLine({
-        x1: this.position.x,
-        y1: this.position.y,
-        x2: this.position.x + (directionLength * this.facingDirection),
-        y2: this.position.y,
+        x1: this.renderPosition.x,
+        y1: this.renderPosition.y,
+        x2: this.renderPosition.x + (directionLength * this.facingDirection),
+        y2: this.renderPosition.y,
         strokeStyle: '#ff0000',
         lineWidth: 1
       });

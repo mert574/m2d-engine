@@ -3,7 +3,6 @@ import { Health } from '../constraints/health.js';
 import { Attack } from '../constraints/attack.js';
 import { Debug } from '../constraints/debug.js';
 import { KeyboardControl } from '../constraints/keyboardControl.js';
-import Matter from 'matter-js';
 
 export class Player extends Entity {
   name = 'Player';
@@ -11,9 +10,9 @@ export class Player extends Entity {
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
 
-    Matter.Body.setMass(body, 1);
+    body.setMass(1);
 
-    this.jumpVelocity = 12;
+    this.jumpVelocity = 720; // px/s
     this.facingDirection = 1;
     this.setAnimation('idle');
     this.groundContacts = new Set();
@@ -40,8 +39,8 @@ export class Player extends Entity {
     }));
 
     this.addConstraint('control', new KeyboardControl(this, {
-      acceleration: 50,
-      maxSpeed: 3,
+      acceleration: 3000,
+      maxSpeed: 180,
       continuous: true,
       verticalMovement: false,
       onMove: (dx, dy) => {
@@ -56,7 +55,7 @@ export class Player extends Entity {
       },
       onJump: () => {
         if (this.isOnGround()) {
-          Matter.Body.setVelocity(this.body, { x: this.body.velocity.x, y: -this.jumpVelocity });
+          this.body.setVelocity({ x: this.body.velocity.x, y: -this.jumpVelocity });
           this.setAnimation('jump');
           this.game.soundManager.playSound('jump');
         }
@@ -114,18 +113,18 @@ export class Player extends Entity {
       // Draw facing direction
       const directionLength = 20;
       overlay.drawLine({
-        x1: this.position.x,
-        y1: this.position.y,
-        x2: this.position.x + (directionLength * this.facingDirection),
-        y2: this.position.y,
+        x1: this.renderPosition.x,
+        y1: this.renderPosition.y,
+        x2: this.renderPosition.x + (directionLength * this.facingDirection),
+        y2: this.renderPosition.y,
         strokeStyle: '#ff0000',
         lineWidth: 1
       });
 
       overlay.drawText({
         text: `ground: ${this.isOnGround()}`,
-        x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y,
+        x: this.renderBounds.min.x,
+        y: this.renderBounds.max.y,
         offsetY: 5,
         fillStyle: '#00ff00',
         fontSize: '12px',

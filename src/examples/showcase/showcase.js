@@ -303,8 +303,8 @@ export class Showcase {
     const spanX = Math.max(0, this.bounds.width - camera.width) / 2;
     const spanY = Math.max(0, this.bounds.height - camera.height) / 2;
 
-    camera.x = marginX + spanX + Math.sin(this.time * 0.17) * spanX;
-    camera.y = marginY + spanY + Math.sin(this.time * 0.11) * spanY;
+    camera.x = marginX + spanX + Math.sin(this.time * 0.51) * spanX;
+    camera.y = marginY + spanY + Math.sin(this.time * 0.33) * spanY;
   }
 
   /**

@@ -29,8 +29,12 @@ export class Camera {
   update() {
     if (!this.target) return;
 
-    const targetX = this.target.body.position.x;
-    const targetY = this.target.body.position.y;
+    // Follow the *rendered* position: the camera is a render concern, and
+    // chasing the raw solver position would reintroduce the between-step
+    // stair-stepping that interpolation exists to remove.
+    const target = this.target.body.renderPosition ?? this.target.body.position;
+    const targetX = target.x;
+    const targetY = target.y;
 
     // Smooth camera movement
     this.x += (targetX - this.x) * this.lerp;

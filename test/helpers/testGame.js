@@ -1,5 +1,5 @@
-import Matter from 'matter-js';
 import { expect } from 'vitest';
+import { createPhysicsWorld } from '../../src/core/physics/index.js';
 import { RecordingRenderer } from './recordingRenderer.js';
 import { UIRenderer } from '../../src/core/renderers/uiRenderer.js';
 import { WorldOverlay } from '../../src/core/ui/worldOverlay.js';
@@ -17,7 +17,7 @@ export function makeTestGame(options = {}) {
   const game = {
     renderer,
     uiRenderer: new UIRenderer(renderer),
-    engine: Matter.Engine.create(),
+    physics: createPhysicsWorld(),
     entities: new Set(),
     player: null,
     canvas: { width: 800, height: 600, style: {} },
@@ -43,9 +43,13 @@ export function makeTestGame(options = {}) {
   return game;
 }
 
-/** A Matter body positioned and sized for entity tests. */
-export function makeBody(x, y, width, height, bodyOptions = {}) {
-  return Matter.Bodies.rectangle(x, y, width, height, bodyOptions);
+/**
+ * A physics body positioned and sized for entity tests. Belongs to `game`'s
+ * world but is not added to it — tests that need simulation call
+ * `game.physics.add(body)`.
+ */
+export function makeBody(game, x, y, width, height, bodyOptions = {}) {
+  return game.physics.createBox({ x, y, width, height, ...bodyOptions });
 }
 
 /**

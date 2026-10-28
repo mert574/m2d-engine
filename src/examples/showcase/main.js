@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { initPhysics } from '../../core/physics/index.js';
 import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Showcase } from './showcase.js';
 import moteSprite from './assets/mote.png';
@@ -13,6 +14,9 @@ const WORLD = { width: 2560, height: 1440 };
 const canvas = document.getElementById('screen');
 // B swaps the backend by reloading with ?renderer=; skip the menu on that
 // reload so the two backends can be compared without re-clicking Start.
+// Backend warm-up: a no-op today, the WASM compile for a future backend.
+await initPhysics();
+
 const game = new M2D(canvas, {
   initialScene: new URLSearchParams(location.search).has('renderer') ? 'showcase' : 'mainMenu',
   width: VIEW.width,

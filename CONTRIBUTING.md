@@ -1,7 +1,7 @@
 # Contributing
 
-M2D is a small browser game engine built with JavaScript, Matter.js, and a
-pluggable renderer (WebGL2 by default, Canvas 2D as a fallback). The README
+M2D is a small browser game engine built with JavaScript, a pluggable physics
+backend (Rapier by default, Matter.js as fallback), and a pluggable renderer (WebGL2 by default, Canvas 2D as a fallback). The README
 explains the engine and demos; [ROADMAP.md](ROADMAP.md) describes the next
 proposed slices of work. [AGENTS.md](AGENTS.md) is the detailed architecture
 note, and `test/README.md` covers the renderer conformance suite.

@@ -1,4 +1,5 @@
 import { M2D } from '../../core/m2d.js';
+import { initPhysics } from '../../core/physics/index.js';
 import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { TopDownPlayer } from '../../actors/topDownPlayer.js';
 import { Ghost } from '../../actors/ghost.js';
@@ -8,6 +9,9 @@ import { Trigger } from '../../actors/trigger.js';
 import { Turret } from '../../actors/turret.js';
 
 const canvas = document.getElementById('screen');
+// Backend warm-up: a no-op today, the WASM compile for a future backend.
+await initPhysics();
+
 const game = new M2D(canvas, {
   initialScene: 'mainMenu',
   width: 1280,

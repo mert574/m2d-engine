@@ -1,5 +1,5 @@
-import Matter from 'matter-js';
 import { M2D } from '../../core/m2d.js';
+import { initPhysics } from '../../core/physics/index.js';
 import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Entity } from '../../core/entity.js';
 import ballSprite from './assets/ball.png';
@@ -8,7 +8,8 @@ import platformSprite from './assets/platform.png';
 
 class BouncingBall extends Entity {
   constructor(body, sprite, game) {
-    const circle = Matter.Bodies.circle(body.position.x, body.position.y, 16, {
+    const circle = game.physics.createCircle({
+      x: body.position.x, y: body.position.y, radius: 16,
       restitution: 0.8, friction: 0.005, frictionAir: 0.001
     });
     super(circle, sprite, game);
@@ -17,9 +18,12 @@ class BouncingBall extends Entity {
 class Ramp extends Entity {
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
-    Matter.Body.setAngle(body, options.angle || 0);
+    body.setAngle(options.angle || 0);
   }
 }
+
+// Backend warm-up: a no-op today, the WASM compile for a future backend.
+await initPhysics();
 
 const game = new M2D(document.getElementById('screen'), {
   initialScene: 'mainMenu', width: 960, height: 720, worldWidth: 960, worldHeight: 720
@@ -58,7 +62,7 @@ const pegRow = (y, xs) => xs.map(x =>
 game.sceneManager.addScene('physics', {
   fetch: async () => ({
     version: 1, name: 'physics', type: 'level', gameType: 'sideScroll',
-    world: { width: 960, height: 720, gravity: { x: 0, y: 1 } },
+    world: { width: 960, height: 720, gravity: { x: 0, y: 1000 } },
     assets: { spritesheets: {
       ball: { url: ballSprite, frameWidth: 32, frameHeight: 32 },
       box: { url: boxSprite, frameWidth: 32, frameHeight: 32 },
@@ -105,7 +109,7 @@ game.keys.addKey(' ', (pressed) => {
     size, size, sprite, {}, { restitution: isBox ? 0.4 : 0.8 });
   entity.setAnimation('default');
   game.entities.add(entity);
-  Matter.Composite.add(game.engine.world, entity.body);
+  game.physics.add(entity.body);
 });
 // Settings overlay (O): resolution, fullscreen, aspect mode, debug, backend.
 new SettingsMenu(game);

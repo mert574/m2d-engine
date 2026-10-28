@@ -2,7 +2,6 @@ import { Entity } from '../core/entity.js';
 import { Health } from '../constraints/health.js';
 import { ContactDamage } from '../constraints/contactDamage.js';
 import { Rocket } from './rocket.js';
-import Matter from 'matter-js';
 import { CollisionCategories } from '../core/constants.js';
 import { Vec2 } from '../core/math.js';
 import { Debug } from '../constraints/debug.js';
@@ -11,13 +10,13 @@ export class Turret extends Entity {
   name = 'Turret';
 
   constructor(body, sprite, game, options = {}) {
-    body.collisionFilter.category = CollisionCategories.enemy;
+    body.setCollisionFilter({ category: CollisionCategories.enemy });
     body.isStatic = true;
     super(body, sprite, game);
 
     this.detectionRange = options.detectionRange || 350;
     this.fireRate = options.fireRate || 2; // seconds between shots
-    this.rocketSpeed = options.rocketSpeed || 3;
+    this.rocketSpeed = options.rocketSpeed || 360; // px/s
     this.rocketDamage = options.rocketDamage || 25;
 
     this.fireCooldown = 0;
@@ -33,7 +32,7 @@ export class Turret extends Entity {
     health.invulnerableDuration = 0.3;
     health.onDeath = () => {
       this.game.entities.delete(this);
-      Matter.Composite.remove(this.game.engine.world, this.body);
+      this.game.physics.remove(this.body);
     };
     health.onDamage = () => {
       this.damageFlashTime = this.damageFlashDuration;
@@ -53,7 +52,7 @@ export class Turret extends Entity {
 
     this.addConstraint('contactDamage', new ContactDamage(this, {
       damage: 25,
-      knockbackStrength: 6
+      knockbackStrength: 360
     }));
   }
 
@@ -100,19 +99,14 @@ export class Turret extends Entity {
 
   checkLineOfSight(targetPos) {
     const start = this.position;
-    const bodies = Matter.Composite.allBodies(this.game.engine.world);
-
-    // Filter to only static bodies (walls) excluding self
-    const walls = bodies.filter(body =>
+    // Only static walls block sight; the turret cannot occlude itself.
+    const blockers = this.game.physics.raycast(start, targetPos, (body) =>
       body.isStatic &&
       body !== this.body &&
       body.entity?.name === 'Platform'
     );
 
-    // Use Matter.Query.ray to check for intersections
-    const collisions = Matter.Query.ray(walls, start, targetPos);
-
-    return collisions.length === 0;
+    return blockers.length === 0;
   }
 
   fireRocket() {
@@ -122,19 +116,17 @@ export class Turret extends Entity {
       y: this.position.y + this.aimDirection.y * spawnOffset
     };
 
-    const rocketBody = Matter.Bodies.rectangle(
-      spawnPos.x,
-      spawnPos.y,
-      24,
-      8,
-      {
-        friction: 0,
-        frictionAir: 0,
-        frictionStatic: 0,
-        restitution: 0,
-        density: 0.001
-      }
-    );
+    const rocketBody = this.game.physics.createBox({
+      x: spawnPos.x,
+      y: spawnPos.y,
+      width: 24,
+      height: 8,
+      friction: 0,
+      frictionAir: 0,
+      frictionStatic: 0,
+      restitution: 0,
+      density: 0.001
+    });
 
     const rocket = new Rocket(rocketBody, null, this.game, {
       speed: this.rocketSpeed,
@@ -144,13 +136,13 @@ export class Turret extends Entity {
     });
 
     this.game.entities.add(rocket);
-    Matter.Composite.add(this.game.engine.world, rocketBody);
+    this.game.physics.add(rocketBody);
   }
 
   draw() {
     if (this.dead) return;
 
-    const pos = this.position;
+    const pos = this.renderPosition;
     const renderer = this.game.renderer;
 
     // Draw base
@@ -245,8 +237,8 @@ export class Turret extends Entity {
 
       overlay.drawText({
         text: `fire: ${this.fireCooldown.toFixed(1)}s`,
-        x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y,
+        x: this.renderBounds.min.x,
+        y: this.renderBounds.max.y,
         offsetY: 5,
         fillStyle: '#CE93D8',
         fontSize: '12px',

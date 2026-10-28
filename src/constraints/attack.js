@@ -1,5 +1,4 @@
 import { Constraint } from '../core/constraint.js';
-import Matter from 'matter-js';
 import { CollisionCategories } from '../core/constants.js';
 import { Angle } from '../core/math.js';
 
@@ -21,13 +20,14 @@ export class Attack extends Constraint {
     this.attackAnimEndTime = 0.333; // ~20 frames at 60fps in seconds
     this.hasCheckedHits = false;
 
-    this.hitCircle = Matter.Bodies.circle(0, 0, this.range, {
+    this.hitCircle = this.entity.game.physics.createCircle({
+      x: 0, y: 0, radius: this.range,
       isSensor: true,
       isStatic: true,
-      collisionFilter: { category: CollisionCategories.enemy }
+      category: CollisionCategories.enemy
     });
 
-    Matter.Composite.add(this.entity.game.engine.world, this.hitCircle);
+    this.entity.game.physics.add(this.hitCircle);
   }
 
   update(deltaTime) {
@@ -35,7 +35,7 @@ export class Attack extends Constraint {
       this.currentCooldown -= deltaTime;
     }
 
-    Matter.Body.setPosition(this.hitCircle, this.entity.position);
+    this.hitCircle.setPosition(this.entity.position);
 
     if (this.isAttacking) {
       // Check for hits only on first update of attack
@@ -56,13 +56,12 @@ export class Attack extends Constraint {
   }
 
   checkHits() {
-    const collisions = Matter.Query.collides(this.hitCircle,
-      Matter.Composite.allBodies(this.entity.game.engine.world)
-        .filter(body => body.collisionFilter.category === CollisionCategories.enemy)
+    const hits = this.entity.game.physics.contactsWith(
+      this.hitCircle,
+      (body) => body.collisionFilter.category === CollisionCategories.enemy
     );
 
-    for (const collision of collisions) {
-      const body = collision.bodyA === this.hitCircle ? collision.bodyB : collision.bodyA;
+    for (const body of hits) {
       if (!body.entity || body.entity === this.entity || this.hits.has(body.entity)) continue;
 
       // Check if enemy is in the correct half of the circle
@@ -77,8 +76,9 @@ export class Attack extends Constraint {
         const health = body.entity.getConstraint('health');
         if (health && !health.isInvulnerable()) {
           health.takeDamage(this.damage);
-          Matter.Body.applyForce(body, body.position,
-            { x: this.direction * 0.5, y: -0.3 });
+          // Values measured from the applyForce this replaced, so the
+          // knockback fling feels identical.
+          body.applyImpulse({ x: this.direction * 8140, y: -4880 });
         }
 
       }
@@ -101,7 +101,7 @@ export class Attack extends Constraint {
   }
 
   draw() {
-    const pos = this.entity.position;
+    const pos = this.entity.renderPosition;
     // Attack range is an annotation on top of the game: it describes a world
     // region but is not world content, so it goes to the overlay and is
     // rasterized at display resolution instead of blurring with the world.

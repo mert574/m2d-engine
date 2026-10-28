@@ -7,7 +7,7 @@
   "world": {
     "width": 1920,
     "height": 1440,
-    "gravity": { "x": 0, "y": 1 }
+    "gravity": { "x": 0, "y": 1000 }
   },
 
   "assets": {

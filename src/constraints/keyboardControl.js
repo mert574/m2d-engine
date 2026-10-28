@@ -1,5 +1,4 @@
 import { Constraint } from '../core/constraint.js';
-import Matter from 'matter-js';
 import { KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_SPACE, KEY_X } from '../core/keyCodes.js';
 
 const norm = Math.sqrt(2);
@@ -19,8 +18,8 @@ export class KeyboardControl extends Constraint {
     };
 
     // Movement configuration
-    this.acceleration = options.acceleration || options.moveForce * 1000 || 10; // units per second squared
-    this.maxSpeed = options.maxSpeed || 5;
+    this.acceleration = options.acceleration || options.moveForce * 60000 || 600; // px/s per second
+    this.maxSpeed = options.maxSpeed || 300; // px/s
     this.continuous = options.continuous ?? true;
     this.verticalMovement = options.verticalMovement ?? true;
 
@@ -59,13 +58,12 @@ export class KeyboardControl extends Constraint {
         // Apply velocity change directly scaled by deltaTime for frame-rate independence
         const currentVel = this.entity.body.velocity;
         const accel = this.acceleration * deltaTime;
-        Matter.Body.setVelocity(this.entity.body, {
+        this.entity.body.setVelocity({
           x: currentVel.x + dx * accel,
           y: currentVel.y + dy * accel
         });
       } else {
-        Matter.Body.setVelocity(this.entity.body,
-          { x: dx * this.maxSpeed, y: dy * this.maxSpeed });
+        this.entity.body.setVelocity({ x: dx * this.maxSpeed, y: dy * this.maxSpeed });
       }
     }
     if (this.onDirectionChange && dx !== 0) {
@@ -86,7 +84,7 @@ export class KeyboardControl extends Constraint {
       const speed = Math.abs(velocity.x);
       if (speed > this.maxSpeed) {
         const scale = this.maxSpeed / speed;
-        Matter.Body.setVelocity(this.entity.body, {
+        this.entity.body.setVelocity({
           x: velocity.x * scale,
           y: velocity.y
         });

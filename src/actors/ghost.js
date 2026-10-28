@@ -1,7 +1,6 @@
 import { Entity } from '../core/entity.js';
 import { Health } from '../constraints/health.js';
 import { ContactDamage } from '../constraints/contactDamage.js';
-import Matter from 'matter-js';
 import { CollisionCategories } from '../core/constants.js';
 import { Vec2 } from '../core/math.js';
 import { Debug } from '../constraints/debug.js';
@@ -10,11 +9,11 @@ export class Ghost extends Entity {
   name = 'Ghost';
 
   constructor(body, sprite, game, options = {}) {
-    body.collisionFilter.category = CollisionCategories.enemy;
+    body.setCollisionFilter({ category: CollisionCategories.enemy });
     super(body, sprite, game);
     
-    this.speed = 0.5;
-    this.idleSpeed = 0.3;
+    this.speed = 60; // px/s
+    this.idleSpeed = 36;
     this.detectionRange = 400;
     this.animTime = 0;
     this.animSpeed = 6; // frames per second
@@ -26,7 +25,7 @@ export class Ghost extends Entity {
     health.invulnerableDuration = 0.5; // seconds
     health.onDeath = () => {
       this.game.entities.delete(this);
-      Matter.Composite.remove(this.game.engine.world, this.body);
+      this.game.physics.remove(this.body);
     };
     health.onDamage = () => {
       this.damageFlashTime = this.damageFlashDuration;
@@ -47,7 +46,7 @@ export class Ghost extends Entity {
 
     this.addConstraint('contactDamage', new ContactDamage(this, {
       damage: 33,
-      knockbackStrength: 8
+      knockbackStrength: 480
     }));
 
     this.targetPoint = this.getNewTargetPoint();
@@ -82,7 +81,7 @@ export class Ghost extends Entity {
     if (distance < this.detectionRange) {
       const dir = Vec2.direction(this.position, this.game.player.position);
       const velocity = Vec2.scale(Vec2.normalize(dir), this.speed);
-      Matter.Body.setVelocity(this.body, velocity);
+      this.body.setVelocity(velocity);
     } else {
       this.targetChangeTime += deltaTime;
       if (this.targetChangeTime >= this.targetChangeCooldown) {
@@ -94,7 +93,7 @@ export class Ghost extends Entity {
       if (distance > 1) {
         const dir = Vec2.direction(this.position, this.targetPoint);
         const velocity = Vec2.scale(Vec2.normalize(dir), this.idleSpeed);
-        Matter.Body.setVelocity(this.body, velocity);
+        this.body.setVelocity(velocity);
       }
     }
 
@@ -116,7 +115,7 @@ export class Ghost extends Entity {
     super.draw();
 
     if (this.damageFlashTime > 0) {
-      const pos = this.position;
+      const pos = this.renderPosition;
       this.game.renderer.drawRect({
         x: pos.x - this.size.x / 2,
         y: pos.y - this.size.y / 2,
@@ -136,8 +135,8 @@ export class Ghost extends Entity {
 
       // Draw detection range
       overlay.drawArc({
-        x: this.position.x,
-        y: this.position.y,
+        x: this.renderPosition.x,
+        y: this.renderPosition.y,
         radius: this.detectionRange,
         startAngle: 0,
         endAngle: Math.PI * 2,
@@ -156,8 +155,8 @@ export class Ghost extends Entity {
       });
 
       overlay.drawLine({
-        x1: this.position.x,
-        y1: this.position.y,
+        x1: this.renderPosition.x,
+        y1: this.renderPosition.y,
         x2: this.targetPoint.x,
         y2: this.targetPoint.y,
         strokeStyle: 'rgba(255, 214, 51, 0.4)',
@@ -166,8 +165,8 @@ export class Ghost extends Entity {
 
       overlay.drawText({
         text: `target: ${this.targetChangeTime}/${this.targetChangeCooldown}`,
-        x: this.body.bounds.min.x,
-        y: this.body.bounds.max.y,
+        x: this.renderBounds.min.x,
+        y: this.renderBounds.max.y,
         offsetY: 5,
         fillStyle: '#ff9999',
         fontSize: '12px',
@@ -181,10 +180,10 @@ export class Ghost extends Entity {
         const distance = Vec2.distance(this.position, this.game.player.position);
         if (distance < this.detectionRange) {
           overlay.drawLine({
-            x1: this.position.x,
-            y1: this.position.y,
-            x2: this.game.player.position.x,
-            y2: this.game.player.position.y,
+            x1: this.renderPosition.x,
+            y1: this.renderPosition.y,
+            x2: this.game.player.renderPosition.x,
+            y2: this.game.player.renderPosition.y,
             strokeStyle: 'rgba(255, 107, 107, 0.4)',
             lineWidth: 1
           });
