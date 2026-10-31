@@ -6,16 +6,16 @@ import { initPhysics, createPhysicsWorld } from '../../src/core/physics/index.js
  * Rapier ships as WASM, and Node loading it proves nothing about the path
  * games actually take: fetched by the browser, compiled by its WASM engine.
  * This is the "does the real runtime run it at all" check; the contract
- * itself is characterized per-backend in test/physics.test.js.
+ * itself is characterized in test/physics.test.js.
  */
-describe('rapier backend in the browser', () => {
+describe('physics in the browser', () => {
   beforeAll(async () => {
-    await initPhysics('rapier');
+    await initPhysics();
   });
 
   it('initializes, simulates and reports through the contract', () => {
-    const world = createPhysicsWorld({ backend: 'rapier', gravity: { x: 0, y: 1000 } });
-    const floor = world.createBox({ x: 0, y: 200, width: 400, height: 20, isStatic: true });
+    const world = createPhysicsWorld({ gravity: { x: 0, y: 1000 } });
+    const floor = world.createBox({ x: 0, y: 200, width: 400, height: 20, bodyType: 'static' });
     const box = world.createBox({ x: 0, y: 0, width: 20, height: 20 });
     world.add(floor);
     world.add(box);
@@ -29,8 +29,8 @@ describe('rapier backend in the browser', () => {
   });
 
   it('stops a bullet body at a thin wall (CCD)', () => {
-    const world = createPhysicsWorld({ backend: 'rapier', gravity: { x: 0, y: 0 } });
-    const wall = world.createBox({ x: 100, y: 0, width: 4, height: 200, isStatic: true });
+    const world = createPhysicsWorld({ gravity: { x: 0, y: 0 } });
+    const wall = world.createBox({ x: 100, y: 0, width: 4, height: 200, bodyType: 'static' });
     const slug = world.createBox({ x: 0, y: 0, width: 4, height: 4, frictionAir: 0 });
     slug.bullet = true;
     world.add(wall);

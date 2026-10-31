@@ -5,7 +5,6 @@ export class Platform extends Entity {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
-    this.visible = !body.render?.visible === false;
     this.setAnimation('default');
   }
 }

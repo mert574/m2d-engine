@@ -1,39 +1,20 @@
 import { Entity } from '../core/entity.js';
+import { Hover } from '../constraints/hover.js';
 
 export class Coin extends Entity {
   name = 'Coin';
-  
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
-    
-    this.floatOffset = 0;
-    this.floatSpeed = 2;
-    this.floatAmount = 5;
-    this.baseY = body.position.y;
-    
-    this.rotation = 0;
-    this.rotationSpeed = 2;
-  }
-
-  update(deltaTime) {
-    this.floatOffset += this.floatSpeed * deltaTime;
-    const newY = this.baseY + Math.sin(this.floatOffset) * this.floatAmount;
-    
-    this.rotation += this.rotationSpeed * deltaTime;
-    
-    this.body.setPosition({
-      x: this.body.position.x,
-      y: newY
-    });
-
-    this.body.setAngle(this.rotation);
+    this.addConstraint('hover', new Hover(this, { amplitude: 5, frequency: 2, spin: 2 }));
   }
 
   onCollisionStart(other) {
+    super.onCollisionStart(other);
     if (other.entity && other.entity === this.game.player) {
       // TODO: Add score/collection logic
       this.game.entities.delete(this);
       this.game.physics.remove(this.body);
     }
   }
-} 
+}

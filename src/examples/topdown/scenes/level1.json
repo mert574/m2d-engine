@@ -62,9 +62,7 @@
       "spritesheet": "player",
       "defaultAnimation": "idle",
       "physics": {
-        "bodyType": "dynamic",
-        "friction": 0.1,
-        "frictionStatic": 0.1,
+        "bodyType": "character",
         "frictionAir": 0.2
       }
     },
@@ -73,8 +71,8 @@
       "spritesheet": "wall",
       "physics": {
         "bodyType": "static",
-        "friction": 1.0,
-        "frictionStatic": 1.0
+        "friction": 1.0
+        
       }
     },
     "coin": {
@@ -91,6 +89,7 @@
       "defaultAnimation": "idle",
       "physics": {
         "bodyType": "dynamic",
+        "lockRotation": true,
         "friction": 0.1,
         "frictionAir": 0.2
       }

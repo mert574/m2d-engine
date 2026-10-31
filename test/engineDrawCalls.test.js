@@ -376,7 +376,7 @@ describe('engine draw calls', () => {
 
   describe('Turret', () => {
     function makeTurret() {
-      return new Turret(makeBody(game, 120, 90, 32, 32, { isStatic: true }), null, game, {});
+      return new Turret(makeBody(game, 120, 90, 32, 32, { bodyType: 'static' }), null, game, {});
     }
 
     it('draws base, ring, barrel and centre dot with a balanced transform', () => {

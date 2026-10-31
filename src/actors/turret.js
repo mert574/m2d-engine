@@ -11,7 +11,7 @@ export class Turret extends Entity {
 
   constructor(body, sprite, game, options = {}) {
     body.setCollisionFilter({ category: CollisionCategories.enemy });
-    body.isStatic = true;
+    body.bodyType = 'static';
     super(body, sprite, game);
 
     this.detectionRange = options.detectionRange || 350;
@@ -99,9 +99,10 @@ export class Turret extends Entity {
 
   checkLineOfSight(targetPos) {
     const start = this.position;
-    // Only static walls block sight; the turret cannot occlude itself.
+    // Only scenery blocks sight — never another dynamic actor, and never
+    // the turret itself.
     const blockers = this.game.physics.raycast(start, targetPos, (body) =>
-      body.isStatic &&
+      body.bodyType !== 'dynamic' &&
       body !== this.body &&
       body.entity?.name === 'Platform'
     );
@@ -123,7 +124,6 @@ export class Turret extends Entity {
       height: 8,
       friction: 0,
       frictionAir: 0,
-      frictionStatic: 0,
       restitution: 0,
       density: 0.001
     });

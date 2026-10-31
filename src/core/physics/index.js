@@ -3,109 +3,88 @@
  *
  * Everything in M2D talks to the simulation through `PhysicsWorld` and the
  * `PhysicsBody` handles it hands out. No other module imports a physics
- * library directly, so the solver is a choice made here, not a dependency
- * spread through the codebase.
+ * library directly, so solver types, units and lifecycle quirks stay behind
+ * this boundary instead of spreading through the codebase.
  *
- * Two backends implement the contract:
- *
- * - **rapier** (default) — Rapier 2D via WASM. Accurate solver, stable
- *   stacking, continuous collision detection for `bullet` bodies. Loaded
- *   lazily by `initPhysics`, so it is only fetched when used.
- * - **matter** — Matter.js, plain JavaScript, needs no initialization.
- *   Loaded statically as the fallback, and what `createPhysicsWorld` gives
- *   you if `initPhysics` was never awaited (headless tests do this).
- *
- * Append `?physics=matter` (or `rapier`) to any example URL to compare them
- * live, same as the renderer's `?renderer=` override.
+ * The simulation is Rapier 2D, compiled to WASM. It is imported dynamically
+ * by `initPhysics` so the WASM module lands in its own chunk and is fetched
+ * only when a game actually starts a world.
  *
  * The contract, in brief:
  *
- *   World      createBox / createCircle, add / remove, bodies, clear,
- *              clearContacts, reset, destroy, setGravity / gravity,
+ *   World      createBox / createCircle / createCapsule, add / remove,
+ *              bodies, clear, reset, destroy, setGravity / gravity,
  *              advance / step / interpolation, setCollisionHandlers,
- *              contactsWith, raycast
+ *              contactsWith, surfacesWith, overlaps, raycast
  *
- *   Body       position, velocity, angle, bounds, size, entity,
- *              renderPosition / renderAngle / renderBounds,
- *              isStatic / isSensor / bullet / friction / frictionStatic /
- *              frictionAir / restitution, collisionFilter,
- *              setCollisionFilter, setPosition, setVelocity, setAngle,
- *              setMass, translate, applyImpulse
+ *   Body       position, velocity, angle, bounds, size, mass, entity,
+ *              renderPosition / renderAngle / renderBounds, grounded,
+ *              bodyType / isSensor / bullet / friction / frictionAir /
+ *              restitution, collisionFilter, setCollisionFilter,
+ *              setPosition, setVelocity, setAngle, setNextPosition,
+ *              setNextAngle, setMass, translate, applyImpulse
  *
- * Units and conventions — these are the contract's, not any backend's:
+ * Units and conventions — these are the contract's, not the solver's:
  *
  * - **Distance is pixels, time is seconds.** Velocity is px/s, gravity is
  *   px/s² (`{x: 0, y: 1000}` is the "normal down" the games are tuned to),
- *   `advance`/`step` take seconds. Backends convert internally.
- * - **`applyImpulse` is a velocity change in px/s**, mass-independent and
- *   inert on static bodies — "kick it back at 300 px/s", portable across
- *   solvers with different force and mass conventions.
- * - **`bullet` opts a body into continuous collision detection** where the
- *   backend has it; elsewhere it is advisory and fast bodies can tunnel.
+ *   `advance`/`step` take seconds.
+ * - **`bodyType` is `static`, `dynamic`, `kinematic` or `character`.** A
+ *   kinematic body is driven by game code but still resolves contacts
+ *   properly, so it carries riders and pushes what is in its way. Drive it
+ *   with `setVelocity`, which the world integrates once per step — a
+ *   position target set from frame time is consumed per *step* instead, so
+ *   a frame running two steps or none makes it lurch. `setNextPosition` is
+ *   for placing it exactly (arriving at a path point); `setPosition`
+ *   teleports and carries nobody, for respawns rather than motion.
+ * - **`character` is the body type for a player.** Game code keeps the
+ *   dynamic-body interface — `setVelocity` intent, gravity and `frictionAir`
+ *   apply, `applyImpulse` works — but a character controller does the
+ *   moving: it slides along walls instead of catching on them, never
+ *   rotates, snaps to the ground it walks on, rides kinematic platforms,
+ *   shoves dynamic bodies with its weight, and reports `grounded` (which is
+ *   `null` on every other body type).
+ * - **`applyImpulse` is mass-dependent**, in px·mass/s, and inert on
+ *   anything but a dynamic body. Multiply by `body.mass` when you want a
+ *   flat velocity change regardless of weight.
+ * - **`bullet` opts a body into continuous collision detection**, so a fast
+ *   mover cannot tunnel through a thin wall.
  * - **`bounds` is a tight AABB** (rotation-aware), never a broadphase box.
  * - **Creation and insertion are separate.** `createBox` returns a body that
- *   is not simulated until `add`; backends that cannot build a body outside
- *   a world buffer the spec and materialize it in `add`.
+ *   is not simulated until `add`; a body that cannot exist outside a world
+ *   buffers its spec and materializes in `add`. Queries see a body as soon
+ *   as it is added, without waiting for a step.
  * - **Reads are snapshots or read-only views; writes are methods.** Mutating
  *   a returned object (e.g. `collisionFilter`) is never part of the contract.
- * - **`raycast` returns all bodies crossing the segment**, unordered — it
- *   answers "is anything in the way", not "what is nearest".
+ * - **Overlap queries carry normals.** `contactsWith` answers "what am I
+ *   touching"; `surfacesWith` adds the normal and gap per contact, which is
+ *   how a floor is told from a wall. `overlaps` asks the same question for a
+ *   shape that is not a body at all.
+ * - **`raycast` returns every body crossing the segment, nearest first**,
+ *   each with the hit point, surface normal and distance.
  *
  * `test/physics.test.js` is this contract written as executable, tolerance-
- * based tests, run against every registered backend.
+ * based tests.
  */
 
-import { MatterPhysicsWorld } from './matterBackend.js';
+/** The world constructor, once `initPhysics` has compiled the WASM module. */
+let PhysicsWorld = null;
 
-export { PhysicsWorldBase } from './worldBase.js';
-
-/** The backend games get when they don't ask for one. */
-export const DEFAULT_PHYSICS = 'rapier';
-
-/** Loaded backend constructors. Matter is always available. */
-const backends = new Map([['matter', MatterPhysicsWorld]]);
-
-/** What `createPhysicsWorld` uses when options don't name a backend. */
-let activeBackend = 'matter';
-
-function physicsOverrideFromURL() {
-  if (typeof location === 'undefined' || !location.search) return null;
-  return new URLSearchParams(location.search).get('physics');
+/**
+ * Load and initialize the physics simulation. Await once before constructing
+ * M2D: this is where Rapier's WASM module is fetched and compiled, and no
+ * world can exist until it resolves. Calling it again is a no-op.
+ */
+export async function initPhysics() {
+  if (PhysicsWorld) return;
+  const rapier = await import('./rapierBackend.js');
+  await rapier.init();
+  PhysicsWorld = rapier.RapierPhysicsWorld;
 }
 
 /**
- * Load and initialize a physics backend, and make it the default for
- * subsequent `createPhysicsWorld` calls. Await once before constructing M2D.
- *
- * With no argument this resolves the game's choice: the `?physics=` URL
- * override if present, otherwise DEFAULT_PHYSICS. Matter initializes
- * instantly; Rapier compiles its WASM module here (and is fetched only here,
- * so games that never init stay light).
- *
- * @param {'rapier'|'matter'} [name]
- * @returns {Promise<string>} The backend that became active.
- */
-export async function initPhysics(name) {
-  const requested = name ?? physicsOverrideFromURL() ?? DEFAULT_PHYSICS;
-
-  if (requested === 'rapier' && !backends.has('rapier')) {
-    const rapier = await import('./rapierBackend.js');
-    await rapier.init();
-    backends.set('rapier', rapier.RapierPhysicsWorld);
-  }
-
-  if (!backends.has(requested)) {
-    throw new Error(`M2D: unknown physics backend '${requested}' (rapier, matter)`);
-  }
-  activeBackend = requested;
-  return requested;
-}
-
-/**
- * Create the physics world for a game, using the active backend.
+ * Create the physics world for a game.
  * @param {object} [options]
- * @param {'rapier'|'matter'} [options.backend] - Override the active backend
- *   for this world; it must already be loaded via `initPhysics`.
  * @param {{x: number, y: number}} [options.gravity] - px/s².
  * @param {number} [options.fixedTimestep] - Seconds per solver step
  *   (default 1/60). The solver always sees exactly this dt.
@@ -118,10 +97,8 @@ export async function initPhysics(name) {
  *   steps (default true). See PhysicsBody.renderPosition.
  */
 export function createPhysicsWorld(options = {}) {
-  const { backend = activeBackend, ...rest } = options;
-  const Backend = backends.get(backend);
-  if (!Backend) {
-    throw new Error(`M2D: physics backend '${backend}' is not loaded — await initPhysics('${backend}') first`);
+  if (!PhysicsWorld) {
+    throw new Error('M2D: physics is not initialized — await initPhysics() first');
   }
-  return new Backend(rest);
+  return new PhysicsWorld(options);
 }

@@ -6,23 +6,7 @@ import ballSprite from './assets/ball.png';
 import boxSprite from './assets/box.png';
 import platformSprite from './assets/platform.png';
 
-class BouncingBall extends Entity {
-  constructor(body, sprite, game) {
-    const circle = game.physics.createCircle({
-      x: body.position.x, y: body.position.y, radius: 16,
-      restitution: 0.8, friction: 0.005, frictionAir: 0.001
-    });
-    super(circle, sprite, game);
-  }
-}
-class Ramp extends Entity {
-  constructor(body, sprite, game, options = {}) {
-    super(body, sprite, game);
-    body.setAngle(options.angle || 0);
-  }
-}
-
-// Backend warm-up: a no-op today, the WASM compile for a future backend.
+// Compile Rapier's WASM module before anything builds a physics world.
 await initPhysics();
 
 const game = new M2D(document.getElementById('screen'), {
@@ -30,9 +14,9 @@ const game = new M2D(document.getElementById('screen'), {
 });
 game.camera.x = 480;
 game.camera.y = 360;
-game.registerActor('Ball', BouncingBall);
+game.registerActor('Ball', Entity);
 game.registerActor('Box', Entity);
-game.registerActor('Ramp', Ramp);
+game.registerActor('Ramp', Entity);
 game.sceneManager.addScene('mainMenu', {
   fetch: async () => ({
     version: 1, name: 'mainMenu', type: 'ui', title: 'Main Menu', assets: {},
@@ -57,7 +41,7 @@ game.sceneManager.addScene('mainMenu', {
 // interesting rather than piling up in one corner.
 const ANGLE = Math.PI * 0.12;
 const pegRow = (y, xs) => xs.map(x =>
-  ({ prefab: 'peg', x, y, width: 32, height: 32, properties: { angle: Math.PI / 4 } }));
+  ({ prefab: 'peg', x, y, width: 32, height: 32, angle: Math.PI / 4 }));
 
 game.sceneManager.addScene('physics', {
   fetch: async () => ({
@@ -69,7 +53,14 @@ game.sceneManager.addScene('physics', {
       platform: { url: platformSprite, frameWidth: 32, frameHeight: 32 }
     } },
     prefabs: {
-      ball: { actor: 'Ball', spritesheet: 'ball', physics: { bodyType: 'dynamic' } },
+      ball: {
+        actor: 'Ball',
+        spritesheet: 'ball',
+        physics: {
+          bodyType: 'dynamic', shape: 'circle',
+          restitution: 0.8, friction: 0.005, frictionAir: 0.001
+        }
+      },
       box: { actor: 'Box', spritesheet: 'box', physics: { bodyType: 'dynamic', restitution: 0.4 } },
       platform: { actor: 'Ramp', spritesheet: 'platform', physics: { bodyType: 'static' } },
       peg: { actor: 'Ramp', spritesheet: 'platform', physics: { bodyType: 'static' } }
@@ -80,11 +71,11 @@ game.sceneManager.addScene('physics', {
       { prefab: 'platform', x: 16, y: 360, width: 32, height: 720 },
       { prefab: 'platform', x: 944, y: 360, width: 32, height: 720 },
       // Funnel: two ramps sloping from the walls toward a centre gap.
-      { prefab: 'platform', x: 192, y: 176, width: 288, height: 32, properties: { angle: ANGLE } },
-      { prefab: 'platform', x: 768, y: 176, width: 288, height: 32, properties: { angle: -ANGLE } },
+      { prefab: 'platform', x: 192, y: 176, width: 288, height: 32, angle: ANGLE },
+      { prefab: 'platform', x: 768, y: 176, width: 288, height: 32, angle: -ANGLE },
       // Splitter: an A-frame under the gap, deflecting the stream outward.
-      { prefab: 'platform', x: 384, y: 368, width: 224, height: 32, properties: { angle: -ANGLE } },
-      { prefab: 'platform', x: 576, y: 368, width: 224, height: 32, properties: { angle: ANGLE } },
+      { prefab: 'platform', x: 384, y: 368, width: 224, height: 32, angle: -ANGLE },
+      { prefab: 'platform', x: 576, y: 368, width: 224, height: 32, angle: ANGLE },
       // Peg field: offset rows of diamonds for a plinko finish.
       ...pegRow(512, [160, 320, 480, 640, 800]),
       ...pegRow(608, [240, 400, 560, 720]),
@@ -105,8 +96,12 @@ game.keys.addKey(' ', (pressed) => {
   const isBox = Math.random() > 0.5;
   const size = isBox ? 64 : 32;
   const sprite = scene.spriteSheets.get(isBox ? 'box' : 'ball');
+  // Spawning goes straight to createEntity rather than through a prefab, so
+  // the body spec has to be spelled out here to match the prefabs above.
   const entity = game.createEntity(isBox ? 'Box' : 'Ball', 120 + Math.random() * 720, 40,
-    size, size, sprite, {}, { restitution: isBox ? 0.4 : 0.8 });
+    size, size, sprite, {}, isBox
+      ? { restitution: 0.4 }
+      : { shape: 'circle', restitution: 0.8, friction: 0.005, frictionAir: 0.001 });
   entity.setAnimation('default');
   game.entities.add(entity);
   game.physics.add(entity.body);

@@ -18,6 +18,18 @@ export class Entity {
     this.constraints = new Map();
     this.currentAnim = null;
     this.dead = false;
+    this.visible = true;
+
+    /**
+     * Purely visual displacement and rotation, added on top of the body's
+     * interpolated transform when drawing. For decoration — a pickup's bob,
+     * a marker's spin — that must never touch the physics body: writing a
+     * body's position every frame means the solver, the queries and the
+     * interpolation baseline all see scenery wobble. See the Hover
+     * constraint for the packaged version.
+     */
+    this.renderOffset = { x: 0, y: 0 };
+    this.renderAngleOffset = 0;
 
     this.size = body.size;
 
@@ -55,7 +67,7 @@ export class Entity {
   }
 
   draw(deltaTime) {
-    if (this.dead) return;
+    if (this.dead || !this.visible) return;
 
     const pos = this.renderPosition;
     if (!this.sprite || !this.sprite.width) {
@@ -111,12 +123,15 @@ export class Entity {
    * `draw`, and `position` everywhere else. See PhysicsBody.renderPosition.
    */
   get renderPosition() {
-    return this.body.renderPosition;
+    const position = this.body.renderPosition;
+    const offset = this.renderOffset;
+    if (offset.x === 0 && offset.y === 0) return position;
+    return { x: position.x + offset.x, y: position.y + offset.y };
   }
 
   /** The angle to draw this entity at. See `renderPosition`. */
   get renderAngle() {
-    return this.body.renderAngle;
+    return this.body.renderAngle + this.renderAngleOffset;
   }
 
   /** Bounds at the drawn position, for edge-anchored annotations. */
@@ -163,18 +178,35 @@ export class Entity {
     return !this.isOnGround();
   }
 
+  /**
+   * Whether something solid is holding this entity up.
+   *
+   * A character body already knows — its controller computes grounding as
+   * part of every move. For everything else it is decided by contact
+   * normals, not by where the other body's centre happens to sit: the
+   * normal points from this body towards what it is touching, so a surface
+   * underneath gives a normal pointing down (+y) and a wall gives a
+   * sideways one. `GROUND_NORMAL_Y` is the cutoff, and at 0.5 it accepts
+   * slopes up to 60° while still rejecting walls.
+   */
   isOnGround() {
-    const contacts = this.game.physics.contactsWith(
-      this.body,
-      (other) => other.entity?.name === 'Platform'
-    );
+    return this.groundBody !== null;
+  }
 
-    for (const contact of contacts) {
-      const dy = contact.position.y - this.position.y;
-      if (dy > 0 && Math.abs(dy) < this.size.y) {
-        return true;
-      }
-    }
-    return false;
+  /**
+   * The body currently holding this entity up, or null.
+   *
+   * Worth having rather than just a yes/no: standing on something that
+   * moves means the ground is a moving frame of reference, and input that
+   * ignores that fights the ride instead of adding to it.
+   */
+  get groundBody() {
+    const GROUND_NORMAL_Y = 0.5;
+    if (this.body.bodyType === 'character') return this.body.groundBody;
+
+    const surface = this.game.physics
+      .surfacesWith(this.body, (other) => !other.isSensor)
+      .find(({ normal }) => normal.y > GROUND_NORMAL_Y);
+    return surface ? surface.body : null;
   }
 } 

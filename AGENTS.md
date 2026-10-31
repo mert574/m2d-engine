@@ -2,15 +2,25 @@
 
 ## Project Overview
 
-M2D is a lightweight 2D game engine with a pluggable physics backend (Matter.js today) and WebGL2 rendering (with a Canvas 2D fallback). It follows an entity-constraint architecture similar to ECS.
+M2D is a lightweight 2D game engine with Rapier 2D physics and WebGL2 rendering (with a Canvas 2D fallback). It follows an entity-constraint architecture similar to ECS.
 
 ### Physics boundary
 
-Nothing outside `src/core/physics/` imports a physics library. Engine, actor and game code use `game.physics` (the world) and the `PhysicsBody` handles it returns; `src/core/physics/index.js` documents the contract and two backends implement it: **Rapier** (`rapierBackend.js`, the default — WASM, accurate solver, CCD) and **Matter.js** (`matterBackend.js`, plain-JS fallback and what headless tests use). `worldBase.js` holds the backend-independent fixed-step machinery. Append `?physics=matter` or `?physics=rapier` to any example URL to compare them live. If you find yourself importing `matter-js` or `@dimforge/rapier2d-compat` anywhere else, the abstraction has sprung a leak.
+Nothing outside `src/core/physics/` imports a physics library. Engine, actor and game code use `game.physics` (the world) and the `PhysicsBody` handles it returns; `src/core/physics/index.js` documents the contract and `rapierBackend.js` implements it over Rapier 2D (WASM — accurate solver, stable stacking, CCD). `worldBase.js` holds the solver-independent fixed-step machinery. If you find yourself importing `@dimforge/rapier2d-compat` anywhere else, the abstraction has sprung a leak.
 
 Physics runs on a **fixed timestep** (1/60s by default), decoupled from the frame rate: the loop calls `game.physics.advance(deltaTime)`, which spends elapsed real time in whole constant-size steps and carries the remainder. Entity and constraint `update(deltaTime)` still receive real frame time, because animation and timers want wall clock, not solver ticks.
 
-**Units are pixels and seconds**: velocity in px/s, gravity in px/s² (`{x: 0, y: 1000}` is normal down), impulses as a velocity change in px/s. No backend unit (steps, meters, force constants) appears outside `src/core/physics/`. Call `await initPhysics()` once before constructing M2D — it resolves the backend choice (URL override, else Rapier), fetches and compiles Rapier's WASM when selected, and is instant for Matter. Fast movers should set `body.bullet = true` (projectiles do): on Rapier that enables continuous collision detection so they cannot tunnel through thin walls; on Matter it is advisory.
+**Units are pixels and seconds**: velocity in px/s, gravity in px/s² (`{x: 0, y: 1000}` is normal down), impulses in px·mass/s. No solver unit (steps, meters, force constants) appears outside `src/core/physics/`. Call `await initPhysics()` once before constructing M2D — it fetches and compiles Rapier's WASM module, and no world can exist until it resolves. Fast movers should set `body.bullet = true` (projectiles do): that enables continuous collision detection, so they cannot tunnel through thin walls.
+
+**Bodies are `static`, `dynamic`, `kinematic` or `character`** (`body.bodyType`), and shaped by `createBox` / `createCircle` / `createCapsule` — prefabs pick the shape with `physics.shape`. A **kinematic** body is driven by game code but still resolves contacts: move it with `setNextPosition` and the solver derives its velocity from the move, so it carries riders and pushes what is in its way. `setPosition` teleports instead and does neither — it is for respawns, not motion. `MovingPlatform` is the worked example.
+
+**Slide-style players are `character` bodies** (the top-down and maze players). Game code keeps the dynamic-body interface — `setVelocity` is the input, gravity and `frictionAir` apply, `applyImpulse` works — but each step a character *controller* turns that intent into a collision-aware move: it slides along walls instead of catching on them, never picks up rotation from contacts, snaps to ground, rides kinematic platforms (sideways and up natively; the backend adds the downward assist a platform cannot push), shoves dynamic bodies with its weight, and reports `grounded` (null on every other body type). Characters have no solver friction, so stopping is the mover's job — `KeyboardControl` brakes at `deceleration` when grounded with no input. A character body plus its offset must *fit*: the maze player is a 26px circle in 32px corridors, because a full-width body cannot keep the controller's gap on both sides at once.
+
+**Not every player should be a character.** The platformer player is a plain dynamic box on purpose — tumbling under friction *is* its locomotion, and a character controller would erase exactly that. It rides moving platforms through contact friction, which works because `MovingPlatform` runs a trapezoidal speed profile (ramp, cruise, brake into each point): the required carrying acceleration stays below what friction can transmit (µ·g), and nobody inherits a step-function velocity at the stops. Dynamic actors whose sprites never rotate (bee, ghost) set `lockRotation` in their prefab physics so off-centre hits shove them without spinning their colliders.
+
+**Input is relative to the ground you are standing on.** `KeyboardControl` reads `entity.groundBody` and applies acceleration, the `maxSpeed` cap and braking in that body's frame. On static ground the frame is zero and nothing changes; on a moving platform it is the difference between `maxSpeed` meaning "how fast I can walk" and "how fast I may travel" — the latter clamps a rider below its platform's own speed, drags it backwards across the surface, and (for a free-rotating box) torques it over the back edge.
+
+**Queries are `contactsWith` (what am I touching), `surfacesWith` (the same plus each contact's normal and gap), `overlaps` (a shape that is not a body — one-shot "what is in this radius") and `raycast` (every hit, nearest first, with point and normal).** Prefer a normal over comparing positions: `Entity.isOnGround` asks whether any contact normal points downward, which is what tells a floor from a wall. These read an index that only `step()` maintains, so the world tracks bodies added or teleported since the last step and tests those directly — a body can always be added or moved and queried in the same frame, but teleporting many bodies per frame gives that back.
 
 Because the solver runs slower than a fast display refreshes, several frames share one physics position and motion would visibly stair-step. The engine fixes this with **render interpolation**: draw using `entity.renderPosition` / `entity.renderAngle` (or `body.renderPosition` / `body.renderAngle`), which blend between the last two steps. Use `position` for everything else — collision checks, AI, queries and distances all want the true current state. Direct moves (`setPosition`, `setAngle`, `translate`) reset the baseline, so a teleport is never smeared across frames.
 
@@ -259,9 +269,21 @@ Game-specific entities extending Entity:
 
 ### Constraints (`src/constraints/`)
 
+Constraints are where reusable behaviour lives; actors should mostly be
+configuration over them (a `MovingPlatform` is body setup plus `PathFollow`,
+a `Bee` is collision setup plus `Chase` + `Health` + `ContactDamage` +
+`DamageFlash`). Before writing logic into an actor, check whether it is a
+behaviour another actor could want.
+
 - `Health` - HP, damage, invulnerability, death callbacks
-- `Attack` - Melee attack with cooldown, hit detection
-- `KeyboardControl` - Input handling, movement (use `verticalMovement: true` for top-down)
+- `Attack` - Melee attack with cooldown, one-shot shape-query hit detection
+- `ContactDamage` - Damage plus knockback on touch; stuns its owner briefly
+- `KeyboardControl` - Input handling, movement (use `verticalMovement: true` for top-down); works in the frame of whatever the entity stands on
+- `Chase` - Enemy movement: pursue the player in range, wander otherwise
+- `PathFollow` - Patrol a kinematic body along points with a trapezoidal speed profile and a pause at each stop
+- `Hover` - Purely visual bob/spin via the entity's render offsets; never touches the body
+- `WallSlip` - Zeroes a dynamic body's friction while airborne so holding a direction into a wall slides down it instead of clinging; the ground friction (tumbling, stopping) returns on landing
+- `DamageFlash` - Brief overlay tint when hit; trigger from `health.onDamage`
 - `Debug` - Visual debugging for entities
 
 ### Collision Categories (`src/core/constants.js`)

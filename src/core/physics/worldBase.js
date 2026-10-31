@@ -1,10 +1,12 @@
 /**
- * Backend-independent half of a physics world: the fixed-step clock, the
+ * The solver-independent half of a physics world: the fixed-step clock, the
  * interpolation alpha it produces, and the collision-handler bookkeeping.
  *
- * A backend extends this and supplies the parts only it can know — body
- * creation, the actual solver step (`stepOnce`), queries and lifecycle. See
- * ./index.js for the full contract and ./matterBackend.js for an example.
+ * Kept apart from the solver because it is pure timing arithmetic — it holds
+ * simulated time to whole constant-size steps regardless of frame rate, and
+ * is worth reading and testing without Rapier in the picture. `RapierBody`'s
+ * world extends this and supplies the rest: body creation, the actual solver
+ * step (`stepOnce`), queries and lifecycle. See ./index.js for the contract.
  */
 export class PhysicsWorldBase {
   /**
@@ -85,9 +87,11 @@ export class PhysicsWorldBase {
    */
   step(dt) {
     // Snapshot before solving, so every body has a before/after pair to
-    // interpolate between for the frames that fall between steps.
+    // interpolate between for the frames that fall between steps. This walks
+    // the live set rather than `bodies`, whose defensive copy would allocate
+    // an array per step — up to `maxSubSteps` of them per frame.
     if (this.interpolate) {
-      for (const body of this.bodies) body.syncInterpolation();
+      for (const body of this.bodyIterator()) body.syncInterpolation();
     }
     this.stepOnce(dt);
   }
@@ -102,21 +106,31 @@ export class PhysicsWorldBase {
     this.bindHandlers();
   }
 
-  // Backend obligations, beyond the creation/query/lifecycle methods the
+  // Subclass obligations, beyond the creation/query/lifecycle methods the
   // contract lists:
 
   /** Run the solver for `dt` seconds. @abstract @param {number} dt */
   stepOnce(dt) {
-    throw new Error('Physics backend must implement stepOnce()');
+    throw new Error('PhysicsWorld must implement stepOnce()');
   }
 
   /** Attach `this.handlers` to the solver's event source. @abstract */
   bindHandlers() {
-    throw new Error('Physics backend must implement bindHandlers()');
+    throw new Error('PhysicsWorld must implement bindHandlers()');
   }
 
   /** @abstract @returns {import('./index.js').PhysicsBody[]} */
   get bodies() {
-    throw new Error('Physics backend must implement bodies');
+    throw new Error('PhysicsWorld must implement bodies');
+  }
+
+  /**
+   * The same bodies as `bodies`, but as a live view that must not be
+   * mutated while iterating. For internal per-step work only, where the
+   * copy `bodies` makes would be pure garbage.
+   * @abstract @returns {Iterable<import('./index.js').PhysicsBody>}
+   */
+  bodyIterator() {
+    throw new Error('PhysicsWorld must implement bodyIterator()');
   }
 }

@@ -55,7 +55,10 @@ const ELEMENT_PROPERTY_KEYS = {
 };
 
 /** Physics body types `createEntity` understands. */
-const BODY_TYPES = ['static', 'dynamic', 'kinematic'];
+const BODY_TYPES = ['static', 'dynamic', 'kinematic', 'character'];
+
+/** Collider shapes `createEntity` understands. */
+const BODY_SHAPES = ['box', 'circle', 'capsule'];
 
 /** Default object size when a layer object gives none. */
 const DEFAULT_OBJECT_SIZE = 32;
@@ -171,6 +174,11 @@ export class SceneLoader {
           fail(`${path}.physics.bodyType`,
             `expected one of ${BODY_TYPES.join(', ')}, got ${JSON.stringify(type)}`);
         }
+        const shape = prefab.physics.shape;
+        if (shape !== undefined && !BODY_SHAPES.includes(shape)) {
+          fail(`${path}.physics.shape`,
+            `expected one of ${BODY_SHAPES.join(', ')}, got ${JSON.stringify(shape)}`);
+        }
       }
     }
 
@@ -184,7 +192,10 @@ export class SceneLoader {
         objects: layer.objects.map((object, oi) => {
           const objectPath = `${path}.objects[${oi}]`;
           this.#checkKeys(fail, objectPath, object,
-            ['id', 'prefab', 'x', 'y', 'width', 'height', 'properties']);
+            ['id', 'prefab', 'x', 'y', 'width', 'height', 'angle', 'properties']);
+          if (object.angle !== undefined && !Number.isFinite(object.angle)) {
+            fail(`${objectPath}.angle`, `must be a number (radians), got ${JSON.stringify(object.angle)}`);
+          }
           if (!(object.prefab in prefabs)) {
             fail(`${objectPath}.prefab`, `no prefab named '${object.prefab}' ` +
               `(declared: ${Object.keys(prefabs).join(', ') || 'none'})`);

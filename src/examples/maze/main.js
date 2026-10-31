@@ -148,7 +148,7 @@ class Goal extends Entity {
   }
 }
 
-// Backend warm-up: a no-op today, the WASM compile for a future backend.
+// Compile Rapier's WASM module before anything builds a physics world.
 await initPhysics();
 
 const game = new M2D(document.getElementById('screen'), {
@@ -194,12 +194,18 @@ game.sceneManager.addScene('maze', {
     } },
     background: { spritesheet: 'floor' },
     prefabs: {
-      player: { actor: 'MazePlayer', spritesheet: 'player', physics: { bodyType: 'dynamic', frictionAir: 0.2 } },
+      // A circle character in 32px corridors the player is also 32px wide:
+      // the round shape plus the controller's slide is what lets a 90° turn
+      // happen on the move instead of only when perfectly aligned.
+      player: { actor: 'MazePlayer', spritesheet: 'player', physics: { bodyType: 'character', shape: 'circle', frictionAir: 0.2 } },
       wall: { actor: 'Platform', spritesheet: 'wall', physics: { bodyType: 'static' } },
       goal: { actor: 'Goal', physics: { bodyType: 'static', isSensor: true } }
     },
     layers: [{ name: 'maze', objects: [
-      { prefab: 'player', x: START.x, y: START.y, width: 32, height: 32 },
+      // 26px in 32px corridors: the character controller keeps an 0.5px gap
+      // on each side, so a full-width 32px body physically cannot fit — it
+      // jammed against both walls at once, even on straights.
+      { prefab: 'player', x: START.x, y: START.y, width: 26, height: 26 },
       { prefab: 'goal', x: (COLS - 1.5) * TILE, y: (ROWS - 1.5) * TILE, width: 32, height: 32 },
       ...wallObjects(generateMaze(COLS, ROWS, 0x5EED))
     ] }]

@@ -18,11 +18,10 @@ export class Projectile extends Entity {
     });
     body.isSensor = options.isSensor ?? false;
     // Projectiles are the fast movers; CCD stops them tunneling through thin
-    // walls on backends that support it.
+    // walls.
     body.bullet = true;
     body.frictionAir = 0;
     body.friction = 0;
-    body.frictionStatic = 0;
 
     super(body, sprite, game);
 
@@ -79,8 +78,11 @@ export class Projectile extends Entity {
       return;
     }
 
-    // Check if hit a wall/platform
-    if (this.destroyOnWallHit && (other.entity?.name === 'Platform' || other.isStatic)) {
+    // Check if hit a wall/platform — scenery, not actors: a character is
+    // kinematic under the hood but is a person, not a wall.
+    if (this.destroyOnWallHit &&
+        (other.entity?.name === 'Platform'
+          || other.bodyType === 'static' || other.bodyType === 'kinematic')) {
       this.onHitWall(other);
       this.destroy();
     }

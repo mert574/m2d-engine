@@ -53,7 +53,7 @@ export class ContactDamage extends Constraint {
       });
 
       // Stun self after hitting
-      if (!this.entity.body.isStatic) {
+      if (this.entity.body.bodyType === 'dynamic') {
         this.stunTime = this.stunDuration;
       }
     }

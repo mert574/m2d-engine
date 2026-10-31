@@ -106,8 +106,6 @@ export class Scene {
     this.ui.addElement(stats);
 
     if (this.config.world) {
-      this.game.physics.clearContacts();
-
       if (this.config.world.gravity) {
         this.game.physics.setGravity(this.config.world.gravity);
       }
@@ -157,7 +155,12 @@ export class Scene {
           size: [object.width, object.height],
           sprite: prefab.spritesheet,
           defaultAnimation: prefab.defaultAnimation,
-          physics: prefab.physics,
+          // Placement is the object's, material is the prefab's: an object
+          // may rotate its instance (a ramp is a tilted platform) without
+          // the prefab having to know.
+          physics: object.angle !== undefined
+            ? { ...prefab.physics, angle: object.angle }
+            : prefab.physics,
           options: object.properties,
         });
 

@@ -3,6 +3,7 @@ import { Health } from '../constraints/health.js';
 import { Attack } from '../constraints/attack.js';
 import { Debug } from '../constraints/debug.js';
 import { KeyboardControl } from '../constraints/keyboardControl.js';
+import { WallSlip } from '../constraints/wallSlip.js';
 
 export class Player extends Entity {
   name = 'Player';
@@ -15,7 +16,6 @@ export class Player extends Entity {
     this.jumpVelocity = 720; // px/s
     this.facingDirection = 1;
     this.setAnimation('idle');
-    this.groundContacts = new Set();
 
     this.addConstraint('health', new Health(this, {
       maxHealth: 100,
@@ -68,6 +68,10 @@ export class Player extends Entity {
       }
     }));
 
+    // Walls must not be climbable by holding a direction into them; the
+    // ground friction the tumbling depends on comes back on landing.
+    this.addConstraint('wallSlip', new WallSlip(this));
+
     this.addConstraint('debug', new Debug(this, {
       boundsColor: '#00ff00',
       boundsFillColor: 'rgba(0, 255, 0, 0.1)',
@@ -84,21 +88,6 @@ export class Player extends Entity {
     if (other.entity?.name === 'Coin') {
       this.game.soundManager.playSound('coin');
     }
-
-    if (other.position.y > this.position.y + (this.size.y / 2)) {
-      if (other.entity?.name === 'Platform' || other.entity?.name === 'MovingPlatform') {
-        this.groundContacts.add(other.id);
-      }
-    }
-  }
-
-  onCollisionEnd(other) {
-    super.onCollisionEnd(other);
-    this.groundContacts.delete(other.id);
-  }
-
-  isOnGround() {
-    return this.groundContacts.size > 0;
   }
 
   draw() {

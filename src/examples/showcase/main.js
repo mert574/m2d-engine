@@ -14,7 +14,7 @@ const WORLD = { width: 2560, height: 1440 };
 const canvas = document.getElementById('screen');
 // B swaps the backend by reloading with ?renderer=; skip the menu on that
 // reload so the two backends can be compared without re-clicking Start.
-// Backend warm-up: a no-op today, the WASM compile for a future backend.
+// Compile Rapier's WASM module before anything builds a physics world.
 await initPhysics();
 
 const game = new M2D(canvas, {

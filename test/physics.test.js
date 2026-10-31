@@ -3,14 +3,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createPhysicsWorld, initPhysics } from '../src/core/physics/index.js';
 
 /**
- * Characterization tests for the physics boundary (src/core/physics/), run
- * against every backend.
+ * Characterization tests for the physics boundary (src/core/physics/).
  *
- * These assert the *contract*, never a solver's internals, and check
- * positions and velocities with tolerances rather than exact equality:
- * different solvers do not reproduce each other's numbers digit for digit,
- * and should not have to. A backend is correct when this file passes with its
- * name in the suite title; a failure names the behaviour that diverged.
+ * These assert the *contract* — what game code is promised — never the
+ * solver's internals, and check positions and velocities with tolerances
+ * rather than exact equality: a solver's exact numbers are its own business
+ * and shift between versions, while the behaviour described here must not.
+ * A failure names the behaviour that changed.
  */
 
 const FIXED = 1 / 60;
@@ -22,12 +21,11 @@ function simulate(world, seconds) {
   return steps;
 }
 
-// Load the Rapier backend (WASM) once; Matter needs no initialization.
-await initPhysics('rapier');
+// Compile Rapier's WASM module once for the whole suite.
+await initPhysics();
 
-describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
-  /** A world on the backend under test. */
-  const createWorld = (options = {}) => createPhysicsWorld({ backend: backendName, ...options });
+describe('physics world', () => {
+  const createWorld = (options = {}) => createPhysicsWorld(options);
 
   describe('fixed-step advance', () => {
     let world;
@@ -128,7 +126,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
     });
 
     it('comes to rest on a static floor at the contact position', () => {
-      const floor = world.createBox({ x: 0, y: 200, width: 400, height: 20, isStatic: true });
+      const floor = world.createBox({ x: 0, y: 200, width: 400, height: 20, bodyType: 'static' });
       const box = world.createBox({ x: 0, y: 0, width: 20, height: 20 });
       world.add(floor);
       world.add(box);
@@ -141,7 +139,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
     });
 
     it('holds a resting body still instead of letting it drift or jitter', () => {
-      const floor = world.createBox({ x: 0, y: 200, width: 400, height: 20, isStatic: true });
+      const floor = world.createBox({ x: 0, y: 200, width: 400, height: 20, bodyType: 'static' });
       const box = world.createBox({ x: 0, y: 0, width: 20, height: 20 });
       world.add(floor);
       world.add(box);
@@ -258,7 +256,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
       // Regression guard: setting the flag alone leaves a finite inverse
       // mass, so a "static" body can still be shoved by what hits it.
       const platform = world.createBox({ x: 0, y: 0, width: 100, height: 20 });
-      platform.isStatic = true;
+      platform.bodyType = 'static';
       const bullet = world.createBox({ x: -60, y: 0, width: 10, height: 10, frictionAir: 0 });
       world.add(platform);
       world.add(bullet);
@@ -271,10 +269,415 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
     });
   });
 
+  describe('kinematic bodies', () => {
+    /** A kinematic platform with a dynamic box resting on top of it. */
+    function platformWithRider() {
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      const platform = world.createBox({
+        x: 0, y: 100, width: 200, height: 20, bodyType: 'kinematic', friction: 1
+      });
+      const rider = world.createBox({
+        x: 0, y: 70, width: 20, height: 20, friction: 1, frictionAir: 0
+      });
+      world.add(platform);
+      world.add(rider);
+      simulate(world, 1);
+      return { world, platform, rider };
+    }
+
+    it('is driven by game code, not by gravity', () => {
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      const body = world.createBox({
+        x: 0, y: 0, width: 20, height: 20, bodyType: 'kinematic'
+      });
+      world.add(body);
+
+      simulate(world, 1);
+
+      expect(body.position.y).toBeCloseTo(0, 3);
+    });
+
+    it('carries a rider along instead of sliding out from under it', () => {
+      // The whole point of a kinematic body over a teleported static one:
+      // the solver derives a velocity from the move, so contact friction
+      // takes the rider with it without any bookkeeping in game code.
+      const { world, platform, rider } = platformWithRider();
+      const startX = rider.position.x;
+
+      for (let i = 0; i < 60; i++) {
+        platform.setNextPosition({ x: platform.position.x + 2, y: platform.position.y });
+        world.step(FIXED);
+      }
+
+      expect(platform.position.x).toBeCloseTo(120, 0);
+      expect(rider.position.x - startX).toBeGreaterThan(100);
+    });
+
+    it('is not shoved by what it carries', () => {
+      const { world, platform } = platformWithRider();
+
+      simulate(world, 1);
+
+      expect(platform.position.y).toBeCloseTo(100, 3);
+    });
+
+    it('a body can be created at an angle', () => {
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      const ramp = world.createBox({
+        x: 0, y: 0, width: 100, height: 10, bodyType: 'static', angle: Math.PI / 4
+      });
+      world.add(ramp);
+
+      expect(ramp.angle).toBeCloseTo(Math.PI / 4, 5);
+      expect(ramp.renderAngle).toBeCloseTo(Math.PI / 4, 5);
+      // The AABB of the rotated box, not the unrotated one.
+      const extent = (100 / 2 + 10 / 2) * Math.SQRT1_2;
+      expect(ramp.bounds.max.x).toBeCloseTo(extent, 3);
+    });
+
+    it('moves at a commanded velocity, one step at a time', () => {
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      const body = world.createBox({
+        x: 0, y: 0, width: 20, height: 20, bodyType: 'kinematic'
+      });
+      world.add(body);
+
+      body.setVelocity({ x: 120, y: 0 });
+      world.step(FIXED);
+
+      expect(body.position.x).toBeCloseTo(2, 5);
+      expect(body.velocity).toEqual({ x: 120, y: 0 });
+    });
+
+    it('travels the same distance however the frames fall', () => {
+      // A position target is consumed once per step, so driving one from
+      // frame time lurches whenever a frame runs two steps or none. A
+      // velocity is integrated per step and cannot.
+      const run = (frameSeconds) => {
+        const world = createWorld({ gravity: { x: 0, y: 0 } });
+        const body = world.createBox({
+          x: 0, y: 0, width: 20, height: 20, bodyType: 'kinematic'
+        });
+        world.add(body);
+        body.setVelocity({ x: 120, y: 0 });
+        for (const dt of frameSeconds) world.advance(dt);
+        return body.position.x;
+      };
+
+      const steady = run(Array(60).fill(FIXED));
+      const jittery = run(Array(120).fill(FIXED / 2));
+      const lumpy = run(Array(30).fill(FIXED * 2));
+
+      expect(jittery).toBeCloseTo(steady, 5);
+      expect(lumpy).toBeCloseTo(steady, 5);
+    });
+
+    it('wakes a sleeping rider when it moves out from under it', () => {
+      // Sleeping is broken by contact force, and a platform pulling away
+      // applies none — the rider would hang in the air.
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      const platform = world.createBox({
+        x: 0, y: 200, width: 200, height: 20, bodyType: 'kinematic', friction: 1
+      });
+      const rider = world.createBox({
+        x: 0, y: 160, width: 20, height: 20, friction: 1, frictionAir: 0
+      });
+      world.add(platform);
+      world.add(rider);
+      simulate(world, 10);
+      // The precondition is the whole point of the test, so assert it.
+      expect(rider.rigidBody.isSleeping()).toBe(true);
+
+      // Descend gently enough that gravity alone would keep contact.
+      platform.setVelocity({ x: 0, y: 200 });
+      simulate(world, 1);
+
+      const gap = (platform.position.y - 10) - (rider.position.y + 10);
+      expect(gap).toBeLessThan(2);
+    });
+
+    it('ignores setNextPosition on a non-kinematic body', () => {
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      const body = world.createBox({ x: 0, y: 0, width: 20, height: 20 });
+      world.add(body);
+
+      body.setNextPosition({ x: 500, y: 0 });
+      simulate(world, 0.5);
+
+      expect(body.position.x).toBeCloseTo(0, 3);
+    });
+
+    it('reports and changes bodyType', () => {
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      const body = world.createBox({ x: 0, y: 0, width: 20, height: 20 });
+      expect(body.bodyType).toBe('dynamic');
+
+      world.add(body);
+      body.bodyType = 'kinematic';
+      simulate(world, 0.5);
+
+      expect(body.bodyType).toBe('kinematic');
+      expect(body.position.y).toBeCloseTo(0, 3);
+    });
+  });
+
+  describe('character bodies', () => {
+    /** A character standing on a long static floor (top edge at y=190). */
+    function groundedHero() {
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      world.add(world.createBox({
+        x: 0, y: 200, width: 4000, height: 20, bodyType: 'static'
+      }));
+      const hero = world.createCapsule({
+        x: 0, y: 100, width: 32, height: 48, bodyType: 'character', frictionAir: 0.001
+      });
+      world.add(hero);
+      simulate(world, 2);
+      return { world, hero };
+    }
+
+    it('falls, lands, and reports grounded', () => {
+      const { hero } = groundedHero();
+
+      // Centre comes to rest half a height above the floor top, within the
+      // sub-pixel gap the controller keeps (its offset plus normal nudge).
+      expect(Math.abs(hero.position.y - (190 - 24))).toBeLessThan(1);
+      expect(hero.grounded).toBe(true);
+      expect(Math.abs(hero.velocity.y)).toBeLessThan(1);
+    });
+
+    it('grounded is null on every other body type', () => {
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      for (const bodyType of ['static', 'dynamic', 'kinematic']) {
+        const body = world.createBox({ x: 0, y: 0, width: 10, height: 10, bodyType });
+        expect(body.grounded).toBeNull();
+      }
+    });
+
+    it('keeps velocity semantics: setVelocity moves it, walls zero it', () => {
+      const { world, hero } = groundedHero();
+      world.add(world.createBox({
+        x: 200, y: 150, width: 40, height: 200, bodyType: 'static'
+      }));
+
+      for (let i = 0; i < 120; i++) {
+        hero.setVelocity({ x: 240, y: hero.velocity.y });
+        world.step(FIXED);
+      }
+
+      // Stopped at the wall face (x=180) less half-width, within the
+      // controller's sub-pixel gap, reading back ~zero horizontal velocity —
+      // and never rotated.
+      expect(Math.abs(hero.position.x - (180 - 16))).toBeLessThan(1);
+      expect(Math.abs(hero.velocity.x)).toBeLessThan(1);
+      expect(hero.angle).toBe(0);
+    });
+
+    it('jumps against gravity and lands back', () => {
+      const { world, hero } = groundedHero();
+      const restY = hero.position.y;
+
+      hero.setVelocity({ x: 0, y: -720 });
+      let apex = Infinity;
+      for (let i = 0; i < 20; i++) {
+        world.step(FIXED);
+        apex = Math.min(apex, hero.position.y);
+      }
+      expect(hero.grounded).toBe(false);
+      expect(apex).toBeLessThan(restY - 50);
+
+      simulate(world, 2);
+      expect(hero.grounded).toBe(true);
+      expect(hero.position.y).toBeCloseTo(restY, 0);
+    });
+
+    it('rides a kinematic platform without any carrying code', () => {
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      const platform = world.createBox({
+        x: 0, y: 200, width: 160, height: 20, bodyType: 'kinematic'
+      });
+      const hero = world.createCapsule({
+        x: 0, y: 150, width: 32, height: 48, bodyType: 'character', frictionAir: 0.001
+      });
+      world.add(platform);
+      world.add(hero);
+      simulate(world, 1);
+      const startX = hero.position.x;
+
+      const cursor = { x: 0, y: 200 };
+      for (let i = 0; i < 120; i++) {
+        cursor.x += 90 * FIXED;
+        platform.setNextPosition(cursor);
+        // Idle input rewrites vx every frame, which is exactly what used to
+        // defeat the friction-based carry.
+        hero.setVelocity({ x: 0, y: hero.velocity.y });
+        world.step(FIXED);
+      }
+
+      expect(hero.position.x - startX).toBeGreaterThan(120);
+      expect(hero.grounded).toBe(true);
+      // The ride is the platform's motion, not the character's intent.
+      expect(Math.abs(hero.velocity.x)).toBeLessThan(30);
+    });
+
+    it('is not launched when a rising platform stops', () => {
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      const platform = world.createBox({
+        x: 0, y: 300, width: 160, height: 20, bodyType: 'kinematic'
+      });
+      const hero = world.createCapsule({
+        x: 0, y: 250, width: 32, height: 48, bodyType: 'character', frictionAir: 0.001
+      });
+      world.add(platform);
+      world.add(hero);
+      simulate(world, 1);
+
+      const cursor = { x: 0, y: 300 };
+      for (let i = 0; i < 120; i++) {
+        cursor.y -= 120 * FIXED;
+        platform.setNextPosition(cursor);
+        world.step(FIXED);
+      }
+      // Platform has stopped; the character must settle on it, not fly on.
+      let highest = Infinity;
+      for (let i = 0; i < 60; i++) {
+        world.step(FIXED);
+        highest = Math.min(highest, hero.position.y);
+      }
+
+      // A launch is tens to hundreds of px; the hard stop is allowed its
+      // momentary few-px blip (half-height + controller offset + snap).
+      const platformTop = platform.position.y - 10;
+      expect(platformTop - highest).toBeLessThan(24 + 8);
+      expect(hero.grounded).toBe(true);
+      expect(hero.position.y).toBeCloseTo(platformTop - 24, 0);
+    });
+
+    it('passes through sensors and still triggers their events', () => {
+      const { world, hero } = groundedHero();
+      const events = [];
+      world.setCollisionHandlers({ onStart: (a, b) => events.push([a, b]) });
+      const coin = world.createBox({
+        x: 120, y: 160, width: 16, height: 16, bodyType: 'static', isSensor: true
+      });
+      world.add(coin);
+
+      for (let i = 0; i < 120; i++) {
+        hero.setVelocity({ x: 150, y: hero.velocity.y });
+        world.step(FIXED);
+      }
+
+      expect(hero.position.x).toBeGreaterThan(160);
+      expect(events.some(([a, b]) =>
+        (a === coin && b === hero) || (a === hero && b === coin))).toBe(true);
+    });
+
+    it('responds to applyImpulse by impulse / mass', () => {
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      const hero = world.createBox({
+        x: 0, y: 0, width: 32, height: 32, bodyType: 'character', frictionAir: 0
+      });
+      world.add(hero);
+
+      hero.applyImpulse({ x: 100, y: 0 });
+
+      expect(hero.velocity.x).toBeCloseTo(100 / hero.mass, 3);
+    });
+  });
+
+  describe('render interpolation of rotation', () => {
+    it('blends the short way round when rotation crosses the ±π seam', () => {
+      // Angles come back wrapped, so a body spinning past π reports a ~2π
+      // jump. Interpolating that raw sends the drawn sprite the long way
+      // round: it snaps flat for one frame every revolution.
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      const body = world.createBox({ x: 0, y: 0, width: 32, height: 32, frictionAir: 0 });
+      world.add(body);
+      body.rigidBody.setAngvel(12, true);
+
+      let previous = body.renderAngle;
+      let worstTurn = 0;
+      for (let i = 0; i < 300; i++) {
+        world.advance(FIXED / 3);
+        const drawn = body.renderAngle;
+        let turn = Math.abs(drawn - previous);
+        if (turn > Math.PI) turn = Math.abs(turn - Math.PI * 2);
+        worstTurn = Math.max(worstTurn, turn);
+        previous = drawn;
+      }
+
+      // A third of a step at 12 rad/s is ~0.067 rad; a seam glitch is >1.
+      expect(worstTurn).toBeLessThan(0.2);
+    });
+  });
+
+  describe('rotation locking', () => {
+    it('a lockRotation body is pushed but never spun', () => {
+      // For velocity-driven actors whose sprites do not rotate: an
+      // off-centre hit must still shove them, without the collider picking
+      // up spin the drawn sprite will never show.
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      const locked = world.createBox({
+        x: 0, y: 0, width: 32, height: 32, lockRotation: true, frictionAir: 0
+      });
+      const shover = world.createBox({ x: -60, y: -12, width: 32, height: 32, frictionAir: 0 });
+      world.add(locked);
+      world.add(shover);
+
+      shover.setVelocity({ x: 400, y: 0 });
+      simulate(world, 1);
+
+      expect(locked.position.x).toBeGreaterThan(10);
+      expect(locked.angle).toBe(0);
+    });
+
+    it('an unlocked box picks up rotation from the same hit', () => {
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      const free = world.createBox({ x: 0, y: 0, width: 32, height: 32, frictionAir: 0 });
+      const shover = world.createBox({ x: -60, y: -12, width: 32, height: 32, frictionAir: 0 });
+      world.add(free);
+      world.add(shover);
+
+      shover.setVelocity({ x: 400, y: 0 });
+      simulate(world, 1);
+
+      expect(Math.abs(free.angle)).toBeGreaterThan(0.01);
+    });
+  });
+
+  describe('capsule bodies', () => {
+    it('falls and rests like any other shape', () => {
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      const floor = world.createBox({
+        x: 0, y: 200, width: 400, height: 20, bodyType: 'static'
+      });
+      const capsule = world.createCapsule({ x: 0, y: 0, width: 20, height: 40 });
+      world.add(floor);
+      world.add(capsule);
+
+      simulate(world, 3);
+
+      // Floor top is y=190, and the capsule is 40 tall whatever its caps.
+      expect(capsule.position.y).toBeCloseTo(170, 0);
+      expect(world.contactsWith(capsule)).toContain(floor);
+    });
+
+    it('reports the bounds of the box it fits inside', () => {
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      const capsule = world.createCapsule({ x: 0, y: 0, width: 20, height: 40 });
+      world.add(capsule);
+
+      expect(capsule.bounds).toEqual({
+        min: { x: -10, y: -20 }, max: { x: 10, y: 20 }
+      });
+      expect(capsule.size).toEqual({ x: 20, y: 40 });
+    });
+  });
+
   describe('units', () => {
     // The contract is px and seconds. These pin the semantics down so a
-    // backend with different native units (steps, meters) must convert
-    // rather than quietly redefining what every tuning constant means.
+    // solver with different native units (steps, meters) has to convert at
+    // the boundary rather than quietly redefining every tuning constant.
 
     it('velocity round-trips in px/s', () => {
       const world = createWorld({ gravity: { x: 0, y: 0 } });
@@ -308,21 +711,38 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
       expect(world.gravity).toEqual({ x: 50, y: 0 });
     });
 
-    it('applyImpulse changes velocity by exactly the kick, in px/s', () => {
+    it('applyImpulse changes velocity by impulse / mass', () => {
       const world = createWorld({ gravity: { x: 0, y: 0 } });
       const body = world.createBox({ x: 0, y: 0, width: 32, height: 32, frictionAir: 0 });
       world.add(body);
       body.setVelocity({ x: 100, y: 0 });
+      const m = body.mass;
 
       body.applyImpulse({ x: 50, y: -300 });
 
-      expect(body.velocity.x).toBeCloseTo(150, 3);
-      expect(body.velocity.y).toBeCloseTo(-300, 3);
+      expect(body.velocity.x).toBeCloseTo(100 + 50 / m, 3);
+      expect(body.velocity.y).toBeCloseTo(-300 / m, 3);
+    });
+
+    it('the same impulse moves a heavy body less than a light one', () => {
+      const world = createWorld({ gravity: { x: 0, y: 0 } });
+      const light = world.createBox({ x: 0, y: 0, width: 32, height: 32, frictionAir: 0 });
+      // Kept far apart: overlapping bodies would trade momentum and hide
+      // the very difference under test.
+      const heavy = world.createBox({ x: 1000, y: 0, width: 64, height: 64, frictionAir: 0 });
+      world.add(light);
+      world.add(heavy);
+
+      light.applyImpulse({ x: 100, y: 0 });
+      heavy.applyImpulse({ x: 100, y: 0 });
+
+      expect(heavy.mass).toBeCloseTo(light.mass * 4, 3);
+      expect(heavy.velocity.x).toBeCloseTo(light.velocity.x / 4, 3);
     });
 
     it('applyImpulse is inert on static bodies', () => {
       const world = createWorld({ gravity: { x: 0, y: 0 } });
-      const wall = world.createBox({ x: 0, y: 0, width: 10, height: 10, isStatic: true });
+      const wall = world.createBox({ x: 0, y: 0, width: 10, height: 10, bodyType: 'static' });
       world.add(wall);
 
       wall.applyImpulse({ x: 9999, y: 0 });
@@ -331,7 +751,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
       expect(wall.position.x).toBeCloseTo(0, 5);
     });
 
-    it('collisionFilter reads are snapshots, not live backend state', () => {
+    it('collisionFilter reads are snapshots, not live solver state', () => {
       const world = createWorld({ gravity: { x: 0, y: 0 } });
       const body = world.createBox({ x: 0, y: 0, width: 10, height: 10, category: 0x0002 });
 
@@ -358,7 +778,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
 
     it('reports a start when two bodies meet, with both wrappers', () => {
       const a = world.createBox({ x: 0, y: 0, width: 20, height: 20, frictionAir: 0 });
-      const b = world.createBox({ x: 100, y: 0, width: 20, height: 20, isStatic: true });
+      const b = world.createBox({ x: 100, y: 0, width: 20, height: 20, bodyType: 'static' });
       world.add(a);
       world.add(b);
 
@@ -369,9 +789,9 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
       expect(new Set(started[0])).toEqual(new Set([a, b]));
     });
 
-    it('hands back the wrappers, not raw backend bodies', () => {
+    it('hands back the wrappers, not raw solver bodies', () => {
       const a = world.createBox({ x: 0, y: 0, width: 20, height: 20, frictionAir: 0 });
-      const b = world.createBox({ x: 60, y: 0, width: 20, height: 20, isStatic: true });
+      const b = world.createBox({ x: 60, y: 0, width: 20, height: 20, bodyType: 'static' });
       a.entity = { name: 'Player' };
       b.entity = { name: 'Platform' };
       world.add(a);
@@ -386,7 +806,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
 
     it('reports an end when they separate', () => {
       const a = world.createBox({ x: 0, y: 0, width: 20, height: 20, frictionAir: 0, isSensor: true });
-      const b = world.createBox({ x: 60, y: 0, width: 20, height: 20, isStatic: true, isSensor: true });
+      const b = world.createBox({ x: 60, y: 0, width: 20, height: 20, bodyType: 'static', isSensor: true });
       world.add(a);
       world.add(b);
 
@@ -402,7 +822,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
       world.setCollisionHandlers({ onStart: (a, b) => started.push([a, b]) });
 
       const a = world.createBox({ x: 0, y: 0, width: 20, height: 20, frictionAir: 0 });
-      const b = world.createBox({ x: 60, y: 0, width: 20, height: 20, isStatic: true });
+      const b = world.createBox({ x: 60, y: 0, width: 20, height: 20, bodyType: 'static' });
       world.add(a);
       world.add(b);
 
@@ -414,7 +834,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
 
     it('lets sensors report contact without resolving it', () => {
       const sensor = world.createBox({
-        x: 0, y: 0, width: 40, height: 40, isStatic: true, isSensor: true
+        x: 0, y: 0, width: 40, height: 40, bodyType: 'static', isSensor: true
       });
       const mover = world.createBox({ x: -100, y: 0, width: 10, height: 10, frictionAir: 0 });
       world.add(sensor);
@@ -474,30 +894,108 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
     });
 
     it('raycast finds a body blocking the segment', () => {
-      const wall = world.createBox({ x: 50, y: 0, width: 10, height: 100, isStatic: true });
+      const wall = world.createBox({ x: 50, y: 0, width: 10, height: 100, bodyType: 'static' });
       world.add(wall);
 
       const hits = world.raycast({ x: 0, y: 0 }, { x: 100, y: 0 });
 
-      expect(hits).toContain(wall);
+      expect(hits.map((hit) => hit.body)).toEqual([wall]);
     });
 
     it('raycast reports a clear line when nothing is in the way', () => {
-      const wall = world.createBox({ x: 50, y: 500, width: 10, height: 100, isStatic: true });
+      const wall = world.createBox({ x: 50, y: 500, width: 10, height: 100, bodyType: 'static' });
       world.add(wall);
 
       expect(world.raycast({ x: 0, y: 0 }, { x: 100, y: 0 })).toEqual([]);
     });
 
     it('raycast honours its filter', () => {
-      const wall = world.createBox({ x: 50, y: 0, width: 10, height: 100, isStatic: true });
+      const wall = world.createBox({ x: 50, y: 0, width: 10, height: 100, bodyType: 'static' });
       wall.entity = { name: 'Platform' };
       world.add(wall);
 
       expect(world.raycast({ x: 0, y: 0 }, { x: 100, y: 0 },
         (body) => body.entity?.name === 'Glass')).toEqual([]);
       expect(world.raycast({ x: 0, y: 0 }, { x: 100, y: 0 },
-        (body) => body.entity?.name === 'Platform')).toEqual([wall]);
+        (body) => body.entity?.name === 'Platform')
+        .map((hit) => hit.body)).toEqual([wall]);
+    });
+
+    it('raycast orders hits nearest first, with point and normal', () => {
+      const near = world.createBox({ x: 50, y: 0, width: 10, height: 100, bodyType: 'static' });
+      const far = world.createBox({ x: 150, y: 0, width: 10, height: 100, bodyType: 'static' });
+      world.add(far);
+      world.add(near);
+
+      const hits = world.raycast({ x: 0, y: 0 }, { x: 300, y: 0 });
+
+      expect(hits.map((hit) => hit.body)).toEqual([near, far]);
+      // Faces are at x=45 and x=145, and both normals point back at the ray.
+      expect(hits[0].distance).toBeCloseTo(45, 3);
+      expect(hits[0].point.x).toBeCloseTo(45, 3);
+      expect(hits[1].distance).toBeCloseTo(145, 3);
+      expect(hits[0].normal.x).toBeCloseTo(-1, 3);
+    });
+
+    it('surfacesWith reports which way each contact faces', () => {
+      // Normals point from the queried body towards what it touches, so the
+      // floor underneath reads +y and the wall to the right reads +x.
+      const me = world.createBox({ x: 0, y: 0, width: 20, height: 20 });
+      const floor = world.createBox({
+        x: 0, y: 20, width: 100, height: 20, bodyType: 'static'
+      });
+      const wall = world.createBox({
+        x: 20, y: 0, width: 20, height: 100, bodyType: 'static'
+      });
+      world.add(me);
+      world.add(floor);
+      world.add(wall);
+
+      const surfaces = world.surfacesWith(me);
+      const normalOf = (body) => surfaces.find((s) => s.body === body).normal;
+
+      expect(surfaces).toHaveLength(2);
+      expect(normalOf(floor).y).toBeCloseTo(1, 3);
+      expect(normalOf(wall).x).toBeCloseTo(1, 3);
+    });
+
+    it('overlaps tests a shape that is not a body in the world', () => {
+      const inside = world.createBox({ x: 10, y: 0, width: 10, height: 10 });
+      const outside = world.createBox({ x: 400, y: 0, width: 10, height: 10 });
+      world.add(inside);
+      world.add(outside);
+
+      expect(world.overlaps({ x: 0, y: 0, radius: 30 })).toEqual([inside]);
+      expect(world.overlaps({ x: 0, y: 0, width: 60, height: 60 })).toEqual([inside]);
+      expect(world.bodies).toHaveLength(2);
+    });
+
+    it('queries see a body that was added but not yet stepped', () => {
+      // The solver's acceleration structure only learns about a body on the
+      // next step; the contract promises queries do not wait for one.
+      const probe = world.createBox({ x: 0, y: 0, width: 20, height: 20 });
+      world.add(probe);
+      simulate(world, 0.5);
+      const latecomer = world.createBox({ x: 5, y: 0, width: 20, height: 20 });
+      world.add(latecomer);
+
+      expect(world.contactsWith(probe)).toContain(latecomer);
+      expect(world.overlaps({ x: 5, y: 0, radius: 5 })).toContain(latecomer);
+      expect(world.raycast({ x: -100, y: 0 }, { x: 100, y: 0 })
+        .map((hit) => hit.body)).toContain(latecomer);
+    });
+
+    it('queries see a body at where it was just teleported', () => {
+      const probe = world.createBox({ x: 0, y: 0, width: 20, height: 20 });
+      const other = world.createBox({ x: 500, y: 0, width: 20, height: 20 });
+      world.add(probe);
+      world.add(other);
+      simulate(world, 0.5);
+      expect(world.contactsWith(probe)).toEqual([]);
+
+      other.setPosition({ x: 5, y: 0 });
+
+      expect(world.contactsWith(probe)).toEqual([other]);
     });
   });
 
@@ -524,7 +1022,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
       expect(world.bodies).toHaveLength(0);
 
       const a = world.createBox({ x: 0, y: 0, width: 20, height: 20, frictionAir: 0 });
-      const b = world.createBox({ x: 60, y: 0, width: 20, height: 20, isStatic: true });
+      const b = world.createBox({ x: 60, y: 0, width: 20, height: 20, bodyType: 'static' });
       world.add(a);
       world.add(b);
       a.setVelocity({ x: 300, y: 0 });
@@ -557,13 +1055,23 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
       expect(body.position.y).toBeGreaterThan(0);
     });
 
-    it('clearContacts() drops stale pairs without removing bodies', () => {
-      const world = createWorld({ gravity: { x: 0, y: 0 } });
-      world.add(world.createBox({ x: 0, y: 0, width: 10, height: 10 }));
+    it('wakes settled bodies when gravity changes', () => {
+      // Sleeping is on, and the solver only integrates awake bodies — a
+      // stack that had gone to sleep would otherwise hang in mid-air.
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      const floor = world.createBox({
+        x: 0, y: 100, width: 400, height: 20, bodyType: 'static'
+      });
+      const box = world.createBox({ x: 0, y: 0, width: 20, height: 20 });
+      world.add(floor);
+      world.add(box);
+      simulate(world, 5);
+      const settled = box.position.y;
 
-      world.clearContacts();
+      world.setGravity({ x: 0, y: -1000 });
+      simulate(world, 1);
 
-      expect(world.bodies).toHaveLength(1);
+      expect(box.position.y).toBeLessThan(settled - 10);
     });
   });
 
@@ -692,12 +1200,11 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
   });
 
   describe('continuous collision detection', () => {
-    // 24000 px/s is 400 px per step — two orders past a 4px wall. Whether it
-    // gets through is a backend capability, so the expectation is per-backend
-    // rather than part of the shared contract.
+    // 24000 px/s is 400 px per step — two orders past a 4px wall, so without
+    // CCD the slug would be clean through before a contact is ever tested.
     function fireAtThinWall() {
       const world = createWorld({ gravity: { x: 0, y: 0 } });
-      const wall = world.createBox({ x: 100, y: 0, width: 4, height: 200, isStatic: true });
+      const wall = world.createBox({ x: 100, y: 0, width: 4, height: 200, bodyType: 'static' });
       const slug = world.createBox({ x: 0, y: 0, width: 4, height: 4, frictionAir: 0 });
       slug.bullet = true;
       world.add(wall);
@@ -709,11 +1216,7 @@ describe.each(['matter', 'rapier'])('physics world [%s]', (backendName) => {
       return slug.position.x;
     }
 
-    it.runIf(backendName === 'matter')('documents: no CCD, bullet bodies still tunnel', () => {
-      expect(fireAtThinWall()).toBeGreaterThan(100);
-    });
-
-    it.runIf(backendName === 'rapier')('a bullet body is stopped by a thin wall', () => {
+    it('a bullet body is stopped by a thin wall', () => {
       expect(fireAtThinWall()).toBeLessThan(100);
     });
   });

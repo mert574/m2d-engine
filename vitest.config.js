@@ -20,6 +20,7 @@ export default defineConfig({
           environment: 'node',
           include: ['test/**/*.test.js'],
           exclude: ['test/browser/**', 'node_modules/**'],
+          setupFiles: ['./test/helpers/setupPhysics.js'],
           // The `canvas` package is a native CJS addon; let Node resolve it directly.
           server: {
             deps: {

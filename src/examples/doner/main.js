@@ -4,7 +4,7 @@ import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { DonerGame } from './donerGame.js';
 
 const canvas = document.getElementById('screen');
-// Backend warm-up: a no-op today, the WASM compile for a future backend.
+// Compile Rapier's WASM module before anything builds a physics world.
 await initPhysics();
 
 const game = new M2D(canvas, {

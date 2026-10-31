@@ -17,6 +17,11 @@ Tests are split into two Vitest projects (declared in `test.projects` in
   headless Chromium via Playwright. Node has no WebGL, so this is where the
   WebGL2 backend is validated.
 
+Both projects load `helpers/setupPhysics.js` as a setup file, which awaits
+`initPhysics()` once per worker. Rapier is WASM and must be compiled before
+any physics world — and therefore any `M2D` — can be constructed, so doing it
+there keeps every suite free to build a game synchronously.
+
 ## Why layered
 
 The renderer abstraction has two sides that can break independently: callers
@@ -39,17 +44,16 @@ pass), `settingsMenu.test.js` (the overlay, its input capture and pause),
 `pause.test.js` (the loop freezes simulation but keeps presenting) and
 `sceneActions.test.js` (scene-JSON buttons and background layers).
 
-`physics.test.js` characterizes the physics boundary (`src/core/physics/`),
-running the identical suite against **both backends** (Matter and Rapier):
+`physics.test.js` characterizes the physics boundary (`src/core/physics/`):
 unit semantics (px/s and px/s²), fixed-step pacing, gravity and resting
-contact, body mutation, collision
-events, queries and world lifecycle. It asserts the *contract* with
-tolerances, never the backend's internals, so it doubles as the specification
-a replacement solver has to satisfy — a failure there names the behaviour that
-changed. The one
-intentional divergence is continuous collision detection: on Matter the suite
-documents that fast bodies tunnel through thin walls, on Rapier it asserts a
-`bullet` body is stopped by them.
+contact, body mutation, kinematic and character bodies (platform rides,
+grounding, wall sliding), collision events, queries, continuous collision
+detection for `bullet` bodies, and world lifecycle. It asserts the *contract*
+with tolerances, never Rapier's internals, so it doubles as the specification
+a replacement solver would have to satisfy — a failure there names the
+behaviour that changed, not a number that drifted. `browser/physics.smoke.test.js`
+re-checks that the WASM module actually loads and runs in a real browser,
+which Node cannot prove.
 
 ### 1. Backend conformance (pixels)
 

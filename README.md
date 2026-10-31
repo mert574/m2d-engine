@@ -1,6 +1,6 @@
 # M2D Engine
 
-A lightweight 2D game engine with pluggable physics (Rapier by default, Matter.js fallback) and WebGL2 rendering (Canvas 2D fallback). Features a component-based architecture, scene management, and UI system.
+A lightweight 2D game engine with Rapier 2D physics and WebGL2 rendering (Canvas 2D fallback). Features a component-based architecture, scene management, and UI system.
 
 [Check Demos](https://mert574.github.io/m2d-engine)
 
@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/1693e2b8-67f8-4b75-b6d7-31ce35f14397
 
 ## Features
 
-- **Physics Engine**: Fixed-timestep 2D simulation behind a swappable backend contract (Rapier default, Matter.js fallback, `?physics=` to switch)
+- **Physics Engine**: Fixed-timestep 2D simulation on Rapier 2D (WASM), behind a solver-agnostic contract in px and seconds
 - **Scene Management**: JSON scene definitions, validated on load
 - **Component System**: Flexible entity-component architecture
 - **Input Handling**: Keyboard input with configurable controls
@@ -329,10 +329,25 @@ with neither, or with both, is a load error.
 
 ### Common Properties:
 
-- **bodyType**: Physics body type ("static", "dynamic", or "kinematic")
-- **friction/frictionStatic**: Surface friction properties
+- **bodyType**: Physics body type — `"static"` never moves, `"dynamic"` is
+  driven by the solver, `"kinematic"` is driven by game code but still
+  pushes and carries what it touches (moving platforms), and `"character"`
+  is for players: velocity-driven like a dynamic body, but moved by a
+  character controller that slides along walls, never rotates, snaps to the
+  ground and rides moving platforms
+- **shape**: Collider shape — `"box"` (default), `"circle"` (diameter taken
+  from the width) or `"capsule"` (the box with rounded ends, which stops
+  characters catching on the seams between floor tiles)
+- **friction**: Surface friction
+- **frictionAir**: Velocity damping, as a fraction lost per 1/60s
+- **lockRotation**: The body can be pushed but never spun — for
+  velocity-driven actors whose sprites do not rotate
+- **restitution**: Bounciness
 - **isSensor**: Whether the object triggers collisions without physical response
-- **path**: Movement path for platforms (points, speed, waitTime)
+- **path**: Movement path for platforms (points, speed, waitTime,
+  acceleration)
+- **angle** (on layer objects, not prefabs): The instance's rotation in
+  radians — a ramp is a tilted platform, placed per object
 - **triggers**: Actions or events triggered by collision
 
 ## Scene Loading
@@ -391,14 +406,19 @@ This will:
 
 1. Define your actors by extending `Entity` (or `Projectile`)
 2. Describe levels and menus as scene JSON, using prefabs to place actors
-3. Register the actors and scenes with the engine
-4. Mount a settings overlay and start the loop
+3. `await initPhysics()` once, then construct the engine
+4. Register the actors and scenes with the engine
+5. Mount a settings overlay and start the loop
 
 The name an actor is registered under is the name prefabs reference in
 `"actor"`, and the loader checks the two match.
 
 Example:
 ```javascript
+// Compile Rapier's WASM module. Await this once, before the engine builds
+// its physics world.
+await initPhysics();
+
 // Create game instance
 const game = new M2D(canvas, {
   width: 1280,

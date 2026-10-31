@@ -7,7 +7,7 @@ import { playwright } from '@vitest/browser-playwright';
 // One-time setup:  npx playwright install chromium
 // Run:             npm run test:browser
 export default defineConfig({
-  // Pre-bundle the WASM physics backend; discovering it mid-run makes Vite
+  // Pre-bundle the WASM physics module; discovering it mid-run makes Vite
   // reload the page under the tests.
   optimizeDeps: {
     include: ['@dimforge/rapier2d-compat']
@@ -15,6 +15,7 @@ export default defineConfig({
   test: {
     name: 'browser',
     include: ['test/browser/**/*.test.js'],
+    setupFiles: ['./test/helpers/setupPhysics.js'],
     browser: {
       enabled: true,
       provider: playwright(),

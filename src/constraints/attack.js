@@ -2,6 +2,15 @@ import { Constraint } from '../core/constraint.js';
 import { CollisionCategories } from '../core/constants.js';
 import { Angle } from '../core/math.js';
 
+/**
+ * Knockback, in px·mass/s. Carried over from the mass-independent velocity
+ * change this replaced (8140, -4880 px/s) scaled by the mass of the 32x32
+ * enemies the games ship with (~1.024), so the fling looks the same as
+ * before — but a heavier enemy now shrugs it off, which is the point of
+ * using a real impulse.
+ */
+const KNOCKBACK_IMPULSE = { x: 8335, y: -4997 };
+
 export class Attack extends Constraint {
   constructor(entity, options = {}) {
     super(entity);
@@ -19,23 +28,12 @@ export class Attack extends Constraint {
     this.attackTime = 0;
     this.attackAnimEndTime = 0.333; // ~20 frames at 60fps in seconds
     this.hasCheckedHits = false;
-
-    this.hitCircle = this.entity.game.physics.createCircle({
-      x: 0, y: 0, radius: this.range,
-      isSensor: true,
-      isStatic: true,
-      category: CollisionCategories.enemy
-    });
-
-    this.entity.game.physics.add(this.hitCircle);
   }
 
   update(deltaTime) {
     if (this.currentCooldown > 0) {
       this.currentCooldown -= deltaTime;
     }
-
-    this.hitCircle.setPosition(this.entity.position);
 
     if (this.isAttacking) {
       // Check for hits only on first update of attack
@@ -56,8 +54,13 @@ export class Attack extends Constraint {
   }
 
   checkHits() {
-    const hits = this.entity.game.physics.contactsWith(
-      this.hitCircle,
+    // A one-shot shape query: the reach is a question, not an object. It
+    // used to be a sensor body parked in the world and teleported onto the
+    // attacker every frame, which also meant every enemy in range collected
+    // collision callbacks from an invisible circle.
+    const position = this.entity.position;
+    const hits = this.entity.game.physics.overlaps(
+      { x: position.x, y: position.y, radius: this.range },
       (body) => body.collisionFilter.category === CollisionCategories.enemy
     );
 
@@ -76,9 +79,10 @@ export class Attack extends Constraint {
         const health = body.entity.getConstraint('health');
         if (health && !health.isInvulnerable()) {
           health.takeDamage(this.damage);
-          // Values measured from the applyForce this replaced, so the
-          // knockback fling feels identical.
-          body.applyImpulse({ x: this.direction * 8140, y: -4880 });
+          body.applyImpulse({
+            x: this.direction * KNOCKBACK_IMPULSE.x,
+            y: KNOCKBACK_IMPULSE.y
+          });
         }
 
       }

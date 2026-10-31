@@ -392,15 +392,29 @@ export class M2D {
 
     console.debug(`Creating ${type} at ${x}, ${y} with size ${width}x${height}`);
 
-    const body = this.physics.createBox({
-      x, y, width, height,
-      isStatic: physics.bodyType === 'static',
+    // Prefabs size every actor as a box, so `shape` only changes which
+    // collider that box is filled with: a circle takes its diameter from the
+    // width, a capsule is the box it fits inside. Width and height are left
+    // off the circle spec on purpose — `createCircle` derives both from the
+    // radius, and passing them too would let a non-square prefab end up with
+    // a size that disagrees with its collider.
+    const material = {
+      bodyType: physics.bodyType || 'dynamic',
+      angle: physics.angle || 0,
+      lockRotation: physics.lockRotation || false,
       isSensor: physics.isSensor || false,
       friction: physics.friction || 0.1,
-      frictionStatic: physics.frictionStatic || 0.5,
       frictionAir: physics.frictionAir || 0.01,
       restitution: physics.restitution || 0
-    });
+    };
+    let body;
+    if (physics.shape === 'circle') {
+      body = this.physics.createCircle({ x, y, radius: width / 2, ...material });
+    } else if (physics.shape === 'capsule') {
+      body = this.physics.createCapsule({ x, y, width, height, ...material });
+    } else {
+      body = this.physics.createBox({ x, y, width, height, ...material });
+    }
 
     const entity = new ActorClass(
       body,
