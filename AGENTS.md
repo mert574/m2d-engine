@@ -29,7 +29,7 @@ Because the solver runs slower than a fast display refreshes, several frames sha
 ```bash
 npm install          # Install dependencies
 npm run dev          # Start dev server (port 3000)
-npm run build        # Build to /docs
+npm run build        # Build the deployable site/ (docs + demos)
 npm test             # Run both test projects (node + headless Chromium)
 npm run test:node    # Headless Node suite only (fast)
 npm run test:browser # Browser project only: WebGL2 conformance + env smoke test
@@ -440,7 +440,7 @@ const hasLineOfSight = blockers.length === 0;
 
 ## Examples Structure
 
-Each example in `examples/src/examples/<name>/`:
+Each example in `examples/src/<name>/`:
 - `main.js` - Entry point, registers actors and scenes
 - `index.html` - HTML page
 - `scenes/*.json` - Level/menu definitions
@@ -456,7 +456,7 @@ use the `onUpdate(deltaTime)` and `onDraw(deltaTime)` scene-config hooks
 alongside `onEnter`/`onExit`. `onDraw` runs inside the world pass with the
 camera applied, after entities.
 
-### Renderer showcase (`examples/src/examples/showcase/`)
+### Renderer showcase (`examples/src/showcase/`)
 
 Doubles as the renderer comparison harness (see ROADMAP.md). It reports
 `primitives` against `drawCalls` on screen, which is where the backends

@@ -37,13 +37,13 @@ jobs:
       - name: Run Node and browser tests
         run: npm test
 
-      - name: Build demo
+      - name: Build site (docs + demos)
         run: npm run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: examples/dist
+          path: site
 
   deploy:
     needs: build

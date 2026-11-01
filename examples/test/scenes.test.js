@@ -17,7 +17,7 @@ function makeGame({ actors = [], scenes = [] } = {}) {
 }
 
 describe('shipped example scenes', () => {
-  const examples = join(import.meta.dirname, '..', 'src', 'examples');
+  const examples = join(import.meta.dirname, '..', 'src');
   const actors = {
     platformer: ['Player', 'Bee', 'Platform', 'MovingPlatform', 'Coin', 'Trigger'],
     topdown: ['TopDownPlayer', 'Ghost', 'Platform', 'Coin', 'Trigger', 'Turret'],

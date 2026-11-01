@@ -10,10 +10,11 @@ note, and `packages/engine/test/README.md` covers the renderer conformance suite
 
 Use Node.js 22 or later. Install dependencies with `npm ci`, generate sprites
 with `npm run generate-sprites`, and start `npm run dev`. The example index is
-served on port 3000. `npm run build` creates the deployable `examples/dist/`
-directory. The repo is an npm workspaces monorepo: the engine lives in
-`packages/engine`, the demo games in `examples`, and `docs` is reserved for
-the future documentation site.
+served on port 3000. `npm run build` assembles the deployable `site/`
+directory: the documentation at the root and the demos under `/examples/`.
+The repo is an npm workspaces monorepo: the engine lives in `packages/engine`,
+the demo games in `examples`, and the VitePress documentation site in `docs`
+(`npm run docs:dev` serves it locally).
 Sprite generation and Node renderer tests use `@napi-rs/canvas`. On supported
 platforms its prebuilt Skia binding is installed through the npm registry, with
 no system build dependencies or GitHub binary download. Do not omit optional

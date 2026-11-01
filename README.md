@@ -2,7 +2,7 @@
 
 A lightweight 2D game engine with Rapier 2D physics and WebGL2 rendering (Canvas 2D fallback). Features a component-based architecture, scene management, and UI system.
 
-[Check Demos](https://mert574.github.io/m2d-engine)
+[Documentation](https://mert574.github.io/m2d-engine/) · [Live Demos](https://mert574.github.io/m2d-engine/examples/)
 
 For the next development priorities and acceptance criteria, see [ROADMAP.md](ROADMAP.md).
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and contribution guidelines.
@@ -72,7 +72,7 @@ The server opens `http://localhost:3000` in your default browser automatically.
 ## Demo deployment
 
 The [Pages workflow](.github/workflows/pages.yml) installs dependencies, runs
-the Node and Chromium tests, builds the demo, and deploys `examples/dist/` on every
+the Node and Chromium tests, builds the docs and demos, and deploys the assembled `site/` on every
 push to `master`. It can also be started from Actions → Deploy demo to GitHub
 Pages → Run workflow (select `master`). A failed test or build prevents deployment.
 
@@ -184,7 +184,7 @@ m2d-engine/                   (npm workspaces monorepo)
 │   ├── src/
 │   ├── scripts/       # Sprite generation scripts
 │   └── test/          # Shipped example scene validation
-└── docs/              # Reserved for the documentation site (placeholder)
+└── docs/              # Documentation site (VitePress)
 ```
 
 Inside `packages/engine/src/`:
@@ -209,8 +209,9 @@ src/
 └── constraints/    # Entity constraints/components
 ```
 
-The example games live in `examples/src/examples/<name>/`, and the demo site
-build output lands in `examples/dist/` (deployed to GitHub Pages).
+The example games live in `examples/src/<name>/`. `npm run build` at the root
+assembles the deployable `site/`: the VitePress docs at the root and the demo
+build under `/examples/`, deployed together to GitHub Pages.
 
 ## Level File Structure
 

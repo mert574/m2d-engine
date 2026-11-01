@@ -2,7 +2,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const output = new URL('../src/examples/doner/sprites/', import.meta.url);
+const output = new URL('../src/doner/sprites/', import.meta.url);
 mkdirSync(output, { recursive: true });
 const repeat = (count, draw) => Array.from({ length: count }, (_, i) => draw(i)).join('');
 const leaf = (x, y, color, angle = 0) => `<g transform="translate(${x} ${y}) rotate(${angle})"><path d="M-25 0Q-32-18-13-19Q0-32 13-19Q33-17 25 0Q31 16 9 18Q-5 31-17 16Q-35 17-25 0Z" fill="${color}" stroke="#346431" stroke-width="3"/><path d="M-18 9L18-10M0 0L-4-13M4-2L17 6" fill="none" stroke="#c1dd80" stroke-width="2"/></g>`;

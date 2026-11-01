@@ -2,8 +2,16 @@
   "name": "m2d-docs",
   "private": true,
   "version": "1.0.0",
-  "description": "Documentation site for the m2d engine (placeholder, not set up yet)",
+  "description": "Documentation site for the m2d engine",
   "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
   "author": "Mert Yildiz",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
 }

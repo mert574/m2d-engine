@@ -1,6 +1,15 @@
 # m2d docs
 
-Reserved workspace for the future documentation site. Nothing lives here yet.
+The engine's documentation site, built with [VitePress](https://vitepress.dev).
 
-Note: the demo site build output used to land in this directory. It now goes to
-`examples/dist/`, and the GitHub Pages workflow uploads from there.
+```bash
+npm run docs:dev    # from the repo root: local dev server with hot reload
+npm run build       # from the repo root: full site (docs + demos) into site/
+```
+
+Content lives in `index.md` (the landing page) and `guide/*.md`; the site
+configuration (nav, sidebar, base path) is `.vitepress/config.mjs`.
+
+The built docs land in `dist/` and are deployed to the root of the GitHub
+Pages site, with the demo build copied alongside under `/examples/` — see the
+root `build` script and `.github/workflows/pages.yml`.

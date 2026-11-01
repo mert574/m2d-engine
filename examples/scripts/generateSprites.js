@@ -20,7 +20,7 @@ function ensureDirectoryExists(filePath) {
 }
 
 function getOutputPath(example, filename) {
-    return join(targetDir, 'examples', example, 'assets', filename);
+    return join(targetDir, example, 'assets', filename);
 }
 
 // Platformer Example Sprites
