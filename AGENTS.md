@@ -6,11 +6,11 @@ M2D is a lightweight 2D game engine with Rapier 2D physics and WebGL2 rendering 
 
 ### Physics boundary
 
-Nothing outside `src/core/physics/` imports a physics library. Engine, actor and game code use `game.physics` (the world) and the `PhysicsBody` handles it returns; `src/core/physics/index.js` documents the contract and `rapierBackend.js` implements it over Rapier 2D (WASM — accurate solver, stable stacking, CCD). `worldBase.js` holds the solver-independent fixed-step machinery. If you find yourself importing `@dimforge/rapier2d-compat` anywhere else, the abstraction has sprung a leak.
+Nothing outside `packages/engine/src/core/physics/` imports a physics library. Engine, actor and game code use `game.physics` (the world) and the `PhysicsBody` handles it returns; `packages/engine/src/core/physics/index.js` documents the contract and `rapierBackend.js` implements it over Rapier 2D (WASM — accurate solver, stable stacking, CCD). `worldBase.js` holds the solver-independent fixed-step machinery. If you find yourself importing `@dimforge/rapier2d-compat` anywhere else, the abstraction has sprung a leak.
 
 Physics runs on a **fixed timestep** (1/60s by default), decoupled from the frame rate: the loop calls `game.physics.advance(deltaTime)`, which spends elapsed real time in whole constant-size steps and carries the remainder. Entity and constraint `update(deltaTime)` still receive real frame time, because animation and timers want wall clock, not solver ticks.
 
-**Units are pixels and seconds**: velocity in px/s, gravity in px/s² (`{x: 0, y: 1000}` is normal down), impulses in px·mass/s. No solver unit (steps, meters, force constants) appears outside `src/core/physics/`. Call `await initPhysics()` once before constructing M2D — it fetches and compiles Rapier's WASM module, and no world can exist until it resolves. Fast movers should set `body.bullet = true` (projectiles do): that enables continuous collision detection, so they cannot tunnel through thin walls.
+**Units are pixels and seconds**: velocity in px/s, gravity in px/s² (`{x: 0, y: 1000}` is normal down), impulses in px·mass/s. No solver unit (steps, meters, force constants) appears outside `packages/engine/src/core/physics/`. Call `await initPhysics()` once before constructing M2D — it fetches and compiles Rapier's WASM module, and no world can exist until it resolves. Fast movers should set `body.bullet = true` (projectiles do): that enables continuous collision detection, so they cannot tunnel through thin walls.
 
 **Bodies are `static`, `dynamic`, `kinematic` or `character`** (`body.bodyType`), and shaped by `createBox` / `createCircle` / `createCapsule` — prefabs pick the shape with `physics.shape`. A **kinematic** body is driven by game code but still resolves contacts: move it with `setNextPosition` and the solver derives its velocity from the move, so it carries riders and pushes what is in its way. `setPosition` teleports instead and does neither — it is for respawns, not motion. `MovingPlatform` is the worked example.
 
@@ -35,12 +35,12 @@ npm run test:node    # Headless Node suite only (fast)
 npm run test:browser # Browser project only: WebGL2 conformance + env smoke test
 npm run test:watch   # Re-run the node project on change
 npx playwright install chromium   # One-time: download Chromium for test:browser
-node scripts/generateSprites.js <example>  # Generate sprites for an example
+node examples/scripts/generateSprites.js <example>  # Generate sprites for an example
 ```
 
 ## Architecture
 
-### Core Classes (`src/core/`)
+### Core Classes (`packages/engine/src/core/`)
 
 - **Entity** (`entity.js`) - Base class for all game objects. Has body, sprite, constraints. The `body.entity` link is set in constructor for collision detection.
 - **Constraint** (`constraint.js`) - Reusable behaviors attached to entities (health, attack, movement, debug)
@@ -51,7 +51,7 @@ node scripts/generateSprites.js <example>  # Generate sprites for an example
 - **PhysicsWorld** (`physics/`) - The simulation, reached as `game.physics`. See "Physics boundary" above.
 - **InputManager** (`input/`) - Keyboard, mouse, touch and pen, reached as `game.input`. See "Input" below.
 
-### Renderers (`src/core/renderers/`)
+### Renderers (`packages/engine/src/core/renderers/`)
 
 Rendering is fully abstracted behind a backend interface; no game or engine code
 may touch a canvas context directly. The contract describes rendering semantics,
@@ -114,15 +114,15 @@ silhouette shadows), never in the contract or in callers.
   registering.
 
 The backend contract is enforced by an executable conformance suite
-(`test/conformance/rendererConformance.js`). A new backend is validated by one
-file that passes it a harness — see `test/README.md`. Tests are split into a
-`node` project (fast, @napi-rs/canvas) and a `browser` project (`test/browser/**`,
+(`packages/engine/test/conformance/rendererConformance.js`). A new backend is validated by one
+file that passes it a harness — see `packages/engine/test/README.md`. Tests are split into a
+`node` project (fast, @napi-rs/canvas) and a `browser` project (`packages/engine/test/browser/**`,
 headless Chromium) because Node has no WebGL. Two contract details are easy to
 get wrong and are pinned by tests: partial `drawArc` fills produce circular
 **segments** (chord-closed), not pie sectors; and the frame order is world
 pass then screen pass.
 
-### Input (`src/core/input/`)
+### Input (`packages/engine/src/core/input/`)
 
 Everything the player does arrives through **`game.input`**, and nothing else
 in the engine registers a DOM input listener. Pointer Events are the only
@@ -192,9 +192,9 @@ Event types: `pointerdown` / `pointermove` / `pointerup`, `click`,
   drag that leaves the canvas keeps reporting.
 - **Synthesized input goes through `game.input.push(record)`** — the same
   seam the DOM sources use. On-screen touch controls, replays and the tests
-  (`test/helpers/input.js`) all use it.
+  (`packages/engine/test/helpers/input.js`) all use it.
 
-### Viewport, resolution and resize (`src/core/viewport.js`)
+### Viewport, resolution and resize (`packages/engine/src/core/viewport.js`)
 
 The engine keeps **three resolutions independent**, because they answer three
 different questions. Confusing them is the main hazard when touching this code.
@@ -273,7 +273,7 @@ Rules that follow from this, all pinned by tests:
   goes through `game.renderer`, so it inherits the render resolution: at 0.25x
   a range ring becomes a staircase and a 3-unit target dot disappears, while
   the sprites it annotates merely look blocky, which is the intended effect.
-  Submit it to `game.worldOverlay` (`src/core/ui/worldOverlay.js`) instead.
+  Submit it to `game.worldOverlay` (`packages/engine/src/core/ui/worldOverlay.js`) instead.
   Its API mirrors the renderer's, so moving a call is a one-word change:
   `game.renderer.drawArc(...)` -> `game.worldOverlay.drawArc(...)`.
   - **Shapes keep world units.** Coordinates *and* sizes go through the
@@ -292,7 +292,7 @@ Rules that follow from this, all pinned by tests:
     world content rendered en masse on purpose stays too — the showcase's
     label-storm stress layer.
 
-**Settings menu** (`src/core/ui/settingsMenu.js`): a scene-independent overlay
+**Settings menu** (`packages/engine/src/core/ui/settingsMenu.js`): a scene-independent overlay
 with resolution presets, fullscreen, aspect mode and a Paused row, toggled with
 O. Every example mounts one (`new SettingsMenu(game)`); the instance registers
 itself as `game.settings`, which is how scene UI reaches it — a scene-JSON
@@ -335,7 +335,7 @@ to `window` or `document` keeps a stable reference to its handler so it can
 be removed again — binding inline at `addEventListener` is unremovable, which
 is how the input listeners used to outlive every game that created them.
 
-### Actors (`src/actors/`)
+### Actors (`packages/engine/src/actors/`)
 
 Game-specific entities extending Entity:
 - `Player` / `TopDownPlayer` - Player characters (name must be 'Player' for triggers/camera)
@@ -344,7 +344,7 @@ Game-specific entities extending Entity:
 - `Rocket` - Projectile extending Projectile base class
 - `Platform`, `MovingPlatform`, `Coin`, `Trigger`
 
-### Constraints (`src/constraints/`)
+### Constraints (`packages/engine/src/constraints/`)
 
 Constraints are where reusable behaviour lives; actors should mostly be
 configuration over them (a `MovingPlatform` is body setup plus `PathFollow`,
@@ -364,7 +364,7 @@ behaviour another actor could want.
 - `DamageFlash` - Brief overlay tint when hit; trigger from `health.onDamage`
 - `Debug` - Visual debugging for entities
 
-### Collision Categories (`src/core/constants.js`)
+### Collision Categories (`packages/engine/src/core/constants.js`)
 
 ```javascript
 CollisionCategories = {
@@ -440,13 +440,13 @@ const hasLineOfSight = blockers.length === 0;
 
 ## Examples Structure
 
-Each example in `src/examples/<name>/`:
+Each example in `examples/src/examples/<name>/`:
 - `main.js` - Entry point, registers actors and scenes
 - `index.html` - HTML page
 - `scenes/*.json` - Level/menu definitions
 - `assets/` - Sprites, sounds, music
 
-Must be added to `vite.config.js`:
+Must be added to `examples/vite.config.js`:
 - Add to `rollupOptions.input`
 - Add sprite generation in `assetsPlugin.buildStart`
 - Add to the `writeBundle` asset-copy list if it has an `assets/` directory
@@ -456,7 +456,7 @@ use the `onUpdate(deltaTime)` and `onDraw(deltaTime)` scene-config hooks
 alongside `onEnter`/`onExit`. `onDraw` runs inside the world pass with the
 camera applied, after entities.
 
-### Renderer showcase (`src/examples/showcase/`)
+### Renderer showcase (`examples/src/examples/showcase/`)
 
 Doubles as the renderer comparison harness (see ROADMAP.md). It reports
 `primitives` against `drawCalls` on screen, which is where the backends
@@ -530,7 +530,7 @@ returns the same shape `Scene` already reads — there is deliberately no
 intermediate representation, so there is only one scene format to know.
 
 Adding a field to the format means adding it to the key lists at the top of
-`sceneLoader.js`, or it will be rejected. `test/sceneLoader.test.js`
+`sceneLoader.js`, or it will be rejected. `packages/engine/test/sceneLoader.test.js`
 validates every scene the repo ships, so a schema change that breaks an
 example fails there.
 

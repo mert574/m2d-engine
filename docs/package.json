@@ -1,0 +1,9 @@
+{
+  "name": "m2d-docs",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Documentation site for the m2d engine (placeholder, not set up yet)",
+  "type": "module",
+  "author": "Mert Yildiz",
+  "license": "MIT"
+}

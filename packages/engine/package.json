@@ -1,0 +1,28 @@
+{
+  "name": "m2d-engine",
+  "version": "1.0.0",
+  "description": "A lightweight 2D game engine",
+  "type": "module",
+  "exports": {
+    ".": "./src/core/m2d.js",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "test": "npm run test:node && npm run test:browser",
+    "test:watch": "vitest --project node",
+    "test:node": "vitest run --project node",
+    "test:browser": "vitest run --project browser"
+  },
+  "author": "Mert Yildiz",
+  "license": "MIT",
+  "dependencies": {
+    "@dimforge/rapier2d-compat": "^0.21.0"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.1.0",
+    "@vitest/browser": "^5.0.5",
+    "@vitest/browser-playwright": "^5.0.5",
+    "playwright": "^1.64.1",
+    "vitest": "^5.0.5"
+  }
+}

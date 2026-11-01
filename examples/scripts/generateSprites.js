@@ -1,0 +1,666 @@
+import { createCanvas } from '@napi-rs/canvas';
+import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'node:url';
+
+const args = process.argv.slice(2);
+// Output is resolved relative to this script, so any working directory works.
+const targetDir = fileURLToPath(new URL('../src', import.meta.url));
+const example = args[args.length - 1];
+
+function writeSprite(filePath, buffer) {
+    if (!args.includes('--missing') || !existsSync(filePath)) {
+        writeFileSync(filePath, buffer);
+    }
+}
+
+function ensureDirectoryExists(filePath) {
+    const dir = dirname(filePath);
+    mkdirSync(dir, { recursive: true });
+}
+
+function getOutputPath(example, filename) {
+    return join(targetDir, 'examples', example, 'assets', filename);
+}
+
+// Platformer Example Sprites
+const generatePlatformerSprites = () => {
+    // Player sprite (96x32 with three frames: idle, run, and jump)
+    const playerCanvas = createCanvas(96, 32);
+    const playerCtx = playerCanvas.getContext('2d');
+
+    // Idle frame (green square)
+    playerCtx.fillStyle = '#4CAF50';
+    playerCtx.fillRect(0, 0, 32, 32);
+
+    // Run frame (blue square)
+    playerCtx.fillStyle = '#2196F3';
+    playerCtx.fillRect(32, 0, 32, 32);
+
+    // Jump frame (yellow square)
+    playerCtx.fillStyle = '#FFC107';
+    playerCtx.fillRect(64, 0, 32, 32);
+
+    const playerPath = getOutputPath('platformer', 'player.png');
+    ensureDirectoryExists(playerPath);
+    writeSprite(playerPath, playerCanvas.toBuffer('image/png'));
+
+    // Platform sprite
+    const platformCanvas = createCanvas(32, 32);
+    const platformCtx = platformCanvas.getContext('2d');
+
+    // Fill with brown color
+    platformCtx.fillStyle = '#8B4513';
+    platformCtx.fillRect(0, 0, 32, 32);
+
+    // Add a lighter border
+    platformCtx.strokeStyle = '#CD853F';
+    platformCtx.lineWidth = 2;
+    platformCtx.strokeRect(1, 1, 30, 30);
+
+    // Add some texture/detail
+    platformCtx.fillStyle = '#A0522D';
+    platformCtx.fillRect(4, 4, 24, 24);
+
+    const platformPath = getOutputPath('platformer', 'platform.png');
+    ensureDirectoryExists(platformPath);
+    writeSprite(platformPath, platformCanvas.toBuffer('image/png'));
+
+    // Moving Platform sprite
+    const movingPlatformCanvas = createCanvas(32, 32);
+    const movingPlatformCtx = movingPlatformCanvas.getContext('2d');
+
+    // Base metal color
+    movingPlatformCtx.fillStyle = '#708090';
+    movingPlatformCtx.fillRect(0, 0, 32, 32);
+
+    // Add metallic sheen
+    const gradient = movingPlatformCtx.createLinearGradient(0, 0, 32, 32);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+    movingPlatformCtx.fillStyle = gradient;
+    movingPlatformCtx.fillRect(0, 0, 32, 32);
+
+    // Add mechanical details
+    movingPlatformCtx.fillStyle = '#2F4F4F';
+    movingPlatformCtx.fillRect(4, 14, 24, 4);
+    movingPlatformCtx.fillRect(14, 4, 4, 24);
+
+    // Add border
+    movingPlatformCtx.strokeStyle = '#4682B4';
+    movingPlatformCtx.lineWidth = 2;
+    movingPlatformCtx.strokeRect(1, 1, 30, 30);
+
+    const movingPlatformPath = getOutputPath('platformer', 'movingPlatform.png');
+    ensureDirectoryExists(movingPlatformPath);
+    writeSprite(movingPlatformPath, movingPlatformCanvas.toBuffer('image/png'));
+
+    // Bee enemy sprite
+    const beeCanvas = createCanvas(96, 32);  // 3 frames of 32x32
+    const beeCtx = beeCanvas.getContext('2d');
+
+    // Common bee colors
+    const colors = {
+        body: '#FFD700',     // Gold
+        stripes: '#000000',  // Black
+        wing: '#FFFFFF',     // White with transparency
+        outline: '#000000'   // Black outline
+    };
+
+    // Draw three frames: idle, flying left, flying right
+    [0, 1, 2].forEach(frame => {
+        const x = frame * 32;
+        
+        // Body
+        beeCtx.fillStyle = colors.body;
+        beeCtx.beginPath();
+        beeCtx.ellipse(x + 16, 16, 12, 8, 0, 0, Math.PI * 2);
+        beeCtx.fill();
+        beeCtx.strokeStyle = colors.outline;
+        beeCtx.stroke();
+
+        // Stripes
+        beeCtx.fillStyle = colors.stripes;
+        [-4, 0, 4].forEach(offset => {
+            beeCtx.fillRect(x + 12 + offset, 12, 3, 8);
+        });
+
+        // Wings
+        beeCtx.fillStyle = colors.wing;
+        beeCtx.globalAlpha = 0.6;
+        
+        // Wing animation based on frame
+        const wingOffset = frame === 0 ? 0 : (frame === 1 ? -2 : 2);
+        
+        // Left wing
+        beeCtx.beginPath();
+        beeCtx.ellipse(x + 16 - 4, 10 + wingOffset, 6, 4, Math.PI / 4, 0, Math.PI * 2);
+        beeCtx.fill();
+        
+        // Right wing
+        beeCtx.beginPath();
+        beeCtx.ellipse(x + 16 + 4, 10 - wingOffset, 6, 4, -Math.PI / 4, 0, Math.PI * 2);
+        beeCtx.fill();
+        
+        beeCtx.globalAlpha = 1.0;
+    });
+
+    const beePath = getOutputPath('platformer', 'enemy.png');
+    ensureDirectoryExists(beePath);
+    writeSprite(beePath, beeCanvas.toBuffer('image/png'));
+
+    // Coin sprite (32x32 with shine effect)
+    const coinCanvas = createCanvas(32, 32);
+    const coinCtx = coinCanvas.getContext('2d');
+
+    // Main circle (gold)
+    coinCtx.fillStyle = '#FFD700';
+    coinCtx.beginPath();
+    coinCtx.arc(16, 16, 12, 0, Math.PI * 2);
+    coinCtx.fill();
+
+    // Inner circle (darker gold)
+    coinCtx.fillStyle = '#DAA520';
+    coinCtx.beginPath();
+    coinCtx.arc(16, 16, 10, 0, Math.PI * 2);
+    coinCtx.fill();
+
+    // Dollar sign
+    coinCtx.fillStyle = '#FFD700';
+    coinCtx.font = 'bold 14px Arial';
+    coinCtx.textAlign = 'center';
+    coinCtx.textBaseline = 'middle';
+    coinCtx.fillText('$', 16, 16);
+
+    // Shine effect
+    coinCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    coinCtx.beginPath();
+    coinCtx.arc(12, 12, 3, 0, Math.PI * 2);
+    coinCtx.fill();
+
+    const coinPath = getOutputPath('platformer', 'coin.png');
+    ensureDirectoryExists(coinPath);
+    writeSprite(coinPath, coinCanvas.toBuffer('image/png'));
+};
+
+// Maze Example Sprites
+const generateMazeSprites = () => {
+    // Player sprite
+    const playerCanvas = createCanvas(32, 32);
+    const playerCtx = playerCanvas.getContext('2d');
+
+    playerCtx.fillStyle = '#2196F3';
+    playerCtx.beginPath();
+    playerCtx.arc(16, 16, 12, 0, Math.PI * 2);
+    playerCtx.fill();
+    playerCtx.fillStyle = '#1976D2';
+    playerCtx.beginPath();
+    playerCtx.arc(16, 16, 6, 0, Math.PI * 2);
+    playerCtx.fill();
+
+    const playerPath = getOutputPath('maze', 'player.png');
+    ensureDirectoryExists(playerPath);
+    writeSprite(playerPath, playerCanvas.toBuffer('image/png'));
+
+    // Wall sprite
+    const wallCanvas = createCanvas(32, 32);
+    const wallCtx = wallCanvas.getContext('2d');
+
+    wallCtx.fillStyle = '#607D8B';
+    wallCtx.fillRect(0, 0, 32, 32);
+    wallCtx.fillStyle = '#455A64';
+    wallCtx.fillRect(0, 0, 4, 32);
+    wallCtx.fillRect(28, 0, 4, 32);
+
+    const wallPath = getOutputPath('maze', 'wall.png');
+    ensureDirectoryExists(wallPath);
+    writeSprite(wallPath, wallCanvas.toBuffer('image/png'));
+
+    // Floor sprite
+    const floorCanvas = createCanvas(32, 32);
+    const floorCtx = floorCanvas.getContext('2d');
+
+    floorCtx.fillStyle = '#EEEEEE';
+    floorCtx.fillRect(0, 0, 32, 32);
+    floorCtx.fillStyle = '#E0E0E0';
+    floorCtx.fillRect(0, 0, 16, 16);
+    floorCtx.fillRect(16, 16, 16, 16);
+
+    const floorPath = getOutputPath('maze', 'floor.png');
+    ensureDirectoryExists(floorPath);
+    writeSprite(floorPath, floorCanvas.toBuffer('image/png'));
+};
+
+// Physics Example Sprites
+const generatePhysicsSprites = () => {
+    // Ball sprite
+    const ballCanvas = createCanvas(32, 32);
+    const ballCtx = ballCanvas.getContext('2d');
+
+    ballCtx.fillStyle = '#F44336';
+    ballCtx.beginPath();
+    ballCtx.arc(16, 16, 14, 0, Math.PI * 2);
+    ballCtx.fill();
+    ballCtx.fillStyle = '#D32F2F';
+    ballCtx.beginPath();
+    ballCtx.arc(12, 12, 4, 0, Math.PI * 2);
+    ballCtx.fill();
+
+    const ballPath = getOutputPath('physics', 'ball.png');
+    ensureDirectoryExists(ballPath);
+    writeSprite(ballPath, ballCanvas.toBuffer('image/png'));
+
+    // Box sprite
+    const boxCanvas = createCanvas(32, 32);
+    const boxCtx = boxCanvas.getContext('2d');
+
+    boxCtx.fillStyle = '#FFC107';
+    boxCtx.fillRect(2, 2, 28, 28);
+    boxCtx.fillStyle = '#FFA000';
+    boxCtx.fillRect(2, 2, 28, 4);
+    boxCtx.fillRect(2, 26, 28, 4);
+    boxCtx.fillRect(2, 2, 4, 28);
+    boxCtx.fillRect(26, 2, 4, 28);
+
+    const boxPath = getOutputPath('physics', 'box.png');
+    ensureDirectoryExists(boxPath);
+    writeSprite(boxPath, boxCanvas.toBuffer('image/png'));
+
+    // Platform sprite
+    const platformCanvas = createCanvas(32, 32);
+    const platformCtx = platformCanvas.getContext('2d');
+
+    platformCtx.fillStyle = '#9C27B0';
+    platformCtx.fillRect(0, 0, 32, 32);
+    platformCtx.fillStyle = '#7B1FA2';
+    platformCtx.fillRect(0, 0, 32, 4);
+    platformCtx.fillRect(0, 28, 32, 4);
+
+    const platformPath = getOutputPath('physics', 'platform.png');
+    ensureDirectoryExists(platformPath);
+    writeSprite(platformPath, platformCanvas.toBuffer('image/png'));
+};
+
+// Top-Down Example Sprites
+const generateTopDownSprites = () => {
+    // Player sprite (64x32 with two frames: idle and run)
+    const playerCanvas = createCanvas(64, 32);
+    const playerCtx = playerCanvas.getContext('2d');
+
+    // Idle frame (cyan circle)
+    playerCtx.fillStyle = '#00BCD4';
+    playerCtx.beginPath();
+    playerCtx.arc(16, 16, 14, 0, Math.PI * 2);
+    playerCtx.fill();
+    playerCtx.fillStyle = '#0097A7';
+    playerCtx.beginPath();
+    playerCtx.arc(16, 16, 8, 0, Math.PI * 2);
+    playerCtx.fill();
+
+    // Run frame (lighter cyan)
+    playerCtx.fillStyle = '#4DD0E1';
+    playerCtx.beginPath();
+    playerCtx.arc(48, 16, 14, 0, Math.PI * 2);
+    playerCtx.fill();
+    playerCtx.fillStyle = '#00BCD4';
+    playerCtx.beginPath();
+    playerCtx.arc(48, 16, 8, 0, Math.PI * 2);
+    playerCtx.fill();
+
+    const playerPath = getOutputPath('topdown', 'player.png');
+    ensureDirectoryExists(playerPath);
+    writeSprite(playerPath, playerCanvas.toBuffer('image/png'));
+
+    // Wall sprite
+    const wallCanvas = createCanvas(32, 32);
+    const wallCtx = wallCanvas.getContext('2d');
+
+    wallCtx.fillStyle = '#37474F';
+    wallCtx.fillRect(0, 0, 32, 32);
+    wallCtx.fillStyle = '#263238';
+    wallCtx.fillRect(2, 2, 28, 28);
+    wallCtx.strokeStyle = '#546E7A';
+    wallCtx.lineWidth = 2;
+    wallCtx.strokeRect(4, 4, 24, 24);
+
+    const wallPath = getOutputPath('topdown', 'wall.png');
+    ensureDirectoryExists(wallPath);
+    writeSprite(wallPath, wallCanvas.toBuffer('image/png'));
+
+    // Enemy sprite (single frame)
+    const enemyCanvas = createCanvas(32, 32);
+    const enemyCtx = enemyCanvas.getContext('2d');
+
+    // Red enemy circle
+    enemyCtx.fillStyle = '#E53935';
+    enemyCtx.beginPath();
+    enemyCtx.arc(16, 16, 14, 0, Math.PI * 2);
+    enemyCtx.fill();
+    enemyCtx.fillStyle = '#B71C1C';
+    enemyCtx.beginPath();
+    enemyCtx.arc(16, 16, 8, 0, Math.PI * 2);
+    enemyCtx.fill();
+    // Eyes
+    enemyCtx.fillStyle = '#FFFFFF';
+    enemyCtx.beginPath();
+    enemyCtx.arc(12, 12, 3, 0, Math.PI * 2);
+    enemyCtx.fill();
+    enemyCtx.beginPath();
+    enemyCtx.arc(20, 12, 3, 0, Math.PI * 2);
+    enemyCtx.fill();
+    enemyCtx.fillStyle = '#000000';
+    enemyCtx.beginPath();
+    enemyCtx.arc(12, 12, 1.5, 0, Math.PI * 2);
+    enemyCtx.fill();
+    enemyCtx.beginPath();
+    enemyCtx.arc(20, 12, 1.5, 0, Math.PI * 2);
+    enemyCtx.fill();
+
+    const enemyPath = getOutputPath('topdown', 'enemy.png');
+    ensureDirectoryExists(enemyPath);
+    writeSprite(enemyPath, enemyCanvas.toBuffer('image/png'));
+
+    // Coin sprite
+    const coinCanvas = createCanvas(32, 32);
+    const coinCtx = coinCanvas.getContext('2d');
+
+    coinCtx.fillStyle = '#FFD700';
+    coinCtx.beginPath();
+    coinCtx.arc(16, 16, 12, 0, Math.PI * 2);
+    coinCtx.fill();
+    coinCtx.fillStyle = '#FFA000';
+    coinCtx.beginPath();
+    coinCtx.arc(16, 16, 8, 0, Math.PI * 2);
+    coinCtx.fill();
+    coinCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    coinCtx.beginPath();
+    coinCtx.arc(12, 12, 3, 0, Math.PI * 2);
+    coinCtx.fill();
+
+    const coinPath = getOutputPath('topdown', 'coin.png');
+    ensureDirectoryExists(coinPath);
+    writeSprite(coinPath, coinCanvas.toBuffer('image/png'));
+
+    // Trigger sprite (goal area)
+    const triggerCanvas = createCanvas(32, 32);
+    const triggerCtx = triggerCanvas.getContext('2d');
+
+    triggerCtx.fillStyle = '#4CAF50';
+    triggerCtx.fillRect(4, 4, 24, 24);
+    triggerCtx.strokeStyle = '#2E7D32';
+    triggerCtx.lineWidth = 2;
+    triggerCtx.strokeRect(4, 4, 24, 24);
+    // Checkmark
+    triggerCtx.strokeStyle = '#FFFFFF';
+    triggerCtx.lineWidth = 3;
+    triggerCtx.beginPath();
+    triggerCtx.moveTo(10, 16);
+    triggerCtx.lineTo(14, 20);
+    triggerCtx.lineTo(22, 12);
+    triggerCtx.stroke();
+
+    const triggerPath = getOutputPath('topdown', 'trigger.png');
+    ensureDirectoryExists(triggerPath);
+    writeSprite(triggerPath, triggerCanvas.toBuffer('image/png'));
+};
+
+// Renderer Showcase Sprites
+//
+// The showcase draws tens of thousands of these, so every sheet is a single
+// small texture: one texture bind for the whole field is what lets a batching
+// backend collapse the field into a handful of draw calls.
+const generateShowcaseSprites = () => {
+    // Mote sheet: 32x32 soft discs, warm tiles first then cool.
+    //
+    // The order matters. MoteField picks a tile by zone rather than at random:
+    // warm tiles are fireflies over the reed bank, cool tiles are sea spray and
+    // mist over the water. Keeping warm and cool contiguous lets the field
+    // index into one half or the other without a lookup table.
+    const WARM_MOTES = ['#FFD54F', '#FFA726'];
+    const COOL_MOTES = ['#B3E5FC', '#E1F5FE'];
+    const moteHues = [...WARM_MOTES, ...COOL_MOTES];
+    const moteCanvas = createCanvas(32 * moteHues.length, 32);
+    const moteCtx = moteCanvas.getContext('2d');
+
+    moteHues.forEach((hue, index) => {
+        const cx = index * 32 + 16;
+        const gradient = moteCtx.createRadialGradient(cx, 16, 0, cx, 16, 15);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(0.3, hue);
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        moteCtx.fillStyle = gradient;
+        moteCtx.beginPath();
+        moteCtx.arc(cx, 16, 15, 0, Math.PI * 2);
+        moteCtx.fill();
+    });
+
+    const motePath = getOutputPath('showcase', 'mote.png');
+    ensureDirectoryExists(motePath);
+    writeSprite(motePath, moteCanvas.toBuffer('image/png'));
+
+    // Reed sheet: eight 32x64 stalks — six grasses and two flowering heads.
+    // Enough variety that a dense bank does not read as one repeated sprite.
+    const reedStalks = [
+        { stalk: '#2E7D32', head: '#A5D6A7', lean: -5, kind: 'seed' },
+        { stalk: '#388E3C', head: '#C5E1A5', lean: -2, kind: 'seed' },
+        { stalk: '#1B5E20', head: '#81C784', lean: 1, kind: 'blade' },
+        { stalk: '#43A047', head: '#DCEDC8', lean: 4, kind: 'blade' },
+        { stalk: '#2E7D32', head: '#9CCC65', lean: -3, kind: 'blade' },
+        { stalk: '#33691E', head: '#AED581', lean: 2, kind: 'seed' },
+        { stalk: '#386641', head: '#F8BBD0', lean: -1, kind: 'flower' },
+        { stalk: '#2E7D32', head: '#FFF59D', lean: 3, kind: 'flower' }
+    ];
+
+    const reedCanvas = createCanvas(32 * reedStalks.length, 64);
+    const reedCtx = reedCanvas.getContext('2d');
+
+    reedStalks.forEach((reed, index) => {
+        const originX = index * 32 + 16;
+        const tipX = originX + reed.lean * 2;
+
+        reedCtx.strokeStyle = reed.stalk;
+        reedCtx.lineWidth = reed.kind === 'blade' ? 2 : 3;
+        reedCtx.lineCap = 'round';
+        reedCtx.beginPath();
+        reedCtx.moveTo(originX, 63);
+        reedCtx.quadraticCurveTo(originX + reed.lean, 32, tipX, 6);
+        reedCtx.stroke();
+
+        // A second shorter blade makes each tile read as a clump, so the bank
+        // looks dense without doubling the sprite count.
+        reedCtx.lineWidth = 2;
+        reedCtx.beginPath();
+        reedCtx.moveTo(originX + 3, 63);
+        reedCtx.quadraticCurveTo(originX + reed.lean + 6, 40, tipX + 8, 20);
+        reedCtx.stroke();
+
+        reedCtx.fillStyle = reed.head;
+        if (reed.kind === 'flower') {
+            // Five small petals around a centre.
+            for (let petal = 0; petal < 5; petal++) {
+                const angle = (petal / 5) * Math.PI * 2;
+                reedCtx.beginPath();
+                reedCtx.arc(tipX + Math.cos(angle) * 3.2, 6 + Math.sin(angle) * 3.2, 2.4, 0, Math.PI * 2);
+                reedCtx.fill();
+            }
+            reedCtx.fillStyle = '#FFF176';
+            reedCtx.beginPath();
+            reedCtx.arc(tipX, 6, 1.8, 0, Math.PI * 2);
+            reedCtx.fill();
+        } else if (reed.kind === 'seed') {
+            reedCtx.beginPath();
+            reedCtx.ellipse(tipX, 7, 3, 7, 0, 0, Math.PI * 2);
+            reedCtx.fill();
+        } else {
+            reedCtx.beginPath();
+            reedCtx.ellipse(tipX, 9, 1.8, 5, 0, 0, Math.PI * 2);
+            reedCtx.fill();
+        }
+    });
+
+    const reedPath = getOutputPath('showcase', 'reed.png');
+    ensureDirectoryExists(reedPath);
+    writeSprite(reedPath, reedCanvas.toBuffer('image/png'));
+
+    // Lighthouse: one 64x160 tower. Its lamp is the origin of the sweeping
+    // beam, and the minimap plots the same angle.
+    const towerCanvas = createCanvas(64, 160);
+    const towerCtx = towerCanvas.getContext('2d');
+
+    // Tapered body.
+    towerCtx.fillStyle = '#ECEFF1';
+    towerCtx.beginPath();
+    towerCtx.moveTo(18, 159);
+    towerCtx.lineTo(24, 42);
+    towerCtx.lineTo(40, 42);
+    towerCtx.lineTo(46, 159);
+    towerCtx.closePath();
+    towerCtx.fill();
+
+    // Red bands.
+    towerCtx.fillStyle = '#C62828';
+    [60, 100, 140].forEach((y) => {
+        const spread = 18 + (y / 160) * 10;
+        towerCtx.fillRect(32 - spread / 2, y, spread, 12);
+    });
+
+    // Gallery, lamp room and glow.
+    towerCtx.fillStyle = '#37474F';
+    towerCtx.fillRect(20, 36, 24, 6);
+    towerCtx.fillStyle = '#FFF59D';
+    towerCtx.fillRect(25, 18, 14, 18);
+    towerCtx.fillStyle = '#546E7A';
+    towerCtx.fillRect(23, 10, 18, 8);
+    towerCtx.beginPath();
+    towerCtx.moveTo(32, 0);
+    towerCtx.lineTo(42, 10);
+    towerCtx.lineTo(22, 10);
+    towerCtx.closePath();
+    towerCtx.fill();
+
+    const towerPath = getOutputPath('showcase', 'lighthouse.png');
+    ensureDirectoryExists(towerPath);
+    writeSprite(towerPath, towerCanvas.toBuffer('image/png'));
+
+    // Rain streak: one 8x32 tile, a soft vertical line that fades at both
+    // ends. Drawn by the thousands through drawParticles.
+    const rainCanvas = createCanvas(8, 32);
+    const rainCtx = rainCanvas.getContext('2d');
+    const streak = rainCtx.createLinearGradient(0, 0, 0, 32);
+    streak.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    streak.addColorStop(0.35, 'rgba(255, 255, 255, 0.9)');
+    streak.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    rainCtx.strokeStyle = streak;
+    rainCtx.lineWidth = 2;
+    rainCtx.lineCap = 'round';
+    rainCtx.beginPath();
+    rainCtx.moveTo(4, 1);
+    rainCtx.lineTo(4, 31);
+    rainCtx.stroke();
+
+    const rainPath = getOutputPath('showcase', 'rain.png');
+    ensureDirectoryExists(rainPath);
+    writeSprite(rainPath, rainCanvas.toBuffer('image/png'));
+
+    // Lantern sheet: two 32x32 frames (lit / dim) for the harbour lights.
+    const lanternCanvas = createCanvas(64, 32);
+    const lanternCtx = lanternCanvas.getContext('2d');
+
+    [['#FFE082', '#FF8F00'], ['#FFCC80', '#E65100']].forEach(([inner, outer], index) => {
+        const cx = index * 32 + 16;
+
+        lanternCtx.fillStyle = '#4E342E';
+        lanternCtx.fillRect(cx - 7, 4, 14, 3);
+        lanternCtx.fillRect(cx - 7, 25, 14, 3);
+
+        const glass = lanternCtx.createLinearGradient(cx - 6, 7, cx + 6, 25);
+        glass.addColorStop(0, inner);
+        glass.addColorStop(1, outer);
+        lanternCtx.fillStyle = glass;
+        lanternCtx.fillRect(cx - 6, 7, 12, 18);
+
+        lanternCtx.strokeStyle = '#3E2723';
+        lanternCtx.lineWidth = 2;
+        lanternCtx.strokeRect(cx - 6, 7, 12, 18);
+    });
+
+    const lanternPath = getOutputPath('showcase', 'lantern.png');
+    ensureDirectoryExists(lanternPath);
+    writeSprite(lanternPath, lanternCanvas.toBuffer('image/png'));
+
+    // Crate sheet: one 32x32 tile for the physics props the player shoves.
+    const crateCanvas = createCanvas(32, 32);
+    const crateCtx = crateCanvas.getContext('2d');
+
+    crateCtx.fillStyle = '#6D4C41';
+    crateCtx.fillRect(0, 0, 32, 32);
+    crateCtx.fillStyle = '#8D6E63';
+    crateCtx.fillRect(3, 3, 26, 26);
+    crateCtx.strokeStyle = '#4E342E';
+    crateCtx.lineWidth = 2;
+    crateCtx.beginPath();
+    crateCtx.moveTo(3, 3);
+    crateCtx.lineTo(29, 29);
+    crateCtx.moveTo(29, 3);
+    crateCtx.lineTo(3, 29);
+    crateCtx.stroke();
+    crateCtx.strokeRect(3, 3, 26, 26);
+
+    const cratePath = getOutputPath('showcase', 'crate.png');
+    ensureDirectoryExists(cratePath);
+    writeSprite(cratePath, crateCanvas.toBuffer('image/png'));
+
+    // Dock sheet: one 32x32 plank tile for the static geometry.
+    const dockCanvas = createCanvas(32, 32);
+    const dockCtx = dockCanvas.getContext('2d');
+
+    dockCtx.fillStyle = '#37474F';
+    dockCtx.fillRect(0, 0, 32, 32);
+    dockCtx.fillStyle = '#455A64';
+    dockCtx.fillRect(0, 0, 32, 8);
+    dockCtx.strokeStyle = '#263238';
+    dockCtx.lineWidth = 1;
+    for (let y = 8; y < 32; y += 8) {
+        dockCtx.beginPath();
+        dockCtx.moveTo(0, y);
+        dockCtx.lineTo(32, y);
+        dockCtx.stroke();
+    }
+
+    const dockPath = getOutputPath('showcase', 'dock.png');
+    ensureDirectoryExists(dockPath);
+    writeSprite(dockPath, dockCanvas.toBuffer('image/png'));
+};
+
+// Generate sprites based on command line argument
+if (!example || example === 'all') {
+    console.log(`Generating all sprites in ${targetDir}...`);
+    generatePlatformerSprites();
+    generateMazeSprites();
+    generatePhysicsSprites();
+    generateTopDownSprites();
+    generateShowcaseSprites();
+} else {
+    console.log(`Generating ${example} sprites in ${targetDir}...`);
+    switch (example) {
+        case 'platformer':
+            generatePlatformerSprites();
+            break;
+        case 'maze':
+            generateMazeSprites();
+            break;
+        case 'physics':
+            generatePhysicsSprites();
+            break;
+        case 'topdown':
+            generateTopDownSprites();
+            break;
+        case 'showcase':
+            generateShowcaseSprites();
+            break;
+        default:
+            console.error(`Unknown example: ${example}`);
+            process.exit(1);
+    }
+}

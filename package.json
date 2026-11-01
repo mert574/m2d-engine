@@ -1,34 +1,24 @@
 {
-  "name": "m2d-engine",
+  "name": "m2d",
+  "private": true,
   "version": "1.0.0",
-  "description": "A lightweight 2D game engine",
+  "description": "A lightweight 2D game engine (npm workspaces monorepo)",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "examples",
+    "docs"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "npm run test:node && npm run test:browser",
-    "test:watch": "vitest --project node",
-    "generate-sprites": "node scripts/generateSprites.js",
-    "test:node": "vitest run --project node",
-    "test:browser": "vitest run --project browser"
+    "dev": "npm run dev --workspace examples",
+    "build": "npm run build --workspace examples",
+    "preview": "npm run preview --workspace examples",
+    "generate-sprites": "npm run generate-sprites --workspace examples",
+    "test": "npm run test --workspaces --if-present",
+    "test:watch": "npm run test:watch --workspace packages/engine",
+    "test:node": "npm run test:node --workspace packages/engine",
+    "test:browser": "npm run test:browser --workspace packages/engine"
   },
   "author": "Mert Yildiz",
-  "license": "MIT",
-  "dependencies": {
-    "@dimforge/rapier2d-compat": "^0.21.0",
-    "@napi-rs/canvas": "^1.1.0"
-  },
-  "main": "index.js",
-  "directories": {
-    "example": "examples"
-  },
-  "keywords": [],
-  "devDependencies": {
-    "@vitest/browser": "^5.0.5",
-    "@vitest/browser-playwright": "^5.0.5",
-    "playwright": "^1.64.1",
-    "vite": "^8.3.5",
-    "vitest": "^5.0.5"
-  }
+  "license": "MIT"
 }

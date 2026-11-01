@@ -1,0 +1,24 @@
+{
+  "name": "m2d-examples",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Example games and demo site for the m2d engine",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "generate-sprites": "node scripts/generateSprites.js",
+    "test": "vitest run"
+  },
+  "author": "Mert Yildiz",
+  "license": "MIT",
+  "dependencies": {
+    "m2d-engine": "^1.0.0"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.1.0",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}
