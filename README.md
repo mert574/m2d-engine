@@ -67,6 +67,8 @@ npm run generate-sprites
 npm run dev
 ```
 
+The server opens `http://localhost:3000` in your default browser automatically.
+
 ## Demo deployment
 
 The [Pages workflow](.github/workflows/pages.yml) installs dependencies, runs

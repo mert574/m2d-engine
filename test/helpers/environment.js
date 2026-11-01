@@ -1,5 +1,5 @@
 /**
- * Environment shim so renderer tests run both headless (Node + node-canvas)
+ * Environment shim so renderer tests run both headless (Node + @napi-rs/canvas)
  * and in a real browser (vitest browser mode), without the tests themselves
  * knowing which one they are in.
  */
@@ -18,19 +18,19 @@ if (hasDOM) {
     return canvas;
   };
 } else {
-  // `canvas` is a native Node addon. The specifier is kept out of a literal
+  // @napi-rs/canvas is a native Node addon. The specifier is kept out of a literal
   // import() so Vite does not try to resolve/bundle it when this module is
   // served to the browser project (where this branch never runs).
-  const nodeCanvasSpecifier = 'canvas';
+  const nodeCanvasSpecifier = '@napi-rs/canvas';
   const mod = await import(/* @vite-ignore */ nodeCanvasSpecifier);
   const createCanvas = mod.createCanvas ?? mod.default?.createCanvas;
   if (!createCanvas) {
-    throw new Error('node-canvas is required to run renderer tests headlessly');
+    throw new Error('@napi-rs/canvas is required to run renderer tests headlessly');
   }
 
   createCanvasElement = (width, height) => {
     const canvas = createCanvas(width, height);
-    // Renderers set canvas.style.cursor; node-canvas has no style object.
+    // Renderers set canvas.style.cursor; the Node canvas has no style object.
     if (!canvas.style) canvas.style = {};
     return canvas;
   };

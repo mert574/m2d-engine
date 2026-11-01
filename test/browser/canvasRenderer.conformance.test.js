@@ -5,7 +5,7 @@ import { createCanvasElement, readCanvas2DPixels } from '../helpers/environment.
 /**
  * The Canvas backend's conformance run, repeated in a real browser.
  *
- * The headless run (test/canvasRenderer.conformance.test.js) uses node-canvas.
+ * The headless run (test/canvasRenderer.conformance.test.js) uses @napi-rs/canvas.
  * Running the same suite against Chromium's rasterizer proves the suite's
  * tolerances hold for a second rasterizer before a second *backend* is judged
  * by it: a test that fails only here is a tolerance bug, not a backend bug.

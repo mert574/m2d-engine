@@ -11,8 +11,10 @@ note, and `test/README.md` covers the renderer conformance suite.
 Use Node.js 22 or later. Install dependencies with `npm ci`, generate sprites
 with `npm run generate-sprites`, and start `npm run dev`. The example index is
 served on port 3000. `npm run build` creates the deployable `docs/` directory.
-The `canvas` dependency may need native build prerequisites if a prebuilt binary
-is unavailable for your platform.
+Sprite generation and Node renderer tests use `@napi-rs/canvas`. On supported
+platforms its prebuilt Skia binding is installed through the npm registry, with
+no system build dependencies or GitHub binary download. Do not omit optional
+dependencies when installing: they include the platform binding.
 
 ## Changes
 

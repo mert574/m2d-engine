@@ -78,7 +78,7 @@ export class PointerSource {
     this.active = new Set();
 
     this.#applyCaptureStyles();
-    // Headless tests construct a game around a node-canvas surface, which has
+    // Headless tests construct a game around a @napi-rs/canvas surface, which has
     // no event target at all. Everything above still applies; there is simply
     // nothing to listen to.
     if (typeof canvas?.addEventListener === 'function') this.#listen();

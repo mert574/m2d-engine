@@ -4,7 +4,7 @@ import { M2D } from '../src/core/m2d.js';
 import { CanvasRenderer } from '../src/core/renderers/canvasRenderer.js';
 
 /**
- * Backend selection in the engine. node-canvas has no WebGL2, so in this
+ * Backend selection in the engine. @napi-rs/canvas has no WebGL2, so in this
  * project the default backend cannot initialise, which is exactly the
  * situation the fallback exists for.
  */

@@ -116,7 +116,7 @@ silhouette shadows), never in the contract or in callers.
 The backend contract is enforced by an executable conformance suite
 (`test/conformance/rendererConformance.js`). A new backend is validated by one
 file that passes it a harness — see `test/README.md`. Tests are split into a
-`node` project (fast, node-canvas) and a `browser` project (`test/browser/**`,
+`node` project (fast, @napi-rs/canvas) and a `browser` project (`test/browser/**`,
 headless Chromium) because Node has no WebGL. Two contract details are easy to
 get wrong and are pinned by tests: partial `drawArc` fills produce circular
 **segments** (chord-closed), not pie sectors; and the frame order is world

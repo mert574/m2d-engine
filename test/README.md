@@ -11,7 +11,7 @@ Tests are split into two Vitest projects (declared in `test.projects` in
 `vitest.config.js`):
 
 - **node** (inline in `vitest.config.js`) — everything outside `test/browser/`. Runs in
-  Node; `node-canvas` provides a real rasterizer so pixel assertions work
+  Node; `@napi-rs/canvas` provides a real rasterizer so pixel assertions work
   without a browser.
 - **browser** (`vitest.browser.config.js`) — `test/browser/**` only. Runs in
   headless Chromium via Playwright. Node has no WebGL, so this is where the
@@ -170,6 +170,17 @@ One-time setup downloads Chromium:
 npx playwright install chromium
 ```
 
+To use an existing Chrome or Chromium executable instead of downloading one,
+set `M2D_BROWSER` to its path:
+
+```bash
+M2D_BROWSER=/usr/bin/chromium npm run test:browser
+```
+
+The override also applies to the browser project in `npm test`. Without it,
+Playwright uses its bundled Chromium. The selected executable must be runnable
+in the test environment and support WebGL2.
+
 Chromium also needs a few system libraries that a minimal Linux/WSL2 install
 may lack (`libnspr4`, `libnss3`, `libasound2`). If `npm run test:browser`
 fails with `error while loading shared libraries`, install them:
@@ -186,7 +197,7 @@ is still unavailable, so a broken runner shows up as one failure rather than
 a hundred and twenty.
 
 The suite itself is environment-agnostic: `helpers/environment.js` prefers a
-real DOM when one exists and only falls back to `node-canvas` in Node. The
+real DOM when one exists and only falls back to `@napi-rs/canvas` in Node. The
 Canvas backend's conformance run is repeated in the browser project
 (`browser/canvasRenderer.conformance.test.js`) so the suite's antialiasing
 tolerances are proven against Chromium's rasterizer independently of any

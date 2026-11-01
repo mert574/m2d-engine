@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
 // Two projects so the fast headless suite stays fast:
-//   node    - everything except test/browser/**, runs in Node with node-canvas
+//   node    - everything except test/browser/**, runs in Node with @napi-rs/canvas
 //   browser - test/browser/** only, runs in headless Chromium (WebGL2 available)
 //
 //   npm test              both
@@ -21,10 +21,10 @@ export default defineConfig({
           include: ['test/**/*.test.js'],
           exclude: ['test/browser/**', 'node_modules/**'],
           setupFiles: ['./test/helpers/setupPhysics.js'],
-          // The `canvas` package is a native CJS addon; let Node resolve it directly.
+          // The Skia binding is a native CJS addon; let Node resolve it directly.
           server: {
             deps: {
-              external: ['canvas']
+              external: ['@napi-rs/canvas']
             }
           }
         }

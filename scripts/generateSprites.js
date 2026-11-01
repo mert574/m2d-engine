@@ -1,4 +1,4 @@
-import { createCanvas } from 'canvas';
+import { createCanvas } from '@napi-rs/canvas';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 
@@ -42,7 +42,7 @@ const generatePlatformerSprites = () => {
 
     const playerPath = getOutputPath('platformer', 'player.png');
     ensureDirectoryExists(playerPath);
-    writeSprite(playerPath, playerCanvas.toBuffer());
+    writeSprite(playerPath, playerCanvas.toBuffer('image/png'));
 
     // Platform sprite
     const platformCanvas = createCanvas(32, 32);
@@ -63,7 +63,7 @@ const generatePlatformerSprites = () => {
 
     const platformPath = getOutputPath('platformer', 'platform.png');
     ensureDirectoryExists(platformPath);
-    writeSprite(platformPath, platformCanvas.toBuffer());
+    writeSprite(platformPath, platformCanvas.toBuffer('image/png'));
 
     // Moving Platform sprite
     const movingPlatformCanvas = createCanvas(32, 32);
@@ -93,7 +93,7 @@ const generatePlatformerSprites = () => {
 
     const movingPlatformPath = getOutputPath('platformer', 'movingPlatform.png');
     ensureDirectoryExists(movingPlatformPath);
-    writeSprite(movingPlatformPath, movingPlatformCanvas.toBuffer());
+    writeSprite(movingPlatformPath, movingPlatformCanvas.toBuffer('image/png'));
 
     // Bee enemy sprite
     const beeCanvas = createCanvas(96, 32);  // 3 frames of 32x32
@@ -147,7 +147,7 @@ const generatePlatformerSprites = () => {
 
     const beePath = getOutputPath('platformer', 'enemy.png');
     ensureDirectoryExists(beePath);
-    writeSprite(beePath, beeCanvas.toBuffer());
+    writeSprite(beePath, beeCanvas.toBuffer('image/png'));
 
     // Coin sprite (32x32 with shine effect)
     const coinCanvas = createCanvas(32, 32);
@@ -180,7 +180,7 @@ const generatePlatformerSprites = () => {
 
     const coinPath = getOutputPath('platformer', 'coin.png');
     ensureDirectoryExists(coinPath);
-    writeSprite(coinPath, coinCanvas.toBuffer());
+    writeSprite(coinPath, coinCanvas.toBuffer('image/png'));
 };
 
 // Maze Example Sprites
@@ -200,7 +200,7 @@ const generateMazeSprites = () => {
 
     const playerPath = getOutputPath('maze', 'player.png');
     ensureDirectoryExists(playerPath);
-    writeSprite(playerPath, playerCanvas.toBuffer());
+    writeSprite(playerPath, playerCanvas.toBuffer('image/png'));
 
     // Wall sprite
     const wallCanvas = createCanvas(32, 32);
@@ -214,7 +214,7 @@ const generateMazeSprites = () => {
 
     const wallPath = getOutputPath('maze', 'wall.png');
     ensureDirectoryExists(wallPath);
-    writeSprite(wallPath, wallCanvas.toBuffer());
+    writeSprite(wallPath, wallCanvas.toBuffer('image/png'));
 
     // Floor sprite
     const floorCanvas = createCanvas(32, 32);
@@ -228,7 +228,7 @@ const generateMazeSprites = () => {
 
     const floorPath = getOutputPath('maze', 'floor.png');
     ensureDirectoryExists(floorPath);
-    writeSprite(floorPath, floorCanvas.toBuffer());
+    writeSprite(floorPath, floorCanvas.toBuffer('image/png'));
 };
 
 // Physics Example Sprites
@@ -248,7 +248,7 @@ const generatePhysicsSprites = () => {
 
     const ballPath = getOutputPath('physics', 'ball.png');
     ensureDirectoryExists(ballPath);
-    writeSprite(ballPath, ballCanvas.toBuffer());
+    writeSprite(ballPath, ballCanvas.toBuffer('image/png'));
 
     // Box sprite
     const boxCanvas = createCanvas(32, 32);
@@ -264,7 +264,7 @@ const generatePhysicsSprites = () => {
 
     const boxPath = getOutputPath('physics', 'box.png');
     ensureDirectoryExists(boxPath);
-    writeSprite(boxPath, boxCanvas.toBuffer());
+    writeSprite(boxPath, boxCanvas.toBuffer('image/png'));
 
     // Platform sprite
     const platformCanvas = createCanvas(32, 32);
@@ -278,7 +278,7 @@ const generatePhysicsSprites = () => {
 
     const platformPath = getOutputPath('physics', 'platform.png');
     ensureDirectoryExists(platformPath);
-    writeSprite(platformPath, platformCanvas.toBuffer());
+    writeSprite(platformPath, platformCanvas.toBuffer('image/png'));
 };
 
 // Top-Down Example Sprites
@@ -309,7 +309,7 @@ const generateTopDownSprites = () => {
 
     const playerPath = getOutputPath('topdown', 'player.png');
     ensureDirectoryExists(playerPath);
-    writeSprite(playerPath, playerCanvas.toBuffer());
+    writeSprite(playerPath, playerCanvas.toBuffer('image/png'));
 
     // Wall sprite
     const wallCanvas = createCanvas(32, 32);
@@ -325,7 +325,7 @@ const generateTopDownSprites = () => {
 
     const wallPath = getOutputPath('topdown', 'wall.png');
     ensureDirectoryExists(wallPath);
-    writeSprite(wallPath, wallCanvas.toBuffer());
+    writeSprite(wallPath, wallCanvas.toBuffer('image/png'));
 
     // Enemy sprite (single frame)
     const enemyCanvas = createCanvas(32, 32);
@@ -358,7 +358,7 @@ const generateTopDownSprites = () => {
 
     const enemyPath = getOutputPath('topdown', 'enemy.png');
     ensureDirectoryExists(enemyPath);
-    writeSprite(enemyPath, enemyCanvas.toBuffer());
+    writeSprite(enemyPath, enemyCanvas.toBuffer('image/png'));
 
     // Coin sprite
     const coinCanvas = createCanvas(32, 32);
@@ -379,7 +379,7 @@ const generateTopDownSprites = () => {
 
     const coinPath = getOutputPath('topdown', 'coin.png');
     ensureDirectoryExists(coinPath);
-    writeSprite(coinPath, coinCanvas.toBuffer());
+    writeSprite(coinPath, coinCanvas.toBuffer('image/png'));
 
     // Trigger sprite (goal area)
     const triggerCanvas = createCanvas(32, 32);
@@ -401,7 +401,7 @@ const generateTopDownSprites = () => {
 
     const triggerPath = getOutputPath('topdown', 'trigger.png');
     ensureDirectoryExists(triggerPath);
-    writeSprite(triggerPath, triggerCanvas.toBuffer());
+    writeSprite(triggerPath, triggerCanvas.toBuffer('image/png'));
 };
 
 // Renderer Showcase Sprites
@@ -436,7 +436,7 @@ const generateShowcaseSprites = () => {
 
     const motePath = getOutputPath('showcase', 'mote.png');
     ensureDirectoryExists(motePath);
-    writeSprite(motePath, moteCanvas.toBuffer());
+    writeSprite(motePath, moteCanvas.toBuffer('image/png'));
 
     // Reed sheet: eight 32x64 stalks — six grasses and two flowering heads.
     // Enough variety that a dense bank does not read as one repeated sprite.
@@ -500,7 +500,7 @@ const generateShowcaseSprites = () => {
 
     const reedPath = getOutputPath('showcase', 'reed.png');
     ensureDirectoryExists(reedPath);
-    writeSprite(reedPath, reedCanvas.toBuffer());
+    writeSprite(reedPath, reedCanvas.toBuffer('image/png'));
 
     // Lighthouse: one 64x160 tower. Its lamp is the origin of the sweeping
     // beam, and the minimap plots the same angle.
@@ -540,7 +540,7 @@ const generateShowcaseSprites = () => {
 
     const towerPath = getOutputPath('showcase', 'lighthouse.png');
     ensureDirectoryExists(towerPath);
-    writeSprite(towerPath, towerCanvas.toBuffer());
+    writeSprite(towerPath, towerCanvas.toBuffer('image/png'));
 
     // Rain streak: one 8x32 tile, a soft vertical line that fades at both
     // ends. Drawn by the thousands through drawParticles.
@@ -560,7 +560,7 @@ const generateShowcaseSprites = () => {
 
     const rainPath = getOutputPath('showcase', 'rain.png');
     ensureDirectoryExists(rainPath);
-    writeSprite(rainPath, rainCanvas.toBuffer());
+    writeSprite(rainPath, rainCanvas.toBuffer('image/png'));
 
     // Lantern sheet: two 32x32 frames (lit / dim) for the harbour lights.
     const lanternCanvas = createCanvas(64, 32);
@@ -586,7 +586,7 @@ const generateShowcaseSprites = () => {
 
     const lanternPath = getOutputPath('showcase', 'lantern.png');
     ensureDirectoryExists(lanternPath);
-    writeSprite(lanternPath, lanternCanvas.toBuffer());
+    writeSprite(lanternPath, lanternCanvas.toBuffer('image/png'));
 
     // Crate sheet: one 32x32 tile for the physics props the player shoves.
     const crateCanvas = createCanvas(32, 32);
@@ -608,7 +608,7 @@ const generateShowcaseSprites = () => {
 
     const cratePath = getOutputPath('showcase', 'crate.png');
     ensureDirectoryExists(cratePath);
-    writeSprite(cratePath, crateCanvas.toBuffer());
+    writeSprite(cratePath, crateCanvas.toBuffer('image/png'));
 
     // Dock sheet: one 32x32 plank tile for the static geometry.
     const dockCanvas = createCanvas(32, 32);
@@ -629,7 +629,7 @@ const generateShowcaseSprites = () => {
 
     const dockPath = getOutputPath('showcase', 'dock.png');
     ensureDirectoryExists(dockPath);
-    writeSprite(dockPath, dockCanvas.toBuffer());
+    writeSprite(dockPath, dockCanvas.toBuffer('image/png'));
 };
 
 // Generate sprites based on command line argument
@@ -662,4 +662,4 @@ if (!example || example === 'all') {
             console.error(`Unknown example: ${example}`);
             process.exit(1);
     }
-} 
+}

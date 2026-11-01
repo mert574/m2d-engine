@@ -6,6 +6,7 @@ import { playwright } from '@vitest/browser-playwright';
 //
 // One-time setup:  npx playwright install chromium
 // Run:             npm run test:browser
+// Existing browser: M2D_BROWSER=/path/to/chromium npm run test:browser
 export default defineConfig({
   // Pre-bundle the WASM physics module; discovering it mid-run makes Vite
   // reload the page under the tests.
@@ -18,22 +19,23 @@ export default defineConfig({
     setupFiles: ['./test/helpers/setupPhysics.js'],
     browser: {
       enabled: true,
-      provider: playwright(),
+      provider: playwright({
+        launchOptions: {
+          executablePath: process.env.M2D_BROWSER || undefined,
+          args: [
+            // Headless Chromium has no GPU; allow WebGL2 via SwiftShader.
+            '--enable-unsafe-swiftshader',
+            '--use-gl=angle',
+            '--use-angle=swiftshader',
+            '--ignore-gpu-blocklist'
+          ]
+        }
+      }),
       headless: true,
       screenshotFailures: false,
       instances: [
         {
-          browser: 'chromium',
-          launch: {
-            args: [
-              // Headless Chromium has no GPU; these allow WebGL2 to fall back to
-              // the SwiftShader software rasterizer instead of being disabled.
-              '--enable-unsafe-swiftshader',
-              '--use-gl=angle',
-              '--use-angle=swiftshader',
-              '--ignore-gpu-blocklist'
-            ]
-          }
+          browser: 'chromium'
         }
       ]
     }
