@@ -4,6 +4,7 @@ import { RecordingRenderer } from './recordingRenderer.js';
 import { UIRenderer } from '../../src/core/renderers/uiRenderer.js';
 import { WorldOverlay } from '../../src/core/ui/worldOverlay.js';
 import { Camera } from '../../src/core/camera.js';
+import { InputManager } from '../../src/core/input/index.js';
 import { viewToUI } from '../../src/core/viewport.js';
 
 /**
@@ -20,7 +21,15 @@ export function makeTestGame(options = {}) {
     physics: createPhysicsWorld(),
     entities: new Set(),
     player: null,
-    canvas: { width: 800, height: 600, style: {} },
+    // No event target and no bounding rect: the input system attaches
+    // nothing here and tests drive it through `game.input.push` instead
+    // (see helpers/input.js).
+    canvas: {
+      width: 800,
+      height: 600,
+      style: {},
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 })
+    },
     soundManager: { playSound() {}, stopMusic() {} },
     sceneManager: { switchTo() {} },
     overlays: new Set(),
@@ -40,6 +49,10 @@ export function makeTestGame(options = {}) {
   game.camera.x = 400;
   game.camera.y = 300;
   game.worldOverlay = new WorldOverlay(game);
+  // The real input system, minus a DOM to listen to. Pointer lock is off:
+  // it would otherwise switch the virtual cursor on and make every
+  // synthesized position relative.
+  game.input = new InputManager(game, { pointerLock: false });
   return game;
 }
 

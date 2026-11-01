@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { createCanvasElement } from './helpers/environment.js';
 import { M2D } from '../src/core/m2d.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
+import { pointerAtClient } from './helpers/input.js';
 
 /**
  * Fullscreen and resize lifecycle.
@@ -155,13 +156,12 @@ describe('resize lifecycle', () => {
       const canvas = displayCanvas(1280, 720);
       const game = makeGame(canvas);
 
-      const at = () => game.getMousePosition({ clientX: 320, clientY: 180 });
-      const expected = at();
+      const expected = pointerAtClient(game, 320, 180).world;
 
       for (const [w, h] of [[2560, 1440], [640, 360]]) {
         setDisplaySize(canvas, w, h);
         game.resize();
-        const scaled = game.getMousePosition({ clientX: 320 * (w / 1280), clientY: 180 * (h / 720) });
+        const scaled = pointerAtClient(game, 320 * (w / 1280), 180 * (h / 720)).world;
         expect(scaled.x).toBeCloseTo(expected.x, 5);
         expect(scaled.y).toBeCloseTo(expected.y, 5);
       }
@@ -171,9 +171,9 @@ describe('resize lifecycle', () => {
       const canvas = displayCanvas(1280, 720);
       const game = makeGame(canvas);
 
-      const before = game.getMousePosition({ clientX: 400, clientY: 300 });
+      const before = pointerAtClient(game, 400, 300).world;
       game.setResolution({ width: 320, height: 180 });
-      const after = game.getMousePosition({ clientX: 400, clientY: 300 });
+      const after = pointerAtClient(game, 400, 300).world;
 
       expect(after).toEqual(before);
     });
@@ -182,7 +182,7 @@ describe('resize lifecycle', () => {
       const canvas = displayCanvas(2100, 900);
       const game = makeGame(canvas);
 
-      const corner = game.getUIPosition({ clientX: 2100, clientY: 900 });
+      const corner = pointerAtClient(game, 2100, 900).ui;
       expect(corner.x).toBeCloseTo(game.uiRenderer.width, 5);
       expect(corner.y).toBeCloseTo(game.uiRenderer.height, 5);
     });
@@ -200,10 +200,11 @@ describe('resize lifecycle', () => {
       // the real bottom-right corner of the display.
       const clickBottomRight = () => {
         const cssPerUnit = game.viewport.uiScale / game.viewport.pixelRatio;
-        const p = game.getUIPosition({
-          clientX: canvas.clientWidth - 50 * cssPerUnit,
-          clientY: canvas.clientHeight - 30 * cssPerUnit
-        });
+        const p = pointerAtClient(
+          game,
+          canvas.clientWidth - 50 * cssPerUnit,
+          canvas.clientHeight - 30 * cssPerUnit
+        ).ui;
         return button.contains(p.x, p.y);
       };
 
@@ -222,7 +223,7 @@ describe('resize lifecycle', () => {
       const button = new UIElement(-50, -30, 80, 40, { anchor: 'bottom-right' });
       button.setGame(game);
 
-      const p = game.getUIPosition({ clientX: 10, clientY: 10 });
+      const p = pointerAtClient(game, 10, 10).ui;
       expect(button.contains(p.x, p.y)).toBe(false);
     });
   });
@@ -329,17 +330,19 @@ describe('resize lifecycle', () => {
       expect(game.soundManager.music.size).toBe(0);
     });
 
-    it('leaves key bindings inert rather than firing into a dead game', () => {
+    it('leaves input subscriptions inert rather than firing into a dead game', () => {
       const game = makeGame(displayCanvas(1280, 720));
       let fired = false;
-      game.keys.addKey('x', () => { fired = true; });
+      game.input.on('keydown', () => { fired = true; });
 
       game.destroy();
-      // Even if a stray event reaches the handler, there is nothing bound.
-      game.keys.handleKeyDown({ key: 'x' });
+      // Even if a stray record reaches the queue, nothing is subscribed and
+      // no key is held.
+      game.input.push({ kind: 'keydown', code: 'KeyX', key: 'x', time: 0 });
+      game.input.flush();
 
       expect(fired).toBe(false);
-      expect(game.keys.keys.size).toBe(0);
+      expect(game.input.isDown('KeyX')).toBe(false);
     });
   });
 });

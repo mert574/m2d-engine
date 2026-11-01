@@ -6,7 +6,7 @@ import { PathFollow } from '../src/constraints/pathFollow.js';
 import { Hover } from '../src/constraints/hover.js';
 import { WallSlip } from '../src/constraints/wallSlip.js';
 import { KeyboardControl } from '../src/constraints/keyboardControl.js';
-import { KEY_RIGHT, KEY_DOWN } from '../src/core/keyCodes.js';
+import { holdKeys } from './helpers/input.js';
 
 /**
  * The reusable entity behaviours (src/constraints/) that drive physics or
@@ -158,7 +158,7 @@ describe('KeyboardControl against walls', () => {
   function slideAlongWall(keys) {
     const game = makeTestGame();
     game.physics.setGravity({ x: 0, y: 0 });
-    game.keys = { addKey() {}, pressedKeys: () => new Set(keys) };
+    holdKeys(game, ...keys);
     game.physics.add(makeBody(game, 0, 64, 4000, 32, { bodyType: 'static' }));
     const body = game.physics.createCircle({
       x: 0, y: 20, radius: 13, bodyType: 'character', frictionAir: 0
@@ -181,8 +181,8 @@ describe('KeyboardControl against walls', () => {
     // The blocked axis must not tax the free one by √2: pressing into the
     // wall is spent force, so right+down against a floor travels exactly as
     // far as right alone — not 71% of it.
-    const single = slideAlongWall([KEY_RIGHT]);
-    const diagonal = slideAlongWall([KEY_RIGHT, KEY_DOWN]);
+    const single = slideAlongWall(['ArrowRight']);
+    const diagonal = slideAlongWall(['ArrowRight', 'ArrowDown']);
 
     expect(single).toBeGreaterThan(180);
     expect(diagonal).toBeGreaterThanOrEqual(single * 0.98);

@@ -3,13 +3,13 @@
  * overlay, renderer backend and pause.
  *
  * One instance per game covers every scene: it is an *overlay*, drawn by the
- * engine after the scene's own UI (`M2D.drawOverlays`), and it listens for
- * pointer and keyboard events on `window` in the capture phase so that, while
- * open, input lands here and never reaches scene UI, game-level click
- * handlers or the game's key bindings underneath. (Key *releases* are let
- * through on purpose: a key held down when the menu opened must still release
- * in the game's state, or the player would keep running after the menu
- * closes.)
+ * engine after the scene's own UI (`M2D.drawOverlays`) and sitting in the
+ * input router's overlay band, which every event passes through before any
+ * scene UI or world entity sees it. While the menu is open it consumes what
+ * it is given, so input never reaches the game underneath. (Key *releases*
+ * are let through on purpose: a key held down when the menu opened must
+ * still release in the game's state, or the player would keep running after
+ * the menu closes.)
  *
  * The resolution rows are the point of the menu. Picking one calls
  * `game.setResolution`, which changes only how many pixels the *world* is
@@ -43,7 +43,8 @@ export class SettingsMenu {
   /**
    * @param {import('../m2d.js').M2D} game
    * @param {Object} [options]
-   * @param {string} [options.hotkey='o'] - Key that toggles the menu
+   * @param {string} [options.hotkey='KeyO'] - Physical key code that toggles
+   *   the menu (see core/input/keyboard.js for why it is a code)
    * @param {Array<'native'|number|{width?: number, height: number}>} [options.resolutions] -
    *   Choices offered; 'native', scale factors of the design size, or presets
    * @param {boolean} [options.pauseWhenOpen=false] - Pause the game while the
@@ -52,7 +53,7 @@ export class SettingsMenu {
   constructor(game, options = {}) {
     this.game = game;
     this.isOpen = false;
-    this.hotkey = options.hotkey || 'o';
+    this.hotkey = options.hotkey || 'KeyO';
     this.resolutions = options.resolutions || ['native', ...DEFAULT_SCALES];
     this.pauseWhenOpen = options.pauseWhenOpen ?? false;
     /** Whether closing should resume the game; captured when opening pauses it. */
@@ -62,49 +63,65 @@ export class SettingsMenu {
     this.rows = [];
     this.hoverIndex = -1;
 
-    game.keys.addKey(this.hotkey, (pressed) => { if (pressed) this.toggle(); });
-
-    // Capture phase on window: while the menu is open these run before any
-    // canvas or document listener a scene registered, and stop the event so
-    // nothing underneath reacts to input meant for the menu. This includes
-    // the game's own key bindings (KeyStates listens on document), which is
-    // why closing via the hotkey or Escape is handled right here — the
-    // KeyStates binding above only ever *opens* the menu.
-    this.onMouseDown = (event) => {
-      if (!this.isOpen) return;
-      event.stopPropagation();
-      const { x, y } = this.game.getUIPosition(event);
-      this.handleMouseDown(x, y);
-    };
-    this.onMouseMove = (event) => {
-      if (!this.isOpen) return;
-      event.stopPropagation();
-      const { x, y } = this.game.getUIPosition(event);
-      this.handleMouseMove(x, y);
-    };
-    this.onKeyDown = (event) => {
-      if (!this.isOpen) return;
-      event.stopPropagation();
-      if (event.key === this.hotkey || event.key === 'Escape') this.close();
-    };
-    if (typeof window !== 'undefined') {
-      window.addEventListener('mousedown', this.onMouseDown, true);
-      window.addEventListener('mousemove', this.onMouseMove, true);
-      window.addEventListener('keydown', this.onKeyDown, true);
-    }
-
     game.overlays.add(this);
     /** The mounted menu, reachable by scene UI (e.g. a Settings button). */
     game.settings = this;
   }
 
-  destroy() {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('mousedown', this.onMouseDown, true);
-      window.removeEventListener('mousemove', this.onMouseMove, true);
-      window.removeEventListener('keydown', this.onKeyDown, true);
+  /**
+   * Whether the router should treat this overlay as holding the pointer.
+   * An open menu does: nothing behind it may show a hover state.
+   */
+  get capturesInput() {
+    return this.isOpen;
+  }
+
+  /**
+   * Input, straight from the router's overlay band — before scene UI and
+   * before the world.
+   *
+   * The hotkey is handled here rather than through a subscription because
+   * the menu has to see it in both directions: the same press that opens the
+   * menu must close it again, and while open it must not also reach the game.
+   *
+   * @param {object} event
+   */
+  handleInput(event) {
+    // Releases always pass through, even while open. A key held down when
+    // the menu opened has to come back up in the game's state, or the
+    // player keeps running after the menu closes.
+    if (event.type === 'keyup') return;
+
+    if (event.type === 'keydown') {
+      if (event.code !== this.hotkey && event.code !== 'Escape') {
+        // Every other key still belongs to the game — unless the menu is
+        // open, in which case nothing does.
+        if (this.isOpen) event.consume();
+        return;
+      }
+      // Escape only closes; it never opens.
+      if (this.isOpen) this.close();
+      else if (event.code === this.hotkey) this.open();
+      event.consume();
+      return;
     }
-    this.game.keys.removeKey(this.hotkey);
+
+    if (!this.isOpen) return;
+
+    switch (event.type) {
+      case 'click':
+        this.handleMouseDown(event.ui.x, event.ui.y);
+        break;
+      case 'pointermove':
+        this.handleMouseMove(event.ui.x, event.ui.y);
+        break;
+    }
+    // Everything else that reaches an open menu dies here, so a stray press
+    // or scroll can never fall through to the game behind it.
+    event.consume();
+  }
+
+  destroy() {
     this.game.overlays.delete(this);
     if (this.game.settings === this) this.game.settings = null;
   }
@@ -171,7 +188,7 @@ export class SettingsMenu {
       },
       {
         label: 'Close',
-        value: `(${this.hotkey.toUpperCase()})`,
+        value: `(${game.input.keyLabel(this.hotkey)})`,
         onClick: () => this.close()
       }
     ];

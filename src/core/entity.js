@@ -44,6 +44,23 @@ export class Entity {
     return this.constraints.get(name);
   }
 
+  /**
+   * Release everything the entity's constraints registered elsewhere.
+   *
+   * Most constraints only read and write the entity, and have nothing to
+   * give back. The ones that register with an engine-wide service — an
+   * `Interactive` entity sits in the input router's hit-test set — must be
+   * torn down, or the router keeps hit-testing an entity that no longer
+   * exists and clicks land on empty space.
+   */
+  destroy() {
+    for (const constraint of this.constraints.values()) {
+      constraint.destroy?.();
+    }
+    this.constraints.clear();
+    this.dead = true;
+  }
+
   onCollisionStart(other) {
     this._contacts.add(other);
     for (const constraint of this.constraints.values()) {

@@ -49,6 +49,7 @@ node scripts/generateSprites.js <example>  # Generate sprites for an example
 - **SceneLoader** (`sceneLoader.js`) - Validates and normalizes scene JSON before a Scene is built from it. See "Level JSON Structure".
 - **M2D** (`m2d.js`) - Main engine class. Collision handlers are set up in `setupCollisionHandlers()`.
 - **PhysicsWorld** (`physics/`) - The simulation, reached as `game.physics`. See "Physics boundary" above.
+- **InputManager** (`input/`) - Keyboard, mouse, touch and pen, reached as `game.input`. See "Input" below.
 
 ### Renderers (`src/core/renderers/`)
 
@@ -121,6 +122,78 @@ get wrong and are pinned by tests: partial `drawArc` fills produce circular
 **segments** (chord-closed), not pie sectors; and the frame order is world
 pass then screen pass.
 
+### Input (`src/core/input/`)
+
+Everything the player does arrives through **`game.input`**, and nothing else
+in the engine registers a DOM input listener. Pointer Events are the only
+pointer source, so mouse, touch and pen are one code path, not three.
+
+```javascript
+game.input.isDown('KeyW')                   // physical codes, not characters
+game.input.justPressed('Space')
+game.input.axis('KeyA', 'KeyD')             // -1..1
+game.input.vector('KeyW', 'KeyS', 'KeyA', 'KeyD')   // normalized
+
+game.input.pointer.world                    // live: correct when the camera moves
+game.input.on('click', (event) => event.world)
+game.input.on('pinch', (event) => event.scaleDelta)
+```
+
+Event types: `pointerdown` / `pointermove` / `pointerup`, `click`,
+`doubleclick`, `rightclick`, `hover` / `hoverend`, `dragstart` / `drag` /
+`dragend` / `drop`, `pinchstart` / `pinch` / `pinchend`, `scroll`,
+`keydown` / `keyup`, `pointerlockchange`.
+
+- **Keys are physical codes** (`'KeyW'`, `'Space'`, `'ArrowLeft'`), never
+  characters. `event.key` is layout-dependent, so WASD stops being a diamond
+  under the left hand on AZERTY. Use `game.input.keyLabel(code)` when showing
+  a binding to the player. Listeners sit on the canvas, which is made
+  focusable, so the engine does not eat keystrokes meant for the page.
+- **Every event carries `ui`, `view` and `world`.** Drags add `start`,
+  `delta` and `total` (each with `ui` and `world`); drops add `dropTarget`;
+  pinches add `scale`, `scaleDelta`, `rotation` and `centre`; scrolls add
+  `scroll` in pixels whatever unit the browser reported.
+- **Events walk three bands — overlay, UI, world — and `event.consume()`
+  stops the descent.** One target is resolved per event: the topmost hit in
+  the highest band that has one. This replaces the old `stopPropagation` flag.
+- **Recognizers are lazy, and for pinch that is behaviour, not thrift.** With
+  no pinch listener two fingers are two independent drags, which is what
+  twin-stick touch controls need; subscribing to `pinch` is what claims the
+  second pointer. Long-press-as-right-click works the same way, since it
+  suppresses the tap that would otherwise follow.
+- **Click fires on release, and a double fires both.** A click needs the
+  press and the release on the *same target* (a slop radius is only the
+  fallback when nothing was pressed), so sliding off a button cancels it and
+  pressing opposite edges of one still counts. `doubleclick` is additional to
+  the second `click`, because waiting to tell them apart would put 300ms on
+  every click.
+- **World hit testing is opt-in** through the `Interactive` constraint. No
+  interactive entities means the router never asks physics anything; with
+  them, one `physics.queryPoint` per event answers for all of them.
+  `Interactive` delivers drag events but deliberately does not move the body
+  — what "dragging" means is a physics decision (see the physics example's
+  velocity-driven grab). `follow: true` opts into the naive answer.
+- **Presses drain immediately, moves wait for the frame.** `requestFullscreen`
+  and `requestPointerLock` are gated on running inside a real user gesture,
+  so press and key events are dispatched from the DOM handler; moves and
+  wheel ticks are buffered and coalesced in `input.beginFrame()`. Draining on
+  a press also drains everything queued before it, so order is preserved. A
+  game that replaces the engine loop must call `beginFrame`/`endFrame` itself
+  (doner does).
+- **Pointer lock is on by default.** The canvas confines the pointer and the
+  engine draws a **virtual cursor** integrated from relative motion, so
+  nothing downstream can tell which mode it is in — UI and world hit testing
+  read the same `ui` position either way. Locking needs a user gesture, so it
+  is requested on the first press and re-requested after Escape; a refusal is
+  expected and dropped. Opt out with `new M2D(canvas, { pointerLock: false })`
+  or `game.input.setPointerLock(false)`.
+- **The canvas eats its input**: `touch-action: none`, contained overscroll,
+  no selection, no context menu, and `setPointerCapture` on every press so a
+  drag that leaves the canvas keeps reporting.
+- **Synthesized input goes through `game.input.push(record)`** — the same
+  seam the DOM sources use. On-screen touch controls, replays and the tests
+  (`test/helpers/input.js`) all use it.
+
 ### Viewport, resolution and resize (`src/core/viewport.js`)
 
 The engine keeps **three resolutions independent**, because they answer three
@@ -185,13 +258,14 @@ Rules that follow from this, all pinned by tests:
   suite's baseline uses. A backend must store the viewport even when it cannot
   act on it — a WebGL context may be lost — so the *latest* size is replayed on
   restore.
-- **Pointer mapping goes through `mapPointer`.** The canvas rect is not the
-  drawn area (CSS letterboxing) and the world occupies only its content rect
-  inside it. Use `game.getMousePosition(event)` for world coordinates and
-  `game.getUIPosition(event)` for UI coordinates; never scale by the bounding
-  rect by hand. The opposite direction is `game.worldToUI(x, y)`
+- **Pointer mapping is already done for you.** Every input event carries
+  `ui`, `view` and `world` coordinates, resolved once at dispatch; so does
+  `game.input.pointer`. Never map a raw DOM event by hand — the canvas rect
+  is not the drawn area (CSS letterboxing) and the world occupies only its
+  content rect inside it. The opposite direction is `game.worldToUI(x, y)`
   (`viewToUI` in viewport.js), for pinning screen-space content to a world
-  object.
+  object; `uiToView` inverts it, which is how the pointer-locked virtual
+  cursor resolves a world position with no absolute one to start from.
 - **Annotations do not belong in the world pass.** Anything drawn *on* the
   game rather than *in* it — debug geometry (attention radii, attack ranges,
   target dots, facing vectors, bounds boxes), world-anchored readouts, a
@@ -227,12 +301,12 @@ button with `"action": "settings"` ends up calling `game.settings.open()`
 `onAction` hook, and `onClick` scene switches log failures instead of rejecting
 unhandled). It registers in `game.overlays`, drawn by `game.drawOverlays()`
 after the scene's UI each frame — a game that replaces the engine loop (doner)
-must call `drawOverlays()` itself. Its pointer *and keyboard* listeners sit on
-`window` in the capture phase so that, while open, input never reaches scene
-UI, document-level handlers or the game's key bindings underneath; key
-*releases* pass through on purpose so a key held when the menu opened still
-releases in `KeyStates`. Resolution presets are compared structurally
-(`sameResolution`), so `{width, height}` objects cycle correctly.
+must call `drawOverlays()` itself. It registers no listeners at all: the input
+router's **overlay band** gives it every event before scene UI or the world,
+and while open it consumes what it is handed, so nothing underneath reacts.
+Key *releases* pass through on purpose, so a key held when the menu opened
+still releases in the game's state. Resolution presets are compared
+structurally (`sameResolution`), so `{width, height}` objects cycle correctly.
 
 **Pause** (`game.paused`): a plain flag the engine loop honours — while set,
 no physics, entity or camera updates run, but the frame is still drawn, so the
@@ -251,9 +325,12 @@ rather than using `object-fit: contain`. `game.onResize(fn)` and the scene
 config's `onResize` hook notify game code that lays out its own HUD.
 
 `game.destroy()` is the full teardown and must leave nothing global behind:
-display listeners, overlays (first, since they unregister their own key
-bindings), `KeyStates` and `SoundManager` document listeners, playing audio,
-the current scene, and the renderer's GPU resources. Anything that attaches
+display listeners, overlays (first, since they unregister their own input
+subscriptions), the input system's canvas and document listeners,
+`SoundManager` document listeners, playing audio, the current scene, and the
+renderer's GPU resources. `game.input` also goes inert — a DOM event still in
+flight when teardown ran is dropped rather than leaving a key held down in a
+game nobody is driving. Anything that attaches
 to `window` or `document` keeps a stable reference to its handler so it can
 be removed again — binding inline at `addEventListener` is unremovable, which
 is how the input listeners used to outlive every game that created them.
@@ -278,7 +355,8 @@ behaviour another actor could want.
 - `Health` - HP, damage, invulnerability, death callbacks
 - `Attack` - Melee attack with cooldown, one-shot shape-query hit detection
 - `ContactDamage` - Damage plus knockback on touch; stuns its owner briefly
-- `KeyboardControl` - Input handling, movement (use `verticalMovement: true` for top-down); works in the frame of whatever the entity stands on
+- `KeyboardControl` - Movement from the keyboard (use `verticalMovement: true` for top-down); works in the frame of whatever the entity stands on
+- `Interactive` - Makes an entity respond to the pointer: click, hover, drag, drop, right-click. Opt-in, so a scene with none never hit-tests the world
 - `Chase` - Enemy movement: pursue the player in range, wander otherwise
 - `PathFollow` - Patrol a kinematic body along points with a trapezoidal speed profile and a pause at each stop
 - `Hover` - Purely visual bob/spin via the entity's render offsets; never touches the body
@@ -485,3 +563,6 @@ example fails there.
 3. **Camera not following player**: Entity's `name` property must be exactly `'Player'`
 4. **Enemies shooting through walls**: Add line-of-sight check using `game.physics.raycast`
 5. **Movement speed varies with FPS**: Use velocity-based movement, not force-based
+6. **A key binding does nothing**: Bindings are physical codes, not characters — `'KeyW'`, `'Space'`, `'Digit1'`, not `'w'`, `' '`, `'1'`
+7. **Clicking an entity does nothing**: It needs an `Interactive` constraint; world hit testing is opt-in. If it has one, check nothing above it in the band order consumed the event first
+8. **A dead entity still catches clicks**: Call `entity.destroy()`, which hands its constraints' registrations back (the engine does this in `game.reset()`)

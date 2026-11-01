@@ -43,10 +43,6 @@ export class DonerGame {
     this.sounds = {};
     this.loadSounds();
 
-    // Register additional keys
-    this.game.keys.addKey(' '); // Space to serve
-    this.game.keys.addKey('Backspace'); // Clear sandwich
-
     // Initialize rhythm input
     this.rhythmInput = new RhythmInput(game, {
       beatDuration: 1000, // 1 second per beat
@@ -324,12 +320,12 @@ export class DonerGame {
     this.orderManager.update(deltaTime);
 
     // Check for serve (space)
-    if (this.game.keys.isJustPressed(' ')) {
+    if (this.game.input.justPressed('Space')) {
       this.serveSandwich();
     }
 
     // Check for clear (backspace)
-    if (this.game.keys.isJustPressed('Backspace')) {
+    if (this.game.input.justPressed('Backspace')) {
       this.clearSandwich();
     }
 

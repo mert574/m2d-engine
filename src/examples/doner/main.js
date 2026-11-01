@@ -45,10 +45,6 @@ game.sceneManager.addScene('gameplay', {
   }
 });
 
-// Register R and M keys for restart/menu
-game.keys.addKey('r');
-game.keys.addKey('m');
-
 // Single source of truth for the menu's geometry, shared by drawMenu() and
 // the click handler, so the drawn button and its hit area cannot drift apart.
 // The layout lives in a 1280x720 design box centred in UI space: width is read
@@ -90,21 +86,15 @@ function returnToMenu() {
   }
 }
 
-// Add click handler for menu
-document.addEventListener('click', (event) => {
+// Menu click handling. The event already carries UI coordinates, mapped
+// through the letterboxed viewport, so this only has to test the rect.
+game.input.on('click', (event) => {
   if (donerGame) return; // Only handle clicks when on menu
 
-  // The engine maps the pointer: the canvas rect is not the drawn area once
-  // the viewport letterboxes, and the backing store is in device pixels.
-  const { x, y } = game.getUIPosition(event);
-
-  const menuButton = menuLayout().button;
-  console.log('Click at:', x, y, 'Button:', menuButton);
-
-  // Check if click is within button bounds
-  if (x >= menuButton.x && x <= menuButton.x + menuButton.width &&
-      y >= menuButton.y && y <= menuButton.y + menuButton.height) {
-    console.log('Button clicked!');
+  const button = menuLayout().button;
+  const { x, y } = event.ui;
+  if (x >= button.x && x <= button.x + button.width &&
+      y >= button.y && y <= button.y + button.height) {
     startGame();
   }
 });
@@ -304,11 +294,14 @@ function drawMenu() {
 // Custom update function for doner game
 function donerUpdate(currentTime) {
   // This example replaces the engine's loop, so it takes on the loop's
-  // responsibility of applying coalesced display changes between frames.
+  // responsibilities: applying coalesced display changes between frames,
+  // and opening and closing the input frame around everything else.
   if (game.pendingResize) game.resize();
+  game.input.beginFrame(currentTime);
 
   if (!game.lastTime) {
     game.lastTime = currentTime;
+    game.input.endFrame();
     requestAnimationFrame(donerUpdate);
     return;
   }
@@ -318,6 +311,7 @@ function donerUpdate(currentTime) {
 
   if (game.sceneManager.loading) {
     game.drawLoading();
+    game.input.endFrame();
     requestAnimationFrame(donerUpdate);
     return;
   }
@@ -332,13 +326,13 @@ function donerUpdate(currentTime) {
     donerGame.draw();
     game.uiRenderer.endFrame();
 
-    if (game.keys.isJustPressed('r')) {
+    if (game.input.justPressed('KeyR')) {
       donerGame.start();
-    } else if (game.keys.isJustPressed('m')) {
+    } else if (game.input.justPressed('KeyM')) {
       returnToMenu();
     }
 
-    game.keys.update();
+    game.input.endFrame();
     requestAnimationFrame(donerUpdate);
     return;
   }
@@ -368,7 +362,7 @@ function donerUpdate(currentTime) {
   // Replacing the engine loop also means drawing its overlays (settings menu).
   game.drawOverlays();
 
-  game.keys.update();
+  game.input.endFrame();
   requestAnimationFrame(donerUpdate);
 }
 

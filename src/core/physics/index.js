@@ -15,7 +15,7 @@
  *   World      createBox / createCircle / createCapsule, add / remove,
  *              bodies, clear, reset, destroy, setGravity / gravity,
  *              advance / step / interpolation, setCollisionHandlers,
- *              contactsWith, surfacesWith, overlaps, raycast
+ *              contactsWith, surfacesWith, overlaps, queryPoint, raycast
  *
  *   Body       position, velocity, angle, bounds, size, mass, entity,
  *              renderPosition / renderAngle / renderBounds, grounded,
@@ -60,6 +60,10 @@
  *   touching"; `surfacesWith` adds the normal and gap per contact, which is
  *   how a floor is told from a wall. `overlaps` asks the same question for a
  *   shape that is not a body at all.
+ * - **`queryPoint` is exact, unlike the contact queries.** It answers "what
+ *   is under this point" — pointer hit testing is the reason it exists — and
+ *   deliberately applies no contact slack, so a click just outside a body
+ *   misses it.
  * - **`raycast` returns every body crossing the segment, nearest first**,
  *   each with the hit point, surface normal and distance.
  *

@@ -87,20 +87,19 @@ game.sceneManager.addScene('showcase', {
   }
 });
 
-// Load control.
-game.keys.addKey('[', (pressed) => { if (pressed && showcase) showcase.stepLoad(-1); });
-game.keys.addKey(']', (pressed) => { if (pressed && showcase) showcase.stepLoad(1); });
+// Keyboard shortcuts, by physical key code so the bracket and digit keys
+// stay where they are drawn on the HUD whatever layout the player uses.
+const SHORTCUTS = {
+  BracketLeft: () => showcase.stepLoad(-1),
+  BracketRight: () => showcase.stepLoad(1),
+  KeyP: () => showcase.toggleCamera(),
+  KeyH: () => showcase.toggleHud()
+};
+for (let i = 1; i <= 7; i++) SHORTCUTS[`Digit${i}`] = () => showcase.toggleLayer(i);
 
-// Layer toggles.
-['1', '2', '3', '4', '5', '6', '7'].forEach((key, index) => {
-  game.keys.addKey(key, (pressed) => {
-    if (pressed && showcase) showcase.toggleLayer(index + 1);
-  });
+game.input.on('keydown', (event) => {
+  if (showcase) SHORTCUTS[event.code]?.();
 });
-
-// Camera pause and HUD visibility.
-game.keys.addKey('p', (pressed) => { if (pressed && showcase) showcase.toggleCamera(); });
-game.keys.addKey('h', (pressed) => { if (pressed && showcase) showcase.toggleHud(); });
 
 // Settings overlay (O): fullscreen, aspect mode, debug, backend swap, and
 // these resolution presets (only the world gets coarser — the same amount of

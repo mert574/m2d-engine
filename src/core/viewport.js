@@ -251,6 +251,28 @@ export function viewToUI({ x, y, viewport }) {
 }
 
 /**
+ * Map a point in UI coordinates back into view space — world units from the
+ * view's top-left corner, ready for `camera.screenToWorld`.
+ *
+ * The inverse of `viewToUI`. Pointer input normally arrives as client
+ * coordinates and goes through `mapPointer`, which produces both spaces at
+ * once; this exists for the case where UI coordinates are all there is,
+ * which is what a pointer-locked virtual cursor has.
+ *
+ * @param {Object} params
+ * @param {number} params.x - UI-space X
+ * @param {number} params.y - UI-space Y
+ * @param {Viewport} params.viewport - Current viewport
+ * @returns {{x: number, y: number}} The same point in view space
+ */
+export function uiToView({ x, y, viewport }) {
+  return {
+    x: (x * viewport.uiScale - viewport.contentX) * (viewport.viewWidth / viewport.contentWidth),
+    y: (y * viewport.uiScale - viewport.contentY) * (viewport.viewHeight / viewport.contentHeight)
+  };
+}
+
+/**
  * Map a pointer event's client coordinates into UI space and world-view space.
  *
  * The canvas is letterboxed by CSS (`object-fit: contain`), so its bounding

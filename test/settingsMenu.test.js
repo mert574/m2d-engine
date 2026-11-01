@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { createCanvasElement } from './helpers/environment.js';
 import { M2D } from '../src/core/m2d.js';
 import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
+import { keyDown, keyUp } from './helpers/input.js';
 
 /**
  * The settings overlay every example mounts: resolution, fullscreen, aspect.
@@ -159,41 +160,78 @@ describe('SettingsMenu', () => {
   });
 
   describe('keyboard capture while open', () => {
-    function keyEvent(key) {
-      let stopped = false;
-      return { key, stopPropagation: () => { stopped = true; }, get stopped() { return stopped; } };
-    }
-
-    it('swallows keydown so game bindings never fire', () => {
+    it('swallows keydown so game subscriptions never fire', () => {
       const { game, menu } = makeGameWithMenu();
       let moved = false;
-      game.keys.addKey('ArrowRight', (pressed) => { if (pressed) moved = true; });
+      game.input.on('keydown', (event) => {
+        if (event.code === 'ArrowRight') moved = true;
+      });
 
       menu.toggle();
-      const event = keyEvent('ArrowRight');
-      menu.onKeyDown(event);
+      keyDown(game, 'ArrowRight');
 
-      // Stopped in the capture phase: KeyStates (on document) never sees it.
-      expect(event.stopped).toBe(true);
+      // Consumed in the overlay band, before any subscriber sees it.
       expect(moved).toBe(false);
     });
 
-    it('lets keydown pass while closed', () => {
-      const { menu } = makeGameWithMenu();
-      const event = keyEvent('ArrowRight');
-      menu.onKeyDown(event);
-      expect(event.stopped).toBe(false);
+    it('does not even register the key as held, so nothing keeps walking', () => {
+      // Most movement code polls rather than subscribes. Consuming the
+      // event is not enough: a key that the menu swallowed must never
+      // enter the held set, or the player walks on behind the menu.
+      const { game, menu } = makeGameWithMenu();
+      menu.toggle();
+
+      keyDown(game, 'ArrowRight');
+
+      expect(game.input.isDown('ArrowRight')).toBe(false);
     });
 
-    it('closes on the hotkey and on Escape from the capture handler', () => {
-      const { menu } = makeGameWithMenu();
+    it('lets keydown pass while closed', () => {
+      const { game } = makeGameWithMenu();
+      let moved = false;
+      game.input.on('keydown', (event) => {
+        if (event.code === 'ArrowRight') moved = true;
+      });
+
+      keyDown(game, 'ArrowRight');
+
+      expect(moved).toBe(true);
+    });
+
+    it('still reports a release, so a key held when it opened does not stick', () => {
+      // The game has to see the keyup: a player running right when the menu
+      // opens would otherwise keep running after it closes.
+      const { game, menu } = makeGameWithMenu();
+      let released = false;
+      game.input.on('keyup', (event) => {
+        if (event.code === 'ArrowRight') released = true;
+      });
+
+      keyDown(game, 'ArrowRight');
+      expect(game.input.isDown('ArrowRight')).toBe(true);
 
       menu.toggle();
-      menu.onKeyDown(keyEvent('o'));
+      keyUp(game, 'ArrowRight');
+
+      expect(game.input.isDown('ArrowRight')).toBe(false);
+      expect(released).toBe(true);
+    });
+
+    it('opens and closes on the hotkey, and closes on Escape', () => {
+      const { game, menu } = makeGameWithMenu();
+
+      keyDown(game, 'KeyO');
+      expect(menu.isOpen).toBe(true);
+      keyUp(game, 'KeyO');
+      keyDown(game, 'KeyO');
       expect(menu.isOpen).toBe(false);
 
       menu.toggle();
-      menu.onKeyDown(keyEvent('Escape'));
+      keyDown(game, 'Escape');
+      expect(menu.isOpen).toBe(false);
+      // Escape only ever closes.
+      keyUp(game, 'Escape');
+      keyDown(game, 'Escape');
       expect(menu.isOpen).toBe(false);
     });
   });
@@ -245,7 +283,6 @@ describe('SettingsMenu', () => {
     const { game, menu } = makeGameWithMenu();
     menu.destroy();
     expect(game.overlays.has(menu)).toBe(false);
-    expect(game.keys.keys.has('o')).toBe(false);
     expect(game.settings).toBe(null);
   });
 
@@ -253,6 +290,6 @@ describe('SettingsMenu', () => {
     const { game, menu } = makeGameWithMenu();
     game.destroy();
     expect(game.overlays.size).toBe(0);
-    expect(game.keys.keys.has('o')).toBe(false);
+    expect(game.settings).toBe(null);
   });
 });

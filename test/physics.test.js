@@ -970,6 +970,53 @@ describe('physics world', () => {
       expect(world.bodies).toHaveLength(2);
     });
 
+    it('queryPoint finds every body containing a point', () => {
+      const box = world.createBox({ x: 0, y: 0, width: 40, height: 40 });
+      const overlapping = world.createCircle({ x: 10, y: 0, radius: 20 });
+      const elsewhere = world.createBox({ x: 500, y: 0, width: 40, height: 40 });
+      world.add(box);
+      world.add(overlapping);
+      world.add(elsewhere);
+
+      const hits = world.queryPoint({ x: 5, y: 0 });
+
+      expect(hits).toContain(box);
+      expect(hits).toContain(overlapping);
+      expect(hits).not.toContain(elsewhere);
+    });
+
+    it('queryPoint is exact, with none of the contact queries\' slack', () => {
+      // Contact queries pad by a pixel so resting contact counts as
+      // touching. Pointer hit testing must not: a click a pixel outside a
+      // body has missed it.
+      const box = world.createBox({ x: 0, y: 0, width: 40, height: 40 });
+      world.add(box);
+
+      expect(world.queryPoint({ x: 19.5, y: 0 })).toEqual([box]);
+      expect(world.queryPoint({ x: 20.5, y: 0 })).toEqual([]);
+    });
+
+    it('queryPoint respects rotation', () => {
+      // A thin bar on the diagonal: the point is inside its rotated shape
+      // and well outside the axis-aligned box it started as.
+      const bar = world.createBox({ x: 0, y: 0, width: 100, height: 10, angle: Math.PI / 4 });
+      world.add(bar);
+
+      expect(world.queryPoint({ x: 30, y: 30 })).toEqual([bar]);
+      expect(world.queryPoint({ x: 30, y: -30 })).toEqual([]);
+    });
+
+    it('queryPoint narrows by filter and sees unstepped bodies', () => {
+      const wanted = world.createBox({ x: 0, y: 0, width: 40, height: 40 });
+      const ignored = world.createBox({ x: 0, y: 0, width: 40, height: 40, isSensor: true });
+      world.add(wanted);
+      world.add(ignored);
+
+      const hits = world.queryPoint({ x: 0, y: 0 }, (body) => !body.isSensor);
+
+      expect(hits).toEqual([wanted]);
+    });
+
     it('queries see a body that was added but not yet stepped', () => {
       // The solver's acceleration structure only learns about a body on the
       // next step; the contract promises queries do not wait for one.

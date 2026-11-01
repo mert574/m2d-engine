@@ -7,7 +7,9 @@ import { UIText } from '../src/core/ui/text.js';
 import { UIImage } from '../src/core/ui/Image.js';
 import { UIRectangle } from '../src/core/ui/Rectangle.js';
 import { PerformanceStats } from '../src/core/ui/performanceStats.js';
+import { Container } from '../src/core/ui/container.js';
 import { makeTestGame } from './helpers/testGame.js';
+import { click, pointerDown, pointerMove, pointerUp } from './helpers/input.js';
 
 describe('UIRenderer', () => {
   let backend;
@@ -113,6 +115,18 @@ describe('UI widgets', () => {
     return element;
   }
 
+  /**
+   * Put an element into a scene container the input router hit-tests, so
+   * tests drive widgets the way a player does — through `game.input` — and
+   * exercise the real routing rather than calling handlers directly.
+   */
+  function mount(element) {
+    const container = new Container(game);
+    container.addElement(element);
+    game.input.setUIContainer(container);
+    return element;
+  }
+
   describe('UIButton', () => {
     it('draws a centred background and label', () => {
       attach(new UIButton(100, 50, 80, 30, 'Play', () => {})).draw();
@@ -141,24 +155,71 @@ describe('UI widgets', () => {
     });
 
     it('updates the cursor on hover transitions', () => {
-      const button = attach(new UIButton(100, 50, 80, 30, 'Play', () => {}));
+      mount(attach(new UIButton(100, 50, 80, 30, 'Play', () => {})));
 
-      button.onMouseMove(100, 50);
+      pointerMove(game, 100, 50);
       expect(backend.cursor).toBe('pointer');
 
-      button.onMouseMove(0, 0);
+      pointerMove(game, 0, 0);
       expect(backend.cursor).toBe('default');
     });
 
     it('invokes the click handler only inside its bounds', () => {
       let clicks = 0;
-      const button = attach(new UIButton(100, 50, 80, 30, 'Play', () => { clicks++; }));
+      mount(attach(new UIButton(100, 50, 80, 30, 'Play', () => { clicks++; })));
 
-      button.onMouseDown(100, 50);
+      click(game, 100, 50);
       expect(clicks).toBe(1);
 
-      button.onMouseDown(0, 0);
+      click(game, 0, 0);
       expect(clicks).toBe(1);
+    });
+
+    it('fires on release, so sliding off a pressed button cancels it', () => {
+      // What every real button does, and the reason a touch user can aim:
+      // the finger covers the target, so the press has to be revocable.
+      let clicks = 0;
+      const button = mount(attach(
+        new UIButton(100, 50, 80, 30, 'Play', () => { clicks++; })));
+
+      pointerMove(game, 100, 50);
+      pointerDown(game, 100, 50);
+      expect(clicks).toBe(0);
+      expect(button.isPressed).toBe(true);
+
+      pointerMove(game, 400, 300);
+      pointerUp(game, 400, 300);
+      expect(clicks).toBe(0);
+      expect(button.isPressed).toBe(false);
+    });
+
+    it('counts a press and release on opposite edges as one click', () => {
+      // A slop radius would reject this; "same target" is the rule that
+      // matches how wide a button actually is.
+      let clicks = 0;
+      mount(attach(new UIButton(100, 50, 80, 30, 'Play', () => { clicks++; })));
+
+      pointerMove(game, 65, 50);
+      pointerDown(game, 65, 50);
+      pointerMove(game, 135, 50);
+      pointerUp(game, 135, 50);
+
+      expect(clicks).toBe(1);
+    });
+
+    it('shows the pressed colour while held', () => {
+      const button = mount(attach(new UIButton(100, 50, 80, 30, 'Play', () => {}, {
+        backgroundColor: '#111111',
+        hoverColor: '#222222',
+        pressedColor: '#333333'
+      })));
+
+      pointerMove(game, 100, 50);
+      pointerDown(game, 100, 50);
+      backend.reset();
+      button.draw();
+
+      expect(backend.optionsFor('drawRect')[0].fillStyle).toBe('#333333');
     });
   });
 

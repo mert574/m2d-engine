@@ -1,13 +1,20 @@
+/**
+ * A scene's screen-space UI.
+ *
+ * The container holds elements and answers two questions for the input
+ * router: what is under a point, and whether anything here cares about a
+ * given event type. It does not dispatch or track hover itself — the router
+ * owns that, because hover has to be resolved across the overlay, UI and
+ * world bands together rather than one band at a time.
+ */
 export class Container {
   constructor(game) {
     this.game = game;
     this.elements = new Set();
-    this.hoveredElement = null;
   }
 
   clear() {
     this.elements.clear();
-    this.hoveredElement = null;
   }
 
   addElement(element) {
@@ -16,43 +23,37 @@ export class Container {
     return element;
   }
 
-  onMouseMove(x, y) {
-    let newHovered = null;
-    const hitElements = Array.from(this.elements)
-      .filter(element => element.contains(x, y))
-      .reverse(); // Process from top to bottom
-
-    // Handle hover states
-    hitElements.forEach(element => {
-      element.onMouseMove(x, y);
-      if (element.isHovered) {
-        newHovered = element;
-      }
-    });
-
-    if (this.hoveredElement !== newHovered) {
-      if (this.hoveredElement) {
-        this.hoveredElement.isHovered = false;
-        this.hoveredElement.onMouseLeave();
-      }
-      this.hoveredElement = newHovered;
-      if (newHovered) {
-        newHovered.onMouseEnter();
-      }
-    }
+  removeElement(element) {
+    this.elements.delete(element);
   }
 
-  onMouseDown(x, y) {
-    const hitElements = Array.from(this.elements)
-      .filter(element => element.contains(x, y))
-      .reverse(); // Process from top to bottom
-
-    for (const element of hitElements) {
-      const shouldStopPropagation = element.onMouseDown(x, y);
-      if (shouldStopPropagation) {
-        break;
-      }
+  /**
+   * The topmost element at a UI-space point.
+   *
+   * Later elements draw over earlier ones, so the search runs backwards and
+   * the first hit is the one the player sees on top.
+   *
+   * @param {number} x - UI-space X
+   * @param {number} y - UI-space Y
+   * @param {object} [exclude] - Element to skip (the subject of a drop)
+   * @returns {object|null}
+   */
+  hitTest(x, y, exclude = null) {
+    const elements = [...this.elements];
+    for (let i = elements.length - 1; i >= 0; i--) {
+      const element = elements[i];
+      if (element === exclude || !element.visible) continue;
+      if (element.contains(x, y)) return element;
     }
+    return null;
+  }
+
+  /** Whether any element would do something with `type`. */
+  handles(type) {
+    for (const element of this.elements) {
+      if (element.visible && element.handles(type)) return true;
+    }
+    return false;
   }
 
   update(deltaTime) {
@@ -66,4 +67,4 @@ export class Container {
       element.draw(deltaTime);
     }
   }
-} 
+}

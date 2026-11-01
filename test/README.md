@@ -44,6 +44,21 @@ pass), `settingsMenu.test.js` (the overlay, its input capture and pause),
 `pause.test.js` (the loop freezes simulation but keeps presenting) and
 `sceneActions.test.js` (scene-JSON buttons and background layers).
 
+`input.test.js` covers the input system (`src/core/input/`): gesture
+recognition, band routing and `consume()`, world hit testing through the
+`Interactive` constraint, drag capture and drop targets, keyboard state, the
+press-immediately / moves-at-the-frame delivery split, and the pointer-locked
+virtual cursor. It drives everything through `game.input.push`, the same
+public seam the DOM sources and an on-screen joystick would use
+(`helpers/input.js` wraps it), so the recognizers, the router and the
+coordinate mapping under test are the real ones and only the browser is
+absent. What genuinely needs a browser lives in `browser/input.test.js`:
+that real `PointerEvent`s map to the right world coordinates, that the canvas
+actually claims the surface (`touch-action`, context menu, wheel), that a
+press is delivered inside its own DOM handler — which is what keeps
+user-activation-gated calls like `requestPointerLock` working — and that
+`destroy()` leaves no listener behind.
+
 `physics.test.js` characterizes the physics boundary (`src/core/physics/`):
 unit semantics (px/s and px/s²), fixed-step pacing, gravity and resting
 contact, body mutation, kinematic and character bodies (platform rides,

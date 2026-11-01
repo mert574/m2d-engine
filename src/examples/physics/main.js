@@ -2,6 +2,8 @@ import { M2D } from '../../core/m2d.js';
 import { initPhysics } from '../../core/physics/index.js';
 import { SettingsMenu } from '../../core/ui/settingsMenu.js';
 import { Entity } from '../../core/entity.js';
+import { Interactive } from '../../constraints/interactive.js';
+import { UIText } from '../../core/ui/text.js';
 import ballSprite from './assets/ball.png';
 import boxSprite from './assets/box.png';
 import platformSprite from './assets/platform.png';
@@ -31,7 +33,11 @@ game.sceneManager.addScene('mainMenu', {
         properties: { text: 'Settings', action: 'settings', width: 200, height: 50, fontSize: '20px',
           backgroundColor: '#2E7D32', hoverColor: '#4CAF50', textColor: '#ffffff' } },
       { type: 'text', id: 'controls', anchor: 'center', x: 0, y: 90,
-        properties: { text: 'Space: Spawn object · O: Settings', fontSize: '18px', align: 'center', color: '#bbbbbb' } }
+        properties: { text: 'Drag to grab · Right-click to remove · Click to spawn',
+          fontSize: '18px', align: 'center', color: '#bbbbbb' } },
+      { type: 'text', id: 'controls2', anchor: 'center', x: 0, y: 118,
+        properties: { text: 'Scroll or pinch for gravity · Space to spawn · O: Settings',
+          fontSize: '18px', align: 'center', color: '#bbbbbb' } }
     ]
   })
 });
@@ -86,26 +92,113 @@ game.sceneManager.addScene('physics', {
       { prefab: 'box', x: 400, y: 120, width: 64, height: 64 },
       { prefab: 'box', x: 560, y: 120, width: 64, height: 64 }
     ] }]
-  })
+  }),
+
+  // The scene's own bodies exist by the time this runs, so this is where
+  // they become grabbable; anything spawned later is wired up by spawn().
+  onEnter() {
+    for (const entity of game.entities) makeGrabbable(entity);
+    gravityLabel = game.sceneManager.getCurrentScene().ui.addElement(
+      new UIText(16, 16, '', { fontSize: '16px', color: '#cfe8ff' }));
+    setGravity(gravityY);
+  }
 });
 
-game.keys.addKey(' ', (pressed) => {
+// === Pointer play ===
+//
+// The playground doubles as the engine's pointer demo: grab a body and fling
+// it, right-click (or long-press) to remove one, click empty space to
+// drop a new one in, and scroll or pinch to change gravity. All of it goes
+// through `game.input`; nothing here touches a DOM event.
+
+/**
+ * How hard a grabbed body is pulled toward the pointer, in 1/s.
+ *
+ * Grabbing drives *velocity* rather than teleporting the body, which is the
+ * choice `Interactive` deliberately leaves to the game. A dynamic body that
+ * is placed each frame tunnels through whatever is in the way and arrives
+ * with no momentum; one that is steered still collides on the trip and keeps
+ * the speed it was flung with.
+ */
+const GRAB_STIFFNESS = 18;
+
+/** Gravity limits and step, in px/s². */
+const GRAVITY_MIN = 0;
+const GRAVITY_MAX = 3000;
+const GRAVITY_PER_SCROLL = 2;
+
+let gravityY = 1000;
+let gravityLabel = null;
+
+function setGravity(value) {
+  gravityY = Math.min(Math.max(value, GRAVITY_MIN), GRAVITY_MAX);
+  game.physics.setGravity({ x: 0, y: gravityY });
+  if (gravityLabel) gravityLabel.text = `gravity ${Math.round(gravityY)} px/s²`;
+}
+
+/** Remove an entity from the world, and from the input router with it. */
+function despawn(entity) {
+  game.entities.delete(entity);
+  game.physics.remove(entity.body);
+  entity.destroy();
+}
+
+/** Let the pointer grab, fling and remove a body. */
+function makeGrabbable(entity) {
+  if (entity.body.bodyType !== 'dynamic') return entity;
+  entity.addConstraint('grab', new Interactive(entity, {
+    draggable: true,
+    cursor: 'grab',
+    onDrag(event) {
+      const { grabOffset } = this.getConstraint('grab');
+      const body = this.body;
+      body.setVelocity({
+        x: (event.world.x + grabOffset.x - body.position.x) * GRAB_STIFFNESS,
+        y: (event.world.y + grabOffset.y - body.position.y) * GRAB_STIFFNESS
+      });
+    },
+    onRightClick() { despawn(this); }
+  }));
+  return entity;
+}
+
+/** Drop a fresh ball or box into the scene at a world position. */
+function spawn(x, y) {
   const scene = game.sceneManager.getCurrentScene();
-  if (!pressed || game.sceneManager.loading || !scene) return;
-  if (scene.config.name !== 'physics') return;
+  if (game.sceneManager.loading || !scene || scene.config.name !== 'physics') return;
+
   const isBox = Math.random() > 0.5;
   const size = isBox ? 64 : 32;
   const sprite = scene.spriteSheets.get(isBox ? 'box' : 'ball');
   // Spawning goes straight to createEntity rather than through a prefab, so
   // the body spec has to be spelled out here to match the prefabs above.
-  const entity = game.createEntity(isBox ? 'Box' : 'Ball', 120 + Math.random() * 720, 40,
+  const entity = game.createEntity(isBox ? 'Box' : 'Ball', x, y,
     size, size, sprite, {}, isBox
       ? { restitution: 0.4 }
       : { shape: 'circle', restitution: 0.8, friction: 0.005, frictionAir: 0.001 });
   entity.setAnimation('default');
   game.entities.add(entity);
   game.physics.add(entity.body);
+  makeGrabbable(entity);
+}
+
+game.input.on('keydown', (event) => {
+  if (event.code === 'Space') spawn(120 + Math.random() * 720, 40);
 });
+
+// Click empty space to spawn; existing bodies remain available to grab.
+game.input.on('click', (event) => {
+  if (event.inContent && !event.target) {
+    spawn(event.world.x, event.world.y);
+  }
+});
+
+// Scroll and pinch both mean "change gravity" here. The engine hands over
+// the raw numbers and takes no view on what they should do: pinch reports a
+// scale factor, and scaling gravity by it is this game's reading of it.
+game.input.on('scroll', (event) => setGravity(gravityY - event.scroll.y * GRAVITY_PER_SCROLL));
+game.input.on('pinch', (event) => setGravity(gravityY * event.scaleDelta));
+
 // Settings overlay (O): resolution, fullscreen, aspect mode, debug, backend.
 new SettingsMenu(game);
 

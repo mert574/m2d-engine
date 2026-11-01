@@ -1,7 +1,21 @@
 import { Constraint } from '../core/constraint.js';
-import { KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_SPACE, KEY_X } from '../core/keyCodes.js';
 
-const norm = Math.sqrt(2);
+/**
+ * Default bindings, as physical key codes. Codes rather than characters
+ * because they name the key's *position*, so WASD stays a diamond under the
+ * left hand on AZERTY and Dvorak. See core/input/keyboard.js.
+ */
+const DEFAULT_KEYS = Object.freeze({
+  left: 'ArrowLeft',
+  right: 'ArrowRight',
+  up: 'ArrowUp',
+  down: 'ArrowDown',
+  jump: 'Space',
+  attack: 'KeyX'
+});
+
+/** Component scale that keeps a diagonal the same speed as a cardinal. */
+const DIAGONAL = 1 / Math.SQRT2;
 
 /** Stand-in frame of reference for an entity that is not on anything. */
 const ZERO_VELOCITY = { x: 0, y: 0 };
@@ -18,15 +32,7 @@ export class KeyboardControl extends Constraint {
   constructor(entity, options = {}) {
     super(entity);
 
-    this.keys = {
-      left: KEY_LEFT,
-      right: KEY_RIGHT,
-      up: KEY_UP,
-      down: KEY_DOWN,
-      jump: KEY_SPACE,
-      attack: KEY_X,
-      ...options.keys
-    };
+    this.keys = { ...DEFAULT_KEYS, ...options.keys };
 
     // Movement configuration
     this.acceleration = options.acceleration || options.moveForce * 60000 || 600; // px/s per second
@@ -39,10 +45,6 @@ export class KeyboardControl extends Constraint {
     this.continuous = options.continuous ?? true;
     this.verticalMovement = options.verticalMovement ?? true;
 
-    Object.values(this.keys).forEach(key => {
-      this.entity.game.keys.addKey(key);
-    });
-
     this.onMove = options.onMove?.bind(entity);
     this.onDirectionChange = options.onDirectionChange?.bind(entity);
     this.onJump = options.onJump?.bind(entity);
@@ -52,16 +54,9 @@ export class KeyboardControl extends Constraint {
   update(deltaTime) {
     if (this.entity.dead) return;
 
-    const pressedKeys = this.entity.game.keys.pressedKeys();
-    let dx = 0;
-    let dy = 0;
-
-    if (pressedKeys.has(this.keys.left)) dx -= 1;
-    if (pressedKeys.has(this.keys.right)) dx += 1;
-    if (this.verticalMovement) {
-      if (pressedKeys.has(this.keys.up)) dy -= 1;
-      if (pressedKeys.has(this.keys.down)) dy += 1;
-    }
+    const input = this.entity.game.input;
+    let dx = input.axis(this.keys.left, this.keys.right);
+    let dy = this.verticalMovement ? input.axis(this.keys.up, this.keys.down) : 0;
 
     // On a diagonal, drop any component that presses straight into a wall
     // before normalizing: that force is spent on the wall anyway, and
@@ -78,8 +73,8 @@ export class KeyboardControl extends Constraint {
 
     // Normalize diagonal movement to prevent faster diagonal speed
     if (dx !== 0 && dy !== 0) {
-      dx /= norm;
-      dy /= norm;
+      dx *= DIAGONAL;
+      dy *= DIAGONAL;
     }
 
     // Speeds are relative to whatever the entity is standing on. On solid
@@ -129,10 +124,10 @@ export class KeyboardControl extends Constraint {
     if (this.onMove) {
       this.onMove(dx, dy)
     }
-    if (pressedKeys.has(this.keys.jump)) {
+    if (input.isDown(this.keys.jump)) {
       this.onJump?.();
     }
-    if (pressedKeys.has(this.keys.attack)) {
+    if (input.isDown(this.keys.attack)) {
       this.onAttack?.();
     }
 

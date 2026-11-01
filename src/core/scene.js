@@ -14,26 +14,15 @@ export class Scene {
     this.sprites = new Map();
     this.spriteSheets = new Map();
     this.ui = new Container(game);
-    this._handleMouseMove = this._handleMouseMove.bind(this);
-    this._handleMouseDown = this._handleMouseDown.bind(this);
-  }
-
-  _handleMouseMove(event) {
-    const { x, y } = this.game.getUIPosition(event);
-    this.ui.onMouseMove(x, y);
-  }
-
-  _handleMouseDown(event) {
-    const { x, y } = this.game.getUIPosition(event);
-    this.ui.onMouseDown(x, y);
   }
 
   async load() {
     await this.loadAssets();
     this.setupScene();
-    
-    this.game.canvas.addEventListener('mousemove', this._handleMouseMove);
-    this.game.canvas.addEventListener('mousedown', this._handleMouseDown);
+
+    // A scene registers no input listeners of its own: it hands its UI to
+    // the router, which hit-tests it between the overlay and world bands.
+    this.game.input.setUIContainer(this.ui);
 
     this.game.camera.init(this);
 
@@ -318,9 +307,8 @@ export class Scene {
     // Reset cursor style
     this.game.renderer.setCursor('default');
 
-    // Remove event listeners
-    this.game.canvas.removeEventListener('mousemove', this._handleMouseMove);
-    this.game.canvas.removeEventListener('mousedown', this._handleMouseDown);
+    // The elements the router was hit-testing no longer exist.
+    this.game.input.setUIContainer(null);
   }
 
   update(deltaTime) {

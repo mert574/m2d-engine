@@ -21,9 +21,15 @@ export class RhythmInput {
     // Visual feedback
     this.currentBeatIndex = 0;
 
-    // Register keys with the game's key system (A, S, D, F)
-    this.keys = ['a', 's', 'd', 'f'];
-    this.keys.forEach(key => this.game.keys.addKey(key));
+    // The four rhythm keys, by physical code so they stay a row under the
+    // left hand whatever layout the player has. The pattern records the
+    // letter, which is what the HUD draws.
+    this.keys = [
+      { code: 'KeyA', label: 'A' },
+      { code: 'KeyS', label: 'S' },
+      { code: 'KeyD', label: 'D' },
+      { code: 'KeyF', label: 'F' }
+    ];
 
     // Auto mode - pattern runs continuously
     this.autoMode = false;
@@ -49,9 +55,9 @@ export class RhythmInput {
 
     // Check for key presses (A, S, D, F) - only if no input recorded for current slot yet
     if (this.isPatternActive && this.pendingInput === null) {
-      for (let i = 0; i < this.keys.length; i++) {
-        if (this.game.keys.isJustPressed(this.keys[i])) {
-          this.handleKeyPress(this.keys[i].toUpperCase(), now);
+      for (const { code, label } of this.keys) {
+        if (this.game.input.justPressed(code)) {
+          this.handleKeyPress(label, now);
           break; // Only process one key per frame
         }
       }

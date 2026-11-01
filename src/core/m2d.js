@@ -1,14 +1,17 @@
 import { createPhysicsWorld } from './physics/index.js';
-import { KeyStates } from './keyStates.js';
+import { InputManager } from './input/index.js';
 import { LayerManager } from './layerManager.js';
 import { CollisionCategories } from './constants.js';
 import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
 import { SoundManager } from './soundManager.js';
-import { KEY_R, KEY_M } from './keyCodes.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, FALLBACK_RENDERER } from './renderers/index.js';
-import { computeViewport, mapPointer, sameViewport, viewToUI } from './viewport.js';
+import { computeViewport, sameViewport, viewToUI } from './viewport.js';
 import { WorldOverlay } from './ui/worldOverlay.js';
+
+/** Restart and menu keys on the game-over screen, by physical key code. */
+const KEY_RESTART = 'KeyR';
+const KEY_MENU = 'KeyM';
 
 const defaultOptions = {
   renderer: DEFAULT_RENDERER,
@@ -40,6 +43,15 @@ const defaultOptions = {
   worldFilter: 'linear',
   /** Track the canvas's displayed size and follow it automatically. */
   autoResize: true,
+  /**
+   * Confine the pointer to the canvas and draw a virtual cursor instead of
+   * the system one. On by default: a game almost always wants the pointer it
+   * is drawing with to stay inside the play area rather than drift onto
+   * another monitor or click the page behind the canvas. Locking needs a
+   * user gesture, so the engine acquires it on the first press and
+   * re-acquires after the player presses Escape. See core/input/cursor.js.
+   */
+  pointerLock: true,
   /**
    * Seconds per physics step. The solver always sees exactly this dt no
    * matter how long a frame took, which is what keeps resting contacts from
@@ -150,14 +162,20 @@ export class M2D {
      */
     this.settings = null;
 
-    this.keys = new KeyStates();
+    /**
+     * Keyboard, mouse, touch and pen, and everything derived from them:
+     * gestures, hit testing and the pointer-lock cursor. The engine
+     * registers no other input listener anywhere. See core/input/.
+     */
+    this.input = new InputManager(this, {
+      pointerLock: this.options.pointerLock,
+      preventDefault: this.options.preventDefaultKeys
+    });
+
     this.layers = new LayerManager();
     this.layers.setGame(this);
     this.sceneManager = new SceneManager(this);
     this.soundManager = new SoundManager();
-
-    this.keys.addKey(KEY_R);
-    this.keys.addKey(KEY_M);
 
     this.update = this.update.bind(this);
     this.lastTime = 0;
@@ -266,6 +284,9 @@ export class M2D {
     // The camera's size is the *view* in world units, so it only moves when
     // the aspect ratio does — never when the render resolution changes.
     this.camera.resize(viewport.viewWidth, viewport.viewHeight);
+    // UI space just changed size; a virtual cursor parked at the old right
+    // edge would otherwise sit outside the new one.
+    this.input?.onResize();
 
     const scene = this.sceneManager?.getCurrentScene();
     scene?.config?.onResize?.(viewport.viewWidth, viewport.viewHeight, viewport);
@@ -368,11 +389,11 @@ export class M2D {
     for (const remove of this.resizeListeners) remove();
     this.resizeListeners = [];
     this.onResizeHandlers.clear();
-    // Overlays first: they unregister their own key bindings and listeners,
-    // which means reaching back into this.keys while it still exists.
+    // Overlays first: they unregister their own input subscriptions, which
+    // means reaching back into this.input while it still exists.
     for (const overlay of [...this.overlays]) overlay.destroy?.();
     this.overlays.clear();
-    this.keys.destroy();
+    this.input.destroy();
     this.soundManager.destroy();
     this.physics.destroy();
     this.sceneManager?.getCurrentScene()?.unload?.();
@@ -492,14 +513,17 @@ export class M2D {
   }
 
   /**
-   * Draw scene-independent overlays (e.g. the settings menu) above everything
-   * else. The engine loop calls this last every frame; a game that replaces
-   * the loop must call it at the end of its own frame.
+   * Draw scene-independent overlays (e.g. the settings menu) and the pointer
+   * cursor above everything else. The engine loop calls this last every
+   * frame; a game that replaces the loop must call it at the end of its own
+   * frame — otherwise, under pointer lock, there is no cursor on screen at
+   * all, since the system one is hidden while the canvas holds the lock.
    */
   drawOverlays() {
-    if (this.overlays.size === 0) return;
+    if (this.overlays.size === 0 && !this.input.cursor.locked) return;
     this.uiRenderer.beginFrame();
     for (const overlay of this.overlays) overlay.draw();
+    this.input.draw();
     this.uiRenderer.endFrame();
   }
 
@@ -508,8 +532,16 @@ export class M2D {
     // resize can never land in the middle of a draw.
     if (this.pendingResize) this.resize();
 
+    // Deliver pointer movement buffered since the last frame, coalesced into
+    // one update per pointer, and let time-based gestures fire. Presses and
+    // key events were already delivered inside their own DOM handler — they
+    // have to be, or the browser refuses the fullscreen and pointer-lock
+    // requests they trigger. See core/input/inputManager.js.
+    this.input.beginFrame(currentTime);
+
     if (!this.lastTime) {
       this.lastTime = currentTime;
+      this.input.endFrame();
       this.frameHandle = requestAnimationFrame(this.update);
       return;
     }
@@ -521,6 +553,7 @@ export class M2D {
 
     if (this.sceneManager.loading) {
       this.drawLoading();
+      this.input.endFrame();
       this.frameHandle = requestAnimationFrame(this.update);
       return;
     }
@@ -549,11 +582,11 @@ export class M2D {
       }
       this.drawGameOver();
 
-      if (this.keys.pressedKeys().has(KEY_R)) {
+      if (this.input.isDown(KEY_RESTART)) {
         this.isGameOver = false;
         this.reset();
         currentScene.load();
-      } else if (this.keys.pressedKeys().has(KEY_M)) {
+      } else if (this.input.isDown(KEY_MENU)) {
         this.isGameOver = false;
         this.reset();
         this.sceneManager.switchTo('mainMenu');
@@ -562,8 +595,8 @@ export class M2D {
 
     this.drawOverlays();
 
-    // Update key states at the end of the frame
-    this.keys.update();
+    // Retire this frame's input edges (justPressed / justReleased).
+    this.input.endFrame();
 
     this.frameHandle = requestAnimationFrame(this.update);
   }
@@ -594,6 +627,9 @@ export class M2D {
     // to the scene being torn down.
     this.physics.reset();
 
+    // Constraints that registered with an engine-wide service (input hit
+    // testing) have to hand it back before the entities are dropped.
+    for (const entity of this.entities) entity.destroy?.();
     this.entities.clear();
     this.layers.clear();
     this.player = null;
@@ -622,47 +658,11 @@ export class M2D {
   }
 
   /**
-   * Map a pointer event into both coordinate spaces at once.
-   *
-   * Mapping through the canvas's bounding rect alone is wrong: CSS letterboxes
-   * the canvas (`object-fit: contain`), so the rect can be larger than the
-   * drawn pixels, and the world occupies only its content rect inside those.
-   * @param {MouseEvent} event
-   */
-  #mapPointer(event) {
-    return mapPointer({
-      clientX: event.clientX,
-      clientY: event.clientY,
-      rect: this.canvas.getBoundingClientRect(),
-      viewport: this.viewport
-    });
-  }
-
-  /**
-   * Pointer position in world coordinates.
-   * @param {MouseEvent} event
-   * @returns {{x: number, y: number}}
-   */
-  getMousePosition(event) {
-    const { view } = this.#mapPointer(event);
-    return this.camera.screenToWorld(view.x, view.y);
-  }
-
-  /**
-   * Pointer position in UI coordinates — the space UI elements and hit
-   * testing use.
-   * @param {MouseEvent} event
-   * @returns {{x: number, y: number}}
-   */
-  getUIPosition(event) {
-    return this.#mapPointer(event).ui;
-  }
-
-  /**
    * Project a world position into UI coordinates: where that point sits in
-   * the space UI elements are drawn and hit-tested in. The inverse direction
-   * of `getMousePosition`, for pinning screen-space content (labels, markers,
-   * off-screen indicators) to a world object.
+   * the space UI elements are drawn and hit-tested in. The opposite
+   * direction from pointer input (which arrives already carrying both
+   * spaces on every event), for pinning screen-space content — labels,
+   * markers, off-screen indicators — to a world object.
    * @param {number} x - World X
    * @param {number} y - World Y
    * @returns {{x: number, y: number}}

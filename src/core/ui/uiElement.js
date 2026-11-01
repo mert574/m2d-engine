@@ -14,6 +14,31 @@ export const ANCHOR_ORIGINS = Object.freeze({
   'bottom-right': [1, 1]
 });
 
+/** Event type -> the method an element implements to receive it. */
+export const UI_HANDLERS = Object.freeze({
+  pointerdown: 'onPointerDown',
+  pointerup: 'onPointerUp',
+  pointermove: 'onPointerMove',
+  click: 'onClick',
+  doubleclick: 'onDoubleClick',
+  rightclick: 'onRightClick',
+  hover: 'onHover',
+  hoverend: 'onHoverEnd',
+  dragstart: 'onDragStart',
+  drag: 'onDrag',
+  dragend: 'onDragEnd',
+  drop: 'onDrop',
+  scroll: 'onScroll'
+});
+
+/**
+ * What every UI element reacts to. Anything beyond this — dragging,
+ * scrolling — is declared by the element that wants it, because the input
+ * router uses these sets to decide whether a gesture is worth recognizing
+ * at all.
+ */
+const BASE_INTERESTS = ['pointerdown', 'pointerup', 'click', 'hover', 'hoverend'];
+
 /**
  * Base class for screen-space UI.
  *
@@ -25,12 +50,21 @@ export const ANCHOR_ORIGINS = Object.freeze({
  * resolve that offset against the current UI size every time they are read.
  *
  * The default anchor is `'top-left'`, where the offset *is* the absolute
- * position — so existing layouts keep behaving exactly as before. Give an
- * element `{ anchor: 'bottom-right' }` and an offset of `(-20, -20)` and it
- * stays 20 units in from the real bottom-right corner at any aspect ratio.
+ * position. Give an element `{ anchor: 'bottom-right' }` and an offset of
+ * `(-20, -20)` and it stays 20 units in from the real bottom-right corner at
+ * any aspect ratio.
  *
  * Writing to `x`/`y` writes the offset, so `element.x += 5` still nudges the
  * element by 5 units.
+ *
+ * ## Input
+ *
+ * Elements do not listen for anything. The input router resolves one target
+ * per event and calls `handleInput`, which forwards to the `on*` method for
+ * that event type (see `UI_HANDLERS`). An element that handles an event
+ * consumes it by default, so whatever sits underneath — including the game
+ * world — does not also react; pass `{ consume: false }` to let events fall
+ * through.
  */
 export class UIElement {
   /**
@@ -40,6 +74,8 @@ export class UIElement {
    * @param {number} [height] - Height in UI units
    * @param {Object} [options]
    * @param {keyof ANCHOR_ORIGINS} [options.anchor='top-left'] - Corner/edge the offset is measured from
+   * @param {boolean} [options.consume=true] - Stop handled events from
+   *   reaching the world underneath
    */
   constructor(x, y, width, height, options = {}) {
     /** Offset from the anchor, in UI units. */
@@ -51,9 +87,12 @@ export class UIElement {
     this.height = height;
     this.visible = true;
     this.isHovered = false;
+    this.isPressed = false;
     this.isFocused = false;
     this.game = null;
-    this.stopPropagation = false;
+    this.consume = options.consume ?? true;
+    /** Event types this element wants. @type {Set<string>} */
+    this.interests = new Set(BASE_INTERESTS);
   }
 
   /** The anchor's origin in UI units, or [0, 0] before the element has a game. */
@@ -80,41 +119,69 @@ export class UIElement {
 
   draw(deltaTime) {}
 
+  /**
+   * Declare interest in extra event types, so gestures that are only
+   * recognized on demand (drag, scroll) switch on for this element.
+   * @param {...string} types
+   */
+  wants(...types) {
+    for (const type of types) this.interests.add(type);
+    return this;
+  }
+
+  /** Whether this element would do anything with `type`. */
+  handles(type) {
+    return this.interests.has(type);
+  }
+
   contains(x, y) {
-    const hit = this.game.uiRenderer.hitTest(x, y, {
+    // Elements with no size — a text label, a bare container — are not hit
+    // targets. Without this they would hit-test against NaN bounds and,
+    // worse, could swallow events meant for the world behind them.
+    if (!this.game || !(this.width > 0) || !(this.height > 0)) return false;
+    return this.game.uiRenderer.hitTest(x, y, {
       type: 'rect',
-      x: this.x - this.width/2,
-      y: this.y - this.height/2,
+      x: this.x - this.width / 2,
+      y: this.y - this.height / 2,
       width: this.width,
       height: this.height
     });
-    return hit;
   }
 
-  onMouseMove(x, y) {
-    const wasHovered = this.isHovered;
-    this.isHovered = this.contains(x, y);
-    if (wasHovered !== this.isHovered) {
-      if (this.isHovered) this.onMouseEnter();
-      else this.onMouseLeave();
+  /**
+   * Receive a routed event. Tracks the states every element shares, then
+   * forwards to the matching `on*` method.
+   * @param {object} event
+   */
+  handleInput(event) {
+    switch (event.type) {
+      case 'hover':
+        this.isHovered = true;
+        break;
+      case 'hoverend':
+        this.isHovered = false;
+        // A press that ends outside the element is a cancelled press, not a
+        // click — and the router already declines to fire one.
+        this.isPressed = false;
+        break;
+      case 'pointerdown':
+        this.isPressed = true;
+        break;
+      case 'pointerup':
+        this.isPressed = false;
+        break;
     }
-    return this.stopPropagation;
+
+    const method = UI_HANDLERS[event.type];
+    if (method) this[method]?.(event);
+
+    if (this.consume && this.handles(event.type)) event.consume();
   }
 
-  onMouseDown(x, y) {
-    if (this.contains(x, y)) {
-      this.onClick(x, y);
-      return this.stopPropagation;
-    }
-    return false;
-  }
-
-  onMouseEnter() {}
-  onMouseLeave() {}
-  onClick(x, y) {}
   onFocus() {
     this.isFocused = true;
   }
+
   onBlur() {
     this.isFocused = false;
   }
@@ -122,6 +189,7 @@ export class UIElement {
   destroy() {
     this.visible = false;
     this.isHovered = false;
+    this.isPressed = false;
     this.isFocused = false;
   }
-} 
+}

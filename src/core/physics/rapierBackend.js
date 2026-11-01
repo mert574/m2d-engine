@@ -1006,6 +1006,30 @@ export class RapierPhysicsWorld extends PhysicsWorldBase {
   }
 
   /**
+   * Bodies whose shape contains a point — "what is under the cursor".
+   *
+   * Unlike the contact queries this one is *exact*, with no CONTACT_PAD
+   * slack: padding exists so resting contact reliably counts as touching,
+   * and a click a pixel outside a body should miss it.
+   * @param {{x: number, y: number}} point
+   * @param {(body: RapierBody) => boolean} [filter]
+   * @returns {RapierBody[]}
+   */
+  queryPoint(point, filter) {
+    const results = [];
+    // A zero-radius ball is the cheapest broad-phase probe; the exact test
+    // below is what actually decides.
+    const probe = makeShape('circle', 0);
+    this.#eachCandidate(probe, point, 0, (other) => {
+      if (filter && !filter(other)) return;
+      if (other.queryShape.containsPoint(other.position, other.angle, point)) {
+        results.push(other);
+      }
+    });
+    return results;
+  }
+
+  /**
    * Everything the segment crosses, nearest first, with the point and
    * surface normal of each hit.
    * @returns {{body: RapierBody, point: {x: number, y: number},

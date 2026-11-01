@@ -14,7 +14,7 @@ https://github.com/user-attachments/assets/1693e2b8-67f8-4b75-b6d7-31ce35f14397
 - **Physics Engine**: Fixed-timestep 2D simulation on Rapier 2D (WASM), behind a solver-agnostic contract in px and seconds
 - **Scene Management**: JSON scene definitions, validated on load
 - **Component System**: Flexible entity-component architecture
-- **Input Handling**: Keyboard input with configurable controls
+- **Input**: Keyboard, mouse, touch and pen through one API — clicks, drags, pinch, scroll, hover, with automatic world and UI hit detection
 - **Camera System**: Smooth following with optional world bounds
 
 ### Renderer System
@@ -142,6 +142,10 @@ An interactive physics sandbox featuring:
 - Different physics materials and object interactions
 
 **Controls:**
+- Drag: Grab and fling a body
+- Right-click (or long-press): Remove a body
+- Double-click: Spawn where you clicked
+- Scroll or pinch: Change gravity
 - Space: Spawn random objects
 - O: Settings
 
@@ -182,6 +186,8 @@ m2d-engine/
 │   │   │   ├── webglRenderer.js  # WebGL2 backend (default)
 │   │   │   ├── geometry/         # API-neutral tessellation and matrices
 │   │   │   └── webgl/            # Batching, shaders, shadow and effect passes
+│   │   ├── input/        # Keyboard, pointer, gestures, routing (game.input)
+│   │   ├── physics/      # The simulation, behind a solver-agnostic contract
 │   │   └── ui/           # UI components
 │   ├── actors/         # Game-specific actors
 │   ├── constraints/    # Entity constraints/components
@@ -446,6 +452,105 @@ new SettingsMenu(game);
 game.start();
 ```
 
+## Input
+
+Keyboard, mouse, touch and pen all arrive through **`game.input`**. Pointer
+Events are the only source, so a game written for the mouse already works on
+a touchscreen.
+
+### Keyboard
+
+Keys are identified by **physical position**, not by the character they
+produce, so WASD stays a diamond under the left hand on AZERTY and Dvorak:
+
+```javascript
+game.input.isDown('KeyW');
+game.input.justPressed('Space');
+game.input.justReleased('Escape');
+
+// What movement code actually wants:
+game.input.axis('KeyA', 'KeyD');                      // -1 .. 1
+game.input.vector('KeyW', 'KeyS', 'KeyA', 'KeyD');    // normalized {x, y}
+
+game.input.keyLabel('KeyZ');   // what the player's keycap says, for binding UI
+```
+
+### Pointer
+
+Every event carries both coordinate spaces, so nothing has to map a position
+by hand:
+
+```javascript
+game.input.on('click', (event) => {
+  event.world;      // world coordinates, camera applied
+  event.ui;         // UI coordinates, letterboxing and pixel ratio applied
+  event.modifiers;  // { shift, ctrl, alt, meta }
+  event.consume();  // stop it reaching anything further down
+});
+
+game.input.pointer.world;   // polled, and recomputed when the camera moves
+```
+
+Available types: `pointerdown`, `pointermove`, `pointerup`, `click`,
+`doubleclick`, `rightclick`, `hover`, `hoverend`, `dragstart`, `drag`,
+`dragend`, `drop`, `pinchstart`, `pinch`, `pinchend`, `scroll`, `keydown`,
+`keyup`, `pointerlockchange`.
+
+A few behaviours worth knowing:
+
+- **Click fires on release**, and needs the press and release on the same
+  target — so sliding off a button cancels it. `doubleclick` fires *in
+  addition to* the second `click`, because delaying every click by the
+  double-click interval to tell them apart is worse than the alternative.
+- **Long-press stands in for right click on touch**, and a right click
+  never opens the browser's context menu over the canvas.
+- **Pinch only happens if you listen for it.** Otherwise two fingers are two
+  independent drags, which is what twin-stick touch controls need.
+- **Pinch and scroll hand you numbers and no policy** — `event.scaleDelta`,
+  `event.scroll` — and the game decides what they mean.
+
+### Hit detection
+
+Events reach, in order: engine overlays (the settings menu), the scene's UI
+elements, then the world. Each one may `consume()` the event. World hit
+testing is opt-in per entity, so a game that never asks for it never pays
+for it:
+
+```javascript
+import { Interactive } from 'm2d/constraints/interactive.js';
+
+crate.addConstraint('grab', new Interactive(crate, {
+  hitArea: 'body',        // the physics collider; or {width, height} / {radius}
+  draggable: true,
+  cursor: 'grab',
+  onClick(event)  { console.log('hit at', event.world); },
+  onDrag(event)   { /* event.delta.world, event.total.world */ },
+  onDrop(event)   { console.log('landed on', event.dropTarget?.entity); }
+}));
+```
+
+`Interactive` delivers the drag events but does not move the body: steering a
+dynamic body, driving a kinematic one and teleporting a static one are all
+correct in different games, and guessing fights the solver. Pass
+`follow: true` for the simple answer, or do it yourself — the physics
+playground steers the body toward the pointer with velocity so grabbed
+objects still collide and can be flung.
+
+### Pointer lock
+
+The pointer is **confined to the canvas by default**: the system cursor is
+hidden and the engine draws a virtual one in its place. Hit testing and
+coordinates are identical either way, so nothing in game code changes. The
+browser only grants this inside a user gesture, so the engine asks on the
+first press and asks again after the player presses Escape.
+
+```javascript
+new M2D(canvas, { pointerLock: false });   // opt out entirely
+game.input.setPointerLock(false);          // or at runtime
+game.input.unlockPointer();                // release; the next press re-acquires
+game.input.on('pointerlockchange', (event) => { if (!event.locked) pause(); });
+```
+
 ## Display, resolution and fullscreen
 
 `width` and `height` are the **design size**: how much world is visible, in
@@ -506,10 +611,9 @@ view is larger than the bounded area, the camera centres on it:
 game.camera.bounds = { left: 0, top: 0, right: worldWidth, bottom: worldHeight };
 ```
 
-For pointer input use `game.getMousePosition(event)` (world coordinates) and
-`game.getUIPosition(event)` (UI coordinates); both account for letterboxing and
-pixel ratio. The opposite direction is `game.worldToUI(x, y)`: where a world
-point lands in UI space.
+Pointer events already carry both spaces (see [Input](#input) below), so
+nothing has to map a position by hand. The opposite direction is
+`game.worldToUI(x, y)`: where a world point lands in UI space.
 
 Content drawn *on* the world rather than *in* it — an enemy's attention
 radius, an attack range, a target dot, a readout over someone's head — should
@@ -545,12 +649,13 @@ renderer backend and pause, toggled with **O** (Escape closes it too):
 ```javascript
 import { SettingsMenu } from 'm2d/core/ui/settingsMenu.js';
 new SettingsMenu(game);                      // that's all
-new SettingsMenu(game, { hotkey: 'p', resolutions: ['native', 0.5] });
+new SettingsMenu(game, { hotkey: 'KeyP', resolutions: ['native', 0.5] });
 new SettingsMenu(game, { pauseWhenOpen: true });  // pause while the menu is up
 ```
 
-While open it captures mouse *and keyboard*, so clicks and movement keys never
-leak into the game underneath. Opening does not pause unless you pass
+While open it sits in the input router's overlay band, which sees every event
+before scene UI or the game world, so clicks and movement keys never leak into
+the game underneath. Opening does not pause unless you pass
 `pauseWhenOpen: true`; either way the menu's Paused row toggles `game.paused`,
 a flag the engine loop honours by freezing the simulation while continuing to
 draw.
