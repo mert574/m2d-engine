@@ -4,6 +4,7 @@ node_modules/
 dist/
 /site/
 docs/.vitepress/cache/
+.vitepress/cache
 
 # IDE and editor files
 .vscode/
