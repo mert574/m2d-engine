@@ -87,12 +87,14 @@ export class Scene {
     // Anchored to the bottom-left so it sits at the *real* screen corner at
     // any aspect ratio, and stays clear of game HUDs, which conventionally
     // occupy the top of the screen.
-    const stats = new PerformanceStats(this.game, 20, -34, {
-      anchor: 'bottom-left',
-      textColor: '#00ff00',
-      show: true
-    });
-    this.ui.addElement(stats);
+    if (this.game.options.performanceStats !== false) {
+      const stats = new PerformanceStats(this.game, 20, -34, {
+        anchor: 'bottom-left',
+        textColor: '#00ff00',
+        show: true
+      });
+      this.ui.addElement(stats);
+    }
 
     if (this.config.world) {
       if (this.config.world.gravity) {

@@ -194,7 +194,7 @@ describe('input in a real browser', () => {
       return Promise.reject(new Error('no user gesture in a synthetic event'));
     };
 
-    const game = new M2D(canvas, { width: 640, height: 360, renderer: 'canvas' });
+    const game = new M2D(canvas, { width: 640, height: 360, renderer: 'canvas', pointerLock: true });
     games.push(game);
 
     let dispatching = true;
@@ -204,8 +204,8 @@ describe('input in a real browser', () => {
     expect(requestedDuringDispatch).toBe(true);
   });
 
-  it('does not request pointer lock when the game opted out', () => {
-    const { game, canvas } = makeGame();   // pointerLock: false
+  it('does not request pointer lock by default', () => {
+    const { game, canvas } = makeGame();
     let requested = false;
     canvas.requestPointerLock = () => { requested = true; };
 

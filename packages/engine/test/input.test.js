@@ -664,9 +664,7 @@ describe('input', () => {
       expect(seen.map((s) => s.event.locked)).toEqual([true, false]);
     });
 
-    it('is off when the game opted out, and never requests it', () => {
-      // makeTestGame disables it; this is the opt-out path games take when
-      // they want the system cursor and a free pointer.
+    it('is off unless the game opts in, and never requests it', () => {
       expect(game.input.cursor.enabled).toBe(false);
 
       game.input.cursor.request();

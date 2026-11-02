@@ -11,6 +11,9 @@
   },
   "author": "Mert Yildiz",
   "license": "MIT",
+  "dependencies": {
+    "m2d-engine": "^1.0.0"
+  },
   "devDependencies": {
     "vitepress": "^1.6.4"
   }

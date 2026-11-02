@@ -17,7 +17,6 @@ export class Attack extends Constraint {
     this.damage = options.damage || 10;
     this.range = options.range || 40;
     this.cooldown = (options.cooldown || 30) / 60; // convert frames to seconds (assuming 60fps baseline)
-    this.knockback = options.knockback || 0.02;
     this.onStart = options.onStart;
 
     this.isAttacking = false;

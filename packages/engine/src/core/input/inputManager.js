@@ -56,7 +56,7 @@ export class InputManager {
   /**
    * @param {import('../m2d.js').M2D} game
    * @param {Object} [options]
-   * @param {boolean} [options.pointerLock=true] - Confine the pointer to the
+   * @param {boolean} [options.pointerLock=false] - Confine the pointer to the
    *   canvas and draw a virtual cursor (see cursor.js)
    * @param {Iterable<string>} [options.preventDefault] - Key codes whose
    *   browser default is suppressed
@@ -142,7 +142,7 @@ export class InputManager {
   get pointerLocked() { return this.cursor.locked; }
 
   /**
-   * Turn pointer lock on or off. On by default; turning it on takes effect
+   * Turn pointer lock on or off. Off by default; turning it on takes effect
    * at the next press, since the browser requires a user gesture.
    * @param {boolean} enabled
    */

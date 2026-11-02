@@ -38,6 +38,16 @@ describe('shipped example scenes', () => {
         .map(f => ({ example, name: `${example}/${f}`, path: join(dir, f) }));
     });
 
+  // The documentation's first-game demo ships scene files as well.
+  const docsDemo = join(import.meta.dirname, '..', '..', 'docs', 'demos', 'first-game');
+  if (existsSync(docsDemo)) {
+    actors['first-game'] = ['Hero', 'Platform'];
+    scenes['first-game'] = ['level1'];
+    files.push(...readdirSync(docsDemo)
+      .filter(f => f.endsWith('.json'))
+      .map(f => ({ example: 'first-game', name: `docs/demos/first-game/${f}`, path: join(docsDemo, f) })));
+  }
+
   it('finds the scene files to check', () => {
     expect(files.length).toBeGreaterThan(0);
   });

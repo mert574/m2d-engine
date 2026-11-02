@@ -88,7 +88,6 @@ export class UIElement {
     this.visible = true;
     this.isHovered = false;
     this.isPressed = false;
-    this.isFocused = false;
     this.game = null;
     this.consume = options.consume ?? true;
     /** Event types this element wants. @type {Set<string>} */
@@ -178,18 +177,9 @@ export class UIElement {
     if (this.consume && this.handles(event.type)) event.consume();
   }
 
-  onFocus() {
-    this.isFocused = true;
-  }
-
-  onBlur() {
-    this.isFocused = false;
-  }
-
   destroy() {
     this.visible = false;
     this.isHovered = false;
     this.isPressed = false;
-    this.isFocused = false;
   }
 }

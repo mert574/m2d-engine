@@ -23,12 +23,10 @@
         "frameHeight": 32,
         "animations": {
           "idle": {
-            "frames": [[0, 0]],
-            "loop": true
+            "frames": [[0, 0]]
           },
           "run": {
-            "frames": [[1, 0]],
-            "loop": true
+            "frames": [[1, 0]]
           }
         }
       },
@@ -38,8 +36,7 @@
         "frameHeight": 32,
         "animations": {
           "idle": {
-            "frames": [[0, 0]],
-            "loop": true
+            "frames": [[0, 0]]
           }
         }
       },

@@ -17,7 +17,7 @@ export class Trigger extends Entity {
     if (!this.active) return;
 
     if (other.entity?.name === 'Player') {
-      if (this.category === 'levelComplete') {
+      if (this.triggers === 'levelComplete') {
         this.game.soundManager.playSound('levelComplete');
       }
       if (this.onEnter) {

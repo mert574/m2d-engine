@@ -1,0 +1,88 @@
+.m2d-demo {
+  position: relative;
+  margin: 24px 0;
+}
+
+.m2d-demo canvas {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  background: #1b1b1f;
+  outline: none;
+}
+
+.m2d-demo canvas:focus-visible {
+  box-shadow: 0 0 0 2px var(--vp-c-brand-1);
+}
+
+.m2d-demo-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.m2d-demo-error {
+  color: var(--vp-c-danger-1);
+  padding: 16px;
+  text-align: center;
+}
+
+.m2d-demo figcaption {
+  margin-top: 8px;
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.m2d-demo figcaption p {
+  margin: 0;
+}
+
+.example-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.example-grid a.example-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
+  text-decoration: none;
+  font-weight: normal;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.example-grid a.example-card:hover {
+  border-color: var(--vp-c-brand-1);
+  transform: translateY(-2px);
+}
+
+.example-card strong {
+  font-size: 17px;
+}
+
+.example-card span {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--vp-c-text-2);
+}
+
+.example-card .example-card-tag {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vp-c-brand-1);
+}

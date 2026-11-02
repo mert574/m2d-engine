@@ -49,8 +49,8 @@ export function makeTestGame(options = {}) {
   game.camera.x = 400;
   game.camera.y = 300;
   game.worldOverlay = new WorldOverlay(game);
-  // The real input system, minus a DOM to listen to. Pointer lock is off:
-  // it would otherwise switch the virtual cursor on and make every
+  // The real input system, minus a DOM to listen to. Pointer lock stays off:
+  // on, it would switch the virtual cursor on and make every
   // synthesized position relative.
   game.input = new InputManager(game, { pointerLock: false });
   return game;

@@ -465,11 +465,13 @@ describe('physics world', () => {
         world.step(FIXED);
       }
 
-      // Stopped at the wall face (x=180) less half-width, within the
-      // controller's sub-pixel gap, reading back ~zero horizontal velocity —
-      // and never rotated.
-      expect(Math.abs(hero.position.x - (180 - 16))).toBeLessThan(1);
-      expect(Math.abs(hero.velocity.x)).toBeLessThan(1);
+      // Stopped at the wall face (x=180) less half-width, within the gap the
+      // controller's offset and nudge keep (about 1.5px when the approach is
+      // purely horizontal), reading back ~zero horizontal velocity — and
+      // never rotated.
+      expect(Math.abs(hero.position.x - (180 - 16))).toBeLessThan(2);
+      // The nudge out of the wall reads back as a residual of a few px/s.
+      expect(Math.abs(hero.velocity.x)).toBeLessThan(5);
       expect(hero.angle).toBe(0);
     });
 

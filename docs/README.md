@@ -1,15 +1,22 @@
 # m2d docs
 
-The engine's documentation site, built with [VitePress](https://vitepress.dev).
+The documentation site, built with [VitePress](https://vitepress.dev). This is the only place documentation lives.
 
 ```bash
-npm run docs:dev    # from the repo root: local dev server with hot reload
-npm run build       # from the repo root: full site (docs + demos) into site/
+npm run docs:dev      # from the repo root: dev server with hot reload
+npm run build:docs    # from the repo root: static site into docs/dist
+npm run build         # from the repo root: docs + demos into site/
 ```
 
-Content lives in `index.md` (the landing page) and `guide/*.md`; the site
-configuration (nav, sidebar, base path) is `.vitepress/config.mjs`.
+| Path | Contents |
+| --- | --- |
+| `index.md` | Landing page |
+| `guide/` | How to use each system |
+| `examples/` | The example games index and music credits |
+| `reference/` | Options, APIs and formats, in tables |
+| `contributing/` | Architecture, testing, adding demos, deployment, writing style, roadmap |
+| `demos/` | Runnable demo modules embedded in guide pages through the `Demo` component |
+| `.vitepress/config.mjs` | Nav, sidebar, base path |
+| `.vitepress/theme/` | Theme entry, the `Demo` component and custom CSS |
 
-The built docs land in `dist/` and are deployed to the root of the GitHub
-Pages site, with the demo build copied alongside under `/examples/` — see the
-root `build` script and `.github/workflows/pages.yml`.
+Writing conventions and how to embed a demo are in `contributing/writing-docs.md`.

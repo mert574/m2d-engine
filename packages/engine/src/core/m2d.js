@@ -16,9 +16,6 @@ const KEY_MENU = 'KeyM';
 const defaultOptions = {
   renderer: DEFAULT_RENDERER,
   basePath: '',
-  levelNames: [],
-  currentLevel: null,
-  levelsPath: './levels/',
   initialScene: null,
   width: 1280,
   height: 720,
@@ -45,13 +42,12 @@ const defaultOptions = {
   autoResize: true,
   /**
    * Confine the pointer to the canvas and draw a virtual cursor instead of
-   * the system one. On by default: a game almost always wants the pointer it
-   * is drawing with to stay inside the play area rather than drift onto
-   * another monitor or click the page behind the canvas. Locking needs a
-   * user gesture, so the engine acquires it on the first press and
-   * re-acquires after the player presses Escape. See core/input/cursor.js.
+   * the system one. Off by default; a full-screen game that wants the
+   * pointer kept inside the play area opts in. Locking needs a user
+   * gesture, so the engine acquires it on a press and re-acquires after the
+   * player presses Escape. See core/input/cursor.js.
    */
-  pointerLock: true,
+  pointerLock: false,
   /**
    * Seconds per physics step. The solver always sees exactly this dt no
    * matter how long a frame took, which is what keeps resting contacts from
@@ -78,6 +74,11 @@ const defaultOptions = {
    * Costs up to one step of render latency.
    */
   interpolatePhysics: true,
+  /**
+   * Show the frame-rate and draw-call readout every scene adds to its UI.
+   * Turn it off for a game that draws its own HUD or embeds in a page.
+   */
+  performanceStats: true,
   sounds: {},
   music: {}
 };
@@ -613,8 +614,6 @@ export class M2D {
 
     if (this.options.initialScene) {
       await this.sceneManager.switchTo(this.options.initialScene);
-    } else if (this.options.currentLevel) {
-      await this.sceneManager.switchTo(this.options.currentLevel);
     }
 
     this.setupCollisionHandlers();

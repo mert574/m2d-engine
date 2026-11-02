@@ -47,8 +47,8 @@ export default defineConfig(({ command }) => ({
     assetsDir: 'assets',
     rollupOptions: {
       input: {
-        main: resolve(import.meta.dirname, 'src/index.html'),
-        credits: resolve(import.meta.dirname, 'src/music-credits.html'),
+        // The published index at /examples/ is docs/examples/index.md; src/index.html
+        // is only the dev server's landing page.
         platformer: resolve(import.meta.dirname, 'src/platformer/index.html'),
         maze: resolve(import.meta.dirname, 'src/maze/index.html'),
         physics: resolve(import.meta.dirname, 'src/physics/index.html'),

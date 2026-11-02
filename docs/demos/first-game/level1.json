@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "type": "level",
+  "name": "level1",
+  "world": { "gravity": { "x": 0, "y": 1400 } },
+  "assets": {
+    "spritesheets": {
+      "tile": {
+        "url": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><rect width='32' height='32' fill='%236d4c41'/><rect x='1' y='1' width='30' height='30' fill='none' stroke='%23a1887f' stroke-width='2'/></svg>",
+        "frameWidth": 32,
+        "frameHeight": 32
+      }
+    }
+  },
+  "prefabs": {
+    "hero": { "actor": "Hero", "physics": { "bodyType": "character", "shape": "capsule" } },
+    "ground": { "actor": "Platform", "spritesheet": "tile", "physics": { "bodyType": "static", "friction": 0.8 } }
+  },
+  "layers": [
+    {
+      "name": "main",
+      "objects": [
+        { "prefab": "hero",   "x": 160,  "y": 600, "width": 28,   "height": 48 },
+        { "prefab": "ground", "x": 640,  "y": 700, "width": 1280, "height": 40 },
+        { "prefab": "ground", "x": 420,  "y": 560, "width": 224,  "height": 32 },
+        { "prefab": "ground", "x": 760,  "y": 440, "width": 224,  "height": 32 },
+        { "prefab": "ground", "x": 1100, "y": 320, "width": 224,  "height": 32 }
+      ]
+    }
+  ]
+}

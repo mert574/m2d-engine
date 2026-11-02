@@ -29,11 +29,14 @@ export class LayerManager {
         continue;
       }
 
+      // Tile positions are top-left corners on the grid; the sprite draws
+      // centred, so offset by half a tile to cover [0, world size] exactly.
+      const { tileW, tileH } = layer.sprite;
       for (let tile of layer.tiles) {
         const anim = layer.sprite.animations.get(tile.anim);
         if (!anim) continue;
 
-        layer.sprite.draw(tile.anim, tile.pos.x, tile.pos.y, {
+        layer.sprite.draw(tile.anim, tile.pos.x + tileW / 2, tile.pos.y + tileH / 2, {
           game: this.game
         });
       }

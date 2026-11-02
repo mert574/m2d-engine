@@ -1,0 +1,235 @@
+# Entities and constraints
+
+Everything that exists in a level is an entity. An entity owns a physics body, optionally a sprite sheet and a set of constraints that give it behaviour. Actors are the entity classes a game defines.
+
+<Demo name="entities">
+Crates built from the Health, DamageFlash and Interactive constraints plus a custom one that rocks them. Hover a crate to highlight it and click to damage it. When all are gone, new ones are created at runtime.
+</Demo>
+
+## Writing an actor
+
+An actor extends `Entity`. The scene constructs it with four arguments.
+
+```javascript
+import { Entity } from 'm2d-engine/core/entity.js';
+
+export class Crate extends Entity {
+  name = 'Crate';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    this.contents = options.contents ?? 'nothing';
+  }
+}
+```
+
+| Argument | What it is |
+| --- | --- |
+| `body` | The physics body built from the prefab's `physics` block and the object's position and size |
+| `sprite` | The `SpriteSheet` named by the prefab, or `null` |
+| `game` | The engine instance |
+| `options` | The object's `properties` from the scene JSON |
+
+Register the class under the name prefabs use, then reference it from scene JSON.
+
+```javascript
+game.registerActor('Crate', Crate);
+```
+
+```json
+{ "prefabs": { "crate": { "actor": "Crate", "spritesheet": "crate", "physics": { "bodyType": "dynamic" } } } }
+```
+
+### The name property
+
+`name` identifies the kind of entity to other code. Collision handlers compare it, projectiles use it to decide what counts as a target and the scene uses it for one special case. The entity named `Player` is stored as `game.player`, the camera follows it and the game ends when it falls more than 50 px below the world height.
+
+### Lifecycle methods
+
+| Method | When it runs |
+| --- | --- |
+| `update(deltaTime)` | Every frame while the game is neither paused nor over. `deltaTime` is in seconds. The base method updates the constraints |
+| `draw(deltaTime)` | Every frame inside the world pass. The base method draws the sprite tiled over the body, then calls each constraint's `draw`. Without a sprite it draws a red rectangle and skips the constraints |
+| `onCollisionStart(other)` | When the body starts touching another body. `other` is the other physics body. `other.entity` is its entity, if it has one |
+| `onCollisionEnd(other)` | When the contact ends |
+| `destroy()` | Releases what the constraints registered elsewhere and marks the entity dead |
+
+Call `super.update(deltaTime)` and `super.onCollisionStart(other)` when overriding, so constraints still receive them.
+
+### Drawing
+
+The base `draw` tiles the sprite's current animation frame across the body's size. An actor without a sprite draws a red rectangle. Override `draw` to render with the primitives in the [renderer API](../reference/renderer).
+
+```javascript
+draw() {
+  const { x, y } = this.renderPosition;
+  this.game.renderer.pushTransform({ x, y, rotation: this.renderAngle });
+  this.game.renderer.drawRect({ x: -16, y: -16, width: 32, height: 32, fillStyle: '#c62828' });
+  this.game.renderer.popTransform();
+}
+```
+
+Use `renderPosition` and `renderAngle` when drawing. They are blended between physics steps so motion stays smooth on displays faster than the simulation. Use `position` and `body.angle` for logic.
+
+The base `draw` calls each constraint's `draw` after the sprite. An override, or an entity without a sprite, has to do the same to get health bars and damage flashes:
+
+```javascript
+for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
+```
+
+`renderOffset` and `renderAngleOffset` add a visual displacement on top of the body's transform without moving the body. The `Hover` constraint uses them to make a pickup bob.
+
+Annotations on an entity, such as a detection radius or a health readout, should go through `game.worldOverlay`. It takes world coordinates and draws at display resolution, so it stays sharp when the world render resolution is lowered. See [Display and resolution](./display#the-world-overlay).
+
+### Ground detection
+
+| Method | Returns |
+| --- | --- |
+| `isOnGround()` | `true` when a contact normal points downward, so a floor counts and a wall does not |
+| `groundBody` | The body holding this entity up, or `null`. On a moving platform this is the platform |
+| `isInAir()` | The opposite of `isOnGround()` |
+| `isFalling()`, `isJumping()`, `isMovingHorizontally()`, `isMovingLeft()`, `isMovingRight()` | Velocity checks. The thresholds are 30 px/s vertically and 6 px/s horizontally, and each takes a threshold argument |
+
+### Removing an entity
+
+Removing an entity takes two steps. Remove it from `game.entities`, and remove its body from the physics world.
+
+```javascript
+this.game.entities.delete(this);
+this.game.physics.remove(this.body);
+```
+
+`Projectile.destroy()` does both. For other entities, call `entity.destroy()` as well when the entity has an `Interactive` constraint, so the input system stops hit-testing it.
+
+## Creating entities at runtime
+
+Scenes create entities from prefabs. For entities that appear during play, such as projectiles or spawned pickups, create the body, construct the actor and add both to the game.
+
+```javascript
+const body = game.physics.createBox({ x, y, width: 24, height: 8, frictionAir: 0 });
+const rocket = new Rocket(body, null, game, { direction, speed: 400 });
+game.entities.add(rocket);
+game.physics.add(body);
+```
+
+`createBox`, `createCircle` and `createCapsule` return a body that is not simulated until `physics.add`. `game.createEntity(type, x, y, width, height, spritesheet, options, physics)` builds an entity from a registered actor name the same way the scene does, and also leaves the body to be added. It returns `null` and logs an error for an unregistered name. Unlike the scene, it does not select an animation, so call `setAnimation` yourself when the entity has a sprite.
+
+Once `dead` is set, by `Health` or by `destroy()`, the base `update` and `draw` return early. An entity that is dead and still in `game.entities` freezes and disappears, so remove it.
+
+## Projectiles
+
+`Projectile` extends `Entity` with constant-velocity movement, a lifetime and hit handling. It sets the body's collision category to `projectile`, enables continuous collision detection and removes friction.
+
+```javascript
+import { Projectile } from 'm2d-engine/core/projectile.js';
+
+export class Arrow extends Projectile {
+  name = 'Arrow';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game, { speed: 600, damage: 15, targetNames: ['Enemy'], ...options });
+  }
+
+  onHitWall(wall) { /* spawn an effect */ }
+}
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `speed` | `480` | px/s along `direction` |
+| `direction` | `{ x: 1, y: 0 }` | Normalized on construction |
+| `damage` | `10` | Applied to the target's `Health` constraint |
+| `maxLifetime` | `5` | Seconds before the projectile removes itself |
+| `owner` | `null` | Entity that fired it. Contacts with the owner are ignored |
+| `targetNames` | `['Player']` | Entity names that count as hits |
+| `destroyOnEntityHit` | `true` | Remove on hitting a target |
+| `destroyOnWallHit` | `true` | Remove on hitting a static or kinematic body or a `Platform` |
+| `collisionMask` | player and default categories | Which collision categories the body collides with |
+| `isSensor` | `false` | Pass through other bodies while still reporting contacts |
+
+Override `onHitTarget(entity)` to change what a hit does and `onHitWall(wall)` to react to scenery.
+
+## Constraints
+
+A constraint is a behaviour attached to an entity. The engine ships constraints for health, melee attacks, contact damage, keyboard movement, pointer interaction, chasing, path following, hovering, wall slipping, damage flashes and debug drawing. The [built-in constraints reference](../reference/constraints) lists their options.
+
+```javascript
+import { Health } from 'm2d-engine/constraints/health.js';
+import { Chase } from 'm2d-engine/constraints/chase.js';
+
+this.addConstraint('health', new Health(this, { maxHealth: 60, onDeath: () => this.remove() }));
+this.addConstraint('chase', new Chase(this, { speed: 80, detectionRange: 300 }));
+
+const health = this.getConstraint('health');
+```
+
+Prefer a constraint over logic inside an actor when another actor could want the same behaviour. The built-in `Bee` is collision setup plus `Chase`, `Health`, `ContactDamage`, `DamageFlash` and `Debug`.
+
+### Writing a constraint
+
+Extend `Constraint` and override the methods you need. The entity calls them in the same situations as its own.
+
+```javascript
+import { Constraint } from 'm2d-engine/core/constraint.js';
+
+export class Blink extends Constraint {
+  constructor(entity, options = {}) {
+    super(entity);
+    this.period = options.period ?? 0.5;
+    this.time = 0;
+  }
+
+  update(deltaTime) {
+    this.time += deltaTime;
+    this.entity.visible = Math.floor(this.time / this.period) % 2 === 0;
+  }
+
+  onCollisionStart(other) {}
+  onCollisionEnd(other) {}
+  draw() {}
+  destroy() {}
+}
+```
+
+A constraint that registers with an engine service must implement `destroy` to unregister. `Interactive` does this for the input system.
+
+## Timing and movement
+
+Timers count seconds of `deltaTime`. Frame counts vary with the display's refresh rate.
+
+```javascript
+this.cooldown -= deltaTime;
+if (this.cooldown <= 0) fire();
+```
+
+Steady movement sets velocity in px/s. A one-off kick uses `applyImpulse`, which is in px·mass/s and affects dynamic and character bodies.
+
+```javascript
+body.setVelocity({ x: body.velocity.x + accel * deltaTime, y: body.velocity.y });
+body.applyImpulse({ x: -300, y: -150 });
+```
+
+## Collision categories
+
+Bodies carry a category bit and a mask of categories they collide with. The defaults are in `CollisionCategories` from `m2d-engine/core/constants.js`.
+
+| Category | Value | Used by |
+| --- | --- | --- |
+| `default` | `0x0001` | Bodies that set no category, including `Platform` |
+| `player` | `0x0002` | |
+| `platform` | `0x0004` | |
+| `movingPlatform` | `0x0008` | |
+| `enemy` | `0x0010` | `Bee`, `Ghost`, `Turret` |
+| `coin` | `0x0020` | |
+| `trigger` | `0x0040` | |
+| `projectile` | `0x0080` | `Projectile` |
+
+```javascript
+body.setCollisionFilter({ category: CollisionCategories.enemy, mask: 0xFFFF });
+```
+
+A projectile that should hit walls must include `default` in its mask, since `Platform` does not set a category.
+
+## Demo source
+
+<<< @/demos/entities.js

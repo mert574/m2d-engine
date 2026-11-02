@@ -1,568 +1,76 @@
-# M2D Engine - Claude Code Context
+# M2D Engine - Agent Context
 
-## Project Overview
+M2D is a 2D browser game engine: Rapier 2D physics behind an engine-owned
+interface, a WebGL2 renderer with a Canvas 2D fallback behind one contract,
+JSON scenes validated on load, and one input API over Pointer Events and the
+keyboard. The repository is an npm workspaces monorepo.
 
-M2D is a lightweight 2D game engine with Rapier 2D physics and WebGL2 rendering (with a Canvas 2D fallback). It follows an entity-constraint architecture similar to ECS.
+| Workspace | Contents |
+| --- | --- |
+| `packages/engine` | The engine, published to npm as `m2d-engine`. Source in `src/`, tests in `test/` |
+| `examples` | The demo games and the demo site |
+| `docs` | The VitePress documentation site |
 
-### Physics boundary
+## Documentation is in `docs/`
 
-Nothing outside `packages/engine/src/core/physics/` imports a physics library. Engine, actor and game code use `game.physics` (the world) and the `PhysicsBody` handles it returns; `packages/engine/src/core/physics/index.js` documents the contract and `rapierBackend.js` implements it over Rapier 2D (WASM — accurate solver, stable stacking, CCD). `worldBase.js` holds the solver-independent fixed-step machinery. If you find yourself importing `@dimforge/rapier2d-compat` anywhere else, the abstraction has sprung a leak.
+All documentation lives in the VitePress site. Do not add documentation to
+this file, the README or source-adjacent README files. When a change alters
+behaviour, update the page that covers it in the same change, following
+`docs/contributing/writing-docs.md`.
 
-Physics runs on a **fixed timestep** (1/60s by default), decoupled from the frame rate: the loop calls `game.physics.advance(deltaTime)`, which spends elapsed real time in whole constant-size steps and carries the remainder. Entity and constraint `update(deltaTime)` still receive real frame time, because animation and timers want wall clock, not solver ticks.
+| Topic | Page |
+| --- | --- |
+| Setup, commands, minimal game | `docs/guide/getting-started.md` |
+| Complete walkthrough | `docs/guide/first-game.md` |
+| Scene JSON, hooks, switching | `docs/guide/scenes.md`, `docs/reference/scene-format.md` |
+| Entities, actors, constraints, projectiles, collision categories | `docs/guide/entities.md`, `docs/reference/actors.md`, `docs/reference/constraints.md` |
+| Physics: body types, units, stepping, queries | `docs/guide/physics.md`, `docs/reference/physics.md` |
+| Input: keyboard, pointer, gestures, bands, pointer lock | `docs/guide/input.md`, `docs/reference/input-events.md` |
+| Touch and on-screen controls | `docs/guide/touch.md` |
+| Camera | `docs/guide/camera.md` |
+| View, render resolution, UI resolution, world overlay, settings menu | `docs/guide/display.md` |
+| UI components | `docs/guide/ui.md`, `docs/reference/ui.md` |
+| Sprites, sound, game loop, building | `docs/guide/sprites.md`, `docs/guide/sound.md`, `docs/guide/game-loop.md`, `docs/guide/building.md` |
+| Engine options and instance API | `docs/reference/engine-options.md` |
+| Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
+| Example games and music credits | `docs/examples/index.md`, `docs/examples/music-credits.md` |
+| Architecture and the rules each module keeps | `docs/contributing/architecture.md` |
+| Tests, conformance harness, Chromium setup | `docs/contributing/testing.md` |
+| Adding a demo, deployment | `docs/contributing/adding-a-demo.md`, `docs/contributing/deployment.md` |
+| Common issues | `docs/contributing/troubleshooting.md` |
+| Roadmap | `docs/contributing/roadmap.md` |
 
-**Units are pixels and seconds**: velocity in px/s, gravity in px/s² (`{x: 0, y: 1000}` is normal down), impulses in px·mass/s. No solver unit (steps, meters, force constants) appears outside `packages/engine/src/core/physics/`. Call `await initPhysics()` once before constructing M2D — it fetches and compiles Rapier's WASM module, and no world can exist until it resolves. Fast movers should set `body.bullet = true` (projectiles do): that enables continuous collision detection, so they cannot tunnel through thin walls.
-
-**Bodies are `static`, `dynamic`, `kinematic` or `character`** (`body.bodyType`), and shaped by `createBox` / `createCircle` / `createCapsule` — prefabs pick the shape with `physics.shape`. A **kinematic** body is driven by game code but still resolves contacts: move it with `setNextPosition` and the solver derives its velocity from the move, so it carries riders and pushes what is in its way. `setPosition` teleports instead and does neither — it is for respawns, not motion. `MovingPlatform` is the worked example.
-
-**Slide-style players are `character` bodies** (the top-down and maze players). Game code keeps the dynamic-body interface — `setVelocity` is the input, gravity and `frictionAir` apply, `applyImpulse` works — but each step a character *controller* turns that intent into a collision-aware move: it slides along walls instead of catching on them, never picks up rotation from contacts, snaps to ground, rides kinematic platforms (sideways and up natively; the backend adds the downward assist a platform cannot push), shoves dynamic bodies with its weight, and reports `grounded` (null on every other body type). Characters have no solver friction, so stopping is the mover's job — `KeyboardControl` brakes at `deceleration` when grounded with no input. A character body plus its offset must *fit*: the maze player is a 26px circle in 32px corridors, because a full-width body cannot keep the controller's gap on both sides at once.
-
-**Not every player should be a character.** The platformer player is a plain dynamic box on purpose — tumbling under friction *is* its locomotion, and a character controller would erase exactly that. It rides moving platforms through contact friction, which works because `MovingPlatform` runs a trapezoidal speed profile (ramp, cruise, brake into each point): the required carrying acceleration stays below what friction can transmit (µ·g), and nobody inherits a step-function velocity at the stops. Dynamic actors whose sprites never rotate (bee, ghost) set `lockRotation` in their prefab physics so off-centre hits shove them without spinning their colliders.
-
-**Input is relative to the ground you are standing on.** `KeyboardControl` reads `entity.groundBody` and applies acceleration, the `maxSpeed` cap and braking in that body's frame. On static ground the frame is zero and nothing changes; on a moving platform it is the difference between `maxSpeed` meaning "how fast I can walk" and "how fast I may travel" — the latter clamps a rider below its platform's own speed, drags it backwards across the surface, and (for a free-rotating box) torques it over the back edge.
-
-**Queries are `contactsWith` (what am I touching), `surfacesWith` (the same plus each contact's normal and gap), `overlaps` (a shape that is not a body — one-shot "what is in this radius") and `raycast` (every hit, nearest first, with point and normal).** Prefer a normal over comparing positions: `Entity.isOnGround` asks whether any contact normal points downward, which is what tells a floor from a wall. These read an index that only `step()` maintains, so the world tracks bodies added or teleported since the last step and tests those directly — a body can always be added or moved and queried in the same frame, but teleporting many bodies per frame gives that back.
-
-Because the solver runs slower than a fast display refreshes, several frames share one physics position and motion would visibly stair-step. The engine fixes this with **render interpolation**: draw using `entity.renderPosition` / `entity.renderAngle` (or `body.renderPosition` / `body.renderAngle`), which blend between the last two steps. Use `position` for everything else — collision checks, AI, queries and distances all want the true current state. Direct moves (`setPosition`, `setAngle`, `translate`) reset the baseline, so a teleport is never smeared across frames.
-
-## Quick Commands
+## Commands
 
 ```bash
-npm install          # Install dependencies
-npm run dev          # Start dev server (port 3000)
-npm run build        # Build the deployable site/ (docs + demos)
-npm test             # Run both test projects (node + headless Chromium)
-npm run test:node    # Headless Node suite only (fast)
-npm run test:browser # Browser project only: WebGL2 conformance + env smoke test
-npm run test:watch   # Re-run the node project on change
-npx playwright install chromium   # One-time: download Chromium for test:browser
-node examples/scripts/generateSprites.js <example>  # Generate sprites for an example
+npm install
+npm run dev            # examples on port 3000
+npm run docs:dev       # documentation site
+npm test               # node + browser engine suites, example scene validation
+npm run test:node      # fast engine suite
+npm run test:browser   # WebGL2 conformance in headless Chromium
+npm run build          # site/ = docs + demos
+npx playwright install chromium   # once, for test:browser
 ```
 
-## Architecture
+## Rules for changes
 
-### Core Classes (`packages/engine/src/core/`)
-
-- **Entity** (`entity.js`) - Base class for all game objects. Has body, sprite, constraints. The `body.entity` link is set in constructor for collision detection.
-- **Constraint** (`constraint.js`) - Reusable behaviors attached to entities (health, attack, movement, debug)
-- **Projectile** (`projectile.js`) - Base class for projectiles (rockets, bullets). Handles movement, lifetime, collision, damage.
-- **Scene** (`scene.js`) - Manages level loading, entities, UI. Checks `entity.name === 'Player'` for camera follow.
-- **SceneLoader** (`sceneLoader.js`) - Validates and normalizes scene JSON before a Scene is built from it. See "Level JSON Structure".
-- **M2D** (`m2d.js`) - Main engine class. Collision handlers are set up in `setupCollisionHandlers()`.
-- **PhysicsWorld** (`physics/`) - The simulation, reached as `game.physics`. See "Physics boundary" above.
-- **InputManager** (`input/`) - Keyboard, mouse, touch and pen, reached as `game.input`. See "Input" below.
-
-### Renderers (`packages/engine/src/core/renderers/`)
-
-Rendering is fully abstracted behind a backend interface; no game or engine code
-may touch a canvas context directly. The contract describes rendering semantics,
-not Canvas 2D behaviour: when a backend needs a workaround to meet it, that
-workaround belongs in the backend (the Canvas backend already carries one for
-silhouette shadows), never in the contract or in callers.
-
-- **BaseRenderer** (`baseRenderer.js`) - The complete backend contract: lifecycle,
-  world/screen frame passes, draw primitives (`drawSprite`, `drawImage`, `drawRect`,
-  `drawLine`, `drawArc`, `drawPath`, `drawText`), transform/clip stacks
-  (`pushTransform`/`popTransform`, `pushClip`/`popClip`), and `measureText`.
-  Backend-agnostic logic (FPS/stats tracking, debug flags, `hitTest`) lives here.
-  Fill/stroke styles accept CSS colors or declarative gradient descriptors
-  (`{ type: 'linear', x0, y0, x1, y1, stops }` or the concentric
-  `{ type: 'radial', x, y, r0, r1, stops }`); all draw calls accept `isScreenSpace`,
-  `globalAlpha`, and `shadow` ({ color, blur, offsetX, offsetY }). A shadow is cast
-  once by the primitive's whole silhouette (fill + stroke); `globalAlpha` applies
-  once to the whole primitive. `clear(color)` clears the presented surface
-  (transparent if no colour). Transform and clip pushes share one strictly
-  nested stack. Stats distinguish `primitives` (what callers asked for) from
-  `drawCalls`/`stateChanges` (what the backend submitted, so batching backends
-  report fewer).
-- **CanvasRenderer** (`canvasRenderer.js`) - Canvas 2D backend with a double-buffered
-  world pass composited in `endFrame()`.
-- **WebGLRenderer** (`webglRenderer.js`) - WebGL2 backend, the default. Geometry
-  is tessellated and transformed on the CPU (`geometry/`) and batched into as few
-  GPU draw calls as paint-state changes allow (`webgl/batch.js`). Text is
-  rasterized by the browser's 2D text engine into cached label textures; clips
-  use stencil reference counting; shadows render the silhouette offscreen and
-  blur it (`webgl/shadowPass.js`). The `geometry/` modules are API-neutral so a
-  WebGPU backend would reuse them and replace only `webgl/`.
-- **UIRenderer** (`uiRenderer.js`) - Generic screen-space view over any backend;
-  forwards calls with `isScreenSpace: true`. `game.uiRenderer` is one of these, so a
-  new backend only implements `BaseRenderer` and the UI layer works automatically.
-- **Capabilities** - Everything in the contract above is mandatory. Beyond it,
-  backends advertise *optional* features through `renderer.capabilities`,
-  queried with `renderer.supports(name)`; defaults live in
-  `OPTIONAL_CAPABILITIES` (`baseRenderer.js`) and are all false. A backend
-  lacking one **ignores** the option rather than throwing, so a scene written
-  for the GPU still runs on Canvas. They exist because the backends are
-  genuinely unalike — additive blending and post effects are nearly free on a
-  GPU and expensive or impossible on Canvas 2D — so callers query and degrade
-  instead of holding every backend to the slowest. Not to be confused with the
-  conformance harness's `capabilities` field, which gates *mandatory* contract
-  tests while a backend is still being built.
-
-  | Feature | Backends | Notes |
-  | --- | --- | --- |
-  | `tint` | WebGL | Folds into the vertex colour the texture shader already multiplies, so it costs no extra draw calls |
-  | `blendModes` | both | `gl.blendFunc` keyed into the batch state; `globalCompositeOperation` on Canvas |
-  | `particles` | WebGL | `drawParticles` takes a packed `Float32Array` (`PARTICLE_STRIDE` floats each). `BaseRenderer` falls back to one `drawSprite` per particle, so the call works everywhere and the flag means "fast and coloured" |
-  | `lights` | WebGL | Switched on by `setAmbientLight`, not by submitting lights: with no ambient the light map is white and lights have nothing to do, so a null ambient skips the pass entirely |
-  | `postEffects` | WebGL | Bloom and vignette, with `lights`, in `webgl/effectsPass.js` |
-- **Registry** (`index.js`) - `registerRenderer(name, Class)` + the M2D `renderer`
-  option (`'webgl'` by default, `'canvas'`, or a class/instance) select the backend.
-  If the default backend cannot initialise (no WebGL2), M2D falls back to Canvas
-  with a warning; an explicitly requested backend that fails throws. A
-  `?renderer=<name>` URL query overrides the option, so any example can be viewed
-  with either backend. New backends plug in by subclassing `BaseRenderer` and
-  registering.
-
-The backend contract is enforced by an executable conformance suite
-(`packages/engine/test/conformance/rendererConformance.js`). A new backend is validated by one
-file that passes it a harness — see `packages/engine/test/README.md`. Tests are split into a
-`node` project (fast, @napi-rs/canvas) and a `browser` project (`packages/engine/test/browser/**`,
-headless Chromium) because Node has no WebGL. Two contract details are easy to
-get wrong and are pinned by tests: partial `drawArc` fills produce circular
-**segments** (chord-closed), not pie sectors; and the frame order is world
-pass then screen pass.
-
-### Input (`packages/engine/src/core/input/`)
-
-Everything the player does arrives through **`game.input`**, and nothing else
-in the engine registers a DOM input listener. Pointer Events are the only
-pointer source, so mouse, touch and pen are one code path, not three.
-
-```javascript
-game.input.isDown('KeyW')                   // physical codes, not characters
-game.input.justPressed('Space')
-game.input.axis('KeyA', 'KeyD')             // -1..1
-game.input.vector('KeyW', 'KeyS', 'KeyA', 'KeyD')   // normalized
-
-game.input.pointer.world                    // live: correct when the camera moves
-game.input.on('click', (event) => event.world)
-game.input.on('pinch', (event) => event.scaleDelta)
-```
-
-Event types: `pointerdown` / `pointermove` / `pointerup`, `click`,
-`doubleclick`, `rightclick`, `hover` / `hoverend`, `dragstart` / `drag` /
-`dragend` / `drop`, `pinchstart` / `pinch` / `pinchend`, `scroll`,
-`keydown` / `keyup`, `pointerlockchange`.
-
-- **Keys are physical codes** (`'KeyW'`, `'Space'`, `'ArrowLeft'`), never
-  characters. `event.key` is layout-dependent, so WASD stops being a diamond
-  under the left hand on AZERTY. Use `game.input.keyLabel(code)` when showing
-  a binding to the player. Listeners sit on the canvas, which is made
-  focusable, so the engine does not eat keystrokes meant for the page.
-- **Every event carries `ui`, `view` and `world`.** Drags add `start`,
-  `delta` and `total` (each with `ui` and `world`); drops add `dropTarget`;
-  pinches add `scale`, `scaleDelta`, `rotation` and `centre`; scrolls add
-  `scroll` in pixels whatever unit the browser reported.
-- **Events walk three bands — overlay, UI, world — and `event.consume()`
-  stops the descent.** One target is resolved per event: the topmost hit in
-  the highest band that has one. This replaces the old `stopPropagation` flag.
-- **Recognizers are lazy, and for pinch that is behaviour, not thrift.** With
-  no pinch listener two fingers are two independent drags, which is what
-  twin-stick touch controls need; subscribing to `pinch` is what claims the
-  second pointer. Long-press-as-right-click works the same way, since it
-  suppresses the tap that would otherwise follow.
-- **Click fires on release, and a double fires both.** A click needs the
-  press and the release on the *same target* (a slop radius is only the
-  fallback when nothing was pressed), so sliding off a button cancels it and
-  pressing opposite edges of one still counts. `doubleclick` is additional to
-  the second `click`, because waiting to tell them apart would put 300ms on
-  every click.
-- **World hit testing is opt-in** through the `Interactive` constraint. No
-  interactive entities means the router never asks physics anything; with
-  them, one `physics.queryPoint` per event answers for all of them.
-  `Interactive` delivers drag events but deliberately does not move the body
-  — what "dragging" means is a physics decision (see the physics example's
-  velocity-driven grab). `follow: true` opts into the naive answer.
-- **Presses drain immediately, moves wait for the frame.** `requestFullscreen`
-  and `requestPointerLock` are gated on running inside a real user gesture,
-  so press and key events are dispatched from the DOM handler; moves and
-  wheel ticks are buffered and coalesced in `input.beginFrame()`. Draining on
-  a press also drains everything queued before it, so order is preserved. A
-  game that replaces the engine loop must call `beginFrame`/`endFrame` itself
-  (doner does).
-- **Pointer lock is on by default.** The canvas confines the pointer and the
-  engine draws a **virtual cursor** integrated from relative motion, so
-  nothing downstream can tell which mode it is in — UI and world hit testing
-  read the same `ui` position either way. Locking needs a user gesture, so it
-  is requested on the first press and re-requested after Escape; a refusal is
-  expected and dropped. Opt out with `new M2D(canvas, { pointerLock: false })`
-  or `game.input.setPointerLock(false)`.
-- **The canvas eats its input**: `touch-action: none`, contained overscroll,
-  no selection, no context menu, and `setPointerCapture` on every press so a
-  drag that leaves the canvas keeps reporting.
-- **Synthesized input goes through `game.input.push(record)`** — the same
-  seam the DOM sources use. On-screen touch controls, replays and the tests
-  (`packages/engine/test/helpers/input.js`) all use it.
-
-### Viewport, resolution and resize (`packages/engine/src/core/viewport.js`)
-
-The engine keeps **three resolutions independent**, because they answer three
-different questions. Confusing them is the main hazard when touching this code.
-
-| | What it is | Set by | Renderer field |
-| --- | --- | --- | --- |
-| **View** | How much world is visible, in *world units* | `options.width/height` (design size) | `renderer.width/height`, `camera.width/height` |
-| **World surface** | How many pixels that view rasterizes into | `game.setResolution(...)` | `viewport.worldWidth/worldHeight` |
-| **UI** | Screen-space layer, in UI units at display pixel density | Display size + DPR | `uiRenderer.width/height` |
-
-Rules that follow from this, all pinned by tests:
-
-- **Resolution is fidelity, not zoom.** `setResolution({width, height})` changes
-  only the world surface. The camera's view is untouched, so a low resolution
-  makes the world coarser and never reveals anything past the designed view.
-  `'native'` matches the display.
-- **UI never gets coarser.** The world is composited from its surface into the
-  content rect, then the UI draws straight onto the backing store at full
-  display resolution — so a 426x240 world can carry a razor-sharp HUD. On
-  WebGL the two passes bind the default framebuffer differently
-  (`#bindDefaultTarget`), and label textures are rasterized at the active
-  pass's density.
-- **The world surface is a real surface, on both backends.** Canvas renders
-  the world into `worldBuffer` and blits it to the content rect. WebGL renders
-  into the effects pass's `scene` target and presents it — whenever the world
-  is resampled (`#worldIsResampled`) *or* lighting/post effects need the world
-  as a texture. The no-effects case goes through `EffectsPass.present`, a
-  one-draw blit, rather than the full composite. At `'native'` neither backend
-  resamples, and WebGL draws straight to the default framebuffer so the
-  context's own multisampling still applies. The scene target carries a
-  stencil buffer — without it, clipping silently stops working whenever the
-  world is routed through it. A backend that rasterizes the world at display
-  resolution and only *reports* the lower one is the bug the conformance
-  suite's "rasterizes the world into the world surface" case exists to catch
-  — it is not enough to test that the UI stayed sharp.
-- **`worldFilter` is how the surface is upscaled**, and both backends honour
-  it: `'nearest'` for pixel art, `'linear'` (default) otherwise. It is a
-  `BaseRenderer` method (`setWorldFilter`), set from `options.worldFilter` at
-  init and changeable at runtime through `game.setWorldFilter(...)`. It has no
-  effect at `'native'`, where there is nothing to upscale.
-- **UI fills the screen; the world may letterbox.** UI space always covers the
-  whole display (fixed height, width follows the aspect), so elements can
-  anchor to real screen edges. `options.aspectMode` picks `'letterbox'`
-  (default, designed aspect preserved with bars) or `'expand'` (the view
-  widens and more world becomes visible — opt in only if the map can take it).
-- **UI positions are anchor-relative.** `UIElement` stores `offsetX/offsetY`
-  against an `anchor` (`'top-left'` by default, so existing absolute layouts
-  are unchanged); `x`/`y` resolve against the current UI size on every read.
-  Full-screen backgrounds use `UIRectangle`'s `fill: true` (scene JSON:
-  `"fill": true`), which stretches over live UI space every draw — no fixed
-  design-sized rect can cover a space that widens with the display.
-- **Bounded cameras centre when the view outgrows the bounds.** Example games
-  set `camera.bounds` from their world size so player-following and the
-  `'expand'` aspect mode never reveal the void past the map; when the view is
-  larger than the bounded span (expand on a one-screen board, like the maze),
-  the clamp limits invert and `Camera` centres on the span instead of pinning
-  to a corner.
-- **Backends implement `setViewport(viewport)`**, not a bare resize.
-  `BaseRenderer.resize(w, h)` is a convenience that builds an
-  `identityViewport` (everything the same size) and is what the conformance
-  suite's baseline uses. A backend must store the viewport even when it cannot
-  act on it — a WebGL context may be lost — so the *latest* size is replayed on
-  restore.
-- **Pointer mapping is already done for you.** Every input event carries
-  `ui`, `view` and `world` coordinates, resolved once at dispatch; so does
-  `game.input.pointer`. Never map a raw DOM event by hand — the canvas rect
-  is not the drawn area (CSS letterboxing) and the world occupies only its
-  content rect inside it. The opposite direction is `game.worldToUI(x, y)`
-  (`viewToUI` in viewport.js), for pinning screen-space content to a world
-  object; `uiToView` inverts it, which is how the pointer-locked virtual
-  cursor resolves a world position with no absolute one to start from.
-- **Annotations do not belong in the world pass.** Anything drawn *on* the
-  game rather than *in* it — debug geometry (attention radii, attack ranges,
-  target dots, facing vectors, bounds boxes), world-anchored readouts, a
-  trigger's tinted area and name — is rasterized into the world surface if it
-  goes through `game.renderer`, so it inherits the render resolution: at 0.25x
-  a range ring becomes a staircase and a 3-unit target dot disappears, while
-  the sprites it annotates merely look blocky, which is the intended effect.
-  Submit it to `game.worldOverlay` (`packages/engine/src/core/ui/worldOverlay.js`) instead.
-  Its API mirrors the renderer's, so moving a call is a one-word change:
-  `game.renderer.drawArc(...)` -> `game.worldOverlay.drawArc(...)`.
-  - **Shapes keep world units.** Coordinates *and* sizes go through the
-    world-to-UI transform, so a 200-unit ring stays glued to the 200 units it
-    describes. Only the rasterization changes.
-  - **Text keeps a fixed UI size.** The anchor is world coordinates, but
-    `fontSize` and `offsetX/offsetY` are UI units, so a readout is as legible
-    at 0.25x as at native and never scales with the view.
-  - Submissions are per-frame, cleared at the top of `drawWorld`, drawn
-    shapes-then-text, and clipped to the content rect so nothing runs onto the
-    letterbox bars.
-  - The line is "is this the thing, or a note about the thing": an actor's own
-    appearance stays in the world pass (the turret's base and barrel, the
-    rocket's fins, a damage flash tinting a sprite), as does the health bar,
-    whose thickness is clamped against the resolution instead. Text that *is*
-    world content rendered en masse on purpose stays too — the showcase's
-    label-storm stress layer.
-
-**Settings menu** (`packages/engine/src/core/ui/settingsMenu.js`): a scene-independent overlay
-with resolution presets, fullscreen, aspect mode and a Paused row, toggled with
-O. Every example mounts one (`new SettingsMenu(game)`); the instance registers
-itself as `game.settings`, which is how scene UI reaches it — a scene-JSON
-button with `"action": "settings"` ends up calling `game.settings.open()`
-(`Scene.#runButtonAction`; other action names go to the scene config's
-`onAction` hook, and `onClick` scene switches log failures instead of rejecting
-unhandled). It registers in `game.overlays`, drawn by `game.drawOverlays()`
-after the scene's UI each frame — a game that replaces the engine loop (doner)
-must call `drawOverlays()` itself. It registers no listeners at all: the input
-router's **overlay band** gives it every event before scene UI or the world,
-and while open it consumes what it is handed, so nothing underneath reacts.
-Key *releases* pass through on purpose, so a key held when the menu opened
-still releases in the game's state. Resolution presets are compared
-structurally (`sameResolution`), so `{width, height}` objects cycle correctly.
-
-**Pause** (`game.paused`): a plain flag the engine loop honours — while set,
-no physics, entity or camera updates run, but the frame is still drawn, so the
-frozen game stays visible under overlays. The settings menu's Paused row
-toggles it; opening the menu pauses only if the game opts in with
-`new SettingsMenu(game, { pauseWhenOpen: true })`, which restores the previous
-pause state on close. A game that replaces the engine loop honours the flag
-itself (doner gates `donerGame.update` on it).
-
-Display changes (ResizeObserver, `fullscreenchange`, DPR via `matchMedia`) are
-coalesced and applied at the top of a frame, never mid-draw. `game.resize()`
-drops no-op changes, which also breaks the feedback loop a ResizeObserver would
-otherwise form with the `canvas.width` the engine sets. Example pages therefore
-give the canvas an explicit CSS size and let the engine letterbox internally,
-rather than using `object-fit: contain`. `game.onResize(fn)` and the scene
-config's `onResize` hook notify game code that lays out its own HUD.
-
-`game.destroy()` is the full teardown and must leave nothing global behind:
-display listeners, overlays (first, since they unregister their own input
-subscriptions), the input system's canvas and document listeners,
-`SoundManager` document listeners, playing audio, the current scene, and the
-renderer's GPU resources. `game.input` also goes inert — a DOM event still in
-flight when teardown ran is dropped rather than leaving a key held down in a
-game nobody is driving. Anything that attaches
-to `window` or `document` keeps a stable reference to its handler so it can
-be removed again — binding inline at `addEventListener` is unremovable, which
-is how the input listeners used to outlive every game that created them.
-
-### Actors (`packages/engine/src/actors/`)
-
-Game-specific entities extending Entity:
-- `Player` / `TopDownPlayer` - Player characters (name must be 'Player' for triggers/camera)
-- `Bee` - Enemy that chases player
-- `Turret` - Static enemy that shoots rockets (has line-of-sight check)
-- `Rocket` - Projectile extending Projectile base class
-- `Platform`, `MovingPlatform`, `Coin`, `Trigger`
-
-### Constraints (`packages/engine/src/constraints/`)
-
-Constraints are where reusable behaviour lives; actors should mostly be
-configuration over them (a `MovingPlatform` is body setup plus `PathFollow`,
-a `Bee` is collision setup plus `Chase` + `Health` + `ContactDamage` +
-`DamageFlash`). Before writing logic into an actor, check whether it is a
-behaviour another actor could want.
-
-- `Health` - HP, damage, invulnerability, death callbacks
-- `Attack` - Melee attack with cooldown, one-shot shape-query hit detection
-- `ContactDamage` - Damage plus knockback on touch; stuns its owner briefly
-- `KeyboardControl` - Movement from the keyboard (use `verticalMovement: true` for top-down); works in the frame of whatever the entity stands on
-- `Interactive` - Makes an entity respond to the pointer: click, hover, drag, drop, right-click. Opt-in, so a scene with none never hit-tests the world
-- `Chase` - Enemy movement: pursue the player in range, wander otherwise
-- `PathFollow` - Patrol a kinematic body along points with a trapezoidal speed profile and a pause at each stop
-- `Hover` - Purely visual bob/spin via the entity's render offsets; never touches the body
-- `WallSlip` - Zeroes a dynamic body's friction while airborne so holding a direction into a wall slides down it instead of clinging; the ground friction (tumbling, stopping) returns on landing
-- `DamageFlash` - Brief overlay tint when hit; trigger from `health.onDamage`
-- `Debug` - Visual debugging for entities
-
-### Collision Categories (`packages/engine/src/core/constants.js`)
-
-```javascript
-CollisionCategories = {
-  default: 0x0001,    // Used by Platform (walls)
-  player: 0x0002,
-  platform: 0x0004,
-  enemy: 0x0010,
-  projectile: 0x0080
-}
-```
-
-Note: Platform doesn't set a category, so it uses `default`. Projectiles must collide with `default` to hit walls.
-
-## Key Patterns
-
-### Creating New Actors
-
-1. Extend `Entity` (or `Projectile` for projectiles)
-2. Set `name` property (use 'Player' if it should trigger level completion/camera follow)
-3. Add constraints in constructor
-4. Register in example's `main.js`: `game.registerActor('ActorName', ActorClass)`
-5. Add prefab in level JSON
-6. Draw the actor itself through `game.renderer`; draw anything *about* it —
-   ranges, markers, readouts — through `game.worldOverlay`, so annotations
-   stay sharp at any world render resolution (see the viewport section)
-
-### FPS-Independent Timing
-
-All timers must use deltaTime (seconds), not frame counts:
-```javascript
-// Good
-this.cooldown -= deltaTime;
-if (this.cooldown <= 0) { ... }
-
-// Bad (frame-dependent)
-this.cooldownFrames--;
-if (this.cooldownFrames === 0) { ... }
-```
-
-Movement should use velocity (px/s), not forces, for FPS independence;
-`applyImpulse` is for instantaneous kicks like knockback:
-```javascript
-// Steady movement: set velocity, accelerating by px/s per second
-body.setVelocity({ x: body.velocity.x + accel * deltaTime, y: body.velocity.y });
-
-// One-off kick: an instantaneous velocity change in px/s
-body.applyImpulse({ x: -300, y: -150 });
-```
-
-### Dynamic Entity Creation
-
-When creating entities outside of scene loading (like projectiles):
-- The `body.entity` link is set automatically in Entity constructor
-- Create the body through the world, then add it to `game.entities` and the
-  simulation manually. `createBox`/`createCircle` build a body but do not
-  simulate it until `add`:
-```javascript
-const body = game.physics.createBox({ x, y, width: 24, height: 8, frictionAir: 0 });
-const entity = new MyEntity(body, sprite, game, options);
-game.entities.add(entity);
-game.physics.add(body);
-```
-
-### Line-of-Sight Checks
-
-Use `physics.raycast` for visibility checks. The filter narrows candidates
-before the test, so it is a cost saver as well as a predicate:
-```javascript
-const blockers = game.physics.raycast(start, target,
-  (body) => body.isStatic && body.entity?.name === 'Platform');
-const hasLineOfSight = blockers.length === 0;
-```
-
-## Examples Structure
-
-Each example in `examples/src/<name>/`:
-- `main.js` - Entry point, registers actors and scenes
-- `index.html` - HTML page
-- `scenes/*.json` - Level/menu definitions
-- `assets/` - Sprites, sounds, music
-
-Must be added to `examples/vite.config.js`:
-- Add to `rollupOptions.input`
-- Add sprite generation in `assetsPlugin.buildStart`
-- Add to the `writeBundle` asset-copy list if it has an `assets/` directory
-
-Scenes that draw something which is not an entity (bulk effects, directors)
-use the `onUpdate(deltaTime)` and `onDraw(deltaTime)` scene-config hooks
-alongside `onEnter`/`onExit`. `onDraw` runs inside the world pass with the
-camera applied, after entities.
-
-### Renderer showcase (`examples/src/showcase/`)
-
-Doubles as the renderer comparison harness (see ROADMAP.md). It reports
-`primitives` against `drawCalls` on screen, which is where the backends
-visibly differ. Seven toggleable layers, in HUD order: drifting motes
-(`moteField.js`), the reed bank (`reedBed.js`), the text storm
-(`labelStorm.js`), the harbour chart (`minimap.js`), rain (`rainEmitter.js`),
-lights (`lanterns.js`) and bloom. `backdrop.js` and `lighthouse.js` are
-always-on scenery; `showcase.js` is the director and `hud.js` the overlay.
-
-Clipping is covered in both spaces: the lighthouse beam (`lighthouse.js`)
-stacks clips under one transform in *world* space, and the harbour chart
-(`minimap.js`) nests a rounded panel clip, a rotation and a rect clip in
-*screen* space. The lamp rotates about a vertical axis and the beam is
-projected for a side view whose eye level is `horizonY` (foreshortened,
-widened and brightened toward the viewer, converging on the horizon and drawn
-behind the tower when pointing away); the chart plots the same horizontal
-angle top-down, so the two agree.
-The beam's gradient descriptor is built once and its per-frame intensity
-goes through `globalAlpha` — per-frame stop strings would re-bake the WebGL
-gradient lookup texture every frame.
-
-Rain (`rainEmitter.js`) is the `particles` layer: one packed buffer per
-frame, positions as pure functions of time so frame rate cannot change what
-is on screen, and a self-imposed cap on backends without the capability.
-
-Lanterns (`lanterns.js`) are the `lights` layer, and the showcase's sharpest
-backend contrast: on WebGL the harbour is genuinely dark and the lamps carve
-it open, on Canvas it stays evenly lit. The lighthouse beam pre-compensates
-for the ambient it is about to be multiplied by — it is geometry in the world
-pass, not a light, and a point light cannot express a shaft.
-
-`backdrop.js` owns the three bands everything else is positioned against —
-sky above `horizonY`, water down to `shoreY`, near bank below — and it draws
-in two calls, not one: `drawDistance()` before the reeds and `drawBank()`
-after them, because the reeds stand out in the shallows and the near shore
-has to occlude their feet. The water carries its own skyglow lights; under a
-night ambient no plausible sea colour survives the multiply, so lighting it
-is the only honest way to keep it from reading as more sky.
-
-Two scene-grounding rules worth keeping: anything standing in the world needs
-visible contact with a surface (the lanterns' posts are what stop them
-floating, not their glow), and the beam's screen heading must be measured
-against the *absolute* along-shore component and clamped — taking `atan2` of
-the raw components swings the shaft vertical as it turns toward the camera,
-which reads as a flat 2D rotation. The shaft fades out head-on and the lamp
-flare takes over instead.
-
-Two rules keep it a valid measurement:
-
-- **Deterministic.** Layers are built from seeded RNG (`rng.js`) and the camera
-  pans a fixed path instead of following a player, so both backends run the
-  identical workload.
-- **Unculled and unbatched by hand.** Layers submit every primitive every frame
-  and avoid per-sprite `pushTransform` (reeds pivot by arithmetic instead), so
-  the counters describe the backend's batching rather than the example's.
-
-## Level JSON Structure
-
-Scene JSON is **validated strictly** by `SceneLoader` before `Scene` touches
-it (`SceneManager.loadScene` calls `loader.load`). It throws
-`SceneValidationError` naming the scene and the path to the bad field, rather
-than letting a mistake surface as a half-built level, a per-object console
-error, or — as with the platformer's Settings button — a control that simply
-does nothing. Checks cover the format (`version` must be the number `1`,
-known `type`), every cross-reference (object→prefab, prefab→spritesheet and
-→registered actor, defaultAnimation→that sheet's animations,
-button `onClick`→registered scene), and **unknown keys**, which are errors:
-silently ignoring a field the author believed in is the failure being
-designed against. It applies the format's defaults (object size 32) and
-returns the same shape `Scene` already reads — there is deliberately no
-intermediate representation, so there is only one scene format to know.
-
-Adding a field to the format means adding it to the key lists at the top of
-`sceneLoader.js`, or it will be rejected. `packages/engine/test/sceneLoader.test.js`
-validates every scene the repo ships, so a schema change that breaks an
-example fails there.
-
-```javascript
-{
-  "version": 1,                                 // the number 1, not "1.0"
-  "world": { "gravity": { "x": 0, "y": 0 } },  // y:0 for top-down
-  "prefabs": {
-    "enemy": {
-      "actor": "Turret",      // Must match registered actor name
-      "spritesheet": "enemy", // Optional
-      "physics": { "bodyType": "static" }
-    }
-  },
-  "layers": [{
-    "objects": [{
-      "prefab": "enemy",
-      "x": 100, "y": 100,
-      "width": 32, "height": 32,
-      "properties": { ... }  // Passed to actor constructor as options
-    }]
-  }]
-}
-```
-
-## Common Issues
-
-1. **Entity collisions not working**: Ensure `body.entity` is set (done automatically in Entity constructor)
-2. **Projectiles passing through walls**: Check collision mask uses `CollisionCategories.default` not `platform`
-3. **Camera not following player**: Entity's `name` property must be exactly `'Player'`
-4. **Enemies shooting through walls**: Add line-of-sight check using `game.physics.raycast`
-5. **Movement speed varies with FPS**: Use velocity-based movement, not force-based
-6. **A key binding does nothing**: Bindings are physical codes, not characters — `'KeyW'`, `'Space'`, `'Digit1'`, not `'w'`, `' '`, `'1'`
-7. **Clicking an entity does nothing**: It needs an `Interactive` constraint; world hit testing is opt-in. If it has one, check nothing above it in the band order consumed the event first
-8. **A dead entity still catches clicks**: Call `entity.destroy()`, which hands its constraints' registrations back (the engine does this in `game.reset()`)
+- Nothing outside `packages/engine/src/core/physics/` imports a physics
+  library. Game and engine code use `game.physics` and its body handles.
+- Nothing outside `packages/engine/src/core/renderers/` touches a canvas
+  context. Drawing goes through the renderer contract. A backend workaround
+  lives in the backend.
+- Nothing outside `packages/engine/src/core/input/` registers a DOM input
+  listener, except the sound manager's one-shot autoplay unlock.
+- Units are pixels, seconds and radians. Timers and movement use `deltaTime`.
+- Draw with `renderPosition` and `renderAngle`. Use `position` for logic.
+- Annotations about an entity go through `game.worldOverlay`.
+- A new scene JSON field goes into the key lists at the top of
+  `sceneLoader.js` and into `docs/reference/scene-format.md`.
+- A new renderer feature is mandatory for every backend or declared through
+  `capabilities`.
+- Both backends must pass `npm test`. Check visual changes with
+  `?renderer=canvas` and `?renderer=webgl`.
+- Anything attached to `window` or `document` keeps a stable handler
+  reference so `destroy()` can remove it.
+- Keys are physical codes (`'KeyW'`, `'Space'`), never characters.

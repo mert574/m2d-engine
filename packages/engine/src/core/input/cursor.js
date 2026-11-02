@@ -14,12 +14,10 @@
  * (UI hit testing, world hit testing, hover, drag) reads the same `ui`
  * position either way and never learns which mode produced it.
  *
- * Locking is on by default because confining the pointer is almost always
- * what a game wants: no accidental drift onto a second monitor, no click
- * landing on the page behind the canvas. It cannot be entered without a user
- * gesture, so the engine requests it on the first press and re-requests after
- * the player presses Escape. `game.input.setPointerLock(false)` opts out, and
- * so does `pointerLock: false` at construction.
+ * Locking is opt-in: `pointerLock: true` at construction or
+ * `game.input.setPointerLock(true)` at runtime. It cannot be entered without
+ * a user gesture, so the engine requests it on a press and re-requests after
+ * the player presses Escape.
  */
 
 /**
@@ -36,13 +34,13 @@ export class Cursor {
   /**
    * @param {import('../m2d.js').M2D} game
    * @param {Object} [options]
-   * @param {boolean} [options.pointerLock=true] - Confine and hide the system
+   * @param {boolean} [options.pointerLock=false] - Confine and hide the system
    *   cursor, drawing a virtual one instead
    */
   constructor(game, options = {}) {
     this.game = game;
     /** Whether the engine should hold pointer lock when it can. */
-    this.enabled = options.pointerLock ?? true;
+    this.enabled = options.pointerLock ?? false;
     /** Whether the browser currently has the canvas locked. */
     this.locked = false;
     /** Set while a request is in flight, so presses do not pile them up. */

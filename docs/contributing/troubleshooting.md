@@ -1,0 +1,30 @@
+# Troubleshooting
+
+## Game code
+
+| Symptom | Cause |
+| --- | --- |
+| A scene fails to load with `SceneValidationError` | The message names the field. Common causes are an unregistered actor, a prefab or sprite sheet name that does not match or a misspelled key |
+| Collisions do nothing | `body.entity` must be set. `Entity`'s constructor sets it. A body created by hand and never wrapped in an entity has none |
+| Projectiles pass through walls | The projectile's collision mask must include the `default` category. `Platform` sets no category |
+| The camera does not follow the player | The entity's `name` must be exactly `Player` |
+| Enemies shoot through walls | Check line of sight with `game.physics.raycast` before firing |
+| Movement speed changes with frame rate | Set velocity in px/s and scale changes by `deltaTime`. Do not count frames |
+| A key binding does nothing | Bindings are physical codes such as `KeyW`, `Space` and `Digit1`, never characters |
+| Clicking an entity does nothing | It needs an `Interactive` constraint. If it has one, something above it in the overlay or UI band may be consuming the event |
+| A removed entity still catches clicks | Call `entity.destroy()` so its `Interactive` constraint unregisters. `game.reset()` does this for every entity |
+| Motion stair-steps on a high refresh display | Draw with `renderPosition` and `renderAngle`, not `position` |
+| A character body jams in a corridor | The controller keeps a small gap on each side. Make the body narrower than the corridor |
+| A moving platform drops its rider at each stop | Give `PathFollow` an `acceleration` low enough that friction can carry the rider |
+| The canvas blurs or ignores resizes | Give the canvas a CSS size. Do not size it from its own attributes or use `object-fit` |
+| Annotations turn into stairs at low resolution | Draw them through `game.worldOverlay` |
+| The settings menu never appears in a custom loop | Call `game.drawOverlays()` at the end of each frame |
+
+## Development environment
+
+| Symptom | Fix |
+| --- | --- |
+| `npm run test:browser` fails with `error while loading shared libraries` | Install Chromium's system libraries. See [Testing](./testing#the-browser-project) |
+| The browser suite reports WebGL2 unavailable | Chromium is running without the SwiftShader flags from `vitest.browser.config.js`, or `M2D_BROWSER` points at a browser without WebGL2 |
+| Sprites are missing or stale in an example | Run `npm run generate-sprites`. The dev server only generates sprites that are missing |
+| `@napi-rs/canvas` fails to install | Install with optional dependencies enabled. The platform binding is one |

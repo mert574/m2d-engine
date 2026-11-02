@@ -131,7 +131,7 @@ export class SceneLoader {
 
       for (const [anim, body] of Object.entries(sheet.animations ?? {})) {
         const animPath = `${path}.animations.${anim}`;
-        this.#checkKeys(fail, animPath, body, ['frames', 'loop']);
+        this.#checkKeys(fail, animPath, body, ['frames']);
         if (!Array.isArray(body.frames) || body.frames.length === 0) {
           fail(`${animPath}.frames`, 'must be a non-empty array of [tileX, tileY] pairs');
         }

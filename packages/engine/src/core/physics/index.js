@@ -44,9 +44,10 @@
  *   rotates, snaps to the ground it walks on, rides kinematic platforms,
  *   shoves dynamic bodies with its weight, and reports `grounded` (which is
  *   `null` on every other body type).
- * - **`applyImpulse` is mass-dependent**, in px·mass/s, and inert on
- *   anything but a dynamic body. Multiply by `body.mass` when you want a
- *   flat velocity change regardless of weight.
+ * - **`applyImpulse` is mass-dependent**, in px·mass/s. It moves dynamic
+ *   and character bodies and does nothing to static or kinematic ones.
+ *   Multiply by `body.mass` when you want a flat velocity change
+ *   regardless of weight.
  * - **`bullet` opts a body into continuous collision detection**, so a fast
  *   mover cannot tunnel through a thin wall.
  * - **`bounds` is a tight AABB** (rotation-aware), never a broadphase box.

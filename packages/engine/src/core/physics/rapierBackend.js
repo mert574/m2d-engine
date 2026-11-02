@@ -791,15 +791,18 @@ export class RapierPhysicsWorld extends PhysicsWorldBase {
     v.x /= damping;
     v.y /= damping;
 
-    // Standing on ground, pin the downward speed to a probe of just over
-    // the hover gap the offset and nudge maintain: far enough to re-prove
-    // the ground contact (and `grounded`) every step, nowhere near the fall
-    // speed that would accumulate if gravity were left to integrate against
-    // a floor that keeps absorbing it. +y is down; an upward (negative)
-    // velocity — a jump — passes untouched, and in zero gravity a character
-    // is never grounded so nothing changes.
+    // Standing on ground, drop the downward speed. Gravity must not
+    // accumulate against a floor that keeps absorbing it, and snap-to-ground
+    // (CHARACTER_SNAP) is what keeps the contact and `grounded` alive from
+    // step to step. Probing downward into the floor instead made the
+    // controller clip the horizontal move every few steps, so a walking
+    // character covered about 85% of its commanded distance in a stutter.
+    // +y is down; an upward (negative) velocity — a jump — passes untouched,
+    // and in zero gravity a character is never grounded so nothing changes.
     if (body.charGrounded && v.y >= 0) {
-      v.y = (CHARACTER_OFFSET + CHARACTER_NUDGE + 0.5) / dt;
+      v.y = body.groundBody?.bodyType === 'kinematic'
+        ? (CHARACTER_OFFSET + CHARACTER_NUDGE + 0.5) / dt
+        : 0;
     }
 
     // A kinematic platform underfoot. The controller carries the character
@@ -853,7 +856,12 @@ export class RapierPhysicsWorld extends PhysicsWorldBase {
         if (other) return other;
       }
     }
-    return null;
+    // A character at rest on static ground hovers in the controller's gap
+    // and reports no collision, only `grounded`. Find the floor the same
+    // way `Entity.isOnGround` does for every other body: by contact normal.
+    const surface = this.surfacesWith(body, (other) => !other.isSensor)
+      .find(({ normal }) => normal.y > 0.5);
+    return surface ? surface.body : null;
   }
 
   /**

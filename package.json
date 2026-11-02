@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace examples",
-    "build": "npm run build:docs && npm run build:examples && rm -rf site && cp -r docs/dist site && cp -r examples/dist site/examples",
+    "build": "npm run build:docs && npm run build:examples && rm -rf site && cp -r docs/dist site && cp -r examples/dist/. site/examples/",
     "build:docs": "npm run build --workspace docs",
     "build:examples": "npm run build --workspace examples",
     "docs:dev": "npm run dev --workspace docs",
