@@ -13,6 +13,7 @@ const canvas = document.getElementById('screen');
 await initPhysics();
 
 const game = new M2D(canvas, {
+  pointerLock: false,
   initialScene: 'mainMenu',
   width: 1280,
   height: 960,

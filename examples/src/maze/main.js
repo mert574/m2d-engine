@@ -152,6 +152,7 @@ class Goal extends Entity {
 await initPhysics();
 
 const game = new M2D(document.getElementById('screen'), {
+  pointerLock: false,
   initialScene: 'mainMenu', width: 640, height: 480,
   worldWidth: WORLD.width, worldHeight: WORLD.height,
   // 32px pixel-art tiles: upscale them blocky, not smeared, below native.

@@ -18,6 +18,7 @@ const canvas = document.getElementById('screen');
 await initPhysics();
 
 const game = new M2D(canvas, {
+  pointerLock: false,
   initialScene: new URLSearchParams(location.search).has('renderer') ? 'showcase' : 'mainMenu',
   width: VIEW.width,
   height: VIEW.height,

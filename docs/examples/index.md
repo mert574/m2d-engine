@@ -44,6 +44,8 @@ Six games ship with the engine. Each exercises a different part of it. Sources a
 
 Every example mounts the settings menu, opened with O. Its renderer row reloads the page with `?renderer=canvas` or `?renderer=webgl`, and the same parameter can be typed into the URL. The showcase skips its menu when the parameter is present.
 
+Pointer lock is enabled only in the physics playground. The other examples leave the pointer free.
+
 ## Controls
 
 ### Renderer showcase
