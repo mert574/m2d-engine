@@ -17,3 +17,13 @@ To enable it on a fork, set Settings, Pages, Build and deployment, Source to Git
 ## Running it manually
 
 Actions, Deploy demo to GitHub Pages, Run workflow, select `master`. The build job is guarded on the `master` ref, so a run started from another branch does nothing.
+
+## Publishing to npm
+
+`.github/workflows/publish.yml` publishes `m2d-engine` when a GitHub release is published. It checks that the release tag matches `v` followed by the version in `packages/engine/package.json`, runs the full test suite and publishes the engine workspace. Prereleases are rejected. The workflow uses Node.js 24 and npm trusted publishing with OIDC.
+
+In the npm package settings, add a GitHub Actions trusted publisher with user `mert574`, repository `m2d-engine` and workflow filename `publish.yml`. Leave the environment empty and allow `npm publish`. No npm token secret is needed. A new connection must complete its first publish within two days.
+
+For a release, update the engine package version and lockfile, commit the changes and publish a GitHub release with a matching tag such as `v1.1.0`. The tagged commit must contain the publishing workflow and package repository metadata.
+
+For an existing release whose tag predates this setup, merge the setup first, then open Actions, Publish to npm, Run workflow and select the branch containing the exact code and package version to publish. A manual run publishes the selected ref and does not create or change a GitHub release. Publishing an existing npm version fails, so check the registry before retrying a successful run.
