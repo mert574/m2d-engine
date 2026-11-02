@@ -114,7 +114,7 @@ The engine's debug drawing uses the overlay. An actor's own appearance stays in 
 
 ## The settings menu
 
-`SettingsMenu` is an overlay with rows for resolution presets, fullscreen, aspect mode, the debug overlay, the renderer backend and pause. It opens with O by default and closes with O, Escape, its Close row or a click outside the panel.
+`SettingsMenu` is a [screen](./ui#screens) with rows for resolution presets, fullscreen, aspect mode, the debug overlay, the renderer backend and pause. It opens with O by default and closes with O, Escape, its Close row or a click outside the panel. It is navigable with the arrow keys and Tab, and activates rows with Enter.
 
 A mounted menu consumes the hotkey and Escape on `keydown` even while closed. Game code does not see Escape pressed once a menu exists.
 
@@ -135,7 +135,7 @@ While open, the menu receives every input event before the scene's UI and the wo
 
 The mounted menu is `game.settings`. A scene button with `"action": "settings"` opens it. Choosing the renderer backend reloads the page with `?renderer=canvas` or `?renderer=webgl`.
 
-The menu draws through `game.drawOverlays()`, which the engine loop calls at the end of every frame. A game with its own loop must call it too.
+The menu is pushed onto `game.ui`, so it sits over a live, loaded game rather than replacing it, and closing pops back to whatever was below. Every row is a view onto a [cvar](../reference/console) — the same `r_aspect` the developer console sets — so resolution, aspect and the world filter persist across sessions, and a change made in either place shows up in the other. It draws through `game.drawOverlays()`, which the engine loop calls at the end of every frame; a game with its own loop must call that, and `game.ui.update(deltaTime)` before it.
 
 ## Demo source
 

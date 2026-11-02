@@ -104,6 +104,8 @@ An array of UI elements. Every element accepts these keys.
 | `anchor` | no | One of `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right`. Default `top-left` |
 | `properties` | no | Type-specific, below |
 
+Every colour and size accepts a [theme token](./ui#theme-tokens) — `"$color.text.accent"`, `"$font.size.heading"` — as readily as a literal, so a scene authored against the theme follows a retheme.
+
 ### `button`
 
 `properties`:
@@ -113,9 +115,11 @@ An array of UI elements. Every element accepts these keys.
 | `text` | | Label |
 | `onClick` | | Scene name to switch to. Must be registered |
 | `action` | | Behaviour name. `settings` opens the mounted settings menu. Others, and `settings` with no menu mounted, go to the scene's `onAction` hook |
-| `width`, `height` | `200`, `40` | Size in UI units |
-| `fontSize`, `fontFamily` | `16px`, `system-ui` | |
-| `backgroundColor`, `hoverColor`, `textColor` | `#000`, `#333`, `#fff` | |
+| `width`, `height` | `200`, `44` | Size in UI units |
+| `variant` | `secondary` | `primary`, `secondary`, `ghost` or `danger`. What the button *means*; the theme decides how each looks in every interaction state |
+| `background`, `textColor` | from the variant | Override the resting fill or label colour. The hover and pressed states stay intact |
+| `fontSize`, `fontFamily` | `$font.size.body`, the theme's UI face | |
+| `fontWeight`, `fontStyle` | from the variant, `normal` | `fontStyle: "italic"` for italic |
 
 Exactly one of `onClick` and `action` is required.
 
@@ -126,8 +130,11 @@ Exactly one of `onClick` and `action` is required.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `text` | | The string |
-| `fontSize` | `16px` | |
-| `color` | `#000` | |
+| `fontSize` | `$font.size.body` | |
+| `fontFamily` | The theme's UI face | |
+| `fontWeight` | `$font.weight.regular` | `100`–`900`; the shipped face is variable, so every step is a real weight |
+| `fontStyle` | `normal` | `italic` for italic |
+| `color` | `$color.text.primary` | |
 | `align` | `left` | `left`, `center` or `right` |
 
 ### `image`
@@ -159,5 +166,6 @@ The checks, in addition to key lists and types:
 - `prefabs.*.defaultAnimation` exists on that sheet
 - `button.onClick` names a registered scene
 - `button` has exactly one of `onClick` and `action`
+- `button.variant` takes a listed value
 - `physics.bodyType` and `physics.shape` take listed values
 - `anchor` takes a listed value

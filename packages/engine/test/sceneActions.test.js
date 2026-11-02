@@ -34,7 +34,7 @@ async function sceneWithButton(game, properties, config = {}) {
     ...config
   });
   await scene.setupUIScene();
-  const button = [...scene.ui.elements].find(el => el.text === 'Button');
+  const button = scene.ui.children.find(el => el.text === 'Button');
   return { scene, button };
 }
 

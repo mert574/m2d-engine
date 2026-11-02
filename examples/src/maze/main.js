@@ -8,6 +8,7 @@ import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
 import playerSprite from './assets/player.png';
 import wallSprite from './assets/wall.png';
 import floorSprite from './assets/floor.png';
+import { registerMainMenu } from '../shared/mainMenu.js';
 
 // The maze lives on a grid of 32px cells. Odd dimensions, as the carving
 // algorithm needs walls between every pair of cells.
@@ -107,20 +108,20 @@ let solvedAt = 0;
 
 /** Screen-space "solved" banner, shown for a couple of seconds. */
 class SolvedBanner extends UIElement {
-  constructor(game) {
-    super(0, 0, 0, 0);
-    this.game = game;
+  constructor() {
+    super({ anchor: 'top', y: 60 });
   }
 
   draw() {
     if (!solvedAt || performance.now() - solvedAt > 2500) return;
-    const ui = this.game.uiRenderer;
-    ui.drawText({
+    this.paint.drawText({
       text: 'Maze solved! Back to the start...',
-      x: ui.width / 2, y: 60,
-      fillStyle: '#4CAF50', fontSize: '28px', fontFamily: 'system-ui', fontWeight: 'bold',
+      x: this.x, y: this.y,
+      fillStyle: '$color.status.success',
+      fontSize: '$font.size.heading',
+      fontWeight: '$font.weight.bold',
       textAlign: 'center', textBaseline: 'middle',
-      shadow: { color: 'rgba(0,0,0,0.8)', blur: 6 }
+      shadow: '$elevation.medium'
     });
   }
 }
@@ -164,25 +165,15 @@ game.camera.bounds = { left: 0, top: 0, right: WORLD.width, bottom: WORLD.height
 game.registerActor('MazePlayer', MazePlayer);
 game.registerActor('Platform', Platform);
 game.registerActor('Goal', Goal);
-game.sceneManager.addScene('mainMenu', {
-  fetch: async () => ({
-    version: 1, name: 'mainMenu', type: 'ui', title: 'Main Menu', assets: {},
-    elements: [
-      { type: 'rect', id: 'background', x: 0, y: 0, fill: true, color: '#333333' },
-      { type: 'text', id: 'title', anchor: 'center', x: 0, y: -160,
-        properties: { text: 'Maze Demo', fontSize: '48px', align: 'center', color: '#ffffff' } },
-      { type: 'text', id: 'subtitle', anchor: 'center', x: 0, y: -100,
-        properties: { text: 'Find the green goal', fontSize: '18px', align: 'center', color: '#999999' } },
-      { type: 'button', id: 'startGame', anchor: 'center', x: 0, y: -30,
-        properties: { text: 'Start Game', onClick: 'maze', width: 180, height: 44, fontSize: '18px',
-          backgroundColor: '#2E7D32', hoverColor: '#4CAF50', textColor: '#ffffff' } },
-      { type: 'button', id: 'settings', anchor: 'center', x: 0, y: 26,
-        properties: { text: 'Settings', action: 'settings', width: 180, height: 44, fontSize: '18px',
-          backgroundColor: '#2E7D32', hoverColor: '#4CAF50', textColor: '#ffffff' } },
-      { type: 'text', id: 'controls', anchor: 'center', x: 0, y: 80,
-        properties: { text: 'Arrow Keys: Move · O: Settings', fontSize: '16px', align: 'center', color: '#bbbbbb' } }
-    ]
-  })
+registerMainMenu(game, {
+  title: 'Maze',
+  subtitle: 'find the green goal',
+  hint: 'Arrows move · O for settings',
+  backdrop: { gradient: { from: '#0b1410', to: '#1b3326', angle: 120 }, motes: 60 },
+  items: () => [
+    { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('maze') },
+    { text: 'Settings', onSelect: () => game.settings.open() }
+  ]
 });
 game.sceneManager.addScene('maze', {
   fetch: async () => ({
@@ -215,7 +206,7 @@ game.sceneManager.addScene('maze', {
   // Screen-space elements belong in the scene's UI container (onDraw would
   // run in the world pass, under the camera transform).
   onEnter() {
-    game.sceneManager.getCurrentScene().ui.addElement(new SolvedBanner(game));
+    game.sceneManager.getCurrentScene().ui.add(new SolvedBanner());
   }
 });
 // Settings overlay (O): resolution, fullscreen, aspect mode, debug, backend.

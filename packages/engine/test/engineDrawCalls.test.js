@@ -262,7 +262,9 @@ describe('engine draw calls', () => {
 
   describe('UIRectangle', () => {
     it('stretches over the whole UI space when fill is set', () => {
-      const rect = new UIRectangle(640, 480, 1280, 960, '#298ccc', { fill: true });
+      const rect = new UIRectangle({
+        x: 640, y: 480, width: 1280, height: 960, color: '#298ccc', fill: true
+      });
       rect.setGame(game);
       rect.draw();
 
@@ -274,7 +276,7 @@ describe('engine draw calls', () => {
     });
 
     it('draws centred at a fixed size without fill', () => {
-      const rect = new UIRectangle(100, 100, 40, 20, '#fff');
+      const rect = new UIRectangle({ x: 100, y: 100, width: 40, height: 20, color: '#fff' });
       rect.setGame(game);
       rect.draw();
 
@@ -286,19 +288,22 @@ describe('engine draw calls', () => {
 
   describe('PerformanceStats', () => {
     it('resolves its anchor against the live UI size', () => {
-      const stats = new PerformanceStats(game, 20, -34, { anchor: 'bottom-left', show: true });
+      const stats = new PerformanceStats({ x: 20, y: -34, anchor: 'bottom-left' });
+      stats.setGame(game);
       stats.draw();
 
       // The recording game's UI space is 800x600: bottom-left plus the offset
-      // puts the readout at the real bottom edge at any aspect ratio.
-      expect(renderer.optionsFor('drawText')[0]).toMatchObject({ x: 20, y: 566 });
+      // puts the readout at the real bottom edge at any aspect ratio. The
+      // pill is 24 units tall, so its top edge is 34 up from the bottom.
+      expect(renderer.optionsFor('drawRect')[0]).toMatchObject({ x: 20, y: 566 });
     });
 
-    it('draws nothing unless shown', () => {
-      const stats = new PerformanceStats(game, 20, -34, { anchor: 'bottom-left' });
+    it('draws nothing while hidden', () => {
+      const stats = new PerformanceStats({ x: 20, y: -34, anchor: 'bottom-left', visible: false });
+      stats.setGame(game);
       stats.draw();
 
-      expect(renderer.callsTo('drawText')).toHaveLength(0);
+      expect(renderer.calls).toHaveLength(0);
     });
   });
 

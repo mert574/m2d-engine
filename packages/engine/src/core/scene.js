@@ -5,7 +5,6 @@ import { UIButton } from './ui/button.js';
 import { UIText } from './ui/text.js';
 import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
-import { PerformanceStats } from './ui/performanceStats.js';
 
 export class Scene {
   constructor(game, config) {
@@ -83,18 +82,6 @@ export class Scene {
     this.game.layers.clear();
     this.game.player = null;
     this.ui.clear();
-
-    // Anchored to the bottom-left so it sits at the *real* screen corner at
-    // any aspect ratio, and stays clear of game HUDs, which conventionally
-    // occupy the top of the screen.
-    if (this.game.options.performanceStats !== false) {
-      const stats = new PerformanceStats(this.game, 20, -34, {
-        anchor: 'bottom-left',
-        textColor: '#00ff00',
-        show: true
-      });
-      this.ui.addElement(stats);
-    }
 
     if (this.config.world) {
       if (this.config.world.gravity) {
@@ -219,78 +206,61 @@ export class Scene {
     if (!this.config.elements) return;
 
     this.config.elements.forEach(element => {
+      const common = { x: element.x, y: element.y, anchor: element.anchor };
+      const properties = element.properties ?? {};
+
       switch (element.type) {
         case 'button':
-          const button = new UIButton(
-            element.x,
-            element.y,
-            element.properties.width || 200,
-            element.properties.height || 40,
-            element.properties.text,
-            () => this.#runButtonAction(element.properties),
-            {
-              backgroundColor: element.properties.backgroundColor,
-              hoverColor: element.properties.hoverColor,
-              textColor: element.properties.textColor,
-              fontSize: element.properties.fontSize,
-              fontFamily: element.properties.fontFamily,
-              anchor: element.anchor
-            }
-          );
-          button.setGame(this.game);
-          this.ui.addElement(button);
+          this.ui.add(new UIButton({
+            ...common,
+            width: properties.width ?? 200,
+            height: properties.height ?? 44,
+            text: properties.text,
+            onClick: () => this.#runButtonAction(properties),
+            variant: properties.variant,
+            background: properties.background,
+            textColor: properties.textColor,
+            fontSize: properties.fontSize,
+            fontFamily: properties.fontFamily,
+            fontWeight: properties.fontWeight,
+            fontStyle: properties.fontStyle
+          }));
           break;
 
         case 'text':
-          const text = new UIText(
-            element.x,
-            element.y,
-            element.properties.text,
-            {
-              fontSize: element.properties.fontSize,
-              color: element.properties.color,
-              align: element.properties.align,
-              anchor: element.anchor
-            }
-          );
-          text.setGame(this.game);
-          this.ui.addElement(text);
+          this.ui.add(new UIText({
+            ...common,
+            text: properties.text,
+            color: properties.color,
+            fontSize: properties.fontSize,
+            fontFamily: properties.fontFamily,
+            fontWeight: properties.fontWeight,
+            fontStyle: properties.fontStyle,
+            align: properties.align
+          }));
           break;
 
         case 'image':
           if (element.sprite) {
-            const sprite = this.sprites.get(element.sprite);
-            const image = new UIImage(
-              element.x,
-              element.y,
-              sprite,
-              {
-                width: element.properties.width,
-                height: element.properties.height,
-                scale: element.properties.scale,
-                anchor: element.anchor
-              }
-            );
-            image.setGame(this.game);
-            this.ui.addElement(image);
+            this.ui.add(new UIImage({
+              ...common,
+              image: this.sprites.get(element.sprite),
+              width: properties.width,
+              height: properties.height,
+              imageScale: properties.scale
+            }));
           }
           break;
 
         case 'rect':
-          const rect = new UIRectangle(
-            element.x,
-            element.y,
-            element.width,
-            element.height,
-            element.color,
-            {
-              interactive: element.properties?.interactive || false,
-              fill: element.fill || false,
-              anchor: element.anchor
-            }
-          );
-          rect.setGame(this.game);
-          this.ui.addElement(rect);
+          this.ui.add(new UIRectangle({
+            ...common,
+            width: element.width,
+            height: element.height,
+            color: element.color,
+            fill: element.fill ?? false,
+            interactive: properties.interactive ?? false
+          }));
           break;
       }
     });
@@ -332,8 +302,21 @@ export class Scene {
     if (this.config.onUpdate) {
       this.config.onUpdate(deltaTime);
     }
+  }
 
-    this.ui.update(deltaTime);
+  /**
+   * Tick the UI tree.
+   *
+   * Separate from `update` because the engine loop calls it every frame,
+   * including while `game.paused` holds the simulation still. A menu drawn
+   * over a frozen game still has to animate, measure its text and respond —
+   * freezing it along with the physics is the one thing that would make the
+   * pause obvious for the wrong reason.
+   *
+   * @param {number} deltaTime - Seconds since the last frame
+   */
+  updateUI(deltaTime) {
+    this.ui.updateTree(deltaTime);
   }
 
   draw(deltaTime) {
@@ -353,6 +336,6 @@ export class Scene {
   }
 
   drawUI(deltaTime) {
-    this.ui.draw(deltaTime);
+    this.ui.drawTree(deltaTime);
   }
 }

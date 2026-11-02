@@ -5,6 +5,7 @@ import { Entity } from '../src/core/entity.js';
 import { Interactive } from '../src/constraints/interactive.js';
 import { Container } from '../src/core/ui/container.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
+import { UIScreen } from '../src/core/ui/screen.js';
 import {
   advanceInputClock, click, drag, keyDown, keyUp, pointerDown, pointerMove,
   pointerUp, resetInputClock, scroll
@@ -301,13 +302,13 @@ describe('input', () => {
   describe('routing', () => {
     function mountUI(game, element) {
       const container = new Container(game);
-      container.addElement(element);
+      container.add(element);
       game.input.setUIContainer(container);
       return element;
     }
 
     it('stops at the first band that consumes the event', () => {
-      const element = mountUI(game, new UIElement(100, 100, 40, 40));
+      const element = mountUI(game, new UIElement({ x: 100, y: 100, width: 40, height: 40 }));
       element.setGame(game);
       let uiClicks = 0;
       element.onClick = () => { uiClicks++; };
@@ -322,7 +323,7 @@ describe('input', () => {
     });
 
     it('lets an event through to the world when UI does not want it', () => {
-      const element = mountUI(game, new UIElement(600, 400, 40, 40));
+      const element = mountUI(game, new UIElement({ x: 600, y: 400, width: 40, height: 40 }));
       element.setGame(game);
 
       const worldClicks = [];
@@ -333,14 +334,15 @@ describe('input', () => {
       expect(worldClicks).toHaveLength(1);
     });
 
-    it('gives an open overlay the event before anything else', () => {
+    it('gives a blocking screen the event before anything else', () => {
+      // The engine's UI band sits above the scene's. A blocking screen is
+      // what makes an open menu modal, with no global capture listeners.
       const seen = [];
-      game.overlays.add({
-        capturesInput: true,
-        handleInput(event) { seen.push(event.type); event.consume(); },
-        draw() {}
-      });
-      const element = mountUI(game, new UIElement(100, 100, 40, 40));
+      const screen = new UIScreen({ name: 'test' });
+      screen.handleInput = (event) => { seen.push(event.type); event.consume(); };
+      game.ui.push(screen);
+
+      const element = mountUI(game, new UIElement({ x: 100, y: 100, width: 40, height: 40 }));
       element.setGame(game);
       let uiClicks = 0;
       element.onClick = () => { uiClicks++; };
@@ -349,6 +351,23 @@ describe('input', () => {
 
       expect(seen).toContain('click');
       expect(uiClicks).toBe(0);
+    });
+
+    it('lets a non-blocking screen pass the event down to scene UI', () => {
+      const seen = [];
+      const screen = new UIScreen({ name: 'hud', blocking: false });
+      screen.handleInput = (event) => { seen.push(event.type); };
+      game.ui.push(screen);
+
+      const element = mountUI(game, new UIElement({ x: 100, y: 100, width: 40, height: 40 }));
+      element.setGame(game);
+      let uiClicks = 0;
+      element.onClick = () => { uiClicks++; };
+
+      click(game, 100, 100);
+
+      expect(seen).toContain('click');
+      expect(uiClicks).toBe(1);
     });
   });
 

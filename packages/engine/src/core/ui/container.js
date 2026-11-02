@@ -1,70 +1,55 @@
+import { UIElement } from './uiElement.js';
+
 /**
- * A scene's screen-space UI.
+ * The root of a scene's screen-space UI.
  *
- * The container holds elements and answers two questions for the input
- * router: what is under a point, and whether anything here cares about a
- * given event type. It does not dispatch or track hover itself — the router
- * owns that, because hover has to be resolved across the overlay, UI and
- * world bands together rather than one band at a time.
+ * A container is a `UIElement` whose box is the whole of UI space, which is
+ * what makes it the thing child anchors resolve against: an element anchored
+ * `'bottom-right'` with an offset of `(-20, -20)` lands 20 units in from the
+ * real corner of the display, at any aspect ratio.
+ *
+ * It is otherwise deliberately thin. Before the element tree existed this
+ * class owned the flat element list, draw loop and hit test; all three now
+ * belong to `UIElement`, and a container is just the element that has no
+ * parent. A panel added to it is a container in every sense that matters.
+ *
+ * The container answers two questions for the input router — what is under a
+ * point, and whether anything here cares about a given event type — both
+ * inherited. It does not dispatch or track hover itself: the router owns
+ * that, because hover has to be resolved across the overlay, UI and world
+ * bands together rather than one band at a time.
  */
-export class Container {
-  constructor(game) {
+export class Container extends UIElement {
+  /**
+   * @param {import('../m2d.js').M2D} game
+   * @param {Object} [options] - `padding` insets the whole UI from the
+   *   display edge, which is how a game keeps clear of a TV's overscan
+   */
+  constructor(game, options = {}) {
+    super(options);
     this.game = game;
-    this.elements = new Set();
-  }
-
-  clear() {
-    this.elements.clear();
-  }
-
-  addElement(element) {
-    element.setGame(this.game);
-    this.elements.add(element);
-    return element;
-  }
-
-  removeElement(element) {
-    this.elements.delete(element);
+    // The root is attached by definition, so children added to it mount
+    // immediately rather than waiting for a parent that will never come.
+    this.mounted = true;
   }
 
   /**
-   * The topmost element at a UI-space point.
-   *
-   * Later elements draw over earlier ones, so the search runs backwards and
-   * the first hit is the one the player sees on top.
-   *
-   * @param {number} x - UI-space X
-   * @param {number} y - UI-space Y
-   * @param {object} [exclude] - Element to skip (the subject of a drop)
-   * @returns {object|null}
+   * The whole of UI space. Overridden because the base implementation
+   * derives a frame from `width`, `height` and the pivot, and the root has
+   * no size of its own — it *is* the size of the display.
    */
-  hitTest(x, y, exclude = null) {
-    const elements = [...this.elements];
-    for (let i = elements.length - 1; i >= 0; i--) {
-      const element = elements[i];
-      if (element === exclude || !element.visible) continue;
-      if (element.contains(x, y)) return element;
-    }
-    return null;
+  get frame() {
+    const ui = this.game?.uiRenderer;
+    if (!ui) return { x: 0, y: 0, width: 0, height: 0 };
+    return { x: 0, y: 0, width: ui.width, height: ui.height };
   }
 
-  /** Whether any element would do something with `type`. */
-  handles(type) {
-    for (const element of this.elements) {
-      if (element.visible && element.handles(type)) return true;
-    }
+  /**
+   * Never a hit target. The root covers the entire screen, so letting it
+   * answer a hit test would mean every click anywhere landed on the UI band
+   * and nothing in the world could ever be clicked.
+   */
+  contains() {
     return false;
-  }
-
-  update(deltaTime) {
-    for (const element of this.elements) {
-      element.update(deltaTime);
-    }
-  }
-
-  draw(deltaTime) {
-    for (const element of this.elements) {
-      element.draw(deltaTime);
-    }
   }
 }

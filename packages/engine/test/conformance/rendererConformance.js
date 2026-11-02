@@ -841,6 +841,68 @@ export function describeRendererConformance(harness) {
         expect(bottom.maxY).toBeLessThanOrEqual(62);
       });
 
+      it('honours fontWeight', () => {
+        const draw = (fontWeight) => {
+          setup();
+          renderFrame({
+            world: r => r.drawText({
+              text: 'MMM', x: 20, y: 40, fontWeight,
+              fillStyle: '#fff', fontSize: '48px', fontFamily: 'sans-serif'
+            })
+          });
+          return read().count(ink);
+        };
+
+        // A heavier weight lays down more ink. Compared loosely because how
+        // much more is a property of the face, not of the backend.
+        expect(draw('900')).toBeGreaterThan(draw('100'));
+      });
+
+      it('honours fontStyle', () => {
+        const draw = (fontStyle) => {
+          setup();
+          renderFrame({
+            world: r => r.drawText({
+              text: 'IIII', x: 20, y: 60, fontStyle, textBaseline: 'bottom',
+              fillStyle: '#fff', fontSize: '48px', fontFamily: 'serif'
+            })
+          });
+          return read().bounds(ink);
+        };
+
+        const upright = draw('normal');
+        const italic = draw('italic');
+
+        // Slanted strokes lean right at the top, so the italic run reaches
+        // further right than the upright one from the same origin.
+        expect(italic).not.toBeNull();
+        expect(upright).not.toBeNull();
+        expect(italic.maxX).toBeGreaterThan(upright.maxX);
+      });
+
+      it('honours letterSpacing where the browser supports it', () => {
+        // Tracking is optional: `ctx.letterSpacing` is a recent addition and
+        // an engine without it draws untracked rather than failing. So the
+        // contract is "wider or the same", never narrower or broken.
+        const draw = (letterSpacing) => {
+          setup();
+          renderFrame({
+            world: r => r.drawText({
+              text: 'IIIII', x: 10, y: 40, letterSpacing,
+              fillStyle: '#fff', fontSize: '32px', fontFamily: 'sans-serif'
+            })
+          });
+          return read().bounds(ink);
+        };
+
+        const tight = draw(0);
+        const wide = draw(8);
+
+        expect(tight).not.toBeNull();
+        expect(wide).not.toBeNull();
+        expect(wide.maxX).toBeGreaterThanOrEqual(tight.maxX);
+      });
+
       it('draws an outline when strokeStyle is given', () => {
         renderFrame({
           world: r => r.drawText({
@@ -889,6 +951,46 @@ export function describeRendererConformance(harness) {
 
       it('reports a height derived from the font size', () => {
         expect(renderer.measureText('hello', { fontSize: '24px' }).height).toBe(24);
+      });
+
+      it('accounts for weight and style', () => {
+        // Metrics have to reflect the style that will actually be rendered,
+        // or a measured layout lands text in the wrong place.
+        //
+        // Only the inequalities that hold for *any* font stack are asserted.
+        // Whether a given face has a real italic — rather than a synthesized
+        // slant with identical advances — is a property of the machine's
+        // fonts, not of the backend, and headless environments often do not.
+        const measure = (style) =>
+          renderer.measureText('hello', { fontSize: '32px', fontFamily: 'sans-serif', ...style }).width;
+
+        expect(measure({ fontWeight: '900' })).toBeGreaterThanOrEqual(measure({ fontWeight: '400' }));
+        expect(measure({ fontStyle: 'italic' })).toBeGreaterThan(0);
+        expect(measure({ fontStyle: 'italic', fontWeight: '700' })).toBeGreaterThan(0);
+      });
+
+      it('counts letter spacing in the measured width', () => {
+        // A tracked label has to measure at the width it will occupy, or a
+        // layout built on the measurement lays the text out short. Where the
+        // browser ignores tracking the two are simply equal.
+        const plain = renderer.measureText('IIIII', {
+          fontSize: '32px', fontFamily: 'sans-serif'
+        }).width;
+        const tracked = renderer.measureText('IIIII', {
+          fontSize: '32px', fontFamily: 'sans-serif', letterSpacing: 8
+        }).width;
+
+        expect(tracked).toBeGreaterThanOrEqual(plain);
+      });
+
+      it('does not let tracking leak into the next measurement', () => {
+        // The WebGL backend measures through one long-lived context rather
+        // than a saved/restored draw context, so it has to reset.
+        const before = renderer.measureText('IIIII', { fontSize: '32px' }).width;
+        renderer.measureText('IIIII', { fontSize: '32px', letterSpacing: 20 });
+        const after = renderer.measureText('IIIII', { fontSize: '32px' }).width;
+
+        expect(after).toBe(before);
       });
     });
 
@@ -1736,6 +1838,40 @@ export function describeRendererConformance(harness) {
 
         expect(plain).toBeLessThan(10);
         expect(bloomed).toBeGreaterThan(plain + 15);
+      });
+
+      it.skipIf(!caps.postEffects)('defocuses the world with blur', () => {
+        // A hard edge becomes a ramp: sample just outside a white square.
+        // Unblurred that is the black clear; blurred it picks up the spread.
+        const square = r => r.drawRect({ x: 80, y: 40, width: 40, height: 40, fillStyle: '#ffffff' });
+
+        renderer.setPostEffects({ blur: { strength: 24 } });
+        renderFrame({ world: square });
+        const blurred = read().at(100, 32)[0];
+
+        renderer.setPostEffects(null);
+        renderFrame({ world: square });
+        const plain = read().at(100, 32)[0];
+
+        expect(plain).toBeLessThan(10);
+        expect(blurred).toBeGreaterThan(plain + 15);
+      });
+
+      it.skipIf(!caps.postEffects)('softens the inside of a shape too', () => {
+        // Not just an outward halo like bloom: the centre of a blurred edge
+        // loses brightness as it mixes with what is beyond it.
+        const square = r => r.drawRect({ x: 80, y: 40, width: 40, height: 40, fillStyle: '#ffffff' });
+
+        renderer.setPostEffects({ blur: { strength: 24 } });
+        renderFrame({ world: square });
+        const edge = read().at(100, 42)[0];
+
+        renderer.setPostEffects(null);
+        renderFrame({ world: square });
+        const sharp = read().at(100, 42)[0];
+
+        expect(sharp).toBeGreaterThan(200);
+        expect(edge).toBeLessThan(sharp - 20);
       });
 
       it.skipIf(!caps.postEffects)('returns to an untouched frame once disabled', () => {

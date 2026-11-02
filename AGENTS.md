@@ -30,6 +30,7 @@ behaviour, update the page that covers it in the same change, following
 | Camera | `docs/guide/camera.md` |
 | View, render resolution, UI resolution, world overlay, settings menu | `docs/guide/display.md` |
 | UI components | `docs/guide/ui.md`, `docs/reference/ui.md` |
+| Developer console, cvars, commands | `docs/reference/console.md` |
 | Sprites, sound, game loop, building | `docs/guide/sprites.md`, `docs/guide/sound.md`, `docs/guide/game-loop.md`, `docs/guide/building.md` |
 | Engine options and instance API | `docs/reference/engine-options.md` |
 | Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |

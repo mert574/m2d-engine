@@ -106,8 +106,24 @@ export default async function start(canvas) {
     fetch: async () => scene,
     onEnter() {
       const ui = game.sceneManager.getCurrentScene().ui;
-      eventLabel = ui.addElement(new UIText(0, 10, 'waiting for input', { anchor: 'top', align: 'center', fontSize: '15px', color: '#eceff1' }));
-      gravityLabel = ui.addElement(new UIText(0, 30, '', { anchor: 'top', align: 'center', fontSize: '13px', color: '#90a4ae' }));
+      eventLabel = ui.add(new UIText({
+        x: 0,
+        y: 10,
+        text: 'waiting for input',
+        anchor: 'top',
+        align: 'center',
+        fontSize: '15px',
+        color: '#eceff1'
+      }));
+      gravityLabel = ui.add(new UIText({
+        x: 0,
+        y: 30,
+        text: '',
+        anchor: 'top',
+        align: 'center',
+        fontSize: '13px',
+        color: '#90a4ae'
+      }));
       setGravity(gravity);
       for (const entity of game.entities) {
         if (entity.body.bodyType === 'dynamic') grabbable(entity);

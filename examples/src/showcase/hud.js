@@ -18,7 +18,7 @@ export class Hud extends UIElement {
    * @param {Object} showcase - Showcase director (for layer state and counts)
    */
   constructor(game, showcase) {
-    super(0, 0, 0, 0);
+    super({});
     this.game = game;
     this.showcase = showcase;
     this.visible = true;

@@ -58,42 +58,103 @@ export default async function start(canvas) {
     onEnter() {
       const ui = game.sceneManager.getCurrentScene().ui;
       const sound = game.soundManager;
-      const style = { backgroundColor: '#37474f', hoverColor: '#546e7a', pressedColor: '#263238', fontSize: '16px' };
-      const status = ui.addElement(new UIText(0, -60, 'click a pad', { anchor: 'center', align: 'center', fontSize: '16px', color: '#9fb6d0' }));
+      const style = { variant: 'secondary', fontSize: '16px' };
+      const status = ui.add(new UIText({
+        x: 0,
+        y: -60,
+        text: 'click a pad',
+        anchor: 'center',
+        align: 'center',
+        fontSize: '16px',
+        color: '#9fb6d0'
+      }));
 
       // One-shot effects. Overlapping plays are allowed.
       ['jump', 'coin', 'damage'].forEach((name, i) => {
-        ui.addElement(new UIButton(-160 + i * 160, 0, 130, 48, name, () => {
-          sound.playSound(name);
-          status.text = `playSound('${name}')`;
-        }, { ...style, anchor: 'center' }));
+        ui.add(new UIButton({
+          x: -160 + i * 160,
+          y: 0,
+          width: 130,
+          height: 48,
+          text: name,
+          onClick: () => {
+            sound.playSound(name);
+            status.text = `playSound('${name}')`;
+          },
+          ...style,
+          anchor: 'center'
+        }));
       });
 
       // Looping music, started and stopped.
       let playing = false;
-      const music = ui.addElement(new UIButton(-90, 70, 160, 40, 'play music', () => {
-        playing = !playing;
-        if (playing) sound.playMusic('theme'); else sound.stopMusic();
-        music.text = playing ? 'stop music' : 'play music';
-        status.text = playing ? "playMusic('theme')" : 'stopMusic()';
-      }, { ...style, anchor: 'center' }));
+      const music = ui.add(new UIButton({
+        x: -90,
+        y: 70,
+        width: 160,
+        height: 40,
+        text: 'play music',
+        onClick: () => {
+          playing = !playing;
+          if (playing) sound.playMusic('theme'); else sound.stopMusic();
+          music.text = playing ? 'stop music' : 'play music';
+          status.text = playing ? "playMusic('theme')" : 'stopMusic()';
+        },
+        ...style,
+        anchor: 'center'
+      }));
 
       let volume = 0.5;
-      const volumeLabel = ui.addElement(new UIText(90, 62, '', { anchor: 'center', align: 'center', fontSize: '14px', color: '#9fb6d0' }));
+      const volumeLabel = ui.add(new UIText({
+        x: 90,
+        y: 62,
+        text: '',
+        anchor: 'center',
+        align: 'center',
+        fontSize: '14px',
+        color: '#9fb6d0'
+      }));
       const setVolume = (value) => {
         volume = Math.min(1, Math.max(0, value));
         sound.setMusicVolume(volume);
         volumeLabel.text = `music volume ${volume.toFixed(1)}`;
       };
-      ui.addElement(new UIButton(40, 90, 44, 32, '-', () => setVolume(volume - 0.1), { ...style, anchor: 'center' }));
-      ui.addElement(new UIButton(140, 90, 44, 32, '+', () => setVolume(volume + 0.1), { ...style, anchor: 'center' }));
+      ui.add(new UIButton({
+        x: 40,
+        y: 90,
+        width: 44,
+        height: 32,
+        text: '-',
+        onClick: () => setVolume(volume - 0.1),
+        ...style,
+        anchor: 'center'
+      }));
+      ui.add(new UIButton({
+        x: 140,
+        y: 90,
+        width: 44,
+        height: 32,
+        text: '+',
+        onClick: () => setVolume(volume + 0.1),
+        ...style,
+        anchor: 'center'
+      }));
       setVolume(volume);
 
-      ui.addElement(new UIButton(0, -32, 120, 36, 'mute', () => {
-        sound.toggleMute();
-        status.text = sound.isMuted ? 'muted. music stopped' : 'unmuted';
-        if (sound.isMuted) { playing = false; music.text = 'play music'; }
-      }, { ...style, anchor: 'bottom' }));
+      ui.add(new UIButton({
+        x: 0,
+        y: -32,
+        width: 120,
+        height: 36,
+        text: 'mute',
+        onClick: () => {
+          sound.toggleMute();
+          status.text = sound.isMuted ? 'muted. music stopped' : 'unmuted';
+          if (sound.isMuted) { playing = false; music.text = 'play music'; }
+        },
+        ...style,
+        anchor: 'bottom'
+      }));
     }
   });
 

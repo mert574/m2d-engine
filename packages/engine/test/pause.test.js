@@ -39,7 +39,7 @@ describe('engine pause', () => {
 
     renderer = new RecordingRenderer();
     game = new M2D(displayCanvas(1280, 720), { width: 1280, height: 720, renderer });
-    scene = { update: vi.fn(), draw: vi.fn(), drawUI: vi.fn() };
+    scene = { update: vi.fn(), updateUI: vi.fn(), draw: vi.fn(), drawUI: vi.fn() };
     game.sceneManager.currentScene = scene;
     game.sceneManager.loading = false;
   });
@@ -70,6 +70,26 @@ describe('engine pause', () => {
     expect(scene.draw).toHaveBeenCalled();
     expect(scene.drawUI).toHaveBeenCalled();
     expect(renderer.callsTo('beginFrame')).toHaveLength(1);
+  });
+
+  it('keeps ticking the UI while paused', () => {
+    // A pause menu has to animate itself in over the frozen game, so the UI
+    // tree is updated on a path the pause does not gate. Freezing it with
+    // the simulation is what would make the pause look like a hang.
+    game.paused = true;
+    runFrame();
+
+    expect(scene.update).not.toHaveBeenCalled();
+    expect(scene.updateUI).toHaveBeenCalledWith(expect.closeTo(0.016, 3));
+  });
+
+  it('passes the frame delta to the draw passes', () => {
+    // Both used to be called with no argument at all, so every element's
+    // `draw(deltaTime)` saw `undefined` and nothing could animate itself.
+    runFrame();
+
+    expect(scene.draw).toHaveBeenCalledWith(expect.closeTo(0.016, 3));
+    expect(scene.drawUI).toHaveBeenCalledWith(expect.closeTo(0.016, 3));
   });
 
   it('does not move the camera while paused', () => {

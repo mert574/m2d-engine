@@ -49,7 +49,14 @@ export default async function start(canvas) {
       for (const [x, text] of [[90, 'frame 0'], [230, 'flipX'], [370, 'rotation'], [510, 'scaled 2x'],
         [90, 'frames 0 to 3'], [230, 'tint'], [370, 'globalAlpha'], [510, 'drawn twice']]) {
         const row = labels.length < 4 ? 0 : 1;
-        labels.push(ui.addElement(new UIText(x, 150 + row * 170, text, { align: 'center', fontSize: '13px', color: '#9fb6d0' })));
+        labels.push(ui.add(new UIText({
+          x: x,
+          y: 150 + row * 170,
+          text: text,
+          align: 'center',
+          fontSize: '13px',
+          color: '#9fb6d0'
+        })));
       }
     },
     onUpdate(deltaTime) { time += deltaTime; },

@@ -7,6 +7,7 @@
 | Method | Meaning |
 | --- | --- |
 | `on(type, handler, { band })` | Subscribe. Returns an unsubscribe function. `band` is `'overlay'`, `'ui'` or `'world'` and defaults to `'world'` |
+| `makeSyntheticEvent(type, extra)` | Build an event that did not come from a device, carrying the cursor's current position. Keyboard and gamepad activation of a focused control uses it, so a control behaves the same however it was triggered. Built, not dispatched — the caller delivers it to the target it already resolved |
 | `isDown(code)` | Whether a key is held |
 | `justPressed(code)` | Whether a key went down this frame |
 | `justReleased(code)` | Whether a key went up this frame |
@@ -72,15 +73,26 @@ Type-specific fields:
 | `drop` | `dropTarget`, the target under the pointer other than the subject. It is resolved before the subject's handler runs |
 | `pinchstart`, `pinch`, `pinchend` | `scale`, `scaleDelta`, `rotation`, `rotationDelta`, `distance` and `centre` as `{ ui, world }`. The event's own `ui` and `world` are the pinch centre |
 | `scroll` | `scroll`, `{ x, y }` in pixels |
-| `keydown`, `keyup` | `code`, the physical key code, and `key`, the character the layout produced |
+| `keydown`, `keyup` | `code`, the physical key code, and `key`, the character the layout produced. `modifiers` is filled in, so Shift+Tab is distinguishable from Tab |
 | `pointerlockchange` | `locked` |
 
 ## Delivery order
 
 Each event is offered to the overlay band, then the UI band, then the world band. The topmost hit in the highest band becomes the single target and receives the event. Then every subscriber registered with `on` for that type runs, ordered by their `band` option. Calling `consume()` at any point stops everything after it, so a consumed target event never reaches subscribers.
 
-The overlay band is checked first for every event, including key events. A mounted settings menu consumes its hotkey and Escape on `keydown` even while closed, so game code never sees Escape pressed once a menu exists.
+The overlay band is the engine's own UI, [`game.ui`](./ui#screenstack): the debug layer first, then screens from the top of the stack down, stopping at the first `blocking` one. It is checked first for every event, including key events, which is what makes an open menu modal without any global capture listeners. Key *releases* still reach the game even through a blocking screen, so a key held when the menu opened comes back up in the game's state rather than leaving the player running.
+
+A mounted settings menu consumes its hotkey on `keydown` even while closed, so game code never sees that key once a menu exists.
 
 Presses, releases and key events are delivered inside the browser event handler, so fullscreen and pointer lock requests made from them are allowed. Moves and scrolls are buffered and delivered at the start of the next frame.
 
 The canvas claims its surface. It sets `touch-action: none`, contains overscroll, disables text selection and the context menu and captures the pointer on every press so a drag that leaves the canvas keeps reporting.
+
+## Browser defaults
+
+Two rules decide whether a keypress also reaches the browser:
+
+- Keys a game **polls** — `Space`, `Tab`, `Enter`, the arrows, `PageUp`, `PageDown`, `Home`, `End`, `Backspace` — are suppressed because nothing consumes them, so there is no other signal that they were wanted. Replace the list with the `preventDefaultKeys` engine option.
+- Any other key is suppressed exactly when something **consumed** it. That is what keeps F3 from opening the find bar while it toggles the readout, and the settings hotkey from reaching the page, without a second list to maintain. It resolves synchronously inside the DOM handler, because key records drain immediately rather than waiting for a frame.
+
+Either way a held `Ctrl`, `Alt` or `Meta` cancels the suppression: that is the player reaching for a browser shortcut rather than for the game. A consumed press is also never recorded as held, so the game does not see the key down.

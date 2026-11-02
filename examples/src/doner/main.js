@@ -14,7 +14,11 @@ const game = new M2D(canvas, {
   height: 720,
   worldWidth: 1280,
   worldHeight: 720,
-  basePath: import.meta.env.DEV ? '/examples/doner/' : '/m2d-engine/examples/doner/'
+  // Where sprite URLs in scene JSON resolve. Vite's BASE_URL is '/' on the
+  // dev server and '/m2d-engine/examples/' in the published build (set in
+  // vite.config.js), so deriving the prefix from it keeps both in step with
+  // however the site is actually served, instead of hardcoding each one.
+  basePath: import.meta.env.BASE_URL + 'doner/'
 });
 
 // Doner game instance (initialized when entering gameplay scene)

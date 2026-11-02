@@ -23,8 +23,9 @@ packages/engine/src/
 │   ├── math.js           Vec2 and Angle helpers
 │   ├── physics/          The simulation behind an engine-owned interface
 │   ├── renderers/        Backend contract, Canvas and WebGL2 backends, geometry
+│   ├── console/          CVar and command registries, the drop-down console
 │   ├── input/            inputManager.js (game.input) over pointer source, keyboard, cursor, gestures and router
-│   └── ui/               Screen-space components, settings menu, world overlay
+│   └── ui/               Element tree, theme tokens, components, layout/, screens, motion, backdrop, settings menu, world overlay
 ├── actors/               Entity classes the examples share
 └── constraints/          Reusable behaviours
 ```
@@ -94,7 +95,7 @@ Behaviours pinned by tests because they are easy to get wrong:
 
 ## Teardown
 
-`game.destroy()` must leave nothing global behind. It cancels the frame, removes display listeners, destroys overlays first because they unregister input subscriptions, then the input system, sound, physics, the current scene and the renderer. `game.input` goes inert so an in-flight DOM event cannot leave a key held.
+`game.destroy()` must leave nothing global behind. It cancels the frame, removes display listeners, tears down the screen stack and the settings menu first because they unregister input subscriptions, then the input system, sound, physics, the current scene and the renderer. `game.input` goes inert so an in-flight DOM event cannot leave a key held.
 
 ## Scenes
 
@@ -102,9 +103,48 @@ Behaviours pinned by tests because they are easy to get wrong:
 
 `Scene` creates entities through `game.createEntity`, which builds the body from the prefab's physics block and the object's placement and passes `properties` to the actor constructor. The entity named `Player` is stored as `game.player` and followed by the camera.
 
+## UI
+
+`core/ui/` is an element tree over the screen-space renderer. `UIElement` owns the box, the children, the per-frame traversals and the routed-input handling; `Container` is just the element with no parent, whose box is the whole of UI space.
+
+- A position is an **offset from an anchor** in the parent's content box, landing the element's **pivot** there. Both resolve on read, so nothing stores an absolute coordinate and a resize needs no relayout. `frame` is the box the element covers, `contentBox` is that minus `padding`.
+- `drawTree` applies opacity, transform and clipping around `draw`, so a component that knows nothing about animation can still be faded, scaled, rotated and clipped by an ancestor. Rotation and scale go through two pushes — `T(p)·R·S` then `T(-p)` — which composes to a transform about the pivot while components keep drawing in absolute UI coordinates. One push would force every component into local space.
+- Opacity cannot be pushed, because the contract takes `globalAlpha` per draw call. `UIPainter` folds the inherited alpha into every call instead, and resolves theme tokens on the way, so a component never calls `resolve` itself and never names a colour.
+- `theme.js` holds the tokens. Values may reference other tokens, which is how the semantic layer is written in terms of the raw palette. `Theme.resolve` memoizes, because it runs per draw call. A component declares per-state style deltas and `resolveStateStyle` flattens them against `element.state`.
+- **Focus renders as hover.** `state` collapses them into one appearance, because a keyboard-selected control and a pointer-hovered one mean the same thing to a player. There is no `focused` state and no ring; `ScreenStack` also hands focus to whatever the pointer moves onto, so the two input methods can never light up two different controls. `isFocused` survives as the navigation and activation concept only.
+- A disabled element is still a hit target. It consumes and runs nothing, because a greyed-out control that let the click through would fire whatever is behind the dialog.
+- The UI tree is ticked on a path `game.paused` does not gate, so a menu over a frozen game still animates. `Scene.updateUI` is separate from `Scene.update` for exactly that reason.
+- The engine's own full-screen messages (`drawLoading`, `drawGameOver`) bypass the tree, because they draw when no scene — and so no container — exists. They still go through the theme.
+
+Layout containers (`ui/layout/`) own their children's placement: they write the offsets and pin `anchor` and `pivot` to the top-left, so a child's own position cannot fight the container. `layout()` runs from `updateTree` *after* the children have updated, which is the only order in which a label that measures itself is already sized and nested containers resolve innermost-first. Sizes are per-axis and kept in `fixedWidth`/`fixedHeight` separately from `width`/`height`, which `layout` writes — otherwise a container could not tell the size the author asked for from the one it computed last frame.
+
+`ui/screenStack.js` is `game.ui`: an ordered stack of `UIScreen`s plus a `debug` layer that outlives scene switches. It replaced `game.overlays`, an unordered `Set` in which every member reimplemented its own modality and the router had to ask each one in turn. Now the stack knows: input goes to the debug layer, then screens from the top down, and the first `blocking` one consumes. Drawing runs the other way, and the world overlay draws beneath all of it because annotations belong to the game rather than to the chrome above it.
+
+`ui/focus.js` scopes keyboard navigation to one subtree, so Tab cannot walk out of a dialog. Sequential movement follows draw order; directional movement is geometric, scoring candidates by distance along the axis plus perpendicular misalignment — without that term a straight press down a column can jump diagonally to a nearer control in the next column. Activation synthesizes real `pointerdown`/`pointerup`/`click` events through `input.makeSyntheticEvent` rather than calling `onClick`, so a control behaves the same however it was triggered.
+
+`ui/motion.js` is the one place UI interpolates, ticked from the loop outside the pause gate and before the UI tree so a tween writes the values that frame's layout reads. A tween applies its starting value on construction rather than on the first update — waiting a frame would show one frame of the final state before jumping back to the start of the animation. Completion is reported synchronously through `whenComplete` as well as through the thenable `finished`, because a screen marking itself open and a stack detaching it both have to be true within the frame the tween lands. `finished` resolves with nothing on purpose: a tween is itself thenable, so resolving it with `this` would make the promise adopt the tween's own `then` and never settle.
+
+Transitions (`ui/transitions.js`) animate only a screen's `opacity`, offsets and `scale` — the properties `drawTree` applies to a whole subtree — so a screen moves as one piece without touching its contents. A layout, by contrast, *writes* its children's offsets every frame, so anything inside one must be animated through `opacity` or `scale` and a laid-out group must be moved by animating the container. An exiting screen moves to `stack.exiting`: still drawn, beneath the live ones, but out of the stack for input, `top` and the pause refcount, which lifts as the exit begins rather than when it lands.
+
+The `blur` post effect defocuses the whole world pass, with everything downstream — bloom's bright pass included — reading the softened image so a glow agrees with what is on screen. It borrows `bloomB` as its horizontal intermediate, which is safe because the bloom pass runs after it, and allocates its own target lazily since most games never blur. `ScreenStack` pushes the strongest `blurBehind` on the stack into the renderer and leaves any other post effects alone.
+
+The vendored UI typeface lives in `ui/fonts.js`. Both backends rasterize text through the browser and the WebGL one caches the result as a texture, so a label drawn before the font loads stays in the fallback face; `M2D.start()` awaits the load before the first frame. The faces are added to `document.fonts` once per page and deliberately not removed by `destroy()` — unlike a listener, a font face is immutable shared state that a second instance on the page wants too.
+
+## The developer console
+
+`core/console/` is two registries and a UI over them. `CVarRegistry` holds named, typed engine state — most engine cvars are *accessors* over live state, so reading asks the engine rather than a copy that can drift, and every write goes through parsing, clamping and choice-checking. `CommandRegistry` resolves one input line with Quake's grammar: command, bare cvar prints, cvar-plus-value sets. Persisted cvars replay at registration time, because that is the moment both the definition and the live engine exist.
+
+`DevConsole` sits in `game.ui.debug` with `captureAll`: the stack routes it every event before anything else, which is what lets it take keys away from the game — while staying non-modal for pointer input outside its panel. Typing reads `event.key`, the engine's one sanctioned use of layout-dependent input. While mounted it wraps the global `console.*` methods (forwarding, first console wins, restored by `destroy`), so the engine's own warnings are readable in-game.
+
+The settings menu's rows read and write cvars rather than engine methods, which is what makes a menu choice persist and keeps the menu and the console showing the same truth.
+
 ## Settings menu and pause
 
-`SettingsMenu` registers in `game.overlays` and as `game.settings`. It registers no listeners. The router's overlay band hands it every event, and while open it consumes everything except key releases. `game.paused` is a flag the loop honours by skipping physics, entity and camera updates while still drawing.
+`SettingsMenu` is a `UIScreen` built from `UIOptionRow`s in a `Stack` inside a `UIPanel`, mounted as `game.settings`. Constructing it subscribes the hotkey in the overlay band and shows nothing; opening pushes the screen onto `game.ui`.
+
+The screen answers the hotkey itself as well, because a blocking screen consumes input before subscribers run — otherwise the key that opened the menu could never close it. Key *releases* pass through on purpose: a key held when the menu opened has to come back up in the game's state, or the player keeps running after it closes.
+
+`game.paused` is a flag the loop honours by skipping physics, entity and camera updates while still drawing. The stack refcounts it, so two pausing screens cannot fight over one boolean, and the state from before the first one is what gets restored.
 
 ## The renderer showcase
 

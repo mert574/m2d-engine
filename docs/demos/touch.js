@@ -12,7 +12,7 @@ import { UIText } from 'm2d-engine/core/ui/text.js';
  */
 class PadButton extends UIElement {
   constructor(x, y, code, label, options = {}) {
-    super(x, y, 56, 56, options);
+    super({ ...options, x, y, width: 56, height: 56 });
     this.code = code;
     this.label = label;
     this.held = false;
@@ -104,11 +104,19 @@ export default async function start(canvas) {
     fetch: async () => scene,
     onEnter() {
       const ui = game.sceneManager.getCurrentScene().ui;
-      status = ui.addElement(new UIText(-16, 16, 'arrow keys or the pad move the ball', { anchor: 'top-right', align: 'right', fontSize: '14px', color: '#cfd8dc' }));
+      status = ui.add(new UIText({
+        x: -16,
+        y: 16,
+        text: 'arrow keys or the pad move the ball',
+        anchor: 'top-right',
+        align: 'right',
+        fontSize: '14px',
+        color: '#cfd8dc'
+      }));
       // A D-pad anchored to the bottom-left corner.
       pads.length = 0;
       for (const [dx, dy, code, label] of [[0, -1, 'ArrowUp', '▲'], [0, 1, 'ArrowDown', '▼'], [-1, 0, 'ArrowLeft', '◀'], [1, 0, 'ArrowRight', '▶']]) {
-        pads.push(ui.addElement(new PadButton(80 + dx * 60, -80 + dy * 60, code, label, { anchor: 'bottom-left' })));
+        pads.push(ui.add(new PadButton(80 + dx * 60, -80 + dy * 60, code, label, { anchor: 'bottom-left' })));
       }
     }
   });

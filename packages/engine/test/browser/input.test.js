@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 
 import { M2D } from '../../src/core/m2d.js';
+import { SettingsMenu } from '../../src/core/ui/settingsMenu.js';
 
 /**
  * The parts of the input system that only a real browser can answer for:
@@ -179,6 +180,101 @@ describe('input in a real browser', () => {
     canvas.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+  });
+
+  describe('browser defaults on keys the engine uses', () => {
+    function press(canvas, code, options = {}) {
+      const event = new KeyboardEvent('keydown', {
+        code, key: code, bubbles: true, cancelable: true, ...options
+      });
+      canvas.dispatchEvent(event);
+      return event;
+    }
+
+    function release(canvas, code) {
+      canvas.dispatchEvent(new KeyboardEvent('keyup', {
+        code, key: code, bubbles: true, cancelable: true
+      }));
+    }
+
+    it('suppresses F3, which would otherwise open the find bar', () => {
+      // The engine binds F3 to the frame-rate readout. It is not in the
+      // polled-key list and must not need to be: it is suppressed because
+      // the readout's subscriber consumed it.
+      const { game, canvas } = makeGame();
+      expect(game.stats).toBeTruthy();
+
+      const event = press(canvas, 'F3');
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(game.stats.expanded).toBe(true);
+    });
+
+    it('leaves F3 to the browser when the engine is not using it', () => {
+      // No readout, no binding, no reason to take the key away.
+      const { canvas } = makeGame({ performanceStats: false });
+
+      const event = press(canvas, 'F3');
+
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('keeps suppressing it while the key auto-repeats', () => {
+      // A consumed press is never recorded as held, so a repeat looks like
+      // a fresh event to the listener and has to be remembered.
+      const { canvas } = makeGame();
+      press(canvas, 'F3');
+
+      const repeat = press(canvas, 'F3', { repeat: true });
+
+      expect(repeat.defaultPrevented).toBe(true);
+    });
+
+    it('stops claiming it once released', () => {
+      const { game, canvas } = makeGame({ performanceStats: false });
+      // Claim the key for as long as a screen wants it, then let it go.
+      const off = game.input.on('keydown', (event) => {
+        if (event.code === 'F7') event.consume();
+      }, { band: 'overlay' });
+
+      expect(press(canvas, 'F7').defaultPrevented).toBe(true);
+      release(canvas, 'F7');
+      off();
+
+      expect(press(canvas, 'F7').defaultPrevented).toBe(false);
+    });
+
+    it('suppresses the settings hotkey', () => {
+      const { game, canvas } = makeGame();
+      const menu = new SettingsMenu(game);
+
+      const event = press(canvas, 'KeyO');
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(menu.isShowing).toBe(true);
+    });
+
+    it('leaves a key the engine ignores alone', () => {
+      const { canvas } = makeGame({ performanceStats: false });
+      expect(press(canvas, 'F7').defaultPrevented).toBe(false);
+    });
+
+    it('never takes a key from a browser shortcut', () => {
+      // Ctrl+F3 is the player reaching past the game. Even though a
+      // subscriber consumes the code, a held modifier cancels suppression.
+      const { canvas } = makeGame();
+
+      const event = press(canvas, 'F3', { ctrlKey: true });
+
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('does not record a consumed key as held', () => {
+      // Otherwise the game would see F3 down for as long as it is pressed.
+      const { game, canvas } = makeGame();
+      press(canvas, 'F3');
+      expect(game.input.isDown('F3')).toBe(false);
+    });
   });
 
   it('requests pointer lock from inside the press, where it can be granted', () => {

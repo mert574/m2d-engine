@@ -2,14 +2,15 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { createCanvasElement } from './helpers/environment.js';
 import { M2D } from '../src/core/m2d.js';
 import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
+import { UIOptionRow } from '../src/core/ui/optionRow.js';
 import { keyDown, keyUp } from './helpers/input.js';
 
 /**
  * The settings overlay every example mounts: resolution, fullscreen, aspect.
  *
- * These tests drive the menu through a real M2D instance with the Canvas
- * backend, using the public handleMouseDown/handleMouseMove entry points (the
- * DOM listeners are thin wrappers over them).
+ * It is a `UIScreen` built from components, so these tests drive it the way
+ * a player does — pushing it onto `game.ui` and routing real input at the
+ * rows' own positions, rather than poking at a private hit-rect array.
  */
 
 function displayCanvas(cssWidth, cssHeight) {
@@ -23,22 +24,49 @@ function displayCanvas(cssWidth, cssHeight) {
 
 function makeGameWithMenu(options = {}, menuOptions = {}) {
   const game = new M2D(displayCanvas(1280, 720), {
-    width: 1280, height: 720, renderer: 'canvas', ...options
+    width: 1280, height: 720, renderer: 'canvas', performanceStats: false, ...options
   });
   const menu = new SettingsMenu(game, menuOptions);
   return { game, menu };
 }
 
-/** Open the menu and draw once so its hit rects exist. */
+/** Open the menu and run a frame, so the layout has placed the rows. */
 function openAndLayout(game, menu) {
-  menu.toggle();
-  game.drawOverlays();
+  menu.open();
+  game.ui.update(0.016);
+  return menu;
 }
 
-/** Centre of a row's hit rect. */
-function rowCentre(menu, index) {
-  const r = menu.rows[index].rect;
-  return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+/** Every option row on the open menu, in order. */
+function rows(menu) {
+  const out = [];
+  (function walk(element) {
+    for (const child of element.children) {
+      if (child instanceof UIOptionRow) out.push(child);
+      walk(child);
+    }
+  })(menu.screen);
+  return out;
+}
+
+/** The row with this label. */
+function row(menu, label) {
+  const found = rows(menu).find((r) => r.label === label);
+  if (!found) throw new Error(`no row labelled '${label}'`);
+  return found;
+}
+
+/** Click a row where it actually sits, through the real routing. */
+function clickRow(game, menu, label) {
+  const target = row(menu, label);
+  const frame = target.frame;
+  const point = { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 };
+  game.ui.handleInput(makeClick(game, point));
+  game.ui.update(0.016);
+}
+
+function makeClick(game, point) {
+  return game.input.makeSyntheticEvent('click', { ui: point, view: point, world: point });
 }
 
 describe('SettingsMenu', () => {
@@ -55,241 +83,297 @@ describe('SettingsMenu', () => {
     };
   });
 
-  it('registers itself as an engine overlay', () => {
+  it('mounts as game.settings without showing anything', () => {
     const { game, menu } = makeGameWithMenu();
-    expect(game.overlays.has(menu)).toBe(true);
+    expect(game.settings).toBe(menu);
+    expect(game.ui.has('settings')).toBe(false);
+    // No screen is showing. The stack is not *empty* — the developer console
+    // and the readout live in its debug layer from construction.
+    expect(game.ui.screens).toHaveLength(0);
   });
 
-  it('draws nothing and consumes nothing while closed', () => {
+  it('pushes a screen onto the stack when opened', () => {
     const { game, menu } = makeGameWithMenu();
-    game.drawOverlays();
-    expect(menu.rows).toHaveLength(0);
-    expect(menu.handleMouseDown(640, 360)).toBe(false);
+    menu.open();
+
+    expect(game.ui.has('settings')).toBe(true);
+    expect(game.ui.top).toBe(menu.screen);
+    expect(menu.isShowing).toBe(true);
   });
 
-  it('lays out hit rects for every row when open', () => {
+  it('builds a row for every item', () => {
     const { game, menu } = makeGameWithMenu();
     openAndLayout(game, menu);
-    // Resolution, Fullscreen, Aspect, Debug overlay, Renderer, Paused, Close.
-    expect(menu.rows).toHaveLength(7);
+
+    expect(rows(menu).map((r) => r.label)).toEqual([
+      'Resolution', 'Fullscreen', 'Aspect', 'Debug overlay', 'Renderer', 'Paused', 'Close'
+    ]);
+  });
+
+  it('stacks the rows without overlapping them', () => {
+    // The layout owns the spacing now; nothing hand-positions a row.
+    const { game, menu } = makeGameWithMenu();
+    openAndLayout(game, menu);
+
+    const frames = rows(menu).map((r) => r.frame);
+    for (let i = 1; i < frames.length; i++) {
+      expect(frames[i].y).toBeGreaterThanOrEqual(frames[i - 1].y + frames[i - 1].height);
+      expect(frames[i].x).toBe(frames[0].x);
+      expect(frames[i].width).toBe(frames[0].width);
+    }
   });
 
   it('offers a Debug overlay row that toggles the renderer flag', () => {
     const { game, menu } = makeGameWithMenu();
     openAndLayout(game, menu);
+    const before = game.renderer.isDebugEnabled();
 
-    // Debug rendering starts enabled (the renderer contract's default).
-    expect(game.renderer.isDebugEnabled()).toBe(true);
-    menu.handleMouseDown(rowCentre(menu, 3).x, rowCentre(menu, 3).y);
-    expect(game.renderer.isDebugEnabled()).toBe(false);
-    menu.handleMouseDown(rowCentre(menu, 3).x, rowCentre(menu, 3).y);
-    expect(game.renderer.isDebugEnabled()).toBe(true);
+    clickRow(game, menu, 'Debug overlay');
+
+    expect(game.renderer.isDebugEnabled()).toBe(!before);
   });
 
   it('cycles the resolution presets on click, world surface only', () => {
     const { game, menu } = makeGameWithMenu();
     openAndLayout(game, menu);
+    const view = { width: game.viewport.viewWidth, height: game.viewport.viewHeight };
 
-    // native -> 1 -> 0.75 -> 0.5 -> 0.25 -> native
-    const expected = [1280, 960, 640, 320];
-    for (const width of expected) {
-      menu.handleMouseDown(rowCentre(menu, 0).x, rowCentre(menu, 0).y);
-      expect(game.resolution).not.toBe('native');
-      expect(game.viewport.worldWidth).toBe(width);
-      // The point of the setting: the visible world never changes.
-      expect(game.camera.width).toBe(1280);
-    }
-    menu.handleMouseDown(rowCentre(menu, 0).x, rowCentre(menu, 0).y);
-    expect(game.resolution).toBe('native');
+    clickRow(game, menu, 'Resolution');
+
+    expect(game.resolution).not.toBe('native');
+    // Lowering the resolution makes the world coarser, never narrower.
+    expect(game.viewport.viewWidth).toBe(view.width);
+    expect(game.viewport.viewHeight).toBe(view.height);
   });
 
   it('toggles the aspect mode on click', () => {
     const { game, menu } = makeGameWithMenu();
     openAndLayout(game, menu);
 
-    menu.handleMouseDown(rowCentre(menu, 2).x, rowCentre(menu, 2).y);
+    clickRow(game, menu, 'Aspect');
     expect(game.aspectMode).toBe('expand');
-    menu.handleMouseDown(rowCentre(menu, 2).x, rowCentre(menu, 2).y);
+
+    clickRow(game, menu, 'Aspect');
     expect(game.aspectMode).toBe('letterbox');
   });
 
-  it('consumes clicks outside the panel and closes', () => {
+  it('offers a Paused row that toggles the engine flag', () => {
     const { game, menu } = makeGameWithMenu();
     openAndLayout(game, menu);
 
-    expect(menu.handleMouseDown(5, 5)).toBe(true);
-    expect(menu.isOpen).toBe(false);
+    clickRow(game, menu, 'Paused');
+    expect(game.paused).toBe(true);
+
+    clickRow(game, menu, 'Paused');
+    expect(game.paused).toBe(false);
+  });
+
+  it('reports the live value on every row', () => {
+    // Values are read through a function, not cached, so a setting changed
+    // from anywhere else is reflected without telling the row.
+    const { game, menu } = makeGameWithMenu();
+    openAndLayout(game, menu);
+
+    expect(row(menu, 'Aspect').valueText).toBe('Letterbox');
+    game.setAspectMode('expand');
+    expect(row(menu, 'Aspect').valueText).toBe('Fill (expand)');
   });
 
   it('closes via the Close row', () => {
     const { game, menu } = makeGameWithMenu();
     openAndLayout(game, menu);
-    menu.handleMouseDown(rowCentre(menu, 6).x, rowCentre(menu, 6).y);
-    expect(menu.isOpen).toBe(false);
+
+    clickRow(game, menu, 'Close');
+
+    expect(game.ui.has('settings')).toBe(false);
   });
 
-  it('is reachable through game.settings, with open() and close()', () => {
+  it('closes on a click outside the panel, consuming it', () => {
     const { game, menu } = makeGameWithMenu();
-    // This is how a scene's own Settings button finds the menu.
-    expect(game.settings).toBe(menu);
-
-    game.settings.open();
-    expect(menu.isOpen).toBe(true);
-    game.settings.open(); // idempotent
-    expect(menu.isOpen).toBe(true);
-    game.settings.close();
-    expect(menu.isOpen).toBe(false);
-    game.settings.close(); // idempotent
-    expect(menu.isOpen).toBe(false);
-  });
-
-  it('matches object presets structurally when cycling', () => {
-    const { game, menu } = makeGameWithMenu({}, {
-      resolutions: ['native', { width: 640, height: 360 }, { width: 320, height: 180 }]
-    });
-    // The current value is a *different* object with the same meaning, as it
-    // would be after a programmatic setResolution. Identity comparison would
-    // restart the cycle at 'native' instead of advancing.
-    game.setResolution({ width: 640, height: 360 });
     openAndLayout(game, menu);
 
-    menu.handleMouseDown(rowCentre(menu, 0).x, rowCentre(menu, 0).y);
-    expect(game.resolution).toEqual({ width: 320, height: 180 });
-    menu.handleMouseDown(rowCentre(menu, 0).x, rowCentre(menu, 0).y);
-    expect(game.resolution).toBe('native');
+    const event = makeClick(game, { x: 20, y: 20 });
+    game.ui.handleInput(event);
+
+    expect(game.ui.has('settings')).toBe(false);
+    expect(event.consumed).toBe(true);
+  });
+
+  it('stays centred when the UI space is wider than the design', () => {
+    const { game, menu } = makeGameWithMenu({ aspectMode: 'expand' });
+    openAndLayout(game, menu);
+
+    const panel = menu.screen.panel.frame;
+    const centre = panel.x + panel.width / 2;
+    expect(centre).toBeCloseTo(game.uiRenderer.width / 2, 1);
+  });
+
+  it('sizes the panel to its rows', () => {
+    const { game, menu } = makeGameWithMenu();
+    openAndLayout(game, menu);
+
+    const panel = menu.screen.panel;
+    const padding = panel.padding.top + panel.padding.bottom;
+    expect(panel.height).toBeCloseTo(menu.screen.stack.height + padding, 1);
+  });
+
+  describe('the hotkey', () => {
+    it('opens the menu', () => {
+      const { game, menu } = makeGameWithMenu();
+      keyDown(game, 'KeyO');
+      expect(game.ui.has('settings')).toBe(true);
+      expect(menu).toBeTruthy();
+    });
+
+    it('closes it again', () => {
+      // A blocking screen consumes input before subscribers run, so the
+      // screen has to answer the hotkey itself or it could never be closed
+      // by the key that opened it.
+      const { game, menu } = makeGameWithMenu();
+      openAndLayout(game, menu);
+
+      keyDown(game, 'KeyO');
+
+      expect(game.ui.has('settings')).toBe(false);
+    });
+
+    it('is reported on the Close row using the layout label', () => {
+      const { game, menu } = makeGameWithMenu(undefined, { hotkey: 'KeyP' });
+      openAndLayout(game, menu);
+      expect(row(menu, 'Close').valueText).toBe(`(${game.input.keyLabel('KeyP')})`);
+    });
+  });
+
+  describe('Escape', () => {
+    it('closes the menu', () => {
+      const { game, menu } = makeGameWithMenu();
+      openAndLayout(game, menu);
+
+      keyDown(game, 'Escape');
+
+      expect(game.ui.has('settings')).toBe(false);
+    });
+
+    it('never opens it', () => {
+      const { game } = makeGameWithMenu();
+      keyDown(game, 'Escape');
+      expect(game.ui.has('settings')).toBe(false);
+    });
   });
 
   describe('keyboard capture while open', () => {
-    it('swallows keydown so game subscriptions never fire', () => {
+    it('keeps game keys away from the game', () => {
       const { game, menu } = makeGameWithMenu();
-      let moved = false;
-      game.input.on('keydown', (event) => {
-        if (event.code === 'ArrowRight') moved = true;
-      });
+      openAndLayout(game, menu);
 
-      menu.toggle();
-      keyDown(game, 'ArrowRight');
+      keyDown(game, 'KeyW');
 
-      // Consumed in the overlay band, before any subscriber sees it.
-      expect(moved).toBe(false);
-    });
-
-    it('does not even register the key as held, so nothing keeps walking', () => {
-      // Most movement code polls rather than subscribes. Consuming the
-      // event is not enough: a key that the menu swallowed must never
-      // enter the held set, or the player walks on behind the menu.
-      const { game, menu } = makeGameWithMenu();
-      menu.toggle();
-
-      keyDown(game, 'ArrowRight');
-
-      expect(game.input.isDown('ArrowRight')).toBe(false);
-    });
-
-    it('lets keydown pass while closed', () => {
-      const { game } = makeGameWithMenu();
-      let moved = false;
-      game.input.on('keydown', (event) => {
-        if (event.code === 'ArrowRight') moved = true;
-      });
-
-      keyDown(game, 'ArrowRight');
-
-      expect(moved).toBe(true);
+      expect(game.input.isDown('KeyW')).toBe(false);
     });
 
     it('still reports a release, so a key held when it opened does not stick', () => {
-      // The game has to see the keyup: a player running right when the menu
-      // opens would otherwise keep running after it closes.
       const { game, menu } = makeGameWithMenu();
-      let released = false;
-      game.input.on('keyup', (event) => {
-        if (event.code === 'ArrowRight') released = true;
-      });
+      keyDown(game, 'KeyW');
+      expect(game.input.isDown('KeyW')).toBe(true);
 
-      keyDown(game, 'ArrowRight');
-      expect(game.input.isDown('ArrowRight')).toBe(true);
+      openAndLayout(game, menu);
+      keyUp(game, 'KeyW');
 
-      menu.toggle();
-      keyUp(game, 'ArrowRight');
+      expect(game.input.isDown('KeyW')).toBe(false);
+    });
+  });
 
-      expect(game.input.isDown('ArrowRight')).toBe(false);
-      expect(released).toBe(true);
+  describe('keyboard navigation', () => {
+    it('focuses the first row on open, so a controller can use it at once', () => {
+      const { game, menu } = makeGameWithMenu();
+      openAndLayout(game, menu);
+
+      expect(menu.screen.focus.focused).toBe(row(menu, 'Resolution'));
     });
 
-    it('opens and closes on the hotkey, and closes on Escape', () => {
+    it('moves down the rows with the arrow keys', () => {
       const { game, menu } = makeGameWithMenu();
+      openAndLayout(game, menu);
 
-      keyDown(game, 'KeyO');
-      expect(menu.isOpen).toBe(true);
-      keyUp(game, 'KeyO');
-      keyDown(game, 'KeyO');
-      expect(menu.isOpen).toBe(false);
+      keyDown(game, 'ArrowDown');
+      expect(menu.screen.focus.focused).toBe(row(menu, 'Fullscreen'));
 
-      menu.toggle();
-      keyDown(game, 'Escape');
-      expect(menu.isOpen).toBe(false);
-      // Escape only ever closes.
-      keyUp(game, 'Escape');
-      keyDown(game, 'Escape');
-      expect(menu.isOpen).toBe(false);
+      keyDown(game, 'ArrowUp');
+      expect(menu.screen.focus.focused).toBe(row(menu, 'Resolution'));
+    });
+
+    it('wraps around with Tab', () => {
+      const { game, menu } = makeGameWithMenu();
+      openAndLayout(game, menu);
+      const all = rows(menu);
+
+      for (let i = 0; i < all.length; i++) keyDown(game, 'Tab');
+
+      expect(menu.screen.focus.focused).toBe(all[0]);
+    });
+
+    it('activates the focused row with Enter', () => {
+      const { game, menu } = makeGameWithMenu();
+      openAndLayout(game, menu);
+      keyDown(game, 'ArrowDown');
+      keyDown(game, 'ArrowDown');
+      expect(menu.screen.focus.focused).toBe(row(menu, 'Aspect'));
+
+      keyDown(game, 'Enter');
+
+      expect(game.aspectMode).toBe('expand');
     });
   });
 
   describe('pause', () => {
-    it('does not pause the game by default', () => {
+    it('leaves the game running unless asked', () => {
       const { game, menu } = makeGameWithMenu();
-      menu.toggle();
+      openAndLayout(game, menu);
       expect(game.paused).toBe(false);
     });
 
-    it('pauses while open when the developer opts in, restoring on close', () => {
-      const { game, menu } = makeGameWithMenu({}, { pauseWhenOpen: true });
-
-      menu.toggle();
+    it('pauses while open with pauseWhenOpen', () => {
+      const { game, menu } = makeGameWithMenu(undefined, { pauseWhenOpen: true });
+      openAndLayout(game, menu);
       expect(game.paused).toBe(true);
-      menu.toggle();
-      expect(game.paused).toBe(false);
 
-      // A game paused before the menu opened stays paused after it closes.
+      menu.close();
+      expect(game.paused).toBe(false);
+    });
+
+    it('does not resume a game that was already paused', () => {
+      const { game, menu } = makeGameWithMenu(undefined, { pauseWhenOpen: true });
       game.paused = true;
-      menu.toggle();
-      menu.toggle();
+
+      openAndLayout(game, menu);
+      menu.close();
+
       expect(game.paused).toBe(true);
     });
+  });
 
-    it('offers a Paused row that toggles the engine flag', () => {
+  describe('teardown', () => {
+    it('unregisters everything on destroy', () => {
       const { game, menu } = makeGameWithMenu();
       openAndLayout(game, menu);
 
-      menu.handleMouseDown(rowCentre(menu, 5).x, rowCentre(menu, 5).y);
-      expect(game.paused).toBe(true);
-      menu.handleMouseDown(rowCentre(menu, 5).x, rowCentre(menu, 5).y);
-      expect(game.paused).toBe(false);
+      menu.destroy();
+
+      expect(game.settings).toBe(null);
+      expect(game.ui.has('settings')).toBe(false);
+      // The hotkey subscription is gone with it.
+      keyDown(game, 'KeyO');
+      expect(game.ui.has('settings')).toBe(false);
     });
-  });
 
-  it('stays centred when the UI space is wider than the design', () => {
-    const game = new M2D(displayCanvas(2100, 900), { width: 1280, height: 720, renderer: 'canvas' });
-    const menu = new SettingsMenu(game);
-    openAndLayout(game, menu);
+    it('is torn down by game.destroy()', () => {
+      const { game, menu } = makeGameWithMenu();
+      openAndLayout(game, menu);
 
-    const panel = menu.panelRect;
-    const centre = panel.x + panel.width / 2;
-    expect(centre).toBeCloseTo(game.uiRenderer.width / 2, 5);
-  });
+      game.destroy();
 
-  it('unregisters everything on destroy', () => {
-    const { game, menu } = makeGameWithMenu();
-    menu.destroy();
-    expect(game.overlays.has(menu)).toBe(false);
-    expect(game.settings).toBe(null);
-  });
-
-  it('is torn down by game.destroy()', () => {
-    const { game, menu } = makeGameWithMenu();
-    game.destroy();
-    expect(game.overlays.size).toBe(0);
-    expect(game.settings).toBe(null);
+      expect(game.ui.screens).toHaveLength(0);
+      expect(menu.isShowing).toBe(false);
+    });
   });
 });

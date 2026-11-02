@@ -45,14 +45,25 @@ const ELEMENT_KEYS = {
   rect: ['width', 'height', 'color', 'fill']
 };
 
-/** Keys allowed inside an element's `properties`, by element type. */
+/**
+ * Keys allowed inside an element's `properties`, by element type.
+ *
+ * Colours and sizes accept a `$token` reference as readily as a literal, so
+ * a scene can be authored against the theme (`"color": "$color.text.accent"`)
+ * and follow a retheme. Buttons name a `variant` rather than three hover
+ * colours; `background` and `textColor` remain for the cases a variant does
+ * not cover.
+ */
 const ELEMENT_PROPERTY_KEYS = {
-  button: ['text', 'onClick', 'action', 'width', 'height', 'fontSize', 'fontFamily',
-    'backgroundColor', 'hoverColor', 'textColor'],
-  text: ['text', 'fontSize', 'color', 'align'],
+  button: ['text', 'onClick', 'action', 'width', 'height', 'variant',
+    'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'background', 'textColor'],
+  text: ['text', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'color', 'align'],
   image: ['width', 'height', 'scale'],
   rect: ['interactive']
 };
+
+/** Button variants `setupUIScene` understands. */
+const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'];
 
 /** Physics body types `createEntity` understands. */
 const BODY_TYPES = ['static', 'dynamic', 'kinematic', 'character'];
@@ -266,7 +277,11 @@ export class SceneLoader {
 
   /** A button must do exactly one thing, and the thing must exist. */
   #checkButton(fail, path, properties) {
-    const { action, onClick } = properties;
+    const { action, onClick, variant } = properties;
+    if (variant !== undefined && !BUTTON_VARIANTS.includes(variant)) {
+      fail(`${path}.properties.variant`, `unknown variant ${JSON.stringify(variant)} ` +
+        `(known: ${BUTTON_VARIANTS.join(', ')})`);
+    }
     if (action && onClick) {
       fail(path, `has both action '${action}' and onClick '${onClick}'; ` +
         'a button does one or the other');

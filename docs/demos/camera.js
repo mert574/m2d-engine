@@ -54,8 +54,16 @@ export default async function start(canvas) {
       game.camera.follow(mover);
       game.camera.lerp = 0.08;
       game.camera.bounds = bounds;
-      label = game.sceneManager.getCurrentScene().ui.addElement(
-        new UIText(0, 12, '', { anchor: 'top', align: 'center', fontSize: '16px', color: '#cfd8dc' }));
+      label = game.sceneManager.getCurrentScene().ui.add(
+        new UIText({
+          x: 0,
+          y: 12,
+          text: '',
+          anchor: 'top',
+          align: 'center',
+          fontSize: '16px',
+          color: '#cfd8dc'
+        }));
       describe();
     },
     // World-space drawing that is not an entity: a grid, so camera motion is visible.

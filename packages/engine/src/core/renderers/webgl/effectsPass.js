@@ -74,6 +74,12 @@ export class EffectsPass {
     this.light = createRenderTarget(gl, pixelWidth, pixelHeight);
     this.bloomA = createRenderTarget(gl, pixelWidth, pixelHeight);
     this.bloomB = createRenderTarget(gl, pixelWidth, pixelHeight);
+    /**
+     * Holds the blurred scene for the `blur` post effect. Allocated on
+     * first use: most games never blur, and this is a full-size target.
+     * @type {?object}
+     */
+    this.sceneBlur = null;
 
     this.lightProgram = createProgram(gl, VERTEX_SHADER, LIGHT_FRAGMENT_SHADER, ATTRIBUTES);
     this.brightProgram = createProgram(gl, VERTEX_SHADER, BRIGHT_FRAGMENT_SHADER, ATTRIBUTES);
@@ -113,6 +119,8 @@ export class EffectsPass {
     deleteRenderTarget(gl, this.light);
     deleteRenderTarget(gl, this.bloomA);
     deleteRenderTarget(gl, this.bloomB);
+    if (this.sceneBlur) deleteRenderTarget(gl, this.sceneBlur);
+    this.sceneBlur = null;
     gl.deleteVertexArray(this.quadVao);
     gl.deleteVertexArray(this.lightVao);
     gl.deleteBuffer(this.quadBuffer);
@@ -144,6 +152,7 @@ export class EffectsPass {
     resizeRenderTarget(gl, this.light, pixelWidth, pixelHeight);
     resizeRenderTarget(gl, this.bloomA, pixelWidth, pixelHeight);
     resizeRenderTarget(gl, this.bloomB, pixelWidth, pixelHeight);
+    if (this.sceneBlur) resizeRenderTarget(gl, this.sceneBlur, pixelWidth, pixelHeight);
     this.width = width;
     this.height = height;
     this.pixelWidth = pixelWidth;
@@ -266,7 +275,8 @@ export class EffectsPass {
 
   /**
    * Composite the frame to the default framebuffer.
-   * @param {Object|null} post - { bloom: {threshold, strength, blur}, vignette: {strength, start} }
+   * @param {Object|null} post - { bloom: {threshold, strength, blur},
+   *   vignette: {strength, start}, blur: {strength} }
    * @param {{x: number, y: number, width: number, height: number}} [content] - Where
    *   the world lands on the backing store. Defaults to the full offscreen size,
    *   which is the unscaled, unletterboxed case.
@@ -281,8 +291,19 @@ export class EffectsPass {
     gl.disable(gl.STENCIL_TEST);
     gl.disable(gl.SCISSOR_TEST);
 
+    // Defocus the whole world first, so everything downstream — the bloom's
+    // bright pass included — reads the softened image and the glow agrees
+    // with what is on screen. This is what sits behind a modal: the game
+    // reads as *behind* the menu rather than merely dimmed.
+    const blurStrength = post?.blur?.strength ?? 0;
+    let sceneTexture = this.scene.texture;
+    if (blurStrength > 0) {
+      calls += this.#blurScene(blurStrength);
+      sceneTexture = this.sceneBlur.texture;
+    }
+
     if (bloom && (bloom.strength ?? 0) > 0) {
-      calls += this.#bloom(bloom);
+      calls += this.#bloom(bloom, sceneTexture);
     } else {
       // Nothing to add: clear the bloom texture so the composite reads zero.
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomA.framebuffer);
@@ -305,7 +326,7 @@ export class EffectsPass {
     gl.bindVertexArray(this.quadVao);
     gl.uniform2f(uniforms.u_resolution, this.width, this.height);
     gl.uniform1f(uniforms.u_flipY, -1);
-    this.#bindUnit(uniforms.u_scene, 0, this.scene.texture);
+    this.#bindUnit(uniforms.u_scene, 0, sceneTexture);
     this.#bindUnit(uniforms.u_light, 1, this.light.texture);
     this.#bindUnit(uniforms.u_bloom, 2, this.bloomA.texture);
     gl.uniform1f(uniforms.u_bloomStrength, bloom ? (bloom.strength ?? 0) : 0);
@@ -317,7 +338,48 @@ export class EffectsPass {
     return calls + 1;
   }
 
-  #bloom(bloom) {
+  /**
+   * Separable Gaussian over the whole scene, into `sceneBlur`.
+   * `bloomB` is borrowed as the horizontal intermediate — it is only read
+   * by the bloom pass, which runs after this.
+   * @returns {number} GPU draw calls issued
+   */
+  #blurScene(strength) {
+    const gl = this.gl;
+    if (!this.sceneBlur) {
+      this.sceneBlur = createRenderTarget(gl, this.pixelWidth, this.pixelHeight);
+    }
+
+    const sigma = Math.max(0.5, strength / 2);
+    const radius = Math.min(128, Math.ceil(sigma * 3));
+    // The kernel steps in texels, so a strength given in world units has to
+    // be converted or the blur would tighten as the render resolution rises.
+    const texelScale = this.pixelWidth / this.width;
+
+    const blur = this.blurProgram;
+    gl.useProgram(blur.program);
+    gl.bindVertexArray(this.quadVao);
+    gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
+    gl.uniform2f(blur.uniforms.u_resolution, this.width, this.height);
+    gl.uniform1f(blur.uniforms.u_flipY, 1);
+    gl.uniform1f(blur.uniforms.u_sigma, sigma * texelScale);
+    gl.uniform1i(blur.uniforms.u_radius, Math.min(128, Math.ceil(radius * texelScale)));
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomB.framebuffer);
+    this.#bindUnit(blur.uniforms.u_texture, 0, this.scene.texture);
+    gl.uniform2f(blur.uniforms.u_direction, 1 / this.pixelWidth, 0);
+    this.#drawFullQuad();
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneBlur.framebuffer);
+    this.#bindUnit(blur.uniforms.u_texture, 0, this.bloomB.texture);
+    gl.uniform2f(blur.uniforms.u_direction, 0, 1 / this.pixelHeight);
+    this.#drawFullQuad();
+
+    gl.bindVertexArray(null);
+    return 2;
+  }
+
+  #bloom(bloom, sceneTexture = this.scene.texture) {
     const gl = this.gl;
     const threshold = bloom.threshold ?? 0.65;
     const sigma = Math.max(1, (bloom.blur ?? 24) / 2);
@@ -331,7 +393,7 @@ export class EffectsPass {
     gl.bindVertexArray(this.quadVao);
     gl.uniform2f(bright.uniforms.u_resolution, this.width, this.height);
     gl.uniform1f(bright.uniforms.u_flipY, 1);
-    this.#bindUnit(bright.uniforms.u_scene, 0, this.scene.texture);
+    this.#bindUnit(bright.uniforms.u_scene, 0, sceneTexture);
     this.#bindUnit(bright.uniforms.u_light, 1, this.light.texture);
     gl.uniform1f(bright.uniforms.u_threshold, threshold);
     this.#drawFullQuad();

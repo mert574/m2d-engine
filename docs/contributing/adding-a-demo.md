@@ -13,7 +13,7 @@ Each example lives in `examples/src/<name>/`.
 `.gitignore` excludes raster images, `.otf`, `.mp3` and `.wav` files. A demo that commits one of those needs a `!path` line there, as the two music tracks have.
 
 
-The `basePath` engine option must point at the example's deployed folder for sprite URLs in scene JSON to resolve. The existing examples use `import.meta.env.DEV ? '/examples/<name>/' : '/m2d-engine/examples/<name>/'`.
+The `basePath` engine option must point at the example's folder for sprite URLs in scene JSON to resolve. The existing examples derive it from Vite instead of hardcoding each environment: `import.meta.env.BASE_URL + '<name>/'` is `/<name>/` on the dev server and `/m2d-engine/examples/<name>/` in the published build, because `BASE_URL` comes from the `base` option in `examples/vite.config.js`.
 
 ## Registering it
 

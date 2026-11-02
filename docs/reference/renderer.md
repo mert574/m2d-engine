@@ -129,11 +129,13 @@ Filling a partial arc fills the circular segment between the arc and its chord. 
 | `lineWidth` | `3` | Outline width |
 | `fontSize` | `'16px'` | A CSS size or a number |
 | `fontFamily` | `'system-ui'` | |
-| `fontWeight` | `'normal'` | |
+| `fontWeight` | `'normal'` | `'100'`–`'900'` is honoured when the family is a variable font |
+| `fontStyle` | `'normal'` | `'italic'` or `'oblique'` |
+| `letterSpacing` | — | Tracking, in units or as a CSS length. Counted by `measureText` too. Ignored where the browser lacks `ctx.letterSpacing`, in which case text draws untracked |
 | `textAlign` | `'left'` | `left`, `center` or `right` |
 | `textBaseline` | `'top'` | `top`, `middle`, `alphabetic` or `bottom` |
 
-`measureText(text, { fontSize, fontFamily, fontWeight })` returns `{ width, height }`.
+`measureText(text, { fontSize, fontFamily, fontWeight, fontStyle, letterSpacing })` returns `{ width, height }`. Metrics must reflect the style that would be rendered; both backends build the font shorthand through the same `geometry/font.js` helper so they cannot drift apart.
 
 ### drawParticles
 

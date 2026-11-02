@@ -7,6 +7,7 @@ import reedSprite from './assets/reed.png';
 import lanternSprite from './assets/lantern.png';
 import lighthouseSprite from './assets/lighthouse.png';
 import rainSprite from './assets/rain.png';
+import { registerMainMenu } from '../shared/mainMenu.js';
 
 const VIEW = { width: 1280, height: 720 };
 const WORLD = { width: 2560, height: 1440 };
@@ -29,25 +30,15 @@ const game = new M2D(canvas, {
 /** @type {Showcase|null} */
 let showcase = null;
 
-game.sceneManager.addScene('mainMenu', {
-  fetch: async () => ({
-    version: 1, name: 'mainMenu', type: 'ui', title: 'Main Menu', assets: {},
-    elements: [
-      { type: 'rect', id: 'background', x: 0, y: 0, fill: true, color: '#05070f' },
-      { type: 'text', id: 'title', anchor: 'center', x: 0, y: -250,
-        properties: { text: 'Renderer Showcase', fontSize: '72px', align: 'center', color: '#cfe8ff' } },
-      { type: 'button', id: 'startGame', anchor: 'center', x: 0, y: -60,
-        properties: { text: 'Start', onClick: 'showcase', width: 220, height: 54, fontSize: '22px',
-          backgroundColor: '#14304f', hoverColor: '#1f4a79', textColor: '#cfe8ff' } },
-      { type: 'button', id: 'settings', anchor: 'center', x: 0, y: 6,
-        properties: { text: 'Settings', action: 'settings', width: 220, height: 54, fontSize: '22px',
-          backgroundColor: '#14304f', hoverColor: '#1f4a79', textColor: '#cfe8ff' } },
-      { type: 'text', id: 'controlsLine1', anchor: 'center', x: 0, y: 70,
-        properties: { text: '[ and ]: Decrease / increase load · 1-7: Toggle layers', fontSize: '20px', align: 'center', color: '#9fb6d0' } },
-      { type: 'text', id: 'controlsLine2', anchor: 'center', x: 0, y: 100,
-        properties: { text: 'P: Pause camera · H: Hide HUD · O: Settings', fontSize: '20px', align: 'center', color: '#9fb6d0' } }
-    ]
-  })
+registerMainMenu(game, {
+  title: 'Showcase',
+  subtitle: 'renderer comparison',
+  hint: '[ and ] change load · 1-7 toggle layers · P pauses the camera · H hides the HUD',
+  backdrop: { gradient: { from: '#03060e', to: '#0d1b33', angle: 120 }, motes: 110, vignette: 0.6 },
+  items: () => [
+    { text: 'Start', onSelect: () => game.sceneManager.switchTo('showcase') },
+    { text: 'Settings', onSelect: () => game.settings.open() }
+  ]
 });
 
 game.sceneManager.addScene('showcase', {

@@ -1,5 +1,6 @@
 import { BaseRenderer } from './baseRenderer.js';
 import { identityViewport } from '../viewport.js';
+import { buildFontString, applyLetterSpacing } from './geometry/font.js';
 
 /**
  * Canvas 2D implementation of the renderer interface.
@@ -287,10 +288,7 @@ export class CanvasRenderer extends BaseRenderer {
   }
 
   #buildFont(options) {
-    const size = typeof options.fontSize === 'number'
-      ? `${options.fontSize}px`
-      : (options.fontSize || '16px');
-    return `${options.fontWeight || 'normal'} ${size} ${options.fontFamily || 'system-ui'}`.trim();
+    return buildFontString(options);
   }
 
   /**
@@ -434,6 +432,7 @@ export class CanvasRenderer extends BaseRenderer {
 
     this.#paint(ctx, options, doStroke ? 2 : 1, (c) => {
       c.font = font;
+      applyLetterSpacing(c, options.letterSpacing);
       c.textAlign = options.textAlign || 'left';
       c.textBaseline = options.textBaseline || 'top';
 
@@ -624,6 +623,7 @@ export class CanvasRenderer extends BaseRenderer {
 
     this.context.save();
     this.context.font = style.font || this.#buildFont(style);
+    applyLetterSpacing(this.context, style.letterSpacing);
     const metrics = this.context.measureText(text);
     this.context.restore();
 

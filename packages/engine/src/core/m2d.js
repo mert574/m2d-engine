@@ -8,10 +8,20 @@ import { SoundManager } from './soundManager.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, FALLBACK_RENDERER } from './renderers/index.js';
 import { computeViewport, sameViewport, viewToUI } from './viewport.js';
 import { WorldOverlay } from './ui/worldOverlay.js';
+import { Theme, createTheme } from './ui/theme.js';
+import { loadUIFonts } from './ui/fonts.js';
+import { ScreenStack } from './ui/screenStack.js';
+import { MotionManager } from './ui/motion.js';
+import { CVarRegistry } from './console/cvars.js';
+import { CommandRegistry, registerBuiltins } from './console/commands.js';
+import { DevConsole } from './console/devConsole.js';
+import { PerformanceStats } from './ui/performanceStats.js';
 
 /** Restart and menu keys on the game-over screen, by physical key code. */
 const KEY_RESTART = 'KeyR';
 const KEY_MENU = 'KeyM';
+
+
 
 const defaultOptions = {
   renderer: DEFAULT_RENDERER,
@@ -75,13 +85,62 @@ const defaultOptions = {
    */
   interpolatePhysics: true,
   /**
-   * Show the frame-rate and draw-call readout every scene adds to its UI.
+   * Show the frame-rate and draw-call readout in the engine's debug layer.
    * Turn it off for a game that draws its own HUD or embeds in a page.
    */
   performanceStats: true,
+  /**
+   * Physical key code that expands the readout into the full counter list.
+   * F3 by convention, and the engine suppresses the browser's own handling
+   * of it (find-in-page) because it consumes the press. `null` binds no key.
+   */
+  performanceStatsHotkey: 'F3',
+  /**
+   * Mount the developer console, toggled with backquote: cvars, commands,
+   * history, completion, and the engine's own logs. `false` for a release
+   * that should not ship a console; the cvar and command registries exist
+   * either way, since the settings menu is a view onto them.
+   */
+  devConsole: true,
+  /**
+   * Scope for persisted settings (cvars with `persist`), so two games on one
+   * origin keep separate values. Defaults to the page's pathname.
+   */
+  saveId: null,
+  /**
+   * Design tokens for every piece of UI — colours, type, spacing, radii,
+   * motion. A partial token tree is merged over the engine's default, so
+   * `{ color: { accent: { default: '#f60' } } }` restyles every button,
+   * panel and readout without touching a component. Pass a `Theme` to
+   * share one instance across games. See `ui/theme.js`.
+   */
+  theme: null,
   sounds: {},
   music: {}
 };
+
+/** `game.resolution` as console text: 'native', a scale, or 'WxH'. */
+function serializeResolution(resolution) {
+  if (resolution === 'native' || resolution == null) return 'native';
+  if (typeof resolution === 'object') return `${resolution.width ?? '?'}x${resolution.height}`;
+  return String(resolution);
+}
+
+/** Console text back into what `setResolution` takes. Throws on nonsense. */
+function parseResolution(text) {
+  const value = String(text).trim().toLowerCase();
+  if (value === 'native') return 'native';
+  const preset = value.match(/^(\d+)x(\d+)$/);
+  if (preset) return { width: Number(preset[1]), height: Number(preset[2]) };
+  const scale = Number(value);
+  if (Number.isFinite(scale) && scale > 0 && scale <= 2) return scale;
+  throw new Error(`r_resolution: expected native, a scale (0..2], or WxH — got '${text}'`);
+}
+
+/** Settings scope when the game gives none: the page, not the whole origin. */
+function defaultSaveId() {
+  return typeof location !== 'undefined' ? location.pathname : '';
+}
 
 function rendererOverrideFromURL() {
   if (typeof location === 'undefined' || !location.search) return null;
@@ -104,16 +163,51 @@ export class M2D {
     /** Callbacks invoked after every viewport change. */
     this.onResizeHandlers = new Set();
     /**
-     * Scene-independent UI drawn above everything each frame (settings menu,
-     * debug consoles). Members implement draw() and optionally destroy().
+     * Scene-independent UI drawn above everything: the screen stack and the
+     * debug layer. Set up after the renderer, since it needs UI sizes.
+     * @type {ScreenStack|null}
      */
-    this.overlays = new Set();
+    this.ui = null;
     /** Set by a resize event, applied at the top of the next frame. */
     this.pendingResize = false;
 
     this.viewport = this.#computeViewport();
     this.renderer = this.#initRenderer(canvas, rendererOverrideFromURL() || this.options.renderer);
     this.uiRenderer = new UIRenderer(this.renderer);
+
+    /**
+     * Design tokens every UI element resolves against. Elements reach it by
+     * walking to the root rather than holding a copy, so replacing this
+     * restyles the whole game on the next frame.
+     * @type {Theme}
+     */
+    this.theme = this.options.theme instanceof Theme
+      ? this.options.theme
+      : createTheme(this.options.theme);
+
+    /**
+     * UI tweens: screen transitions, staggered menus, per-state micro
+     * animation. Ticked outside the pause gate, so a menu over a frozen
+     * game still animates. See `ui/motion.js`.
+     */
+    this.motion = new MotionManager(this);
+
+    /**
+     * Engine-level UI above the scene: a stack of screens (pause, settings,
+     * dialogs) plus a debug layer that outlives scene switches. Push a
+     * screen over a live game rather than switching to a menu scene, which
+     * would unload it. See `ui/screenStack.js`.
+     */
+    this.ui = new ScreenStack(this);
+
+    if (this.options.performanceStats !== false) {
+      // The debug layer, not the scene's container: a readout cleared and
+      // rebuilt on every scene switch, and hit-tested alongside game UI,
+      // was never what anyone wanted.
+      this.stats = this.ui.debug.add(new PerformanceStats({
+        x: 16, y: -16, anchor: 'bottom-left', pivot: 'bottom-left'
+      }));
+    }
 
     this.camera = new Camera(this.viewport.viewWidth, this.viewport.viewHeight, {
       worldWidth: this.options.worldWidth,
@@ -157,7 +251,7 @@ export class M2D {
      */
     this.paused = false;
     /**
-     * The mounted SettingsMenu, if the game created one. Set by the menu's
+     * The mounted settings menu, if the game created one. Set by the menu's
      * constructor; scene UI reaches it through the 'settings' button action.
      * @type {import('./ui/settingsMenu.js').SettingsMenu|null}
      */
@@ -172,6 +266,37 @@ export class M2D {
       pointerLock: this.options.pointerLock,
       preventDefault: this.options.preventDefaultKeys
     });
+
+    /**
+     * Console variables: every engine knob with a name, a type and a
+     * description, plus whatever the game registers. The settings menu reads
+     * and writes these; so does the developer console. See console/cvars.js.
+     */
+    this.cvars = new CVarRegistry({
+      saveId: this.options.saveId ?? defaultSaveId()
+    });
+    /** Console commands over those cvars and the engine. */
+    this.commands = new CommandRegistry(this.cvars);
+    registerBuiltins(this.commands, this);
+    this.#registerEngineCvars();
+
+    /**
+     * The developer console, mounted in the debug layer. Opens with
+     * backquote. @type {DevConsole|null}
+     */
+    this.console = this.options.devConsole !== false ? new DevConsole(this) : null;
+
+    // The readout's own hotkey, registered once the input system exists.
+    // Consuming the press is also what keeps the browser from acting on it:
+    // bare F3 opens the find bar otherwise. See core/input/keyboard.js.
+    const statsKey = this.options.performanceStatsHotkey;
+    if (this.stats && statsKey) {
+      this.statsHotkey = this.input.on('keydown', (event) => {
+        if (event.code !== statsKey) return;
+        this.stats.toggle();
+        event.consume();
+      }, { band: 'overlay' });
+    }
 
     this.layers = new LayerManager();
     this.layers.setGame(this);
@@ -207,6 +332,113 @@ export class M2D {
       renderer = createRenderer(FALLBACK_RENDERER);
       renderer.init(canvas, size);
       return renderer;
+    }
+  }
+
+  /**
+   * The engine's own cvars. Each is an accessor over live state, so reading
+   * asks the engine rather than a copy that can drift, and writing goes
+   * through the same methods a menu would call. Prefixes follow the Quake
+   * convention the completion is built around: `r_` render, `g_` game,
+   * `cl_` client-side presentation.
+   */
+  #registerEngineCvars() {
+    const cvars = this.cvars;
+
+    cvars.register('r_resolution', {
+      type: 'string',
+      default: 'native',
+      persist: true,
+      description: 'World render resolution: native, a scale (0.5), or WxH (960x540)',
+      get: () => serializeResolution(this.resolution),
+      set: (value) => this.setResolution(parseResolution(value))
+    });
+
+    cvars.register('r_aspect', {
+      type: 'string',
+      choices: ['letterbox', 'expand'],
+      default: this.options.aspectMode,
+      persist: true,
+      description: 'Letterbox keeps the designed view; expand reveals more world',
+      get: () => this.aspectMode,
+      set: (value) => this.setAspectMode(value)
+    });
+
+    cvars.register('r_worldfilter', {
+      type: 'string',
+      choices: ['linear', 'nearest'],
+      default: this.options.worldFilter,
+      persist: true,
+      description: 'How the world is filtered when upscaled; nearest keeps pixel art crisp',
+      get: () => this.worldFilter,
+      set: (value) => this.setWorldFilter(value)
+    });
+
+    cvars.register('r_fullscreen', {
+      type: 'boolean',
+      default: false,
+      description: 'Fullscreen on the canvas',
+      get: () => this.isFullscreen,
+      set: (value) => { value ? this.requestFullscreen() : this.exitFullscreen(); }
+    });
+
+    cvars.register('r_debug', {
+      type: 'boolean',
+      default: true,
+      description: "The renderer's debug overlay (entity annotations)",
+      get: () => this.renderer.isDebugEnabled(),
+      set: (value) => this.renderer.setDebugEnabled(value)
+    });
+
+    cvars.register('r_renderer', {
+      type: 'string',
+      choices: ['webgl', 'canvas'],
+      default: DEFAULT_RENDERER,
+      description: 'Rendering backend. Setting it reloads the page with ?renderer=',
+      get: () => this.renderer.constructor.name.replace(/Renderer$/, '').toLowerCase(),
+      set: (value) => {
+        const params = new URLSearchParams(location.search);
+        params.set('renderer', value);
+        location.search = params.toString();
+      }
+    });
+
+    cvars.register('g_paused', {
+      type: 'boolean',
+      default: false,
+      description: 'Freeze the simulation; drawing and UI keep running',
+      get: () => this.paused,
+      set: (value) => { this.paused = value; }
+    });
+
+    cvars.register('g_timescale', {
+      type: 'number',
+      min: 0,
+      max: 10,
+      default: this.options.physicsTimeScale,
+      description: 'Multiplier on simulated time: 0.5 is slow motion',
+      get: () => this.physics.timeScale,
+      set: (value) => { this.physics.timeScale = value; }
+    });
+
+    if (this.stats) {
+      cvars.register('cl_showfps', {
+        type: 'boolean',
+        default: true,
+        persist: true,
+        description: 'The frame-rate readout',
+        get: () => this.stats.visible,
+        set: (value) => { this.stats.visible = value; }
+      });
+
+      cvars.register('cl_statsexpanded', {
+        type: 'boolean',
+        default: false,
+        persist: true,
+        description: 'Expand the readout into the full counter list (F3)',
+        get: () => this.stats.expanded,
+        set: (value) => { this.stats.expanded = value; }
+      });
     }
   }
 
@@ -390,10 +622,14 @@ export class M2D {
     for (const remove of this.resizeListeners) remove();
     this.resizeListeners = [];
     this.onResizeHandlers.clear();
-    // Overlays first: they unregister their own input subscriptions, which
+    // UI first: screens unregister their own input subscriptions, which
     // means reaching back into this.input while it still exists.
-    for (const overlay of [...this.overlays]) overlay.destroy?.();
-    this.overlays.clear();
+    this.statsHotkey?.();
+    this.console?.destroy();
+    this.settings?.destroy();
+    this.ui?.destroy();
+    this.motion?.destroy();
+    this.worldOverlay.destroy();
     this.input.destroy();
     this.soundManager.destroy();
     this.physics.destroy();
@@ -454,25 +690,34 @@ export class M2D {
     this.soundManager.playSound('gameOver');
   }
 
-  drawUIBackground() {
+  /**
+   * The engine's own full-screen messages (loading, game over).
+   *
+   * These bypass the UI element tree on purpose: they have to draw before a
+   * scene exists and after one has been torn down, which is exactly when
+   * there is no container to put an element in. They do go through the
+   * theme, so they match the rest of the UI. The screen stack replaces them
+   * with real screens.
+   */
+  drawUIBackground(fillStyle = '$color.bg.scrim') {
     this.uiRenderer.drawRect({
       x: 0,
       y: 0,
       width: this.uiRenderer.width,
       height: this.uiRenderer.height,
-      fillStyle: 'rgba(0, 0, 0, 0.7)'
+      fillStyle: this.theme.resolve(fillStyle)
     });
   }
 
-  drawUIText(text, y, fontSize = 24, isBold = false) {
+  drawUIText(text, y, size = '$font.size.heading', weight = '$font.weight.regular') {
     this.uiRenderer.drawText({
       text,
       x: this.uiRenderer.width / 2,
       y,
-      fillStyle: '#fff',
-      fontSize: `${fontSize}px`,
-      fontFamily: 'system-ui',
-      fontWeight: isBold ? 'bold' : 'normal',
+      fillStyle: this.theme.resolve('$color.text.primary'),
+      fontSize: this.theme.resolve(size),
+      fontFamily: this.theme.get('font.family'),
+      fontWeight: this.theme.resolve(weight),
       textAlign: 'center',
       textBaseline: 'middle'
     });
@@ -482,34 +727,33 @@ export class M2D {
     this.uiRenderer.beginFrame();
     this.drawUIBackground();
     const midY = this.uiRenderer.height / 2;
-    this.drawUIText('Game Over', midY - 40, 48, true);
-    this.drawUIText('Press R to restart', midY + 20);
-    this.drawUIText('Press M for menu', midY + 60);
+    this.drawUIText('Game Over', midY - 48, '$font.size.title', '$font.weight.bold');
+    this.drawUIText('Press R to restart', midY + 24, '$font.size.subheading');
+    this.drawUIText('Press M for menu', midY + 60, '$font.size.subheading');
     this.uiRenderer.endFrame();
   }
 
   drawLoading() {
     this.uiRenderer.beginFrame();
-    this.drawUIBackground('rgb(0, 0, 0)');
-    this.drawUIText('Loading...', this.uiRenderer.height / 2, 64);
+    this.drawUIBackground('$color.bg.base');
+    this.drawUIText('Loading', this.uiRenderer.height / 2, '$font.size.display', '$font.weight.light');
     this.uiRenderer.endFrame();
-    console.debug('drawing loading');
   }
 
-  drawWorld(currentScene) {
+  drawWorld(currentScene, deltaTime = 0) {
     // Overlay annotations are per-frame submissions made during the world
     // pass below; clearing here (not when they are drawn) means a game loop
     // that never reaches drawOverlays cannot accumulate them across frames.
     this.worldOverlay.clear();
     this.renderer.beginFrame();
     this.renderer.applyCamera(this.camera);
-    currentScene.draw();
+    currentScene.draw(deltaTime);
     this.renderer.endFrame();
   }
 
-  drawUI(currentScene) {
+  drawUI(currentScene, deltaTime = 0) {
     this.uiRenderer.beginFrame();
-    currentScene.drawUI();
+    currentScene.drawUI(deltaTime);
     this.uiRenderer.endFrame();
   }
 
@@ -520,10 +764,14 @@ export class M2D {
    * frame — otherwise, under pointer lock, there is no cursor on screen at
    * all, since the system one is hidden while the canvas holds the lock.
    */
-  drawOverlays() {
-    if (this.overlays.size === 0 && !this.input.cursor.locked) return;
+  drawOverlays(deltaTime = 0) {
+    const hasOverlay = this.worldOverlay.hasSubmissions;
+    if (this.ui.isEmpty && !hasOverlay && !this.input.cursor.locked) return;
     this.uiRenderer.beginFrame();
-    for (const overlay of this.overlays) overlay.draw();
+    // World annotations first: they belong to the game, so a menu pushed
+    // over it covers them rather than the other way round.
+    this.worldOverlay.draw();
+    this.ui.draw(deltaTime);
     this.input.draw();
     this.uiRenderer.endFrame();
   }
@@ -574,12 +822,16 @@ export class M2D {
           this.camera.update();
           currentScene.update(deltaTime);
         }
-        this.drawWorld(currentScene);
-        this.drawUI(currentScene);
+        // UI ticks even while paused. A pause menu that froze along with the
+        // game could not animate itself in, and the thing the player is
+        // looking at would be the one thing not responding.
+        currentScene.updateUI(deltaTime);
+        this.drawWorld(currentScene, deltaTime);
+        this.drawUI(currentScene, deltaTime);
       }
     } else {
       if (currentScene) {
-        this.drawWorld(currentScene);
+        this.drawWorld(currentScene, deltaTime);
       }
       this.drawGameOver();
 
@@ -594,7 +846,12 @@ export class M2D {
       }
     }
 
-    this.drawOverlays();
+    // Engine UI ticks every frame, paused or not, and after the scene so a
+    // screen pushed this frame is laid out before it is drawn. Motion runs
+    // first: a tween writes the values this frame's layout reads.
+    this.motion.update(deltaTime);
+    this.ui.update(deltaTime);
+    this.drawOverlays(deltaTime);
 
     // Retire this frame's input edges (justPressed / justReleased).
     this.input.endFrame();
@@ -603,6 +860,12 @@ export class M2D {
   }
 
   async start() {
+    // Before the first label is drawn, not alongside it. Both backends
+    // rasterize text through the browser and the WebGL one caches the
+    // result as a texture keyed by text and style, so a label drawn in the
+    // fallback face stays in the fallback face. See ui/fonts.js.
+    this.fonts = await loadUIFonts();
+
     this.drawLoading();
 
     Object.entries(this.options.sounds || {}).forEach(

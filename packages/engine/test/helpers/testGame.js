@@ -6,6 +6,11 @@ import { WorldOverlay } from '../../src/core/ui/worldOverlay.js';
 import { Camera } from '../../src/core/camera.js';
 import { InputManager } from '../../src/core/input/index.js';
 import { viewToUI } from '../../src/core/viewport.js';
+import { createTheme } from '../../src/core/ui/theme.js';
+import { ScreenStack } from '../../src/core/ui/screenStack.js';
+import { MotionManager } from '../../src/core/ui/motion.js';
+import { CVarRegistry } from '../../src/core/console/cvars.js';
+import { CommandRegistry } from '../../src/core/console/commands.js';
 
 /**
  * A minimal stand-in for the M2D instance that entities, constraints and UI
@@ -14,10 +19,14 @@ import { viewToUI } from '../../src/core/viewport.js';
  */
 export function makeTestGame(options = {}) {
   const renderer = new RecordingRenderer();
+  const { theme: themeOverrides, ...engineOptions } = options;
 
   const game = {
     renderer,
     uiRenderer: new UIRenderer(renderer),
+    // The real theme, so assertions see the colours components actually
+    // resolve rather than a stand-in that could drift from the defaults.
+    theme: createTheme(themeOverrides),
     physics: createPhysicsWorld(),
     entities: new Set(),
     player: null,
@@ -31,13 +40,13 @@ export function makeTestGame(options = {}) {
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 })
     },
     soundManager: { playSound() {}, stopMusic() {} },
+    paused: false,
     sceneManager: { switchTo() {} },
-    overlays: new Set(),
     // Camera centred on the view, so world (0..800, 0..600) is on screen and
     // worldToUI is the identity under the recording renderer's 800x600
     // identity viewport — assertions can reason in plain world numbers.
     camera: new Camera(800, 600),
-    options: { width: 800, height: 600, worldWidth: 1600, worldHeight: 1200, ...options },
+    options: { width: 800, height: 600, worldWidth: 1600, worldHeight: 1200, ...engineOptions },
     get viewport() {
       return renderer.viewport;
     },
@@ -48,6 +57,13 @@ export function makeTestGame(options = {}) {
   };
   game.camera.x = 400;
   game.camera.y = 300;
+  // The real motion driver and UI band. The router asks the latter before
+  // the scene's UI, so tests that route input need a real one.
+  game.motion = new MotionManager(game);
+  game.ui = new ScreenStack(game);
+  // Real registries with persistence off; tests register what they need.
+  game.cvars = new CVarRegistry({ storage: null });
+  game.commands = new CommandRegistry(game.cvars);
   game.worldOverlay = new WorldOverlay(game);
   // The real input system, minus a DOM to listen to. Pointer lock stays off:
   // on, it would switch the virtual cursor on and make every

@@ -18,7 +18,7 @@
 | A moving platform drops its rider at each stop | Give `PathFollow` an `acceleration` low enough that friction can carry the rider |
 | The canvas blurs or ignores resizes | Give the canvas a CSS size. Do not size it from its own attributes or use `object-fit` |
 | Annotations turn into stairs at low resolution | Draw them through `game.worldOverlay` |
-| The settings menu never appears in a custom loop | Call `game.drawOverlays()` at the end of each frame |
+| The settings menu never appears in a custom loop | Call `game.ui.update(deltaTime)` and then `game.drawOverlays(deltaTime)` at the end of each frame |
 
 ## Development environment
 

@@ -47,11 +47,11 @@ const menu = {
     { type: 'text', id: 'title', anchor: 'center', x: 0, y: -90,
       properties: { text: 'Scenes', fontSize: '40px', align: 'center', color: '#ffffff' } },
     { type: 'button', id: 'start', anchor: 'center', x: 0, y: -10,
-      properties: { text: 'Start level', onClick: 'level', width: 200, height: 44, fontSize: '18px',
-        backgroundColor: '#2e7d32', hoverColor: '#43a047', textColor: '#ffffff' } },
+      properties: { text: 'Start level', onClick: 'level', width: 200, height: 44,
+        fontSize: '18px', variant: 'primary' } },
     { type: 'button', id: 'about', anchor: 'center', x: 0, y: 46,
-      properties: { text: 'About', action: 'about', width: 200, height: 44, fontSize: '18px',
-        backgroundColor: '#37474f', hoverColor: '#546e7a', textColor: '#ffffff' } }
+      properties: { text: 'About', action: 'about', width: 200, height: 44,
+        fontSize: '18px', variant: 'secondary' } }
   ]
 };
 
@@ -90,7 +90,15 @@ export default async function start(canvas) {
     onEnter() {
       // Elements can also be added from code. This one shows the last action.
       const ui = game.sceneManager.getCurrentScene().ui;
-      status = ui.addElement(new UIText(0, 110, '', { anchor: 'center', align: 'center', fontSize: '16px', color: '#9fb6d0' }));
+      status = ui.add(new UIText({
+        x: 0,
+        y: 110,
+        text: '',
+        anchor: 'center',
+        align: 'center',
+        fontSize: '16px',
+        color: '#9fb6d0'
+      }));
     },
     // A button with "action": "about" lands here. A mounted SettingsMenu would
     // take "settings" first; this demo has none.
@@ -108,8 +116,16 @@ export default async function start(canvas) {
       doneFor = 0;
       const ui = game.sceneManager.getCurrentScene().ui;
       // Buttons are centred on their position, so offset by half the size.
-      ui.addElement(new UIButton(-76, 34, 120, 36, 'Menu',
-        () => game.sceneManager.switchTo('mainMenu'), { anchor: 'top-right', backgroundColor: '#37474f', hoverColor: '#546e7a' }));
+      ui.add(new UIButton({
+        x: -76,
+        y: 34,
+        width: 120,
+        height: 36,
+        text: 'Menu',
+        onClick: () => game.sceneManager.switchTo('mainMenu'),
+        anchor: 'top-right',
+        background: '#37474f'
+      }));
     },
     // Scene-level logic that is not an entity. Switch back once the goal is reached.
     onUpdate(deltaTime) {

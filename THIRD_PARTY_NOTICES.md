@@ -1,3 +1,29 @@
+# Third-party notices
+
+## UI typeface: Exo
+
+The engine ships **Exo** by Natanael Gama / The Exo Project Authors, licensed under
+the [SIL Open Font License 1.1](https://scripts.sil.org/OFL). The full license is
+included in [LICENSES/OFL-1.1-Exo.txt](LICENSES/OFL-1.1-Exo.txt). The font retains
+its separate license; the project's MIT license covers its original code and
+artwork, not this font.
+
+- Project: https://github.com/NDISCOVER/Exo-1.0
+- Source: https://fonts.google.com/specimen/Exo (v25 webfont build)
+- Directory: `packages/engine/src/core/ui/fonts/`
+
+Included unchanged, as the Latin and Latin Extended subsets of the variable
+face (weights 100-900) in upright and italic:
+
+- `exo-latin.woff2` — SHA-256: `18bbf39a4e6915f988af7263ab2d92858949dc317e2fcfd3e77908f7a36cbc2c`
+- `exo-latin-ext.woff2` — SHA-256: `1da10029055bd9eebdca716e37e629c025d1af004e73352c7a22205ed76c5bb4`
+- `exo-italic-latin.woff2` — SHA-256: `0571f464a795b67e00025e061e816f1e4274c1253fc8a69f7ebe1583bdc8eebc`
+- `exo-italic-latin-ext.woff2` — SHA-256: `0e298ee13942b93e74e4d79cf360ce1091b483ed6000361b2c9b98662c341621`
+
+Loaded by `packages/engine/src/core/ui/fonts.js`. No glyphs were modified and the
+font is not sold; it is bundled as part of the engine under the OFL's permission
+to distribute the font software with software.
+
 # Music credits
 
 The following recordings by **Kevin MacLeod (incompetech.com)** are licensed under

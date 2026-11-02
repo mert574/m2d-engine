@@ -71,6 +71,7 @@ export default defineConfig({
             { text: 'Renderer API', link: '/reference/renderer' },
             { text: 'Input events', link: '/reference/input-events' },
             { text: 'UI components', link: '/reference/ui' },
+            { text: 'Developer console', link: '/reference/console' },
             { text: 'Built-in actors', link: '/reference/actors' },
             { text: 'Built-in constraints', link: '/reference/constraints' }
           ]

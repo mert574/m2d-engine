@@ -92,7 +92,10 @@ export class InputRouter {
   listening(...types) {
     for (const type of types) {
       if (this.subscribers.has(type)) return true;
-      if (this.uiContainer?.handles(type)) return true;
+      // The whole tree, not just the root: the root never wants anything
+      // itself, and a button nested three panels deep still has to switch
+      // on the gesture it needs.
+      if (this.uiContainer?.treeHandles(type)) return true;
       for (const interactive of this.interactives) {
         if (interactive.handles(type)) return true;
       }
@@ -138,12 +141,12 @@ export class InputRouter {
    * @param {object} event - A built input event
    */
   dispatch(event) {
-    // Overlays are modal: open ones take the event before any target gets a
-    // chance at it, which is the whole of "the menu blocks the game".
-    for (const overlay of this.game.overlays) {
-      overlay.handleInput?.(event);
-      if (event.consumed) return;
-    }
+    // The engine's own UI is modal: a blocking screen takes the event before
+    // any target gets a chance at it, which is the whole of "the menu blocks
+    // the game". The stack decides which of its layers that is; the router
+    // no longer asks each one in turn.
+    this.game.ui?.handleInput(event);
+    if (event.consumed) return;
 
     // Resolved before the subject runs, so a dragged entity's own onDrop can
     // already see what it landed on.
@@ -231,9 +234,13 @@ export class InputRouter {
   updateHover(event, makeEvent) {
     if (!HOVER_TYPES.has(event.pointerType)) return;
 
-    // An open overlay owns the pointer; anything under it is not hovered.
-    for (const overlay of this.game.overlays) {
-      if (overlay.capturesInput) {
+    // The engine's UI resolves its own hover first. When it owns the
+    // pointer — a control under it, or any blocking screen — nothing in the
+    // scene or the world may show a hover state.
+    const ui = this.game.ui;
+    if (ui) {
+      ui.updateHover(event);
+      if (ui.ownsPointer(event)) {
         this.clearHover(makeEvent, event);
         return;
       }

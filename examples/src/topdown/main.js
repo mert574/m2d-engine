@@ -1,6 +1,7 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+import { registerMainMenu } from '../shared/mainMenu.js';
 import { TopDownPlayer } from 'm2d-engine/actors/topDownPlayer.js';
 import { Ghost } from 'm2d-engine/actors/ghost.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
@@ -21,7 +22,11 @@ const game = new M2D(canvas, {
   worldHeight: 2880,
   // 32px pixel-art tiles: upscale them blocky, not smeared, below native.
   worldFilter: 'nearest',
-  basePath: import.meta.env.DEV ? '/examples/topdown/' : '/m2d-engine/examples/topdown/'
+  // Where sprite URLs in scene JSON resolve. Vite's BASE_URL is '/' on the
+  // dev server and '/m2d-engine/examples/' in the published build (set in
+  // vite.config.js), so deriving the prefix from it keeps both in step with
+  // however the site is actually served, instead of hardcoding each one.
+  basePath: import.meta.env.BASE_URL + 'topdown/'
 });
 
 // Keep the camera inside the level: without bounds, following the player (or
@@ -37,8 +42,15 @@ game.camera.bounds = {
 });
 
 // Register scenes
-game.sceneManager.addScene('mainMenu', {
-  fetch: async () => (await import('./scenes/mainMenu.json')).default
+registerMainMenu(game, {
+  title: 'Top-Down',
+  subtitle: 'a demonstration',
+  hint: 'Arrows move · X attacks · O for settings',
+  backdrop: { gradient: { from: '#0b0714', to: '#2a1840', angle: 115 }, motes: 90 },
+  items: () => [
+    { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('level1') },
+    { text: 'Settings', onSelect: () => game.settings.open() }
+  ]
 });
 
 game.sceneManager.addScene('level1', {

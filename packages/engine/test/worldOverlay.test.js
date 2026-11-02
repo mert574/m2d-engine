@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { createCanvasElement } from './helpers/environment.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { M2D } from '../src/core/m2d.js';
+import { UIElement } from '../src/core/ui/uiElement.js';
 
 /**
  * The world overlay (`game.worldOverlay`): annotations drawn *on* the world.
@@ -33,7 +34,9 @@ function displayCanvas(cssWidth, cssHeight) {
 function makeGame(displayWidth = 1280, displayHeight = 720) {
   const renderer = new RecordingRenderer();
   const game = new M2D(displayCanvas(displayWidth, displayHeight), {
-    width: 1280, height: 720, renderer
+    // No frame-rate readout: it lives in the engine's debug layer and would
+    // add its own draw calls to every sequence asserted below.
+    width: 1280, height: 720, renderer, performanceStats: false
   });
   game.camera.x = 640;
   game.camera.y = 360;
@@ -54,9 +57,30 @@ describe('WorldOverlay', () => {
     };
   });
 
-  it('is an engine overlay, present on every game', () => {
-    const { game, overlay } = makeGame();
-    expect(game.overlays.has(overlay)).toBe(true);
+  it('is present on every game and drawn by the overlay pass', () => {
+    const { game, renderer, overlay } = makeGame();
+    expect(overlay).toBe(game.worldOverlay);
+
+    overlay.drawArc({ x: 640, y: 360, radius: 10 });
+    renderer.reset();
+    game.drawOverlays();
+
+    expect(renderer.callsTo('drawArc')).toHaveLength(1);
+  });
+
+  it('draws beneath the screens, so a menu covers its annotations', () => {
+    // Annotations belong to the game, not to the chrome above it.
+    const { game, renderer, overlay } = makeGame();
+    game.ui.debug.add(new (class extends UIElement {
+      draw() { this.paint.drawRect({ x: 0, y: 0, width: 1, height: 1, fillStyle: '#fff' }); }
+    })({}));
+    overlay.drawArc({ x: 640, y: 360, radius: 10 });
+
+    renderer.reset();
+    game.drawOverlays();
+
+    const order = renderer.sequence();
+    expect(order.indexOf('drawArc')).toBeLessThan(order.indexOf('drawRect'));
   });
 
   describe('geometry', () => {
@@ -292,7 +316,6 @@ describe('WorldOverlay', () => {
     it('is torn down with the game', () => {
       const { game, overlay } = makeGame();
       game.destroy();
-      expect(game.overlays.size).toBe(0);
       expect(overlay.shapes).toHaveLength(0);
       expect(overlay.labels).toHaveLength(0);
     });

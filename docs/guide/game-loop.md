@@ -17,7 +17,7 @@ await game.start();
 
 ## Pausing
 
-`game.paused` freezes physics, entity updates and camera movement. Drawing continues, so the frozen frame stays visible under overlays.
+`game.paused` freezes physics, entity updates and camera movement. Drawing continues, so the frozen frame stays visible under a menu, and the UI keeps ticking — a pause screen that froze along with the game could not animate itself in.
 
 ```javascript
 game.paused = true;
@@ -37,7 +37,7 @@ On that screen R restarts the current scene and M switches to the scene named `m
 
 ## Destroying
 
-`game.destroy()` stops the loop and releases everything the instance registered: display and input listeners, audio, overlays, the physics world, the current scene and the renderer's GPU resources. Call it when removing a game from a page, for example when a demo is embedded in a document that the user navigates away from.
+`game.destroy()` stops the loop and releases everything the instance registered: display and input listeners, audio, the screen stack, the physics world, the current scene and the renderer's GPU resources. Call it when removing a game from a page, for example when a demo is embedded in a document that the user navigates away from.
 
 ## Replacing the loop
 
@@ -60,7 +60,8 @@ function frame(now) {
   game.renderer.clear('#000');
   game.drawWorld(scene);
   game.drawUI(scene);
-  game.drawOverlays();      // settings menu, world overlay, virtual cursor
+  game.ui.update(dt);       // screens and the debug layer
+  game.drawOverlays(dt);    // world overlay, screens, virtual cursor
 
   game.input.endFrame();
   requestAnimationFrame(frame);
@@ -72,7 +73,7 @@ function frame(now) {
 | `input.beginFrame(now)` | Delivers buffered pointer moves and fires time-based gestures |
 | `physics.advance(deltaTime)` | Spends elapsed time in fixed steps |
 | `drawWorld(scene)` | Clears the world overlay, applies the camera and draws the scene |
-| `drawOverlays()` | Draws the settings menu, world overlay annotations and the pointer-lock cursor |
+| `drawOverlays(dt)` | Draws world overlay annotations, then `game.ui` (screens and the debug layer), then the pointer-lock cursor |
 | `input.endFrame()` | Retires `justPressed` and `justReleased` |
 
 The demo at the top of this page is a loop like this one. It skips `start()` and does its three steps by hand, so the engine loop never runs. It stores its frame handle on `game.frameHandle`, which is what `destroy()` cancels.

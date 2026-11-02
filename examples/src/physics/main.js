@@ -7,6 +7,7 @@ import { UIText } from 'm2d-engine/core/ui/text.js';
 import ballSprite from './assets/ball.png';
 import boxSprite from './assets/box.png';
 import platformSprite from './assets/platform.png';
+import { registerMainMenu } from '../shared/mainMenu.js';
 
 // Compile Rapier's WASM module before anything builds a physics world.
 await initPhysics();
@@ -19,27 +20,15 @@ game.camera.y = 360;
 game.registerActor('Ball', Entity);
 game.registerActor('Box', Entity);
 game.registerActor('Ramp', Entity);
-game.sceneManager.addScene('mainMenu', {
-  fetch: async () => ({
-    version: 1, name: 'mainMenu', type: 'ui', title: 'Main Menu', assets: {},
-    elements: [
-      { type: 'rect', id: 'background', x: 0, y: 0, fill: true, color: '#333333' },
-      { type: 'text', id: 'title', anchor: 'center', x: 0, y: -220,
-        properties: { text: 'Physics Playground', fontSize: '64px', align: 'center', color: '#ffffff' } },
-      { type: 'button', id: 'startGame', anchor: 'center', x: 0, y: -40,
-        properties: { text: 'Start Game', onClick: 'physics', width: 200, height: 50, fontSize: '20px',
-          backgroundColor: '#2E7D32', hoverColor: '#4CAF50', textColor: '#ffffff' } },
-      { type: 'button', id: 'settings', anchor: 'center', x: 0, y: 24,
-        properties: { text: 'Settings', action: 'settings', width: 200, height: 50, fontSize: '20px',
-          backgroundColor: '#2E7D32', hoverColor: '#4CAF50', textColor: '#ffffff' } },
-      { type: 'text', id: 'controls', anchor: 'center', x: 0, y: 90,
-        properties: { text: 'Drag to grab · Right-click to remove · Click to spawn',
-          fontSize: '18px', align: 'center', color: '#bbbbbb' } },
-      { type: 'text', id: 'controls2', anchor: 'center', x: 0, y: 118,
-        properties: { text: 'Scroll or pinch for gravity · Space to spawn · O: Settings',
-          fontSize: '18px', align: 'center', color: '#bbbbbb' } }
-    ]
-  })
+registerMainMenu(game, {
+  title: 'Physics',
+  subtitle: 'a playground',
+  hint: 'Drag to grab · Right-click removes · Scroll for gravity · O for settings',
+  backdrop: { gradient: { from: '#140b06', to: '#3a2312', angle: 120 }, motes: 50 },
+  items: () => [
+    { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('physics') },
+    { text: 'Settings', onSelect: () => game.settings.open() }
+  ]
 });
 
 // A funnel into a splitter into a peg field: everything spawned at the top
@@ -98,8 +87,8 @@ game.sceneManager.addScene('physics', {
   // they become grabbable; anything spawned later is wired up by spawn().
   onEnter() {
     for (const entity of game.entities) makeGrabbable(entity);
-    gravityLabel = game.sceneManager.getCurrentScene().ui.addElement(
-      new UIText(16, 16, '', { fontSize: '16px', color: '#cfe8ff' }));
+    gravityLabel = game.sceneManager.getCurrentScene().ui.add(
+      new UIText({ x: 16, y: 16, text: '', fontSize: '16px', color: '#cfe8ff' }));
     setGravity(gravityY);
   }
 });

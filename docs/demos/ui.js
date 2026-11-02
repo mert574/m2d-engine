@@ -7,7 +7,7 @@ import { UIText } from 'm2d-engine/core/ui/text.js';
 /** A custom element: a bar that fills over time. Clicking it resets it. */
 class ProgressBar extends UIElement {
   constructor(x, y, options = {}) {
-    super(x, y, 260, 18, options);
+    super({ ...options, x, y, width: 260, height: 18 });
     this.value = 0;
   }
 
@@ -52,16 +52,59 @@ export default async function start(canvas) {
     onEnter() {
       const ui = game.sceneManager.getCurrentScene().ui;
       let count = 0;
-      const counter = ui.addElement(new UIText(0, -40, 'count 0', { anchor: 'center', align: 'center', fontSize: '32px', color: '#ffffff' }));
+      const counter = ui.add(new UIText({
+        x: 0,
+        y: -40,
+        text: 'count 0',
+        anchor: 'center',
+        align: 'center',
+        fontSize: '32px',
+        color: '#ffffff'
+      }));
       const set = (value) => { count = value; counter.text = `count ${count}`; };
 
-      const style = { backgroundColor: '#37474f', hoverColor: '#546e7a', pressedColor: '#263238', fontSize: '16px' };
-      ui.addElement(new UIButton(70, -36, 100, 40, '-1', () => set(count - 1), { ...style, anchor: 'bottom-left' }));
-      ui.addElement(new UIButton(0, -36, 100, 40, 'reset', () => set(0), { ...style, anchor: 'bottom' }));
-      ui.addElement(new UIButton(-70, -36, 100, 40, '+1', () => set(count + 1), { ...style, anchor: 'bottom-right' }));
+      const style = { variant: 'secondary', fontSize: '16px' };
+      ui.add(new UIButton({
+        x: 70,
+        y: -36,
+        width: 100,
+        height: 40,
+        text: '-1',
+        onClick: () => set(count - 1),
+        ...style,
+        anchor: 'bottom-left'
+      }));
+      ui.add(new UIButton({
+        x: 0,
+        y: -36,
+        width: 100,
+        height: 40,
+        text: 'reset',
+        onClick: () => set(0),
+        ...style,
+        anchor: 'bottom'
+      }));
+      ui.add(new UIButton({
+        x: -70,
+        y: -36,
+        width: 100,
+        height: 40,
+        text: '+1',
+        onClick: () => set(count + 1),
+        ...style,
+        anchor: 'bottom-right'
+      }));
 
-      ui.addElement(new ProgressBar(0, 30, { anchor: 'center' }));
-      ui.addElement(new UIText(0, 50, 'click the bar to reset it', { anchor: 'center', align: 'center', fontSize: '13px', color: '#90a4ae' }));
+      ui.add(new ProgressBar(0, 30, { anchor: 'center' }));
+      ui.add(new UIText({
+        x: 0,
+        y: 50,
+        text: 'click the bar to reset it',
+        anchor: 'center',
+        align: 'center',
+        fontSize: '13px',
+        color: '#90a4ae'
+      }));
     }
   });
 

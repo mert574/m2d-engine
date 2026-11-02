@@ -193,7 +193,7 @@ describe('resize lifecycle', () => {
       const canvas = displayCanvas(1280, 720);
       const game = makeGame(canvas);
 
-      const button = new UIElement(-50, -30, 80, 40, { anchor: 'bottom-right' });
+      const button = new UIElement({ x: -50, y: -30, width: 80, height: 40, anchor: 'bottom-right' });
       button.setGame(game);
 
       // Click where the element should visibly be: 50 x 40 UI units in from
@@ -220,7 +220,7 @@ describe('resize lifecycle', () => {
       const canvas = displayCanvas(1280, 720);
       const game = makeGame(canvas);
 
-      const button = new UIElement(-50, -30, 80, 40, { anchor: 'bottom-right' });
+      const button = new UIElement({ x: -50, y: -30, width: 80, height: 40, anchor: 'bottom-right' });
       button.setGame(game);
 
       const p = pointerAtClient(game, 10, 10).ui;

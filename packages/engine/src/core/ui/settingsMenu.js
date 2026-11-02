@@ -1,15 +1,24 @@
 /**
- * In-game settings overlay: resolution, fullscreen, aspect mode, debug
- * overlay, renderer backend and pause.
+ * In-game settings: resolution, fullscreen, aspect mode, debug overlay,
+ * renderer backend and pause.
  *
- * One instance per game covers every scene: it is an *overlay*, drawn by the
- * engine after the scene's own UI (`M2D.drawOverlays`) and sitting in the
- * input router's overlay band, which every event passes through before any
- * scene UI or world entity sees it. While the menu is open it consumes what
- * it is given, so input never reaches the game underneath. (Key *releases*
- * are let through on purpose: a key held down when the menu opened must
- * still release in the game's state, or the player would keep running after
- * the menu closes.)
+ * ## What this is now
+ *
+ * A `UIScreen` built from components. It used to be 350 lines of
+ * immediate-mode drawing with its own hit-rectangle array, its own hover
+ * index and its own colour literals — a parallel UI system inside the UI
+ * module, which is why it looked like nothing else the engine drew. The
+ * rows are `UIOptionRow`s in a `Stack` inside a `UIPanel` now, so hover,
+ * press, keyboard focus, theming and layout all come from the same places
+ * every other component gets them.
+ *
+ * ## Mounting
+ *
+ * One instance per game covers every scene. Constructing it registers the
+ * hotkey and sets `game.settings`; it does not show anything. Opening
+ * pushes the screen onto `game.ui`, so it sits over a live, loaded game
+ * rather than replacing it, and closing pops back to whatever was below —
+ * including another screen, which is how "pause → settings → back" works.
  *
  * The resolution rows are the point of the menu. Picking one calls
  * `game.setResolution`, which changes only how many pixels the *world* is
@@ -22,22 +31,129 @@
  *
  *   new SettingsMenu(game);          // toggles with the O key
  *
- * The game can reach the mounted menu through `game.settings` — this is how a
- * scene's own "Settings" button opens it (`{"action": "settings"}` in scene
- * JSON ends up calling `game.settings.open()`).
+ * A scene's own "Settings" button opens it through `game.settings`
+ * (`{"action": "settings"}` in scene JSON).
  *
  * Opening does **not** pause the game unless the developer opts in with
- * `pauseWhenOpen: true`; either way the menu offers a Paused row that toggles
- * `game.paused` directly.
+ * `pauseWhenOpen: true`; either way the menu offers a Paused row.
  *
  * Games that replace the engine loop must call `game.drawOverlays()` at the
- * end of their own frame (see the doner example).
+ * end of their own frame, and `game.ui.update(dt)` before it (see the doner
+ * example).
  */
 
 import { sameResolution } from '../viewport.js';
+import { UIScreen } from './screen.js';
+import { UIPanel } from './panel.js';
+import { UIText } from './text.js';
+import { UIOptionRow } from './optionRow.js';
+import { Stack, Spacer } from './layout/stack.js';
+import { UIRectangle } from './Rectangle.js';
 
 /** Scale presets offered as resolutions, besides 'native'. */
 const DEFAULT_SCALES = [1, 0.75, 0.5, 0.25];
+
+/** The settings panel. Built once and reused across openings. */
+class SettingsScreen extends UIScreen {
+  /**
+   * @param {import('./settingsMenu.js').SettingsMenu} menu
+   */
+  constructor(menu) {
+    super({
+      name: 'settings',
+      blocking: true,
+      scrim: true,
+      pauseGame: menu.pauseWhenOpen,
+      transition: 'scale',
+      // Softens the game behind the panel on a backend with post effects;
+      // elsewhere the scrim carries the separation alone.
+      blurBehind: menu.blurBehind
+    });
+    this.menu = menu;
+
+    // A hard-edged slab, not a floating pill. Rounded cards with soft
+    // shadows are dialog-box language; a game's options panel is a plate
+    // with a rule under its title.
+    const panel = this.add(new UIPanel({
+      anchor: 'center',
+      pivot: 'center',
+      padding: { top: 22, right: 24, bottom: 20, left: 24 },
+      // Sized from the stack, which has the fixed width: the dialog is then
+      // exactly as tall as the rows it holds, however many that is.
+      fitContent: true,
+      surface: 'raised',
+      cornerRadius: '$radius.sm',
+      elevation: 'high',
+      borderColor: '$color.border.default',
+      interactive: true
+    }));
+
+    this.stack = panel.add(new Stack({
+      anchor: 'top-left',
+      direction: 'column',
+      // One fixed width so every row matches; the height follows the rows.
+      width: 330,
+      gap: 0,
+      align: 'stretch'
+    }));
+
+    this.stack.add(new UIText({
+      text: 'SETTINGS',
+      align: 'left',
+      fontSize: '$font.size.caption',
+      fontWeight: '$font.weight.semibold',
+      letterSpacing: '$font.tracking.widest',
+      color: '$color.text.accent',
+      // The title is as wide as the stack, so its alignment-derived pivot
+      // would fight `align: stretch`; pinning it keeps the label put.
+      pivot: 'top-left'
+    }));
+    this.stack.add(new Spacer({ size: '$space.sm' }));
+    this.stack.add(new UIRectangle({
+      height: 1,
+      color: '$color.border.default',
+      pivot: 'top-left'
+    }));
+    this.stack.add(new Spacer({ size: '$space.sm' }));
+
+    for (const item of menu.items()) {
+      this.stack.add(new UIOptionRow({
+        label: item.label,
+        value: item.value,
+        onActivate: item.onActivate
+      }));
+    }
+
+    /** Sizes itself to the stack, which sizes itself to the rows. */
+    this.panel = panel;
+  }
+
+  handleInput(event) {
+    // The hotkey has to be handled here as well as by the menu's global
+    // subscription: a blocking screen consumes input before subscribers
+    // run, so the same key that opened the menu could never close it.
+    if (event.type === 'keydown' && event.code === this.menu.hotkey) {
+      this.close();
+      event.consume();
+      return;
+    }
+
+    // A click outside the panel closes the menu. Resolved against the
+    // element tree rather than with a full-screen hit box, so the panel's
+    // own children still get first refusal.
+    if (event.type === 'click' && !this.hitTest(event.ui.x, event.ui.y)) {
+      this.close();
+      event.consume();
+      return;
+    }
+
+    super.handleInput(event);
+  }
+
+  onExit() {
+    this.menu.isOpen = false;
+  }
+}
 
 export class SettingsMenu {
   /**
@@ -49,164 +165,108 @@ export class SettingsMenu {
    *   Choices offered; 'native', scale factors of the design size, or presets
    * @param {boolean} [options.pauseWhenOpen=false] - Pause the game while the
    *   menu is open, restoring the previous pause state on close
+   * @param {number} [options.blurBehind=10] - How far to defocus the world
+   *   behind the panel. Needs the `postEffects` capability; `0` disables it
    */
   constructor(game, options = {}) {
     this.game = game;
-    this.isOpen = false;
     this.hotkey = options.hotkey || 'KeyO';
     this.resolutions = options.resolutions || ['native', ...DEFAULT_SCALES];
     this.pauseWhenOpen = options.pauseWhenOpen ?? false;
-    /** Whether closing should resume the game; captured when opening pauses it. */
-    this.resumeOnClose = false;
+    this.blurBehind = options.blurBehind ?? 10;
+    this.isOpen = false;
 
-    /** Hit rects in UI coordinates, rebuilt by every draw. */
-    this.rows = [];
-    this.hoverIndex = -1;
+    this.screen = new SettingsScreen(this);
 
-    game.overlays.add(this);
+    /**
+     * The hotkey is a subscription in the overlay band rather than a check
+     * inside the screen, because the screen only exists while it is open —
+     * something has to be listening when it is not.
+     */
+    this.unsubscribe = game.input.on('keydown', (event) => {
+      if (event.code !== this.hotkey) return;
+      this.toggle();
+      event.consume();
+    }, { band: 'overlay' });
+
     /** The mounted menu, reachable by scene UI (e.g. a Settings button). */
     game.settings = this;
   }
 
-  /**
-   * Whether the router should treat this overlay as holding the pointer.
-   * An open menu does: nothing behind it may show a hover state.
-   */
-  get capturesInput() {
-    return this.isOpen;
-  }
-
-  /**
-   * Input, straight from the router's overlay band — before scene UI and
-   * before the world.
-   *
-   * The hotkey is handled here rather than through a subscription because
-   * the menu has to see it in both directions: the same press that opens the
-   * menu must close it again, and while open it must not also reach the game.
-   *
-   * @param {object} event
-   */
-  handleInput(event) {
-    // Releases always pass through, even while open. A key held down when
-    // the menu opened has to come back up in the game's state, or the
-    // player keeps running after the menu closes.
-    if (event.type === 'keyup') return;
-
-    if (event.type === 'keydown') {
-      if (event.code !== this.hotkey && event.code !== 'Escape') {
-        // Every other key still belongs to the game — unless the menu is
-        // open, in which case nothing does.
-        if (this.isOpen) event.consume();
-        return;
-      }
-      // Escape only closes; it never opens.
-      if (this.isOpen) this.close();
-      else if (event.code === this.hotkey) this.open();
-      event.consume();
-      return;
-    }
-
-    if (!this.isOpen) return;
-
-    switch (event.type) {
-      case 'click':
-        this.handleMouseDown(event.ui.x, event.ui.y);
-        break;
-      case 'pointermove':
-        this.handleMouseMove(event.ui.x, event.ui.y);
-        break;
-    }
-    // Everything else that reaches an open menu dies here, so a stray press
-    // or scroll can never fall through to the game behind it.
-    event.consume();
-  }
-
-  destroy() {
-    this.game.overlays.delete(this);
-    if (this.game.settings === this) this.game.settings = null;
+  /** Whether the menu is showing. Kept in step by the screen's `onExit`. */
+  get isShowing() {
+    return this.game.ui.has('settings');
   }
 
   /** Open the menu (no-op when already open). */
   open() {
-    if (!this.isOpen) this.toggle();
+    if (this.isShowing) return;
+    this.isOpen = true;
+    this.game.ui.push(this.screen);
   }
 
   /** Close the menu (no-op when already closed). */
   close() {
-    if (this.isOpen) this.toggle();
+    if (!this.isShowing) return;
+    this.game.ui.remove(this.screen);
   }
 
   toggle() {
-    this.isOpen = !this.isOpen;
-    if (this.isOpen) {
-      if (this.pauseWhenOpen) {
-        // Restore, don't just resume: a game paused before the menu opened
-        // stays paused after it closes.
-        this.resumeOnClose = !this.game.paused;
-        this.game.paused = true;
-      }
-    } else {
-      if (this.pauseWhenOpen && this.resumeOnClose) this.game.paused = false;
-      this.hoverIndex = -1;
-      this.game.uiRenderer.setCursor('default');
-    }
-  }
-
-  /** The menu's rows: label, current value, and what a click does. */
-  #items() {
-    const game = this.game;
-    return [
-      {
-        label: 'Resolution',
-        value: this.#resolutionLabel(game.resolution),
-        onClick: () => this.#cycleResolution(1)
-      },
-      {
-        label: 'Fullscreen',
-        value: game.isFullscreen ? 'On' : 'Off',
-        onClick: () => game.toggleFullscreen()
-      },
-      {
-        label: 'Aspect',
-        value: game.aspectMode === 'expand' ? 'Fill (expand)' : 'Letterbox',
-        onClick: () => game.setAspectMode(game.aspectMode === 'expand' ? 'letterbox' : 'expand')
-      },
-      {
-        label: 'Debug overlay',
-        value: game.renderer.isDebugEnabled() ? 'On' : 'Off',
-        onClick: () => game.renderer.setDebugEnabled(!game.renderer.isDebugEnabled())
-      },
-      {
-        label: 'Renderer',
-        value: this.#backendName(),
-        onClick: () => this.#swapBackend()
-      },
-      {
-        label: 'Paused',
-        value: game.paused ? 'On' : 'Off',
-        onClick: () => { game.paused = !game.paused; }
-      },
-      {
-        label: 'Close',
-        value: `(${game.input.keyLabel(this.hotkey)})`,
-        onClick: () => this.close()
-      }
-    ];
-  }
-
-  /** Active backend name as registered, e.g. 'webgl' or 'canvas'. */
-  #backendName() {
-    return this.game.renderer.constructor.name.replace(/Renderer$/, '').toLowerCase();
+    if (this.isShowing) this.close();
+    else this.open();
   }
 
   /**
-   * Swap to the other backend. The engine already honours `?renderer=` in the
-   * URL, so swapping is a reload with the other name — no second code path.
+   * The menu's rows: label, current value, and what activating one does.
+   *
+   * Every row is a view onto a cvar — the same `r_aspect` the console sets —
+   * so a change made in either place shows up in the other, and the cvar's
+   * `persist` flag is what makes a menu choice stick across sessions. The
+   * menu's own contribution is presentation: friendlier labels, and cycling
+   * through its resolution presets rather than asking for free text.
    */
-  #swapBackend() {
-    const params = new URLSearchParams(location.search);
-    params.set('renderer', this.#backendName() === 'webgl' ? 'canvas' : 'webgl');
-    location.search = params.toString();
+  items() {
+    const game = this.game;
+    const cvars = game.cvars;
+    return [
+      {
+        label: 'Resolution',
+        value: () => this.#resolutionLabel(game.resolution),
+        onActivate: () => this.#cycleResolution(1)
+      },
+      {
+        label: 'Fullscreen',
+        value: () => (cvars.get('r_fullscreen') ? 'On' : 'Off'),
+        onActivate: () => cvars.toggle('r_fullscreen')
+      },
+      {
+        label: 'Aspect',
+        value: () => (cvars.get('r_aspect') === 'expand' ? 'Fill (expand)' : 'Letterbox'),
+        onActivate: () => cvars.set('r_aspect',
+          cvars.get('r_aspect') === 'expand' ? 'letterbox' : 'expand')
+      },
+      {
+        label: 'Debug overlay',
+        value: () => (cvars.get('r_debug') ? 'On' : 'Off'),
+        onActivate: () => cvars.toggle('r_debug')
+      },
+      {
+        label: 'Renderer',
+        value: () => cvars.get('r_renderer'),
+        onActivate: () => cvars.set('r_renderer',
+          cvars.get('r_renderer') === 'webgl' ? 'canvas' : 'webgl')
+      },
+      {
+        label: 'Paused',
+        value: () => (cvars.get('g_paused') ? 'On' : 'Off'),
+        onActivate: () => cvars.toggle('g_paused')
+      },
+      {
+        label: 'Close',
+        value: () => `(${game.input.keyLabel(this.hotkey)})`,
+        onActivate: () => this.close()
+      }
+    ];
   }
 
   /**
@@ -225,125 +285,28 @@ export class SettingsMenu {
     return `${Math.round(this.game.options.width * resolution)}x${Math.round(this.game.options.height * resolution)}`;
   }
 
-  /** Advance to the next (or previous) resolution choice and apply it. */
+  /**
+   * Advance to the next (or previous) resolution preset, through the cvar so
+   * the choice persists and the console sees it.
+   */
   #cycleResolution(step) {
     const current = this.resolutions.findIndex(r => sameResolution(r, this.game.resolution));
     // An unlisted current value (set programmatically) starts the cycle over.
     const index = current < 0 ? 0 : (current + step + this.resolutions.length) % this.resolutions.length;
-    this.game.setResolution(this.resolutions[index]);
+    this.game.cvars.set('r_resolution', serializePreset(this.resolutions[index]));
   }
 
-  /**
-   * A click in UI coordinates. Public so games (and tests) that route their
-   * own input can drive the menu without synthetic DOM events.
-   * @returns {boolean} Whether the menu consumed the click
-   */
-  handleMouseDown(x, y) {
-    if (!this.isOpen) return false;
-    for (const row of this.rows) {
-      const r = row.rect;
-      if (x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height) {
-        row.onClick();
-        return true;
-      }
-    }
-    // A click outside the panel closes the menu; either way it is consumed,
-    // so a stray click can never fall through to the game.
-    if (!this.#inPanel(x, y)) this.close();
-    return true;
+  destroy() {
+    this.close();
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+    if (this.game.settings === this) this.game.settings = null;
   }
+}
 
-  /** Pointer movement in UI coordinates, for hover highlights. */
-  handleMouseMove(x, y) {
-    if (!this.isOpen) return false;
-    const index = this.rows.findIndex(({ rect: r }) =>
-      x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height);
-    if (index !== this.hoverIndex) {
-      this.hoverIndex = index;
-      this.game.uiRenderer.setCursor(index >= 0 ? 'pointer' : 'default');
-    }
-    return true;
-  }
-
-  #inPanel(x, y) {
-    const p = this.panelRect;
-    return p && x >= p.x && x <= p.x + p.width && y >= p.y && y <= p.y + p.height;
-  }
-
-  /** Panel geometry against the current UI size, so it stays centred. */
-  #layout() {
-    const ui = this.game.uiRenderer;
-    const width = 340;
-    const rowHeight = 44;
-    const titleHeight = 52;
-    const pad = 14;
-    const items = this.#items();
-    const height = titleHeight + items.length * rowHeight + pad;
-    return {
-      items,
-      width,
-      rowHeight,
-      titleHeight,
-      pad,
-      x: (ui.width - width) / 2,
-      y: (ui.height - height) / 2,
-      height
-    };
-  }
-
-  draw() {
-    this.rows = [];
-    this.panelRect = null;
-    if (!this.isOpen) return;
-
-    const ui = this.game.uiRenderer;
-    const l = this.#layout();
-    this.panelRect = { x: l.x, y: l.y, width: l.width, height: l.height };
-
-    // Dim the game behind the menu.
-    ui.drawRect({ x: 0, y: 0, width: ui.width, height: ui.height, fillStyle: 'rgba(0, 0, 0, 0.55)' });
-
-    ui.drawRect({
-      x: l.x, y: l.y, width: l.width, height: l.height,
-      fillStyle: 'rgba(12, 20, 30, 0.95)',
-      strokeStyle: 'rgba(130, 190, 255, 0.5)',
-      lineWidth: 1,
-      cornerRadius: 10
-    });
-
-    ui.drawText({
-      text: 'Settings',
-      x: l.x + l.width / 2, y: l.y + l.titleHeight / 2 + 4,
-      fillStyle: '#e8f4ff', fontSize: '20px', fontFamily: 'system-ui', fontWeight: 'bold',
-      textAlign: 'center', textBaseline: 'middle'
-    });
-
-    l.items.forEach((item, index) => {
-      const rect = {
-        x: l.x + l.pad,
-        y: l.y + l.titleHeight + index * l.rowHeight,
-        width: l.width - 2 * l.pad,
-        height: l.rowHeight - 6
-      };
-      this.rows.push({ rect, onClick: item.onClick });
-
-      ui.drawRect({
-        ...rect,
-        fillStyle: index === this.hoverIndex ? 'rgba(90, 150, 220, 0.35)' : 'rgba(255, 255, 255, 0.06)',
-        cornerRadius: 6
-      });
-      ui.drawText({
-        text: item.label,
-        x: rect.x + 12, y: rect.y + rect.height / 2,
-        fillStyle: '#cfe8ff', fontSize: '15px', fontFamily: 'system-ui',
-        textAlign: 'left', textBaseline: 'middle'
-      });
-      ui.drawText({
-        text: item.value,
-        x: rect.x + rect.width - 12, y: rect.y + rect.height / 2,
-        fillStyle: '#8fd0a0', fontSize: '15px', fontFamily: 'system-ui',
-        textAlign: 'right', textBaseline: 'middle'
-      });
-    });
-  }
+/** A resolution preset as `r_resolution` text. */
+function serializePreset(preset) {
+  if (preset === 'native' || preset == null) return 'native';
+  if (typeof preset === 'object') return `${preset.width ?? '?'}x${preset.height}`;
+  return String(preset);
 }

@@ -7,7 +7,6 @@ import { RainEmitter } from './rainEmitter.js';
 import { Lanterns } from './lanterns.js';
 import { Backdrop } from './backdrop.js';
 import { Hud } from './hud.js';
-import { PerformanceStats } from 'm2d-engine/core/ui/performanceStats.js';
 
 /**
  * Showcase director.
@@ -174,17 +173,15 @@ export class Showcase {
   /**
    * Register the HUD and minimap with the scene's UI container.
    *
-   * Every scene gets a PerformanceStats strip for free; the showcase's HUD
-   * reports the same counters with more context, so the stock strip is
-   * silenced rather than left to overlap it.
+   * The engine's own readout lives in its debug layer, above every scene.
+   * The showcase's HUD reports the same counters with more context, so the
+   * stock one is silenced rather than left to overlap it.
    */
   attachUI(ui) {
-    for (const element of ui.elements) {
-      if (element instanceof PerformanceStats) element.options.show = false;
-    }
+    if (this.game.stats) this.game.stats.visible = false;
 
-    ui.addElement(this.minimap);
-    ui.addElement(this.hud);
+    ui.add(this.minimap);
+    ui.add(this.hud);
   }
 
   /** @returns {number} Current load multiplier */

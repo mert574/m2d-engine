@@ -26,7 +26,7 @@ export default { base: '/repo/' };
 new M2D(canvas, { basePath: '/repo/' });
 ```
 
-`base` makes Vite emit asset URLs under the sub-path. `basePath` does the same for sprite sheet URLs in scene JSON, which Vite cannot see. The example games switch it on `import.meta.env.DEV` so the same code runs locally and when published.
+`base` makes Vite emit asset URLs under the sub-path. `basePath` does the same for sprite sheet URLs in scene JSON, which Vite cannot see. Rather than hardcoding both environments, derive it: `basePath: import.meta.env.BASE_URL` follows whatever `base` the current server uses, so the same code runs on the dev server and when published. The example games do this, appending their own folder name.
 
 ## Checklist
 

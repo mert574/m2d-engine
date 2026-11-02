@@ -26,7 +26,7 @@ export class Minimap extends UIElement {
    * @param {number} options.shoreY - World Y of the water/bank boundary
    */
   constructor(game, { x, y, size, bounds, field, lighthouse, shoreY, anchor }) {
-    super(x, y, size, size, { anchor });
+    super({ x, y, width: size, height: size, anchor });
     this.game = game;
     this.size = size;
     this.bounds = bounds;

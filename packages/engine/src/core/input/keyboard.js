@@ -13,6 +13,17 @@
  * *showing* a binding, `label()` asks the browser's keyboard layout map and
  * falls back to a readable form of the code.
  *
+ * ## Browser defaults
+ *
+ * Two rules decide whether a keypress also reaches the browser. A key in
+ * `DEFAULT_PREVENTED` is suppressed because games poll it. Any other key is
+ * suppressed exactly when the engine's UI consumed it, which is resolved
+ * synchronously inside the DOM handler — key records drain immediately
+ * rather than waiting for the next frame, which is what makes
+ * `preventDefault` still legal at that point. Either way a held modifier
+ * cancels the suppression, because that is the player reaching for a
+ * browser shortcut rather than for the game.
+ *
  * ## Focus
  *
  * Listeners sit on the canvas, which is made focusable, rather than on the
@@ -26,12 +37,35 @@
  * Keys whose browser default is actively hostile to a game: scrolling the
  * page, moving focus out of the canvas, or going back a page. Prevented
  * unless a modifier is held, so the browser's own shortcuts still work.
+ *
+ * This list only has to cover keys a game reads by *polling* — `isDown`,
+ * `axis`, `vector` — because nothing consumes those events, so there is no
+ * other signal that the key was wanted. A key the engine's UI actually
+ * handles (the readout's F3, the settings hotkey, the console's backquote)
+ * is suppressed because it was consumed, not because it is listed here; see
+ * the keydown listener. That is deliberate: a game may replace this list
+ * wholesale, and doing so must not re-expose the browser's find bar
+ * underneath the engine's own bindings.
  */
 const DEFAULT_PREVENTED = new Set([
   'Space', 'Tab', 'Enter',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
   'PageUp', 'PageDown', 'Home', 'End', 'Backspace'
 ]);
+
+/**
+ * Which modifier keys were held. Key events carry them for the same reason
+ * pointer events do: a shortcut is a key *and* its modifiers, and Shift+Tab
+ * is a different binding from Tab.
+ */
+function modifiersOf(event) {
+  return {
+    shift: event.shiftKey === true,
+    ctrl: event.ctrlKey === true,
+    alt: event.altKey === true,
+    meta: event.metaKey === true
+  };
+}
 
 /** Human-readable fallback for a `code` the layout map cannot name. */
 function readableCode(code) {
@@ -59,6 +93,12 @@ export class Keyboard {
 
     /** Codes currently held. @type {Set<string>} */
     this.down = new Set();
+    /**
+     * Codes whose press the engine's UI consumed, so auto-repeats of the
+     * same key keep being kept from the browser. Cleared on release.
+     * @type {Set<string>}
+     */
+    this.claimed = new Set();
     /** Codes that went down this frame. @type {Set<string>} */
     this.pressed = new Set();
     /** Codes that came up this frame. @type {Set<string>} */
@@ -89,19 +129,47 @@ export class Keyboard {
     // like the real thing.
     this.#on(this.canvas, 'keydown', (event) => {
       const code = event.code;
-      if (this.prevented.has(code) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      // A modifier held means the player is reaching for a *browser*
+      // shortcut, so the engine never takes those.
+      const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
+
+      // Known before dispatch: the static list, and anything the UI claimed
+      // on a previous press that is now auto-repeating.
+      if (plain && (this.prevented.has(code) || this.claimed.has(code))) {
         event.preventDefault();
       }
+
       // Auto-repeat keeps firing keydown; the held state is already true and
       // an edge that repeats is not an edge.
       if (event.repeat || this.down.has(code)) return;
-      this.sink.push({ kind: 'keydown', code, key: event.key, time: event.timeStamp });
+
+      const record = {
+        kind: 'keydown', code, key: event.key,
+        modifiers: modifiersOf(event), time: event.timeStamp
+      };
+      this.sink.push(record);
+      // Key records drain synchronously, so by the time this returns the
+      // router has run and `record.consumed` is known — still inside the DOM
+      // handler, which is the only place preventDefault works.
       this.sink.flush();
+
+      // Whatever the engine's own UI took, the browser does not also get.
+      // This is what keeps F3 from opening the find bar while it toggles the
+      // readout, and it covers every key a screen or subscriber claims
+      // without anyone having to maintain a second list of them.
+      if (plain && record.consumed) {
+        this.claimed.add(code);
+        event.preventDefault();
+      }
     });
 
     this.#on(this.canvas, 'keyup', (event) => {
+      this.claimed.delete(event.code);
       if (!this.down.has(event.code)) return;
-      this.sink.push({ kind: 'keyup', code: event.code, key: event.key, time: event.timeStamp });
+      this.sink.push({
+        kind: 'keyup', code: event.code, key: event.key,
+        modifiers: modifiersOf(event), time: event.timeStamp
+      });
       this.sink.flush();
     });
 
@@ -142,6 +210,7 @@ export class Keyboard {
   releaseAll() {
     for (const code of this.down) this.released.add(code);
     this.down.clear();
+    this.claimed.clear();
   }
 
   /** Whether `code` is held right now. */

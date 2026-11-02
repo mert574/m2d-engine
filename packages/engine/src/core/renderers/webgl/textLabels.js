@@ -1,4 +1,5 @@
 import { createTexture } from './device.js';
+import { buildFontString, fontSizePx, applyLetterSpacing } from '../geometry/font.js';
 
 /**
  * Text for the GPU backend: each unique (text, style) is rasterized once by
@@ -30,20 +31,22 @@ export class TextLabels {
 
   /** Same font string the Canvas backend builds, so metrics agree. */
   static font(options) {
-    const size = typeof options.fontSize === 'number'
-      ? `${options.fontSize}px`
-      : (options.fontSize || '16px');
-    return `${options.fontWeight || 'normal'} ${size} ${options.fontFamily || 'system-ui'}`.trim();
+    return buildFontString(options);
   }
 
   static fontSizePx(options) {
-    return parseInt(options.fontSize ?? options.font) || 16;
+    return fontSizePx(options);
   }
 
   measure(text, style = {}) {
     const ctx = this.measureContext;
     ctx.font = style.font || TextLabels.font(style);
-    return { width: ctx.measureText(text).width, height: TextLabels.fontSizePx(style) };
+    applyLetterSpacing(ctx, style.letterSpacing);
+    const width = ctx.measureText(text).width;
+    // Reset, or the tracking leaks into the next caller's measurement — this
+    // context is shared and long-lived, unlike a saved/restored draw context.
+    applyLetterSpacing(ctx, 0);
+    return { width, height: TextLabels.fontSizePx(style) };
   }
 
   /**
@@ -92,7 +95,9 @@ export class TextLabels {
 
     const ctx = this.measureContext;
     ctx.font = font;
+    applyLetterSpacing(ctx, options.letterSpacing);
     const textWidth = ctx.measureText(text).width;
+    applyLetterSpacing(ctx, 0);
     if (textWidth <= 0 && !text.trim()) return null;
 
     const width = Math.max(1, Math.ceil(textWidth + 2 * pad));
@@ -115,6 +120,7 @@ export class TextLabels {
     const c = canvas.getContext('2d');
     c.scale(scale, scale);
     c.font = font;
+    applyLetterSpacing(c, options.letterSpacing);
     c.textAlign = align;
     c.textBaseline = baseline;
 
@@ -156,7 +162,7 @@ function styleKey(style) {
 
 function labelKey(options) {
   return [
-    options.text, TextLabels.font(options),
+    options.text, TextLabels.font(options), options.letterSpacing ?? '',
     styleKey(options.fillStyle), styleKey(options.strokeStyle), options.lineWidth ?? '',
     options.textAlign || 'left', options.textBaseline || 'top',
     // Gradient coordinates are relative to the call position.

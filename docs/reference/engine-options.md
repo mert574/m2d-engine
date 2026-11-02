@@ -15,7 +15,11 @@
 | `worldFilter` | `'linear'` | Upscaling filter below native resolution. `'nearest'` for pixel art |
 | `autoResize` | `true` | Follow the canvas's displayed size, the pixel ratio and fullscreen changes |
 | `renderer` | `'webgl'` | Backend name, class or instance. `'canvas'` is the other built-in. A `?renderer=` URL parameter overrides it. When the option is left at its default and WebGL2 is unavailable, the engine falls back to Canvas with a warning. A backend named explicitly that fails throws |
-| `performanceStats` | `true` | Add the frame-rate readout to every scene's UI |
+| `performanceStats` | `true` | Add the frame-rate readout to the engine's debug layer |
+| `performanceStatsHotkey` | `'F3'` | Physical key code that expands the readout. `null` binds no key |
+| `devConsole` | `true` | Mount the [developer console](./console) (backquote). The cvar and command registries exist either way |
+| `saveId` | the page's pathname | Scope for persisted cvars, so two games on one origin keep separate settings |
+| `theme` | `null` | Design tokens for every piece of UI. A partial token tree is merged over the engine's default, or pass a `Theme`. See [Theme tokens](./ui#theme-tokens) |
 
 ## Scenes and assets
 
@@ -60,7 +64,12 @@
 | `game.resolution`, `game.aspectMode` | The current display settings |
 | `game.running` | Whether `start()` has started the loop |
 | `game.settings` | The mounted `SettingsMenu`, or `null` |
-| `game.overlays` | `Set` of overlays drawn by `drawOverlays()`. Members implement `draw()` and optionally `destroy()` |
+| `game.ui` | The [`ScreenStack`](./ui#screenstack): screens above the scene plus the debug layer |
+| `game.stats` | The frame-rate readout in `game.ui.debug`, or `null` |
+| `game.motion` | The [`MotionManager`](./ui#motionmanager) driving UI tweens |
+| `game.cvars`, `game.commands` | The [console registries](./console). The settings menu is a view onto the cvars |
+| `game.console` | The mounted [developer console](./console), or `null` |
+| `game.theme` | The [`Theme`](./ui#theme-tokens) every UI element resolves against |
 | `game.paused` | Freezes simulation while `true` |
 | `game.isGameOver` | Set by `gameOver()` |
 | `game.viewport` | The computed sizes. See the `Viewport` typedef in `core/viewport.js` |
@@ -88,4 +97,4 @@
 | `resize(force)` | Recompute the viewport now. Without `force` it does nothing when the result is unchanged. The engine calls it between frames when needed |
 | `onResize(handler)` | Subscribe to viewport changes. The handler receives `(viewWidth, viewHeight, viewport)`. Returns an unsubscribe function |
 | `worldToUI(x, y)` | Map a world position to UI coordinates |
-| `drawWorld(scene)`, `drawUI(scene)`, `drawOverlays()` | The three drawing passes, for games that run their own loop |
+| `drawWorld(scene, dt)`, `drawUI(scene, dt)`, `drawOverlays(dt)` | The three drawing passes, for games that run their own loop |

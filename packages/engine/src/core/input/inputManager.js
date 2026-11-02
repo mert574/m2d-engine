@@ -160,6 +160,31 @@ export class InputManager {
   /** Point the UI band at a scene's container (null between scenes). */
   setUIContainer(container) { this.router.setUIContainer(container); }
 
+  /**
+   * Build an event that did not come from a device.
+   *
+   * Keyboard and gamepad activation of a focused control goes through this:
+   * a control that tracks `isPressed`, or that only implements
+   * `onPointerUp`, then behaves identically however it was triggered. The
+   * event carries the cursor's current position, so a handler reading
+   * coordinates still gets sensible ones.
+   *
+   * It is built, not dispatched — the caller delivers it to the target it
+   * already resolved, rather than sending it back through hit testing that
+   * would land somewhere else entirely.
+   *
+   * @param {string} type - Event type, e.g. 'click'
+   * @param {object} [extra] - Fields merged onto the event
+   * @returns {object}
+   */
+  makeSyntheticEvent(type, extra = {}) {
+    return this.#makeEvent(type, {
+      ui: this.cursor.ui,
+      pointerType: this.pointerType,
+      time: performance.now()
+    }, { synthetic: true, ...extra });
+  }
+
   // === Engine hooks ===
 
   /**
@@ -288,6 +313,7 @@ export class InputManager {
     const build = () => this.#makeEvent(record.kind, {
       ui: this.cursor.ui,
       pointerType: this.pointerType,
+      modifiers: record.modifiers,
       time: record.time
     }, { code: record.code, key: record.key });
 
@@ -300,6 +326,10 @@ export class InputManager {
     if (this.keyboard.isDown(record.code)) return;
     const event = build();
     this.router.dispatch(event);
+    // Reported back on the record so the DOM listener that queued it can
+    // suppress the browser's own handling of a key the engine took. The
+    // listener is still on the stack: key records drain synchronously.
+    record.consumed = event.consumed;
     if (!event.consumed) this.keyboard.apply(record);
   }
 

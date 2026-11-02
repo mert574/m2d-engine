@@ -45,10 +45,32 @@ export default async function start(canvas) {
     fetch: async () => scene,
     onEnter() {
       const ui = game.sceneManager.getCurrentScene().ui;
-      label = ui.addElement(new UIText(0, 10, '', { anchor: 'top', align: 'center', fontSize: '13px', color: '#cfd8dc' }));
+      label = ui.add(new UIText({
+        x: 0,
+        y: 10,
+        text: '',
+        anchor: 'top',
+        align: 'center',
+        fontSize: '13px',
+        color: '#cfd8dc'
+      }));
       // A HUD: UI elements, drawn at display resolution whatever the world is set to.
-      ui.addElement(new UIText(16, -48, SAMPLE, { anchor: 'bottom-left', fontSize: '12px', color: '#ffe082' }));
-      ui.addElement(new UIText(16, -30, 'UI text at 12px, always sharp', { anchor: 'bottom-left', fontSize: '12px', color: '#9fb6d0' }));
+      ui.add(new UIText({
+        x: 16,
+        y: -48,
+        text: SAMPLE,
+        anchor: 'bottom-left',
+        fontSize: '12px',
+        color: '#ffe082'
+      }));
+      ui.add(new UIText({
+        x: 16,
+        y: -30,
+        text: 'UI text at 12px, always sharp',
+        anchor: 'bottom-left',
+        fontSize: '12px',
+        color: '#9fb6d0'
+      }));
       describe();
     },
     onDraw() {

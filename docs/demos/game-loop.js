@@ -81,26 +81,70 @@ export default async function start(canvas) {
     fetch: async () => scene,
     onEnter() {
       const ui = game.sceneManager.getCurrentScene().ui;
-      const style = { backgroundColor: '#37474f', hoverColor: '#546e7a', pressedColor: '#263238', fontSize: '15px' };
-      readout = ui.addElement(new UIText(0, 12, '', { anchor: 'top', align: 'center', fontSize: '14px', color: '#cfd8dc' }));
-      pauseButton = ui.addElement(new UIButton(-110, -30, 100, 36, 'pause', () => {
-        game.paused = !game.paused;
-        pauseButton.text = game.paused ? 'resume' : 'pause';
-      }, { ...style, anchor: 'bottom' }));
+      const style = { variant: 'secondary', fontSize: '15px' };
+      readout = ui.add(new UIText({
+        x: 0,
+        y: 12,
+        text: '',
+        anchor: 'top',
+        align: 'center',
+        fontSize: '14px',
+        color: '#cfd8dc'
+      }));
+      pauseButton = ui.add(new UIButton({
+        x: -110,
+        y: -30,
+        width: 100,
+        height: 36,
+        text: 'pause',
+        onClick: () => {
+          game.paused = !game.paused;
+          pauseButton.text = game.paused ? 'resume' : 'pause';
+        },
+        ...style,
+        anchor: 'bottom'
+      }));
       // One physics step while paused. Only a custom loop can offer this.
-      ui.addElement(new UIButton(0, -30, 100, 36, 'step', () => {
-        if (!game.paused) return;
-        simulate(game.physics.fixedTimestep, true);
-      }, { ...style, anchor: 'bottom' }));
-      ui.addElement(new UIButton(110, -30, 100, 36, 'slow motion', () => {
-        game.physics.timeScale = game.physics.timeScale === 1 ? 0.2 : 1;
-      }, { ...style, anchor: 'bottom' }));
+      ui.add(new UIButton({
+        x: 0,
+        y: -30,
+        width: 100,
+        height: 36,
+        text: 'step',
+        onClick: () => {
+          if (!game.paused) return;
+          simulate(game.physics.fixedTimestep, true);
+        },
+        ...style,
+        anchor: 'bottom'
+      }));
+      ui.add(new UIButton({
+        x: 110,
+        y: -30,
+        width: 100,
+        height: 36,
+        text: 'slow motion',
+        onClick: () => {
+          game.physics.timeScale = game.physics.timeScale === 1 ? 0.2 : 1;
+        },
+        ...style,
+        anchor: 'bottom'
+      }));
       // Play the last two seconds backwards, then stay paused.
-      ui.addElement(new UIButton(220, -30, 100, 36, 'rewind 2 s', () => {
-        rewindLeft = 120;
-        game.paused = true;
-        pauseButton.text = 'resume';
-      }, { ...style, anchor: 'bottom' }));
+      ui.add(new UIButton({
+        x: 220,
+        y: -30,
+        width: 100,
+        height: 36,
+        text: 'rewind 2 s',
+        onClick: () => {
+          rewindLeft = 120;
+          game.paused = true;
+          pauseButton.text = 'resume';
+        },
+        ...style,
+        anchor: 'bottom'
+      }));
     },
     // A ball every half second, forty in total.
     onUpdate(deltaTime) {

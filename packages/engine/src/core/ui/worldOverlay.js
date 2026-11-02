@@ -71,8 +71,11 @@ export class WorldOverlay {
     for (const method of SHAPE_METHODS) {
       this[method] = (options) => this.#submit(this.shapes, method, options);
     }
+  }
 
-    game.overlays.add(this);
+  /** Whether anything was submitted this frame. */
+  get hasSubmissions() {
+    return this.shapes.length > 0 || this.labels.length > 0;
   }
 
   #submit(queue, method, options) {
@@ -172,6 +175,5 @@ export class WorldOverlay {
 
   destroy() {
     this.clear();
-    this.game.overlays.delete(this);
   }
 }

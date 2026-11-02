@@ -1,6 +1,6 @@
 {
   "name": "m2d-engine",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "A lightweight 2D game engine",
   "type": "module",
   "exports": {

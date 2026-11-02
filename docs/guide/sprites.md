@@ -28,7 +28,7 @@ A four-frame walk cycle and a ground tile, both drawn into canvases at startup a
 }
 ```
 
-`url` is resolved against the engine's `basePath` option. The example games set `basePath` to their deployed folder so the same scene JSON works in development and on the published site.
+`url` is resolved against the engine's `basePath` option. The example games derive `basePath` from Vite's `BASE_URL`, so the same scene JSON works on the dev server and on the published site without naming either path.
 
 A frame is addressed by its column and row, `[tileX, tileY]`, counted from the top-left of the image. A sheet without `animations` gets one animation named `default` at frame `[0, 0]`.
 

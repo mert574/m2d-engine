@@ -1,6 +1,7 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+import { registerMainMenu } from '../shared/mainMenu.js';
 import { Player } from 'm2d-engine/actors/player.js';
 import { Bee } from 'm2d-engine/actors/bee.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
@@ -27,7 +28,11 @@ const game = new M2D(canvas, {
   // The tiles are 32px pixel art: upscale them blocky, not smeared, when the
   // render resolution drops below native.
   worldFilter: 'nearest',
-  basePath: import.meta.env.DEV ? '/examples/platformer/' : '/m2d-engine/examples/platformer/',
+  // Where sprite URLs in scene JSON resolve. Vite's BASE_URL is '/' on the
+  // dev server and '/m2d-engine/examples/' in the published build (set in
+  // vite.config.js), so deriving the prefix from it keeps both in step with
+  // however the site is actually served, instead of hardcoding each one.
+  basePath: import.meta.env.BASE_URL + 'platformer/',
   sounds: {
     jump: jumpSound,
     coin: coinSound,
@@ -55,11 +60,16 @@ game.camera.bounds = {
 });
 
 // Register scenes
-game.sceneManager.addScene('mainMenu', {
-  fetch: async () => (await import('./scenes/mainMenu.json')).default,
-  onEnter() {
-    game.soundManager.playMusic('menu');
-  }
+registerMainMenu(game, {
+  title: 'Platformer',
+  subtitle: 'a demonstration',
+  hint: 'Arrows move · Space jumps · X attacks · O for settings',
+  backdrop: { gradient: { from: '#06121c', to: '#123a52', angle: 115 }, motes: 80 },
+  items: () => [
+    { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('level1') },
+    { text: 'Settings', onSelect: () => game.settings.open() }
+  ],
+  onEnter: () => game.soundManager.playMusic('menu')
 });
 
 game.sceneManager.addScene('level1', {

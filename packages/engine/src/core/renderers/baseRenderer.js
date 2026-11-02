@@ -86,8 +86,8 @@
  *   lights would have nothing to darken, so a backend that supports this
  *   treats a null ambient as "lighting off" and skips the whole pass.
  * - `postEffects` - `setPostEffects` applies a full-screen pass (bloom,
- *   vignette) to the world between the world and screen passes, so UI drawn
- *   in the screen pass stays untouched.
+ *   vignette, blur) to the world between the world and screen passes, so UI
+ *   drawn in the screen pass stays untouched.
  *
  * @type {Readonly<Record<string, boolean>>}
  */
@@ -390,6 +390,11 @@ export class BaseRenderer {
    * @param {Object|null} effects - Effect configuration
    * @param {Object} [effects.bloom] - { threshold, strength, blur }
    * @param {Object} [effects.vignette] - { strength, start }
+   * @param {Object} [effects.blur] - { strength }, in world units. Defocuses
+   *   the whole world pass. Everything downstream, bloom included, reads the
+   *   softened image, so a glow agrees with what is on screen. This is what
+   *   sits behind a modal screen: the game reads as *behind* the menu rather
+   *   than merely dimmed
    */
   setPostEffects(effects) {}
 
@@ -533,7 +538,13 @@ export class BaseRenderer {
    * @param {number} [options.lineWidth=3] - Outline width
    * @param {string|number} [options.fontSize='16px'] - Font size ('16px' or 16)
    * @param {string} [options.fontFamily='system-ui'] - Font family
-   * @param {string} [options.fontWeight='normal'] - Font weight
+   * @param {string} [options.fontWeight='normal'] - Font weight. A numeric
+   *   weight ('100'..'900') is honoured when the family is a variable font
+   * @param {'normal'|'italic'|'oblique'} [options.fontStyle='normal'] - Font style
+   * @param {number|string} [options.letterSpacing] - Tracking, in units or as
+   *   a CSS length. Affects `measureText` too, so a tracked label measures at
+   *   the width it occupies. Ignored where the browser lacks
+   *   `ctx.letterSpacing`, in which case text simply draws untracked
    * @param {string} [options.textAlign='left'] - Text alignment
    * @param {string} [options.textBaseline='top'] - Text baseline
    */
@@ -582,7 +593,7 @@ export class BaseRenderer {
   /**
    * Measure text dimensions.
    * @param {string} text - Text to measure
-   * @param {Object} [style] - Text style ({ fontSize, fontFamily, fontWeight })
+   * @param {Object} [style] - Text style ({ fontSize, fontFamily, fontWeight, fontStyle, letterSpacing })
    * @returns {{width: number, height: number}} Text dimensions
    */
   measureText(text, style) { throw new Error('Method not implemented'); }
