@@ -31,6 +31,36 @@ import { Stack, Spacer } from 'm2d-engine/core/ui/layout/stack.js';
  * owns its children's offsets and would overwrite anything animating them —
  * opacity is what is safe to stagger.
  */
+/**
+ * Darkness behind the column, fading out towards the art.
+ *
+ * Every shipped menu with a picture behind it does this somewhere: Control
+ * keeps its list on a near-black panel, Portal 2 lets the environment go
+ * dark on the left. Without it a bright skyline or a sweep passing under
+ * the title makes the type flicker in and out of legibility.
+ *
+ * @param {number} strength - Opacity at the left edge
+ * @returns {import('m2d-engine/core/ui/backdrop.js').BackdropLayer}
+ */
+function readabilityWash(strength) {
+  return {
+    draw(paint, { width, height }) {
+      paint.drawRect({
+        x: 0, y: 0, width, height,
+        fillStyle: {
+          type: 'linear',
+          x0: 0, y0: 0, x1: width * 0.62, y1: 0,
+          stops: [
+            { offset: 0, color: `rgba(3, 5, 9, ${strength})` },
+            { offset: 0.5, color: `rgba(3, 5, 9, ${strength * 0.55})` },
+            { offset: 1, color: 'rgba(3, 5, 9, 0)' }
+          ]
+        }
+      });
+    }
+  };
+}
+
 class MainMenuScreen extends UIScreen {
   /**
    * @param {Object} options
@@ -38,9 +68,12 @@ class MainMenuScreen extends UIScreen {
    * @param {string} [options.subtitle]
    * @param {string} [options.hint] - Controls line along the bottom
    * @param {Array<{text: string, onSelect: Function}>} options.items
-   * @param {Object} [options.backdrop] - `UIBackdrop` options
+   * @param {Object} [options.backdrop] - `UIBackdrop` options. Each example
+   *   brings its own scene as `layers` (see its `menuBackdrop.js`)
+   * @param {number} [options.wash=0.8] - Strength of the darkening behind
+   *   the column, 0 for none
    */
-  constructor({ title, subtitle, hint, items, backdrop = {} }) {
+  constructor({ title, subtitle, hint, items, backdrop = {}, wash = 0.8 }) {
     super({
       name: 'mainMenu',
       blocking: true,
@@ -55,7 +88,10 @@ class MainMenuScreen extends UIScreen {
       gradient: { from: '$color.bg.base', to: '$color.palette.ink.800', angle: 110 },
       motes: 70,
       vignette: 0.6,
-      ...backdrop
+      ...backdrop,
+      // The wash goes on top of the scene and under the motes: the art can
+      // be as busy as it likes on the right, and the type still reads.
+      layers: [...(backdrop.layers ?? []), ...(wash > 0 ? [readabilityWash(wash)] : [])]
     }));
 
     // Anchored to the left edge and a little above centre: the classic

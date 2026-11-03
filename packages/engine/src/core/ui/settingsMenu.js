@@ -38,8 +38,7 @@
  * `pauseWhenOpen: true`; either way the menu offers a Paused row.
  *
  * Games that replace the engine loop must call `game.drawOverlays()` at the
- * end of their own frame, and `game.ui.update(dt)` before it (see the doner
- * example).
+ * end of their own frame, and `game.ui.update(dt)` before it.
  */
 
 import { sameResolution } from '../viewport.js';

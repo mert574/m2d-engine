@@ -162,7 +162,7 @@ describe('SceneLoader', () => {
       expect(explicit).toMatchObject({ width: 96, height: 8 });
     });
 
-    it('accepts an empty level, as the showcase and doner use', () => {
+    it('accepts an empty level, as the showcase uses', () => {
       expect(() => loader.load(level({ assets: {}, prefabs: {}, layers: [] }))).not.toThrow();
     });
   });

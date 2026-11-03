@@ -1,4 +1,4 @@
-import { makeRng, range } from './rng.js';
+import { makeRng, range } from '../shared/rng.js';
 
 /**
  * The drifting light in the harbour: fireflies over the reed bank, sea spray

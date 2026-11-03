@@ -20,13 +20,11 @@ describe('shipped example scenes', () => {
   const examples = join(import.meta.dirname, '..', 'src');
   const actors = {
     platformer: ['Player', 'Bee', 'Platform', 'MovingPlatform', 'Coin', 'Trigger'],
-    topdown: ['TopDownPlayer', 'Ghost', 'Platform', 'Coin', 'Trigger', 'Turret'],
-    doner: []
+    topdown: ['TopDownPlayer', 'Ghost', 'Platform', 'Coin', 'Trigger', 'Turret']
   };
   const scenes = {
     platformer: ['mainMenu', 'level1'],
-    topdown: ['mainMenu', 'level1'],
-    doner: ['mainMenu', 'gameplay']
+    topdown: ['mainMenu', 'level1']
   };
 
   const files = readdirSync(examples)

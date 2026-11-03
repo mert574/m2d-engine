@@ -1,4 +1,4 @@
-import { makeRng, range } from './rng.js';
+import { makeRng, range } from '../shared/rng.js';
 
 /**
  * Harbour lanterns, and the lighting layer.

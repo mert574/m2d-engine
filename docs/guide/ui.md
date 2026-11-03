@@ -200,6 +200,19 @@ screen.add(new UIBackdrop({
 }));
 ```
 
+The built-in layers give every menu the same depth. `layers` is where a menu becomes a place: anything the game draws itself goes between the gradient and the motes. A layer is an object with `draw(paint, frame)` and an optional `update(deltaTime, frame)`, where `frame` is `{ width, height, elapsed }`. It draws through the backdrop's painter, so theme tokens resolve and it fades with the screen. Each example game ships one in its `menuBackdrop.js`: a dusk skyline, a surveyed maze, a running simulation.
+
+```javascript
+const horizon = {
+  draw(paint, { width, height, elapsed }) {
+    const y = height * 0.6 + Math.sin(elapsed * 0.2) * 4;
+    paint.drawRect({ x: 0, y, width, height: height - y, fillStyle: '$color.bg.base' });
+  }
+};
+
+screen.add(new UIBackdrop({ gradient: null, layers: [horizon], vignette: 0.5 }));
+```
+
 ### Blurring the game behind a menu
 
 `blurBehind` on a screen defocuses the world beneath it. The post-effect pass runs between the world and screen passes, so the menu drawn over it stays sharp.
@@ -222,7 +235,7 @@ It needs the `postEffects` capability. On the Canvas backend there is no blur an
 | `UIMenuItem` | One line in a game menu: a tracked uppercase label with a selection bar, not a filled button |
 | `UIOptionRow` | A settings row: label, current value, and a click that changes it |
 | `Stack`, `Grid`, `Spacer` | Layout containers |
-| `UIBackdrop` | A layered menu background: gradient, drifting still, motes, scanlines, vignette |
+| `UIBackdrop` | A layered menu background: gradient, drifting still, custom layers, motes, scanlines, vignette |
 | `PerformanceStats` | Frame rate and draw statistics, collapsed to a pill or expanded with **F3** to the full list and a frame-time trace. The engine adds one at the bottom-left unless the `performanceStats` engine option is `false` |
 
 ## Writing a component
@@ -289,7 +302,7 @@ A disabled element still consumes input — a greyed-out control that let the cl
 
 ## A game built on the UI layer
 
-A game can run entirely in screen space. The doner example draws its whole board through `game.uiRenderer` and uses the world only for a physics-free scene shell. See [Example games](../examples/#doner).
+A game can run entirely in screen space. Draw the whole board through `game.uiRenderer` and use the world only as a physics-free scene shell, so the scene manager and the settings menu still work.
 
 ## Demo source
 

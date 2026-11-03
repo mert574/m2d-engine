@@ -8,6 +8,7 @@ import lanternSprite from './assets/lantern.png';
 import lighthouseSprite from './assets/lighthouse.png';
 import rainSprite from './assets/rain.png';
 import { registerMainMenu } from '../shared/mainMenu.js';
+import { menuBackdrop } from './menuBackdrop.js';
 
 const VIEW = { width: 1280, height: 720 };
 const WORLD = { width: 2560, height: 1440 };
@@ -34,7 +35,7 @@ registerMainMenu(game, {
   title: 'Showcase',
   subtitle: 'renderer comparison',
   hint: '[ and ] change load · 1-7 toggle layers · P pauses the camera · H hides the HUD',
-  backdrop: { gradient: { from: '#03060e', to: '#0d1b33', angle: 120 }, motes: 110, vignette: 0.6 },
+  backdrop: menuBackdrop,
   items: () => [
     { text: 'Start', onSelect: () => game.sceneManager.switchTo('showcase') },
     { text: 'Settings', onSelect: () => game.settings.open() }

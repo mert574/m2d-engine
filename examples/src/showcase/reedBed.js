@@ -1,4 +1,4 @@
-import { makeRng, range } from './rng.js';
+import { makeRng, range } from '../shared/rng.js';
 
 /**
  * A bed of reeds swaying along the waterline.

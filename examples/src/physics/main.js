@@ -8,6 +8,7 @@ import ballSprite from './assets/ball.png';
 import boxSprite from './assets/box.png';
 import platformSprite from './assets/platform.png';
 import { registerMainMenu } from '../shared/mainMenu.js';
+import { menuBackdrop } from './menuBackdrop.js';
 
 // Compile Rapier's WASM module before anything builds a physics world.
 await initPhysics();
@@ -24,7 +25,7 @@ registerMainMenu(game, {
   title: 'Physics',
   subtitle: 'a playground',
   hint: 'Drag to grab · Right-click removes · Scroll for gravity · O for settings',
-  backdrop: { gradient: { from: '#140b06', to: '#3a2312', angle: 120 }, motes: 50 },
+  backdrop: menuBackdrop,
   items: () => [
     { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('physics') },
     { text: 'Settings', onSelect: () => game.settings.open() }

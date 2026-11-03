@@ -1,4 +1,4 @@
-import { makeRng, range } from './rng.js';
+import { makeRng, range } from '../shared/rng.js';
 
 /**
  * The harbour itself: sky, water and the near bank.

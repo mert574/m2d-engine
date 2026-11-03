@@ -9,6 +9,8 @@ import playerSprite from './assets/player.png';
 import wallSprite from './assets/wall.png';
 import floorSprite from './assets/floor.png';
 import { registerMainMenu } from '../shared/mainMenu.js';
+import { menuBackdrop } from './menuBackdrop.js';
+import { generateMaze } from './generateMaze.js';
 
 // The maze lives on a grid of 32px cells. Odd dimensions, as the carving
 // algorithm needs walls between every pair of cells.
@@ -17,39 +19,6 @@ const COLS = 39;
 const ROWS = 29;
 const WORLD = { width: COLS * TILE, height: ROWS * TILE };
 const START = { x: 1.5 * TILE, y: 1.5 * TILE };
-
-/**
- * Carve a maze with an iterative backtracker over a fixed-seed PRNG, so the
- * layout is deterministic: every visitor (and every bug report) sees the same
- * maze. Returns a boolean grid, true = wall.
- */
-function generateMaze(cols, rows, seed) {
-  let s = seed >>> 0;
-  const rand = () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 4294967296;
-  };
-
-  const wall = Array.from({ length: rows }, () => Array(cols).fill(true));
-  wall[1][1] = false;
-  const stack = [[1, 1]];
-  while (stack.length) {
-    const [x, y] = stack[stack.length - 1];
-    const open = [[2, 0], [-2, 0], [0, 2], [0, -2]].filter(([dx, dy]) => {
-      const nx = x + dx, ny = y + dy;
-      return nx > 0 && ny > 0 && nx < cols - 1 && ny < rows - 1 && wall[ny][nx];
-    });
-    if (!open.length) {
-      stack.pop();
-      continue;
-    }
-    const [dx, dy] = open[Math.floor(rand() * open.length)];
-    wall[y + dy / 2][x + dx / 2] = false;
-    wall[y + dy][x + dx] = false;
-    stack.push([x + dx, y + dy]);
-  }
-  return wall;
-}
 
 /**
  * Merge wall cells into as few rectangles as possible (horizontal runs
@@ -169,7 +138,7 @@ registerMainMenu(game, {
   title: 'Maze',
   subtitle: 'find the green goal',
   hint: 'Arrows move · O for settings',
-  backdrop: { gradient: { from: '#0b1410', to: '#1b3326', angle: 120 }, motes: 60 },
+  backdrop: menuBackdrop,
   items: () => [
     { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('maze') },
     { text: 'Settings', onSelect: () => game.settings.open() }

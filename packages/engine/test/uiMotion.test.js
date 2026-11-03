@@ -544,6 +544,34 @@ describe('motion', () => {
       expect(lines[0]).toMatchObject({ x1: 0, x2: 800, globalAlpha: 0.2 });
     });
 
+    it('draws custom layers between the gradient and the motes', () => {
+      const order = [];
+      const backdrop = root.add(new UIBackdrop({
+        gradient: '#000000',
+        motes: 1,
+        layers: [
+          { draw: (paint, frame) => { order.push(['object', frame]); paint.drawLine({ x1: 0, y1: 0, x2: 1, y2: 1 }); } },
+          (paint, frame) => { order.push(['function', frame]); }
+        ]
+      }));
+      backdrop.update(0.5);
+      backdrop.draw();
+
+      expect(order.map(([kind]) => kind)).toEqual(['object', 'function']);
+      expect(order[0][1]).toEqual({ width: 800, height: 600, elapsed: 0.5 });
+      expect(game.renderer.calls.map((c) => c.method)).toEqual(['drawRect', 'drawLine', 'drawArc']);
+    });
+
+    it('updates custom layers with the frame', () => {
+      const updates = [];
+      const backdrop = root.add(new UIBackdrop({
+        layers: [{ update: (dt, frame) => updates.push([dt, frame.width, frame.elapsed]) }]
+      }));
+      backdrop.update(0.25);
+      backdrop.update(0.25);
+      expect(updates).toEqual([[0.25, 800, 0.25], [0.25, 800, 0.5]]);
+    });
+
     it('draws nothing optional by default', () => {
       const backdrop = root.add(new UIBackdrop({ gradient: null }));
       backdrop.draw();

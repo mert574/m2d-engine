@@ -1,9 +1,11 @@
 /**
  * Deterministic RNG (mulberry32).
  *
- * The showcase doubles as the renderer comparison harness, so the same seed
- * must lay out the same scene on every backend and every run. Math.random()
- * would make frame-time summaries incomparable between backends.
+ * Shared by every example. The showcase doubles as the renderer comparison
+ * harness, so the same seed must lay out the same scene on every backend and
+ * every run; the menu backdrops use it so a menu looks the same every time it
+ * opens. Math.random() would make the first incomparable and the second
+ * flicker between visits.
  *
  * @param {number} seed - Seed value
  * @returns {() => number} Generator returning floats in [0, 1)

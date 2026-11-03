@@ -14,11 +14,23 @@ import { UIElement } from './uiElement.js';
  * A backdrop composes those layers, drawn back to front, all of them
  * optional:
  *
- *   1. `gradient` — a graded wash, the cheapest possible depth
- *   2. `image` — a still, drifting slowly (a Ken Burns move)
- *   3. `motes` — slow particles, so the frame is never completely static
- *   4. `scanlines` — a fine horizontal grille
- *   5. `vignette` — darkness at the edges, pulling the eye to the middle
+ *   1. `image` — a still, drifting slowly (a Ken Burns move)
+ *   2. `gradient` — a graded wash, the cheapest possible depth
+ *   3. `layers` — anything the game draws itself: a skyline, a radar sweep,
+ *      a simulation. This is where a menu stops being a colour scheme and
+ *      starts being a place
+ *   4. `motes` — slow particles, so the frame is never completely static
+ *   5. `scanlines` — a fine horizontal grille
+ *   6. `vignette` — darkness at the edges, pulling the eye to the middle
+ *
+ * ## Why custom layers are objects, not a subclass
+ *
+ * The built-in layers are private so the drawing order stays fixed; a
+ * subclass that overrode `draw` would have to redo all of them to add one.
+ * A layer is instead a small object with `draw(paint, frame)` and an
+ * optional `update(deltaTime, frame)`, or a bare function for the common
+ * case of something stateless. It draws through the backdrop's painter, so
+ * tokens resolve and it fades with the screen like everything else.
  *
  * ## Why it is not a shader
  *
@@ -31,6 +43,19 @@ import { UIElement } from './uiElement.js';
  * Everything is sized against live UI space every frame, because UI space
  * grows with the aspect ratio and no fixed rectangle can be relied on to
  * cover it.
+ */
+
+/**
+ * @typedef {Object} BackdropLayer
+ * @property {(paint: import('./painter.js').UIPainter, frame: BackdropFrame) => void} [draw]
+ * @property {(deltaTime: number, frame: BackdropFrame) => void} [update]
+ */
+
+/**
+ * @typedef {Object} BackdropFrame
+ * @property {number} width - Live UI width, in UI units
+ * @property {number} height - Live UI height, in UI units
+ * @property {number} elapsed - Seconds since the backdrop appeared
  */
 
 /** Motes are decorative; past this many the menu is paying for nothing. */
@@ -48,6 +73,9 @@ export class UIBackdrop extends UIElement {
    * @param {boolean} [options.drift=true] - Slowly pan and zoom the image
    * @param {number} [options.driftScale=1.08] - How far the zoom reaches
    * @param {number} [options.driftPeriod=24] - Seconds for one full cycle
+   * @param {Array<BackdropLayer|Function>} [options.layers=[]] - Custom
+   *   layers drawn between the gradient and the motes, in order. A function
+   *   is treated as a `draw`
    * @param {number} [options.motes=0] - How many drifting particles
    * @param {string} [options.moteColor='$color.text.accent']
    * @param {number} [options.scanlines=0] - Opacity of the grille, 0 for none
@@ -69,6 +97,9 @@ export class UIBackdrop extends UIElement {
     this.moteColor = options.moteColor ?? '$color.text.accent';
     this.scanlines = options.scanlines ?? 0;
     this.vignette = options.vignette ?? 0;
+    this.layers = (options.layers ?? []).map((layer) =>
+      typeof layer === 'function' ? { draw: layer } : layer
+    );
 
     /** Seconds since the backdrop appeared, driving the drift and the motes. */
     this.elapsed = 0;
@@ -115,6 +146,10 @@ export class UIBackdrop extends UIElement {
 
   update(deltaTime) {
     this.elapsed += deltaTime;
+    if (this.layers.length > 0) {
+      const frame = this.#layerFrame();
+      for (const layer of this.layers) layer.update?.(deltaTime, frame);
+    }
     for (const mote of this.motes) {
       // Upward, wrapping. Normalized, so the field is aspect-independent.
       mote.y -= mote.speed * deltaTime;
@@ -132,9 +167,25 @@ export class UIBackdrop extends UIElement {
 
     this.#drawImage(width, height);
     this.#drawGradient(width, height);
+    this.#drawLayers();
     this.#drawMotes(width, height);
     this.#drawScanlines(width, height);
     this.#drawVignette(width, height);
+  }
+
+  /**
+   * What a custom layer is told about the frame it draws into. Built once
+   * per call so a layer can hold on to it without seeing it change.
+   */
+  #layerFrame() {
+    const { width, height } = this.frame;
+    return { width, height, elapsed: this.elapsed };
+  }
+
+  #drawLayers() {
+    if (this.layers.length === 0) return;
+    const frame = this.#layerFrame();
+    for (const layer of this.layers) layer.draw?.(this.paint, frame);
   }
 
   #drawGradient(width, height) {

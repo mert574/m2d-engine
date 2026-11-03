@@ -1,4 +1,4 @@
-import { makeRng, range } from './rng.js';
+import { makeRng, range } from '../shared/rng.js';
 import { PARTICLE_STRIDE } from 'm2d-engine/core/renderers/baseRenderer.js';
 
 /**

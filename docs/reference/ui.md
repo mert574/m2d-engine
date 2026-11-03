@@ -333,6 +333,7 @@ A screen on its way out stays in `stack.exiting` — it still draws, beneath the
 | `drift` | `true` | Slowly pan and zoom the image (a Ken Burns move) |
 | `driftScale` | `1.08` | Baseline overscan. The pan is a fraction of the *current* overscan, so an edge can never come into view |
 | `driftPeriod` | `24` | Seconds for one cycle |
+| `layers` | `[]` | Custom layers drawn between the gradient and the motes, in order. Each is `{ draw(paint, frame), update(deltaTime, frame) }` or a bare `draw` function. `frame` is `{ width, height, elapsed }` in UI units and seconds |
 | `motes` | `0` | Drifting particles, capped at 240 |
 | `moteColor` | `'$color.text.accent'` | |
 | `scanlines` | `0` | Opacity of a fine horizontal grille |

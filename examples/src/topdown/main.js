@@ -2,6 +2,7 @@ import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
+import { menuBackdrop } from './menuBackdrop.js';
 import { TopDownPlayer } from 'm2d-engine/actors/topDownPlayer.js';
 import { Ghost } from 'm2d-engine/actors/ghost.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
@@ -46,7 +47,7 @@ registerMainMenu(game, {
   title: 'Top-Down',
   subtitle: 'a demonstration',
   hint: 'Arrows move · X attacks · O for settings',
-  backdrop: { gradient: { from: '#0b0714', to: '#2a1840', angle: 115 }, motes: 90 },
+  backdrop: menuBackdrop,
   items: () => [
     { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('level1') },
     { text: 'Settings', onSelect: () => game.settings.open() }

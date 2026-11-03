@@ -2,6 +2,7 @@ import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
+import { menuBackdrop } from './menuBackdrop.js';
 import { Player } from 'm2d-engine/actors/player.js';
 import { Bee } from 'm2d-engine/actors/bee.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
@@ -64,7 +65,7 @@ registerMainMenu(game, {
   title: 'Platformer',
   subtitle: 'a demonstration',
   hint: 'Arrows move · Space jumps · X attacks · O for settings',
-  backdrop: { gradient: { from: '#06121c', to: '#123a52', angle: 115 }, motes: 80 },
+  backdrop: menuBackdrop,
   items: () => [
     { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('level1') },
     { text: 'Settings', onSelect: () => game.settings.open() }

@@ -1,48 +1,42 @@
 # Example games
 
-Six games ship with the engine. Each exercises a different part of it. Sources are under [`examples/src/`](https://github.com/mert574/m2d-engine/tree/master/examples/src) and [Adding a demo](../contributing/adding-a-demo) explains how they are wired.
+Five games ship with the engine. Each exercises a different part of it. Sources are under [`examples/src/`](https://github.com/mert574/m2d-engine/tree/master/examples/src) and [Adding a demo](../contributing/adding-a-demo) explains how they are wired.
 
 <div class="example-grid">
 
-<a class="example-card" href="https://mert574.github.io/m2d-engine/examples/showcase/">
+<a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/showcase/">
 <span class="example-card-tag">renderer</span>
 <strong>Renderer showcase</strong>
 <span>A harbour at night with thousands of sprites, particles, lights and bloom, counted on screen. Swap backends and compare.</span>
 </a>
 
-<a class="example-card" href="https://mert574.github.io/m2d-engine/examples/platformer/">
+<a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/platformer/">
 <span class="example-card-tag">physics · scenes</span>
 <strong>Platformer</strong>
 <span>Side-scrolling level with moving platforms, a chasing enemy, coins and a level-complete trigger.</span>
 </a>
 
-<a class="example-card" href="https://mert574.github.io/m2d-engine/examples/maze/">
+<a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/maze/">
 <span class="example-card-tag">camera · character</span>
 <strong>Top-down maze</strong>
 <span>A generated maze explored with a following camera. Find the green goal in the far corner.</span>
 </a>
 
-<a class="example-card" href="https://mert574.github.io/m2d-engine/examples/physics/">
+<a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/physics/">
 <span class="example-card-tag">input · physics</span>
 <strong>Physics playground</strong>
 <span>Grab and throw bodies through a funnel, a splitter and a peg field. Scroll or pinch to change gravity.</span>
 </a>
 
-<a class="example-card" href="https://mert574.github.io/m2d-engine/examples/topdown/">
+<a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/topdown/">
 <span class="example-card-tag">actors</span>
 <strong>Top-down game</strong>
 <span>Eight-directional movement, ghosts that chase, turrets with line of sight and rockets.</span>
 </a>
 
-<a class="example-card" href="https://mert574.github.io/m2d-engine/examples/doner/">
-<span class="example-card-tag">ui · custom loop</span>
-<strong>Doner</strong>
-<span>A rhythm and order game drawn entirely in screen space, running its own loop.</span>
-</a>
-
 </div>
 
-Every example mounts the settings menu, opened with O. Its renderer row reloads the page with `?renderer=canvas` or `?renderer=webgl`, and the same parameter can be typed into the URL. The showcase skips its menu when the parameter is present.
+Each example opens on a main menu with a scene of its own behind the type, drawn in code through `UIBackdrop` layers. Every example mounts the settings menu, opened with O. Its renderer row reloads the page with `?renderer=canvas` or `?renderer=webgl`, and the same parameter can be typed into the URL. The showcase skips its menu when the parameter is present.
 
 Pointer lock is enabled only in the physics playground. The other examples leave the pointer free.
 
@@ -111,16 +105,3 @@ Eight-directional movement with zero gravity, ghosts that chase, turrets that ch
 | --- | --- |
 | Arrow keys | Move |
 | `X` | Attack |
-
-### Doner
-
-[Play](https://mert574.github.io/m2d-engine/examples/doner/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/doner)
-
-A rhythm and order game drawn entirely in screen space. It replaces the engine loop with its own and shows the UI layer carrying a whole game.
-
-| Key | Action |
-| --- | --- |
-| `A`, `S`, `D`, `F` | Rhythm keys, pressed in sequence |
-| `Space` | Serve the order |
-| `Backspace` | Clear the sandwich |
-| `R`, `M` | Restart or return to the menu on the game-over screen |

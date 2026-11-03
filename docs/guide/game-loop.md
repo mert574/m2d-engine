@@ -80,7 +80,7 @@ The demo at the top of this page is a loop like this one. It skips `start()` and
 
 The rewind shows what owning the loop allows. After every frame that stepped physics the demo records each body's position, angle and velocity. Rewinding restores one snapshot per frame through `setPosition`, `setAngle` and `setVelocity`, and removes bodies that were created after the snapshot. The engine loop has no hook between stepping and drawing, so this needs a custom loop.
 
-The engine loop does three more things. It draws a loading screen while `game.sceneManager.loading` is true. It draws the game-over screen and handles its R and M keys when `game.isGameOver` is set. It skips simulation on the first frame to seed its clock. A custom loop that wants those does them itself. The doner example replaces the loop this way.
+The engine loop does three more things. It draws a loading screen while `game.sceneManager.loading` is true. It draws the game-over screen and handles its R and M keys when `game.isGameOver` is set. It skips simulation on the first frame to seed its clock. A custom loop that wants those does them itself.
 
 ## Demo source
 
