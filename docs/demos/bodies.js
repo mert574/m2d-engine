@@ -57,8 +57,10 @@ class Walker extends Block {
   speed = 90;
   stuckFor = 0;
 
-  update(deltaTime) {
-    super.update(deltaTime);
+  // Movement decisions are simulation, so they run per tick with the
+  // fixed dt and come out the same at every frame rate.
+  fixedUpdate(dt) {
+    super.fixedUpdate(dt);
 
     // Contact normals point from this body toward the other one, so a wall
     // ahead gives a normal pointing along the walk direction.
@@ -67,7 +69,7 @@ class Walker extends Block {
       .some(({ normal }) => normal.x * this.direction > 0.5);
     // Dynamic boxes get shoved instead, until they pile up and stop it.
     const velocity = this.body.velocity;
-    this.stuckFor = Math.abs(velocity.x) < this.speed / 3 ? this.stuckFor + deltaTime : 0;
+    this.stuckFor = Math.abs(velocity.x) < this.speed / 3 ? this.stuckFor + dt : 0;
 
     // Turn at a wall, when pushing has stalled, or at the ends of the patrol.
     const { x } = this.position;

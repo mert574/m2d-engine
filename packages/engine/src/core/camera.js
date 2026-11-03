@@ -26,7 +26,28 @@ export class Camera {
     this.target = target;
   }
 
-  update() {
+  /**
+   * The frame rate `lerp` is specified against. `lerp` is the fraction of
+   * the remaining distance covered per frame *at this rate*; `update`
+   * converts it to the current frame's length so the follow feels the same
+   * at 30, 60 and 144 frames per second.
+   */
+  static REFERENCE_FPS = 60;
+
+  /**
+   * Move toward the target.
+   *
+   * The smoothing is an exponential decay, which is what a per-frame lerp
+   * is at one frame rate — only this one is corrected for the actual frame
+   * length. The naive `x += (target - x) * lerp` closes 0.1 of the gap per
+   * frame, so at 144 Hz it closed 2.4× more gap per second than at 60 Hz
+   * and the camera felt stiffer on a faster display.
+   *
+   * @param {number} [deltaTime=1/60] - Wall seconds this frame. The camera
+   *   is presentation and should not slow down in slow motion; its target
+   *   already moves slower.
+   */
+  update(deltaTime = 1 / Camera.REFERENCE_FPS) {
     if (!this.target) return;
 
     // Follow the *rendered* position: the camera is a render concern, and
@@ -36,15 +57,28 @@ export class Camera {
     const targetX = target.x;
     const targetY = target.y;
 
-    // Smooth camera movement
-    this.x += (targetX - this.x) * this.lerp;
-    this.y += (targetY - this.y) * this.lerp;
+    const t = Camera.smoothing(this.lerp, deltaTime);
+    this.x += (targetX - this.x) * t;
+    this.y += (targetY - this.y) * t;
 
     // Apply camera bounds if set
     if (this.bounds) {
       this.x = Camera.#clampAxis(this.x, this.bounds.left, this.bounds.right, this.width);
       this.y = Camera.#clampAxis(this.y, this.bounds.top, this.bounds.bottom, this.height);
     }
+  }
+
+  /**
+   * The fraction of the remaining distance to cover this frame so that a
+   * per-frame fraction of `lerp` at `REFERENCE_FPS` is matched over any
+   * frame length: `1 - (1 - lerp)^(dt · fps)`.
+   * @param {number} lerp - Per-frame fraction at the reference rate, 0..1.
+   * @param {number} deltaTime - Seconds this frame.
+   */
+  static smoothing(lerp, deltaTime) {
+    if (lerp >= 1) return 1;
+    if (lerp <= 0 || deltaTime <= 0) return 0;
+    return 1 - Math.pow(1 - lerp, deltaTime * Camera.REFERENCE_FPS);
   }
 
   /**

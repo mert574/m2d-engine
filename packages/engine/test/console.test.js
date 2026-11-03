@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { CVarRegistry } from '../src/core/console/cvars.js';
 import { CommandRegistry, tokenize } from '../src/core/console/commands.js';
 import { M2D } from '../src/core/m2d.js';
-import { createCanvasElement } from './helpers/environment.js';
+import { createCanvasElement, installWindowStub } from './helpers/environment.js';
 import { keyDown, keyUp } from './helpers/input.js';
 import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
 
@@ -281,11 +281,7 @@ describe('DevConsole', () => {
   });
 
   beforeEach(() => {
-    globalThis.window = {
-      devicePixelRatio: 1,
-      addEventListener: () => {},
-      removeEventListener: () => {}
-    };
+    installWindowStub();
   });
 
   function displayCanvas(cssWidth, cssHeight) {

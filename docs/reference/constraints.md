@@ -4,6 +4,8 @@ Constraints from `m2d-engine/constraints/`. Attach one with `entity.addConstrain
 
 `KeyboardControl` and `Interactive` bind their handlers to the entity, so `this` is the entity inside them. Other constraints call handlers as methods of the constraint, so `this` is the constraint. Use arrow functions there.
 
+`Health`, `Attack`, `ContactDamage`, `KeyboardControl`, `CarControl`, `Chase`, `PathFollow` and `WallSlip` do their work in `fixedUpdate`, once per simulation tick. `Hover` and `DamageFlash` are presentation and run in the per-frame `update`. `Chase` draws its wander targets from `game.rng`.
+
 Options marked with an asterisk treat `0` as unset and fall back to the default.
 
 ## Health
@@ -59,12 +61,37 @@ The attack draws nothing of its own: what a swing looks like depends on the game
 | `maxSpeed` * | `300` | px/s. Caps horizontal speed in continuous mode and is the speed in direct mode |
 | `continuous` | `true` | `true` accelerates toward `maxSpeed`. `false` sets velocity to `maxSpeed` directly |
 | `verticalMovement` | `true` | Read the up and down keys. Set `false` for a platformer |
-| `onMove(dx, dy)` | | Every frame with the input direction |
+| `onMove(dx, dy)` | | Every tick with the input direction |
 | `onDirectionChange(direction)` | | When horizontal input is nonzero, with `1` or `-1` |
-| `onJump()` | | Every frame the jump key is held |
-| `onAttack()` | | Every frame the attack key is held |
+| `onJump()` | | Every tick the jump key is held |
+| `onAttack()` | | Every tick the attack key is held |
 
-Diagonal movement is normalized. Input pressing straight into a wall is dropped before normalizing.
+Diagonal movement is normalized. Input pressing straight into a wall is dropped before normalizing. Keys are read from `game.input.snapshot`, the state sampled for the tick.
+
+## CarControl
+
+`constraints/carControl.js`. Arcade top-down car handling on a dynamic body. Each tick the body's velocity splits along its heading: throttle and brakes act on the forward part, grip decays the lateral part, and the handbrake swaps in a much lower grip so the car slides while the nose turns — a drift. Steering drives angular velocity and scales with speed, so the car cannot pivot in place. Runs in `fixedUpdate` on `game.input.snapshot`, so the same inputs always drive the same path.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `keys` | arrows, `Space`, `KeyX` | `{ throttle, brake, left, right, handbrake, nitro }` as key codes. Partial overrides are merged |
+| `manual` | `false` | Ignore the keyboard; a driver supplies `setControls({ throttle, brake, steer, handbrake, nitro })` |
+| `acceleration` | `420` | Forward drive, px/s² |
+| `maxSpeed` | `560` | Forward cap, px/s |
+| `brake` | `780` | Braking, px/s². Held past the stop it reverses, capped at `maxReverse` |
+| `maxReverse` | `170` | Reverse cap, px/s |
+| `drag` | `0.6` | Coasting decay, 1/s |
+| `grip` | `18` | Lateral decay, 1/s. Steady-state sliding at full lock is `maxSpeed * steer / grip`; the defaults keep that under `driftThreshold` |
+| `driftGrip` | `2.4` | Grip while the handbrake is held |
+| `steer` | `2.4` | Yaw rate at full steering, rad/s |
+| `driftSteer` | `3.6` | Yaw rate while drifting |
+| `driftThreshold` | `90` | Lateral px/s that counts as drifting |
+| `nitroThrust`, `nitroBoost` | `2.1`, `1.35` | Acceleration and speed-cap multipliers while the nitro burns |
+| `nitroDuration`, `nitroCooldown` | `1.1`, `5` | Burn and recharge, seconds |
+| `onDrift(active)` | | Drift started or ended |
+| `onNitro()` | | Nitro ignited |
+
+Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lower on oil or grass — it scales grip, steering and drive together), `drifting`, `forwardSpeed`, `lateralSpeed`, `speed`, `boostLeft`, `nitroReady`, `igniteNitro()`, `applyBoost(speed)` (a shove along the heading up to `speed`, what a boost pad does), `setControls(controls)`.
 
 ## Interactive
 

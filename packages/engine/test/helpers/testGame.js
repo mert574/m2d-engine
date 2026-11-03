@@ -11,6 +11,8 @@ import { ScreenStack } from '../../src/core/ui/screenStack.js';
 import { MotionManager } from '../../src/core/ui/motion.js';
 import { CVarRegistry } from '../../src/core/console/cvars.js';
 import { CommandRegistry } from '../../src/core/console/commands.js';
+import { Time } from '../../src/core/time.js';
+import { Rng } from '../../src/core/rng.js';
 
 /**
  * A minimal stand-in for the M2D instance that entities, constraints and UI
@@ -27,7 +29,11 @@ export function makeTestGame(options = {}) {
     // The real theme, so assertions see the colours components actually
     // resolve rather than a stand-in that could drift from the defaults.
     theme: createTheme(themeOverrides),
-    physics: createPhysicsWorld(),
+    // The real clock, shared with physics as in the engine, so a test can
+    // advance game time by hand with `game.time.tick(dt)`.
+    time: new Time({ maxDelta: Infinity, maxSubSteps: Infinity }),
+    rng: new Rng(1),
+    physics: null,
     entities: new Set(),
     player: null,
     // No event target and no bounding rect: the input system attaches
@@ -55,6 +61,7 @@ export function makeTestGame(options = {}) {
       return viewToUI({ x: view.x, y: view.y, viewport: this.viewport });
     }
   };
+  game.physics = createPhysicsWorld({ clock: game.time });
   game.camera.x = 400;
   game.camera.y = 300;
   // The real motion driver and UI band. The router asks the latter before

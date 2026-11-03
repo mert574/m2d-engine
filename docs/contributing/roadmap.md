@@ -4,7 +4,7 @@ What is planned next. Check the current implementation before starting an item. 
 
 ## Shipped
 
-Renderer abstraction with a batched WebGL2 default and a Canvas 2D fallback, both held to one conformance suite. Optional capabilities that backends declare and callers degrade against. The renderer showcase. Scenes, entities, constraints, camera and UI. Strict scene validation. The display pipeline with independent view, world surface and UI resolutions, aspect modes, fullscreen, a settings menu and the world overlay. The input system with one Pointer Events source, gesture recognition, band routing with `consume()`, opt-in world hit testing, code-based keyboard state and opt-in pointer lock with a virtual cursor.
+Renderer abstraction with a batched WebGL2 default and a Canvas 2D fallback, both held to one conformance suite. Optional capabilities that backends declare and callers degrade against. The renderer showcase. Scenes, entities, constraints, camera and UI. Strict scene validation. The display pipeline with independent view, world surface and UI resolutions, aspect modes, fullscreen, a settings menu and the world overlay. The input system with one Pointer Events source, gesture recognition, band routing with `consume()`, opt-in world hit testing, code-based keyboard state and opt-in pointer lock with a virtual cursor. The fixed simulation tick: `game.time` with two clocks, `fixedUpdate` on entities, constraints and scenes, per-tick input snapshots, game-time and wall-time timers, a seeded `game.rng` and a frame-rate-independent camera, pinned by a determinism test.
 
 ## In progress: the UI re-architecture
 
@@ -35,7 +35,7 @@ is kept; the phases land as one change.
 - Persist volumes and bindings once audio mixing and named actions exist (resolution, aspect and the world filter already persist through their cvars).
 - Cache sprite sheets across scenes. `Scene.unload` drops them, so re-entering a level decodes every image again.
 - More reusable UI components, actors and constraints.
-- Consider networking only after simulation timing and renderer behaviour are stable.
+- Networking. The simulation is now a function of its ticks, its input snapshots and its seed, which is the prerequisite. A server-authoritative model with client interpolation fits the tick as it is. Lockstep or rollback would add per-tick command queues in place of the local input snapshot, a state snapshot and restore API (the game-loop demo's rewind, generalized) and Rapier's determinism build for cross-platform bit-identity.
 
 ## Working notes
 

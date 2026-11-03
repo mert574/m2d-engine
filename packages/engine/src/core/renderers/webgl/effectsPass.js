@@ -71,7 +71,9 @@ export class EffectsPass {
       stencil: true,
       smooth: options.smooth ?? true
     });
-    this.light = createRenderTarget(gl, pixelWidth, pixelHeight);
+    // Stencil: shadowed lights mark the occluded region per light and draw
+    // around it. See #drawShadowedLight.
+    this.light = createRenderTarget(gl, pixelWidth, pixelHeight, { stencil: true });
     this.bloomA = createRenderTarget(gl, pixelWidth, pixelHeight);
     this.bloomB = createRenderTarget(gl, pixelWidth, pixelHeight);
     /**
@@ -149,7 +151,7 @@ export class EffectsPass {
   resize(width, height, pixelWidth = width, pixelHeight = height) {
     const gl = this.gl;
     resizeRenderTarget(gl, this.scene, pixelWidth, pixelHeight, { stencil: true });
-    resizeRenderTarget(gl, this.light, pixelWidth, pixelHeight);
+    resizeRenderTarget(gl, this.light, pixelWidth, pixelHeight, { stencil: true });
     resizeRenderTarget(gl, this.bloomA, pixelWidth, pixelHeight);
     resizeRenderTarget(gl, this.bloomB, pixelWidth, pixelHeight);
     if (this.sceneBlur) resizeRenderTarget(gl, this.sceneBlur, pixelWidth, pixelHeight);
@@ -180,47 +182,86 @@ export class EffectsPass {
   }
 
   /**
+   * Write one light's two triangles into `data` at float offset `o`.
+   *
+   * Local uv runs -1..1 so the shader's falloff is the distance from the
+   * quad's centre. A spot rotates the quad so local +x is the beam, and
+   * carries cos(half-cone) in the alpha slot; a point light carries the 2.0
+   * sentinel the shader reads as "no cone".
+   */
+  static #writeLight(data, o, lightSource) {
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]];
+    const { x, y, radius, color, intensity } = lightSource;
+    const spot = lightSource.cosCone !== undefined;
+    const cos = spot ? Math.cos(lightSource.angle) : 1;
+    const sin = spot ? Math.sin(lightSource.angle) : 0;
+    const alpha = spot ? lightSource.cosCone : 2;
+    for (let i = 0; i < LIGHT_VERTS; i++) {
+      const [cx, cy] = corners[i];
+      data[o] = x + (cx * cos - cy * sin) * radius;
+      data[o + 1] = y + (cx * sin + cy * cos) * radius;
+      data[o + 2] = cx;
+      data[o + 3] = cy;
+      data[o + 4] = color[0] * intensity;
+      data[o + 5] = color[1] * intensity;
+      data[o + 6] = color[2] * intensity;
+      data[o + 7] = alpha;
+      o += VERTEX_FLOATS;
+    }
+    return o;
+  }
+
+  /** Grow the light buffer to hold `floats`, keeping the GPU copy sized. */
+  #reserveLightData(floats) {
+    const gl = this.gl;
+    if (this.lightData.length < floats) {
+      this.lightData = new Float32Array(floats);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.lightBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, this.lightData.byteLength, gl.DYNAMIC_DRAW);
+    }
+    return this.lightData;
+  }
+
+  /** Upload `floats` of lightData and draw them as triangles. */
+  #drawLightData(floats) {
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.lightBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.lightData, 0, floats);
+    gl.drawArrays(gl.TRIANGLES, 0, floats / VERTEX_FLOATS);
+  }
+
+  /**
    * Accumulate the frame's lights into the light map.
-   * @param {Array<{x, y, radius, color: number[], intensity: number}>} lights
+   *
+   * Lights without shadows batch into one draw. Each shadowed light then
+   * runs its own little pass: the shadow volumes of every caster near it
+   * are marked in the stencil (each caster edge extruded away from the
+   * light, past its radius), and the light's quad draws only where the
+   * stencil stayed clear. The volumes never touch the colour buffer, so
+   * the cost is two draws per shadowed light.
+   *
+   * @param {Array<{x, y, radius, color: number[], intensity: number,
+   *   angle?: number, cosCone?: number, shadows?: boolean}>} lights
    * @param {number[]} ambient - Straight [r, g, b] the map clears to
+   * @param {Array<{points: Float32Array, minX, minY, maxX, maxY}>} [casters]
    * @returns {number} GPU draw calls issued
    */
-  drawLights(lights, ambient) {
+  drawLights(lights, ambient, casters = []) {
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.light.framebuffer);
     gl.viewport(0, 0, this.pixelWidth, this.pixelHeight);
     gl.disable(gl.SCISSOR_TEST);
     gl.disable(gl.STENCIL_TEST);
     gl.clearColor(ambient[0], ambient[1], ambient[2], 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clearStencil(0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
     if (lights.length === 0) return 0;
 
-    const needed = lights.length * LIGHT_VERTS * VERTEX_FLOATS;
-    if (this.lightData.length < needed) {
-      this.lightData = new Float32Array(needed);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.lightBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, this.lightData.byteLength, gl.DYNAMIC_DRAW);
-    }
-
-    // Two triangles per light. Local uv runs -1..1 so the shader's falloff is
-    // just the distance from the quad's centre.
-    const data = this.lightData;
-    const corners = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]];
-    let o = 0;
-    for (const lightSource of lights) {
-      const { x, y, radius, color, intensity } = lightSource;
-      for (let i = 0; i < LIGHT_VERTS; i++) {
-        const [cx, cy] = corners[i];
-        data[o] = x + cx * radius;
-        data[o + 1] = y + cy * radius;
-        data[o + 2] = cx;
-        data[o + 3] = cy;
-        data[o + 4] = color[0] * intensity;
-        data[o + 5] = color[1] * intensity;
-        data[o + 6] = color[2] * intensity;
-        data[o + 7] = 1;
-        o += VERTEX_FLOATS;
-      }
+    const plain = [];
+    const shadowed = [];
+    for (const light of lights) {
+      const blocked = light.shadows && casters.some((c) => c.z >= (light.z ?? 0));
+      (blocked ? shadowed : plain).push(light);
     }
 
     const { program, uniforms } = this.lightProgram;
@@ -230,11 +271,118 @@ export class EffectsPass {
     gl.uniform1f(uniforms.u_flipY, 1);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.lightBuffer);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data, 0, needed);
-    gl.drawArrays(gl.TRIANGLES, 0, lights.length * LIGHT_VERTS);
+
+    let drawCalls = 0;
+    if (plain.length > 0) {
+      const needed = plain.length * LIGHT_VERTS * VERTEX_FLOATS;
+      const data = this.#reserveLightData(needed);
+      let o = 0;
+      for (const light of plain) o = EffectsPass.#writeLight(data, o, light);
+      this.#drawLightData(needed);
+      drawCalls += 1;
+    }
+
+    for (const light of shadowed) {
+      drawCalls += this.#drawShadowedLight(light, casters);
+    }
+
+    gl.disable(gl.STENCIL_TEST);
+    gl.disable(gl.SCISSOR_TEST);
     gl.bindVertexArray(null);
-    return 1;
+    return drawCalls;
+  }
+
+  /**
+   * One shadowed light: mark its shadow volumes in the stencil, then draw
+   * the light where the stencil stayed clear. Scissored to the light's
+   * bounds, so per-light stencil clears stay cheap and volumes from one
+   * light never leak into another's.
+   * @returns {number} GPU draw calls issued
+   */
+  #drawShadowedLight(light, casters) {
+    const gl = this.gl;
+    const { x, y, radius } = light;
+
+    // Scissor rect in target pixels. Entirely off the map means no work.
+    const sx = this.pixelWidth / this.width;
+    const sy = this.pixelHeight / this.height;
+    const minX = Math.max(0, Math.floor((x - radius) * sx));
+    const minY = Math.max(0, Math.floor((y - radius) * sy));
+    const maxX = Math.min(this.pixelWidth, Math.ceil((x + radius) * sx));
+    const maxY = Math.min(this.pixelHeight, Math.ceil((y + radius) * sy));
+    if (minX >= maxX || minY >= maxY) return 0;
+
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(minX, minY, maxX - minX, maxY - minY);
+    gl.clearStencil(0);
+    gl.clear(gl.STENCIL_BUFFER_BIT);
+
+    // Collect volumes from the casters the light can reach. Every edge is
+    // extruded away from the light to past the radius; front and back edges
+    // together cover the same union a silhouette would.
+    const reach = radius * 2.2;
+    let floats = 0;
+    const data = [];
+    const lightZ = light.z ?? 0;
+    for (const caster of casters) {
+      // Too low to reach a light hanging above it: a barrier under a lamp.
+      if (caster.z < lightZ) continue;
+      if (caster.minX > x + radius || caster.maxX < x - radius ||
+          caster.minY > y + radius || caster.maxY < y - radius) continue;
+      const pts = caster.points;
+      const count = pts.length / 2;
+      for (let i = 0; i < count; i++) {
+        const ax = pts[i * 2], ay = pts[i * 2 + 1];
+        const bx = pts[((i + 1) % count) * 2], by = pts[((i + 1) % count) * 2 + 1];
+        const alen = Math.hypot(ax - x, ay - y) || 1;
+        const blen = Math.hypot(bx - x, by - y) || 1;
+        const a2x = ax + ((ax - x) / alen) * reach;
+        const a2y = ay + ((ay - y) / alen) * reach;
+        const b2x = bx + ((bx - x) / blen) * reach;
+        const b2y = by + ((by - y) / blen) * reach;
+        // Two triangles: a, b, b2 and a, b2, a2.
+        data.push(ax, ay, bx, by, b2x, b2y, ax, ay, b2x, b2y, a2x, a2y);
+      }
+    }
+
+    let drawCalls = 0;
+    gl.enable(gl.STENCIL_TEST);
+    if (data.length > 0) {
+      const verts = data.length / 2;
+      const buffer = this.#reserveLightData(verts * VERTEX_FLOATS);
+      let o = 0;
+      for (let i = 0; i < data.length; i += 2) {
+        buffer[o] = data[i];
+        buffer[o + 1] = data[i + 1];
+        // uv at the centre: full falloff, but the colour write is masked
+        // off anyway — only the stencil matters here.
+        buffer[o + 2] = 0;
+        buffer[o + 3] = 0;
+        buffer[o + 4] = 0;
+        buffer[o + 5] = 0;
+        buffer[o + 6] = 0;
+        buffer[o + 7] = 2;
+        o += VERTEX_FLOATS;
+      }
+      gl.stencilFunc(gl.ALWAYS, 1, 0xFF);
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+      gl.colorMask(false, false, false, false);
+      this.#drawLightData(verts * VERTEX_FLOATS);
+      gl.colorMask(true, true, true, true);
+      floats = verts * VERTEX_FLOATS;
+      drawCalls += 1;
+    }
+
+    // The light itself, everywhere its shadows are not.
+    gl.stencilFunc(gl.EQUAL, 0, 0xFF);
+    gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+    const lightFloats = LIGHT_VERTS * VERTEX_FLOATS;
+    const buffer = this.#reserveLightData(Math.max(floats, lightFloats));
+    EffectsPass.#writeLight(buffer, 0, light);
+    this.#drawLightData(lightFloats);
+    drawCalls += 1;
+
+    return drawCalls;
   }
 
   /**

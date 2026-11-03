@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { createCanvasElement } from './helpers/environment.js';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
+import { createCanvasElement, installWindowStub } from './helpers/environment.js';
 import { M2D } from '../src/core/m2d.js';
 import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
 import { UIOptionRow } from '../src/core/ui/optionRow.js';
@@ -77,11 +77,7 @@ describe('SettingsMenu', () => {
   });
 
   beforeEach(() => {
-    globalThis.window = {
-      devicePixelRatio: 1,
-      addEventListener: () => {},
-      removeEventListener: () => {}
-    };
+    installWindowStub();
   });
 
   it('mounts as game.settings without showing anything', () => {
@@ -156,6 +152,31 @@ describe('SettingsMenu', () => {
 
     clickRow(game, menu, 'Aspect');
     expect(game.aspectMode).toBe('letterbox');
+  });
+
+  it('offers a Main menu row when a mainMenu scene exists, outside of it', () => {
+    const { game, menu } = makeGameWithMenu();
+    game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: 1, name: 'mainMenu', type: 'ui', elements: [] }) });
+    game.sceneManager.switchTo = vi.fn(async () => {});
+    openAndLayout(game, menu);
+    expect(row(menu, 'Main menu')).toBeTruthy();
+
+    clickRow(game, menu, 'Main menu');
+    expect(game.sceneManager.switchTo).toHaveBeenCalledWith('mainMenu');
+    expect(menu.isShowing).toBe(false);
+  });
+
+  it('hides the Main menu row without a mainMenu scene, and while it is showing', () => {
+    const { menu } = makeGameWithMenu();
+    menu.open();
+    expect(() => row(menu, 'Main menu')).toThrow();
+    menu.close();
+
+    const { game: game2, menu: menu2 } = makeGameWithMenu();
+    game2.sceneManager.addScene('mainMenu', { fetch: async () => ({}) });
+    game2.sceneManager.currentScene = { config: { name: 'mainMenu' } };
+    menu2.open();
+    expect(() => row(menu2, 'Main menu')).toThrow();
   });
 
   it('offers a Paused row that toggles the engine flag', () => {

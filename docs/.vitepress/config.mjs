@@ -42,6 +42,7 @@ export default defineConfig({
             { text: 'Sprites and animation', link: '/guide/sprites' },
             { text: 'Sound', link: '/guide/sound' },
             { text: 'Game loop', link: '/guide/game-loop' },
+            { text: 'Time, ticks and timers', link: '/guide/time' },
             { text: 'Building', link: '/guide/building' }
           ]
         },

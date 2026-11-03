@@ -27,6 +27,7 @@ describeRendererConformance({
     blendModes: true,
     particles: true,
     lights: true,
+    lightShadows: true,
     postEffects: true
   }
 });

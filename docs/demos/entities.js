@@ -95,10 +95,11 @@ export default async function start(canvas) {
   let emptyFor = 0;
   game.sceneManager.addScene('main', {
     fetch: async () => scene,
-    // When every crate is gone, create new ones at runtime.
-    onUpdate(deltaTime) {
+    // When every crate is gone, create new ones at runtime. Spawning is
+    // simulation, so it runs per tick.
+    onFixedUpdate(dt) {
       const crates = [...game.entities].filter((entity) => entity.name === 'Crate');
-      emptyFor = crates.length === 0 ? emptyFor + deltaTime : 0;
+      emptyFor = crates.length === 0 ? emptyFor + dt : 0;
       if (emptyFor < 1) return;
       emptyFor = 0;
       for (const [x, y] of CRATES) {

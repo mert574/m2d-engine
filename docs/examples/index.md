@@ -1,6 +1,6 @@
 # Example games
 
-Five games ship with the engine. Each exercises a different part of it. Sources are under [`examples/src/`](https://github.com/mert574/m2d-engine/tree/master/examples/src) and [Adding a demo](../contributing/adding-a-demo) explains how they are wired.
+Six games ship with the engine. Each exercises a different part of it. Sources are under [`examples/src/`](https://github.com/mert574/m2d-engine/tree/master/examples/src) and [Adding a demo](../contributing/adding-a-demo) explains how they are wired.
 
 <div class="example-grid">
 
@@ -32,6 +32,12 @@ Five games ship with the engine. Each exercises a different part of it. Sources 
 <span class="example-card-tag">actors</span>
 <strong>Top-down game</strong>
 <span>Eight-directional movement, ghosts that chase, turrets with line of sight and rockets.</span>
+</a>
+
+<a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/circuit/">
+<span class="example-card-tag">ticks · replay · lights</span>
+<strong>Night Circuit</strong>
+<span>Arcade time trials on five circuits. Drift, boost, spill oil for the next round, race your ghost and replay laps from recorded inputs.</span>
 </a>
 
 </div>
@@ -105,3 +111,18 @@ Eight-directional movement with zero gravity, ghosts that chase, turrets that ch
 | --- | --- |
 | Arrow keys | Move |
 | `X` | Attack |
+
+### Night Circuit
+
+[Play](https://mert574.github.io/m2d-engine/examples/circuit/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/circuit)
+
+Arcade time trials at night on five circuits of rising difficulty: wider or narrower roads, sliding gates, patrolling traffic, cone rows and oil barrels that spill onto the racing line when hit — and the spill stays for every following round of the session, where the hit's angle put it. Laps are timed in simulation ticks. The best lap of each circuit is stored as its input recording: Enter replays it through the engine's input seam and reports whether the re-simulation matched the recording (it always does — that is the point). The best lap also runs alongside as a ghost. Headlights and street lamps are spot lights with shadow casting, so barriers, barrels and trees throw moving shadows as you pass; on the Canvas backend the same game runs in daylight.
+
+| Key | Action |
+| --- | --- |
+| Arrow keys | Throttle, brake and steer |
+| `Space` | Handbrake — hold to drift |
+| `X` | Nitro |
+| `R` | Restart the round (fresh props, the session's oil stays) |
+| `Enter` | Replay the best lap, or the round so far |
+| `Esc` | Back to the menu |

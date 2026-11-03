@@ -19,7 +19,7 @@ export class WallSlip extends Constraint {
     this.groundFriction = entity.body.friction;
   }
 
-  update() {
+  fixedUpdate() {
     const { body } = this.entity;
     const friction = this.entity.isOnGround() ? this.groundFriction : 0;
     if (body.friction !== friction) body.friction = friction;

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { InputSnapshot } from '../src/core/input/inputManager.js';
 
 import { makeTestGame, makeBody } from './helpers/testGame.js';
 import { Entity } from '../src/core/entity.js';
@@ -7,7 +8,7 @@ import { Container } from '../src/core/ui/container.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
 import { UIScreen } from '../src/core/ui/screen.js';
 import {
-  advanceInputClock, click, drag, keyDown, keyUp, pointerDown, pointerMove,
+  advanceInputClock, click, drag, holdKeys, keyDown, keyUp, pointerDown, pointerMove, releaseKeys,
   pointerUp, resetInputClock, scroll
 } from './helpers/input.js';
 
@@ -701,6 +702,62 @@ describe('input', () => {
       game.camera.x += 200;
 
       expect(game.input.pointer.world).toEqual({ x: 300, y: 100 });
+    });
+  });
+
+  describe('snapshot recording and replay', () => {
+    it('round-trips a snapshot through JSON', () => {
+      holdKeys(game, 'KeyW', 'Space');
+      pointerMove(game, 120, 80);
+      const live = game.input.sample();
+
+      const revived = InputSnapshot.from(JSON.parse(JSON.stringify(live)));
+
+      expect(revived.isDown('KeyW')).toBe(true);
+      expect(revived.justPressed('Space')).toBe(true);
+      expect(revived.axis('KeyA', 'KeyD')).toBe(0);
+      expect(revived.pointer.world).toEqual(live.pointer.world);
+      releaseKeys(game);
+    });
+
+    it('a snapshot source replaces the devices for the simulation', () => {
+      // The replay seam: recorded ticks drive sample(), the keyboard does not.
+      holdKeys(game, 'KeyW');
+      const log = [{ down: ['ArrowLeft'] }, { down: ['ArrowRight'], pressed: ['Space'] }];
+      let at = 0;
+      game.input.setSnapshotSource(() => log[at++] ?? null);
+
+      const first = game.input.sample();
+      expect(first.isDown('ArrowLeft')).toBe(true);
+      expect(first.isDown('KeyW')).toBe(false);
+
+      const second = game.input.sample();
+      expect(second.isDown('ArrowRight')).toBe(true);
+      expect(second.justPressed('Space')).toBe(true);
+
+      // Past the log's end: nothing held, rather than stale state.
+      expect(game.input.sample().isDown('ArrowRight')).toBe(false);
+
+      // Hand the devices back.
+      game.input.setSnapshotSource(null);
+      expect(game.input.sample().isDown('KeyW')).toBe(true);
+      releaseKeys(game);
+    });
+
+    it('feeding recorded ticks back reproduces the recorded snapshots', () => {
+      holdKeys(game, 'ArrowUp');
+      const recorded = [JSON.parse(JSON.stringify(game.input.sample()))];
+      holdKeys(game, 'ArrowRight');
+      recorded.push(JSON.parse(JSON.stringify(game.input.sample())));
+      releaseKeys(game);
+
+      let at = 0;
+      game.input.setSnapshotSource(() => recorded[at++]);
+      expect(game.input.sample().isDown('ArrowUp')).toBe(true);
+      const replayedSecond = game.input.sample();
+      expect(replayedSecond.isDown('ArrowRight')).toBe(true);
+      expect(replayedSecond.isDown('ArrowUp')).toBe(true);
+      game.input.setSnapshotSource(null);
     });
   });
 });

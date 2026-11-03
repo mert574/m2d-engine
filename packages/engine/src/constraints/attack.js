@@ -29,18 +29,18 @@ export class Attack extends Constraint {
     this.hasCheckedHits = false;
   }
 
-  update(deltaTime) {
+  fixedUpdate(dt) {
     if (this.currentCooldown > 0) {
-      this.currentCooldown -= deltaTime;
+      this.currentCooldown -= dt;
     }
 
     if (this.isAttacking) {
-      // Check for hits only on first update of attack
+      // Check for hits only on the first tick of the attack
       if (!this.hasCheckedHits) {
         this.checkHits();
         this.hasCheckedHits = true;
       }
-      this.attackTime += deltaTime;
+      this.attackTime += dt;
       if (this.attackTime >= this.attackDuration) {
         this.isAttacking = false;
         this.attackTime = 0;

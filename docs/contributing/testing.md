@@ -16,6 +16,8 @@ The engine's tests are two Vitest projects declared in `packages/engine/vitest.c
 
 Both load `test/helpers/setupPhysics.js`, which awaits `initPhysics()` once per worker so every suite can construct a game synchronously.
 
+A suite that constructs an `M2D` in the node project installs a `window` global with `installWindowStub()` from `test/helpers/environment.js`. The stub carries the real `performance` object, which Rapier's WASM glue reads its clock through whenever `window` exists. A stub without it panics on the first physics step. See [Troubleshooting](./troubleshooting#development-environment).
+
 The examples workspace has one suite, `examples/test/scenes.test.js`, which validates every shipped scene JSON against the loader.
 
 ## Layers
@@ -28,7 +30,7 @@ The examples workspace has one suite, `examples/test/scenes.test.js`, which vali
 | Browser environment | `browser/environment.smoke.test.js` | browser | WebGL2 exists, pixel readback is top-left, fixtures upload |
 | Context loss | `browser/webglContextLoss.test.js` | browser | A resize during a lost WebGL context is replayed on restore |
 
-Engine-level suites: `viewport.test.js` for sizing math and projection, `resizeLifecycle.test.js` for camera, input mapping and filter plumbing across resizes, `worldOverlay.test.js`, `settingsMenu.test.js`, `pause.test.js`, `sceneActions.test.js`, `sceneLoader.test.js`, `constraints.test.js`, `geometry.test.js`.
+Engine-level suites: `viewport.test.js` for sizing math and projection, `resizeLifecycle.test.js` for camera, input mapping and filter plumbing across resizes, `worldOverlay.test.js`, `settingsMenu.test.js`, `pause.test.js` (the loop's pause gate, the tick and `game.time` integration), `time.test.js` (the clocks, the tick and timers, driven by hand), `determinism.test.js` (the same scene at 30, 60 and 144 frames per second ends in bit-identical state; seeded replay; the camera's frame-rate correction), `sceneActions.test.js`, `sceneLoader.test.js`, `constraints.test.js`, `geometry.test.js`.
 
 `input.test.js` drives the input system through `game.input.push`, so the recognizers, router and coordinate mapping under test are the real ones. `browser/input.test.js` covers what needs a browser: real `PointerEvent` mapping, canvas capture styles, delivery inside the DOM handler and listener cleanup.
 

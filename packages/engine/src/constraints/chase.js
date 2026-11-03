@@ -34,9 +34,12 @@ export class Chase extends Constraint {
   #newWanderTarget() {
     const r = this.wanderRadius;
     const { x, y } = this.entity.position;
+    // Seeded: a wander target is simulation state, and a restart with the
+    // same seed has to pick the same one.
+    const rng = this.entity.game.rng;
     return {
-      x: x + (Math.random() * r * 2 - r),
-      y: y + (Math.random() * r * 2 - r)
+      x: x + rng.range(-r, r),
+      y: y + rng.range(-r, r)
     };
   }
 
@@ -46,7 +49,7 @@ export class Chase extends Constraint {
     return Vec2.distance(this.entity.position, player.position) < this.detectionRange;
   }
 
-  update(deltaTime) {
+  fixedUpdate(dt) {
     const { entity } = this;
     if (!entity.game.player) return;
     if (entity.getConstraint('contactDamage')?.isStunned()) return;
@@ -57,7 +60,7 @@ export class Chase extends Constraint {
       return;
     }
 
-    this.wanderTime += deltaTime;
+    this.wanderTime += dt;
     if (this.wanderTime >= this.wanderInterval) {
       this.target = this.#newWanderTarget();
       this.wanderTime = 0;
@@ -95,7 +98,7 @@ export class Chase extends Constraint {
     });
 
     overlay.drawText({
-      text: `target: ${this.wanderTime}/${this.wanderInterval}`,
+      text: `target: ${this.wanderTime.toFixed(2)}/${this.wanderInterval}`,
       x: entity.renderBounds.min.x,
       y: entity.renderBounds.max.y,
       offsetY: 5,

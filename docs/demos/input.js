@@ -93,7 +93,7 @@ export default async function start(canvas) {
   };
 
   const spawn = (x, y) => {
-    const ball = Math.random() < 0.5;
+    const ball = game.rng.chance(0.5);
     const size = ball ? 32 : 40;
     const entity = game.createEntity('Block', x, y, size, size, null, {},
       ball ? { shape: 'circle', restitution: 0.6 } : { friction: 0.5, restitution: 0.2 });

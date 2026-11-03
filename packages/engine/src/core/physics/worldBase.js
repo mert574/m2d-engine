@@ -7,6 +7,13 @@
  * is worth reading and testing without Rapier in the picture. `RapierBody`'s
  * world extends this and supplies the rest: body creation, the actual solver
  * step (`stepOnce`), queries and lifecycle. See ./index.js for the contract.
+ *
+ * Inside the engine the clock is not this world's own: it is `game.time`,
+ * passed as `clock`, and the step settings, the time scale and the
+ * accumulator all read through to it. The engine loop runs the tick (see
+ * `Time.tick` and `M2D.fixedUpdate`) and calls `step` once per tick, so
+ * gameplay and the solver advance together. `advance` stays for a world
+ * used on its own and for games driving physics directly.
  */
 export class PhysicsWorldBase {
   /**
@@ -22,19 +29,56 @@ export class PhysicsWorldBase {
    * @param {number} [options.fixedTimestep] - Seconds per solver step.
    * @param {number} [options.maxSubSteps] - Step budget per frame.
    * @param {number} [options.timeScale] - Multiplier on elapsed time.
+   *   Ignored when `clock` is given.
+   * @param {import('../time.js').Time} [options.clock] - The engine's
+   *   `Time`. When set, `fixedTimestep`, `maxSubSteps`, `timeScale` and the
+   *   accumulator all read and write the clock's, so the solver and the
+   *   gameplay tick cannot disagree about any of them. `fixedTimestep`,
+   *   `maxSubSteps` and `timeScale` here are then ignored.
    * @param {boolean} [options.interpolate] - Blend drawn transforms between
    *   steps. See PhysicsBody.renderPosition.
    */
   constructor(options = {}) {
-    this.fixedTimestep = options.fixedTimestep ?? 1 / 60;
-    this.maxSubSteps = options.maxSubSteps ?? 6;
-    this.timeScale = options.timeScale ?? 1;
+    this.clock = options.clock ?? null;
+    if (!this.clock) {
+      this.own = {
+        fixedTimestep: options.fixedTimestep ?? 1 / 60,
+        maxSubSteps: options.maxSubSteps ?? 6,
+        timeScale: options.timeScale ?? 1,
+        /** Unspent real time, carried between frames. See `advance`. */
+        accumulator: 0
+      };
+    }
     this.interpolate = options.interpolate ?? true;
 
-    /** Unspent real time, carried between frames. See `advance`. */
-    this.accumulator = 0;
     /** Collision callbacks, retained across `reset()`. */
     this.handlers = { onStart: null, onEnd: null };
+  }
+
+  /** Seconds per solver step. @type {number} */
+  get fixedTimestep() { return this.clock ? this.clock.fixedTimestep : this.own.fixedTimestep; }
+  set fixedTimestep(value) { if (this.clock) this.clock.fixedTimestep = value; else this.own.fixedTimestep = value; }
+
+  /** Step budget per `advance`. @type {number} */
+  get maxSubSteps() { return this.clock ? this.clock.maxSubSteps : this.own.maxSubSteps; }
+  set maxSubSteps(value) { if (this.clock) this.clock.maxSubSteps = value; else this.own.maxSubSteps = value; }
+
+  /** Game time paid in but not yet spent on a whole step. @type {number} */
+  get accumulator() { return this.clock ? this.clock.accumulator : this.own.accumulator; }
+  set accumulator(value) { if (this.clock) this.clock.accumulator = value; else this.own.accumulator = value; }
+
+  /**
+   * Multiplier on elapsed time. Delegates to the engine clock when one was
+   * given, so `physics.timeScale` and `game.time.scale` are the same value.
+   * @type {number}
+   */
+  get timeScale() {
+    return this.clock ? this.clock.scale : this.own.timeScale;
+  }
+
+  set timeScale(value) {
+    if (this.clock) this.clock.scale = value;
+    else this.own.timeScale = value;
   }
 
   /**
@@ -49,22 +93,28 @@ export class PhysicsWorldBase {
    * `maxSubSteps` caps the work per frame: if the simulation cannot keep up
    * it runs slow rather than spiralling, taking ever longer to catch up.
    *
+   * Physics only. Inside the engine the loop runs `game.time.tick`, which
+   * steps gameplay and physics together through `game.fixedUpdate`; a game
+   * that owns its loop does the same. This is for a world used alone.
+   *
    * @param {number} elapsed - Real seconds since the last frame.
    * @returns {number} Steps actually taken.
    */
   advance(elapsed) {
     const { STEP_EPSILON } = PhysicsWorldBase;
+    const dt = this.fixedTimestep;
+    const budget = this.maxSubSteps;
     this.accumulator += elapsed * this.timeScale;
 
     let steps = 0;
-    while (this.accumulator + STEP_EPSILON >= this.fixedTimestep && steps < this.maxSubSteps) {
-      this.step(this.fixedTimestep);
-      this.accumulator -= this.fixedTimestep;
+    while (this.accumulator + STEP_EPSILON >= dt && steps < budget) {
+      this.step(dt);
+      this.accumulator -= dt;
       steps++;
     }
 
     // Over budget: drop the backlog instead of letting it grow without bound.
-    if (this.accumulator + STEP_EPSILON >= this.fixedTimestep) this.accumulator = 0;
+    if (this.accumulator + STEP_EPSILON >= dt) this.accumulator = 0;
 
     return steps;
   }

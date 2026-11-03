@@ -41,16 +41,19 @@
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `fixedTimestep` | `1 / 60` | Seconds per physics step |
-| `maxSubSteps` | `6` | Most steps one frame may run |
-| `physicsTimeScale` | `1` | Multiplier on simulated time. `0.5` is slow motion |
-| `interpolatePhysics` | `true` | Blend drawn transforms between steps |
+| `fixedTimestep` | `1 / 60` | Seconds per simulation tick. Every `fixedUpdate` and physics step sees exactly this. Live at `game.time.fixedTimestep` |
+| `maxSubSteps` | `6` | Most ticks one frame may run. Live at `game.time.maxSubSteps` |
+| `timeScale` | `1` | Multiplier on game time: ticks, and so physics, entity simulation and game-time timers. `0.5` is slow motion. Live at `game.time.scale`. `physicsTimeScale` is accepted as an older spelling |
+| `interpolatePhysics` | `true` | Blend drawn transforms between ticks |
+| `seed` | `1` | Seed for `game.rng`. Reseeded on every scene load and `reset()`. Pass `Date.now()` for a game that should differ between sessions |
 
 ## Instance properties
 
 | Property | What it is |
 | --- | --- |
 | `game.physics` | The physics world. See [Physics API](./physics) |
+| `game.time` | The clocks, the simulation tick and timers. See [Time, ticks and timers](../guide/time) |
+| `game.rng` | Seeded random numbers for simulation code. See [Random numbers](#random-numbers) |
 | `game.camera` | The camera. See [Camera](../guide/camera) |
 | `game.input` | The input system. See [Input events](./input-events) |
 | `game.renderer` | The active backend. See [Renderer API](./renderer) |
@@ -70,7 +73,7 @@
 | `game.cvars`, `game.commands` | The [console registries](./console). The settings menu is a view onto the cvars |
 | `game.console` | The mounted [developer console](./console), or `null` |
 | `game.theme` | The [`Theme`](./ui#theme-tokens) every UI element resolves against |
-| `game.paused` | Freezes simulation while `true` |
+| `game.paused` | Freezes simulation while `true`. See [Pausing](../guide/time#pausing) |
 | `game.isGameOver` | Set by `gameOver()` |
 | `game.viewport` | The computed sizes. See the `Viewport` typedef in `core/viewport.js` |
 | `game.worldFilter` | The current upscaling filter |
@@ -90,6 +93,8 @@
 | `registerActor(name, Class)` | Make an actor available to scene prefabs |
 | `createEntity(type, x, y, width, height, spritesheet, options, physics)` | Build an entity from a registered actor. The body is not added to the world. `physics` takes the prefab keys `bodyType`, `shape`, `angle`, `lockRotation`, `isSensor`, `friction`, `frictionAir` and `restitution`. Returns `null` for an unregistered name |
 | `gameOver()` | Set `isGameOver` and play the `gameOver` sound. The loop then draws the game-over screen |
+| `pause()`, `resume()`, `togglePause()` | Set `paused`. `togglePause` returns the new state |
+| `fixedUpdate(dt)` | One simulation tick: sample the input, run the scene's and every entity's `fixedUpdate`, step physics. The engine loop passes it to `game.time.tick`; a custom loop does the same or wraps it |
 | `setResolution(resolution)` | Change the world render resolution |
 | `setWorldFilter(filter)` | Change the upscaling filter |
 | `setAspectMode(mode)` | Change the aspect mode |
@@ -98,3 +103,21 @@
 | `onResize(handler)` | Subscribe to viewport changes. The handler receives `(viewWidth, viewHeight, viewport)`. Returns an unsubscribe function |
 | `worldToUI(x, y)` | Map a world position to UI coordinates |
 | `drawWorld(scene, dt)`, `drawUI(scene, dt)`, `drawOverlays(dt)` | The three drawing passes, for games that run their own loop |
+
+## Random numbers
+
+`game.rng` is a seeded generator (mulberry32) from `core/rng.js`. Simulation code draws from it instead of `Math.random()`, so a level plays the same every time it is entered and a replay reproduces. It restarts from the `seed` option on every scene load and `reset()`.
+
+| Member | Meaning |
+| --- | --- |
+| `next()` | A float in `[0, 1)` |
+| `range(min, max)` | A float in `[min, max)` |
+| `int(min, max)` | An integer in `[min, max]`, both inclusive |
+| `chance(p)` | `true` with probability `p` |
+| `pick(array)` | One element, or `undefined` for an empty array |
+| `shuffle(array)` | Shuffle in place and return the array |
+| `fork()` | A new generator seeded from this one, for a subsystem that wants its own stream |
+| `reseed(seed)` | Restart the sequence |
+| `seed`, `draws` | The seed the sequence started from and the draws since. Together they locate a position in the sequence |
+
+`makeRng(seed)` from the same module returns a bare `() => number` for code that wants a function.

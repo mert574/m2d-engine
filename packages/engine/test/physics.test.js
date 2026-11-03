@@ -1270,3 +1270,23 @@ describe('physics world', () => {
     });
   });
 });
+
+describe('headless environment', () => {
+  // Rapier's WASM glue resolves its clock through `window.performance` when
+  // a `window` global exists. A stub without one makes the first step panic
+  // and poisons the module for the rest of the worker, which is why every
+  // suite installs its stub through installWindowStub.
+  it('steps with the shared window stub installed', async () => {
+    const { installWindowStub } = await import('./helpers/environment.js');
+    const previous = globalThis.window;
+    installWindowStub();
+    try {
+      const world = createPhysicsWorld();
+      expect(world.advance(2 / 60)).toBe(2);
+      world.destroy();
+    } finally {
+      if (previous === undefined) delete globalThis.window;
+      else globalThis.window = previous;
+    }
+  });
+});

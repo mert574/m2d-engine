@@ -52,6 +52,7 @@ export default defineConfig(({ command }) => ({
         maze: resolve(import.meta.dirname, 'src/maze/index.html'),
         physics: resolve(import.meta.dirname, 'src/physics/index.html'),
         topdown: resolve(import.meta.dirname, 'src/topdown/index.html'),
+        circuit: resolve(import.meta.dirname, 'src/circuit/index.html'),
         showcase: resolve(import.meta.dirname, 'src/showcase/index.html')
       }
     }

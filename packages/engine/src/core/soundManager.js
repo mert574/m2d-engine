@@ -8,6 +8,8 @@ export class SoundManager {
     this.musicVolume = 0.3;
     this.pendingMusic = null;
     this.isInitialized = false;
+    /** Continuous sounds started with `loop()`, for mute and teardown. */
+    this.loops = new Set();
 
     // Browsers refuse to start audio before a user gesture, so the first
     // click or keypress unblocks it. Kept on the instance so destroy() can
@@ -27,6 +29,7 @@ export class SoundManager {
       document.removeEventListener('keydown', this.onFirstGesture);
     }
     this.stopMusic();
+    for (const loop of [...this.loops]) loop.stop();
     // Music elements are shared across plays, so pausing the map covers a
     // track that was started and then swapped out without stopMusic().
     for (const audio of this.music.values()) audio.pause();
@@ -43,6 +46,8 @@ export class SoundManager {
       this.playMusic(this.pendingMusic);
       this.pendingMusic = null;
     }
+    for (const start of this.pendingLoops ?? []) start();
+    this.pendingLoops = [];
   }
 
   loadSound(key, file) {
@@ -71,6 +76,62 @@ export class SoundManager {
     clone.play().catch(error => {
       console.warn(`Failed to play sound ${key}:`, error);
     });
+  }
+
+  /**
+   * Start a sound that keeps playing until stopped, with live pitch and
+   * volume — an engine note that follows the revs, tyres that squeal while
+   * the car slides. Unlike `playSound`, the element is not cloned, so the
+   * loop is one voice that the game steers each frame.
+   *
+   * @param {string} key - A sound loaded with `loadSound`
+   * @param {object} [options]
+   * @param {number} [options.volume=1] - 0..1, scaled by the sound volume
+   * @param {number} [options.rate=1] - Playback rate; pitch follows it
+   * @returns {{setRate: (rate: number) => void, setVolume: (volume: number) => void,
+   *   stop: () => void, playing: boolean}|null} A handle, or null when the
+   *   sound is unknown
+   */
+  loop(key, options = {}) {
+    const sound = this.sounds.get(key);
+    if (!sound) return null;
+    const audio = sound.cloneNode();
+    audio.loop = true;
+    audio.preservesPitch = false;
+    let volume = options.volume ?? 1;
+    const manager = this;
+    const handle = {
+      playing: true,
+      setRate(rate) {
+        audio.playbackRate = Math.max(0.25, Math.min(4, rate));
+      },
+      setVolume(value) {
+        volume = Math.max(0, Math.min(1, value));
+        audio.volume = manager.isMuted ? 0 : volume * manager.soundVolume;
+      },
+      stop() {
+        if (!this.playing) return;
+        this.playing = false;
+        audio.pause();
+        manager.loops.delete(handle);
+      },
+      /** Re-read mute and sound volume; the manager calls it on changes. */
+      refresh() {
+        audio.volume = manager.isMuted ? 0 : volume * manager.soundVolume;
+      }
+    };
+    handle.setRate(options.rate ?? 1);
+    handle.refresh();
+    this.loops.add(handle);
+    if (this.isInitialized) {
+      audio.play().catch(error => console.warn(`Failed to loop sound ${key}:`, error));
+    } else {
+      // Before the first gesture the browser refuses; start on unlock.
+      const start = () => audio.play().catch(() => {});
+      this.pendingLoops = this.pendingLoops ?? [];
+      this.pendingLoops.push(() => { if (handle.playing) start(); });
+    }
+    return handle;
   }
 
   playMusic(key) {
@@ -109,6 +170,7 @@ export class SoundManager {
     if (this.isMuted) {
       this.stopMusic();
     }
+    for (const loop of this.loops) loop.refresh();
   }
 
   setMusicVolume(volume) {
@@ -120,5 +182,6 @@ export class SoundManager {
 
   setSoundVolume(volume) {
     this.soundVolume = Math.max(0, Math.min(1, volume));
+    for (const loop of this.loops) loop.refresh();
   }
 } 

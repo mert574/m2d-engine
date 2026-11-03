@@ -12,9 +12,11 @@ The scene makes the camera follow the entity named `Player`. To follow something
 
 ```javascript
 game.camera.follow(entity);
-game.camera.lerp = 0.1;      // fraction of the remaining distance covered per frame. 0.1 is the default
+game.camera.lerp = 0.1;      // fraction of the remaining distance covered per 60 Hz frame. 0.1 is the default
 game.camera.target = null;   // stop following
 ```
+
+`lerp` is specified against a 60 Hz frame and corrected for the actual frame length, so the follow feels the same at 30, 60 and 144 frames per second. `1` snaps to the target, `0` never moves. The engine calls `camera.update(deltaTime)` with wall time, so the camera does not slow down in slow motion; its target already does.
 
 The camera follows the target's `renderPosition`, so it moves as smoothly as the target is drawn.
 

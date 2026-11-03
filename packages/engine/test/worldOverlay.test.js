@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { createCanvasElement } from './helpers/environment.js';
+import { createCanvasElement, installWindowStub } from './helpers/environment.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { M2D } from '../src/core/m2d.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
@@ -50,11 +50,7 @@ describe('WorldOverlay', () => {
   });
 
   beforeEach(() => {
-    globalThis.window = {
-      devicePixelRatio: 1,
-      addEventListener: () => {},
-      removeEventListener: () => {}
-    };
+    installWindowStub();
   });
 
   it('is present on every game and drawn by the overlay pass', () => {

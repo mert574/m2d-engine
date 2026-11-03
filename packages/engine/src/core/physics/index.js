@@ -21,8 +21,9 @@
  *              renderPosition / renderAngle / renderBounds, grounded,
  *              bodyType / isSensor / bullet / friction / frictionAir /
  *              restitution, collisionFilter, setCollisionFilter,
- *              setPosition, setVelocity, setAngle, setNextPosition,
- *              setNextAngle, setMass, translate, applyImpulse
+ *              angularVelocity, setPosition, setVelocity, setAngle,
+ *              setAngularVelocity, setNextPosition, setNextAngle, setMass,
+ *              translate, applyImpulse
  *
  * Units and conventions — these are the contract's, not the solver's:
  *
@@ -98,6 +99,10 @@ export async function initPhysics() {
  *   bounding catch-up work after a stall.
  * @param {number} [options.timeScale] - Multiplier on elapsed time, for
  *   slow motion or for matching a previously mistuned simulation rate.
+ *   Ignored when `clock` is given.
+ * @param {import('../time.js').Time} [options.clock] - The engine's `Time`;
+ *   the world then reads its step settings, time scale and accumulator from
+ *   it so the solver and the gameplay tick cannot disagree.
  * @param {boolean} [options.interpolate] - Blend drawn transforms between
  *   steps (default true). See PhysicsBody.renderPosition.
  */

@@ -408,9 +408,13 @@ export class SettingsMenu {
     this.customItems = [];
     for (const item of options.options ?? []) this.customItems.push(item);
 
-    /** The screen is rebuilt lazily when the rows change. */
-    this.dirty = false;
-    this.screen = new SettingsScreen(this);
+    /**
+     * The screen is built on first open and rebuilt when the rows change,
+     * so rows that depend on the game's state (which scenes exist, which is
+     * showing) are decided when the menu is actually opened.
+     */
+    this.dirty = true;
+    this.screen = null;
 
     /**
      * The hotkey listener sits in the debug layer with `captureAll` rather
@@ -433,7 +437,7 @@ export class SettingsMenu {
   /** Open the menu (no-op when already open). */
   open() {
     if (this.isShowing) return;
-    if (this.dirty) {
+    if (this.dirty || !this.screen) {
       this.screen = new SettingsScreen(this);
       this.dirty = false;
     }
@@ -443,8 +447,11 @@ export class SettingsMenu {
 
   /** Close the menu (no-op when already closed). */
   close() {
-    if (!this.isShowing) return;
+    if (!this.isShowing || !this.screen) return;
     this.game.ui.remove(this.screen);
+    // Rows depend on where the game is (the main-menu row hides while the
+    // menu scene is showing), so the next open builds them fresh.
+    this.dirty = true;
   }
 
   toggle() {
@@ -565,8 +572,27 @@ export class SettingsMenu {
       else items.push(placed);
     }
 
+    // Every game with a main menu can get back to it from here. The scene
+    // is named by convention (`mainMenu`, the same one the game-over screen
+    // returns to); the row hides when there is none, or when it is showing.
+    const menuScene = 'mainMenu';
+    const inMenu = game.sceneManager?.getCurrentScene()?.config?.name === menuScene;
+    if (game.sceneManager?.has?.(menuScene) && !inMenu) {
+      items.push({
+        gap: 10,
+        label: 'Main menu',
+        value: () => '→',
+        activate: () => {
+          this.close();
+          Promise.resolve(game.sceneManager.switchTo(menuScene))
+            .catch((error) => console.error('Settings: cannot switch to the main menu', error));
+        },
+        description: 'Leave the game and return to the main menu.'
+      });
+    }
+
     items.push({
-      gap: 10,
+      gap: inMenu || !game.sceneManager?.has?.(menuScene) ? 10 : 0,
       label: 'Close',
       value: () => `(${game.input.keyLabel(this.hotkey)})`,
       activate: () => this.close(),

@@ -13,9 +13,9 @@ export class Health extends Constraint {
     this.showBar = options.showBar ?? true;
   }
 
-  update(deltaTime) {
+  fixedUpdate(dt) {
     if (this.invulnerableTime > 0) {
-      this.invulnerableTime -= deltaTime;
+      this.invulnerableTime -= dt;
     }
   }
 

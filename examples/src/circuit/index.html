@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M2D - Night Circuit Example</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    body {
+      display: grid;
+      justify-items: center;
+      align-items: center;
+      background-color: #0b0d1c;
+    }
+
+    /*
+     * The engine letterboxes internally and sets canvas.width/height from the
+     * element's measured size, so the element needs a CSS size of its own -
+     * sizing from its own attributes would feed the resize observer.
+     */
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="gameCanvas" width="1280" height="720"></canvas>
+  <script type="module" src="./main.js"></script>
+</body>
+
+</html>

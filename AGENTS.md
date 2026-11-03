@@ -32,6 +32,7 @@ behaviour, update the page that covers it in the same change, following
 | UI components | `docs/guide/ui.md`, `docs/reference/ui.md` |
 | Developer console, cvars, commands | `docs/reference/console.md` |
 | Sprites, sound, game loop, building | `docs/guide/sprites.md`, `docs/guide/sound.md`, `docs/guide/game-loop.md`, `docs/guide/building.md` |
+| Clocks, the simulation tick, pause, time scale, timers | `docs/guide/time.md` |
 | Engine options and instance API | `docs/reference/engine-options.md` |
 | Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
 | Example games and music credits | `docs/examples/index.md`, `docs/examples/music-credits.md` |
@@ -63,7 +64,15 @@ npx playwright install chromium   # once, for test:browser
   lives in the backend.
 - Nothing outside `packages/engine/src/core/input/` registers a DOM input
   listener, except the sound manager's one-shot autoplay unlock.
-- Units are pixels, seconds and radians. Timers and movement use `deltaTime`.
+- Units are pixels, seconds and radians.
+- Simulation state changes only in `fixedUpdate(dt)` (entities, constraints),
+  `onFixedUpdate(dt)` (scenes), `game.time` timers and collision handlers.
+  The per-frame `update(deltaTime)` is presentation only. Simulation code
+  reads input from `game.input.snapshot` and random numbers from `game.rng`.
+  Nothing in game code reads `performance.now()`, calls `setTimeout` or uses
+  `Math.random()` for anything the simulation sees.
+- `test/determinism.test.js` must keep passing: the same scene at 30, 60 and
+  144 fps ends in bit-identical state.
 - Draw with `renderPosition` and `renderAngle`. Use `position` for logic.
 - Annotations about an entity go through `game.worldOverlay`.
 - A new scene JSON field goes into the key lists at the top of

@@ -214,17 +214,29 @@ class MazePlayer extends Entity {
   }
 }
 
-/** When the maze is solved: shows the banner and sends the player back. */
-let solvedAt = 0;
+/** The banner in the current scene's UI, or null between scenes. */
+let solvedBanner = null;
 
-/** Screen-space "solved" banner, shown for a couple of seconds. */
+/**
+ * Screen-space "solved" banner, shown for a couple of seconds of game time.
+ * A game-time timer hides it, so it waits out a pause instead of expiring
+ * behind the menu.
+ */
 class SolvedBanner extends UIElement {
   constructor() {
     super({ anchor: 'top', y: 60 });
+    this.shown = false;
+    this.hide = null;
+  }
+
+  show() {
+    this.shown = true;
+    this.hide?.cancel();
+    this.hide = this.game.time.after(2.5, () => { this.shown = false; });
   }
 
   draw() {
-    if (!solvedAt || performance.now() - solvedAt > 2500) return;
+    if (!this.shown) return;
     this.paint.drawText({
       text: 'Found the door. Back to the start...',
       x: this.x, y: this.y,
@@ -251,7 +263,7 @@ class Goal extends Entity {
   onCollisionStart(other) {
     super.onCollisionStart(other);
     if (other.entity?.name !== 'Player') return;
-    solvedAt = performance.now();
+    solvedBanner?.show();
     this.game.soundManager.playSound('solved');
     other.entity.resetTrail?.();
     this.game.player.body.setPosition({ x: START.x, y: START.y });
@@ -366,13 +378,14 @@ game.sceneManager.addScene('maze', {
   onEnter() {
     game.soundManager.playMusic('game');
     const scene = game.sceneManager.getCurrentScene();
-    scene.ui.add(new SolvedBanner());
+    solvedBanner = scene.ui.add(new SolvedBanner());
     backdrop = new SurveyBackdrop(game, scene.spriteSheets.get('floor'));
     backdrop.applyAtmosphere();
   },
   onExit() {
     backdrop?.clearAtmosphere();
     backdrop = null;
+    solvedBanner = null;
   },
   onDrawBackground() {
     backdrop?.drawBackground();

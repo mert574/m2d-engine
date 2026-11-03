@@ -133,6 +133,14 @@ void main() {
   float d = length(v_uv);
   float falloff = clamp(1.0 - d, 0.0, 1.0);
   falloff *= falloff;
+  // Spot lights carry cos(half-cone) in the colour's alpha; point lights a
+  // sentinel of 2.0 (no cosine reaches it). The quad is rotated so local +x
+  // is the beam, making the cone test a dot against (1, 0).
+  if (v_color.a < 1.5) {
+    float along = v_uv.x / max(d, 1e-4);
+    float edge = mix(v_color.a, 1.0, 0.55);
+    falloff *= smoothstep(v_color.a, edge, along);
+  }
   fragColor = vec4(v_color.rgb * falloff, 1.0);
 }
 `;

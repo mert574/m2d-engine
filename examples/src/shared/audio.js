@@ -1,5 +1,7 @@
 /**
- * The demos' audio: all of it sampled, none of it generated here.
+ * The demos' audio: sampled, with one deliberate exception — the circuit's
+ * electric motor whine is synthesised in `circuit/evSound.js`, because an
+ * EV's note is pure tones that must slide with speed.
  *
  * Music is from the IDMf netlabel's first compilation, *InDepthMelodics*
  * (CC BY 3.0), one pair of tracks per demo so each has its own room tone.
@@ -17,6 +19,7 @@ export { default as november } from './music/chaoticpulse-november.ogg';
 export { default as symmetricalTree } from './music/binarypulse-symmetrical-tree.ogg';
 export { default as redux } from './music/halogen-redux.ogg';
 export { default as g2Remix } from './music/gbsr-g2-cockboymattt-remix.ogg';
+export { default as longingForRain } from './music/evelon-longing-for-rain.ogg';
 
 /**
  * The Audio row every demo adds to its settings panel — the one game-side

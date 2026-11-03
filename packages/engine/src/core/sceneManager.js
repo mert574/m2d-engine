@@ -66,4 +66,9 @@ export class SceneManager {
   getCurrentScene() {
     return this.currentScene;
   }
+
+  /** Whether a scene is registered, loaded or not. */
+  has(sceneName) {
+    return this.scenes.has(sceneName) || this.scenesToLoad.some((s) => s.name === sceneName);
+  }
 }

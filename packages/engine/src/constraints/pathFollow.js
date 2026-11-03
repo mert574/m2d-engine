@@ -49,11 +49,11 @@ export class PathFollow extends Constraint {
     this.entity.body.setVelocity({ x: 0, y: 0 });
   }
 
-  update(deltaTime) {
+  fixedUpdate(dt) {
     if (this.points.length < 2) return;
 
     if (this.waitLeft > 0) {
-      this.waitLeft -= deltaTime;
+      this.waitLeft -= dt;
       if (this.waitLeft <= 0) {
         this.currentPoint = (this.currentPoint + 1) % this.points.length;
       }
@@ -76,7 +76,7 @@ export class PathFollow extends Constraint {
 
     this.currentSpeed = Math.min(
       this.speed,
-      this.currentSpeed + this.acceleration * deltaTime,
+      this.currentSpeed + this.acceleration * dt,
       Math.sqrt(2 * this.acceleration * distance)
     );
     this.entity.body.setVelocity({

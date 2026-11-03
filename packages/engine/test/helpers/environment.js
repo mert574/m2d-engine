@@ -47,6 +47,29 @@ if (hasDOM) {
 }
 
 /**
+ * Install a `window` global for tests that construct an M2D headlessly.
+ *
+ * Rapier's WASM glue reads its clock through `window.performance` whenever
+ * a `window` exists, and a stub without it makes the first physics step
+ * panic ("RuntimeError: unreachable") and poisons the module for the rest
+ * of the worker. So the stub always carries the real `performance`. A test
+ * that needs to observe listener traffic passes overrides.
+ *
+ * @param {object} [overrides]
+ * @returns {object} The installed stub
+ */
+export function installWindowStub(overrides = {}) {
+  globalThis.window = {
+    devicePixelRatio: 1,
+    performance: globalThis.performance,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    ...overrides
+  };
+  return globalThis.window;
+}
+
+/**
  * Read back a 2D canvas as raw RGBA, top-left origin.
  * @param {HTMLCanvasElement} target
  * @returns {{width: number, height: number, data: Uint8ClampedArray}}

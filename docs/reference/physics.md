@@ -51,11 +51,11 @@ A created body is not simulated until `add`. All three creators accept the same 
 | `reset()` | Remove every body and rebuild the world. Collision handlers and gravity are kept and the step accumulator is cleared |
 | `destroy()` | Free the WASM world and drop the collision handlers |
 | `setGravity({ x, y })`, `gravity` | Gravity in px/s². Setting it wakes every sleeping body |
-| `advance(elapsed)` | Spend `elapsed` seconds in fixed steps. Returns the number of steps taken |
-| `step(dt)` | Run one step of `dt` seconds. For tests and games driving physics themselves |
+| `advance(elapsed)` | Spend `elapsed` seconds in fixed steps. Returns the number of steps taken. Physics only; the engine loop steps physics from `game.fixedUpdate` instead, once per simulation tick |
+| `step(dt)` | Run one step of `dt` seconds. `game.fixedUpdate` calls it once per tick |
 | `interpolation` | Where the current frame sits between the last two steps, 0 to 1. Always 1 when `interpolate` is off |
 | `setCollisionHandlers({ onStart, onEnd })` | Install contact callbacks, replacing the current ones. Each receives the two bodies. The engine installs handlers that call the entities' `onCollisionStart` and `onCollisionEnd`, and reinstalls them in `start()` and `reset()` |
-| `fixedTimestep`, `maxSubSteps`, `timeScale`, `interpolate` | The stepping settings, from the engine options |
+| `fixedTimestep`, `maxSubSteps`, `timeScale`, `accumulator`, `interpolate` | The stepping settings. Inside the engine the first four are `game.time`'s; writing either side changes both |
 
 ## Queries
 
@@ -99,6 +99,7 @@ Bodies added or moved by game code since the last step are included in query res
 | `setPosition({ x, y })` | Teleport. Resets interpolation and carries no riders |
 | `setAngle(angle)` | Teleport rotation |
 | `translate({ x, y })` | Teleport by an offset |
+| `angularVelocity`, `setAngularVelocity(omega)` | Spin in rad/s. On a dynamic body the solver keeps integrating it, so contacts still knock the heading around between writes |
 | `setVelocity({ x, y })` | Set velocity. For kinematic and character bodies this is the movement command |
 | `setNextPosition({ x, y })` | Kinematic only. Move to the point on the next step, carrying riders |
 | `setNextAngle(angle)` | Kinematic only |

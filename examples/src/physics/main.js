@@ -174,7 +174,7 @@ function spawn(x, y) {
   const scene = game.sceneManager.getCurrentScene();
   if (game.sceneManager.loading || !scene || scene.config.name !== 'physics') return;
 
-  const isBox = Math.random() > 0.5;
+  const isBox = game.rng.chance(0.5);
   const size = isBox ? 64 : 32;
   // Spawning goes straight to createEntity rather than through a prefab, so
   // the body spec has to be spelled out here to match the prefabs above.
@@ -189,7 +189,7 @@ function spawn(x, y) {
 }
 
 game.input.on('keydown', (event) => {
-  if (event.code === 'Space') spawn(120 + Math.random() * 720, 40);
+  if (event.code === 'Space') spawn(game.rng.range(120, 840), 40);
 });
 
 // Click empty space to spawn; existing bodies remain available to grab.

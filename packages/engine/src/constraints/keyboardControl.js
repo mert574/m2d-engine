@@ -51,10 +51,13 @@ export class KeyboardControl extends Constraint {
     this.onAttack = options.onAttack?.bind(entity);
   }
 
-  update(deltaTime) {
+  fixedUpdate(dt) {
     if (this.entity.dead) return;
 
-    const input = this.entity.game.input;
+    // The snapshot taken for this tick, not the live keyboard: every tick
+    // in a frame sees the same held keys, and a press edge reaches exactly
+    // one tick. See InputManager.sample.
+    const input = this.entity.game.input.snapshot;
     let dx = input.axis(this.keys.left, this.keys.right);
     let dy = this.verticalMovement ? input.axis(this.keys.up, this.keys.down) : 0;
 
@@ -91,9 +94,8 @@ export class KeyboardControl extends Constraint {
 
     if (dx !== 0 || dy !== 0) {
       if (this.continuous) {
-        // Apply velocity change directly scaled by deltaTime for frame-rate independence
         const currentVel = relative();
-        const accel = this.acceleration * deltaTime;
+        const accel = this.acceleration * dt;
         this.entity.body.setVelocity({
           x: frame.x + currentVel.x + dx * accel,
           y: frame.y + currentVel.y + dy * accel
@@ -111,7 +113,7 @@ export class KeyboardControl extends Constraint {
       // friction, and braking it here would fight the friction carrying it.
       const velocity = relative();
       if (velocity.x !== 0) {
-        const brake = this.deceleration * deltaTime;
+        const brake = this.deceleration * dt;
         const x = Math.abs(velocity.x) <= brake
           ? 0
           : velocity.x - Math.sign(velocity.x) * brake;

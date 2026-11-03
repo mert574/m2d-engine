@@ -55,13 +55,13 @@ No solver unit appears outside the physics module.
 
 ## Fixed timestep
 
-The simulation advances in steps of a fixed length, 1/60 s by default, regardless of frame rate. Each frame the engine spends the elapsed time in whole steps and carries the remainder. At most `maxSubSteps` steps run per frame. When a frame owes more than that, the rest is dropped, so a long stall cannot cascade.
+The simulation advances in ticks of a fixed length, 1/60 s by default, regardless of frame rate. Each frame the engine spends the elapsed game time in whole ticks and carries the remainder. At most `maxSubSteps` ticks run per frame. When a frame owes more than that, the rest is dropped, so a long stall cannot cascade.
 
-Entity `update(deltaTime)` still receives real frame time, because animations and timers want wall-clock seconds.
+Physics steps once per tick, after every entity's `fixedUpdate`, so gameplay and the solver always see the same `dt` and run in the same order. Entity `update(deltaTime)` runs per frame for presentation. See [Time, ticks and timers](./time#the-simulation-tick).
 
 Because a 144 Hz display shows several frames per physics step, drawing the raw body position would stair-step. `renderPosition` and `renderAngle` blend between the last two steps and are what `draw` should use. Direct moves through `setPosition`, `setAngle` and `translate` reset the blend, so a teleport is never smeared.
 
-The `fixedTimestep`, `maxSubSteps`, `physicsTimeScale` and `interpolatePhysics` [engine options](../reference/engine-options) control this.
+The `fixedTimestep`, `maxSubSteps`, `timeScale` and `interpolatePhysics` [engine options](../reference/engine-options) control this. The first three live on `game.time`; the physics world reads them from there.
 
 ## Fast movers
 

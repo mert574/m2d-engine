@@ -103,9 +103,23 @@ For what changes on a touchscreen and how to build on-screen controls, see [Touc
 
 `game.input.push(record)` queues an input record as if it came from the browser, and `game.input.flush()` delivers everything queued. On-screen touch controls, replays and tests use it. The record shape is documented in `packages/engine/src/core/input/pointerSource.js`.
 
+## Input in the tick
+
+Simulation code reads `game.input.snapshot`, a copy of the keyboard and pointer state taken at the start of every simulation tick. It has the same `isDown`, `justPressed`, `justReleased`, `axis` and `vector` methods and a `pointer` with `ui`, `world`, `isDown`, `buttons` and `type`. Every tick in a frame sees the same held keys, and a press or release edge reaches exactly one tick, so a frame that runs two ticks to catch up cannot fire a jump twice. `KeyboardControl` reads the snapshot. Code outside the tick, such as a UI element or a scene `onUpdate`, keeps reading `game.input` directly.
+
+```javascript
+fixedUpdate(dt) {
+  const input = this.game.input.snapshot;
+  if (input.justPressed('Space')) this.jump();
+  const move = input.vector('KeyW', 'KeyS', 'KeyA', 'KeyD');
+}
+```
+
+Because every tick reads one snapshot, recording them (`snapshot.toJSON()`) and feeding them back through `game.input.setSnapshotSource(fn)` replays the simulation exactly: the recording drives the game through the same seam the keyboard does. The circuit example's lap replays are this and nothing more.
+
 ## Replacing the engine loop
 
-A game that runs its own `requestAnimationFrame` loop must call `game.input.beginFrame(now)` at the start of each frame and `game.input.endFrame()` at the end. `beginFrame` delivers buffered pointer moves and fires time-based gestures. `endFrame` retires the `justPressed` and `justReleased` edges. See [Game loop](./game-loop).
+A game that runs its own `requestAnimationFrame` loop must call `game.input.beginFrame(now)` at the start of each frame and `game.input.endFrame()` at the end. `beginFrame` delivers buffered pointer moves and fires time-based gestures. `endFrame` retires the `justPressed` and `justReleased` edges. `game.fixedUpdate` samples the snapshot; a loop that runs ticks some other way calls `game.input.sample()` itself at the start of each. See [Game loop](./game-loop).
 
 ## Demo source
 

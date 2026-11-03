@@ -56,6 +56,8 @@ export class Bee extends Entity {
     }));
   }
 
+  // Presentation only: the walk cycle. Movement, chasing and damage are in
+  // the constraints' fixedUpdate, reached through super.fixedUpdate.
   update(deltaTime) {
     if (this.dead) return;
     super.update(deltaTime);

@@ -106,6 +106,7 @@ export const OPTIONAL_CAPABILITIES = Object.freeze({
   blendModes: false,
   particles: false,
   lights: false,
+  lightShadows: false,
   postEffects: false
 });
 
@@ -373,15 +374,61 @@ export class BaseRenderer {
    * Lights are cleared at `beginFrame`, so they are submitted every frame
    * like any other draw. No-op unless the backend claims `lights` and an
    * ambient has been set.
+   * A light is a disc by default. Give it `angle` and `cone` and it is a
+   * spot: full brightness inside the cone, falling to nothing at its edge,
+   * still bounded by `radius` — a headlight, a street lamp, a beacon sweep.
+   *
+   * `shadows: true` makes this light cast shadows: geometry submitted with
+   * `drawShadowCaster` this frame blocks it, and everything behind that
+   * geometry stays at ambient. Needs the `lightShadows` capability; without
+   * it the flag is ignored and the light shines through.
+   *
    * @param {Object} options - Light options
    * @param {number} options.x - Centre X
    * @param {number} options.y - Centre Y
    * @param {number} options.radius - Radius at which the light reaches zero
    * @param {string} [options.color='#ffffff'] - Light colour
-   * @param {number} [options.intensity=1] - Brightness multiplier
+   * @param {number} [options.intensity=1] - Brightness multiplier. Values
+   *   above 1 push the lit area past the scene's own brightness, which is
+   *   what feeds bloom
+   * @param {number} [options.angle] - Spot direction, radians
+   * @param {number} [options.cone] - Spot width: the full apex angle in
+   *   radians. Omit both for a plain disc
+   * @param {boolean} [options.shadows=false] - Occluded by shadow casters
+   * @param {number} [options.z=0] - How high the light hangs, in any unit
+   *   the game likes. A caster only blocks lights at or below its own `z`,
+   *   so a street lamp at 1 clears a barrier at 0.3 while a headlight at
+   *   0.2 does not
    * @param {boolean} [options.isScreenSpace=false] - Position in screen space
    */
   drawLight(options) {}
+
+  /**
+   * Submit geometry that blocks shadowed lights this frame.
+   *
+   * A caster is flat scenery in light's way: a wall, a crate, a tree trunk.
+   * Every light drawn with `shadows: true` treats the shape's silhouette as
+   * opaque, so the area behind it (as seen from that light) stays at
+   * ambient — which is what lets a wall in one layer throw a shadow across
+   * the ground drawn beneath it. Casters are cleared at `beginFrame` and
+   * submitted per frame, exactly like lights.
+   *
+   * No-op unless the backend claims `lightShadows`.
+   *
+   * @param {Object} options - One of three shapes:
+   * @param {Array<{x: number, y: number}>} [options.points] - A polygon, in
+   *   order (either winding), at least three points
+   * @param {number} [options.x] - Rect/circle centre X
+   * @param {number} [options.y] - Rect/circle centre Y
+   * @param {number} [options.width] - Rect width (with `height`)
+   * @param {number} [options.height] - Rect height
+   * @param {number} [options.rotation=0] - Rect rotation, radians
+   * @param {number} [options.radius] - Circle radius (approximated as an
+   *   octagon)
+   * @param {number} [options.z=Infinity] - How tall the caster is. It
+   *   blocks lights whose `z` is at most this; the default blocks all
+   */
+  drawShadowCaster(options) {}
 
   /**
    * Configure the full-screen post pass, or pass `null` to disable it.

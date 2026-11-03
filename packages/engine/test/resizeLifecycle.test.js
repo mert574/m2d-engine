@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { createCanvasElement } from './helpers/environment.js';
+import { createCanvasElement, installWindowStub } from './helpers/environment.js';
 import { M2D } from '../src/core/m2d.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
 import { pointerAtClient } from './helpers/input.js';
@@ -37,11 +37,7 @@ describe('resize lifecycle', () => {
   });
 
   beforeEach(() => {
-    globalThis.window = {
-      devicePixelRatio: 1,
-      addEventListener: () => {},
-      removeEventListener: () => {}
-    };
+    installWindowStub();
   });
 
   describe('camera coordinates', () => {
@@ -276,11 +272,7 @@ describe('resize lifecycle', () => {
   describe('teardown', () => {
     it('removes the display listeners it registered', () => {
       const removals = [];
-      globalThis.window = {
-        devicePixelRatio: 1,
-        addEventListener: () => {},
-        removeEventListener: (type) => removals.push(type)
-      };
+      installWindowStub({ removeEventListener: (type) => removals.push(type) });
       const added = [];
       globalThis.document.addEventListener = (type) => added.push(type);
       globalThis.document.removeEventListener = (type) => removals.push(type);

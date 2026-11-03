@@ -41,3 +41,6 @@ yarn-error.log*
 
 # Licensed demo textures (credits in THIRD_PARTY_NOTICES.md)
 !/examples/src/*/textures/*.jpg
+!/examples/src/*/textures/*.png
+# Licensed demo sound loops (credits in THIRD_PARTY_NOTICES.md)
+!/examples/src/*/sounds/*.wav

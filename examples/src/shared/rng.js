@@ -1,26 +1,15 @@
 /**
- * Deterministic RNG (mulberry32).
+ * Deterministic RNG for the examples' presentation layers.
  *
- * Shared by every example. The showcase doubles as the renderer comparison
- * harness, so the same seed must lay out the same scene on every backend and
- * every run; the menu backdrops use it so a menu looks the same every time it
- * opens. Math.random() would make the first incomparable and the second
- * flicker between visits.
- *
- * @param {number} seed - Seed value
- * @returns {() => number} Generator returning floats in [0, 1)
+ * The generator itself is the engine's (`m2d-engine/core/rng.js`,
+ * mulberry32). Simulation code draws from `game.rng`, which the engine
+ * seeds and reseeds. These helpers are for the examples' backdrops and
+ * decorative actors, which want their own fixed seeds: the showcase doubles
+ * as the renderer comparison harness, so the same seed must lay out the
+ * same scene on every backend and every run, and a menu backdrop should
+ * look the same every time it opens.
  */
-export function makeRng(seed) {
-  let state = seed >>> 0;
-
-  return function next() {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+export { makeRng } from 'm2d-engine/core/rng.js';
 
 /**
  * Random float in a range.

@@ -82,6 +82,9 @@ export class Scene {
     this.game.layers.clear();
     this.game.player = null;
     this.ui.clear();
+    // A fresh scene starts its random sequence over, so the same level with
+    // the same seed plays the same every time it is entered.
+    this.game.rng?.reseed(this.game.options.seed ?? this.game.rng.seed);
 
     if (this.config.world) {
       if (this.config.world.gravity) {
@@ -281,24 +284,53 @@ export class Scene {
 
     // The elements the router was hit-testing no longer exist.
     this.game.input.setUIContainer(null);
+
+    // Nor do the entities a scheduled callback would have reached into.
+    // Timers belong to the scene that armed them; one meant to outlive a
+    // switch is armed again by the next scene's onEnter.
+    this.game.time?.clear();
   }
 
-  update(deltaTime) {
+  /**
+   * One simulation tick, before the physics step. Entities and the scene's
+   * `onFixedUpdate` hook run here with the constant dt; it is the only
+   * place scene-level code should change the game's state.
+   * @param {number} dt - Seconds; always `game.time.fixedTimestep`.
+   */
+  fixedUpdate(dt) {
     if (this.config.type === 'level') {
-      // Physics is stepped once per frame by the engine loop, on its own
-      // fixed-step clock. This runs the entity-side update that follows it.
-      if (this.game.player && 
+      if (this.game.player &&
           this.game.player.body.position.y > this.game.options.worldHeight + 50) {
         console.log('Game Over!');
         this.game.gameOver();
         return;
       }
 
-      // The camera is updated by the engine loop before this runs.
+      // A copy: a tick may remove entities (a death, a projectile hit) or
+      // add them (a spawner), and the set must not change under the loop.
+      for (const entity of [...this.game.entities]) entity.fixedUpdate(dt);
+    }
+
+    // Scene-level simulation that is not an entity: a director spawning
+    // waves, a win condition.
+    if (this.config.onFixedUpdate) {
+      this.config.onFixedUpdate(dt);
+    }
+  }
+
+  /**
+   * One frame of presentation, after the ticks and before drawing: entity
+   * animation and the scene's `onUpdate` hook, with the frame's game-time
+   * delta. Skipped while paused.
+   * @param {number} deltaTime - Seconds of game time this frame.
+   */
+  update(deltaTime) {
+    if (this.config.type === 'level') {
       this.game.entities.forEach(entity => entity.update(deltaTime));
     }
 
-    // Scene-level simulation that is not an entity (bulk effects, directors).
+    // Scene-level presentation that is not an entity (a sky, a particle
+    // layer). Simulation goes in onFixedUpdate.
     if (this.config.onUpdate) {
       this.config.onUpdate(deltaTime);
     }

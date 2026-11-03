@@ -26,6 +26,8 @@ export class DamageFlash extends Constraint {
     this.timeLeft = this.duration;
   }
 
+  // Presentation: the flash is drawn, never consulted by the simulation, so
+  // it counts the frame's game-time delta rather than the tick.
   update(deltaTime) {
     if (this.timeLeft > 0) this.timeLeft -= deltaTime;
   }

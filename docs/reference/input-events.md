@@ -21,6 +21,11 @@
 | `push(record)` | Queue a synthetic input record |
 | `flush()` | Deliver everything queued |
 | `beginFrame(now)`, `endFrame()` | Per-frame bookkeeping for games that run their own loop |
+| `sample()` | Capture the keyboard and pointer state as the `snapshot` for one simulation tick. `game.fixedUpdate` calls it. Press and release edges go to the first sample of a frame only |
+| `setSnapshotSource(fn)` | Replace the devices as what `sample()` reads: `fn` returns an `InputSnapshot`, plain `toJSON()` output, or null for nothing held. The seam a replay feeds recorded ticks through. Pass `null` to give the devices back |
+| `snapshot` | The last sample: an immutable object with `isDown`, `justPressed`, `justReleased`, `axis`, `vector` and a `pointer` holding `ui`, `world`, `isDown`, `buttons` and `type`. What simulation code reads. See [Input in the tick](../guide/input#input-in-the-tick) |
+
+`InputSnapshot` (from `core/input/inputManager.js`) serialises: `toJSON()` returns plain data and `InputSnapshot.from(json)` rebuilds it, so a recording is `JSON.stringify` away. The circuit example records one snapshot per tick and replays whole laps through `setSnapshotSource`.
 
 ### `game.input.pointer`
 

@@ -47,11 +47,11 @@ export class Projectile extends Entity {
     this.body.setVelocity(velocity);
   }
 
-  update(deltaTime) {
+  fixedUpdate(dt) {
     if (this.dead) return;
-    super.update(deltaTime);
+    super.fixedUpdate(dt);
 
-    this.lifetime += deltaTime;
+    this.lifetime += dt;
     if (this.lifetime >= this.maxLifetime) {
       this.destroy();
       return;

@@ -158,6 +158,7 @@ export class RapierBody {
       y: spec.y,
       angle: spec.angle ?? 0,
       velocity: { x: 0, y: 0 },
+      angularVelocity: 0,
       bodyType: spec.bodyType ?? 'dynamic',
       lockRotation: spec.lockRotation ?? false,
       isSensor: spec.isSensor ?? false,
@@ -233,6 +234,7 @@ export class RapierBody {
       .setTranslation(s.x, s.y)
       .setRotation(s.angle)
       .setLinvel(s.velocity.x, s.velocity.y)
+      .setAngvel(s.angularVelocity)
       .setLinearDamping(frictionAirToDamping(s.frictionAir))
       .setCcdEnabled(s.bullet);
     // For velocity-driven actors whose sprites never rotate: contact
@@ -286,6 +288,7 @@ export class RapierBody {
     s.x = t.x;
     s.y = t.y;
     s.angle = this.rigidBody.rotation();
+    if (s.bodyType !== 'character') s.angularVelocity = this.rigidBody.angvel();
     // A character's velocity is its intent, already live in the spec; a
     // solver-driven body's lives in the rigid body.
     if (s.bodyType !== 'character') {
@@ -540,6 +543,28 @@ export class RapierBody {
       this.rigidBody.setLinvel(velocity, true);
     } else {
       this.spec.velocity = { x: velocity.x, y: velocity.y };
+    }
+  }
+
+  /**
+   * Spin, rad/s. On a dynamic body the solver keeps integrating it, so
+   * contacts still knock the heading around between writes — which is what
+   * a steering model that sets it every tick wants.
+   * @type {number}
+   */
+  get angularVelocity() {
+    if (!this.rigidBody || this.spec.bodyType === 'character') {
+      return this.spec.angularVelocity;
+    }
+    return this.rigidBody.angvel();
+  }
+
+  /** @param {number} omega - rad/s. */
+  setAngularVelocity(omega) {
+    if (this.rigidBody && this.spec.bodyType !== 'character') {
+      this.rigidBody.setAngvel(omega, true);
+    } else {
+      this.spec.angularVelocity = omega;
     }
   }
 

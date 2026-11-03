@@ -40,12 +40,15 @@ export class WebGLRenderer extends BaseRenderer {
     this.capabilities.blendModes = true;
     this.capabilities.particles = true;
     this.capabilities.lights = true;
+    this.capabilities.lightShadows = true;
     this.capabilities.postEffects = true;
 
     /** Ambient light colour, or null when lighting is off. */
     this.ambientLight = null;
     /** Lights submitted this frame, cleared at beginFrame. */
     this.lights = [];
+    /** Light-blocking polygons submitted this frame, cleared with the lights. */
+    this.shadowCasters = [];
     /** Post-effect configuration, or null. */
     this.postEffects = null;
     /** Which framebuffer world/screen draws currently belong to. */
@@ -254,6 +257,7 @@ export class WebGLRenderer extends BaseRenderer {
     this.cameraMatrix = mat.identity();
     this.worldMatrix = mat.identity();
     this.lights.length = 0;
+    this.shadowCasters.length = 0;
     this.#resetStencil();
 
     // The world needs to end up in a texture rather than straight on screen
@@ -281,7 +285,7 @@ export class WebGLRenderer extends BaseRenderer {
       const content = this.#contentRect();
       if (this.#effectsActive) {
         const ambient = this.ambientLight ? parseColor(this.ambientLight) : [1, 1, 1, 1];
-        this.stats.drawCalls += this.effectsPass.drawLights(this.lights, ambient);
+        this.stats.drawCalls += this.effectsPass.drawLights(this.lights, ambient, this.shadowCasters);
         this.stats.drawCalls += this.effectsPass.composite(this.postEffects, content);
       } else {
         // Resolution alone: scale the world surface up to its content rect and
@@ -713,16 +717,67 @@ export class WebGLRenderer extends BaseRenderer {
 
   drawLight(options) {
     if (!this.#ready || !this.#effectsActive) return;
-    const { x, y, radius, color = '#ffffff', intensity = 1 } = options;
+    const { x, y, radius, color = '#ffffff', intensity = 1, angle, cone, shadows = false, z = 0 } = options;
     const m = this.#matrixFor(options);
     const [sx, sy] = mat.apply(m, x, y);
-    this.lights.push({
+    const light = {
       x: sx,
       y: sy,
       radius: radius * mat.maxScale(m),
       color: parseColor(color),
-      intensity
-    });
+      intensity,
+      shadows,
+      z
+    };
+    if (cone !== undefined && angle !== undefined) {
+      // The matrix may itself rotate; the beam turns with it.
+      light.angle = angle + Math.atan2(m[1], m[0]);
+      // cos(half-cone), what the shader compares against. Clamped away from
+      // a degenerate full-circle "spot".
+      light.cosCone = Math.cos(Math.min(Math.PI - 0.01, Math.max(0.02, cone)) / 2);
+    }
+    this.lights.push(light);
+  }
+
+  drawShadowCaster(options) {
+    if (!this.#ready || !this.#effectsActive) return;
+    const m = this.#matrixFor(options);
+    let points;
+    if (options.points) {
+      points = options.points;
+    } else if (options.radius !== undefined) {
+      // A circle as an octagon: plenty for a silhouette nobody sees directly.
+      const { x, y, radius } = options;
+      points = [];
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        points.push({ x: x + Math.cos(a) * radius, y: y + Math.sin(a) * radius });
+      }
+    } else {
+      const { x, y, width, height, rotation = 0 } = options;
+      const c = Math.cos(rotation);
+      const sn = Math.sin(rotation);
+      const hw = width / 2;
+      const hh = height / 2;
+      points = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([px, py]) => ({
+        x: x + px * c - py * sn,
+        y: y + px * sn + py * c
+      }));
+    }
+    if (points.length < 3) return;
+
+    const flat = new Float32Array(points.length * 2);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const [px, py] = mat.apply(m, points[i].x, points[i].y);
+      flat[i * 2] = px;
+      flat[i * 2 + 1] = py;
+      if (px < minX) minX = px;
+      if (py < minY) minY = py;
+      if (px > maxX) maxX = px;
+      if (py > maxY) maxY = py;
+    }
+    this.shadowCasters.push({ points: flat, minX, minY, maxX, maxY, z: options.z ?? Infinity });
   }
 
   /** Whether this frame routes the world pass through the effects target. */

@@ -52,6 +52,105 @@ import { InputRouter } from './router.js';
 
 const NO_MODIFIERS = Object.freeze({ shift: false, ctrl: false, alt: false, meta: false });
 
+/**
+ * Immutable input state for one simulation tick. The same reading API as
+ * the live keyboard, over a copy taken by `InputManager.sample`.
+ */
+export class InputSnapshot {
+  /**
+   * @param {object} state
+   * @param {Set<string>} state.down
+   * @param {Set<string>} state.pressed
+   * @param {Set<string>} state.released
+   * @param {object} state.pointer
+   */
+  constructor({ down, pressed, released, pointer }) {
+    this.down = down;
+    this.pressed = pressed;
+    this.released = released;
+    /** `{ ui, world, isDown, buttons, type }` as of the sample. */
+    this.pointer = pointer;
+    Object.freeze(this);
+  }
+
+  /** Nothing held, nothing pressed, pointer at the origin. */
+  static empty() {
+    return new InputSnapshot({
+      down: new Set(),
+      pressed: new Set(),
+      released: new Set(),
+      pointer: { ui: { x: 0, y: 0 }, world: { x: 0, y: 0 }, isDown: false, buttons: 0, type: 'mouse' }
+    });
+  }
+
+  /**
+   * The snapshot as plain JSON, for recording a tick's input. Everything a
+   * replay needs to reproduce the tick: `JSON.stringify` works directly on
+   * an array of these, and `InputSnapshot.from` turns them back.
+   */
+  toJSON() {
+    return {
+      down: [...this.down],
+      pressed: [...this.pressed],
+      released: [...this.released],
+      pointer: {
+        ui: { x: this.pointer.ui.x, y: this.pointer.ui.y },
+        world: { x: this.pointer.world.x, y: this.pointer.world.y },
+        isDown: this.pointer.isDown,
+        buttons: this.pointer.buttons,
+        type: this.pointer.type
+      }
+    };
+  }
+
+  /**
+   * Rebuild a snapshot from `toJSON` output (or anything shaped like it —
+   * a recorder that only stores key codes can omit the rest).
+   * @param {object} json
+   * @returns {InputSnapshot}
+   */
+  static from(json = {}) {
+    const pointer = json.pointer ?? {};
+    return new InputSnapshot({
+      down: new Set(json.down ?? []),
+      pressed: new Set(json.pressed ?? []),
+      released: new Set(json.released ?? []),
+      pointer: {
+        ui: { x: pointer.ui?.x ?? 0, y: pointer.ui?.y ?? 0 },
+        world: { x: pointer.world?.x ?? 0, y: pointer.world?.y ?? 0 },
+        isDown: pointer.isDown ?? false,
+        buttons: pointer.buttons ?? 0,
+        type: pointer.type ?? 'mouse'
+      }
+    });
+  }
+
+  /** Whether a physical key was held. @param {string} code */
+  isDown(code) { return this.down.has(code); }
+
+  /** Whether a key went down this frame, seen by this tick only. */
+  justPressed(code) { return this.pressed.has(code); }
+
+  /** Whether a key came up this frame, seen by this tick only. */
+  justReleased(code) { return this.released.has(code); }
+
+  /** A -1..1 axis from two keys. Both held cancel out. */
+  axis(negative, positive) {
+    return (this.down.has(positive) ? 1 : 0) - (this.down.has(negative) ? 1 : 0);
+  }
+
+  /** A direction from four keys, normalized so diagonals are not faster. */
+  vector(up, down, left, right) {
+    const x = this.axis(left, right);
+    const y = this.axis(up, down);
+    if (x !== 0 && y !== 0) {
+      const inverse = 1 / Math.SQRT2;
+      return { x: x * inverse, y: y * inverse };
+    }
+    return { x, y };
+  }
+}
+
 export class InputManager {
   /**
    * @param {import('../m2d.js').M2D} game
@@ -73,6 +172,30 @@ export class InputManager {
     this.buttons = 0;
     /** Which kind of device moved the pointer last. */
     this.pointerType = 'mouse';
+
+    /**
+     * The input the simulation reads. Taken by `sample()` at the top of
+     * every tick (`game.fixedUpdate` does it) so each tick sees one
+     * well-defined state however the frames fall, and so a replay or a
+     * network layer can later substitute what a peer sent for that tick.
+     * @type {InputSnapshot}
+     */
+    this.snapshot = InputSnapshot.empty();
+    /** Whether this frame's key edges have already been handed to a tick. */
+    this.edgesSampled = false;
+    /**
+     * Edges from frames that ran no tick, held for the next tick. At 144 Hz
+     * every other frame is tickless; without this a press landing in one
+     * would be cleared at frame end and the simulation would never see it.
+     */
+    this.carriedPressed = new Set();
+    this.carriedReleased = new Set();
+    /**
+     * When set, `sample()` asks this instead of the live devices — the seam
+     * a replay (or, one day, a network layer) feeds recorded ticks through.
+     * @type {(() => InputSnapshot|object|null)|null}
+     */
+    this.snapshotSource = null;
 
     this.cursor = new Cursor(game, options);
     this.router = new InputRouter(game);
@@ -195,11 +318,79 @@ export class InputManager {
   beginFrame(now) {
     this.flush();
     this.recognizer.update(now);
+    this.edgesSampled = false;
   }
 
-  /** End-of-frame: retire this frame's key edges. */
+  /** End-of-frame: retire this frame's key edges, unless no tick took them. */
   endFrame() {
+    if (!this.edgesSampled) {
+      for (const code of this.keyboard.pressed) this.carriedPressed.add(code);
+      for (const code of this.keyboard.released) this.carriedReleased.add(code);
+    }
     this.keyboard.endFrame();
+  }
+
+  /**
+   * Replace the live devices as what `sample()` reads, tick by tick.
+   *
+   * While a source is installed, every tick's snapshot comes from it: the
+   * player's keyboard still works for the UI (menus, the console) but the
+   * simulation no longer sees it. That inversion is what an input replay
+   * is — the recorded log plays the game, the engine runs it exactly as it
+   * ran live — and it is the same seam a network layer would use to feed a
+   * peer's commands for a tick.
+   *
+   * The source may return an `InputSnapshot`, plain `toJSON()` output, or
+   * null for "nothing held". Pass `null` to give the devices back.
+   *
+   * @param {(() => InputSnapshot|object|null)|null} source
+   */
+  setSnapshotSource(source) {
+    this.snapshotSource = source ?? null;
+  }
+
+  /**
+   * Capture the current input as the state for one simulation tick.
+   *
+   * Held keys and the pointer are copied as they are. Press and release
+   * edges go to the *first* tick sampled in a frame and to no other, so a
+   * frame that runs two ticks to catch up does not fire a jump twice. The
+   * per-frame `justPressed` API is unaffected; the UI and game code outside
+   * the tick still see the edges for the whole frame.
+   *
+   * @returns {InputSnapshot} Also stored as `snapshot`.
+   */
+  sample() {
+    if (this.snapshotSource) {
+      const fed = this.snapshotSource();
+      this.snapshot = fed instanceof InputSnapshot
+        ? fed
+        : fed ? InputSnapshot.from(fed) : InputSnapshot.empty();
+      return this.snapshot;
+    }
+    const keyboard = this.keyboard;
+    const edges = !this.edgesSampled;
+    this.edgesSampled = true;
+    const pointer = this.pointer;
+    const pressed = edges ? new Set([...this.carriedPressed, ...keyboard.pressed]) : new Set();
+    const released = edges ? new Set([...this.carriedReleased, ...keyboard.released]) : new Set();
+    if (edges) {
+      this.carriedPressed.clear();
+      this.carriedReleased.clear();
+    }
+    this.snapshot = new InputSnapshot({
+      down: new Set(keyboard.down),
+      pressed,
+      released,
+      pointer: {
+        ui: { ...pointer.ui },
+        world: { ...pointer.world },
+        isDown: pointer.isDown,
+        buttons: pointer.buttons,
+        type: pointer.type
+      }
+    });
+    return this.snapshot;
   }
 
   /** Keep the cursor inside UI space after a viewport change. */

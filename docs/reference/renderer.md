@@ -28,11 +28,12 @@ Every method on this page is mandatory for a backend. Some options are optional 
 | `blendModes` | yes | yes | `blend` on any draw call |
 | `particles` | yes | fallback | Batched `drawParticles` with per-particle colour. Without it, one sprite per particle, uncoloured |
 | `lights` | yes | no | `setAmbientLight` and `drawLight` |
+| `lightShadows` | yes | no | `shadows` on `drawLight` and `drawShadowCaster` |
 | `postEffects` | yes | no | `setPostEffects` |
 
 ```javascript
 if (game.renderer.supports('lights')) game.renderer.setAmbientLight('#303848');
-game.renderer.capabilities;            // { tint, blendModes, particles, lights, postEffects }
+game.renderer.capabilities;            // { tint, blendModes, particles, lights, lightShadows, postEffects }
 game.renderer.supportedCapabilities(); // names that are true
 ```
 
@@ -155,11 +156,17 @@ Draws many copies of one frame from a packed buffer.
 ```javascript
 renderer.setAmbientLight('#303848');   // turns lighting on. null turns it off
 renderer.drawLight({ x, y, radius: 240, color: '#ffd080', intensity: 1.2 });
+renderer.drawLight({ x, y, radius: 420, angle: heading, cone: 0.7, shadows: true });  // a headlight
+renderer.drawShadowCaster({ x, y, width: 60, height: 10, rotation });  // blocks shadowed lights
 renderer.setPostEffects({ bloom: { threshold: 0.7, strength: 0.8, blur: 8 }, vignette: { strength: 0.5, start: 0.6 } });
 renderer.setPostEffects(null);
 ```
 
-Lights are submitted every frame. Post effects apply to the world pass only, so UI stays unaffected. Every effect is optional and off unless given; `setPostEffects` replaces the whole set, so pass everything you want each time.
+Lights are submitted every frame. A light is a disc; give it `angle` and `cone` (the full apex angle, radians) and it is a spot, still bounded by `radius`. `intensity` above 1 pushes the lit area past the scene's own brightness, which is what feeds bloom.
+
+With the `lightShadows` capability, a light drawn with `shadows: true` is blocked by the frame's shadow casters: `drawShadowCaster` takes a polygon (`points`), a rectangle (`x`, `y`, `width`, `height`, `rotation`) or a circle (`x`, `y`, `radius`), and everything behind that silhouette, as seen from the light, stays at ambient. Casters are submitted per frame like lights. A wall drawn in one pass can this way shadow the ground drawn beneath it. Without the capability the flag is ignored and the light shines through.
+
+Post effects apply to the world pass only, so UI stays unaffected. Every effect is optional and off unless given; `setPostEffects` replaces the whole set, so pass everything you want each time.
 
 | Effect | Fields | Meaning |
 | --- | --- | --- |

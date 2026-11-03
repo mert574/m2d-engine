@@ -17,13 +17,17 @@ import { holdKeys } from './helpers/input.js';
 
 const FIXED = 1 / 60;
 
-/** Run `seconds` of game time: entity updates, then physics, per frame. */
+/** One simulation tick, the way the engine runs it: sample, fixedUpdate, step. */
+function tick(game, entity) {
+  game.input.sample();
+  entity.fixedUpdate(FIXED);
+  game.physics.step(FIXED);
+}
+
+/** Run `seconds` of game time in ticks. */
 function play(game, entity, seconds) {
-  const frames = Math.round(seconds / FIXED);
-  for (let i = 0; i < frames; i++) {
-    entity.update(FIXED);
-    game.physics.step(FIXED);
-  }
+  const ticks = Math.round(seconds / FIXED);
+  for (let i = 0; i < ticks; i++) tick(game, entity);
 }
 
 describe('PathFollow', () => {
@@ -58,8 +62,7 @@ describe('PathFollow', () => {
     const { game, body, entity } = patroller();
     let maxSpeed = 0;
     for (let i = 0; i < Math.round(2 / FIXED); i++) {
-      entity.update(FIXED);
-      game.physics.step(FIXED);
+      tick(game, entity);
       maxSpeed = Math.max(maxSpeed, Math.abs(body.velocity.x));
     }
 
@@ -121,7 +124,7 @@ describe('WallSlip', () => {
     if (withSlip) entity.addConstraint('wallSlip', new WallSlip(entity));
 
     for (let i = 0; i < 60; i++) {
-      entity.update(FIXED);
+      entity.fixedUpdate(FIXED);
       body.setVelocity({ x: 180, y: body.velocity.y });  // hold towards the wall
       game.physics.step(FIXED);
     }
@@ -144,7 +147,7 @@ describe('WallSlip', () => {
     const entity = new Entity(body, null, game);
     entity.addConstraint('wallSlip', new WallSlip(entity));
 
-    entity.update(FIXED);                       // airborne: slippery
+    entity.fixedUpdate(FIXED);                  // airborne: slippery
     expect(body.friction).toBe(0);
 
     play(game, entity, 2);                      // land and settle

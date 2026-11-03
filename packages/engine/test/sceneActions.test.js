@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { createCanvasElement } from './helpers/environment.js';
+import { createCanvasElement, installWindowStub } from './helpers/environment.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { M2D } from '../src/core/m2d.js';
 import { Scene } from '../src/core/scene.js';
@@ -47,11 +47,7 @@ describe('scene button actions', () => {
   });
 
   beforeEach(() => {
-    globalThis.window = {
-      devicePixelRatio: 1,
-      addEventListener: () => {},
-      removeEventListener: () => {}
-    };
+    installWindowStub();
     game = new M2D(displayCanvas(1280, 720), {
       width: 1280, height: 720, renderer: new RecordingRenderer()
     });

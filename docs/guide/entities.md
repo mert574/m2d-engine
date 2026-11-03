@@ -48,13 +48,16 @@ game.registerActor('Crate', Crate);
 
 | Method | When it runs |
 | --- | --- |
-| `update(deltaTime)` | Every frame while the game is neither paused nor over. `deltaTime` is in seconds. The base method updates the constraints |
+| `fixedUpdate(dt)` | Once per simulation tick, before the physics step, while the game is neither paused nor over. `dt` is always `game.time.fixedTimestep`, 1/60 s by default. The base method runs the constraints' `fixedUpdate` |
+| `update(deltaTime)` | Every frame while the game is neither paused nor over, after the frame's ticks. `deltaTime` is the frame's game time in seconds. The base method runs the constraints' `update` |
 | `draw(deltaTime)` | Every frame inside the world pass. The base method draws the sprite tiled over the body, then calls each constraint's `draw`. Without a sprite it draws a red rectangle and skips the constraints |
 | `onCollisionStart(other)` | When the body starts touching another body. `other` is the other physics body. `other.entity` is its entity, if it has one |
 | `onCollisionEnd(other)` | When the contact ends |
 | `destroy()` | Releases what the constraints registered elsewhere and marks the entity dead |
 
-Call `super.update(deltaTime)` and `super.onCollisionStart(other)` when overriding, so constraints still receive them.
+Call `super.fixedUpdate(dt)`, `super.update(deltaTime)` and `super.onCollisionStart(other)` when overriding, so constraints still receive them.
+
+`fixedUpdate` is for the simulation: movement, cooldowns, damage, spawning, decisions. `update` is for presentation: an animation cycle, a flash fading, an idle bob. The split is what makes the game play the same at every frame rate. A frame may run several ticks or none, so code in `update` must not change anything the simulation reads. See [Time, ticks and timers](./time#the-simulation-tick).
 
 ### Drawing
 
@@ -179,11 +182,14 @@ export class Blink extends Constraint {
     this.time = 0;
   }
 
+  // Presentation, so per frame. A cooldown or a movement decision would
+  // go in fixedUpdate(dt) instead.
   update(deltaTime) {
     this.time += deltaTime;
     this.entity.visible = Math.floor(this.time / this.period) % 2 === 0;
   }
 
+  fixedUpdate(dt) {}
   onCollisionStart(other) {}
   onCollisionEnd(other) {}
   draw() {}
@@ -193,20 +199,31 @@ export class Blink extends Constraint {
 
 A constraint that registers with an engine service must implement `destroy` to unregister. `Interactive` does this for the input system.
 
-## Timing and movement
+## Timing, movement and randomness
 
-Timers count seconds of `deltaTime`. Frame counts vary with the display's refresh rate.
+Timers count seconds of the tick's `dt` inside `fixedUpdate`. Frame counts vary with the display's refresh rate; ticks do not.
 
 ```javascript
-this.cooldown -= deltaTime;
-if (this.cooldown <= 0) fire();
+fixedUpdate(dt) {
+  this.cooldown -= dt;
+  if (this.cooldown <= 0) fire();
+}
 ```
 
-Steady movement sets velocity in px/s. A one-off kick uses `applyImpulse`, which is in px·mass/s and affects dynamic and character bodies.
+For a delay or an interval, `game.time.after` and `game.time.every` do the counting. See [Timers](./time#timers).
+
+Steady movement sets velocity in px/s. A one-off kick uses `applyImpulse`, which is in px·mass/s and affects dynamic and character bodies. Both belong in `fixedUpdate`.
 
 ```javascript
-body.setVelocity({ x: body.velocity.x + accel * deltaTime, y: body.velocity.y });
+body.setVelocity({ x: body.velocity.x + accel * dt, y: body.velocity.y });
 body.applyImpulse({ x: -300, y: -150 });
+```
+
+Random choices in simulation code come from `game.rng`, which is seeded, so a level plays the same every time it is entered. See [Random numbers](../reference/engine-options#random-numbers).
+
+```javascript
+const target = { x: x + this.game.rng.range(-50, 50), y };
+if (this.game.rng.chance(0.2)) this.taunt();
 ```
 
 ## Collision categories

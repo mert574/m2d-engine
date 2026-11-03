@@ -98,13 +98,13 @@ export default async function start(canvas) {
         height: 36,
         text: 'pause',
         onClick: () => {
-          game.paused = !game.paused;
+          game.togglePause();
           pauseButton.text = game.paused ? 'resume' : 'pause';
         },
         ...style,
         anchor: 'bottom'
       }));
-      // One physics step while paused. Only a custom loop can offer this.
+      // One simulation tick while paused. Only a custom loop can offer this.
       ui.add(new UIButton({
         x: 0,
         y: -30,
@@ -113,7 +113,7 @@ export default async function start(canvas) {
         text: 'step',
         onClick: () => {
           if (!game.paused) return;
-          simulate(game.physics.fixedTimestep, true);
+          game.time.stepOnce(tick);
         },
         ...style,
         anchor: 'bottom'
@@ -125,7 +125,7 @@ export default async function start(canvas) {
         height: 36,
         text: 'slow motion',
         onClick: () => {
-          game.physics.timeScale = game.physics.timeScale === 1 ? 0.2 : 1;
+          game.time.scale = game.time.scale === 1 ? 0.2 : 1;
         },
         ...style,
         anchor: 'bottom'
@@ -139,19 +139,20 @@ export default async function start(canvas) {
         text: 'rewind 2 s',
         onClick: () => {
           rewindLeft = 120;
-          game.paused = true;
+          game.pause();
           pauseButton.text = 'resume';
         },
         ...style,
         anchor: 'bottom'
       }));
     },
-    // A ball every half second, forty in total.
-    onUpdate(deltaTime) {
-      spawnIn -= deltaTime;
+    // A ball every half second, forty in total. Simulation, so it runs per
+    // tick and draws its position from the seeded generator.
+    onFixedUpdate(dt) {
+      spawnIn -= dt;
       if (spawnIn > 0 || balls.length >= 40) return;
       spawnIn = 0.5;
-      const ball = game.createEntity('Block', 120 + Math.random() * 400, 20, 24, 24, null, {}, { shape: 'circle', restitution: 0.8 });
+      const ball = game.createEntity('Block', game.rng.range(120, 520), 20, 24, 24, null, {}, { shape: 'circle', restitution: 0.8 });
       game.entities.add(ball);
       game.physics.add(ball.body);
       balls.push(ball);
@@ -163,45 +164,48 @@ export default async function start(canvas) {
   game.setupCollisionHandlers();
   game.running = true;
 
-  let frames = 0;
-  let stepsTaken = 0;
   let last = performance.now();
 
-  function simulate(deltaTime, single = false) {
-    const scene = game.sceneManager.getCurrentScene();
-    // advance() spends real time in fixed steps. step() runs exactly one.
-    if (single) { game.physics.step(deltaTime); stepsTaken += 1; record(); }
-    else {
-      // advance() may run several steps or none.
-      const steps = game.physics.advance(deltaTime);
-      stepsTaken += steps;
-      if (steps > 0) record();
-    }
-    game.camera.update();
-    scene.update(deltaTime);
+  // One simulation tick: exactly what the engine loop runs per fixed step
+  // (input sample, fixedUpdate, physics step), plus the snapshot the rewind
+  // needs. time.tick calls it as many times as a frame paid for; the step
+  // button calls it once.
+  function tick(dt) {
+    game.fixedUpdate(dt);
+    record();
   }
 
   function frame(now) {
     if (game.pendingResize) game.resize();
     game.input.beginFrame(now);
 
-    const deltaTime = Math.min((now - last) / 1000, 0.1);
+    // The clock clamps the delta (a tab returning from the background does
+    // not arrive as one enormous catch-up), spends it in fixed ticks and
+    // fires the timers that came due. Rewinding counts as paused: the
+    // simulation must not advance while the history plays back.
+    const rewinding = rewindLeft > 0;
+    game.time.tick((now - last) / 1000, { paused: game.paused || rewinding, step: tick });
     last = now;
-    frames += 1;
+    const deltaTime = game.time.unscaledDelta;
 
-    if (rewindLeft > 0) {
+    if (rewinding) {
       rewindLeft -= 1;
       if (!rewindStep()) rewindLeft = 0;
-    } else if (!game.paused) {
-      simulate(deltaTime);
     }
 
     const scene = game.sceneManager.getCurrentScene();
+    if (!game.paused && !rewinding) {
+      game.camera.update(deltaTime);
+      scene.update(game.time.delta);
+    }
     game.renderer.clear('#000');
-    game.drawWorld(scene);
-    game.drawUI(scene);
-    game.drawOverlays();
-    readout.text = `frame ${frames} · physics steps ${stepsTaken} · time scale ${game.physics.timeScale} · ${history.length} frames recorded`;
+    scene.updateUI(deltaTime);
+    game.drawWorld(scene, deltaTime);
+    game.drawUI(scene, deltaTime);
+    game.motion.update(deltaTime);
+    game.ui.update(deltaTime);
+    game.drawOverlays(deltaTime);
+    readout.text = `frame ${game.time.frame} · tick ${game.time.steps} · time scale ${game.time.scale} · ${history.length} ticks recorded`;
 
     game.input.endFrame();
     // Kept on the game so destroy() can cancel this loop too.

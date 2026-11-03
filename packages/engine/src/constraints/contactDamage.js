@@ -10,9 +10,9 @@ export class ContactDamage extends Constraint {
     this.collidingEntities = new Set();
   }
 
-  update(deltaTime) {
+  fixedUpdate(dt) {
     if (this.stunTime > 0) {
-      this.stunTime -= deltaTime;
+      this.stunTime -= dt;
     }
 
     // Apply continuous damage to colliding entities

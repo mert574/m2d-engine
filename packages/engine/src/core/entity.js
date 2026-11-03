@@ -75,6 +75,28 @@ export class Entity {
     }
   }
 
+  /**
+   * One simulation tick. Runs once per fixed step, before physics, with the
+   * constant `dt`; this is where movement, cooldowns, damage and spawning
+   * belong. The base method ticks the constraints. Call `super.fixedUpdate`
+   * when overriding.
+   * @param {number} dt - Seconds; always `game.time.fixedTimestep`.
+   */
+  fixedUpdate(dt) {
+    if (this.dead) return;
+
+    for (const constraint of this.constraints.values()) {
+      constraint.fixedUpdate(dt);
+    }
+  }
+
+  /**
+   * One frame of presentation, with the frame's game-time delta: animation
+   * cycles, flashes, anything visual that is not the physics body. The base
+   * method updates the constraints. Nothing here should change what the
+   * simulation sees; that is `fixedUpdate`.
+   * @param {number} deltaTime - Seconds of game time this frame.
+   */
   update(deltaTime) {
     if (this.dead) return;
 

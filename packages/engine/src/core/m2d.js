@@ -1,4 +1,6 @@
 import { createPhysicsWorld } from './physics/index.js';
+import { Time } from './time.js';
+import { Rng } from './rng.js';
 import { InputManager } from './input/index.js';
 import { LayerManager } from './layerManager.js';
 import { CollisionCategories } from './constants.js';
@@ -21,6 +23,13 @@ import { PerformanceStats } from './ui/performanceStats.js';
 const KEY_RESTART = 'KeyR';
 const KEY_MENU = 'KeyM';
 
+/**
+ * Longest frame the loop will simulate, in seconds. A tab coming back from
+ * the background reports one huge delta; clamping it keeps that from
+ * becoming a single enormous step. Matches `maxSubSteps` × `fixedTimestep`
+ * at the defaults, so an ordinary slow frame is still simulated in full.
+ */
+const MAX_FRAME_DELTA = 0.1;
 
 
 const defaultOptions = {
@@ -59,24 +68,34 @@ const defaultOptions = {
    */
   pointerLock: false,
   /**
-   * Seconds per physics step. The solver always sees exactly this dt no
-   * matter how long a frame took, which is what keeps resting contacts from
-   * jittering; the loop runs as many steps as the elapsed time paid for.
+   * Seconds per simulation tick. Every `fixedUpdate` and every physics step
+   * sees exactly this dt no matter how long a frame took: the loop runs as
+   * many ticks as the elapsed time paid for. That is what makes the game
+   * play the same at any frame rate, and what keeps resting contacts from
+   * jittering. Live at `game.time.fixedTimestep`.
    */
   fixedTimestep: 1 / 60,
   /**
-   * Most physics steps one frame may run. Bounds catch-up work after a stall
-   * so a slow frame cannot cascade into slower ones. Six steps of 1/60s is
-   * 0.1s — exactly the cap the loop already clamps a frame's delta to, so an
-   * ordinary frame, however slow, is always simulated in full.
+   * Most ticks one frame may run. Bounds catch-up work after a stall so a
+   * slow frame cannot cascade into slower ones. Six ticks of 1/60s is 0.1s —
+   * exactly the cap the loop clamps a frame's delta to, so an ordinary
+   * frame, however slow, is always simulated in full.
    */
   maxSubSteps: 6,
   /**
-   * Multiplier on simulated time — 0.5 is slow motion, 2 runs physics at
-   * double speed. A game tuned against a faster simulation can set this
-   * instead of re-tuning every speed constant.
+   * Seed for `game.rng`, the generator simulation code draws from. The
+   * sequence restarts from it on every scene load and `reset()`, so a level
+   * plays the same each time it is entered. Pass `Date.now()` for a game
+   * that should differ between sessions.
    */
-  physicsTimeScale: 1,
+  seed: 1,
+  /**
+   * Multiplier on game time — 0.5 is slow motion, 2 runs the game at double
+   * speed. Physics, entity updates and game-time timers all follow it; UI
+   * and screen transitions do not. Live at `game.time.scale`; `g_timescale`
+   * in the console. `physicsTimeScale` is accepted as an older spelling.
+   */
+  timeScale: 1,
   /**
    * Draw bodies blended between physics steps instead of snapping to the
    * latest one. Without this, a display faster than `fixedTimestep` shows
@@ -227,13 +246,34 @@ export class M2D {
     if (this.options.autoResize) this.#watchDisplaySize();
 
     /**
-     * The simulation. Games and actors reach physics only through this; see
-     * core/physics/index.js for the contract it implements.
+     * The clocks and the scheduler: game time (pauses, scales) and wall
+     * time (does neither), plus `after` / `every` timers measured against
+     * them. Ticked once per frame at the top of `update`. See core/time.js.
+     * @type {Time}
      */
-    this.physics = createPhysicsWorld({
+    this.time = new Time({
+      scale: options.physicsTimeScale ?? this.options.timeScale,
       fixedTimestep: this.options.fixedTimestep,
       maxSubSteps: this.options.maxSubSteps,
-      timeScale: this.options.physicsTimeScale,
+      maxDelta: MAX_FRAME_DELTA
+    });
+
+    /**
+     * Seeded random numbers for simulation code. Reseeded on every scene
+     * load and `reset()`. See core/rng.js.
+     * @type {Rng}
+     */
+    this.rng = new Rng(this.options.seed);
+
+    /**
+     * The simulation. Games and actors reach physics only through this; see
+     * core/physics/index.js for the contract it implements. It shares the
+     * engine clock: the step settings, the time scale and the accumulator
+     * are `game.time`'s, and the loop steps it once per tick from
+     * `fixedUpdate`.
+     */
+    this.physics = createPhysicsWorld({
+      clock: this.time,
       interpolate: this.options.interpolatePhysics
     });
     this.collisionCategories = CollisionCategories;
@@ -304,6 +344,7 @@ export class M2D {
     this.soundManager = new SoundManager();
 
     this.update = this.update.bind(this);
+    this.fixedUpdate = this.fixedUpdate.bind(this);
     this.lastTime = 0;
     /** rAF handle, so the loop can be cancelled by destroy(). */
     this.frameHandle = null;
@@ -415,10 +456,10 @@ export class M2D {
       type: 'number',
       min: 0,
       max: 10,
-      default: this.options.physicsTimeScale,
-      description: 'Multiplier on simulated time: 0.5 is slow motion',
-      get: () => this.physics.timeScale,
-      set: (value) => { this.physics.timeScale = value; }
+      default: this.time.scale,
+      description: 'Multiplier on game time: 0.5 is slow motion',
+      get: () => this.time.scale,
+      set: (value) => { this.time.scale = value; }
     });
 
     if (this.stats) {
@@ -632,6 +673,7 @@ export class M2D {
     this.worldOverlay.destroy();
     this.input.destroy();
     this.soundManager.destroy();
+    this.time.clear();
     this.physics.destroy();
     this.sceneManager?.getCurrentScene()?.unload?.();
     this.renderer.destroy();
@@ -688,6 +730,53 @@ export class M2D {
   gameOver() {
     this.isGameOver = true;
     this.soundManager.playSound('gameOver');
+  }
+
+  /**
+   * One simulation tick: the unit the game plays in, identical at every
+   * frame rate.
+   *
+   * In order: the input state for this tick is sampled; the scene and
+   * every entity run `fixedUpdate(dt)` (movement, cooldowns, damage,
+   * spawning); the physics world steps once. Game-time timers due at this
+   * tick have already fired, from `time.tick`, before this is called.
+   *
+   * The engine loop runs it through `game.time.tick`, as many times per
+   * frame as the elapsed time paid for. A custom loop does the same, or
+   * calls `game.time.stepOnce(game.fixedUpdate)` to run exactly one tick
+   * (a debugger's step button). Not gated on `paused`: the caller decides
+   * whether a tick happens, this decides what one is.
+   *
+   * @param {number} dt - Seconds; always `game.time.fixedTimestep`.
+   */
+  fixedUpdate(dt) {
+    this.input.sample();
+    if (!this.isGameOver) this.sceneManager.getCurrentScene()?.fixedUpdate?.(dt);
+    this.physics.step(dt);
+  }
+
+  /**
+   * Freeze the simulation: ticks stop, so physics, entity and camera
+   * updates and game-time timers all stop; drawing, UI, motion and unscaled
+   * timers continue. The same flag the settings menu and `g_paused` toggle,
+   * so the three agree.
+   */
+  pause() {
+    this.paused = true;
+  }
+
+  /** Let the simulation run again. No time is owed for the pause. */
+  resume() {
+    this.paused = false;
+  }
+
+  /**
+   * Flip the pause state.
+   * @returns {boolean} The new state.
+   */
+  togglePause() {
+    this.paused = !this.paused;
+    return this.paused;
   }
 
   /**
@@ -795,32 +884,39 @@ export class M2D {
       return;
     }
 
-    const deltaTime = Math.min((currentTime - this.lastTime) / 1000, 0.1);
+    const rawDelta = (currentTime - this.lastTime) / 1000;
     this.lastTime = currentTime;
 
     this.renderer.clear('#000');
 
     if (this.sceneManager.loading) {
+      // The clocks do not tick while a scene loads: a timer armed by the
+      // previous scene's teardown has no world to fire into yet.
       this.drawLoading();
       this.input.endFrame();
       this.frameHandle = requestAnimationFrame(this.update);
       return;
     }
 
-    // Paused: freeze the simulation but keep presenting the frame, so the
-    // game stays visible (and crisp at the current settings) behind overlays.
+    // The simulation. `time.tick` advances the clocks, then runs as many
+    // fixed ticks as this frame's game time paid for, calling `fixedUpdate`
+    // for each: input sample, entity fixedUpdate, physics step. Paused, it
+    // runs none and the frame is presentation only, so the game stays
+    // visible (and crisp at the current settings) behind overlays.
     //
-    // Physics advances on its own fixed-step clock, decoupled from the frame
-    // rate; entity and camera updates stay per-frame on the real delta, since
-    // animation and timers want elapsed wall time, not solver ticks.
-    if (!this.paused) this.physics.advance(deltaTime);
+    // From here on, `deltaTime` is wall time for presentation (UI, motion,
+    // camera, draw passes) and `time.delta` is this frame's game time for
+    // per-frame animation: zero while paused and stretched by the time
+    // scale, so an animation cycle slows down with the body it belongs to.
+    this.time.tick(rawDelta, { paused: this.paused, step: this.fixedUpdate });
+    const deltaTime = this.time.unscaledDelta;
     const currentScene = this.sceneManager.getCurrentScene();
 
     if (!this.isGameOver) {
       if (currentScene) {
         if (!this.paused) {
-          this.camera.update();
-          currentScene.update(deltaTime);
+          this.camera.update(deltaTime);
+          currentScene.update(this.time.delta);
         }
         // UI ticks even while paused. A pause menu that froze along with the
         // game could not animate itself in, and the thing the player is
@@ -896,6 +992,8 @@ export class M2D {
     this.layers.clear();
     this.player = null;
     this.lastTime = 0;
+    this.time.reset();
+    this.rng.reseed(this.options.seed);
 
     this.camera.x = 0;
     this.camera.y = 0;

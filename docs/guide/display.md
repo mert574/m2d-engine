@@ -114,7 +114,7 @@ The engine's debug drawing uses the overlay. An actor's own appearance stays in 
 
 ## The settings menu
 
-`SettingsMenu` is a [screen](./ui#screens) with rows for resolution presets, fullscreen, aspect mode, the renderer backend, the debug overlay and pause, grouped under Display, Rendering and Game. It opens with O by default and closes with O, Escape, its Close row or a click outside the panel. Up, Down and Tab move between rows; Left and Right step the focused row's value; Enter or a click steps it forward. Each row draws a tick track showing where its value sits in its cycle, and the footer describes the focused row and lists the keys.
+`SettingsMenu` is a [screen](./ui#screens) with rows for resolution presets, fullscreen, aspect mode, the renderer backend, the debug overlay and pause, grouped under Display, Rendering and Game. When a scene named `mainMenu` is registered, a Main menu row returns to it from anywhere else. It opens with O by default and closes with O, Escape, its Close row or a click outside the panel. Up, Down and Tab move between rows; Left and Right step the focused row's value; Enter or a click steps it forward. Each row draws a tick track showing where its value sits in its cycle, and the footer describes the focused row and lists the keys.
 
 A mounted menu consumes the hotkey on `keydown` whatever is on screen — it listens in the debug layer, ahead of every screen, so it opens from a main menu as well as mid-game — and Escape while it is open.
 

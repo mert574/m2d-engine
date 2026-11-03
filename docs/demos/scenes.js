@@ -128,9 +128,9 @@ export default async function start(canvas) {
       }));
     },
     // Scene-level logic that is not an entity. Switch back once the goal is reached.
-    onUpdate(deltaTime) {
+    onFixedUpdate(dt) {
       if (!goal?.reached) return;
-      doneFor += deltaTime;
+      doneFor += dt;
       if (doneFor > 1.5) game.sceneManager.switchTo('mainMenu');
     }
   });

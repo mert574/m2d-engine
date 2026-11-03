@@ -60,7 +60,7 @@ Prefixes follow the Quake convention the completion is built around: `r_` render
 | `r_debug` | boolean | | The renderer's debug overlay |
 | `r_renderer` | `webgl\|canvas` | | Setting it reloads with `?renderer=` |
 | `g_paused` | boolean | | |
-| `g_timescale` | number 0–10 | | `0.5` is slow motion |
+| `g_timescale` | number 0–10 | | `game.time.scale`. `0.5` is slow motion |
 | `cl_showfps` | boolean | yes | The frame-rate readout |
 | `cl_statsexpanded` | boolean | yes | The readout's full counter list (F3) |
 

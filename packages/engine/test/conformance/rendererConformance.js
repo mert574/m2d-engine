@@ -1797,6 +1797,96 @@ export function describeRendererConformance(harness) {
         expectColorAt(snap, 150, 50, '#ffffff', { label: 'UI ignores ambient' });
         renderer.setAmbientLight(null);
       });
+
+      it.skipIf(!caps.lights)('confines a spot light to its cone', () => {
+        renderer.setAmbientLight('#101010');
+        renderFrame({
+          world: (r) => {
+            r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' });
+            // Beam pointing +x from the left edge, a quarter-circle wide.
+            r.drawLight({ x: 20, y: 60, radius: 160, color: '#ffffff', intensity: 1.2, angle: 0, cone: Math.PI / 2 });
+          }
+        });
+        const snap = read();
+        const inBeam = snap.at(100, 60)[0];
+        const behind = snap.at(4, 60)[0];      // behind the source
+        const offAxis = snap.at(26, 10)[0];    // beside it, outside the cone
+        expect(inBeam).toBeGreaterThan(behind + 50);
+        expect(inBeam).toBeGreaterThan(offAxis + 50);
+        renderer.setAmbientLight(null);
+      });
+
+      it.skipIf(!caps.lightShadows)('blocks a shadowed light behind a caster', () => {
+        renderer.setAmbientLight('#101010');
+        renderFrame({
+          world: (r) => {
+            r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' });
+            r.drawShadowCaster({ x: 100, y: 60, width: 10, height: 60 });
+            r.drawLight({ x: 30, y: 60, radius: 200, color: '#ffffff', intensity: 1.2, shadows: true });
+          }
+        });
+        const snap = read();
+        const lit = snap.at(60, 60)[0];        // between light and caster
+        const shadowed = snap.at(160, 60)[0];  // behind the caster
+        // A point past the caster's top end: the ray from the light clears
+        // the caster's corner at y=30, so the light reaches it.
+        const litAbove = snap.at(110, 10)[0];
+        expect(lit).toBeGreaterThan(shadowed + 50);
+        expect(litAbove).toBeGreaterThan(shadowed + 30);
+        renderer.setAmbientLight(null);
+      });
+
+      it.skipIf(!caps.lightShadows)('blocks a shadowed light behind a circular caster', () => {
+        renderer.setAmbientLight('#101010');
+        renderFrame({
+          world: (r) => {
+            r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' });
+            r.drawShadowCaster({ x: 100, y: 60, radius: 14 });
+            r.drawLight({ x: 30, y: 60, radius: 200, color: '#ffffff', intensity: 1.2, shadows: true });
+          }
+        });
+        const snap = read();
+        expect(snap.at(60, 60)[0]).toBeGreaterThan(snap.at(160, 60)[0] + 50);
+        renderer.setAmbientLight(null);
+      });
+
+      it.skipIf(!caps.lightShadows)('lets a high light clear a low caster', () => {
+        // A street lamp over a barrier: the barrier shadows headlights at
+        // ground level and nothing hanging above it. Two identical setups in
+        // one frame, differing only in the light's z.
+        renderer.setAmbientLight('#101010');
+        renderFrame({
+          world: (r) => {
+            r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' });
+            // Small radii so neither light reaches the other's row.
+            r.drawShadowCaster({ x: 70, y: 20, width: 6, height: 30, z: 0.3 });
+            r.drawShadowCaster({ x: 70, y: 100, width: 6, height: 30, z: 0.3 });
+            r.drawLight({ x: 40, y: 20, radius: 100, color: '#ffffff', intensity: 1.2, shadows: true, z: 1 });
+            r.drawLight({ x: 40, y: 100, radius: 100, color: '#ffffff', intensity: 1.2, shadows: true, z: 0 });
+          }
+        });
+        const snap = read();
+        const lampBehind = snap.at(90, 20)[0];       // lamp at z 1: clears the barrier
+        const headlightBehind = snap.at(90, 100)[0]; // ground light: shadowed
+        expect(lampBehind).toBeGreaterThan(headlightBehind + 30);
+        renderer.setAmbientLight(null);
+      });
+
+      it.skipIf(!caps.lights)('ignores the shadows flag when shadow casting is unsupported', () => {
+        // A backend with lights but no lightShadows must not throw and must
+        // let the light shine through.
+        renderer.setAmbientLight('#101010');
+        expect(() => {
+          renderFrame({
+            world: (r) => {
+              r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' });
+              r.drawShadowCaster({ x: 100, y: 60, width: 10, height: 60 });
+              r.drawLight({ x: 30, y: 60, radius: 200, color: '#ffffff', shadows: true });
+            }
+          });
+        }).not.toThrow();
+        renderer.setAmbientLight(null);
+      });
     });
 
     // ===================================================================

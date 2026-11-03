@@ -22,6 +22,8 @@ export class Hover extends Constraint {
     this.angle = 0;
   }
 
+  // Presentation: it only writes render offsets, so it runs per frame on the
+  // game-time delta and never touches the simulation.
   update(deltaTime) {
     this.phase += this.frequency * deltaTime;
     this.angle += this.spin * deltaTime;

@@ -161,13 +161,14 @@ The name `mainMenu` is special in two places. The game-over screen's M key switc
 | --- | --- |
 | `onEnter()` | After the scene is built and its assets are loaded |
 | `onExit()` | Before the scene is unloaded |
-| `onUpdate(deltaTime)` | Every frame, after entities update. `deltaTime` is in seconds |
+| `onFixedUpdate(dt)` | Once per simulation tick, after entities' `fixedUpdate` and before physics steps. `dt` is the fixed tick length in seconds |
+| `onUpdate(deltaTime)` | Every frame, after the frame's ticks and after entities' per-frame `update`. `deltaTime` is the frame's game time in seconds |
 | `onDrawBackground(deltaTime)` | Every frame inside the world pass, before the background layer and the entities draw, with the camera applied |
 | `onDraw(deltaTime)` | Every frame inside the world pass, after entities draw, with the camera applied |
 | `onResize(width, height, viewport)` | After the display size or resolution changes |
 | `onAction(name)` | When a scene button with an `action` is clicked and the engine did not handle it |
 
-`onUpdate`, `onDrawBackground` and `onDraw` are for things that are not entities, such as a sky behind the level, a particle system or a director that spawns waves. Screen-space drawing does not belong in either draw hook. Add a UI element to the scene instead, as shown in [UI](./ui).
+`onFixedUpdate`, `onUpdate`, `onDrawBackground` and `onDraw` are for things that are not entities. A director that spawns waves or a win condition goes in `onFixedUpdate`, so it runs the same at every frame rate. A sky or a particle layer goes in `onUpdate` and the draw hooks. Screen-space drawing does not belong in either draw hook. Add a UI element to the scene instead, as shown in [UI](./ui).
 
 The current scene is available as `game.sceneManager.getCurrentScene()`. Its `ui` property is the container that holds its screen-space elements.
 

@@ -49,13 +49,19 @@ class Walker extends Entity {
     this.setAnimation('walk');
   }
 
-  update(deltaTime) {
-    super.update(deltaTime);
+  // Where to go is simulation: per tick.
+  fixedUpdate(dt) {
+    super.fixedUpdate(dt);
     const { x } = this.position;
     if (x > 600) this.direction = -1;
     if (x < 40) this.direction = 1;
     this.body.setVelocity({ x: this.direction * this.speed, y: 0 });
+  }
 
+  // Which frame to show is presentation: per frame, on the game-time delta
+  // so it slows down with the walker in slow motion.
+  update(deltaTime) {
+    super.update(deltaTime);
     // Advance the walk cycle at 8 frames per second.
     this.time += deltaTime * 8;
     this.sprite.currentFrame = Math.floor(this.time) % 4;

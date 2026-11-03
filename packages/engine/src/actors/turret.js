@@ -60,12 +60,18 @@ export class Turret extends Entity {
     if (this.dead) return;
     super.update(deltaTime);
 
+    // Drawn, never decided on: presentation, so it runs per frame.
     if (this.damageFlashTime > 0) {
       this.damageFlashTime -= deltaTime;
     }
+  }
+
+  fixedUpdate(dt) {
+    if (this.dead) return;
+    super.fixedUpdate(dt);
 
     if (this.fireCooldown > 0) {
-      this.fireCooldown -= deltaTime;
+      this.fireCooldown -= dt;
     }
 
     if (!this.game.player || this.game.player.dead) {

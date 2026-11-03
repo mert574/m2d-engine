@@ -8,6 +8,8 @@ How the engine is organized and the rules each part keeps. The user-facing behav
 packages/engine/src/
 ├── core/
 │   ├── m2d.js            Engine class: options, loop, display lifecycle, teardown
+│   ├── time.js           Game and wall clocks, the fixed-step tick, time scale, after/every timers
+│   ├── rng.js            Seeded random numbers (game.rng)
 │   ├── entity.js         Base entity
 │   ├── constraint.js     Base constraint
 │   ├── projectile.js     Base projectile
@@ -44,6 +46,7 @@ Rules the boundary keeps:
 - Collision events are requested per collider. Dynamic, kinematic, character and sensor bodies request them. Plain static bodies do not, so static pairs are never reported.
 - Queries read a broad-phase index that only `step` maintains. Bodies added or teleported since the last step are kept in a separate set and tested directly. That is what lets a body be added or moved and queried in the same frame. Rapier's own internal queries, including the character controller's sweeps, do not see a body until the step after it was added.
 - `renderPosition` blends the previous and current step by the world's `interpolation`. Direct moves reset the previous snapshot so a teleport does not smear.
+- Inside the engine the world's clock is `game.time`: `fixedTimestep`, `maxSubSteps`, `timeScale` and the accumulator read through to it. The loop steps the world from `game.fixedUpdate`, once per tick, after the entities. `advance` remains for a world used on its own.
 
 `test/physics.test.js` asserts the contract with tolerances and never Rapier internals. A replacement solver would have to pass it.
 
@@ -145,6 +148,23 @@ The settings menu's rows read and write cvars rather than engine methods, which 
 The screen answers the hotkey itself as well, because a blocking screen consumes input before subscribers run — otherwise the key that opened the menu could never close it. Key *releases* pass through on purpose: a key held when the menu opened has to come back up in the game's state, or the player keeps running after it closes.
 
 `game.paused` is a flag the loop honours by skipping physics, entity and camera updates while still drawing. The stack refcounts it, so two pausing screens cannot fight over one boolean, and the state from before the first one is what gets restored.
+
+## Time and the simulation tick
+
+`game.time` is the one place a frame delta is turned into clocks and ticks. The loop feeds it the raw delta, the pause flag and `game.fixedUpdate` once per frame. It produces a wall-time delta and a game-time delta (zero while paused, multiplied by the scale), adds the game-time delta to an accumulator and runs `fixedUpdate` once for every whole `fixedTimestep` the accumulator holds, up to `maxSubSteps`. Nothing in it reads `performance.now()`, so the same object is driven by hand in tests and could be driven by a loop that corrects its clock against a server.
+
+One tick is: sample the input, fire game-time timers due at this tick, run the scene's and every entity's `fixedUpdate(dt)`, step physics once. The order is fixed and `dt` is constant, which is what makes the simulation a function of its ticks and its inputs rather than of the frame rate. `test/determinism.test.js` pins this: the same scene with the same seed ends in bit-identical state at 30, 60 and 144 frames per second, and replays the same after `reset()`.
+
+The rules the tick keeps:
+
+- Simulation state changes only in `fixedUpdate`, `onFixedUpdate`, timers and collision handlers. The per-frame `update(deltaTime)` is presentation and may run zero or several times between ticks.
+- Simulation code reads `game.input.snapshot`, taken once per tick. Held keys are copied; press and release edges reach only the first tick sampled in a frame. The per-frame edge API is untouched for the UI and for code outside the tick.
+- Simulation code draws random numbers from `game.rng`, seeded from the `seed` option and reseeded on scene load and `reset()`.
+- Physics takes `game.time` as its clock, so there is one `fixedTimestep`, one `timeScale` and one accumulator. `interpolation` is the accumulator's fraction of a tick and is what bodies draw with.
+- Game-time timers fire at the start of their tick, so what they spawn is simulated by that tick. Wall-time timers fire per frame. A timer stores the clock reading it fires at instead of counting down, so its state is one number against the clock.
+- The camera is presentation. It follows `renderPosition` on wall time with a smoothing corrected for the frame length, so the follow feels the same at every frame rate and does not slow down in slow motion.
+
+What this does not make deterministic: two machines. Rapier's npm build is not compiled with its determinism feature, so floating-point results can differ across CPUs. Within one build on one platform, and for a server-authoritative model with client interpolation, the tick is what is needed. Lockstep across platforms would also need that build flag and per-tick command queues in place of the local snapshot.
 
 ## The renderer showcase
 
