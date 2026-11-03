@@ -189,18 +189,95 @@ in vec2 v_uv;
 uniform sampler2D u_scene;
 uniform sampler2D u_light;
 uniform sampler2D u_bloom;
+uniform vec2 u_resolution;
+uniform float u_time;
 uniform float u_bloomStrength;
 uniform float u_vignette;
 uniform float u_vignetteStart;
+// Lens: barrel (positive) or pincushion (negative) distortion, and the
+// radial colour fringing a real lens adds at the edges.
+uniform float u_distortion;
+uniform float u_chromatic;
+// Grade: split-toning by luminance, then saturation and contrast.
+uniform vec3 u_gradeShadows;
+uniform vec3 u_gradeHighlights;
+uniform float u_gradeAmount;
+uniform float u_saturation;
+uniform float u_contrast;
+// Surface: film grain, scanlines, and the signal breaking up.
+uniform float u_grain;
+uniform float u_scanlines;
+uniform float u_scanDensity;
+uniform float u_glitch;
+uniform vec3 u_flashColor;
+uniform float u_flashStrength;
 
 out vec4 fragColor;
 
-void main() {
-  vec3 color = texture(u_scene, v_uv).rgb * texture(u_light, v_uv).rgb;
-  color += texture(u_bloom, v_uv).rgb * u_bloomStrength;
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
 
-  float r = length(v_uv - 0.5) * 1.41421356;
+vec3 lit(vec2 uv) {
+  return texture(u_scene, uv).rgb * texture(u_light, uv).rgb;
+}
+
+void main() {
+  vec2 centred = v_uv - 0.5;
+  float r2 = dot(centred, centred);
+
+  // Lens distortion bends the sample position; the frame edge is clamped by
+  // the texture, which is what a cropped lens does too.
+  vec2 uv = 0.5 + centred * (1.0 + u_distortion * r2);
+
+  // Glitch: horizontal bands tear sideways, a few at a time, re-rolled
+  // several times a second so it reads as a failing signal, not a pattern.
+  if (u_glitch > 0.0) {
+    float band = floor(uv.y * 28.0);
+    float roll = floor(u_time * 11.0);
+    float pick = hash(vec2(band, roll));
+    if (pick > 1.0 - min(u_glitch, 1.0) * 0.6) {
+      uv.x += (hash(vec2(roll, band)) - 0.5) * 0.16 * u_glitch;
+      uv.y += (hash(vec2(roll + 7.0, band)) - 0.5) * 0.02 * u_glitch;
+    }
+  }
+
+  // Chromatic aberration: red and blue sampled a little further out and in
+  // along the radius, growing toward the edges like a real lens.
+  vec3 color;
+  if (u_chromatic > 0.0) {
+    vec2 fringe = centred * u_chromatic * (0.35 + r2 * 2.5);
+    color = vec3(lit(uv + fringe).r, lit(uv).g, lit(uv - fringe).b);
+  } else {
+    color = lit(uv);
+  }
+  color += texture(u_bloom, uv).rgb * u_bloomStrength;
+
+  // Grade.
+  if (u_gradeAmount > 0.0) {
+    float luma = dot(color, vec3(0.299, 0.587, 0.114));
+    vec3 toned = color * mix(u_gradeShadows, u_gradeHighlights, smoothstep(0.0, 1.0, luma));
+    toned = mix(vec3(dot(toned, vec3(0.299, 0.587, 0.114))), toned, u_saturation);
+    toned = (toned - 0.5) * u_contrast + 0.5;
+    color = mix(color, toned, u_gradeAmount);
+  }
+
+  // Scanlines ride the output pixels, not the world, so they stay crisp at
+  // any render resolution.
+  if (u_scanlines > 0.0) {
+    float line = 0.5 + 0.5 * sin(gl_FragCoord.y * u_scanDensity);
+    color *= 1.0 - u_scanlines * line;
+  }
+
+  if (u_grain > 0.0) {
+    float noise = hash(gl_FragCoord.xy + fract(u_time) * 1024.0) - 0.5;
+    color += noise * u_grain;
+  }
+
+  float r = length(centred) * 1.41421356;
   color *= 1.0 - u_vignette * smoothstep(u_vignetteStart, 1.0, r);
+
+  color = mix(color, u_flashColor, u_flashStrength);
 
   fragColor = vec4(color, 1.0);
 }

@@ -12,11 +12,8 @@ const assetsPlugin = {
   buildStart() {
     console.log('Generating sprites...');
     try {
-      // Generate sprites for each example
-      execSync('node scripts/generateSprites.js --missing platformer', { stdio: 'inherit' });
-      execSync('node scripts/generateSprites.js --missing maze', { stdio: 'inherit' });
-      execSync('node scripts/generateSprites.js --missing physics', { stdio: 'inherit' });
-      execSync('node scripts/generateSprites.js --missing topdown', { stdio: 'inherit' });
+      // Only the renderer showcase generates sprites: the tiny textures its
+      // batching stress test needs. The games draw in code or ship textures.
       execSync('node scripts/generateSprites.js --missing showcase', { stdio: 'inherit' });
       console.log('Assets processed successfully');
     } catch (error) {
@@ -27,9 +24,11 @@ const assetsPlugin = {
   writeBundle() {
     // Scene JSON contains runtime image paths that Vite cannot discover as imports.
     for (const example of ['platformer', 'maze', 'physics', 'topdown', 'showcase']) {
-      const source = resolve(import.meta.dirname, `src/${example}/assets`);
-      if (existsSync(source)) {
-        cpSync(source, resolve(import.meta.dirname, `dist/${example}/assets`), { recursive: true });
+      for (const folder of ['assets', 'textures']) {
+        const source = resolve(import.meta.dirname, `src/${example}/${folder}`);
+        if (existsSync(source)) {
+          cpSync(source, resolve(import.meta.dirname, `dist/${example}/${folder}`), { recursive: true });
+        }
       }
     }
   }

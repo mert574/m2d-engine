@@ -384,7 +384,7 @@ export class M2D {
 
     cvars.register('r_debug', {
       type: 'boolean',
-      default: true,
+      default: false,
       description: "The renderer's debug overlay (entity annotations)",
       get: () => this.renderer.isDebugEnabled(),
       set: (value) => this.renderer.setDebugEnabled(value)

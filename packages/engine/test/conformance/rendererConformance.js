@@ -1455,8 +1455,8 @@ export function describeRendererConformance(harness) {
 
     // ===================================================================
     describe('debug state', () => {
-      it('is enabled by default', () => {
-        expect(renderer.isDebugEnabled()).toBe(true);
+      it('is disabled by default', () => {
+        expect(renderer.isDebugEnabled()).toBe(false);
       });
 
       it('toggles the debug flag', () => {
@@ -1474,8 +1474,8 @@ export function describeRendererConformance(harness) {
 
       it('keeps debug state independent between renderer instances', () => {
         const other = harness.createRenderer();
-        renderer.setDebugEnabled(false);
-        expect(other.isDebugEnabled()).toBe(true);
+        renderer.setDebugEnabled(true);
+        expect(other.isDebugEnabled()).toBe(false);
       });
     });
 
@@ -1872,6 +1872,42 @@ export function describeRendererConformance(harness) {
 
         expect(sharp).toBeGreaterThan(200);
         expect(edge).toBeLessThan(sharp - 20);
+      });
+
+      it('accepts the lens, grade and surface effects on any backend without throwing', () => {
+        expect(() => {
+          renderer.setPostEffects({
+            distortion: { strength: 0.1 },
+            chromatic: { strength: 0.01 },
+            grade: { shadows: '#302040', highlights: '#fff0d0', amount: 0.5, saturation: 1.1, contrast: 1.05 },
+            grain: { strength: 0.1 },
+            scanlines: { strength: 0.2, density: 1.5 },
+            glitch: { strength: 0.5 },
+            flash: { color: '#ff0000', strength: 0.2 }
+          });
+          renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
+        }).not.toThrow();
+        renderer.setPostEffects(null);
+      });
+
+      it.skipIf(!caps.postEffects)('desaturates with a grade', () => {
+        renderer.setPostEffects({ grade: { saturation: 0 } });
+        renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ff0000' }) });
+        const [r, g, b] = read().at(100, 60);
+        expect(Math.abs(r - g)).toBeLessThan(12);
+        expect(Math.abs(g - b)).toBeLessThan(12);
+        expect(g).toBeGreaterThan(40);
+        renderer.setPostEffects(null);
+      });
+
+      it.skipIf(!caps.postEffects)('flashes the frame toward a colour', () => {
+        renderer.setPostEffects({ flash: { color: '#00ff00', strength: 1 } });
+        renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
+        const [r, g, b] = read().at(100, 60);
+        expect(r).toBeLessThan(20);
+        expect(g).toBeGreaterThan(235);
+        expect(b).toBeLessThan(20);
+        renderer.setPostEffects(null);
       });
 
       it.skipIf(!caps.postEffects)('returns to an untouched frame once disabled', () => {

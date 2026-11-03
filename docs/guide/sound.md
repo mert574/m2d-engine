@@ -39,7 +39,7 @@ game.soundManager.setSoundVolume(0.8);  // 0 to 1
 game.soundManager.setMusicVolume(0.4);
 ```
 
-Default volumes are 1 for effects and 0.5 for music. `playMusic` while muted is dropped. `game.reset()` stops the music. The engine plays the `gameOver` sound, if one is loaded, when the game ends.
+Default volumes are 0.15 for effects and 0.3 for music — sources are mixed loud, and games layer sounds over music. Each effect plays with a few cents of random detune so a repeated sound reads as separate events. `playMusic` while muted is dropped. `game.reset()` stops the music. The engine plays the `gameOver` sound, if one is loaded, when the game ends.
 
 Scene hooks are the usual place to switch music.
 

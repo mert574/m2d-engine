@@ -9,6 +9,7 @@ import lighthouseSprite from './assets/lighthouse.png';
 import rainSprite from './assets/rain.png';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
+import { lastTransmission, g2Remix, audioOption } from '../shared/audio.js';
 
 const VIEW = { width: 1280, height: 720 };
 const WORLD = { width: 2560, height: 1440 };
@@ -25,7 +26,8 @@ const game = new M2D(canvas, {
   width: VIEW.width,
   height: VIEW.height,
   worldWidth: WORLD.width,
-  worldHeight: WORLD.height
+  worldHeight: WORLD.height,
+  music: { menu: lastTransmission, game: g2Remix }
 });
 
 /** @type {Showcase|null} */
@@ -39,7 +41,8 @@ registerMainMenu(game, {
   items: () => [
     { text: 'Start', onSelect: () => game.sceneManager.switchTo('showcase') },
     { text: 'Settings', onSelect: () => game.settings.open() }
-  ]
+  ],
+  onEnter: () => game.soundManager.playMusic('menu')
 });
 
 game.sceneManager.addScene('showcase', {
@@ -62,6 +65,7 @@ game.sceneManager.addScene('showcase', {
   }),
 
   onEnter() {
+    game.soundManager.playMusic('game');
     const scene = game.sceneManager.getCurrentScene();
     showcase = new Showcase(game, { spriteSheets: scene.spriteSheets, bounds: WORLD });
     showcase.attachUI(scene.ui);
@@ -98,6 +102,6 @@ game.input.on('keydown', (event) => {
 // these resolution presets (only the world gets coarser — the same amount of
 // world stays visible and the HUD stays sharp).
 const RESOLUTIONS = ['native', { width: 1280, height: 720 }, { width: 854, height: 480 }, { width: 426, height: 240 }];
-new SettingsMenu(game, { resolutions: RESOLUTIONS });
+new SettingsMenu(game, { resolutions: RESOLUTIONS }).addOption(audioOption(game));
 
 game.start();

@@ -36,7 +36,7 @@ Five games ship with the engine. Each exercises a different part of it. Sources 
 
 </div>
 
-Each example opens on a main menu with a scene of its own behind the type, drawn in code through `UIBackdrop` layers. Every example mounts the settings menu, opened with O. Its renderer row reloads the page with `?renderer=canvas` or `?renderer=webgl`, and the same parameter can be typed into the URL. The showcase skips its menu when the parameter is present.
+Each example opens on a main menu with a scene of its own behind the type, drawn in code through `UIBackdrop` layers, and plays its own pair of tracks from the IDMf netlabel ([credits](./music-credits)). Every example mounts the settings menu, opened with O. Its renderer row reloads the page with `?renderer=canvas` or `?renderer=webgl`, and the same parameter can be typed into the URL. The showcase skips its menu when the parameter is present.
 
 Pointer lock is enabled only in the physics playground. The other examples leave the pointer free.
 
@@ -63,7 +63,7 @@ The scene is deterministic. Layers are built from a seeded random generator and 
 
 [Play](https://mert574.github.io/m2d-engine/examples/platformer/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/platformer)
 
-A side-scrolling level with a dynamic-body player, moving platforms, a chasing enemy, coins and a level-complete trigger. Uses the built-in `Player`, `Bee`, `Platform`, `MovingPlatform`, `Coin` and `Trigger` actors, scene JSON files, sprite sheets and music that changes between the menu and the level.
+A side-scrolling level with a dynamic-body player, moving platforms, a chasing enemy, coins and a level-complete trigger, set in the same dusk valley its menu shows: a parallax skyline behind the level, drawn terrain, lights and bloom over it. The built-in `Player`, `Bee`, `Platform`, `MovingPlatform`, `Coin` and `Trigger` actors are subclassed for the look only — scene JSON files, sprite sheets and the music that changes between the menu and the level work as stock.
 
 | Key | Action |
 | --- | --- |
@@ -75,7 +75,7 @@ A side-scrolling level with a dynamic-body player, moving platforms, a chasing e
 
 [Play](https://mert574.github.io/m2d-engine/examples/maze/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/maze)
 
-A procedurally carved maze with a fixed seed. Wall cells are merged into runs, so the world holds dozens of static bodies instead of hundreds. The player is a `character` body, the camera follows it through a world larger than the view and a sensor at the far corner resets the run. The scene is built in code.
+A procedurally carved maze with a fixed seed: a stone maze at night, cobbles underfoot, walked by lantern light. The walls brighten as the lantern comes near and the route is chalked on the floor behind the player. Wall cells are merged into runs, so the world holds dozens of static bodies instead of hundreds. The player is a `character` body, the camera follows it through a world larger than the view and a sensor at the far corner resets the run. The scene is built in code; the floor and walls are CC0 textures from ambientCG.
 
 | Key | Action |
 | --- | --- |
@@ -85,7 +85,7 @@ A procedurally carved maze with a fixed seed. Wall cells are merged into runs, s
 
 [Play](https://mert574.github.io/m2d-engine/examples/physics/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/physics)
 
-A sandbox with a funnel, a splitter and a peg field made of rotated static boxes. Objects can be grabbed and thrown through the `Interactive` constraint, which steers the body toward the pointer with velocity so it still collides.
+A sandbox with a funnel, a splitter and a peg field made of rotated static boxes, drawn as a lamplit machine: brass pegs, girder rails, amber balls and wooden crates, with no image assets at all. Objects can be grabbed and thrown through the `Interactive` constraint, which steers the body toward the pointer with velocity so it still collides; whatever the pointer holds glows.
 
 | Input | Action |
 | --- | --- |
@@ -99,7 +99,7 @@ A sandbox with a funnel, a splitter and a peg field made of rotated static boxes
 
 [Play](https://mert574.github.io/m2d-engine/examples/topdown/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/topdown)
 
-Eight-directional movement with zero gravity, ghosts that chase, turrets that check line of sight before firing rockets, coins and a trigger.
+Eight-directional movement with zero gravity, ghosts that chase, turrets that check line of sight before firing, pickups and an exit trigger, staged as the dark facility the menu's motion tracker is scanning: concrete and steel under failing ceiling lamps, a hand lamp and a sonar ping on the player, drawn apparitions for ghosts, and each turret showing its scan cone — pale while patrolling, red and narrow when it has line of sight. Taking a hit tears the picture for a moment.
 
 | Key | Action |
 | --- | --- |

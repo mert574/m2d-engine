@@ -354,9 +354,14 @@ It needs the `postEffects` capability. WebGL2 has it; the Canvas backend does no
 | --- | --- | --- |
 | `label` | `''` | |
 | `value` | — | A function returning the current value as text. Read, not cached, so a setting changed elsewhere is reflected without telling the row |
-| `onActivate` | — | Clicking, or Enter while focused |
+| `onStep(step)` | — | Change the value: `-1` for Left, `+1` for Right, a click or Enter |
+| `onActivate` | — | For an action row with nothing to step. Clicking, or Enter while focused |
+| `choices` | — | A function returning `{ index, count }`: where the value sits in its cycle. Draws a tick track under the value |
+| `description` | `''` | One line about the setting, for a screen to show for the focused row |
 | `height` | `40` | |
 | `inset` | `'$space.md'` | Padding at each end |
+
+A steppable row keeps faint chevrons either side of its value; they brighten with the selection but never appear, move or reflow the row.
 
 ## PerformanceStats
 
@@ -427,14 +432,15 @@ The engine ships [Exo](https://fonts.google.com/specimen/Exo) as a variable font
 
 ## SettingsMenu
 
-`new SettingsMenu(game, options)` from `settingsMenu.js`. A `UIScreen` built from `UIOptionRow`s in a `Stack` inside a `UIPanel`. Constructing it registers the hotkey and sets `game.settings`; it shows nothing until opened. See [The settings menu](../guide/display#the-settings-menu).
+`new SettingsMenu(game, options)` from `settingsMenu.js`. A `UIScreen` built from `UIOptionRow`s in a `Stack` on a plate, with section captions and a footer that describes the focused row. It fits itself to the UI space on open, so the same menu serves a 640-wide game and a 1280-wide one. Constructing it registers the hotkey and sets `game.settings`; it shows nothing until opened. See [The settings menu](../guide/display#the-settings-menu).
 
 | Member | Meaning |
 | --- | --- |
 | `open()`, `close()`, `toggle()` | Push and pop the screen |
 | `isShowing` | Whether the screen is on the stack |
 | `screen` | The `UIScreen`, built once and reused |
-| `items()` | The row declarations: `{label, value, onActivate}` |
+| `items()` | The row declarations: `{section, label, value, step, activate, choices, description}` |
+| `addOption(item)` | Add a game's own row. Joins its `section` if a built-in one exists, else groups under its own caption before Close. Chainable; takes effect next open |
 | `hotkey`, `resolutions`, `pauseWhenOpen` | The options as given |
 | `destroy()` | Close, unsubscribe the hotkey and clear `game.settings` |
 

@@ -1,10 +1,14 @@
 import { Constraint } from '../core/constraint.js';
 
 /**
- * A brief overlay tint across the entity when it takes a hit. Trigger it
- * from wherever damage is decided (typically `health.onDamage`):
+ * Tints an entity for a moment after it is hit. Call `flash()` from a
+ * `Health` `onDamage` handler:
  *
  *   health.onDamage = () => this.getConstraint('damageFlash').flash();
+ *
+ * This is the plainest possible hit read; a game that wants a burst, a
+ * ring or a shake draws it with a constraint of its own (see the demos'
+ * `HitBurst` in examples/src/shared/effects.js).
  *
  * @param {object} options
  * @param {number} [options.duration] - Flash length in seconds.

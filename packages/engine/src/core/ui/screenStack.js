@@ -284,19 +284,20 @@ export class ScreenStack {
    * @param {object} event
    */
   handleInput(event) {
-    // A debug child holding `captureAll` — the developer console — sees
-    // every event before anything else, position notwithstanding: a console
-    // that cannot take keys away from the game is not a console. It decides
-    // per event whether to consume, which is how pointer input outside its
-    // panel still reaches the menus below.
-    const capture = this.#captureAllTarget();
-    if (capture) {
+    // Debug children holding `captureAll` — the developer console, a menu's
+    // hotkey — see every event before anything else, position
+    // notwithstanding: a console that cannot take keys away from the game is
+    // not a console, and a hotkey a blocking menu can eat is not a hotkey.
+    // Each decides per event whether to consume, which is how pointer input
+    // outside the console's panel still reaches the menus below.
+    const captures = this.#captureAllTargets();
+    for (const capture of captures) {
       capture.handleInput(event);
       if (event.consumed) return;
     }
 
     const debugTarget = this.#debugTarget(event);
-    if (debugTarget && debugTarget !== capture) {
+    if (debugTarget && !captures.includes(debugTarget)) {
       debugTarget.handleInput(event);
       if (event.consumed) return;
     }
@@ -308,15 +309,12 @@ export class ScreenStack {
   }
 
   /**
-   * The debug child that takes everything, if any. Deliberately not gated
-   * on `visible`: the console is hidden while closed but still owns its
-   * own hotkey, which otherwise a blocking screen would eat first.
+   * The debug children that take everything, in order. Deliberately not
+   * gated on `visible`: the console is hidden while closed but still owns
+   * its own hotkey, which otherwise a blocking screen would eat first.
    */
-  #captureAllTarget() {
-    for (const child of this.debug.children) {
-      if (child.captureAll) return child;
-    }
-    return null;
+  #captureAllTargets() {
+    return this.debug.children.filter((child) => child.captureAll);
   }
 
   /** Whether any screen is still animating in or out. */

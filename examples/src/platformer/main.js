@@ -3,16 +3,14 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
-import { Player } from 'm2d-engine/actors/player.js';
-import { Bee } from 'm2d-engine/actors/bee.js';
-import { Platform } from 'm2d-engine/actors/platform.js';
-import { MovingPlatform } from 'm2d-engine/actors/movingPlatform.js';
-import { Coin } from 'm2d-engine/actors/coin.js';
-import { Trigger } from 'm2d-engine/actors/trigger.js';
+import { DuskLevelBackdrop } from './levelBackdrop.js';
+import {
+  EmberPlayer, DuskPlatform, DuskMovingPlatform, GlowCoin, DuskBee, ValleyGate
+} from './duskActors.js';
 
 import {
   jumpSound, coinSound, gameOverSound, levelCompleteSound,
-  attackSound, damageSound, menuMusic, gameMusic
+  attackSound, damageSound, starsAtDawn, perfectUnion, audioOption
 } from '../shared/audio.js';
 
 const canvas = document.getElementById('screen');
@@ -26,9 +24,6 @@ const game = new M2D(canvas, {
   height: 960,
   worldWidth: 1920,
   worldHeight: 1440,
-  // The tiles are 32px pixel art: upscale them blocky, not smeared, when the
-  // render resolution drops below native.
-  worldFilter: 'nearest',
   // Where sprite URLs in scene JSON resolve. Vite's BASE_URL is '/' on the
   // dev server and '/m2d-engine/examples/' in the published build (set in
   // vite.config.js), so deriving the prefix from it keeps both in step with
@@ -43,8 +38,8 @@ const game = new M2D(canvas, {
     damage: damageSound
   },
   music: {
-    menu: menuMusic,
-    game: gameMusic
+    menu: starsAtDawn,
+    game: perfectUnion
   }
 });
 
@@ -55,10 +50,15 @@ game.camera.bounds = {
   right: game.options.worldWidth, bottom: game.options.worldHeight
 };
 
-// Register actors
-[Player, Bee, Platform, MovingPlatform, Coin, Trigger].forEach(actor => {
-  game.registerActor(actor.name, actor);
-});
+// Register actors. The scene JSON names the stock actors; what answers to
+// those names here is the dusk cast from duskActors.js, which keeps every
+// behaviour and replaces the tiled sprites with drawn terrain.
+game.registerActor('Player', EmberPlayer);
+game.registerActor('Bee', DuskBee);
+game.registerActor('Platform', DuskPlatform);
+game.registerActor('MovingPlatform', DuskMovingPlatform);
+game.registerActor('Coin', GlowCoin);
+game.registerActor('Trigger', ValleyGate);
 
 // Register scenes
 registerMainMenu(game, {
@@ -73,14 +73,33 @@ registerMainMenu(game, {
   onEnter: () => game.soundManager.playMusic('menu')
 });
 
+// The level's world: the menu's valley, built per entry and torn down on
+// exit so its ambient light and post pass never leak into the menu.
+let backdrop = null;
+
 game.sceneManager.addScene('level1', {
   fetch: async () => (await import('./scenes/level1.json')).default,
   onEnter() {
     game.soundManager.playMusic('game');
+    backdrop = new DuskLevelBackdrop(game);
+    backdrop.applyAtmosphere();
+  },
+  onExit() {
+    backdrop?.clearAtmosphere();
+    backdrop = null;
+  },
+  onUpdate(deltaTime) {
+    backdrop?.update(deltaTime);
+  },
+  onDrawBackground() {
+    backdrop?.drawBackground();
+  },
+  onDraw() {
+    backdrop?.drawForeground();
   }
 });
 
-// Settings overlay (O): resolution, fullscreen, aspect mode.
-new SettingsMenu(game);
+// Settings overlay (O), with the demos' shared Audio row added on.
+new SettingsMenu(game).addOption(audioOption(game));
 
 game.start();

@@ -1,4 +1,5 @@
 import { makeRng, range } from '../shared/rng.js';
+import { SKY, seedRidges, ridgeProfile } from './dusk.js';
 
 /**
  * The platformer's menu: a valley at dusk.
@@ -7,7 +8,9 @@ import { makeRng, range } from '../shared/rng.js';
  * parallax slide past at different speeds, a low sun sinks behind the
  * farthest of them, cloud bands drift and a flock crosses now and then. All
  * of it is drawn from a seeded profile function, so the valley is the same
- * every time the menu opens and never shows a seam when it scrolls.
+ * every time the menu opens and never shows a seam when it scrolls. The
+ * palette and the ridge relief live in `dusk.js`, shared with the level —
+ * the menu and the game are the same valley.
  *
  * Nothing here is sprites: the skyline is four filled paths sampled every
  * few pixels. The one rule is that nothing moves fast. The nearest ridge
@@ -15,31 +18,8 @@ import { makeRng, range } from '../shared/rng.js';
  * a screensaver.
  */
 
-/** Sky from zenith to horizon. The warm band is what sells the hour. */
-const SKY = [
-  { offset: 0, color: '#040a12' },
-  { offset: 0.42, color: '#0e2a44' },
-  { offset: 0.7, color: '#4a3f57' },
-  { offset: 0.86, color: '#a9653c' },
-  { offset: 1, color: '#e9a865' }
-];
-
 /** Where the farthest ridge stands, as a fraction of the height. */
 const HORIZON = 0.64;
-
-/**
- * Ridges, far to near. `base` and `amp` are fractions of the height,
- * `freqs` are in radians per height so a screen width holds a few peaks,
- * `speed` is in UI units per second. The farthest is `peaked`, a mountain
- * line; the rest roll. The two nearest carry a treeline, a ragged
- * triangle wave of `trees` height on top of the profile.
- */
-const RIDGES = [
-  { base: 0.68, amp: 0.2, freqs: [7.5, 17, 39], speed: 2.5, color: '#2c4a66', peaked: true },
-  { base: 0.74, amp: 0.075, freqs: [5.2, 12, 27], speed: 6, color: '#1a3049' },
-  { base: 0.82, amp: 0.06, freqs: [4.1, 9.3, 21], speed: 12, color: '#0d1b2b', trees: 0.02 },
-  { base: 0.91, amp: 0.045, freqs: [3.2, 7.1, 16], speed: 21, color: '#04090f', trees: 0.032 }
-];
 
 /** Sampling step along a ridge, in UI units. */
 const STEP = 6;
@@ -48,11 +28,7 @@ export class DuskValley {
   constructor(seed = 11) {
     const rng = makeRng(seed);
     // Phases, so no two ridges share a silhouette.
-    this.ridges = RIDGES.map((ridge) => ({
-      ...ridge,
-      phases: ridge.freqs.map(() => range(rng, 0, Math.PI * 2)),
-      treePhase: range(rng, 0, Math.PI * 2)
-    }));
+    this.ridges = seedRidges(rng);
     this.clouds = Array.from({ length: 4 }, (_, i) => ({
       y: 0.4 + i * 0.05 + range(rng, -0.01, 0.01),
       width: range(rng, 0.2, 0.4),
@@ -66,37 +42,6 @@ export class DuskValley {
       dy: range(rng, -0.035, 0.035),
       flap: range(rng, 0, Math.PI * 2)
     }));
-  }
-
-  /** Height of a ridge profile at `u`, in normalized horizontal units. */
-  #profile(ridge, u, height) {
-    const [a, b, c] = ridge.freqs;
-    const [pa, pb, pc] = ridge.phases;
-    let relief;
-    if (ridge.peaked) {
-      // Folded sines for sharp crests, over a slow roll so the valleys
-      // between them sit at different heights rather than on one line.
-      relief = 0.12 + 0.1 * Math.sin(u * 1.9 + pa * 0.5)
-        + 0.5 * (1 - Math.abs(Math.sin(u * a + pa)))
-        + 0.22 * (1 - Math.abs(Math.sin(u * b + pb)))
-        + 0.1 * (1 - Math.abs(Math.sin(u * c + pc)));
-    } else {
-      relief = 0.5 + 0.5 * (
-        0.55 * Math.sin(u * a + pa)
-        + 0.3 * Math.sin(u * b + pb)
-        + 0.15 * Math.sin(u * c + pc)
-      );
-    }
-    let y = ridge.base * height - ridge.amp * height * relief;
-    if (ridge.trees) {
-      // Pines: two triangle waves of different pitch, the taller winning,
-      // with the stature breathing along the ridge so no two look alike.
-      const pitchA = Math.abs(((u * 24) % 1) - 0.5) * 2;
-      const pitchB = Math.abs(((u * 15.3 + 0.37) % 1) - 0.5) * 2;
-      const stature = 0.5 + 0.5 * Math.sin(u * 5.1 + ridge.treePhase) * Math.sin(u * 1.7);
-      y -= Math.max(pitchA, pitchB * 0.8) * ridge.trees * height * (0.6 + stature);
-    }
-    return y;
   }
 
   draw(paint, { width, height, elapsed }) {
@@ -181,7 +126,7 @@ export class DuskValley {
     const points = [{ x: -STEP, y: height + STEP }];
     for (let x = -STEP; x <= width + STEP; x += STEP) {
       // Normalized against the height, so slopes read the same at any size.
-      points.push({ x, y: this.#profile(ridge, (x + scroll) / height, height) });
+      points.push({ x, y: ridgeProfile(ridge, (x + scroll) / height, height) });
     }
     points.push({ x: width + STEP, y: height + STEP });
     paint.drawPath({ points, closed: true, fillStyle: ridge.color });

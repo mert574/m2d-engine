@@ -1,47 +1,49 @@
-// Original sound effects synthesized from sine waves. MIT; see LICENSE.
-// Frequencies and note lengths are generated here rather than sampled from recordings.
-// Music recordings have separate CC BY 4.0 terms; see THIRD_PARTY_NOTICES.md.
-export { default as menuMusic } from './music/backed-vibes-clean.mp3';
-export { default as gameMusic } from './music/bossa-antigua.mp3';
-export function synthesizeAudio(notes, noteSeconds = 0.12) {
-  const sampleRate = 12000;
-  const samplesPerNote = Math.round(sampleRate * noteSeconds);
-  const dataSize = samplesPerNote * notes.length * 2;
-  const bytes = new Uint8Array(44 + dataSize);
-  const view = new DataView(bytes.buffer);
-  const text = (offset, value) => {
-    for (let i = 0; i < value.length; i++) bytes[offset + i] = value.charCodeAt(i);
+/**
+ * The demos' audio: all of it sampled, none of it generated here.
+ *
+ * Music is from the IDMf netlabel's first compilation, *InDepthMelodics*
+ * (CC BY 3.0), one pair of tracks per demo so each has its own room tone.
+ * Sound effects are Kenney's *Interface Sounds* (CC0): clean, short
+ * synthetic tones — instrument readouts, not arcade noises — that sit with
+ * the music rather than fight it. Credits, sources and checksums are in
+ * THIRD_PARTY_NOTICES.md and docs/examples/music-credits.md.
+ */
+
+// Music — IDMf001: InDepthMelodics, CC BY 3.0.
+export { default as starsAtDawn } from './music/nathanrain-stars-at-dawn.ogg';
+export { default as perfectUnion } from './music/theget-perfect-union.ogg';
+export { default as lastTransmission } from './music/kloquewurk-last-transmission.ogg';
+export { default as november } from './music/chaoticpulse-november.ogg';
+export { default as symmetricalTree } from './music/binarypulse-symmetrical-tree.ogg';
+export { default as redux } from './music/halogen-redux.ogg';
+export { default as g2Remix } from './music/gbsr-g2-cockboymattt-remix.ogg';
+
+/**
+ * The Audio row every demo adds to its settings panel — the one game-side
+ * option they all share, and the worked example of `SettingsMenu.addOption`.
+ * @param {import('m2d-engine/core/m2d.js').M2D} game
+ * @returns {Object} An `addOption` item
+ */
+export function audioOption(game) {
+  return {
+    section: 'Game',
+    label: 'Audio',
+    value: () => (game.soundManager.isMuted ? 'Off' : 'On'),
+    step: () => game.soundManager.toggleMute(),
+    choices: () => ({ index: game.soundManager.isMuted ? 0 : 1, count: 2 }),
+    description: 'Music and sound effects.'
   };
-  text(0, 'RIFF');
-  view.setUint32(4, 36 + dataSize, true);
-  text(8, 'WAVE');
-  text(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  text(36, 'data');
-  view.setUint32(40, dataSize, true);
-  notes.forEach((frequency, note) => {
-    for (let i = 0; i < samplesPerNote; i++) {
-      const progress = i / samplesPerNote;
-      const envelope = Math.min(1, progress * 30) * (1 - progress) ** 2;
-      const sample = Math.sin(2 * Math.PI * frequency * i / sampleRate);
-      view.setInt16(44 + (note * samplesPerNote + i) * 2,
-        Math.round(sample * envelope * 7000), true);
-    }
-  });
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return `data:audio/wav;base64,${btoa(binary)}`;
 }
 
-export const jumpSound = synthesizeAudio([220, 440, 660], 0.045);
-export const coinSound = synthesizeAudio([660, 880], 0.07);
-export const gameOverSound = synthesizeAudio([330, 220, 110], 0.18);
-export const levelCompleteSound = synthesizeAudio([330, 440, 550, 660], 0.12);
-export const attackSound = synthesizeAudio([180, 90], 0.04);
-export const damageSound = synthesizeAudio([140, 100], 0.09);
+// Sound effects — Kenney Interface Sounds, CC0. Picked by measurement, not
+// by name: every sample is under half a second and keeps its spectral
+// centroid below ~700 Hz, so nothing in the set is shrill.
+export { default as jumpSound } from './sfx/bong_001.ogg';
+export { default as coinSound } from './sfx/confirmation_001.ogg';
+export { default as solvedSound } from './sfx/maximize_006.ogg';
+export { default as levelCompleteSound } from './sfx/maximize_008.ogg';
+export { default as attackSound } from './sfx/minimize_008.ogg';
+export { default as damageSound } from './sfx/error_008.ogg';
+export { default as gameOverSound } from './sfx/error_006.ogg';
+export { default as spawnSound } from './sfx/drop_003.ogg';
+export { default as removeSound } from './sfx/minimize_006.ogg';

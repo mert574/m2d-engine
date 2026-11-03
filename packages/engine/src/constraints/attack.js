@@ -103,38 +103,24 @@ export class Attack extends Constraint {
     }
   }
 
+  /**
+   * The attack has no look of its own: what a swing is depends on the game
+   * and its perspective. Games draw one with a constraint of their own that
+   * hooks `onStart` (the demos' `AttackSwing` in examples/src/shared/effects.js).
+   * The range ring is a diagnostic and only shows in debug mode.
+   */
   draw() {
+    if (!this.entity.game.renderer.isDebugEnabled()) return;
     const pos = this.entity.renderPosition;
-    // Attack range is an annotation on top of the game: it describes a world
-    // region but is not world content, so it goes to the overlay and is
-    // rasterized at display resolution instead of blurring with the world.
-    const overlay = this.entity.game.worldOverlay;
-
-    // The passive range ring is a diagnostic, not gameplay feedback, so it
-    // only shows in debug mode. The attack flash below stays unconditional.
-    if (this.entity.game.renderer.isDebugEnabled()) {
-      overlay.drawArc({
-        x: pos.x,
-        y: pos.y,
-        radius: this.range,
-        startAngle: 0,
-        endAngle: Math.PI * 2,
-        strokeStyle: 'rgba(0, 150, 255, 0.3)',
-        fill: false
-      });
-    }
-
-    // Draw active half in red when attacking
-    if (this.isAttacking) {
-      overlay.drawArc({
-        x: pos.x,
-        y: pos.y,
-        radius: this.range,
-        startAngle: this.direction > 0 ? -Math.PI / 2 : Math.PI / 2,
-        endAngle: this.direction > 0 ? Math.PI / 2 : 3 * Math.PI / 2,
-        fillStyle: 'rgba(255, 0, 0, 0.2)',
-        strokeStyle: 'rgba(255, 0, 0, 0.5)'
-      });
-    }
+    // World coordinates, rasterized at display resolution on the overlay.
+    this.entity.game.worldOverlay.drawArc({
+      x: pos.x,
+      y: pos.y,
+      radius: this.range,
+      startAngle: 0,
+      endAngle: Math.PI * 2,
+      strokeStyle: 'rgba(0, 150, 255, 0.3)',
+      fill: false
+    });
   }
-} 
+}

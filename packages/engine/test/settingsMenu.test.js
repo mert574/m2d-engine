@@ -3,6 +3,7 @@ import { createCanvasElement } from './helpers/environment.js';
 import { M2D } from '../src/core/m2d.js';
 import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
 import { UIOptionRow } from '../src/core/ui/optionRow.js';
+import { UIScreen } from '../src/core/ui/screen.js';
 import { keyDown, keyUp } from './helpers/input.js';
 
 /**
@@ -106,7 +107,7 @@ describe('SettingsMenu', () => {
     openAndLayout(game, menu);
 
     expect(rows(menu).map((r) => r.label)).toEqual([
-      'Resolution', 'Fullscreen', 'Aspect', 'Debug overlay', 'Renderer', 'Paused', 'Close'
+      'Resolution', 'Fullscreen', 'Aspect', 'Renderer', 'Debug overlay', 'Paused', 'Close'
     ]);
   });
 
@@ -179,6 +180,38 @@ describe('SettingsMenu', () => {
     expect(row(menu, 'Aspect').valueText).toBe('Fill (expand)');
   });
 
+  it('adds a game row with addOption, into its section, before Close', () => {
+    const { game, menu } = makeGameWithMenu();
+    openAndLayout(game, menu);
+    // Added after the menu was built: the screen rebuilds on next open.
+    let music = true;
+    menu.close();
+    menu.addOption({
+      section: 'Game',
+      label: 'Music',
+      value: () => (music ? 'On' : 'Off'),
+      step: () => { music = !music; }
+    });
+    openAndLayout(game, menu);
+
+    const labels = rows(menu).map((r) => r.label);
+    expect(labels).toEqual([
+      'Resolution', 'Fullscreen', 'Aspect', 'Renderer', 'Debug overlay', 'Paused', 'Music', 'Close'
+    ]);
+    clickRow(game, menu, 'Music');
+    expect(music).toBe(false);
+  });
+
+  it('groups an addOption row with an unknown section under its own caption', () => {
+    const { game, menu } = makeGameWithMenu();
+    menu.addOption({ section: 'Accessibility', label: 'Shake', value: () => 'On', step: () => {} });
+    openAndLayout(game, menu);
+
+    const labels = rows(menu).map((r) => r.label);
+    expect(labels[labels.length - 2]).toBe('Shake');
+    expect(labels[labels.length - 1]).toBe('Close');
+  });
+
   it('closes via the Close row', () => {
     const { game, menu } = makeGameWithMenu();
     openAndLayout(game, menu);
@@ -223,6 +256,19 @@ describe('SettingsMenu', () => {
       keyDown(game, 'KeyO');
       expect(game.ui.has('settings')).toBe(true);
       expect(menu).toBeTruthy();
+    });
+
+    it('opens over a blocking screen, such as a main menu', () => {
+      // Subscribers run after the screen stack, and a blocking screen
+      // consumes every key; the hotkey listens ahead of the screens instead.
+      const { game } = makeGameWithMenu();
+      game.ui.push(new UIScreen({ name: 'mainMenu', blocking: true, scrim: false, closeOnEscape: false }));
+      game.ui.update(0.016);
+
+      keyDown(game, 'KeyO');
+
+      expect(game.ui.has('settings')).toBe(true);
+      expect(game.ui.top.name).toBe('settings');
     });
 
     it('closes it again', () => {
@@ -310,6 +356,30 @@ describe('SettingsMenu', () => {
       for (let i = 0; i < all.length; i++) keyDown(game, 'Tab');
 
       expect(menu.screen.focus.focused).toBe(all[0]);
+    });
+
+    it('steps the focused value with Left and Right', () => {
+      const { game, menu } = makeGameWithMenu();
+      openAndLayout(game, menu);
+      expect(menu.screen.focus.focused).toBe(row(menu, 'Resolution'));
+
+      keyDown(game, 'ArrowRight');
+      const stepped = game.resolution;
+      expect(stepped).not.toBe('native');
+
+      keyDown(game, 'ArrowLeft');
+      expect(game.resolution).toBe('native');
+      // Focus stayed put: sideways is the value, not the next row.
+      expect(menu.screen.focus.focused).toBe(row(menu, 'Resolution'));
+    });
+
+    it('describes the focused row in the footer', () => {
+      const { game, menu } = makeGameWithMenu();
+      openAndLayout(game, menu);
+
+      expect(row(menu, 'Resolution').description).toMatch(/pixels/i);
+      keyDown(game, 'ArrowDown');
+      expect(menu.screen.focus.focused.description).toMatch(/screen/i);
     });
 
     it('activates the focused row with Enter', () => {

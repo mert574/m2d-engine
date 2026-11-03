@@ -159,7 +159,30 @@ renderer.setPostEffects({ bloom: { threshold: 0.7, strength: 0.8, blur: 8 }, vig
 renderer.setPostEffects(null);
 ```
 
-Lights are submitted every frame. Post effects apply to the world pass only, so UI stays unaffected.
+Lights are submitted every frame. Post effects apply to the world pass only, so UI stays unaffected. Every effect is optional and off unless given; `setPostEffects` replaces the whole set, so pass everything you want each time.
+
+| Effect | Fields | Meaning |
+| --- | --- | --- |
+| `bloom` | `threshold`, `strength`, `blur` | Bright parts glow outward |
+| `vignette` | `strength`, `start` | Darkens the corners from `start` (0 to 1 of the radius) |
+| `blur` | `strength` | Defocuses the whole world, in world units. What sits behind a modal screen |
+| `distortion` | `strength` | Lens curvature: positive barrels, negative pincushions |
+| `chromatic` | `strength` | Colour fringing that grows toward the edges, like a real lens |
+| `grade` | `shadows`, `highlights`, `amount`, `saturation`, `contrast` | Split-tones by luminance (dark areas toward `shadows`, bright toward `highlights`, CSS colours), then saturation and contrast (1 is neutral). `amount` blends the whole grade in |
+| `grain` | `strength` | Animated film grain on the output pixels |
+| `scanlines` | `strength`, `density` | Horizontal lines on the output pixels; `density` is in radians per pixel |
+| `glitch` | `strength` | Horizontal bands tear sideways, re-rolled several times a second |
+| `flash` | `color`, `strength` | Blends the frame toward a colour; set per frame for a hit flash |
+
+```javascript
+renderer.setPostEffects({
+  bloom: { threshold: 0.7, strength: 0.6, blur: 30 },
+  grade: { shadows: '#4a3f6e', highlights: '#ffd9a8', amount: 0.5, contrast: 1.05 },
+  chromatic: { strength: 0.004 },
+  grain: { strength: 0.05 },
+  distortion: { strength: 0.05 }
+});
+```
 
 ## Transforms and clips
 

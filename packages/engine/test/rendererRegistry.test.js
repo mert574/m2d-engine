@@ -97,7 +97,7 @@ describe('BaseRenderer contract', () => {
 
     // hitTest, debug flags, stats and FPS are backend-agnostic.
     expect(bare.hitTest(5, 5, { type: 'rect', x: 0, y: 0, width: 10, height: 10 })).toBe(true);
-    expect(bare.isDebugEnabled()).toBe(true);
+    expect(bare.isDebugEnabled()).toBe(false);
     expect(bare.getDebugLayer()).toBe('default');
     expect(bare.getStats().drawCalls).toBe(0);
     expect(() => bare.beginFrame()).not.toThrow();
@@ -108,10 +108,10 @@ describe('BaseRenderer contract', () => {
     const a = new Bare();
     const b = new Bare();
 
-    a.setDebugEnabled(false);
+    a.setDebugEnabled(true);
     a.setDebugLayer('physics');
 
-    expect(b.isDebugEnabled()).toBe(true);
+    expect(b.isDebugEnabled()).toBe(false);
     expect(b.getDebugLayer()).toBe('default');
   });
 });

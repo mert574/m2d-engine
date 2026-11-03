@@ -47,6 +47,9 @@ export class Health extends Constraint {
 
   draw() {
     if (this.entity.dead || !this.showBar) return;
+    // A full bar is noise over every entity on screen; the bar appears when
+    // it carries information, which is the moment health is missing.
+    if (this.currentHealth >= this.maxHealth) return;
 
     const pos = this.entity.renderPosition;
     const size = this.entity.size;

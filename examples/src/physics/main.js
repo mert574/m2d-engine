@@ -1,26 +1,28 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
-import { Entity } from 'm2d-engine/core/entity.js';
 import { Interactive } from 'm2d-engine/constraints/interactive.js';
 import { UIText } from 'm2d-engine/core/ui/text.js';
-import ballSprite from './assets/ball.png';
-import boxSprite from './assets/box.png';
-import platformSprite from './assets/platform.png';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
+import { WorkshopBackdrop } from './workshopBackdrop.js';
+import { MachineRamp, AmberBall, WoodCrate } from './machineActors.js';
+import { spawnSound, removeSound, audioOption } from '../shared/audio.js';
 
 // Compile Rapier's WASM module before anything builds a physics world.
 await initPhysics();
 
 const game = new M2D(document.getElementById('screen'), {
-  initialScene: 'mainMenu', width: 960, height: 720, worldWidth: 960, worldHeight: 720
+  initialScene: 'mainMenu', width: 960, height: 720, worldWidth: 960, worldHeight: 720,
+  sounds: { spawn: spawnSound, remove: removeSound }
 });
 game.camera.x = 480;
 game.camera.y = 360;
-game.registerActor('Ball', Entity);
-game.registerActor('Box', Entity);
-game.registerActor('Ramp', Entity);
+// The machine's parts, drawn in code: brass pegs, girder rails, amber glass
+// balls and wooden crates (see machineActors.js).
+game.registerActor('Ball', AmberBall);
+game.registerActor('Box', WoodCrate);
+game.registerActor('Ramp', MachineRamp);
 registerMainMenu(game, {
   title: 'Physics',
   subtitle: 'a playground',
@@ -43,23 +45,18 @@ game.sceneManager.addScene('physics', {
   fetch: async () => ({
     version: 1, name: 'physics', type: 'level', gameType: 'sideScroll',
     world: { width: 960, height: 720, gravity: { x: 0, y: 1000 } },
-    assets: { spritesheets: {
-      ball: { url: ballSprite, frameWidth: 32, frameHeight: 32 },
-      box: { url: boxSprite, frameWidth: 32, frameHeight: 32 },
-      platform: { url: platformSprite, frameWidth: 32, frameHeight: 32 }
-    } },
+    assets: { spritesheets: {} },
     prefabs: {
       ball: {
         actor: 'Ball',
-        spritesheet: 'ball',
         physics: {
           bodyType: 'dynamic', shape: 'circle',
           restitution: 0.8, friction: 0.005, frictionAir: 0.001
         }
       },
-      box: { actor: 'Box', spritesheet: 'box', physics: { bodyType: 'dynamic', restitution: 0.4 } },
-      platform: { actor: 'Ramp', spritesheet: 'platform', physics: { bodyType: 'static' } },
-      peg: { actor: 'Ramp', spritesheet: 'platform', physics: { bodyType: 'static' } }
+      box: { actor: 'Box', physics: { bodyType: 'dynamic', restitution: 0.4 } },
+      platform: { actor: 'Ramp', physics: { bodyType: 'static' } },
+      peg: { actor: 'Ramp', physics: { bodyType: 'static' } }
     },
     layers: [{ name: 'playground', objects: [
       // Bounds
@@ -91,8 +88,27 @@ game.sceneManager.addScene('physics', {
     gravityLabel = game.sceneManager.getCurrentScene().ui.add(
       new UIText({ x: 16, y: 16, text: '', fontSize: '16px', color: '#cfe8ff' }));
     setGravity(gravityY);
+    backdrop = new WorkshopBackdrop(game);
+    backdrop.applyAtmosphere();
+  },
+  onExit() {
+    backdrop?.clearAtmosphere();
+    backdrop = null;
+  },
+  onUpdate(deltaTime) {
+    backdrop?.update(deltaTime);
+  },
+  onDrawBackground() {
+    backdrop?.drawBackground();
+  },
+  onDraw() {
+    backdrop?.drawForeground();
   }
 });
+
+// The workshop the machine stands in, built per entry and torn down on exit
+// so its ambient light and post pass never leak into the menu.
+let backdrop = null;
 
 // === Pointer play ===
 //
@@ -128,6 +144,7 @@ function setGravity(value) {
 
 /** Remove an entity from the world, and from the input router with it. */
 function despawn(entity) {
+  game.soundManager.playSound('remove');
   game.entities.delete(entity);
   game.physics.remove(entity.body);
   entity.destroy();
@@ -159,17 +176,16 @@ function spawn(x, y) {
 
   const isBox = Math.random() > 0.5;
   const size = isBox ? 64 : 32;
-  const sprite = scene.spriteSheets.get(isBox ? 'box' : 'ball');
   // Spawning goes straight to createEntity rather than through a prefab, so
   // the body spec has to be spelled out here to match the prefabs above.
   const entity = game.createEntity(isBox ? 'Box' : 'Ball', x, y,
-    size, size, sprite, {}, isBox
+    size, size, null, {}, isBox
       ? { restitution: 0.4 }
       : { shape: 'circle', restitution: 0.8, friction: 0.005, frictionAir: 0.001 });
-  entity.setAnimation('default');
   game.entities.add(entity);
   game.physics.add(entity.body);
   makeGrabbable(entity);
+  game.soundManager.playSound('spawn');
 }
 
 game.input.on('keydown', (event) => {
@@ -189,7 +205,7 @@ game.input.on('click', (event) => {
 game.input.on('scroll', (event) => setGravity(gravityY - event.scroll.y * GRAVITY_PER_SCROLL));
 game.input.on('pinch', (event) => setGravity(gravityY * event.scaleDelta));
 
-// Settings overlay (O): resolution, fullscreen, aspect mode, debug, backend.
-new SettingsMenu(game);
+// Settings overlay (O), with the demos' shared Audio row added on.
+new SettingsMenu(game).addOption(audioOption(game));
 
 game.start();

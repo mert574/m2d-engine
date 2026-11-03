@@ -39,6 +39,5 @@ yarn-error.log*
 *.mp3
 *.wav
 
-# Licensed demo music (credits and checksums in THIRD_PARTY_NOTICES.md)
-!/examples/src/shared/music/backed-vibes-clean.mp3
-!/examples/src/shared/music/bossa-antigua.mp3
+# Licensed demo textures (credits in THIRD_PARTY_NOTICES.md)
+!/examples/src/*/textures/*.jpg

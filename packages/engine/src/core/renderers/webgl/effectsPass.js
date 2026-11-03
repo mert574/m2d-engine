@@ -276,7 +276,11 @@ export class EffectsPass {
   /**
    * Composite the frame to the default framebuffer.
    * @param {Object|null} post - { bloom: {threshold, strength, blur},
-   *   vignette: {strength, start}, blur: {strength} }
+   *   vignette: {strength, start}, blur: {strength}, distortion: {strength},
+   *   chromatic: {strength}, grade: {shadows, highlights, amount, saturation,
+   *   contrast}, grain: {strength}, scanlines: {strength, density},
+   *   glitch: {strength}, flash: {color, strength} }. Colours are parsed
+   *   `[r, g, b]` triples in 0..1 (see WebGLRenderer.setPostEffects)
    * @param {{x: number, y: number, width: number, height: number}} [content] - Where
    *   the world lands on the backing store. Defaults to the full offscreen size,
    *   which is the unscaled, unletterboxed case.
@@ -332,6 +336,29 @@ export class EffectsPass {
     gl.uniform1f(uniforms.u_bloomStrength, bloom ? (bloom.strength ?? 0) : 0);
     gl.uniform1f(uniforms.u_vignette, vignette ? (vignette.strength ?? 0) : 0);
     gl.uniform1f(uniforms.u_vignetteStart, vignette ? (vignette.start ?? 0.55) : 0.55);
+
+    // The lens, grade and surface effects. Every one defaults to "off", so a
+    // post object that only asks for bloom pays for nothing else.
+    const grade = post?.grade;
+    const shadows = grade?.shadows ?? [1, 1, 1];
+    const highlights = grade?.highlights ?? [1, 1, 1];
+    const flash = post?.flash;
+    const flashColor = flash?.color ?? [1, 1, 1];
+    gl.uniform1f(uniforms.u_time, performance.now() / 1000);
+    gl.uniform1f(uniforms.u_distortion, post?.distortion?.strength ?? 0);
+    gl.uniform1f(uniforms.u_chromatic, post?.chromatic?.strength ?? 0);
+    gl.uniform3f(uniforms.u_gradeShadows, shadows[0], shadows[1], shadows[2]);
+    gl.uniform3f(uniforms.u_gradeHighlights, highlights[0], highlights[1], highlights[2]);
+    gl.uniform1f(uniforms.u_gradeAmount, grade ? (grade.amount ?? 1) : 0);
+    gl.uniform1f(uniforms.u_saturation, grade?.saturation ?? 1);
+    gl.uniform1f(uniforms.u_contrast, grade?.contrast ?? 1);
+    gl.uniform1f(uniforms.u_grain, post?.grain?.strength ?? 0);
+    gl.uniform1f(uniforms.u_scanlines, post?.scanlines?.strength ?? 0);
+    gl.uniform1f(uniforms.u_scanDensity, post?.scanlines?.density ?? 1.6);
+    gl.uniform1f(uniforms.u_glitch, post?.glitch?.strength ?? 0);
+    gl.uniform3f(uniforms.u_flashColor, flashColor[0], flashColor[1], flashColor[2]);
+    gl.uniform1f(uniforms.u_flashStrength, flash?.strength ?? 0);
+
     this.#drawFullQuad();
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND);

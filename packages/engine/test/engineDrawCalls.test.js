@@ -74,7 +74,9 @@ describe('engine draw calls', () => {
     it('draws its constraints after the sprite', () => {
       const sprite = new SpriteSheet({ width: 16, height: 16 }, 16, 16, game, 16, 16);
       const entity = new Entity(makeBody(game, 100, 100, 16, 16), sprite, game);
-      entity.addConstraint('health', new Health(entity, { maxHealth: 100 }));
+      const health = new Health(entity, { maxHealth: 100 });
+      health.currentHealth = 50; // the bar only draws while health is missing
+      entity.addConstraint('health', health);
       entity.draw();
 
       expect(renderer.sequence()).toEqual(['drawSprite', 'drawRect', 'drawRect']);
@@ -86,7 +88,9 @@ describe('engine draw calls', () => {
     // visible change rather than an accident.
     it('skips constraints on the sprite-less placeholder path', () => {
       const entity = new Entity(makeBody(game, 100, 50, 40, 20), null, game);
-      entity.addConstraint('health', new Health(entity, { maxHealth: 100 }));
+      const health = new Health(entity, { maxHealth: 100 });
+      health.currentHealth = 50;
+      entity.addConstraint('health', health);
       entity.draw();
 
       expect(renderer.sequence()).toEqual(['drawRect']);
@@ -159,9 +163,20 @@ describe('engine draw calls', () => {
       expect(renderer.optionsFor('drawRect')[1].fillStyle).toBe('#e74c3c');
     });
 
+    it('hides the bar at full health', () => {
+      const entity = new Entity(makeBody(game, 100, 100, 40, 20), null, game);
+      const health = new Health(entity, { maxHealth: 100 });
+
+      renderer.reset();
+      health.draw();
+
+      expect(renderer.callsTo('drawRect')).toHaveLength(0);
+    });
+
     it('positions the bar above the entity', () => {
       const entity = new Entity(makeBody(game, 100, 100, 40, 20), null, game);
       const health = new Health(entity, { maxHealth: 100 });
+      health.currentHealth = 50;
 
       renderer.reset();
       health.draw();
@@ -174,6 +189,7 @@ describe('engine draw calls', () => {
     it('thickens the bar so it survives a low world render resolution', () => {
       const entity = new Entity(makeBody(game, 100, 100, 40, 20), null, game);
       const health = new Health(entity, { maxHealth: 100 });
+      health.currentHealth = 50;
 
       // At a quarter resolution a 4-world-unit bar is a single surface pixel;
       // the bar grows in world units to stay ~2 pixels on the surface.

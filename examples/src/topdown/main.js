@@ -3,12 +3,14 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
-import { TopDownPlayer } from 'm2d-engine/actors/topDownPlayer.js';
-import { Ghost } from 'm2d-engine/actors/ghost.js';
-import { Platform } from 'm2d-engine/actors/platform.js';
-import { Coin } from 'm2d-engine/actors/coin.js';
-import { Trigger } from 'm2d-engine/actors/trigger.js';
-import { Turret } from 'm2d-engine/actors/turret.js';
+import { FacilityBackdrop } from './facilityBackdrop.js';
+import {
+  FacilityWall, SpecterGhost, SentryTurret, DataCore, ExtractionPad, ScannerAgent
+} from './facilityActors.js';
+import {
+  attackSound, damageSound, coinSound, levelCompleteSound, gameOverSound,
+  lastTransmission, november, audioOption
+} from '../shared/audio.js';
 
 const canvas = document.getElementById('screen');
 // Compile Rapier's WASM module before anything builds a physics world.
@@ -21,13 +23,22 @@ const game = new M2D(canvas, {
   height: 960,
   worldWidth: 3840,
   worldHeight: 2880,
-  // 32px pixel-art tiles: upscale them blocky, not smeared, below native.
-  worldFilter: 'nearest',
   // Where sprite URLs in scene JSON resolve. Vite's BASE_URL is '/' on the
   // dev server and '/m2d-engine/examples/' in the published build (set in
   // vite.config.js), so deriving the prefix from it keeps both in step with
   // however the site is actually served, instead of hardcoding each one.
-  basePath: import.meta.env.BASE_URL + 'topdown/'
+  basePath: import.meta.env.BASE_URL + 'topdown/',
+  sounds: {
+    attack: attackSound,
+    damage: damageSound,
+    coin: coinSound,
+    levelComplete: levelCompleteSound,
+    gameOver: gameOverSound
+  },
+  music: {
+    menu: lastTransmission,
+    game: november
+  }
 });
 
 // Keep the camera inside the level: without bounds, following the player (or
@@ -37,10 +48,15 @@ game.camera.bounds = {
   right: game.options.worldWidth, bottom: game.options.worldHeight
 };
 
-// Register actors
-[TopDownPlayer, Ghost, Platform, Coin, Trigger, Turret].forEach(actor => {
-  game.registerActor(actor.name, actor);
-});
+// Register actors. The scene JSON names the stock actors; what answers to
+// those names here is the facility cast from facilityActors.js, which keeps
+// every behaviour and replaces the tiled sprites with drawn hardware.
+game.registerActor('TopDownPlayer', ScannerAgent);
+game.registerActor('Ghost', SpecterGhost);
+game.registerActor('Platform', FacilityWall);
+game.registerActor('Coin', DataCore);
+game.registerActor('Trigger', ExtractionPad);
+game.registerActor('Turret', SentryTurret);
 
 // Register scenes
 registerMainMenu(game, {
@@ -51,14 +67,37 @@ registerMainMenu(game, {
   items: () => [
     { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('level1') },
     { text: 'Settings', onSelect: () => game.settings.open() }
-  ]
+  ],
+  onEnter: () => game.soundManager.playMusic('menu')
 });
+
+// The facility's dark, built per entry and torn down on exit so its ambient
+// light and post pass never leak into the menu.
+let backdrop = null;
 
 game.sceneManager.addScene('level1', {
-  fetch: async () => (await import('./scenes/level1.json')).default
+  fetch: async () => (await import('./scenes/level1.json')).default,
+  onEnter() {
+    game.soundManager.playMusic('game');
+    backdrop = new FacilityBackdrop(game, game.sceneManager.getCurrentScene().spriteSheets.get('floor'));
+    backdrop.applyAtmosphere();
+  },
+  onExit() {
+    backdrop?.clearAtmosphere();
+    backdrop = null;
+  },
+  onUpdate(deltaTime) {
+    backdrop?.update(deltaTime);
+  },
+  onDrawBackground() {
+    backdrop?.drawBackground();
+  },
+  onDraw() {
+    backdrop?.drawForeground();
+  }
 });
 
-// Settings overlay (O): resolution, fullscreen, aspect mode.
-new SettingsMenu(game);
+// Settings overlay (O), with the demos' shared Audio row added on.
+new SettingsMenu(game).addOption(audioOption(game));
 
 game.start();

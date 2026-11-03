@@ -4,8 +4,8 @@ export class SoundManager {
     this.music = new Map();
     this.currentMusic = null;
     this.isMuted = false;
-    this.soundVolume = 1.0;
-    this.musicVolume = 0.5;
+    this.soundVolume = 0.15;
+    this.musicVolume = 0.3;
     this.pendingMusic = null;
     this.isInitialized = false;
 
@@ -64,6 +64,10 @@ export class SoundManager {
 
     const clone = sound.cloneNode();
     clone.volume = this.soundVolume;
+    // A few cents of random detune: the same sample twice in a row reads as
+    // two events instead of a sampler being hit.
+    clone.playbackRate = 0.94 + Math.random() * 0.12;
+    clone.preservesPitch = false;
     clone.play().catch(error => {
       console.warn(`Failed to play sound ${key}:`, error);
     });

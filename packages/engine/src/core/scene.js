@@ -320,6 +320,13 @@ export class Scene {
   }
 
   draw(deltaTime) {
+    // World-space drawing that everything else sits on — a sky, parallax
+    // scenery. Runs inside the world pass, before the background layer and
+    // the entities, with the camera transform applied.
+    if (this.config.onDrawBackground) {
+      this.config.onDrawBackground(deltaTime);
+    }
+
     if (this.config.type === 'level') {
       // Draw background
       this.game.layers.drawLayer('background');

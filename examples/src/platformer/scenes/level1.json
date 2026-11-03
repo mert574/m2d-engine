@@ -3,75 +3,20 @@
   "name": "level1",
   "type": "level",
   "gameType": "sideScroll",
-
   "world": {
     "width": 1920,
     "height": 1440,
-    "gravity": { "x": 0, "y": 1000 }
-  },
-
-  "assets": {
-    "spritesheets": {
-      "platform": {
-        "url": "assets/platform.png",
-        "frameWidth": 32,
-        "frameHeight": 32
-      },
-      "player": {
-        "url": "assets/player.png",
-        "frameWidth": 32,
-        "frameHeight": 32,
-        "animations": {
-          "idle": {
-            "frames": [[0, 0]]
-          },
-          "run": {
-            "frames": [[1, 0]]
-          },
-          "jump": {
-            "frames": [[2, 0]]
-          }
-        }
-      },
-      "enemy": {
-        "url": "assets/enemy.png",
-        "frameWidth": 32,
-        "frameHeight": 32,
-        "animations": {
-          "idle": {
-            "frames": [[0, 0]]
-          },
-          "left": {
-            "frames": [[1, 0]]
-          },
-          "right": {
-            "frames": [[2, 0]]
-          }
-        }
-      },
-      "coin": {
-        "url": "assets/coin.png",
-        "frameWidth": 32,
-        "frameHeight": 32
-      },
-      "movingPlatform": {
-        "url": "assets/movingPlatform.png",
-        "frameWidth": 32,
-        "frameHeight": 32,
-        "animations": {
-          "default": {
-            "frames": [[0, 0]]
-          }
-        }
-      }
+    "gravity": {
+      "x": 0,
+      "y": 1000
     }
   },
-
+  "assets": {
+    "spritesheets": {}
+  },
   "prefabs": {
     "player": {
       "actor": "Player",
-      "spritesheet": "player",
-      "defaultAnimation": "idle",
       "physics": {
         "bodyType": "dynamic",
         "friction": 5.0,
@@ -80,7 +25,6 @@
     },
     "platform": {
       "actor": "Platform",
-      "spritesheet": "platform",
       "physics": {
         "bodyType": "static",
         "friction": 1.0
@@ -88,17 +32,13 @@
     },
     "movingPlatform": {
       "actor": "MovingPlatform",
-      "spritesheet": "movingPlatform",
-      "defaultAnimation": "default",
       "physics": {
         "bodyType": "kinematic",
         "friction": 1.0
-        
       }
     },
     "coin": {
       "actor": "Coin",
-      "spritesheet": "coin",
       "physics": {
         "bodyType": "static",
         "isSensor": true
@@ -106,8 +46,6 @@
     },
     "bee": {
       "actor": "Bee",
-      "spritesheet": "enemy",
-      "defaultAnimation": "idle",
       "physics": {
         "bodyType": "dynamic",
         "lockRotation": true,
@@ -123,7 +61,6 @@
       }
     }
   },
-
   "layers": [
     {
       "name": "platforms",
@@ -132,87 +69,65 @@
         {
           "id": 1,
           "prefab": "platform",
-          "x": 200,
+          "x": 300,
           "y": 1400,
-          "width": 400,
+          "width": 600,
           "height": 32
         },
         {
           "id": 2,
-          "prefab": "movingPlatform",
-          "x": 400,
-          "y": 1200,
-          "width": 192,
-          "height": 32,
-          "properties": {
-            "path": {
-              "type": "linear",
-              "points": [
-                { "x": 400, "y": 1200 },
-                { "x": 800, "y": 1200 }
-              ],
-              "speed": 300,
-              "waitTime": 1000
-            }
-          }
+          "prefab": "platform",
+          "x": 740,
+          "y": 1316,
+          "width": 160,
+          "height": 32
         },
         {
           "id": 3,
-          "prefab": "movingPlatform",
-          "x": 1200,
-          "y": 1000,
+          "prefab": "platform",
+          "x": 1010,
+          "y": 1220,
           "width": 192,
-          "height": 32,
-          "properties": {
-            "path": {
-              "type": "linear",
-              "points": [
-                { "x": 1200, "y": 1000 },
-                { "x": 1200, "y": 700 }
-              ],
-              "speed": 300,
-              "waitTime": 1000
-            }
-          }
+          "height": 32
         },
         {
           "id": 4,
           "prefab": "platform",
-          "x": 600,
-          "y": 1000,
-          "width": 192,
+          "x": 1750,
+          "y": 1020,
+          "width": 224,
           "height": 32
         },
         {
           "id": 5,
           "prefab": "platform",
-          "x": 900,
-          "y": 800,
-          "width": 192,
+          "x": 1480,
+          "y": 900,
+          "width": 176,
           "height": 32
         },
         {
           "id": 6,
           "prefab": "platform",
-          "x": 1500,
-          "y": 600,
-          "width": 192,
+          "x": 1180,
+          "y": 800,
+          "width": 160,
           "height": 32
         },
         {
           "id": 7,
           "prefab": "platform",
-          "x": 1700,
-          "y": 400,
-          "width": 256,
+          "x": 690,
+          "y": 380,
+          "width": 160,
           "height": 32
         },
         {
           "id": 8,
           "prefab": "platform",
-          "x": 1400,
+          "x": 1010,
           "y": 300,
-          "width": 192,
+          "width": 224,
           "height": 32
         },
         {
@@ -240,63 +155,129 @@
         {
           "id": 11,
           "prefab": "player",
-          "x": 100,
+          "x": 120,
           "y": 1300,
-          "width": 32,
-          "height": 32
+          "width": 28,
+          "height": 34
         },
         {
           "id": 12,
-          "prefab": "coin",
-          "x": 600,
-          "y": 800,
-          "width": 24,
-          "height": 24
+          "prefab": "movingPlatform",
+          "x": 1230,
+          "y": 1120,
+          "width": 128,
+          "height": 32,
+          "properties": {
+            "path": {
+              "type": "linear",
+              "points": [
+                {
+                  "x": 1230,
+                  "y": 1120
+                },
+                {
+                  "x": 1560,
+                  "y": 1120
+                }
+              ],
+              "speed": 180,
+              "waitTime": 900
+            }
+          }
         },
         {
           "id": 13,
-          "prefab": "coin",
-          "x": 900,
+          "prefab": "movingPlatform",
+          "x": 950,
           "y": 700,
-          "width": 24,
-          "height": 24
+          "width": 128,
+          "height": 32,
+          "properties": {
+            "path": {
+              "type": "linear",
+              "points": [
+                {
+                  "x": 950,
+                  "y": 700
+                },
+                {
+                  "x": 950,
+                  "y": 430
+                }
+              ],
+              "speed": 160,
+              "waitTime": 900
+            }
+          }
         },
         {
           "id": 14,
           "prefab": "coin",
-          "x": 1200,
-          "y": 600,
+          "x": 870,
+          "y": 1240,
           "width": 24,
           "height": 24
         },
         {
           "id": 15,
           "prefab": "coin",
-          "x": 1500,
-          "y": 500,
+          "x": 1395,
+          "y": 1030,
           "width": 24,
           "height": 24
         },
         {
           "id": 16,
-          "prefab": "bee",
-          "x": 650,
-          "y": 950,
-          "width": 32,
-          "height": 32
+          "prefab": "coin",
+          "x": 1790,
+          "y": 930,
+          "width": 24,
+          "height": 24
         },
         {
           "id": 17,
+          "prefab": "coin",
+          "x": 1330,
+          "y": 810,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "id": 18,
+          "prefab": "coin",
+          "x": 870,
+          "y": 540,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "id": 19,
+          "prefab": "coin",
+          "x": 690,
+          "y": 300,
+          "width": 24,
+          "height": 24
+        },
+        {
+          "id": 20,
           "prefab": "bee",
-          "x": 1600,
-          "y": 550,
+          "x": 1010,
+          "y": 1188,
           "width": 32,
           "height": 32
         },
         {
-          "id": 18,
+          "id": 21,
+          "prefab": "bee",
+          "x": 1180,
+          "y": 768,
+          "width": 32,
+          "height": 32
+        },
+        {
+          "id": 22,
           "prefab": "trigger",
-          "x": 1400,
+          "x": 1010,
           "y": 268,
           "width": 192,
           "height": 32,
@@ -309,4 +290,4 @@
       ]
     }
   ]
-} 
+}

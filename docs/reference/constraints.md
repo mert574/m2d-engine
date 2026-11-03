@@ -16,11 +16,11 @@ Options marked with an asterisk treat `0` as unset and fall back to the default.
 | `invulnerableDuration` * | `1` | Seconds after a hit during which damage is ignored |
 | `onDamage(amount)` | | Called after damage is applied |
 | `onDeath()` | | Called when health reaches zero. The entity's `dead` flag is set first |
-| `showBar` | `true` | Draw the bar |
+| `showBar` | `true` | Draw the bar. Even when on, the bar only appears while health is missing |
 
 Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `currentHealth`, `healthPercentage`, `isAlive`.
 
-`takeDamage` does nothing while invulnerable. When health reaches zero the entity's `dead` flag is set, then `onDeath` runs. The bar turns red at 30 health and is hidden once the entity is dead.
+`takeDamage` does nothing while invulnerable. When health reaches zero the entity's `dead` flag is set, then `onDeath` runs. The bar is hidden at full health and once the entity is dead, and turns red at 30 health.
 
 ## Attack
 
@@ -35,7 +35,7 @@ Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `
 
 Call `startAttack(direction)` with `1` or `-1`. It does nothing during the cooldown. Hits are found once, at the start of the attack, with an `overlaps` query. Targets are bodies with the `enemy` collision category and a `Health` constraint that is not invulnerable. Each target takes `damage` and a fixed knockback impulse. The attack sets the entity's animation to `attackRight` or `attackLeft` and leaves it there. The built-in players switch back to `idle` from their movement handler.
 
-The active half circle is drawn while attacking. The range ring is drawn when the debug overlay is on.
+The attack draws nothing of its own: what a swing looks like depends on the game and its perspective, so a game draws one with a constraint that hooks `onStart`. The demos share one in `examples/src/shared/effects.js` (`AttackSwing`, with a matching `HitBurst` for taking damage). The range ring is drawn when the debug overlay is on.
 
 ## ContactDamage
 
@@ -126,7 +126,7 @@ The body is placed at the first point on construction.
 
 ## DamageFlash
 
-`constraints/damageFlash.js`. Draws a tinted overlay on the entity for a moment. Call `flash()` from a `Health` `onDamage` handler.
+`constraints/damageFlash.js`. Tints the entity for a moment. Call `flash()` from a `Health` `onDamage` handler. It is the plainest hit read; the demos draw a fuller one with their own `HitBurst` constraint.
 
 | Option | Default |
 | --- | --- |

@@ -110,7 +110,7 @@ export const OPTIONAL_CAPABILITIES = Object.freeze({
 });
 
 export class BaseRenderer {
-  #debugEnabled = true;
+  #debugEnabled = false;
   #debugLayer = 'default';
 
   constructor() {

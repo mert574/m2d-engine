@@ -689,7 +689,26 @@ export class WebGLRenderer extends BaseRenderer {
   }
 
   setPostEffects(effects) {
-    this.postEffects = effects ?? null;
+    if (!effects) {
+      this.postEffects = null;
+      return;
+    }
+    // Colours are parsed here, once per set, so the composite pass only
+    // ever uploads numbers. Arrays are accepted as already-parsed.
+    const rgb = (color) => (Array.isArray(color) ? color : parseColor(color).slice(0, 3));
+    this.postEffects = {
+      ...effects,
+      grade: effects.grade
+        ? {
+          ...effects.grade,
+          shadows: rgb(effects.grade.shadows ?? '#ffffff'),
+          highlights: rgb(effects.grade.highlights ?? '#ffffff')
+        }
+        : undefined,
+      flash: effects.flash
+        ? { ...effects.flash, color: rgb(effects.flash.color ?? '#ffffff') }
+        : undefined
+    };
   }
 
   drawLight(options) {
