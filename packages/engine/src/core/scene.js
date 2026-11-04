@@ -311,6 +311,11 @@ export class Scene {
       this.config.onExit();
     }
 
+    // Camera setup is scene state: the mode, bounds, zoom or rotation follow
+    // this scene chose must not leak into the next one. onExit runs first so
+    // it can still read the camera it configured.
+    this.game.camera.resetConfig();
+
     this.sprites.clear();
     this.spriteSheets.clear();
     this.ui.clear();

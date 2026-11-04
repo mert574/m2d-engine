@@ -39,6 +39,7 @@ behaviour, update the page that covers it in the same change, following
 | Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
 | Example games and music credits | `docs/examples/index.md`, `docs/examples/music-credits.md` |
 | Architecture and the rules each module keeps | `docs/contributing/architecture.md` |
+| The determinism contract: what simulation code may read | `docs/contributing/determinism.md` |
 | Tests, conformance harness, Chromium setup | `docs/contributing/testing.md` |
 | Adding a demo, deployment | `docs/contributing/adding-a-demo.md`, `docs/contributing/deployment.md` |
 | Common issues | `docs/contributing/troubleshooting.md` |
@@ -74,7 +75,9 @@ npx playwright install chromium   # once, for test:browser
   Nothing in game code reads `performance.now()`, calls `setTimeout` or uses
   `Math.random()` for anything the simulation sees.
 - `test/determinism.test.js` must keep passing: the same scene at 30, 60 and
-  144 fps ends in bit-identical state.
+  144 fps ends in bit-identical state. The full contract — including why
+  simulation code never reads the camera — is
+  `docs/contributing/determinism.md`.
 - Draw with `renderPosition` and `renderAngle`. Use `position` for logic.
 - Annotations about an entity go through `game.worldOverlay`.
 - A new scene JSON field goes into the key lists at the top of
@@ -100,6 +103,14 @@ npx playwright install chromium   # once, for test:browser
   game-specific parts in the demo. The demos are engine demonstrations.
 - Do not generate sprites or textures in scripts. Demos use free, open
   assets found online (OpenGameArt, ambientCG, Kenney; CC0 or CC BY), with
-  origin, license and checksum recorded in `THIRD_PARTY_NOTICES.md`. Only the
-  renderer showcase keeps a generator, for its batching stress test. See
-  `docs/contributing/adding-a-demo.md`.
+  pack, author, license and source URL recorded in `THIRD_PARTY_NOTICES.md`.
+  Keep credits simple: no per-file checksums, and no counts of assets or
+  demos anywhere in notices or docs — numbers go stale with every addition.
+  Only the renderer showcase keeps a generator, for its batching stress
+  test. See `docs/contributing/adding-a-demo.md`.
+- New demos aim bright: cozy, sunlit, happy settings. The shipped set
+  already leans dark and nocturnal; do not add more of that register.
+  Brightness does not mean lower craft — lights, parallax and post effects
+  read in daylight too, and a warm, distinctive look beats a generic moody
+  one. Avoid cliché genre pastiches when picking a concept.
+  (Owner preference, Nov 2026 — to be moved to agent memory when writable.)

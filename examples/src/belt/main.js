@@ -216,8 +216,6 @@ game.sceneManager.addScene('row', {
   onExit() {
     for (const stop of unsubscribe) stop();
     unsubscribe = [];
-    game.camera.bounds = null;
-    game.camera.followAxes = { x: true, y: true };
     game.renderer.setAmbientLight(null);
     game.renderer.setPostEffects(null);
   }

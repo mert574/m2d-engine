@@ -9,10 +9,22 @@ import * as mat from './renderers/geometry/matrix.js';
 
 export class Camera {
   constructor(width, height, options = {}) {
-    this.x = 0;
-    this.y = 0;
     this.width = width;
     this.height = height;
+    this.resetConfig(options);
+  }
+
+  /**
+   * Restore position and every tunable to its default, or to `options`.
+   * The engine calls this (with no options) when a scene unloads and when
+   * the world resets, so one scene's camera setup — mode, bounds, zoom, a
+   * rotation follow — never leaks into the next. A scene configures the
+   * camera it wants in `onEnter`. `width` and `height` belong to the
+   * viewport and are left alone.
+   */
+  resetConfig(options = {}) {
+    this.x = 0;
+    this.y = 0;
 
     /**
      * Magnification about the camera's centre. 1 draws the world at its

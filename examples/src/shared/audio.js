@@ -7,7 +7,7 @@
  * (CC BY 3.0), one pair of tracks per demo so each has its own room tone.
  * Sound effects are Kenney's *Interface Sounds* (CC0): clean, short
  * synthetic tones — instrument readouts, not arcade noises — that sit with
- * the music rather than fight it. Credits, sources and checksums are in
+ * the music rather than fight it. Credits and sources are in
  * THIRD_PARTY_NOTICES.md and docs/examples/music-credits.md.
  */
 

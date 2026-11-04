@@ -86,6 +86,7 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/contributing/' },
             { text: 'Architecture', link: '/contributing/architecture' },
+            { text: 'Determinism', link: '/contributing/determinism' },
             { text: 'Testing', link: '/contributing/testing' },
             { text: 'Writing a renderer backend', link: '/contributing/renderer-backend' },
             { text: 'Adding a demo', link: '/contributing/adding-a-demo' },

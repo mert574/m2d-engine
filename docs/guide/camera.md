@@ -44,7 +44,11 @@ game.camera.mode = 'scroll';
 game.camera.scrollVelocity = { x: 90, y: 0 };
 ```
 
-`followRotation` turns the camera with the target: `rotation` eases toward the target body's angle plus `rotationOffset` (default `-π/2`, a +x nose up the screen) at `rotationLerp` (default `0.04`, like `lerp`), along the shorter arc, never faster than `rotationMaxRate` (default 1.2 rad/s; a whole screen turning is the strongest motion a camera makes) and not at all for turns under `rotationDeadband` (0.03 rad). The engine resets the mode, the axes and the rotation follow when it resets the world.
+The camera moves per frame, on wall time: it is presentation, and simulation code never reads it. An auto-scroller's rules — spawning ahead of the view, despawning behind it, crushing a straggler — track a simulation-side scroll front advanced in `fixedUpdate` at the same velocity, not `getVisibleArea()`. See [Determinism](../contributing/determinism#the-worked-example-an-auto-scroller).
+
+`followRotation` turns the camera with the target: `rotation` eases toward the target body's angle plus `rotationOffset` (default `-π/2`, a +x nose up the screen) at `rotationLerp` (default `0.04`, like `lerp`), along the shorter arc, never faster than `rotationMaxRate` (default 1.2 rad/s; a whole screen turning is the strongest motion a camera makes) and not at all for turns under `rotationDeadband` (0.03 rad).
+
+Camera setup is scene state. When a scene unloads — and when the engine resets the world — `camera.resetConfig()` restores the position and every tunable above to its default: mode, `scrollVelocity`, `roomSize`, the axes, the rotation follow, `lerp`, `bounds`, zoom and rotation. A scene configures the camera it wants in its `onEnter` and cleans up nothing.
 
 ## Zoom and rotation
 
@@ -55,7 +59,7 @@ game.camera.zoom = 1.5;
 game.camera.rotation = car.body.angle - Math.PI / 2;   // the road always runs up the screen
 ```
 
-Both renderer backends apply exactly the camera's `matrix`, a world-to-view affine in the six-number form the renderer's geometry uses, so what `worldToScreen` computes is where a point is drawn. The engine resets zoom and rotation to their defaults when it resets the world.
+Both renderer backends apply exactly the camera's `matrix`, a world-to-view affine in the six-number form the renderer's geometry uses, so what `worldToScreen` computes is where a point is drawn. Like every camera setting, zoom and rotation return to their defaults when the scene unloads (see [Modes](#modes)).
 
 ## Bounds
 

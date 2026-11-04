@@ -6,7 +6,7 @@ Each example lives in `examples/src/<name>/`.
 | --- | --- |
 | `index.html` | The page. Give the canvas a CSS size and load `main.js` as a module |
 | `main.js` | Creates the engine, registers actors and scenes, mounts the settings menu |
-| `menuBackdrop.js` | The scene behind the main menu, as `UIBackdrop` options with one custom layer. Each example draws its own: the platformer a valley at dusk, the maze a surveyed plan, the physics playground a running Galton board |
+| `menuBackdrop.js` | The scene behind the main menu, as `UIBackdrop` options with one custom layer. Each example draws its own: the platformer a valley at dusk, Hedgerow Court a garden plan walked by a bee, the physics playground a running Galton board |
 | `scenes/*.json` | Level and menu definitions, if not built in code |
 | `textures/`, `sounds/` | Free, open art and audio, committed with their origin recorded in `THIRD_PARTY_NOTICES.md`. See [Assets](#assets) |
 | `assets/` | Generated sprites. Only the renderer showcase has any; new demos should not |
@@ -38,4 +38,4 @@ Run `npm run dev` and open the example. Check it on both backends with `?rendere
 
 Use free, open (CC0 or CC BY) textures, tilemaps, sprites and sounds rather than generating artwork in a script. Generated sprites look generated, and every demo is a showcase. Good sources are [OpenGameArt](https://opengameart.org) (filter by CC0 or CC BY), [ambientCG](https://ambientcg.com) for photographed materials and [Kenney](https://kenney.nl) for CC0 packs. Hollow Grove is the model: ambientCG ground, Wenrexa's painted trees, Owlish Media footsteps and Matthew Pablo's music, with only the living characters drawn in code.
 
-Record the origin, license, source URL and SHA-256 of every third-party asset in `THIRD_PARTY_NOTICES.md`, and add the music to `docs/examples/music-credits.md`. Resizing or re-encoding is fine; say so in the notice. Do not add assets whose redistribution terms are unknown. The `.gitignore` excludes raster images and `.mp3`/`.wav` by default, so a new asset folder needs a `!path` line there.
+Record each pack's name, author, license and source URL in `THIRD_PARTY_NOTICES.md`, and add the music to `docs/examples/music-credits.md`. Keep the notice simple: one entry per pack, no per-file checksums, and no counts of files or assets — those go stale with the next addition. Resizing or re-encoding is fine; say so in the notice. Do not add assets whose redistribution terms are unknown. The `.gitignore` excludes raster images and `.mp3`/`.wav` by default, so a new asset folder needs a `!path` line there.

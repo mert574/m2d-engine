@@ -328,8 +328,6 @@ for (const map of MAPS) {
       race = null;
       trackArt = null;
       frameHooks = null;
-      game.camera.target = null;
-      game.camera.bounds = null;
       game.renderer.setAmbientLight(null);
       game.renderer.setPostEffects(null);
       game.soundManager.stopMusic();

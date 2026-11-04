@@ -1023,14 +1023,7 @@ export class M2D {
     this.time.reset();
     this.rng.reseed(this.options.seed);
 
-    this.camera.x = 0;
-    this.camera.y = 0;
-    this.camera.zoom = 1;
-    this.camera.rotation = 0;
-    this.camera.target = null;
-    this.camera.mode = 'follow';
-    this.camera.followAxes = { x: true, y: true };
-    this.camera.followRotation = false;
+    this.camera.resetConfig();
     this.projection = null;
 
     this.setupCollisionHandlers();

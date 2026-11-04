@@ -213,10 +213,6 @@ game.sceneManager.addScene('field', {
   onExit() {
     for (const stop of unsubscribe) stop();
     unsubscribe = [];
-    game.camera.bounds = null;
-    game.camera.followRotation = false;
-    game.camera.rotation = 0;
-    game.camera.zoom = 1;
     game.renderer.setAmbientLight(null);
     game.renderer.setPostEffects(null);
   }

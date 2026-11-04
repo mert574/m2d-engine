@@ -43,13 +43,6 @@ const game = new M2D(canvas, {
   }
 });
 
-// Keep the camera inside the level: without bounds, following the player (or
-// an 'expand' aspect mode widening the view) reveals the void past the map.
-game.camera.bounds = {
-  left: 0, top: 0,
-  right: game.options.worldWidth, bottom: game.options.worldHeight
-};
-
 // Register actors. The scene JSON names the stock actors; what answers to
 // those names here is the dusk cast from duskActors.js, which keeps every
 // behaviour and replaces the tiled sprites with drawn terrain.
@@ -80,6 +73,13 @@ let backdrop = null;
 game.sceneManager.addScene('level1', {
   fetch: async () => (await import('./scenes/level1.json')).default,
   onEnter() {
+    // Keep the camera inside the level: without bounds, following the player
+    // (or an 'expand' aspect mode widening the view) reveals the void past
+    // the map.
+    game.camera.bounds = {
+      left: 0, top: 0,
+      right: game.options.worldWidth, bottom: game.options.worldHeight
+    };
     game.soundManager.playMusic('game');
     backdrop = new DuskLevelBackdrop(game);
     backdrop.applyAtmosphere();
