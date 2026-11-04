@@ -26,6 +26,6 @@
 | --- | --- |
 | `npm run test:browser` fails with `error while loading shared libraries` | Install Chromium's system libraries. See [Testing](./testing#the-browser-project) |
 | The browser suite reports WebGL2 unavailable | Chromium is running without the SwiftShader flags from `vitest.browser.config.js`, or `M2D_BROWSER` points at a browser without WebGL2 |
-| Sprites are missing or stale in an example | Run `npm run generate-sprites`. The dev server only generates sprites that are missing |
+| The showcase's generated sprites are missing or stale | Run `npm run generate-sprites`. The dev server only generates what is missing, and only the renderer showcase uses generated art — the games ship committed textures |
 | `@napi-rs/canvas` fails to install | Install with optional dependencies enabled. The platform binding is one |
 | A node test fails with `RuntimeError: unreachable` inside `rapier_wasm2d.js` on the first physics step | The test installed a `window` global without `performance`. Rapier reads its clock through `window.performance` when `window` exists. Use `installWindowStub()` from `test/helpers/environment.js`. The panic poisons the WASM module, so every later step in that worker fails too |

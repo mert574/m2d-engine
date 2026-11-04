@@ -94,9 +94,9 @@ A level's `background` tiles one frame across the whole world behind everything 
 
 Set `worldFilter: 'nearest'` so the world stays blocky when the render resolution is below native. See [World filter](./display#world-filter).
 
-## Generated placeholder art
+## Where the demos' art comes from
 
-Image files are not committed to the repository. The example games draw their sprites with scripts under `examples/scripts/`, run by `npm run generate-sprites`. A new example that needs placeholder art adds a generator there.
+The example games ship committed textures and sprites — free, open packs (CC0 and CC BY), credited in the repository's `THIRD_PARTY_NOTICES.md` — with living characters and effects drawn in code through the renderer. Only the renderer showcase generates images, for its batching stress test, via `examples/scripts/generateSprites.js` (the dev server runs it for anything missing). See [Adding a demo](../contributing/adding-a-demo#assets).
 
 ## Demo sources
 

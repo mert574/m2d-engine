@@ -153,6 +153,8 @@ await game.sceneManager.switchTo('level1');
 
 `switchTo` fetches and validates the new scene on first use, then unloads the current scene, builds the new one and calls its `onEnter` hook. A scene that fails validation leaves the current scene running. Fetched data is cached, so switching back to a scene does not fetch it again.
 
+Unloading also resets the camera — position, mode, bounds, zoom, every tunable — so one scene's camera setup never leaks into the next. A scene configures the camera it wants in `onEnter` and cleans up nothing. See [Camera](./camera#modes).
+
 The name `mainMenu` is special in two places. The game-over screen's M key switches to it, and the built-in `Trigger` actor switches to it when the player enters.
 
 ### Lifecycle hooks

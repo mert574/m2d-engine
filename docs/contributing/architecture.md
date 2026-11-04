@@ -114,7 +114,7 @@ Behaviours pinned by tests because they are easy to get wrong:
 
 `game.projection` (`core/projection.js`) maps the ground plane the simulation runs on to the render plane the camera and renderer work in. It is applied in exactly four places: `Entity.renderAnchor` (and so `renderPosition` and `depth`), `LayerManager` for tile centres and culling, `InputManager.toWorld` for the inverse on pointer positions, and `M2D.worldToUI`. Nothing in physics or the renderer knows it exists. A scene sets it from `world.projection`; `reset` clears it.
 
-The camera is a full world-to-view affine (`geometry/matrix.js` `viewMatrix`): translate, zoom and rotation about the view centre. Both backends apply that one matrix in `applyCamera`, and `Camera.worldToScreen` and `screenToWorld` use it and its inverse, so drawing, input and the world overlay cannot disagree.
+The camera is a full world-to-view affine (`geometry/matrix.js` `viewMatrix`): translate, zoom and rotation about the view centre. Both backends apply that one matrix in `applyCamera`, and `Camera.worldToScreen` and `screenToWorld` use it and its inverse, so drawing, input and the world overlay cannot disagree. `camera.mode` picks how it moves — `follow`, `scroll` at `scrollVelocity`, or `rooms` snapping to the room of `roomSize` — and all of it is presentation on wall time, never read by the simulation (the [determinism contract](./determinism)). Camera configuration is scene state: `Scene.unload` and `game.reset` call `camera.resetConfig()`, and a scene's `onEnter` sets up the camera it wants.
 
 ## UI
 

@@ -14,7 +14,6 @@ Node.js 22 or later.
 
 ```bash
 npm ci
-npm run generate-sprites
 npm run dev           # examples on port 3000
 npm run docs:dev      # documentation site
 npm test              # engine suites plus example scene validation
@@ -28,7 +27,7 @@ The browser test suite needs Chromium once: `npx playwright install chromium`. S
 ## Making changes
 
 - Keep engine behaviour separate from example-specific actors and rules. Behaviour another game could want belongs in a constraint.
-- Use elapsed seconds for timers and movement. Check simulation changes at more than one frame rate.
+- Use elapsed seconds for timers and movement. Check simulation changes at more than one frame rate; the [determinism contract](./determinism) says what simulation code may read, and `test/determinism.test.js` must keep passing.
 - Renderer changes must keep both backends passing `npm test`. A new backend feature is either mandatory for every backend or declared through `capabilities` with callers degrading. See [Capabilities](../reference/renderer#capabilities).
 - Check visual changes on both backends. Every example accepts `?renderer=canvas` and `?renderer=webgl`.
 - Adding a scene JSON field means adding it to the key lists at the top of `packages/engine/src/core/sceneLoader.js` and to the [scene format reference](../reference/scene-format).

@@ -1,6 +1,6 @@
 # Perspectives
 
-The engine simulates on a flat plane. A side view and a top-down view are the two ways of looking at that plane the examples have always used; the 3/4 view, isometric and the belt scroller are more. All of them run on the same physics and differ in four things the engine now provides: the order things draw in, the camera transform, layers at different depths and a faked third axis. This page is how to use those; the [roadmap](../contributing/roadmap#perspectives) tracks which perspectives are done.
+The engine simulates on a flat plane; a perspective is a way of looking at it. Side view, top-down, the 3/4 view, isometric, the belt scroller, a rotating camera, single-screen rooms and the auto-scroller all ship, each with a demo, and all run on the same physics. They differ in four things the engine provides: the order things draw in, the camera transform, layers at different depths and a faked third axis. This page is how to use those; the [roadmap](../contributing/roadmap#perspectives) tracks the perspectives and their demos.
 
 The [Hollow Grove](../examples/#hollow-grove) example is a 3/4 view built from everything below.
 

@@ -89,7 +89,7 @@
 | Method | What it does |
 | --- | --- |
 | `start()` | Load sounds, switch to the initial scene and start the loop. Returns a promise |
-| `reset()` | Destroy constraints, clear entities, physics and layers, move the camera to the origin, stop music. See [Game loop](../guide/game-loop#resetting) |
+| `reset()` | Destroy constraints, clear entities, physics and layers, reset the camera to defaults, stop music. See [Game loop](../guide/game-loop#resetting) |
 | `destroy()` | Stop the loop and release every listener and resource |
 | `registerActor(name, Class)` | Make an actor available to scene prefabs |
 | `createEntity(type, x, y, width, height, spritesheet, options, physics)` | Build an entity from a registered actor. The body is not added to the world. `physics` takes the prefab keys `bodyType`, `shape`, `angle`, `lockRotation`, `isSensor`, `friction`, `frictionAir` and `restitution`. Returns `null` for an unregistered name |

@@ -35,9 +35,9 @@ game.camera.y = 360;
 
 | Mode | Behaviour |
 | --- | --- |
-| `follow` (default) | Eases toward the target. `followAxes: { x, y }` locks an axis, as a belt scroller does with y |
-| `scroll` | Moves at `scrollVelocity` (render units per second) whatever the target does, for an auto-scroller. `bounds` still apply |
-| `rooms` | Snaps to the centre of the room of `roomSize` (default the view) the target stands in, easing between rooms |
+| `follow` (default) | Eases toward the target. `followAxes: { x, y }` locks an axis, as Ash Row does with y |
+| `scroll` | Moves at `scrollVelocity` (render units per second) whatever the target does. `bounds` still apply. Beeline is this |
+| `rooms` | Snaps to the centre of the room of `roomSize` (default the view) the target stands in, easing between rooms. Hedgerow Court is this |
 
 ```javascript
 game.camera.mode = 'scroll';

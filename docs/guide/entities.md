@@ -170,7 +170,7 @@ Override `onHitTarget(entity)` to change what a hit does and `onHitWall(wall)` t
 
 ## Constraints
 
-A constraint is a behaviour attached to an entity. The engine ships constraints for health, melee attacks, contact damage, keyboard movement, pointer interaction, chasing, path following, hovering, wall slipping, damage flashes and debug drawing. The [built-in constraints reference](../reference/constraints) lists their options.
+A constraint is a behaviour attached to an entity. The engine ships constraints for health, melee attacks, contact damage, movement (keyboard, grid gliding, thrust and car handling), pointer interaction and click-to-move, chasing, path following, hovering, wall slipping, footsteps, abilities, proximity prompts, damage flashes and debug drawing. The [built-in constraints reference](../reference/constraints) lists their options.
 
 ```javascript
 import { Health } from 'm2d-engine/constraints/health.js';
