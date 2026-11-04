@@ -19,9 +19,6 @@ import { tileTexture } from '../shared/textures.js';
  * writes nothing the simulation sees.
  */
 
-/** A bed's blossoms: white daisies, coral tulips, lavender. */
-const BLOSSOMS = ['#fef6ef', '#f08a68', '#b48fd9', '#f6d44d'];
-
 const BUTTERFLIES = ['#fef6ef', '#f3d35a', '#eb9a54'];
 
 export class GardenBackdrop {
@@ -29,11 +26,14 @@ export class GardenBackdrop {
    * @param {import('m2d-engine/core/m2d.js').M2D} game
    * @param {Object} lawnSheet - The scene's `lawn` sheet
    * @param {Object} map - The built map (see courtyards.js)
+   * @param {Object} [plazaSheet] - The scene's `plaza` sheet, for the
+   *   fountain's stone circle
    */
-  constructor(game, lawnSheet, map) {
+  constructor(game, lawnSheet, map, plazaSheet) {
     this.game = game;
     this.renderer = game.renderer;
     this.lawn = lawnSheet?.image ?? null;
+    this.plaza = plazaSheet?.image ?? null;
     this.map = map;
     this.time = 0;
 
@@ -50,26 +50,10 @@ export class GardenBackdrop {
       alpha: range(rng, 0.08, 0.18)
     }));
 
-    // Each flower bed blooms a cluster from its own little seed.
-    this.beds = map.flowerBeds.map(bed => {
-      const bedRng = makeRng(bed.seed + 1);
-      const count = 3 + Math.floor(range(bedRng, 0, 4));
-      return {
-        x: bed.x,
-        y: bed.y,
-        blossoms: Array.from({ length: count }, () => ({
-          dx: range(bedRng, -10, 10),
-          dy: range(bedRng, -9, 9),
-          radius: range(bedRng, 2.4, 4.2),
-          color: BLOSSOMS[Math.floor(range(bedRng, 0, BLOSSOMS.length)) % BLOSSOMS.length],
-          sway: range(bedRng, 0, Math.PI * 2)
-        }))
-      };
-    });
-
-    // A few butterflies, each tied loosely to a bed and wandering around it
-    // on its own pair of slow sine curves.
-    const picks = this.beds.length ? this.beds : [{ x: map.width / 2, y: map.height / 2 }];
+    // A few butterflies, each tied loosely to a flower bed (the beds
+    // themselves are entities — see FlowerBed in main.js) and wandering
+    // around it on its own pair of slow sine curves.
+    const picks = map.flowerBeds.length ? map.flowerBeds : [{ x: map.width / 2, y: map.height / 2 }];
     this.butterflies = Array.from({ length: Math.min(6, 2 + Math.floor(picks.length / 4)) }, (_, i) => {
       const bed = picks[(i * 7) % picks.length];
       return {
@@ -152,55 +136,15 @@ export class GardenBackdrop {
       });
     }
 
-    // Stepping stones through each gate, so a way out of a court is visible
-    // from across it.
-    for (const gate of this.map.gates) {
-      if (!onScreen(gate.x, gate.y, 80)) continue;
-      for (const t of [-0.6, 0.6]) {
-        const sx = gate.x + (gate.dir === 'ew' ? t * 24 : (t > 0 ? 3 : -4));
-        const sy = gate.y + (gate.dir === 'ns' ? t * 24 : (t > 0 ? 4 : -3));
-        renderer.drawArc({ x: sx + 1.5, y: sy + 2, radius: 9, fillStyle: 'rgba(40, 58, 36, 0.4)' });
-        renderer.drawArc({
-          x: sx, y: sy, radius: 9,
-          fillStyle: {
-            type: 'radial', x: sx - 2, y: sy - 3, r0: 0, r1: 10,
-            stops: [{ offset: 0, color: '#cfc9b4' }, { offset: 1, color: '#a8a28c' }]
-          }
-        });
-      }
-    }
-
-    // The flower beds at the dead ends: the maze's wrong turns are where
-    // the garden is prettiest, which is the cosiest thing a maze can do.
-    for (const bed of this.beds) {
-      if (!onScreen(bed.x, bed.y, 48)) continue;
-      renderer.drawArc({
-        x: bed.x, y: bed.y, radius: 15,
-        fillStyle: {
-          type: 'radial', x: bed.x, y: bed.y, r0: 0, r1: 15,
-          stops: [{ offset: 0, color: 'rgba(96, 134, 58, 0.55)' }, { offset: 1, color: 'rgba(96, 134, 58, 0)' }]
-        }
-      });
-      for (const blossom of bed.blossoms) {
-        const sway = Math.sin(this.time * 1.1 + blossom.sway) * 0.8;
-        const bx = bed.x + blossom.dx + sway;
-        const by = bed.y + blossom.dy;
-        renderer.drawArc({ x: bx, y: by, radius: blossom.radius, fillStyle: blossom.color });
-        renderer.drawArc({ x: bx, y: by, radius: blossom.radius * 0.38, fillStyle: 'rgba(90, 70, 20, 0.55)' });
-      }
-    }
-
-    // The fountain's plaza: a stone circle the hedges were cleared for.
+    // The fountain's plaza: a worn travertine circle the hedges were
+    // cleared for (baked in textures/plaza.png).
     const goal = this.map.goal;
-    if (onScreen(goal.x, goal.y, 120)) {
-      renderer.drawArc({
-        x: goal.x, y: goal.y, radius: 44,
-        fillStyle: {
-          type: 'radial', x: goal.x, y: goal.y, r0: 18, r1: 44,
-          stops: [{ offset: 0, color: '#b9b29a' }, { offset: 1, color: '#9a957e' }]
-        }
+    if (this.plaza && this.plaza.width && onScreen(goal.x, goal.y, 120)) {
+      renderer.drawSprite({
+        image: this.plaza, x: goal.x, y: goal.y,
+        tileWidth: this.plaza.width, tileHeight: this.plaza.height,
+        width: 94, height: 94
       });
-      renderer.drawArc({ x: goal.x, y: goal.y, radius: 44, strokeStyle: 'rgba(60, 72, 48, 0.5)', lineWidth: 2, fill: false });
     }
   }
 

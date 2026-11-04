@@ -244,6 +244,7 @@ Hedgerow Court's two are also lightly colour-graded (the lawn warmed, the hedge 
 | [Metal032](https://ambientcg.com/view?id=Metal032) | Top-down walls | `examples/src/topdown/textures/steel.jpg` |
 | [Grass004](https://ambientcg.com/view?id=Grass004) | Hedgerow Court lawn | `examples/src/maze/textures/lawn.jpg` |
 | [Moss002](https://ambientcg.com/view?id=Moss002) | Hedgerow Court hedges | `examples/src/maze/textures/hedge.jpg` |
+| [Travertine009](https://ambientcg.com/view?id=Travertine009) | Hedgerow Court fountain and plaza (composed into `fountain.png` and `plaza.png`) | `examples/src/maze/textures/` |
 | [Grass001](https://ambientcg.com/view?id=Grass001) | Hollow Grove floor | `examples/src/oblique/textures/grass.jpg` |
 | [Ground037](https://ambientcg.com/view?id=Ground037) | Hollow Grove path | `examples/src/oblique/textures/ground.jpg` |
 | [PavingStones128](https://ambientcg.com/view?id=PavingStones128) | Ash Row street | `examples/src/belt/textures/paving.jpg` |

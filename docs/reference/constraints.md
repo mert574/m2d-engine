@@ -98,6 +98,23 @@ Diagonal movement is normalized. Input pressing straight into a wall is dropped 
 
 With `verticalMovement` on, `maxSpeed` caps the whole velocity vector, so a diagonal is no faster than a cardinal, and braking stops both axes. A side view caps only the run and leaves the vertical to gravity.
 
+## GlideControl
+
+`constraints/glideControl.js`. One-press gliding on a corridor grid: tap a direction and the body keeps going until a wall, a new direction, or the same key again — Pac-Man's movement, for cosy mazes. A turn pressed early is buffered and taken at the next opening; one pressed a beat late snaps back to the junction just passed and takes it anyway. Openness is asked of the physics world (`physics.overlaps` one cell over, sensors ignored), so the constraint needs no map, only the grid the corridors are built on. The body parks on the centre of the last open cell at a wall, and is held to the corridor's centre line while gliding. Runs in `fixedUpdate` on `game.input.snapshot`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `keys` | arrows | `{ left, right, up, down }` as key codes |
+| `speed` | `240` | Glide speed, px/s |
+| `grid` | `32` | Corridor cell size; centres at `(n + 0.5) * grid` |
+| `buffer` | `0.35` | Seconds a queued turn waits for its opening |
+| `snap` | `0.6` | How far past a junction, in cells, a late turn still takes it |
+| `stopOnRepeat` | `true` | Pressing the direction of travel stops the body |
+| `onMove(dx, dy)` | | When a glide starts or changes direction |
+| `onStop()` | | When the body comes to rest |
+
+Hedgerow Court is the worked example.
+
 ## CarControl
 
 `constraints/carControl.js`. Arcade top-down car handling on a dynamic body. Each tick the body's velocity splits along its heading: throttle and brakes act on the forward part, grip decays the lateral part, and the handbrake swaps in a much lower grip so the car slides while the nose turns — a drift. Steering drives angular velocity and scales with speed, so the car cannot pivot in place. Runs in `fixedUpdate` on `game.input.snapshot`, so the same inputs always drive the same path.
