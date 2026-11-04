@@ -25,7 +25,7 @@ These games ship with the engine. Each exercises a different part of it. Sources
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/scroller/">
 <span class="example-card-tag">scroll camera · parallax</span>
 <strong>Beeline</strong>
-<span>An auto-scroller down a golden-hour meadow: gather pollen, weave past wasps, deliver to the hive at the end of the lane.</span>
+<span>An auto-scroller into the dusk: chain pollen into combos, dash past wasps and out of orb webs, and reach the hive before dark on three wing hearts.</span>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/physics/">
@@ -121,11 +121,12 @@ The single-screen, room-based perspective: a hedge-maze garden in three maps, ea
 
 [Play](https://mert574.github.io/m2d-engine/examples/scroller/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/scroller)
 
-The auto-scroller: the camera runs in `scroll` mode down a meadow verge at golden hour, and a bee keeps up. Pollen glows at the flower heads and hangs in chains on the open air; wasps patrol seeded loops and thistles crowd the low route, and either scatters some of what the bee carries; the hive at the end of the lane takes the count. The simulation never reads the camera — a `ScrollFront` entity advances at the same speed per fixed tick and enforces the window, the worked example of the [determinism contract](../contributing/determinism). The meadow is four parallax planes of Kenney foliage silhouettes, pre-tinted to the palette at asset time, and a test pins that every grain stays inside the flight band.
+The auto-scroller: the camera runs in `scroll` mode down a meadow verge while the sun sets over the length of the lane — the sky, the sun, the clouds, the ambient light and the post grade all keep the run's time, from god rays at the gate to fireflies at the hive. The run is paced in five acts: open meadow, a thistle slalom, wasp beats that telegraph with a mark and then dart, a hollow strung with backlit orb webs that hold the bee until a dash tears it free, and a dusk glide home. Pollen chains into a combo that multiplies the score; a sting costs one of three wing hearts and scatters what the bee carries; the hive hands out a rank. The simulation never reads the camera — a `ScrollFront` entity advances at the same speed per fixed tick and enforces the window, the worked example of the [determinism contract](../contributing/determinism). The meadow is six parallax planes of Kenney foliage silhouettes under aerial haze, pre-tinted to the palette at asset time, and a test pins every grain inside the flight band, every web passable, and each hazard to its act.
 
 | Key | Action |
 | --- | --- |
 | Arrow keys | Fly |
+| `Space` / `X` | Dash — a burst with a moment of grace; it tears webs |
 
 ### Physics playground
 

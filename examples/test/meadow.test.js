@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { LENGTH, HEIGHT, BAND, buildMeadow } from '../src/scroller/meadow.js';
+import { LENGTH, HEIGHT, BAND, ACTS, buildMeadow } from '../src/scroller/meadow.js';
 
 /**
  * Beeline's lane is generated, and the scroll window only moves forward, so
- * two properties are load-bearing: everything collectable sits inside the
- * flight band (or a perfect run is impossible), and the layout is a pure
- * function of its seed (or the determinism contract breaks at the source).
+ * a few properties are load-bearing: everything collectable sits inside the
+ * flight band (or a perfect run is impossible), the hazards keep to their
+ * acts, and the layout is a pure function of its seed (or the determinism
+ * contract breaks at the source).
  */
 describe('the meadow lane', () => {
   const meadow = buildMeadow();
@@ -19,24 +20,35 @@ describe('the meadow lane', () => {
     }
   });
 
-  it('keeps the lane inside the world and the end plaza clear', () => {
-    for (const list of [meadow.flowers, meadow.brambles, meadow.wasps]) {
-      for (const thing of list) {
-        expect(thing.x).toBeGreaterThan(0);
-        expect(thing.x).toBeLessThan(LENGTH);
-      }
+  it('keeps each hazard to its act and out of the dusk glide', () => {
+    for (const thistle of meadow.thistles) {
+      expect(thistle.x).toBeGreaterThanOrEqual(ACTS.thistles);
+      expect(thistle.x).toBeLessThan(ACTS.hollow);
     }
-    // Nothing hostile in the hive's plaza, so the arrival is an arrival.
-    const plaza = meadow.hive.x - 400;
-    expect(meadow.brambles.every(b => b.x < plaza)).toBe(true);
-    expect(meadow.wasps.every(w => w.x < plaza)).toBe(true);
-    expect(meadow.hive.y).toBeLessThan(HEIGHT);
-  });
-
-  it('keeps every wasp loop inside the world', () => {
     for (const wasp of meadow.wasps) {
+      expect(wasp.x).toBeGreaterThanOrEqual(ACTS.wasps);
+      expect(wasp.x).toBeLessThan(ACTS.hollow);
       expect(wasp.y - wasp.amp).toBeGreaterThan(0);
       expect(wasp.y + wasp.amp).toBeLessThan(HEIGHT);
+    }
+    for (const web of meadow.webs) {
+      expect(web.x).toBeGreaterThanOrEqual(ACTS.hollow);
+      expect(web.x).toBeLessThan(ACTS.glide);
+    }
+    // Nothing hostile near the hive, so the arrival is an arrival.
+    const plaza = meadow.hive.x - 400;
+    for (const list of [meadow.thistles, meadow.wasps, meadow.webs]) {
+      expect(list.every(thing => thing.x < plaza)).toBe(true);
+    }
+  });
+
+  it('leaves room to pass every web', () => {
+    // A web never seals the band: above or below it, at least a bee's
+    // height and a half of clear air remains.
+    for (const web of meadow.webs) {
+      const above = (web.y - web.h / 2) - BAND.top;
+      const below = BAND.bottom - (web.y + web.h / 2);
+      expect(Math.max(above, below)).toBeGreaterThan(40);
     }
   });
 

@@ -4,17 +4,21 @@ import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
 import { UIText } from 'm2d-engine/core/ui/text.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
-import { Meadow, ForeMeadow } from './meadowScenery.js';
-import { ScrollFront, Bee, Flower, Pollen, Bramble, Wasp, Hive } from './meadowActors.js';
+import { Meadow, ForeMeadow, progress } from './meadowScenery.js';
+import { ScrollFront, Bee, Flower, Pollen, Thistle, Wasp, Web, Hive } from './meadowActors.js';
 import { LENGTH, HEIGHT, SPEED, buildMeadow } from './meadow.js';
-import { starsAtDawn, perfectUnion, coinSound, damageSound, levelCompleteSound, audioOption } from '../shared/audio.js';
+import {
+  starsAtDawn, perfectUnion, audioOption,
+  coinSound, damageSound, levelCompleteSound, jumpSound, removeSound, attackSound
+} from '../shared/audio.js';
 
 /**
  * Beeline: the engine's auto-scroller. The camera runs in `'scroll'` mode
- * down a meadow verge at golden hour; a bee keeps up, gathers pollen,
- * weaves past wasps and thistles, and delivers to the hive at the end of
- * the lane. The simulation never reads the camera — the `ScrollFront`
- * entity is the window it believes in (see
+ * down a meadow verge while the sun goes down over the length of the lane;
+ * a bee keeps up, chains pollen into combos, dashes past wasps that
+ * telegraph and dart, tears out of orb webs, and delivers to the hive at
+ * dusk on three wing hearts. The simulation never reads the camera — the
+ * `ScrollFront` entity is the window it believes in (see
  * docs/contributing/determinism.md).
  */
 
@@ -33,7 +37,14 @@ const game = new M2D(canvas, {
   height: 540,
   worldWidth: LENGTH,
   worldHeight: HEIGHT,
-  sounds: { collect: { src: coinSound, volume: 0.5 }, damage: damageSound, arrived: levelCompleteSound },
+  sounds: {
+    collect: { src: coinSound, volume: 0.45 },
+    damage: damageSound,
+    dash: { src: jumpSound, volume: 0.5 },
+    web: { src: removeSound, volume: 0.5 },
+    tear: { src: attackSound, volume: 0.6 },
+    arrived: levelCompleteSound
+  },
   music: { menu: { src: starsAtDawn, volume: 0.7 }, game: { src: perfectUnion, volume: 0.6 } }
 });
 
@@ -43,7 +54,8 @@ function loadImage(url) {
   return image;
 }
 const sceneryTextures = Object.fromEntries(
-  ['far-grass-a', 'far-grass-b', 'far-bush',
+  ['tree-a', 'tree-b', 'tree-c',
+    'far-grass-a', 'far-grass-b', 'far-bush',
     'mid-grass-a', 'mid-grass-b', 'mid-flowers', 'mid-sprouts',
     'play-grass-a', 'play-grass-b', 'play-grass-c',
     'fore-grass-a', 'fore-grass-b', 'fore-bush'
@@ -56,14 +68,15 @@ game.registerActor('ScrollFront', ScrollFront);
 game.registerActor('Bee', Bee);
 game.registerActor('Flower', Flower);
 game.registerActor('Pollen', Pollen);
-game.registerActor('Bramble', Bramble);
+game.registerActor('Thistle', Thistle);
 game.registerActor('Wasp', Wasp);
+game.registerActor('Web', Web);
 game.registerActor('Hive', Hive);
 
 registerMainMenu(game, {
   title: 'Beeline',
-  subtitle: 'an auto-scroller down the verge',
-  hint: 'Arrows fly · gather pollen, mind the wasps · O for settings',
+  subtitle: 'an auto-scroller into the dusk',
+  hint: 'Arrows fly · Space dashes · chain pollen, read the wasps, tear the webs',
   backdrop: menuBackdrop,
   items: () => [
     { text: 'Fly the lane', onSelect: () => game.sceneManager.switchTo('lane') },
@@ -79,7 +92,51 @@ const totalPollen = meadow.pollen.length;
 /** Sensor prefabs never resolve collisions; they only report them. */
 const sensor = { bodyType: 'static', isSensor: true };
 
+/**
+ * The post pass keeps the sky's time in three movements. Swapped only at
+ * the boundaries: rebuilding the pipeline per frame would be waste.
+ */
+const LIGHT_PHASES = [
+  {
+    until: 0.38, ambient: '#fff8e8',
+    post: {
+      bloom: { threshold: 0.8, strength: 0.45, blur: 20 },
+      vignette: { strength: 0.12, start: 0.66 },
+      grade: { shadows: '#9a9a6e', highlights: '#fff6da', amount: 0.32, saturation: 1.08, contrast: 1.02 },
+      grain: { strength: 0.03 }
+    }
+  },
+  {
+    until: 0.72, ambient: '#f3dcd8',
+    post: {
+      bloom: { threshold: 0.72, strength: 0.55, blur: 24 },
+      vignette: { strength: 0.16, start: 0.62 },
+      grade: { shadows: '#7a6a8a', highlights: '#ffdcae', amount: 0.4, saturation: 1.12, contrast: 1.04 },
+      grain: { strength: 0.035 }
+    }
+  },
+  {
+    until: Infinity, ambient: '#d6c4ea',
+    post: {
+      bloom: { threshold: 0.6, strength: 0.7, blur: 26 },
+      vignette: { strength: 0.2, start: 0.58 },
+      grade: { shadows: '#4e4a7a', highlights: '#ffc994', amount: 0.45, saturation: 1.08, contrast: 1.05 },
+      grain: { strength: 0.04 }
+    }
+  }
+];
+
 let hud = null;
+let phase = -1;
+
+/** The send-off, by how the run went. */
+function rank(bee) {
+  const pct = bee.pollen / totalPollen;
+  if (pct >= 0.95 && bee.hearts === 3) return "QUEEN'S OWN — a perfect beeline";
+  if (pct >= 0.8) return 'HEAD FORAGER';
+  if (pct >= 0.55) return 'FORAGER';
+  return 'WORKER — the lane will still be there tomorrow';
+}
 
 game.sceneManager.addScene('lane', {
   fetch: async () => ({
@@ -99,9 +156,10 @@ game.sceneManager.addScene('lane', {
       flowerspikes: { actor: 'Flower', spritesheet: 'flowerspikes', physics: sensor },
       cattails: { actor: 'Flower', spritesheet: 'cattails', physics: sensor },
       pollen: { actor: 'Pollen', physics: sensor },
-      'bramble-a': { actor: 'Bramble', spritesheet: 'bramble-a', physics: sensor },
-      'bramble-b': { actor: 'Bramble', spritesheet: 'bramble-b', physics: sensor },
+      'bramble-a': { actor: 'Thistle', spritesheet: 'bramble-a', physics: sensor },
+      'bramble-b': { actor: 'Thistle', spritesheet: 'bramble-b', physics: sensor },
       wasp: { actor: 'Wasp', physics: sensor },
+      web: { actor: 'Web', physics: sensor },
       hive: { actor: 'Hive', physics: sensor }
     },
     layers: [{ name: 'lane', objects: [
@@ -112,16 +170,21 @@ game.sceneManager.addScene('lane', {
         prefab: f.sprite, x: f.x, y: HEIGHT - f.h / 2, width: f.w, height: f.h,
         properties: { sway: f.sway }
       })),
-      ...meadow.brambles.map(b => ({
-        prefab: b.sprite, x: b.x, y: b.y, width: b.size * 0.62, height: b.size * 0.62
+      ...meadow.thistles.map(b => ({
+        prefab: b.sprite, x: b.x, y: b.y, width: b.size * 0.58, height: b.size * 0.58,
+        properties: { sway: b.sway }
+      })),
+      ...meadow.webs.map(w => ({
+        prefab: 'web', x: w.x, y: w.y, width: w.w, height: w.h,
+        properties: { sway: w.sway }
       })),
       ...meadow.pollen.map(p => ({ prefab: 'pollen', x: p.x, y: p.y, width: 26, height: 26 })),
       ...meadow.wasps.map(w => ({
-        prefab: 'wasp', x: w.x, y: w.y, width: 30, height: 18,
+        prefab: 'wasp', x: w.x, y: w.y, width: 32, height: 20,
         properties: { amp: w.amp, rate: w.rate, drift: w.drift, phase: w.phase }
       })),
       { prefab: 'hive', x: meadow.hive.x, y: meadow.hive.y, width: 70, height: 110 },
-      { prefab: 'player', x: 220, y: HEIGHT / 2, width: 30, height: 22 }
+      { prefab: 'player', x: 220, y: HEIGHT / 2, width: 32, height: 24 }
     ] }]
   }),
 
@@ -141,52 +204,72 @@ game.sceneManager.addScene('lane', {
     game.camera.bounds = { left: 0, top: 0, right: LENGTH, bottom: HEIGHT };
     game.camera.x = 480;
     game.camera.y = HEIGHT / 2;
-
-    // A late-morning warmth over everything, bloom for the pollen and sun.
-    game.renderer.setAmbientLight('#fff8e8');
-    game.renderer.setPostEffects({
-      bloom: { threshold: 0.8, strength: 0.4, blur: 20 },
-      vignette: { strength: 0.12, start: 0.66 },
-      grade: { shadows: '#9a9a6e', highlights: '#fff6da', amount: 0.3, saturation: 1.06, contrast: 1.02 },
-      grain: { strength: 0.03 }
-    });
+    phase = -1;
 
     const ui = scene.ui;
     hud = {
+      hearts: ui.add(new UIText({
+        x: 20, y: 16, anchor: 'top-left', align: 'left', text: '',
+        fontSize: '19px', letterSpacing: 4, color: '#e8536a',
+        outlineColor: 'rgba(40, 10, 20, 0.5)', outlineWidth: 2
+      })),
       pollen: ui.add(new UIText({
-        x: 20, y: 16, anchor: 'top-left', align: 'left',
-        text: `POLLEN 0 / ${totalPollen}`,
-        fontSize: '15px', letterSpacing: 2, color: '#6b4a10',
-        outlineColor: 'rgba(255, 250, 235, 0.75)', outlineWidth: 2
+        x: -20, y: 16, anchor: 'top-right', align: 'right', text: '',
+        fontSize: '15px', letterSpacing: 2, color: '#fff3c8',
+        outlineColor: 'rgba(80, 40, 0, 0.6)', outlineWidth: 2
+      })),
+      score: ui.add(new UIText({
+        x: -20, y: 40, anchor: 'top-right', align: 'right', text: '',
+        fontSize: '15px', letterSpacing: 2, color: '#ffd98f',
+        outlineColor: 'rgba(80, 40, 0, 0.6)', outlineWidth: 2
       })),
       notice: ui.add(new UIText({
         x: 0, y: -120, anchor: 'center', align: 'center', text: '',
-        fontSize: '30px', fontWeight: '600', letterSpacing: 3, color: '#5a3c0e',
-        outlineColor: 'rgba(255, 250, 235, 0.8)', outlineWidth: 3
+        fontSize: '30px', fontWeight: '600', letterSpacing: 3, color: '#fff3d6',
+        outlineColor: 'rgba(70, 30, 0, 0.6)', outlineWidth: 3
+      })),
+      sub: ui.add(new UIText({
+        x: 0, y: -84, anchor: 'center', align: 'center', text: '',
+        fontSize: '16px', letterSpacing: 2, color: '#ffe2ae',
+        outlineColor: 'rgba(70, 30, 0, 0.5)', outlineWidth: 2
       })),
       hint: ui.add(new UIText({
         x: -20, y: -16, anchor: 'bottom-right', align: 'right',
-        text: 'Arrows fly · pollen glows at the flower heads · wasps and thistles scatter what you carry',
-        fontSize: '13px', color: 'rgba(80, 60, 20, 0.7)'
+        text: 'Arrows fly · Space dashes — through danger, out of webs · wasps raise a mark before they strike',
+        fontSize: '13px', color: 'rgba(255, 240, 220, 0.6)'
       }))
     };
-    hud.notice.text = 'Follow the sun to the hive';
-    game.time.after(3.2, () => { if (hud) hud.notice.text = ''; });
+    hud.notice.text = 'Reach the hive before dark';
+    hud.sub.text = 'chain the pollen — the combo keeps the score climbing';
+    game.time.after(3.6, () => {
+      if (hud) { hud.notice.text = ''; hud.sub.text = ''; }
+    });
 
     for (const e of game.entities) {
       if (e instanceof Hive) e.onReached = (bee) => {
-        const all = bee.pollen === totalPollen;
-        hud.notice.text = all
-          ? 'Every last grain — a perfect beeline'
-          : `The hive is richer by ${bee.pollen} of ${totalPollen}`;
+        hud.notice.text = rank(bee);
+        hud.sub.text = `${bee.pollen} of ${totalPollen} pollen · best chain ×${bee.bestCombo} · score ${bee.score}`;
         game.soundManager.playSound('arrived');
-        game.time.after(4, () => game.sceneManager.switchTo('mainMenu'));
+        game.time.after(5, () => game.sceneManager.switchTo('mainMenu'));
       };
     }
   },
 
   onUpdate() {
-    if (hud && game.player) hud.pollen.text = `POLLEN ${game.player.pollen} / ${totalPollen}`;
+    const bee = game.player;
+    if (hud && bee) {
+      hud.hearts.text = '♥ '.repeat(Math.max(0, bee.hearts)).trim();
+      hud.pollen.text = `POLLEN ${bee.pollen} / ${totalPollen}`;
+      hud.score.text = `SCORE ${bee.score}${bee.combo > 1 ? `   ×${bee.combo}` : ''}`;
+    }
+    // The light keeps the run's time, in three movements.
+    const t = progress(game.camera);
+    const next = LIGHT_PHASES.findIndex(p => t < p.until);
+    if (next !== phase) {
+      phase = next;
+      game.renderer.setAmbientLight(LIGHT_PHASES[phase].ambient);
+      game.renderer.setPostEffects(LIGHT_PHASES[phase].post);
+    }
   },
 
   onExit() {
