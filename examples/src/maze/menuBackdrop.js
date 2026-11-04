@@ -1,18 +1,18 @@
 import { generateMaze, solveMaze } from './generateMaze.js';
 
 /**
- * The maze's menu: a survey of a labyrinth.
+ * The garden's menu: the head gardener's plan of a hedge maze.
  *
  * The level is a maze seen from above, so the menu is the plan of one. The
- * walls are drawn as thin lines on near-black, the way a site survey would
- * draw them, and a thread works its way from entry to exit, lighting the
- * walls around it as it goes. When it arrives, the exit flares, the thread
- * fades and it sets off again. Nothing else moves: the picture is a
- * document, and the thread is the only living thing in it.
+ * hedges are drawn as thin ink lines on a dark evening-green board, and a
+ * bee works its way from the gate to the fountain, lighting the hedges
+ * around it as it goes. When it arrives, the fountain flares, the bee's
+ * route fades and it sets off again. Nothing else moves: the picture is a
+ * document, and the bee is the only living thing in it.
  *
- * The maze is a different one from the level's, so the menu does not give
- * the route away, but it is carved by the same generator and drawn to the
- * same proportions.
+ * The maze is a different one from any of the level's, so the menu does not
+ * give a route away, but it is carved by the same generator and drawn to
+ * the same proportions.
  */
 
 const COLS = 37;
@@ -24,19 +24,19 @@ const SEED = 0xA12E;
 const ENTRY = [5, 5];
 const EXIT = [COLS - 6, ROWS - 6];
 
-/** Thread speed, in cells per second. */
+/** Bee speed, in cells per second. */
 const PACE = 5.5;
-/** How long the exit holds its flare before the thread resets, in seconds. */
+/** How long the fountain holds its flare before the bee resets, in seconds. */
 const HOLD = 2.4;
 /** How long the fade-out takes, in seconds. */
 const FADE = 1.1;
 
-const INK = 'rgba(79, 217, 155, 0.17)';
-const INK_LIT = 'rgba(140, 240, 190, 0.6)';
-const THREAD = '#4fd99b';
-const HEAD = '#dafff0';
+const INK = 'rgba(196, 214, 150, 0.16)';
+const INK_LIT = 'rgba(228, 238, 180, 0.6)';
+const ROUTE = '#d8b84e';
+const BEE = '#f6e3a0';
 
-export class MazeSurvey {
+export class GardenPlan {
   constructor() {
     this.wall = generateMaze(COLS, ROWS, SEED);
     this.path = solveMaze(this.wall, ENTRY, EXIT);
@@ -82,7 +82,7 @@ export class MazeSurvey {
     };
   }
 
-  /** Where along the path the thread's head is, in grid units. */
+  /** Where along the path the bee is, in grid units. */
   #head() {
     const index = Math.floor(this.progress);
     const next = Math.min(this.path.length - 1, index + 1);
@@ -96,23 +96,24 @@ export class MazeSurvey {
     const { cell, originX, originY } = this.#layout(width, height);
     const at = ([gx, gy]) => ({ x: originX + gx * cell, y: originY + gy * cell });
     const head = at(this.#head());
-    const threadAlpha = this.phase === 'fade' ? 1 - this.timer / FADE : 1;
+    const routeAlpha = this.phase === 'fade' ? 1 - this.timer / FADE : 1;
     const reach = cell * 5;
 
-    // The lantern around the head, under everything so the walls sit on it.
+    // The patch of sun around the bee, under everything so the hedges sit
+    // on it.
     paint.drawRect({
       x: head.x - reach, y: head.y - reach, width: reach * 2, height: reach * 2,
       fillStyle: {
         type: 'radial', x: head.x, y: head.y, r0: 0, r1: reach,
         stops: [
-          { offset: 0, color: 'rgba(79, 217, 155, 0.16)' },
-          { offset: 1, color: 'rgba(79, 217, 155, 0)' }
+          { offset: 0, color: 'rgba(216, 184, 78, 0.14)' },
+          { offset: 1, color: 'rgba(216, 184, 78, 0)' }
         ]
       },
-      globalAlpha: threadAlpha
+      globalAlpha: routeAlpha
     });
 
-    // Walls: faint everywhere, lit within the lantern's reach.
+    // Hedges: faint everywhere, lit within the sun's reach.
     for (const segment of this.segments) {
       const a = at(segment.from);
       const b = at(segment.to);
@@ -127,49 +128,70 @@ export class MazeSurvey {
         x1: a.x, y1: a.y, x2: b.x, y2: b.y,
         strokeStyle: INK_LIT,
         lineWidth: 1.5,
-        globalAlpha: (1 - distance / reach) * threadAlpha
+        globalAlpha: (1 - distance / reach) * routeAlpha
       });
     }
 
-    // Markers at either end.
+    // Markers at either end: the gate squared, the fountain round, the way
+    // a plan draws them.
     const entry = at(ENTRY);
     const exit = at(EXIT);
-    this.#marker(paint, entry, cell, 'ENTRY', 1);
+    this.#marker(paint, entry, cell, 'GATE', 1, 'square');
     const pulse = this.phase === 'hold'
       ? 1 + Math.min(1, this.timer / 0.6) * 1.6
       : 1 + 0.15 * Math.sin(elapsed * 3);
-    this.#marker(paint, exit, cell * pulse, 'EXIT', this.phase === 'hold' ? 1 : 0.7);
+    this.#marker(paint, exit, cell * pulse, 'FOUNTAIN', this.phase === 'hold' ? 1 : 0.7, 'round');
 
-    // The thread so far, with a soft halo under it.
+    // The route so far, with a soft halo under it.
     const count = Math.floor(this.progress) + 1;
     const points = this.path.slice(0, count).map(at);
     points.push(head);
     if (points.length >= 2) {
-      paint.drawPath({ points, strokeStyle: THREAD, lineWidth: 7, globalAlpha: 0.12 * threadAlpha });
-      paint.drawPath({ points, strokeStyle: THREAD, lineWidth: 2, globalAlpha: 0.9 * threadAlpha });
+      paint.drawPath({ points, strokeStyle: ROUTE, lineWidth: 7, globalAlpha: 0.12 * routeAlpha });
+      paint.drawPath({ points, strokeStyle: ROUTE, lineWidth: 2, globalAlpha: 0.9 * routeAlpha });
     }
-    paint.drawArc({ x: head.x, y: head.y, radius: 3.5, fillStyle: HEAD, globalAlpha: threadAlpha });
 
-    // The survey readout, top right, out of the column's way.
+    // The bee: a bright body and two wings that trade widths too fast to
+    // follow, which is all a bee is at this size.
+    const flap = Math.sin(elapsed * 34);
+    paint.drawArc({
+      x: head.x - 2.4 * (0.5 + 0.5 * Math.abs(flap)), y: head.y - 2,
+      radius: 2, fillStyle: 'rgba(246, 227, 160, 0.6)', globalAlpha: routeAlpha
+    });
+    paint.drawArc({
+      x: head.x + 2.4 * (0.5 + 0.5 * Math.abs(-flap)), y: head.y - 2,
+      radius: 2, fillStyle: 'rgba(246, 227, 160, 0.6)', globalAlpha: routeAlpha
+    });
+    paint.drawArc({ x: head.x, y: head.y, radius: 3.2, fillStyle: BEE, globalAlpha: routeAlpha });
+    paint.drawArc({ x: head.x, y: head.y, radius: 3.2, strokeStyle: '#5a4716', lineWidth: 1, fill: false, globalAlpha: routeAlpha });
+
+    // The plan's readout, top right, out of the column's way.
     const percent = Math.round((this.progress / (this.path.length - 1)) * 100);
     paint.drawText({
-      text: `SURVEY ${String(COLS).padStart(2, '0')}×${String(ROWS).padStart(2, '0')}   ROUTE ${String(percent).padStart(3, ' ')}%`,
+      text: `GARDEN PLAN ${String(COLS).padStart(2, '0')}×${String(ROWS).padStart(2, '0')}   ROUTE ${String(percent).padStart(3, ' ')}%`,
       x: width - 40, y: 36,
       textAlign: 'right',
       fontFamily: '$font.mono',
       fontSize: 11,
       letterSpacing: 2,
-      fillStyle: 'rgba(79, 217, 155, 0.55)'
+      fillStyle: 'rgba(216, 198, 120, 0.55)'
     });
   }
 
-  /** A square outline with a small caption, the way a plan labels a door. */
-  #marker(paint, point, size, label, alpha) {
+  /** An outline with a small caption, the way a plan labels its features. */
+  #marker(paint, point, size, label, alpha, shape) {
     const half = size * 0.32;
-    paint.drawRect({
-      x: point.x - half, y: point.y - half, width: half * 2, height: half * 2,
-      strokeStyle: THREAD, lineWidth: 1.5, fill: false, globalAlpha: 0.8 * alpha
-    });
+    if (shape === 'round') {
+      paint.drawArc({
+        x: point.x, y: point.y, radius: half,
+        strokeStyle: ROUTE, lineWidth: 1.5, fill: false, globalAlpha: 0.8 * alpha
+      });
+    } else {
+      paint.drawRect({
+        x: point.x - half, y: point.y - half, width: half * 2, height: half * 2,
+        strokeStyle: ROUTE, lineWidth: 1.5, fill: false, globalAlpha: 0.8 * alpha
+      });
+    }
     paint.drawText({
       text: label,
       x: point.x + half + 8, y: point.y,
@@ -177,7 +199,7 @@ export class MazeSurvey {
       fontFamily: '$font.mono',
       fontSize: 10,
       letterSpacing: 2,
-      fillStyle: THREAD,
+      fillStyle: ROUTE,
       globalAlpha: 0.7 * alpha
     });
   }
@@ -220,10 +242,10 @@ function segmentDistance(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
 }
 
-/** `UIBackdrop` options for the maze's menu. */
+/** `UIBackdrop` options for the garden's menu. */
 export const menuBackdrop = {
-  gradient: { from: '#040b08', to: '#0b1d15', angle: 120 },
-  layers: [new MazeSurvey()],
-  motes: 0,
-  vignette: 0.6
+  gradient: { from: '#16200f', to: '#2a3b1c', angle: 120 },
+  layers: [new GardenPlan()],
+  motes: 14,
+  vignette: 0.5
 };
