@@ -5,69 +5,102 @@ These games ship with the engine. Each exercises a different part of it. Sources
 <div class="example-grid">
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/showcase/">
+<img src="./shots/showcase.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">renderer</span>
 <strong>Renderer showcase</strong>
 <span>A harbour at night with thousands of sprites, particles, lights and bloom, counted on screen. Swap backends and compare.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/platformer/">
+<img src="./shots/platformer.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">physics · scenes</span>
 <strong>Platformer</strong>
 <span>Side-scrolling level with moving platforms, a chasing enemy, coins and a level-complete trigger.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/maze/">
+<img src="./shots/maze.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">rooms camera · character</span>
 <strong>Hedgerow Court</strong>
 <span>A hedge-maze garden of single-screen courts. The camera holds each court and glides to the next at the gate; daisies bloom where you have walked.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/scroller/">
+<img src="./shots/scroller.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">scroll camera · parallax</span>
 <strong>Beeline</strong>
 <span>An auto-scroller into the dusk: chain pollen into combos, dash past wasps and out of orb webs, and reach the hive before dark on three wing hearts.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/physics/">
+<img src="./shots/physics.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">input · physics</span>
 <strong>Physics playground</strong>
 <span>Grab and throw bodies through a funnel, a splitter and a peg field. Scroll or pinch to change gravity.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/topdown/">
+<img src="./shots/topdown.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">actors</span>
 <strong>Top-down game</strong>
 <span>Eight-directional movement, ghosts that chase, turrets with line of sight and rockets.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/oblique/">
+<img src="./shots/oblique.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">perspective · depth sort</span>
 <strong>Hollow Grove</strong>
 <span>A three-quarter view of a grove at dusk, with a small quest: talk to Maren and Oswin, learn the ward, light the lanterns and open the clearing.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/iso/">
+<img src="./shots/iso.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">isometric · click to move</span>
 <strong>Cinder Keep</strong>
 <span>An isometric dungeon: click or walk the knight through torchlit halls, gather the embers past the keep's dead and open the stair.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/belt/">
+<img src="./shots/belt.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">belt scroller · waves</span>
 <strong>Ash Row</strong>
 <span>A beat 'em up down a sunlit street with a skyline behind it: chain punches, sweep kicks and drop kicks through five sections of thugs to reach the door.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/drift/">
+<img src="./shots/drift.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">rotating camera · parallax</span>
 <strong>Salvage Run</strong>
 <span>Fly a salvage ship through an asteroid field with the view turning to keep your nose up. Shoot meteors apart, outrun drones, bring twelve pods to the gate.</span>
+</div>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/circuit/">
+<img src="./shots/circuit.jpg" alt="" loading="lazy">
+<div class="example-card-body">
 <span class="example-card-tag">ticks · replay · lights</span>
 <strong>Night Circuit</strong>
 <span>Arcade time trials on five circuits. Drift, boost, spill oil for the next round, race your ghost and replay laps from recorded inputs.</span>
+</div>
 </a>
 
 </div>

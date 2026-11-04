@@ -43,6 +43,9 @@ yarn-error.log*
 !/examples/src/*/textures/*.jpg
 !/examples/src/*/textures/*.png
 !/examples/src/*/textures/**/*.png
+# In-game thumbnails for the example index pages
+!/docs/examples/shots/*.jpg
+!/examples/src/shots/*.jpg
 # Free demo sound loops (credits in THIRD_PARTY_NOTICES.md)
 !/examples/src/*/sounds/*.wav
 

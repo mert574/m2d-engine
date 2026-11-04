@@ -16,8 +16,6 @@ const game = new M2D(document.getElementById('screen'), {
   initialScene: 'mainMenu', width: 960, height: 720, worldWidth: 960, worldHeight: 720,
   sounds: { spawn: spawnSound, remove: removeSound }
 });
-game.camera.x = 480;
-game.camera.y = 360;
 // The machine's parts, drawn in code: brass pegs, girder rails, amber glass
 // balls and wooden crates (see machineActors.js).
 game.registerActor('Ball', AmberBall);
@@ -84,6 +82,10 @@ game.sceneManager.addScene('physics', {
   // The scene's own bodies exist by the time this runs, so this is where
   // they become grabbable; anything spawned later is wired up by spawn().
   onEnter() {
+    // A fixed camera on a single-screen machine. Set per entry: camera
+    // config is scene state and resets when a scene unloads.
+    game.camera.x = 480;
+    game.camera.y = 360;
     for (const entity of game.entities) makeGrabbable(entity);
     gravityLabel = game.sceneManager.getCurrentScene().ui.add(
       new UIText({ x: 16, y: 16, text: '', fontSize: '16px', color: '#cfe8ff' }));

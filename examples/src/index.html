@@ -13,7 +13,7 @@
 
     body {
       font-family: Arial, sans-serif;
-      max-width: 800px;
+      max-width: 1100px;
       margin: 0 auto;
       padding: 20px;
       background: #333;
@@ -26,27 +26,47 @@
 
     .examples {
       display: grid;
-      gap: 20px;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .pointer-note {
-      margin: 0 0 20px;
-      padding: 12px 16px;
-      background: #444;
-      border-left: 3px solid #4CAF50;
-      border-radius: 4px;
+    @media (max-width: 900px) {
+      .examples {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .examples {
+        grid-template-columns: 1fr;
+      }
     }
 
     .example {
       background: #444;
-      padding: 20px;
       border-radius: 8px;
+      overflow: hidden;
       transition: transform 0.2s;
     }
 
     .example:hover {
       transform: translateY(-2px);
+    }
+
+    .example img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+    }
+
+    .example .body {
+      padding: 12px 16px 16px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 17px;
     }
 
     a {
@@ -59,8 +79,10 @@
     }
 
     p {
-      margin: 10px 0;
+      margin: 8px 0 0;
+      font-size: 13px;
       line-height: 1.5;
+      color: #ccc;
     }
   </style>
 </head>
@@ -69,54 +91,81 @@
   <h1>M2D Engine Examples</h1>
   <div class="examples">
     <div class="example">
-      <h2><a href="showcase/">Renderer Showcase</a></h2>
-      <p>A batching stress test with a live stats overlay: thousands of sprites, GPU particles, dynamic lights
-        and bloom, all counted on screen. Swap to the Canvas backend in the settings menu and compare.</p>
+      <a href="showcase/"><img src="shots/showcase.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="showcase/">Renderer Showcase</a></h2>
+        <p>A batching stress test with a live stats overlay: thousands of sprites, GPU particles, dynamic lights and bloom. Swap backends and compare.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="platformer/">Platformer Game</a></h2>
-      <p>A simple platformer demonstrating side-scrolling physics, jumping mechanics, and basic character movement.</p>
+      <a href="platformer/"><img src="shots/platformer.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="platformer/">Platformer</a></h2>
+        <p>Side-scrolling physics, moving platforms, a chasing enemy, coins and a level-complete trigger.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="maze/">Hedgerow Court</a></h2>
-      <p>A hedge-maze garden of single-screen courts: the camera glides court to court while daisies bloom along your path.</p>
+      <a href="maze/"><img src="shots/maze.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="maze/">Hedgerow Court</a></h2>
+        <p>A hedge-maze garden of single-screen courts: the camera glides court to court while daisies bloom along your path.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="scroller/">Beeline</a></h2>
-      <p>An auto-scroller down a golden-hour meadow: gather pollen, dodge the wasps, deliver to the hive.</p>
+      <a href="scroller/"><img src="shots/scroller.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="scroller/">Beeline</a></h2>
+        <p>An auto-scroller into the dusk: chain pollen, dash past wasps and out of webs, reach the hive before dark.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="physics/">Physics Playground</a></h2>
-      <p>An interactive physics sandbox: a funnel, a splitter and a peg field. Spawn balls and boxes and watch
-        them tumble through.</p>
+      <a href="physics/"><img src="shots/physics.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="physics/">Physics Playground</a></h2>
+        <p>A lamplit machine: a funnel, a splitter and a peg field. Spawn balls and crates, grab and throw them.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="topdown/">Top-Down Game</a></h2>
-      <p>A top-down game demonstrating 8-directional movement, zero gravity physics, and exploration gameplay.</p>
+      <a href="topdown/"><img src="shots/topdown.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="topdown/">Top-Down Game</a></h2>
+        <p>Eight-directional movement, ghosts that chase, turrets with line of sight and rockets.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="oblique/">Hollow Grove</a></h2>
-      <p>A three-quarter view with a small quest: painted trees on footprint colliders, a textured path through
-        wind-blown grass, two people to talk to, three skills, a minimap and a zooming camera.</p>
+      <a href="oblique/"><img src="shots/oblique.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="oblique/">Hollow Grove</a></h2>
+        <p>A three-quarter view of a grove at dusk, with a small quest: footprint colliders, dialogue, skills and a minimap.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="iso/">Cinder Keep</a></h2>
-      <p>An isometric dungeon: a projection on positions over flat physics, diamond tiles, click-to-move and
-        torchlit block walls that cast shadows.</p>
+      <a href="iso/"><img src="shots/iso.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="iso/">Cinder Keep</a></h2>
+        <p>An isometric dungeon: a projection on positions over flat physics, click-to-move and torchlit walls that cast shadows.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="belt/">Ash Row</a></h2>
-      <p>A belt scroller at high noon: a depth lane compressed by a projection, punch combos and sweep kicks on the
-        engine's attack chains, and a camera that locks per section.</p>
+      <a href="belt/"><img src="shots/belt.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="belt/">Ash Row</a></h2>
+        <p>A beat 'em up at high noon: a depth lane compressed by a projection, punch combos and a camera that locks per section.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="drift/">Salvage Run</a></h2>
-      <p>A rotating top-down space flight: the camera turns with the ship over parallax star fields, meteors
-        split when shot, drones hunt, and twelve pods open the gate.</p>
+      <a href="drift/"><img src="shots/drift.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="drift/">Salvage Run</a></h2>
+        <p>Rotating top-down space flight: the view turns with the ship, meteors split when shot, drones hunt, pods open the gate.</p>
+      </div>
     </div>
     <div class="example">
-      <h2><a href="circuit/">Night Circuit</a></h2>
-      <p>Arcade time trials under the lights: drift five circuits, knock barrels into next round's oil, race your ghost and replay your best lap from its recorded inputs.</p>
+      <a href="circuit/"><img src="shots/circuit.jpg" alt="" loading="lazy"></a>
+      <div class="body">
+        <h2><a href="circuit/">Night Circuit</a></h2>
+        <p>Arcade time trials under the lights: drift, boost, spill oil for the next round, and race your ghost from recorded inputs.</p>
+      </div>
     </div>
   </div>
 </body>
