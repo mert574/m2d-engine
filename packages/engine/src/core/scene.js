@@ -1,4 +1,5 @@
 import { SpriteSheet } from './spriteSheet.js';
+import { Projection } from './projection.js';
 import { Container } from './ui/container.js';
 import { MovingPlatform } from '../actors/movingPlatform.js';
 import { UIButton } from './ui/button.js';
@@ -51,9 +52,7 @@ export class Scene {
 
           if (spritesheet.animations) {
             Object.entries(spritesheet.animations).forEach(([name, anim]) => {
-              anim.frames.forEach(([tileX, tileY]) => {
-                sheet.define(name, tileX, tileY);
-              });
+              sheet.defineAnimation(name, anim.frames, { fps: anim.fps ?? 0, loop: anim.loop ?? true });
             });
           } else {
             sheet.define('default', 0, 0);
@@ -92,30 +91,66 @@ export class Scene {
       }
     }
 
+    // Draw order among entities: `depth` sorts by the feet so whatever
+    // stands lower is in front, which every 3/4 and isometric game wants;
+    // `insertion` keeps scene order, for a game that layers by hand.
+    this.sortMode = this.config.world?.sort ?? 'depth';
+    // How the ground plane is seen. Null is straight down; isometric draws
+    // every position through the projection while physics stays flat.
+    this.game.projection = Projection.fromConfig(this.config.world?.projection);
+
     if (this.config.background) {
       this.setupBackground(this.config.background);
+    }
+    for (const layer of this.config.tileLayers ?? []) {
+      this.setupTileLayer(layer);
     }
   }
 
   /**
-   * Tile one spritesheet frame across the world as a background layer.
+   * Tile one spritesheet frame across the world as the background layer, at
+   * zIndex -1 so it sits under the entities.
    *
    * @param {Object} background - `{ spritesheet, tileX, tileY }`; the loader
    *   has already checked the spritesheet exists.
    */
   setupBackground({ spritesheet, tileX = 0, tileY = 0 }) {
-    const spriteSheet = this.spriteSheets.get(spritesheet);
-    const tileSize = this.config.assets.spritesheets[spritesheet].frameWidth;
+    this.setupTileLayer({ name: 'background', spritesheet, tileX, tileY, zIndex: -1 });
+  }
 
-    spriteSheet.define('default', tileX, tileY);
+  /**
+   * One tiled layer from the scene's `tileLayers`: a frame repeated across
+   * the world at its own depth and parallax. See LayerManager.
+   *
+   * @param {Object} layer - `{ name, spritesheet, tileX, tileY, zIndex,
+   *   parallax, repeat, tileSize, scale, cells }`, validated by the loader.
+   */
+  setupTileLayer({ name, spritesheet, tileX = 0, tileY = 0, zIndex = -1, parallax = 1, repeat, tileSize, scale = 1, cells, stretch = false }) {
+    const spriteSheet = this.spriteSheets.get(spritesheet);
+    // The ground size of one tile. Flat views tile at the frame's size;
+    // an isometric diamond covers a ground square half its drawn width.
+    tileSize ??= this.game.projection && !stretch
+      ? (this.config.assets.spritesheets[spritesheet].frameWidth * scale) / 2
+      : this.config.assets.spritesheets[spritesheet].frameWidth;
+
+    // Each layer gets a frame of its own on the shared sheet, so two layers
+    // drawn from one sheet can show different tiles.
+    const anim = `tileLayer:${name}`;
+    spriteSheet.define(anim, tileX, tileY);
     // The layer's tiles live at fixed world coordinates and draw under the
-    // camera, so the background tiles the *world* — a size in world units,
+    // camera, so the layer tiles the *world* — a size in world units,
     // independent of the display, the render resolution and resizes.
     const tileCountX = Math.ceil(this.game.options.worldWidth / tileSize);
     const tileCountY = Math.ceil(this.game.options.worldHeight / tileSize);
 
-    const bgLayer = this.game.layers.constructLayer(spriteSheet, tileCountX, tileCountY, tileSize, { anim: 'default' });
-    this.game.layers.addLayer('background', bgLayer);
+    const built = this.game.layers.constructLayer(spriteSheet, tileCountX, tileCountY, tileSize, { anim });
+    if (cells) {
+      // Only the listed cells exist; the rest of the grid is empty. A
+      // dungeon's floor stops at its walls rather than filling the rock.
+      const keep = new Set(cells.map(([i, j]) => i * tileCountY + j));
+      built.tiles = built.tiles.map((tile, index) => (keep.has(index) ? tile : null));
+    }
+    this.game.layers.addLayer(name, built, { zIndex, parallax, repeat, scale, stretch });
   }
 
   async setupLevelScene() {
@@ -146,6 +181,7 @@ export class Scene {
         });
 
         if (entity) {
+          if (object.zIndex !== undefined) entity.zIndex = object.zIndex;
           if (entity.name === 'Player') {
             this.game.player = entity;
             this.game.camera.follow(entity);
@@ -360,11 +396,7 @@ export class Scene {
     }
 
     if (this.config.type === 'level') {
-      // Draw background
-      this.game.layers.drawLayer('background');
-
-      // Draw entities
-      this.game.entities.forEach(entity => entity.draw(deltaTime));
+      this.drawWorld(deltaTime);
     }
 
     // World-space drawing that does not belong to an entity. Runs inside the
@@ -372,6 +404,41 @@ export class Scene {
     if (this.config.onDraw) {
       this.config.onDraw(deltaTime);
     }
+  }
+
+  /**
+   * Tile layers and entities in one ascending order: by `zIndex`, then by
+   * `depth` among entities sharing one. A layer draws as a whole at its
+   * `zIndex`, before the entities at that index. The sort is stable, so
+   * entities that tie keep scene order, as they always did.
+   */
+  drawWorld(deltaTime) {
+    const entities = this.#orderedEntities();
+    const layers = this.game.layers.layers;
+    let next = 0;
+    for (const entity of entities) {
+      while (next < layers.length && layers[next][1].zIndex <= entity.zIndex) {
+        this.game.layers.drawOne(layers[next][1]);
+        next++;
+      }
+      entity.draw(deltaTime);
+    }
+    while (next < layers.length) {
+      this.game.layers.drawOne(layers[next][1]);
+      next++;
+    }
+  }
+
+  /**
+   * The entities in draw order. The array is rebuilt every frame: the set
+   * changes under spawning and death, and depth moves with every body.
+   */
+  #orderedEntities() {
+    const list = [...this.game.entities];
+    if (this.sortMode === 'insertion') {
+      return list.sort((a, b) => a.zIndex - b.zIndex);
+    }
+    return list.sort((a, b) => (a.zIndex - b.zIndex) || (a.depth - b.depth));
   }
 
   drawUI(deltaTime) {

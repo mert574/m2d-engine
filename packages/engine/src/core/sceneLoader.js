@@ -32,7 +32,7 @@ export const SCENE_VERSION = 1;
 /** Keys allowed at the top level, by scene type. */
 const TOP_LEVEL_KEYS = {
   common: ['version', 'name', 'type', 'title'],
-  level: ['gameType', 'world', 'assets', 'prefabs', 'layers', 'background'],
+  level: ['gameType', 'world', 'assets', 'prefabs', 'layers', 'background', 'tileLayers'],
   ui: ['assets', 'elements']
 };
 
@@ -70,6 +70,11 @@ const BODY_TYPES = ['static', 'dynamic', 'kinematic', 'character'];
 
 /** Collider shapes `createEntity` understands. */
 const BODY_SHAPES = ['box', 'circle', 'capsule'];
+
+import { PROJECTION_TYPES } from './projection.js';
+
+/** Entity draw orders `Scene` understands. See Entity.depth. */
+const SORT_MODES = ['depth', 'insertion'];
 
 /** Default object size when a layer object gives none. */
 const DEFAULT_OBJECT_SIZE = 32;
@@ -130,6 +135,22 @@ export class SceneLoader {
 
   #loadLevel(data, fail) {
     const spritesheets = data.assets?.spritesheets ?? {};
+    if (data.world?.sort !== undefined && !SORT_MODES.includes(data.world.sort)) {
+      fail('world.sort', `expected one of ${SORT_MODES.join(', ')}, got ${JSON.stringify(data.world.sort)}`);
+    }
+    const projection = data.world?.projection;
+    if (projection !== undefined) {
+      const type = typeof projection === 'string' ? projection : projection?.type;
+      if (!PROJECTION_TYPES.includes(type)) {
+        fail('world.projection', `expected one of ${PROJECTION_TYPES.join(', ')}, got ${JSON.stringify(projection)}`);
+      }
+      if (typeof projection === 'object') {
+        this.#checkKeys(fail, 'world.projection', projection, ['type', 'ratio']);
+        if (projection.ratio !== undefined && !(projection.ratio > 0)) {
+          fail('world.projection.ratio', 'must be a positive number');
+        }
+      }
+    }
     if (data.assets) this.#checkKeys(fail, 'assets', data.assets, ['spritesheets']);
 
     for (const [name, sheet] of Object.entries(spritesheets)) {
@@ -142,7 +163,7 @@ export class SceneLoader {
 
       for (const [anim, body] of Object.entries(sheet.animations ?? {})) {
         const animPath = `${path}.animations.${anim}`;
-        this.#checkKeys(fail, animPath, body, ['frames']);
+        this.#checkKeys(fail, animPath, body, ['frames', 'fps', 'loop']);
         if (!Array.isArray(body.frames) || body.frames.length === 0) {
           fail(`${animPath}.frames`, 'must be a non-empty array of [tileX, tileY] pairs');
         }
@@ -151,6 +172,12 @@ export class SceneLoader {
             fail(`${animPath}.frames[${i}]`, 'must be a [tileX, tileY] pair');
           }
         });
+        if (body.fps !== undefined && !(Number.isFinite(body.fps) && body.fps >= 0)) {
+          fail(`${animPath}.fps`, 'must be a non-negative number');
+        }
+        if (body.loop !== undefined && typeof body.loop !== 'boolean') {
+          fail(`${animPath}.loop`, 'must be a boolean');
+        }
       }
     }
 
@@ -190,6 +217,17 @@ export class SceneLoader {
           fail(`${path}.physics.shape`,
             `expected one of ${BODY_SHAPES.join(', ')}, got ${JSON.stringify(shape)}`);
         }
+        const footprint = prefab.physics.footprint;
+        if (footprint !== undefined) {
+          if (!footprint || typeof footprint !== 'object') {
+            fail(`${path}.physics.footprint`, 'must be an object with a height and an optional width');
+          }
+          this.#checkKeys(fail, `${path}.physics.footprint`, footprint, ['width', 'height']);
+          if (!(footprint.height > 0)) fail(`${path}.physics.footprint.height`, 'must be a positive number');
+          if (footprint.width !== undefined && !(footprint.width > 0)) {
+            fail(`${path}.physics.footprint.width`, 'must be a positive number');
+          }
+        }
       }
     }
 
@@ -203,9 +241,12 @@ export class SceneLoader {
         objects: layer.objects.map((object, oi) => {
           const objectPath = `${path}.objects[${oi}]`;
           this.#checkKeys(fail, objectPath, object,
-            ['id', 'prefab', 'x', 'y', 'width', 'height', 'angle', 'properties']);
+            ['id', 'prefab', 'x', 'y', 'width', 'height', 'angle', 'zIndex', 'properties']);
           if (object.angle !== undefined && !Number.isFinite(object.angle)) {
             fail(`${objectPath}.angle`, `must be a number (radians), got ${JSON.stringify(object.angle)}`);
+          }
+          if (object.zIndex !== undefined && !Number.isFinite(object.zIndex)) {
+            fail(`${objectPath}.zIndex`, `must be a number, got ${JSON.stringify(object.zIndex)}`);
           }
           if (!(object.prefab in prefabs)) {
             fail(`${objectPath}.prefab`, `no prefab named '${object.prefab}' ` +
@@ -231,6 +272,49 @@ export class SceneLoader {
         fail('background.spritesheet', `no spritesheet named '${sheet}' ` +
           `(declared: ${Object.keys(spritesheets).join(', ') || 'none'})`);
       }
+    }
+
+    if (data.tileLayers !== undefined) {
+      if (!Array.isArray(data.tileLayers)) fail('tileLayers', 'must be an array');
+      const names = new Set(data.background ? ['background'] : []);
+      data.tileLayers.forEach((layer, i) => {
+        const path = `tileLayers[${i}]`;
+        this.#checkKeys(fail, path, layer,
+          ['name', 'spritesheet', 'tileX', 'tileY', 'zIndex', 'parallax', 'repeat', 'tileSize', 'scale', 'cells', 'stretch']);
+        if (typeof layer.name !== 'string' || !layer.name) fail(`${path}.name`, 'missing or non-string name');
+        if (names.has(layer.name)) fail(`${path}.name`, `duplicate tile layer name '${layer.name}'`);
+        names.add(layer.name);
+        if (!(layer.spritesheet in spritesheets)) {
+          fail(`${path}.spritesheet`, `no spritesheet named '${layer.spritesheet}' ` +
+            `(declared: ${Object.keys(spritesheets).join(', ') || 'none'})`);
+        }
+        if (layer.zIndex !== undefined && !Number.isFinite(layer.zIndex)) {
+          fail(`${path}.zIndex`, `must be a number, got ${JSON.stringify(layer.zIndex)}`);
+        }
+        const parallax = layer.parallax;
+        if (parallax !== undefined && !Number.isFinite(parallax)) {
+          if (!parallax || typeof parallax !== 'object' ||
+              (parallax.x !== undefined && !Number.isFinite(parallax.x)) ||
+              (parallax.y !== undefined && !Number.isFinite(parallax.y))) {
+            fail(`${path}.parallax`, 'must be a number or { "x", "y" }');
+          }
+          this.#checkKeys(fail, `${path}.parallax`, parallax, ['x', 'y']);
+        }
+        if (layer.repeat !== undefined && typeof layer.repeat !== 'boolean') {
+          fail(`${path}.repeat`, 'must be a boolean');
+        }
+        if (layer.tileSize !== undefined && !(layer.tileSize > 0)) fail(`${path}.tileSize`, 'must be a positive number');
+        if (layer.scale !== undefined && !(layer.scale > 0)) fail(`${path}.scale`, 'must be a positive number');
+        if (layer.stretch !== undefined && typeof layer.stretch !== 'boolean') fail(`${path}.stretch`, 'must be a boolean');
+        if (layer.cells !== undefined) {
+          if (!Array.isArray(layer.cells)) fail(`${path}.cells`, 'must be an array of [column, row] pairs');
+          layer.cells.forEach((cell, ci) => {
+            if (!Array.isArray(cell) || cell.length !== 2 || !Number.isInteger(cell[0]) || !Number.isInteger(cell[1])) {
+              fail(`${path}.cells[${ci}]`, 'must be an [column, row] pair of integers');
+            }
+          });
+        }
+      });
     }
 
     return { ...data, layers };

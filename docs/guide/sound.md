@@ -16,8 +16,8 @@ import jumpSound from './assets/jump.mp3';
 import menuMusic from '../shared/music/menu.mp3';
 
 const game = new M2D(canvas, {
-  sounds: { jump: jumpSound, coin: coinSound, gameOver: gameOverSound },
-  music: { menu: menuMusic, game: gameMusic }
+  sounds: { jump: jumpSound, coin: coinSound, step: { src: stepSound, volume: 0.7 } },
+  music: { menu: menuMusic, game: { src: gameMusic, volume: 0.5 } }
 });
 ```
 
@@ -61,7 +61,7 @@ game.sceneManager.addScene('level1', {
 
 ## Generated effects
 
-The example games synthesize their sound effects in `examples/src/shared/audio.js` and ship two licensed music tracks. Credits and license terms are in `THIRD_PARTY_NOTICES.md` at the repository root.
+The example games synthesize their sound effects in `examples/src/shared/audio.js` and ship free music tracks. Credits and license terms are in `THIRD_PARTY_NOTICES.md` at the repository root.
 
 ## Demo source
 

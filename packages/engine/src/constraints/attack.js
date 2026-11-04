@@ -11,17 +11,62 @@ import { Angle } from '../core/math.js';
  */
 const KNOCKBACK_IMPULSE = { x: 8335, y: -4997 };
 
+/**
+ * A melee attack: once per cooldown, everything hostile within `range` and
+ * inside the swing's arc takes damage and is knocked back.
+ *
+ * `startAttack` takes either a side (`1` right, `-1` left), the
+ * side-scroller's contract, or an angle in radians, which is what a
+ * top-down or 3/4 game needs — a swing that only knows left and right
+ * cannot reach anything above or below. The arc is centred on that
+ * direction and is `arc` radians wide: π (the default) is the half circle
+ * the side view always used, 2π hits everything in range.
+ *
+ * @param {Object} options
+ * @param {number} [options.damage=10]
+ * @param {number} [options.range=40] - Reach from the entity's centre, px
+ * @param {number} [options.cooldown=30] - Between swings, in 60 Hz frames
+ * @param {number} [options.arc=Math.PI] - Width of the swing, radians
+ * @param {number} [options.knockback] - Impulse along the swing; defaults
+ *   to the side view's fling. 0 disables it
+ * @param {Array} [options.combo] - Chain steps. Each is `{ damage,
+ *   knockback, arc }`, overriding the base values for that step. A swing
+ *   started within `comboWindow` seconds of the last one landing advances
+ *   to the next step; otherwise the chain restarts. The cooldown gates
+ *   every swing; the window is what makes mashing into a rhythm
+ * @param {number} [options.comboWindow=0.8] - Seconds after a swing ends
+ *   in which the next one chains
+ * @param {number} [options.targetCategory] - Collision category the swing
+ *   hits; defaults to enemies. An enemy swinging at the player passes
+ *   `CollisionCategories.player`
+ * @param {Function} [options.onStart] - Called on every swing with the step index
+ * @param {Function} [options.onHit] - `(entity, step)` for every target a
+ *   swing lands on, after damage and knockback; a launcher pops the
+ *   target's `elevation` here
+ */
 export class Attack extends Constraint {
   constructor(entity, options = {}) {
     super(entity);
     this.damage = options.damage || 10;
     this.range = options.range || 40;
     this.cooldown = (options.cooldown || 30) / 60; // convert frames to seconds (assuming 60fps baseline)
+    this.arc = options.arc ?? Math.PI;
+    this.knockback = options.knockback;
+    this.combo = options.combo ?? null;
+    this.targetCategory = options.targetCategory ?? CollisionCategories.enemy;
+    this.comboWindow = options.comboWindow ?? 0.8;
     this.onStart = options.onStart;
+    this.onHit = options.onHit;
+    /** Which combo step the current swing is; -1 between chains. */
+    this.step = -1;
+    /** Seconds since the last swing ended, for the chain window. */
+    this.sinceSwing = Infinity;
 
     this.isAttacking = false;
     this.currentCooldown = 0;
     this.direction = 1; // 1 for right, -1 for left
+    /** The swing's centre, radians, y down. 0 is right. */
+    this.angle = 0;
     this.hits = new Set();
     this.attackDuration = 0.167; // ~10 frames at 60fps in seconds
     this.attackTime = 0;
@@ -33,6 +78,7 @@ export class Attack extends Constraint {
     if (this.currentCooldown > 0) {
       this.currentCooldown -= dt;
     }
+    if (!this.isAttacking) this.sinceSwing += dt;
 
     if (this.isAttacking) {
       // Check for hits only on the first tick of the attack
@@ -60,46 +106,73 @@ export class Attack extends Constraint {
     const position = this.entity.position;
     const hits = this.entity.game.physics.overlaps(
       { x: position.x, y: position.y, radius: this.range },
-      (body) => body.collisionFilter.category === CollisionCategories.enemy
+      (body) => body.collisionFilter.category === this.targetCategory
     );
 
     for (const body of hits) {
       if (!body.entity || body.entity === this.entity || this.hits.has(body.entity)) continue;
 
-      // Check if enemy is in the correct half of the circle
+      // Inside the swing? Measured from the edge of the attacker on the
+      // swing's side, so something pressed against it still counts.
       const attackPoint = {
-        x: this.entity.position.x + this.direction * this.entity.size.x / 2,
-        y: this.entity.position.y
+        x: position.x + Math.cos(this.angle) * this.entity.size.x / 2,
+        y: position.y + Math.sin(this.angle) * this.entity.size.x / 2
       };
       const angle = Angle.between(attackPoint, body.position);
 
-      if (Angle.inHalfCircle(angle, this.direction)) {
+      const step = this.combo ? this.combo[this.step] : null;
+      const arc = step?.arc ?? this.arc;
+      const damage = step?.damage ?? this.damage;
+      const knockback = step?.knockback ?? this.knockback;
+      if (Angle.inArc(angle, this.angle, arc)) {
         this.hits.add(body.entity);
         const health = body.entity.getConstraint('health');
         if (health && !health.isInvulnerable()) {
-          health.takeDamage(this.damage);
-          body.applyImpulse({
-            x: this.direction * KNOCKBACK_IMPULSE.x,
-            y: KNOCKBACK_IMPULSE.y
-          });
+          health.takeDamage(damage);
+          if (knockback === undefined) {
+            // The side view's fling: along the swing and upward.
+            body.applyImpulse({
+              x: Math.cos(this.angle) * KNOCKBACK_IMPULSE.x,
+              y: this.sideways ? KNOCKBACK_IMPULSE.y : Math.sin(this.angle) * KNOCKBACK_IMPULSE.x
+            });
+          } else if (knockback > 0) {
+            body.applyImpulse({
+              x: Math.cos(this.angle) * knockback,
+              y: Math.sin(this.angle) * knockback
+            });
+          }
+          this.onHit?.(body.entity, Math.max(0, this.step));
         }
 
       }
     }
   }
 
+  /**
+   * Swing.
+   * @param {number} direction - `1` or `-1` for a side-view swing to the
+   *   right or left, or any other number as an angle in radians
+   */
   startAttack(direction) {
     if (this.currentCooldown > 0) return;
 
+    // Advance the chain when this swing follows the last closely enough.
+    if (this.combo) {
+      this.step = this.sinceSwing <= this.comboWindow ? (this.step + 1) % this.combo.length : 0;
+    }
+    this.sinceSwing = 0;
     this.isAttacking = true;
-    this.direction = direction;
+    // ±1 exactly is the side-view contract; anything else is an angle.
+    this.sideways = direction === 1 || direction === -1;
+    this.angle = this.sideways ? (direction > 0 ? 0 : Math.PI) : direction;
+    this.direction = Math.cos(this.angle) >= 0 ? 1 : -1;
     this.hits.clear();
     this.currentCooldown = this.cooldown;
     this.attackTime = 0;
-    this.entity.setAnimation(direction > 0 ? 'attackRight' : 'attackLeft');
+    this.entity.setAnimation(this.direction > 0 ? 'attackRight' : 'attackLeft');
     
     if (this.onStart) {
-      this.onStart();
+      this.onStart(Math.max(0, this.step));
     }
   }
 

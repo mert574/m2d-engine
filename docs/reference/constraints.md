@@ -26,6 +26,12 @@ Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `
 
 ## Attack
 
+`startAttack(direction)` takes `1` or `-1` for a side-view swing, or any other number as an angle in radians, for a top-down or 3/4 game where left and right cannot reach what is above or below. The swing is `arc` radians wide (default π, the side view's half circle; 2π hits everything in range) centred on that direction. `knockback` is the impulse along the swing, default the side view's fling; `0` disables it.
+
+`targetCategory` chooses the collision category a swing hits (default enemies); an enemy striking the player passes `CollisionCategories.player`, which is how Ash Row's thugs telegraph and land their blows.
+
+`combo` makes the attack a chain: an array of steps (`{ damage, knockback, arc }`, each overriding the base), advanced when a swing starts within `comboWindow` seconds (default 0.8) of the last one ending, and reset otherwise. The cooldown still gates every swing. `onStart(step)` fires per swing and `onHit(entity, step)` per target a swing lands on — a finisher that launches pops the target's `elevation` there. Ash Row's three-punch chain and its sweep kick (a second `Attack` under its own constraint name) are the worked example.
+
 `constraints/attack.js`. A melee attack that damages enemies within a half circle in the facing direction and knocks them back.
 
 | Option | Default | Meaning |
@@ -38,6 +44,26 @@ Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `
 Call `startAttack(direction)` with `1` or `-1`. It does nothing during the cooldown. Hits are found once, at the start of the attack, with an `overlaps` query. Targets are bodies with the `enemy` collision category and a `Health` constraint that is not invulnerable. Each target takes `damage` and a fixed knockback impulse. The attack sets the entity's animation to `attackRight` or `attackLeft` and leaves it there. The built-in players switch back to `idle` from their movement handler.
 
 The attack draws nothing of its own: what a swing looks like depends on the game and its perspective, so a game draws one with a constraint that hooks `onStart`. The demos share one in `examples/src/shared/effects.js` (`AttackSwing`, with a matching `HitBurst` for taking damage). The range ring is drawn when the debug overlay is on.
+
+## ThrustControl
+
+`constraints/thrustControl.js`. A ship's handling on a dynamic body with rotation free: left and right drive angular velocity at `turn` rad/s, up thrusts along the nose at `thrust` px/s², down brakes or reverses at `reverse`, speed is capped at `maxSpeed` and coasting decays at `drag` 1/s. `KeyC` ignites a boost (`boostThrust` and `boostSpeed` multipliers for `boostDuration`, once per `boostCooldown`); `onBoost` fires then, and `onFire` every tick the fire key is held. `throttle` (0..1) and `steer` (-1..1) are read back for a flame and a bank. Keys as `KeyboardControl`'s, under `keys`.
+
+## PointerMove
+
+`constraints/pointerMove.js`. Click to move: a press of `button` (default the primary) sets a ground destination from the tick's input snapshot, and the entity walks there at `speed` and stops within `arrive`. `goTo(x, y)` and `stop()` from code, `moving` and `destination` to read; `onArrive()` and `onMove(dx, dy)` hooks. Under a projection the pointer is already on the ground, so the same code moves an isometric hero.
+
+## Footsteps
+
+`constraints/footsteps.js`. Plays the next of `sounds` (sound keys) every `stride` world units of ground travel, cycling; pauses in the air (an entity with `isAirborne`, or `isOnGround()` false) and below `minSpeed`; plays a step on landing unless `landing: false`. `onStep(index)` is called with each step. Simulation: the stride is integrated in `fixedUpdate` from the body's velocity.
+
+## Abilities
+
+`constraints/abilities.js`. A set of `abilities`, each `{ id, key, cooldown, cast, locked, label, icon, color }`: on the key's press edge in the tick's input snapshot, if not `locked` and not cooling, `cast(entity, ability)` runs and the cooldown (seconds) starts. `unlock(id)`, `lock(id)`, `cast(id)` and `get(id)` from code; `canCast()` is an extra gate (not while talking); `onCast(ability, ok)` reports every press, with `ok` false for a locked or cooling one. `UIAbilityBar` draws the set.
+
+## ProximityPrompt
+
+`constraints/proximityPrompt.js`. Draws `text` (a string or a function) over the entity through the world overlay while the player is within `radius`; `isNear` is the same test for code. The `Npc` actor carries one.
 
 ## ContactDamage
 
@@ -67,6 +93,10 @@ The attack draws nothing of its own: what a swing looks like depends on the game
 | `onAttack()` | | Every tick the attack key is held |
 
 Diagonal movement is normalized. Input pressing straight into a wall is dropped before normalizing. Keys are read from `game.input.snapshot`, the state sampled for the tick.
+
+`inputSpace: 'screen'` moves along the screen's axes through the scene's projection, so Up walks toward the top of an isometric view, and at a steady pace on screen: `maxSpeed` is then the on-screen speed, scaled on the ground so a walk up the view is no slower than one across it. Default `'world'`.
+
+With `verticalMovement` on, `maxSpeed` caps the whole velocity vector, so a diagonal is no faster than a cardinal, and braking stops both axes. A side view caps only the run and leaves the vertical to gravity.
 
 ## CarControl
 

@@ -37,6 +37,7 @@ export default defineConfig({
             { text: 'Input', link: '/guide/input' },
             { text: 'Touch', link: '/guide/touch' },
             { text: 'Camera', link: '/guide/camera' },
+            { text: 'Perspectives', link: '/guide/perspectives' },
             { text: 'Display and resolution', link: '/guide/display' },
             { text: 'UI', link: '/guide/ui' },
             { text: 'Sprites and animation', link: '/guide/sprites' },
@@ -74,7 +75,8 @@ export default defineConfig({
             { text: 'UI components', link: '/reference/ui' },
             { text: 'Developer console', link: '/reference/console' },
             { text: 'Built-in actors', link: '/reference/actors' },
-            { text: 'Built-in constraints', link: '/reference/constraints' }
+            { text: 'Built-in constraints', link: '/reference/constraints' },
+            { text: 'Gameplay helpers', link: '/reference/gameplay' }
           ]
         }
       ],

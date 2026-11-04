@@ -68,3 +68,38 @@ export function applyToPositions(m, positions) {
 export function maxScale(m) {
   return Math.sqrt(Math.max(m[0] * m[0] + m[1] * m[1], m[2] * m[2] + m[3] * m[3]));
 }
+
+/**
+ * Inverse of an affine matrix, or null when it is singular (a zero scale).
+ */
+export function invert(m) {
+  const [a, b, c, d, e, f] = m;
+  const det = a * d - b * c;
+  if (!det) return null;
+  const ia = d / det;
+  const ib = -b / det;
+  const ic = -c / det;
+  const id = a / det;
+  return [ia, ib, ic, id, -(ia * e + ic * f), -(ib * e + id * f)];
+}
+
+/**
+ * The world-to-view matrix a camera describes: world positions in, view
+ * coordinates out, with (0, 0) at the view's top-left corner.
+ *
+ * The camera's `x, y` land at the centre of the view; `zoom` scales the
+ * world about that point (2 shows half as much world at twice the size);
+ * `rotation` is the camera's own angle in radians, so the world turns the
+ * other way. Zoom and rotation are optional: a bare `{ x, y, width, height }`
+ * is the translate-only camera every backend always understood.
+ *
+ * Both renderer backends build their camera from this, so there is exactly
+ * one definition of where a world point lands on screen — the camera's own
+ * `worldToScreen` uses it too.
+ */
+export function viewMatrix({ x, y, width, height, zoom = 1, rotation: angle = 0 }) {
+  let m = translation(width / 2, height / 2);
+  if (angle) m = multiply(m, rotation(-angle));
+  if (zoom !== 1) m = multiply(m, scaling(zoom, zoom));
+  return multiply(m, translation(-x, -y));
+}

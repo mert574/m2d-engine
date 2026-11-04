@@ -82,6 +82,22 @@ for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
 
 `renderOffset` and `renderAngleOffset` add a visual displacement on top of the body's transform without moving the body. The `Hover` constraint uses them to make a pickup bob.
 
+### Draw order
+
+The scene draws tile layers and entities in one ascending order: by `zIndex`, then by `depth` among entities sharing one. `zIndex` defaults to `0` and a scene object can set it. `depth` defaults to the bottom edge of the body at its drawn position, the feet, so whatever stands lower on the ground is drawn in front. Assign a number to pin an entity's depth instead. A scene's `world.sort` can switch to insertion order.
+
+### Elevation
+
+`elevation` is height above the ground in world units for perspectives that fake a third axis: a top-down jump, a flight, a beat 'em up's leap. It is simulation state, set in `fixedUpdate`, that the physics body never sees: the collider stays on the ground and only the drawn sprite rises. `renderElevation` blends it between ticks, and `renderPosition` already subtracts it. `depth` ignores it, so a jumping entity keeps its place in the sort. The `ObliquePlayer` actor is the packaged example.
+
+### Render anchor and sprite size
+
+`renderAnchor` is the body's interpolated position on the render plane, through the scene's projection if it has one, with no offsets and no elevation. Draw a ground shadow there; the camera follows it. Under `spriteFit`, `spriteSize` overrides the drawn size when it differs from the body's, as an isometric block on a 64 by 64 footprint drawn 128 by 128 does.
+
+### Footprints
+
+A prefab with a `physics.footprint` gets a short collider at the bottom of its rectangle and a sprite that stands above it. The entity's `size` is the full frame, `frameOffset` is where the frame's centre sits relative to the body's, and `renderPosition` includes it, so a `draw` override that uses `renderPosition` and `size` draws the frame while `body.position` and `body.size` remain the feet. See [Perspectives](./perspectives).
+
 Annotations on an entity, such as a detection radius or a health readout, should go through `game.worldOverlay`. It takes world coordinates and draws at display resolution, so it stays sharp when the world render resolution is lowered. See [Display and resolution](./display#the-world-overlay).
 
 ### Ground detection

@@ -20,11 +20,19 @@ describe('shipped example scenes', () => {
   const examples = join(import.meta.dirname, '..', 'src');
   const actors = {
     platformer: ['Player', 'Bee', 'Platform', 'MovingPlatform', 'Coin', 'Trigger'],
-    topdown: ['TopDownPlayer', 'Ghost', 'Platform', 'Coin', 'Trigger', 'Turret']
+    topdown: ['TopDownPlayer', 'Ghost', 'Platform', 'Coin', 'Trigger', 'Turret'],
+    oblique: ['ObliquePlayer', 'Ghost', 'Tree', 'Decor', 'Bound', 'Pond', 'Coin', 'Trigger', 'Npc', 'GroundDetail'],
+    iso: ['ObliquePlayer', 'Ghost', 'Wall', 'Torch', 'Coin', 'Trigger'],
+    belt: ['ObliquePlayer', 'Ghost', 'Lamp', 'Bound', 'Trigger', 'Street', 'Foreground'],
+    drift: ['Ship', 'Meteor', 'Drone', 'Salvage', 'Gate', 'Bound', 'Sky']
   };
   const scenes = {
     platformer: ['mainMenu', 'level1'],
-    topdown: ['mainMenu', 'level1']
+    topdown: ['mainMenu', 'level1'],
+    oblique: ['mainMenu', 'grove'],
+    iso: ['mainMenu', 'keep'],
+    belt: ['mainMenu', 'row'],
+    drift: ['mainMenu', 'field']
   };
 
   const files = readdirSync(examples)

@@ -42,7 +42,26 @@ export class SceneManager {
     }
   }
 
+  /**
+   * Make a scene current: unload the old one, load the new one.
+   *
+   * `loading` stays set until the new scene has finished `load()`, which
+   * includes its asset fetch and `setupScene`. The engine draws its loading
+   * message while the flag is set, so no frame can run the new scene's
+   * hooks against a world that is not built yet (the projection unset, the
+   * entities absent) — which is what a scene's `onDrawBackground` would
+   * otherwise see for the first frame or two.
+   */
   async switchTo(sceneName) {
+    this.loading = true;
+    try {
+      return await this.#switch(sceneName);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async #switch(sceneName) {
     let scene = this.scenes.get(sceneName);
     if (!scene) {
       const sceneToLoad = this.scenesToLoad.find(s => s.name === sceneName);
@@ -50,8 +69,7 @@ export class SceneManager {
         throw new Error(`Scene ${sceneName} not found`);
       }
       scene = await this.loadScene(sceneToLoad.scene, sceneName);
-    } else {
-      this.loading = false;
+      this.loading = true;
     }
     if (this.currentScene) {
       this.currentScene.unload();

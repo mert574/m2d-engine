@@ -20,6 +20,8 @@ export { default as symmetricalTree } from './music/binarypulse-symmetrical-tree
 export { default as redux } from './music/halogen-redux.ogg';
 export { default as g2Remix } from './music/gbsr-g2-cockboymattt-remix.ogg';
 export { default as longingForRain } from './music/evelon-longing-for-rain.ogg';
+export { default as woodlandFantasy } from './music/matthewpablo-woodland-fantasy.mp3';
+export { default as enchantedFestival } from './music/matthewpablo-enchanted-festival.mp3';
 
 /**
  * The Audio row every demo adds to its settings panel — the one game-side

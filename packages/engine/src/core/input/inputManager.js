@@ -68,7 +68,13 @@ export class InputSnapshot {
     this.down = down;
     this.pressed = pressed;
     this.released = released;
-    /** `{ ui, world, isDown, buttons, type }` as of the sample. */
+    /**
+     * `{ ui, world, isDown, pressed, pressedButtons, buttons, type }` as of
+     * the sample. `world` is on the ground plane (through the scene's
+     * projection, if any); `pressed` is true on the tick a button went
+     * down and `pressedButtons` is the mask of which, even if it was
+     * released again before the tick.
+     */
     this.pointer = pointer;
     Object.freeze(this);
   }
@@ -79,7 +85,7 @@ export class InputSnapshot {
       down: new Set(),
       pressed: new Set(),
       released: new Set(),
-      pointer: { ui: { x: 0, y: 0 }, world: { x: 0, y: 0 }, isDown: false, buttons: 0, type: 'mouse' }
+      pointer: { ui: { x: 0, y: 0 }, world: { x: 0, y: 0 }, isDown: false, pressed: false, pressedButtons: 0, buttons: 0, type: 'mouse' }
     });
   }
 
@@ -97,6 +103,8 @@ export class InputSnapshot {
         ui: { x: this.pointer.ui.x, y: this.pointer.ui.y },
         world: { x: this.pointer.world.x, y: this.pointer.world.y },
         isDown: this.pointer.isDown,
+        pressed: this.pointer.pressed ?? false,
+        pressedButtons: this.pointer.pressedButtons ?? 0,
         buttons: this.pointer.buttons,
         type: this.pointer.type
       }
@@ -119,6 +127,8 @@ export class InputSnapshot {
         ui: { x: pointer.ui?.x ?? 0, y: pointer.ui?.y ?? 0 },
         world: { x: pointer.world?.x ?? 0, y: pointer.world?.y ?? 0 },
         isDown: pointer.isDown ?? false,
+        pressed: pointer.pressed ?? false,
+        pressedButtons: pointer.pressedButtons ?? 0,
         buttons: pointer.buttons ?? 0,
         type: pointer.type ?? 'mouse'
       }
@@ -191,6 +201,12 @@ export class InputManager {
     this.carriedPressed = new Set();
     this.carriedReleased = new Set();
     /**
+     * The buttons that went down since the last tick sampled edges, as a
+     * mask. A click can press and release inside one frame, so the tick
+     * that samples it would otherwise see no button held at all.
+     */
+    this.pointerPressed = 0;
+    /**
      * When set, `sample()` asks this instead of the live devices — the seam
      * a replay (or, one day, a network layer) feeds recorded ticks through.
      * @type {(() => InputSnapshot|object|null)|null}
@@ -221,7 +237,7 @@ export class InputManager {
       get view() { return uiToView({ ...self.cursor.ui, viewport: self.game.viewport }); },
       get world() {
         const view = this.view;
-        return self.game.camera.screenToWorld(view.x, view.y);
+        return self.toWorld(view);
       },
       get isDown() { return self.buttons !== 0; },
       get buttons() { return self.buttons; },
@@ -231,6 +247,16 @@ export class InputManager {
   }
 
   // === Public API ===
+
+  /**
+   * A view position as a point on the ground: through the camera, then
+   * through the scene's projection if it has one, so `event.world` is
+   * where a click lands on the plane the simulation runs on.
+   */
+  toWorld(view) {
+    const render = this.game.camera.screenToWorld(view.x, view.y);
+    return this.game.projection ? this.game.projection.toWorld(render.x, render.y) : render;
+  }
 
   /**
    * Listen for an input event.
@@ -374,9 +400,11 @@ export class InputManager {
     const pointer = this.pointer;
     const pressed = edges ? new Set([...this.carriedPressed, ...keyboard.pressed]) : new Set();
     const released = edges ? new Set([...this.carriedReleased, ...keyboard.released]) : new Set();
+    const pointerPressed = edges ? this.pointerPressed : 0;
     if (edges) {
       this.carriedPressed.clear();
       this.carriedReleased.clear();
+      this.pointerPressed = 0;
     }
     this.snapshot = new InputSnapshot({
       down: new Set(keyboard.down),
@@ -386,6 +414,8 @@ export class InputManager {
         ui: { ...pointer.ui },
         world: { ...pointer.world },
         isDown: pointer.isDown,
+        pressed: pointerPressed !== 0,
+        pressedButtons: pointerPressed,
         buttons: pointer.buttons,
         type: pointer.type
       }
@@ -525,6 +555,7 @@ export class InputManager {
   }
 
   #onDown(record) {
+    this.pointerPressed |= 1 << (record.button ?? 0);
     this.pointerType = record.pointerType;
     this.buttons = record.buttons;
     const event = this.#resolve('pointerdown', record);
@@ -587,7 +618,7 @@ export class InputManager {
       return {
         ui: { ...mapped.ui },
         view: mapped.view,
-        world: this.game.camera.screenToWorld(mapped.view.x, mapped.view.y),
+        world: this.toWorld(mapped.view),
         inContent: mapped.inContent
       };
     }
@@ -599,7 +630,7 @@ export class InputManager {
     return {
       ui,
       view,
-      world: this.game.camera.screenToWorld(view.x, view.y),
+      world: this.toWorld(view),
       inContent:
         view.x >= 0 && view.x <= viewport.viewWidth &&
         view.y >= 0 && view.y <= viewport.viewHeight
@@ -655,7 +686,7 @@ export class InputManager {
     } else if (!event.view) {
       event.view = uiToView({ x: event.ui.x, y: event.ui.y, viewport: this.game.viewport });
       if (!event.world) {
-        event.world = this.game.camera.screenToWorld(event.view.x, event.view.y);
+        event.world = this.toWorld(event.view);
       }
     }
     return event;

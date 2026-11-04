@@ -16,6 +16,7 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `prefabs` | level | no | See below |
 | `layers` | level | no | See below |
 | `background` | level | no | See below |
+| `tileLayers` | level | no | See below |
 | `elements` | ui | yes | See below |
 
 ## `world`
@@ -23,6 +24,8 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | Key | Meaning |
 | --- | --- |
 | `gravity` | `{ "x", "y" }` in px/s². Applied to the physics world when the scene loads |
+| `projection` | How the ground plane is seen: `"isometric"` or `"belt"`, or `{ "type", "ratio" }`. Isometric draws a ground square as a `2:ratio·2` diamond; belt keeps x and compresses y by `ratio`. Positions are drawn through it; physics stays flat. See [Perspectives](../guide/perspectives#isometric-a-projection-on-positions) |
+| `sort` | Entity draw order within a `zIndex`. `"depth"` (default) draws by the bottom edge of the body, so whatever stands lower on the ground is in front. `"insertion"` keeps scene order. See [Perspectives](../guide/perspectives) |
 
 Other keys under `world` are accepted and ignored.
 
@@ -37,7 +40,7 @@ A map from sheet name to sheet. The checks below run for level scenes. A UI scen
 | `frameHeight` | yes | Frame height in pixels, greater than 0 |
 | `animations` | no | Map from animation name to `{ "frames" }` |
 
-`frames` is a non-empty array of `[tileX, tileY]` pairs. A sheet without `animations` gets one named `default` at `[0, 0]`.
+`frames` is a non-empty array of `[tileX, tileY]` pairs. An animation may also give `fps` (frames per second, default `0`: hold the first frame) and `loop` (default `true`). A sheet without `animations` gets one named `default` at `[0, 0]`.
 
 ## `prefabs`
 
@@ -61,8 +64,11 @@ A map from prefab name to prefab.
 | `restitution` | number | `0` |
 | `lockRotation` | boolean | `false` |
 | `isSensor` | boolean | `false` |
+| `footprint` | `{ "height", "width" }` | none |
 
-Keys other than `bodyType` and `shape` are not validated, and unknown keys inside `physics` are ignored.
+A `footprint` makes the collider the object's feet: a box `footprint.height` tall (and `footprint.width` wide, default the object's width) at the bottom of the object's rectangle. The sprite keeps the object's full size and stands above the collider, so a character can walk behind a tree whose trunk is the only solid part. The entity's `depth` is then the feet, which is what the default draw order sorts by. `height` must be positive; both are capped at the object's size.
+
+Keys other than `bodyType`, `shape` and `footprint` are not validated, and unknown keys inside `physics` are ignored.
 
 ## `layers`
 
@@ -82,6 +88,7 @@ An array of layers.
 | `x`, `y` | yes | | Centre position in world units |
 | `width`, `height` | no | `32` | Size in world units. A circle's diameter is `width` |
 | `angle` | no | `0` | Rotation in radians |
+| `zIndex` | no | `0` | Draw order. Entities and tile layers draw in ascending `zIndex`; within one, entities draw by `world.sort` |
 | `id` | no | | Free value |
 | `properties` | no | `{}` | Passed to the actor constructor as `options` |
 
@@ -91,6 +98,25 @@ An array of layers.
 | --- | --- | --- | --- |
 | `spritesheet` | yes | | A key in `assets.spritesheets` |
 | `tileX`, `tileY` | no | `0` | The frame to tile across the world |
+
+`background` is shorthand for a tile layer named `background` at `zIndex` -1. A scene may have both, as long as no tile layer is also named `background`.
+
+## `tileLayers`
+
+An array of tiled layers: one spritesheet frame repeated across the world, each at its own depth and parallax. Tiles outside the view are not drawn.
+
+| Key | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `name` | yes | | Unique among tile layers |
+| `spritesheet` | yes | | A key in `assets.spritesheets` |
+| `tileX`, `tileY` | no | `0` | The frame to tile |
+| `zIndex` | no | `-1` | Where it sits among the entities. A layer draws as a whole before the entities at the same `zIndex` |
+| `parallax` | no | `1` | How much of the camera's travel the layer follows, as a number or `{ "x", "y" }`. `1` is pinned to the world, `0` never moves, above `1` is nearer than the ground |
+| `repeat` | no | `true` when `parallax` is not `1` | Tile across the whole visible area rather than the layer's own grid, so it never shows an edge |
+| `tileSize` | no | the frame width, or half the drawn width under a projection | Ground units one tile covers |
+| `scale` | no | `1` | Drawn size as a multiple of the frame |
+| `cells` | no | all | `[column, row]` pairs; only these cells are drawn |
+| `stretch` | no | `false` | Under a projection, fit the frame to each tile's projected box rather than drawing it at its own size, for a flat texture used as the ground |
 
 ## `elements`
 
@@ -162,7 +188,11 @@ The checks, in addition to key lists and types:
 
 - `objects[].prefab` exists in `prefabs`
 - `prefabs.*.actor` is registered
-- `prefabs.*.spritesheet` and `background.spritesheet` exist in `assets.spritesheets`
+- `prefabs.*.spritesheet`, `background.spritesheet` and `tileLayers[].spritesheet` exist in `assets.spritesheets`
+- `tileLayers[].name` is unique, `parallax` is a number or `{ x, y }`, `repeat` is a boolean, `tileSize` and `scale` are positive, `cells` are integer pairs
+- `world.projection` names a known projection with a positive `ratio`
+- `physics.footprint.height` is positive
+- `objects[].zIndex` and `world.sort` take valid values
 - `prefabs.*.defaultAnimation` exists on that sheet
 - `button.onClick` names a registered scene
 - `button` has exactly one of `onClick` and `action`

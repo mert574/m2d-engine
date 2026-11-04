@@ -39,8 +39,12 @@ yarn-error.log*
 *.mp3
 *.wav
 
-# Licensed demo textures (credits in THIRD_PARTY_NOTICES.md)
+# Free demo textures (credits in THIRD_PARTY_NOTICES.md)
 !/examples/src/*/textures/*.jpg
 !/examples/src/*/textures/*.png
-# Licensed demo sound loops (credits in THIRD_PARTY_NOTICES.md)
+!/examples/src/*/textures/**/*.png
+# Free demo sound loops (credits in THIRD_PARTY_NOTICES.md)
 !/examples/src/*/sounds/*.wav
+
+# Free demo music in mp3 (credits in THIRD_PARTY_NOTICES.md)
+!/examples/src/shared/music/*.mp3

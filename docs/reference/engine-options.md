@@ -27,8 +27,9 @@
 | --- | --- | --- |
 | `initialScene` | `null` | Scene to switch to in `start()` |
 | `basePath` | `''` | Prefix for sprite sheet URLs in scene JSON |
-| `sounds` | `{}` | Name to URL map, loaded in `start()` |
-| `music` | `{}` | Name to URL map of looping tracks |
+| `textureFilter` | `'linear'` | How sprites and images are sampled when drawn at another size. `'nearest'` for pixel art drawn enlarged. Independent of `worldFilter` |
+| `sounds` | `{}` | Name to URL map, loaded in `start()`. A value may be `{ src, volume }` to give the clip its own gain (0..1) under the sound volume |
+| `music` | `{}` | Name to URL map of looping tracks, or `{ src, volume }` as above under the music volume |
 
 ## Input
 

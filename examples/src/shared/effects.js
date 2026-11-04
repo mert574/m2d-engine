@@ -18,9 +18,11 @@ import { Constraint } from 'm2d-engine/core/constraint.js';
  *
  * @param {import('m2d-engine/core/entity.js').Entity} entity
  * @param {Object} [options]
- * @param {string} [options.color='#ffffff'] - Arc colour
+ * @param {string|string[]} [options.color='#ffffff'] - Arc colour, or one
+ *   per combo step
  * @param {number} [options.duration=0.3] - Seconds the swing is visible
  * @param {number} [options.reach] - Outer radius; defaults to the attack's range
+ * @param {string} [options.attack='attack'] - Which Attack constraint to follow
  */
 export class AttackSwing extends Constraint {
   constructor(entity, options = {}) {
@@ -30,14 +32,20 @@ export class AttackSwing extends Constraint {
     this.reach = options.reach ?? null;
     this.time = Infinity;
     this.direction = 1;
+    this.angle = 0;
 
-    const attack = entity.constraints.get('attack');
+    const attack = entity.constraints.get(options.attack ?? 'attack');
     this.attack = attack;
     const onStart = attack.onStart;
-    attack.onStart = () => {
-      onStart?.();
+    attack.onStart = (step = 0) => {
+      onStart?.(step);
       this.time = 0;
+      this.stepColor = Array.isArray(this.color) ? this.color[step % this.color.length] : this.color;
       this.direction = attack.direction;
+      // The swing's centre as seen: the attack's ground angle, through the
+      // scene's projection when there is one.
+      const projection = entity.game.projection;
+      this.angle = projection ? projection.screenAngle(attack.angle ?? 0) : (attack.angle ?? (attack.direction > 0 ? 0 : Math.PI));
     };
   }
 
@@ -52,7 +60,7 @@ export class AttackSwing extends Constraint {
     const renderer = this.entity.game.renderer;
     const pos = this.entity.renderPosition;
     const range = this.reach ?? this.attack.range;
-    const facing = this.direction > 0 ? 0 : Math.PI;
+    const facing = this.angle;
     // Eases out: fast at the start of the swing, settling at the end.
     const sweep = 1 - (1 - t) * (1 - t);
     const centre = facing + (sweep - 0.5) * Math.PI * 0.9 * this.direction;
@@ -72,11 +80,12 @@ export class AttackSwing extends Constraint {
       const a = centre - halfWidth + (i / steps) * halfWidth * 2;
       points.push({ x: pos.x + Math.cos(a) * inner, y: pos.y + Math.sin(a) * inner });
     }
-    renderer.drawPath({ points, closed: true, fillStyle: this.color, globalAlpha: 0.45 * fade, blend });
+    const color = this.stepColor ?? (Array.isArray(this.color) ? this.color[0] : this.color);
+    renderer.drawPath({ points, closed: true, fillStyle: color, globalAlpha: 0.45 * fade, blend });
     // The leading edge, brighter and thinner.
     renderer.drawPath({
       points: points.slice(0, steps + 1),
-      strokeStyle: this.color, lineWidth: 2, globalAlpha: 0.9 * fade, blend
+      strokeStyle: color, lineWidth: 2, globalAlpha: 0.9 * fade, blend
     });
   }
 }

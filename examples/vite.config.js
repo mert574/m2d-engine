@@ -23,7 +23,7 @@ const assetsPlugin = {
   },
   writeBundle() {
     // Scene JSON contains runtime image paths that Vite cannot discover as imports.
-    for (const example of ['platformer', 'maze', 'physics', 'topdown', 'showcase']) {
+    for (const example of ['platformer', 'maze', 'physics', 'topdown', 'oblique', 'iso', 'belt', 'drift', 'showcase']) {
       for (const folder of ['assets', 'textures']) {
         const source = resolve(import.meta.dirname, `src/${example}/${folder}`);
         if (existsSync(source)) {
@@ -53,6 +53,10 @@ export default defineConfig(({ command }) => ({
         physics: resolve(import.meta.dirname, 'src/physics/index.html'),
         topdown: resolve(import.meta.dirname, 'src/topdown/index.html'),
         circuit: resolve(import.meta.dirname, 'src/circuit/index.html'),
+        oblique: resolve(import.meta.dirname, 'src/oblique/index.html'),
+        iso: resolve(import.meta.dirname, 'src/iso/index.html'),
+        belt: resolve(import.meta.dirname, 'src/belt/index.html'),
+        drift: resolve(import.meta.dirname, 'src/drift/index.html'),
         showcase: resolve(import.meta.dirname, 'src/showcase/index.html')
       }
     }

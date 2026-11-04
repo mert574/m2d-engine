@@ -1,3 +1,5 @@
+import { Angle, DIRECTIONS_8 as DIRECTIONS } from './math.js';
+
 export class Entity {
   name = 'Entity';
 
@@ -17,6 +19,22 @@ export class Entity {
     body.entity = this;
     this.constraints = new Map();
     this.currentAnim = null;
+    /**
+     * How the sprite covers the body. `false` tiles the frame across the
+     * size at its natural scale, right for a platform or a wall. `true`
+     * stretches one frame to the size, right for a character whose frame
+     * *is* its drawn size.
+     */
+    this.spriteFit = false;
+    /**
+     * The drawn size under `spriteFit`, when it differs from the body's
+     * size: an isometric block whose ground footprint is 64 by 64 draws as
+     * a 128 by 128 image. Null means the entity's `size`.
+     * @type {{x: number, y: number}|null}
+     */
+    this.spriteSize = null;
+    /** Seconds into the current animation; `update` advances it. */
+    this.animTime = 0;
     this.dead = false;
     this.visible = true;
 
@@ -31,9 +49,57 @@ export class Entity {
     this.renderOffset = { x: 0, y: 0 };
     this.renderAngleOffset = 0;
 
-    this.size = body.size;
+    /**
+     * Draw order within the scene. Entities draw in ascending `zIndex`, and
+     * within one `zIndex` by `depth`. Tile layers share the scale: the
+     * background layer sits at -1, so an entity at -2 draws under the
+     * floor and one at 10 draws over a canopy layer at 5.
+     */
+    this.zIndex = 0;
+
+    /**
+     * Height above the ground plane, in world units, for perspectives that
+     * fake a third axis: a top-down jump, a beat 'em up's leap, a flight.
+     * Simulation state — set it in `fixedUpdate`, where a hit test can ask
+     * "is this thing in the air" — but one the physics body never sees: the
+     * collider stays on the ground and only the drawn sprite rises. Drawing
+     * reads `renderElevation`, blended between ticks like the position.
+     */
+    this.elevation = 0;
+    this._previousElevation = 0;
+
+    /**
+     * The drawn frame when it is not the collider. `createEntity` sets
+     * `body.frame` for a prefab with a `footprint`: the body is the feet,
+     * a short box at the bottom of the object, and the sprite stands above
+     * it, so a character can walk behind a tree whose trunk is the only
+     * solid part. `size` is then the frame, and `frameOffset` is where its
+     * centre sits relative to the body's.
+     */
+    const frame = body.frame;
+    this.size = frame ? { x: frame.width, y: frame.height } : body.size;
+    this.frameOffset = frame ? { x: frame.offsetX ?? 0, y: frame.offsetY ?? 0 } : { x: 0, y: 0 };
 
     this._contacts = new Set();
+  }
+
+  /**
+   * The sort key within a `zIndex`: entities with a smaller depth draw
+   * first, so a larger one is nearer the viewer. By default the bottom edge
+   * of the body — the feet — at the drawn position, which is the one rule
+   * every 3/4 and isometric game shares: whatever stands lower on the
+   * ground is in front. Assign a number to pin an entity's depth instead.
+   */
+  get depth() {
+    if (this._depth !== undefined) return this._depth;
+    const pos = this.body.renderPosition;
+    const feetY = pos.y + this.body.size.y / 2;
+    const projection = this.game.projection;
+    return projection ? projection.toScreen(pos.x, feetY).y : feetY;
+  }
+
+  set depth(value) {
+    this._depth = value;
   }
 
   addConstraint(name, constraint) {
@@ -85,6 +151,11 @@ export class Entity {
   fixedUpdate(dt) {
     if (this.dead) return;
 
+    // The baseline `renderElevation` blends from. Taken here, before the
+    // constraints and the subclass change the value, which is why an
+    // override should call `super.fixedUpdate` first.
+    this._previousElevation = this.elevation;
+
     for (const constraint of this.constraints.values()) {
       constraint.fixedUpdate(dt);
     }
@@ -100,9 +171,16 @@ export class Entity {
   update(deltaTime) {
     if (this.dead) return;
 
+    this.animTime += deltaTime;
     for (const constraint of this.constraints.values()) {
       constraint.update(deltaTime);
     }
+  }
+
+  /** The frame of the current animation to draw now. */
+  get animFrame() {
+    if (!this.sprite || !this.currentAnim) return 0;
+    return this.sprite.frameAt(this.currentAnim, this.animTime);
   }
 
   draw(deltaTime) {
@@ -121,6 +199,15 @@ export class Entity {
       return;
     }
 
+    if (this.spriteFit) {
+      const size = this.spriteSize ?? this.size;
+      this.sprite.draw(this.currentAnim, pos.x, pos.y, {
+        rotation: this.renderAngle, width: size.x, height: size.y, frame: this.animFrame
+      });
+      for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
+      return;
+    }
+
     // Tile the sprite across the body's exact footprint: a size that is not a
     // tile multiple squashes the tiles slightly rather than overdrawing past
     // the body, and tile offsets rotate *around the body centre* with the
@@ -134,6 +221,7 @@ export class Entity {
     const angle = this.renderAngle;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
+    const frame = this.animFrame;
 
     for (let i = 0; i < cols; i++) {
       for (let j = 0; j < rows; j++) {
@@ -143,7 +231,7 @@ export class Entity {
         this.sprite.draw(this.currentAnim,
           pos.x + localX * cos - localY * sin,
           pos.y + localX * sin + localY * cos,
-          { rotation: angle, width: tileW, height: tileH });
+          { rotation: angle, width: tileW, height: tileH, frame });
       }
     }
 
@@ -162,10 +250,42 @@ export class Entity {
    * `draw`, and `position` everywhere else. See PhysicsBody.renderPosition.
    */
   get renderPosition() {
-    const position = this.body.renderPosition;
+    const position = this.renderAnchor;
     const offset = this.renderOffset;
-    if (offset.x === 0 && offset.y === 0) return position;
-    return { x: position.x + offset.x, y: position.y + offset.y };
+    const frame = this.frameOffset;
+    const lift = this.renderElevation;
+    if (offset.x === 0 && offset.y === 0 && frame.x === 0 && frame.y === 0 && lift === 0) {
+      return position;
+    }
+    return {
+      x: position.x + offset.x + frame.x,
+      y: position.y + offset.y + frame.y - lift
+    };
+  }
+
+  /**
+   * The body's interpolated position on the render plane: through the
+   * scene's projection when there is one, otherwise the position itself.
+   * No offsets and no elevation, so it is what a camera follows and what a
+   * ground shadow is drawn at.
+   */
+  get renderAnchor() {
+    const position = this.body.renderPosition;
+    const projection = this.game.projection;
+    return projection ? projection.toScreen(position.x, position.y) : position;
+  }
+
+  /**
+   * `elevation` blended between the previous and current tick, so a jump
+   * rises as smoothly as the body moves. See PhysicsBody.renderPosition.
+   */
+  get renderElevation() {
+    const current = this.elevation;
+    const previous = this._previousElevation;
+    if (current === previous) return current;
+    const alpha = this.game.physics?.interpolation ?? 1;
+    if (alpha >= 1) return current;
+    return previous + (current - previous) * alpha;
   }
 
   /** The angle to draw this entity at. See `renderPosition`. */
@@ -182,15 +302,53 @@ export class Entity {
     return this.body.velocity;
   }
 
-  setAnimation(name) {
+  /**
+   * Switch animations. The cycle restarts when the name changes and keeps
+   * its place when it does not, so calling this every frame with the same
+   * name is safe.
+   * @param {string|null} name
+   * @param {Object} [options]
+   * @param {boolean} [options.restart=false] - Restart even if unchanged
+   */
+  setAnimation(name, { restart = false } = {}) {
     if (!this.sprite) return;
     if (!name || !this.sprite.animations) {
       this.currentAnim = null;
       return;
     }
     if (this.sprite.animations.has(name)) {
+      if (name !== this.currentAnim || restart) this.animTime = 0;
       this.currentAnim = name;
     }
+  }
+
+  /**
+   * Switch to the facing variant of an animation: `${base}_${direction}`
+   * with the direction one of the eight compass names (`'down_right'`, see
+   * DIRECTIONS_8), falling back to the base name when the sheet has no such
+   * variant. A sheet with four facings can define only `down`, `up`,
+   * `left` and `right`; the diagonals fall back to the nearest cardinal.
+   * @param {string} base - Animation family, e.g. `'run'`
+   * @param {number} angle - Facing in radians on the ground plane, y down;
+   *   mapped to the screen under a projection
+   */
+  setDirectionalAnimation(base, angle, options) {
+    if (!this.sprite) return;
+    // The sheet's facings are what the viewer sees, so a ground heading is
+    // turned into its on-screen angle under a projection.
+    const projection = this.game.projection;
+    const facing = projection ? projection.screenAngle(angle) : angle;
+    const sector = Angle.sector(facing, 8);
+    const names = [DIRECTIONS[sector]];
+    if (sector % 2 === 1) {
+      // A diagonal: prefer the vertical cardinal, then the horizontal.
+      names.push(DIRECTIONS[(sector + 1) % 8], DIRECTIONS[(sector + 7) % 8]);
+    }
+    for (const direction of names) {
+      const name = `${base}_${direction}`;
+      if (this.sprite.has(name)) { this.setAnimation(name, options); return; }
+    }
+    this.setAnimation(base, options);
   }
 
   isFalling(threshold = 30) {

@@ -24,10 +24,12 @@ behaviour, update the page that covers it in the same change, following
 | Complete walkthrough | `docs/guide/first-game.md` |
 | Scene JSON, hooks, switching | `docs/guide/scenes.md`, `docs/reference/scene-format.md` |
 | Entities, actors, constraints, projectiles, collision categories | `docs/guide/entities.md`, `docs/reference/actors.md`, `docs/reference/constraints.md` |
+| Quest, abilities, footsteps, NPCs, dialogue, minimap | `docs/reference/gameplay.md` |
 | Physics: body types, units, stepping, queries | `docs/guide/physics.md`, `docs/reference/physics.md` |
 | Input: keyboard, pointer, gestures, bands, pointer lock | `docs/guide/input.md`, `docs/reference/input-events.md` |
 | Touch and on-screen controls | `docs/guide/touch.md` |
 | Camera | `docs/guide/camera.md` |
+| Perspectives: draw order, footprints, elevation, tile layers | `docs/guide/perspectives.md` |
 | View, render resolution, UI resolution, world overlay, settings menu | `docs/guide/display.md` |
 | UI components | `docs/guide/ui.md`, `docs/reference/ui.md` |
 | Developer console, cvars, commands | `docs/reference/console.md` |
@@ -84,3 +86,20 @@ npx playwright install chromium   # once, for test:browser
 - Anything attached to `window` or `document` keeps a stable handler
   reference so `destroy()` can remove it.
 - Keys are physical codes (`'KeyW'`, `'Space'`), never characters.
+- Any number of agents may be working on this repository at once, each in
+  its own git worktree. Never read or write the base checkout
+  (`~/Developer/mert574/m2d-engine`); work only in your worktree. For any
+  scratch files use a fresh `mktemp -d` per task — never a guessable or
+  reused path — and a random high port for dev servers (check `ss -ltnp`
+  first). Before killing a server, confirm its PID's working directory is
+  your worktree. Never trust a screenshot or log unless it came from your
+  own server and your own script, and expect that even your worktree may be
+  shared with another session: re-read files you rely on.
+- Build what a game needs at the engine level when it would serve other
+  games too (a constraint, an actor, a UI component), and keep only the
+  game-specific parts in the demo. The demos are engine demonstrations.
+- Do not generate sprites or textures in scripts. Demos use free, open
+  assets found online (OpenGameArt, ambientCG, Kenney; CC0 or CC BY), with
+  origin, license and checksum recorded in `THIRD_PARTY_NOTICES.md`. Only the
+  renderer showcase keeps a generator, for its batching stress test. See
+  `docs/contributing/adding-a-demo.md`.

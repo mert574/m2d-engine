@@ -44,6 +44,12 @@ export class KeyboardControl extends Constraint {
     this.maxSpeed = options.maxSpeed || 300; // px/s
     this.continuous = options.continuous ?? true;
     this.verticalMovement = options.verticalMovement ?? true;
+    /**
+     * `'world'`: the keys move along the ground's axes. `'screen'`: along
+     * the screen's, through the scene's projection, so Up walks toward the
+     * top of an isometric view rather than along a diagonal.
+     */
+    this.inputSpace = options.inputSpace ?? 'world';
 
     this.onMove = options.onMove?.bind(entity);
     this.onDirectionChange = options.onDirectionChange?.bind(entity);
@@ -61,6 +67,18 @@ export class KeyboardControl extends Constraint {
     let dx = input.axis(this.keys.left, this.keys.right);
     let dy = this.verticalMovement ? input.axis(this.keys.up, this.keys.down) : 0;
 
+    // Under a projection with screen-space input, walk at a steady pace on
+    // screen: the ground direction is scaled so its projected speed is the
+    // same whichever way the keys point.
+    const projection = this.entity.game.projection;
+    let paceScale = 1;
+    if (this.inputSpace === 'screen' && projection && (dx !== 0 || dy !== 0)) {
+      const ground = projection.directionToWorld(dx, dy);
+      paceScale = projection.groundSpeedScale(ground.x, ground.y);
+      dx = ground.x;
+      dy = ground.y;
+    }
+
     // On a diagonal, drop any component that presses straight into a wall
     // before normalizing: that force is spent on the wall anyway, and
     // letting it into the normalization taxes the free axis by √2 — hugging
@@ -74,11 +92,13 @@ export class KeyboardControl extends Constraint {
       if (blocked(0, Math.sign(dy))) dy = 0;
     }
 
-    // Normalize diagonal movement to prevent faster diagonal speed
-    if (dx !== 0 && dy !== 0) {
+    // Normalize diagonal movement to prevent faster diagonal speed (a
+    // screen-space direction is already a unit vector).
+    if (dx !== 0 && dy !== 0 && paceScale === 1 && Math.hypot(dx, dy) > 1 + 1e-6) {
       dx *= DIAGONAL;
       dy *= DIAGONAL;
     }
+    const limit = this.maxSpeed * paceScale;
 
     // Speeds are relative to whatever the entity is standing on. On solid
     // ground that is zero and nothing changes; on a moving platform it is
@@ -102,8 +122,8 @@ export class KeyboardControl extends Constraint {
         });
       } else {
         this.entity.body.setVelocity({
-          x: frame.x + dx * this.maxSpeed,
-          y: frame.y + dy * this.maxSpeed
+          x: frame.x + dx * limit,
+          y: frame.y + dy * limit
         });
       }
     } else if (this.continuous && this.entity.body.bodyType === 'character' && ground) {
@@ -112,12 +132,14 @@ export class KeyboardControl extends Constraint {
       // friction of their own. A dynamic player still stops through ground
       // friction, and braking it here would fight the friction carrying it.
       const velocity = relative();
-      if (velocity.x !== 0) {
-        const brake = this.deceleration * dt;
-        const x = Math.abs(velocity.x) <= brake
-          ? 0
-          : velocity.x - Math.sign(velocity.x) * brake;
-        this.entity.body.setVelocity({ x: frame.x + x, y: frame.y + velocity.y });
+      const brake = this.deceleration * dt;
+      const slow = (v) => (Math.abs(v) <= brake ? 0 : v - Math.sign(v) * brake);
+      if (this.verticalMovement) {
+        if (velocity.x !== 0 || velocity.y !== 0) {
+          this.entity.body.setVelocity({ x: frame.x + slow(velocity.x), y: frame.y + slow(velocity.y) });
+        }
+      } else if (velocity.x !== 0) {
+        this.entity.body.setVelocity({ x: frame.x + slow(velocity.x), y: frame.y + velocity.y });
       }
     }
     if (this.onDirectionChange && dx !== 0) {
@@ -135,12 +157,23 @@ export class KeyboardControl extends Constraint {
 
     if (this.continuous) {
       const velocity = relative();
-      const speed = Math.abs(velocity.x);
-      if (speed > this.maxSpeed) {
-        this.entity.body.setVelocity({
-          x: frame.x + Math.sign(velocity.x) * this.maxSpeed,
-          y: frame.y + velocity.y
-        });
+      if (this.verticalMovement) {
+        // Top-down: the cap is on the whole vector, so a diagonal is no
+        // faster than a cardinal.
+        const speed = Math.hypot(velocity.x, velocity.y);
+        if (speed > limit) {
+          const k = limit / speed;
+          this.entity.body.setVelocity({ x: frame.x + velocity.x * k, y: frame.y + velocity.y * k });
+        }
+      } else {
+        // Side view: only the run is capped; gravity owns the vertical.
+        const speed = Math.abs(velocity.x);
+        if (speed > limit) {
+          this.entity.body.setVelocity({
+            x: frame.x + Math.sign(velocity.x) * limit,
+            y: frame.y + velocity.y
+          });
+        }
       }
     }
   }

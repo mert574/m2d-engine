@@ -57,6 +57,7 @@ const defaultOptions = {
   resolution: 'native',
   /** 'nearest' keeps pixel art crisp when the world is upscaled. */
   worldFilter: 'linear',
+  textureFilter: 'linear',
   /** Track the canvas's displayed size and follow it automatically. */
   autoResize: true,
   /**
@@ -340,6 +341,13 @@ export class M2D {
 
     this.layers = new LayerManager();
     this.layers.setGame(this);
+
+    /**
+     * The scene's ground-to-render projection, or null for a view straight
+     * down at the plane. Set from `world.projection` when a scene loads.
+     * @type {import('./projection.js').Projection|null}
+     */
+    this.projection = null;
     this.sceneManager = new SceneManager(this);
     this.soundManager = new SoundManager();
 
@@ -361,7 +369,8 @@ export class M2D {
       width: this.options.width,
       height: this.options.height,
       viewport: this.viewport,
-      worldFilter: this.options.worldFilter
+      worldFilter: this.options.worldFilter,
+      textureFilter: this.options.textureFilter
     };
     let renderer = createRenderer(selection);
     try {
@@ -707,14 +716,33 @@ export class M2D {
       frictionAir: physics.frictionAir || 0.01,
       restitution: physics.restitution || 0
     };
+    // A footprint splits the collider from the drawn frame: the body is a
+    // short box at the bottom of the object (the feet) and the sprite stands
+    // above it. That is what lets a 3/4-view character walk behind a tree
+    // whose trunk is the only solid part. `body.frame` carries the full
+    // size and where it sits relative to the body, for the Entity
+    // constructor to pick up. See Entity.frameOffset.
+    let bodyX = x;
+    let bodyY = y;
+    let bodyWidth = width;
+    let bodyHeight = height;
+    let frame = null;
+    if (physics.footprint) {
+      bodyWidth = Math.min(width, physics.footprint.width ?? width);
+      bodyHeight = Math.min(height, physics.footprint.height ?? height);
+      bodyY = y + (height - bodyHeight) / 2;
+      frame = { width, height, offsetX: 0, offsetY: -(height - bodyHeight) / 2 };
+    }
+
     let body;
     if (physics.shape === 'circle') {
-      body = this.physics.createCircle({ x, y, radius: width / 2, ...material });
+      body = this.physics.createCircle({ x: bodyX, y: bodyY, radius: bodyWidth / 2, ...material });
     } else if (physics.shape === 'capsule') {
-      body = this.physics.createCapsule({ x, y, width, height, ...material });
+      body = this.physics.createCapsule({ x: bodyX, y: bodyY, width: bodyWidth, height: bodyHeight, ...material });
     } else {
-      body = this.physics.createBox({ x, y, width, height, ...material });
+      body = this.physics.createBox({ x: bodyX, y: bodyY, width: bodyWidth, height: bodyHeight, ...material });
     }
+    if (frame) body.frame = frame;
 
     const entity = new ActorClass(
       body,
@@ -997,7 +1025,13 @@ export class M2D {
 
     this.camera.x = 0;
     this.camera.y = 0;
+    this.camera.zoom = 1;
+    this.camera.rotation = 0;
     this.camera.target = null;
+    this.camera.mode = 'follow';
+    this.camera.followAxes = { x: true, y: true };
+    this.camera.followRotation = false;
+    this.projection = null;
 
     this.setupCollisionHandlers();
     this.soundManager.stopMusic();
@@ -1019,7 +1053,8 @@ export class M2D {
 
   /**
    * Project a world position into UI coordinates: where that point sits in
-   * the space UI elements are drawn and hit-tested in. The opposite
+   * the space UI elements are drawn and hit-tested in. `x, y` are on the
+   * ground plane; under a projection they go through it first. The opposite
    * direction from pointer input (which arrives already carrying both
    * spaces on every event), for pinning screen-space content — labels,
    * markers, off-screen indicators — to a world object.
@@ -1028,7 +1063,8 @@ export class M2D {
    * @returns {{x: number, y: number}}
    */
   worldToUI(x, y) {
-    const view = this.camera.worldToScreen(x, y);
+    const render = this.projection ? this.projection.toScreen(x, y) : { x, y };
+    const view = this.camera.worldToScreen(render.x, render.y);
     return viewToUI({ x: view.x, y: view.y, viewport: this.viewport });
   }
 } 

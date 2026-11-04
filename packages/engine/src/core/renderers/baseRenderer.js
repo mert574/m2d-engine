@@ -202,6 +202,18 @@ export class BaseRenderer {
   }
 
   /**
+   * Choose how sprites and images are sampled when drawn at a size other
+   * than their own: `'linear'` (default) or `'nearest'`, for pixel art drawn
+   * enlarged. Independent of `setWorldFilter`, which is about presenting the
+   * world surface. Backends that need to act on the change override this
+   * and call super.
+   * @param {'linear'|'nearest'} filter
+   */
+  setTextureFilter(filter) {
+    this.textureFilter = filter === 'nearest' ? 'nearest' : 'linear';
+  }
+
+  /**
    * Clean up renderer resources.
    */
   destroy() { throw new Error('Method not implemented'); }

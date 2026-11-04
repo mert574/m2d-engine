@@ -1,6 +1,7 @@
 import { BaseRenderer } from './baseRenderer.js';
 import { identityViewport } from '../viewport.js';
 import { buildFontString, applyLetterSpacing } from './geometry/font.js';
+import { viewMatrix } from './geometry/matrix.js';
 
 /**
  * Canvas 2D implementation of the renderer interface.
@@ -61,6 +62,7 @@ export class CanvasRenderer extends BaseRenderer {
    * @param {number} [options.height=600] - Initial canvas height
    */
   init(element, options = {}) {
+    if (options?.textureFilter) super.setTextureFilter(options.textureFilter);
     this.canvas = element;
     this.context = this.canvas.getContext('2d');
     this.worldBuffer = document.createElement('canvas');
@@ -121,6 +123,7 @@ export class CanvasRenderer extends BaseRenderer {
   }
 
   beginFrame() {
+    if (this.worldContext) this.worldContext.imageSmoothingEnabled = this.textureFilter !== 'nearest';
     if (!this.worldContext) return;
 
     this.clear('#000');
@@ -168,10 +171,9 @@ export class CanvasRenderer extends BaseRenderer {
   applyCamera(camera) {
     if (!this.worldContext) return;
 
-    this.worldContext.translate(
-      -camera.x + camera.width / 2,
-      -camera.y + camera.height / 2
-    );
+    // One definition of the camera for both backends: translate, zoom and
+    // rotation about the view centre. See geometry/matrix.js viewMatrix.
+    this.worldContext.transform(...viewMatrix(camera));
   }
 
   /**

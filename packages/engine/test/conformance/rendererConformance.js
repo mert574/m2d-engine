@@ -350,6 +350,38 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 60, 60, '#ff0000');
       });
 
+      it('zooms about the view centre', () => {
+        // Centred camera at zoom 2: the centre stays put and a point at
+        // (cx - 30, cy - 20) lands at (cx - 60, cy - 40). A 10x10 rect
+        // there is drawn 20x20.
+        const cx = W / 2;
+        const cy = H / 2;
+        renderFrame({
+          camera: { x: cx, y: cy, width: W, height: H, zoom: 2 },
+          world: r => r.drawRect({ x: cx - 30, y: cy - 20, width: 10, height: 10, fillStyle: '#ff0000' })
+        });
+
+        const snap = read();
+        expectColorAt(snap, cx - 50, cy - 30, '#ff0000', { label: 'zoomed rect interior' });
+        expectColorAt(snap, cx - 42, cy - 22, '#ff0000', { label: 'zoomed rect far corner' });
+        expectNotColorAt(snap, cx - 25, cy - 15, '#ff0000', { label: 'unzoomed position' });
+      });
+
+      it('rotates the world about the view centre', () => {
+        // A quarter turn of the camera turns the world -90°: a point 30 to
+        // the right of the centre moves to 30 above it.
+        const cx = W / 2;
+        const cy = H / 2;
+        renderFrame({
+          camera: { x: cx, y: cy, width: W, height: H, rotation: Math.PI / 2 },
+          world: r => r.drawRect({ x: cx + 25, y: cy - 5, width: 10, height: 10, fillStyle: '#ff0000' })
+        });
+
+        const snap = read();
+        expectColorAt(snap, cx, cy - 30, '#ff0000', { label: 'rotated into place' });
+        expectNotColorAt(snap, cx + 30, cy, '#ff0000', { label: 'original position' });
+      });
+
       it('does not apply the camera offset to screen-space content', () => {
         renderFrame({
           camera: { x: W / 2 + 40, y: H / 2 + 40, width: W, height: H },

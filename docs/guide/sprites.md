@@ -40,7 +40,18 @@ A frame is addressed by its column and row, `[tileX, tileY]`, counted from the t
 onMove(dx) { this.setAnimation(dx !== 0 ? 'run' : 'idle'); }
 ```
 
-The engine does not advance frames on a timer. An animation records a base frame, and the sheet's `currentFrame` is added to its column when drawing. An actor that wants a multi-frame animation steps `sprite.currentFrame` itself in `update`.
+An animation with several `frames` and an `fps` plays itself: `Entity.update` advances `animTime`, `animFrame` is the frame to show, and `setAnimation` restarts the cycle when the name changes (pass `{ restart: true }` to restart it anyway). `loop: false` holds the last frame, for a death or a swing.
+
+```json
+"run": { "frames": [[4, 0], [5, 0], [6, 0], [7, 0]], "fps": 12 },
+"die": { "frames": [[20, 0], [21, 0], [22, 0]], "fps": 8, "loop": false }
+```
+
+A sheet with eight facings names them `run_down`, `run_down_right` and so on (the names are `DIRECTIONS_8` in `core/math.js`), and `setDirectionalAnimation('run', angle)` picks the one for an angle, falling back to the nearest cardinal and then to plain `run`. The `ObliquePlayer` and `Npc` actors do this every frame.
+
+A character's frame is usually its drawn size rather than a tile to repeat, so those actors set `spriteFit`, which stretches one frame to the entity's size instead of tiling it.
+
+The legacy contract still holds for single-frame animations: the sheet's `currentFrame` is added to the frame's column when drawing, so an actor can step `sprite.currentFrame` itself.
 
 ```javascript
 update(deltaTime) {
@@ -51,7 +62,7 @@ update(deltaTime) {
 }
 ```
 
-When `frames` lists several pairs, the last pair becomes the base frame.
+When `frames` lists several pairs without an `fps`, the first pair shows.
 
 ## Drawing a sprite directly
 

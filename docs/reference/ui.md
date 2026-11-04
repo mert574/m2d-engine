@@ -375,6 +375,22 @@ A steppable row keeps faint chevrons either side of its value; they brighten wit
 
 `toggle()` switches between the two sizes, and so does **F3** (the `performanceStatsHotkey` engine option; `null` binds no key). The engine consumes that press, which also stops the browser opening its find bar. It lives in `game.ui.debug` as `game.stats`, above every screen and outside the scene's container, so switching scenes neither clears it nor hit-tests it. The frame rate is coloured against `$color.debug.good`, `warn` and `bad`. The engine adds one at the bottom-left unless the `performanceStats` engine option is `false`.
 
+## UIDialogue
+
+`ui/dialogue.js`. A spoken line typed out, with the speaker's name and an advance hint. `start(speaker, lines, onDone)` opens it; `advance()` finishes the typing, then the next line, then closes and calls `onDone`. `open` says whether it is showing and `canOpen` is false for half a second after closing, so the key that closed one conversation cannot start the next. Options: `charsPerSecond` (46), `advanceHint` (`'E'`), `width`, `height`, `textColor`, `nameColor`, `background`, `borderColor`.
+
+## UIMinimap
+
+`ui/minimap.js`. The world mapped into a box. `new UIMinimap(game, { bounds, size, plot, paths })`: `bounds` is the world size, `size` the width (the height follows the aspect), `plot(entity)` returns `null` or `{ shape, color, size }` with `shape` one of `dot`, `square`, `ring`, `area` (a filled circle at the entity's radius), and `paths` are polylines in world units. Draws the player as a heading arrow, the camera's view as a rectangle and `target` (an entity or `{ x, y }`) as a pulsing ring. `map(x, y)` converts world to map coordinates.
+
+## UIAbilityBar
+
+`ui/abilityBar.js`. The slots of an `Abilities` constraint. `new UIAbilityBar(() => abilities, { icons, slot, gap })`: each slot draws its icon (`icons[id]`, or the ability's `icon`, or a disc in its `color`), a cooldown sweep with the seconds left, a `?` while locked, and the key and label underneath. Sizes itself to the count.
+
+## UIMeter
+
+`ui/meter.js`. A bar for a fraction. `new UIMeter(() => ({ current, max }) | fraction | null, { color, label })`; `color` may be a function of the fraction.
+
 ## Container
 
 `scene.ui` from `container.js`. A `UIElement` whose box is the whole of UI space, and the root of a scene's tree. Everything it does beyond that is inherited — `add`, `hitTest`, `drawTree` and the rest are all `UIElement`'s. It is never itself a hit target.

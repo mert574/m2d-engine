@@ -105,6 +105,7 @@ export class WebGLRenderer extends BaseRenderer {
     // Stored, not applied: #createResources below reads it to build the scene
     // target with the right filter, and there is no pass to retune yet.
     if (options.worldFilter) super.setWorldFilter(options.worldFilter);
+    if (options.textureFilter) super.setTextureFilter(options.textureFilter);
     const viewport = options.viewport || identityViewport(
       options.width || this.viewport.viewWidth,
       options.height || this.viewport.viewHeight
@@ -134,7 +135,7 @@ export class WebGLRenderer extends BaseRenderer {
     const gl = this.gl;
     const { viewWidth, viewHeight, worldWidth, worldHeight } = this.viewport;
     this.batch = new Batch(gl, this.stats);
-    this.textures = new TextureCache(gl, this.imageSmoothing);
+    this.textures = new TextureCache(gl, this.imageSmoothing && this.textureFilter !== 'nearest');
     this.labels = new TextLabels(gl);
     this.shadowPass = new ShadowPass(gl, viewWidth, viewHeight, worldWidth, worldHeight);
     this.effectsPass = new EffectsPass(gl, viewWidth, viewHeight, worldWidth, worldHeight, {
@@ -199,6 +200,11 @@ export class WebGLRenderer extends BaseRenderer {
     this.shadowPass.resize(viewWidth, viewHeight, worldWidth, worldHeight);
     this.effectsPass.resize(viewWidth, viewHeight, worldWidth, worldHeight);
     this.#bindDefaultTarget();
+  }
+
+  setTextureFilter(filter) {
+    super.setTextureFilter(filter);
+    this.textures?.setSmoothing(this.imageSmoothing && this.textureFilter !== 'nearest');
   }
 
   setWorldFilter(filter) {
@@ -320,7 +326,7 @@ export class WebGLRenderer extends BaseRenderer {
 
   applyCamera(camera) {
     if (!this.#ready) return;
-    this.cameraMatrix = mat.translation(-camera.x + camera.width / 2, -camera.y + camera.height / 2);
+    this.cameraMatrix = mat.viewMatrix(camera);
     this.worldMatrix = mat.multiply(this.cameraMatrix, mat.identity());
   }
 

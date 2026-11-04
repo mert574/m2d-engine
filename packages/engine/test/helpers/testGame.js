@@ -56,8 +56,10 @@ export function makeTestGame(options = {}) {
     get viewport() {
       return renderer.viewport;
     },
+    projection: null,
     worldToUI(x, y) {
-      const view = this.camera.worldToScreen(x, y);
+      const render = this.projection ? this.projection.toScreen(x, y) : { x, y };
+      const view = this.camera.worldToScreen(render.x, render.y);
       return viewToUI({ x: view.x, y: view.y, viewport: this.viewport });
     }
   };

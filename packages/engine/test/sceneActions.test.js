@@ -143,3 +143,21 @@ describe('scene button actions', () => {
     });
   });
 });
+
+describe('scene switching', () => {
+  it('reports loading until the new scene has finished setting up', async () => {
+    installWindowStub();
+    const game = new M2D(displayCanvas(640, 360), { width: 640, height: 360, renderer: new RecordingRenderer() });
+    let sawLoadingDuringSetup = null;
+    game.sceneManager.addScene('a', {
+      fetch: async () => ({ version: 1, name: 'a', type: 'level', world: { projection: 'isometric' }, prefabs: {}, layers: [] }),
+      onEnter() { sawLoadingDuringSetup = game.sceneManager.loading; }
+    });
+    const pending = game.sceneManager.switchTo('a');
+    expect(game.sceneManager.loading).toBe(true);
+    await pending;
+    expect(sawLoadingDuringSetup).toBe(true);
+    expect(game.sceneManager.loading).toBe(false);
+    expect(game.projection?.type).toBe('isometric');
+  });
+});

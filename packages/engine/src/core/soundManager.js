@@ -50,15 +50,37 @@ export class SoundManager {
     this.pendingLoops = [];
   }
 
+  /**
+   * Register a sound. `file` is a URL, or `{ src, volume }` to give the
+   * clip its own gain under the global sound volume: footsteps at 0.7,
+   * a hit at 1.
+   */
   loadSound(key, file) {
-    const audio = new Audio(file);
+    const { src, volume } = SoundManager.#clip(file);
+    const audio = new Audio(src);
+    audio.baseVolume = volume;
     this.sounds.set(key, audio);
   }
 
+  /** Register a looping track; `file` as for `loadSound`. */
   loadMusic(key, file) {
-    const audio = new Audio(file);
+    const { src, volume } = SoundManager.#clip(file);
+    const audio = new Audio(src);
     audio.loop = true;
+    audio.baseVolume = volume;
     this.music.set(key, audio);
+  }
+
+  static #clip(file) {
+    if (file && typeof file === 'object') {
+      return { src: file.src, volume: Math.max(0, Math.min(1, file.volume ?? 1)) };
+    }
+    return { src: file, volume: 1 };
+  }
+
+  /** A track's own gain times the music volume. */
+  #musicGain(audio) {
+    return this.musicVolume * (audio.baseVolume ?? 1);
   }
 
   playSound(key) {
@@ -68,7 +90,7 @@ export class SoundManager {
     if (!sound) return;
 
     const clone = sound.cloneNode();
-    clone.volume = this.soundVolume;
+    clone.volume = this.soundVolume * (sound.baseVolume ?? 1);
     // A few cents of random detune: the same sample twice in a row reads as
     // two events instead of a sampler being hit.
     clone.playbackRate = 0.94 + Math.random() * 0.12;
@@ -98,7 +120,7 @@ export class SoundManager {
     const audio = sound.cloneNode();
     audio.loop = true;
     audio.preservesPitch = false;
-    let volume = options.volume ?? 1;
+    let volume = (options.volume ?? 1) * (sound.baseVolume ?? 1);
     const manager = this;
     const handle = {
       playing: true,
@@ -150,7 +172,7 @@ export class SoundManager {
     const audio = this.music.get(key);
     if (!audio) return;
 
-    audio.volume = this.musicVolume;
+    audio.volume = this.#musicGain(audio);
     this.currentMusic = audio;
     audio.play().catch(error => {
       console.warn(`Failed to play music ${key}:`, error);
@@ -176,7 +198,7 @@ export class SoundManager {
   setMusicVolume(volume) {
     this.musicVolume = Math.max(0, Math.min(1, volume));
     if (this.currentMusic && !this.isMuted) {
-      this.currentMusic.volume = this.musicVolume;
+      this.currentMusic.volume = this.#musicGain(this.currentMusic);
     }
   }
 

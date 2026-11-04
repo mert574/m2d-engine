@@ -20,6 +20,23 @@ The platformer and top-down example scenes under `examples/src/*/scenes/` show t
 - Works with a `dynamic` or `character` body and zero gravity. Sets its mass to 1.
 - Constraints: `Health` (100), `Attack` (65 damage, 50 range, 22.5 cooldown), `KeyboardControl` (acceleration 3000, max speed 180, vertical movement on), `Debug`.
 
+## ObliquePlayer
+
+`actors/obliquePlayer.js`. Name `Player`. The `TopDownPlayer` for a 3/4 view, with a heading, Space to hop and a swing in any direction.
+
+- Everything `TopDownPlayer` has. Works best with a prefab `footprint`, so the body is the feet and the sprite stands above it.
+- `heading` is the direction last moved in, radians. X swings the `Attack` at it, `attackArc` wide (default 1.5π) with `attackRange` (60) and `attackKnockback` (6000), so a wisp above or below is in reach.
+- The hop is `elevation`: Space launches it at `jumpSpeed` (430 px/s) and `gravity` (1500 px/s²) brings it back. The collider never leaves the ground. `isAirborne` says whether the feet are off it; `jump()` hops from code; `onJump` and `onLand` hooks fire at the ends.
+- With an eight-facing sheet it plays `idle_<dir>`, `run_<dir>` and `swing_<dir>` for the heading; `spriteFit` is on, so the object's size is the drawn frame. `spriteOffsetY` shifts the sprite down for a sheet whose feet sit above the frame's bottom.
+- `properties`: `jumpSpeed`, `gravity`, `attackArc`, `attackRange`, `attackKnockback`, `spriteOffsetY`.
+
+## Npc
+
+`actors/npc.js`. Name `Npc`. Someone to talk to: stands on a `static` body, turns to face the player within `talkRadius` (110) and shows an `E · Talk to <displayName>` prompt through a `ProximityPrompt`. Set `hasNews` to draw a marker over the head. Plays `idle_<dir>` for its facing, or `idle`. `spriteFit` is on.
+
+- `properties`: `who` (an id for the game), `displayName`, `facing` (resting facing, radians, default down), `talkRadius`, `spriteOffsetY`.
+- `playerNear` is the prompt's test; the game reads it on its interact key and opens a `UIDialogue`.
+
 ## Platform
 
 `actors/platform.js`. Name `Platform`. Draws the prefab's `defaultAnimation`, or `default`, tiled over its size. Without a sprite it draws the red placeholder rectangle.

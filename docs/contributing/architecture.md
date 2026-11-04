@@ -16,10 +16,12 @@ packages/engine/src/
 │   ├── scene.js          Builds a scene from validated JSON
 │   ├── sceneLoader.js    Validates scene JSON
 │   ├── sceneManager.js   Registration, caching, switching
+│   ├── quest.js          A quest as a line of stages
+│   ├── projection.js     Ground plane to render plane (isometric)
 │   ├── camera.js
 │   ├── viewport.js       Display size to view, world surface and UI sizes
 │   ├── spriteSheet.js
-│   ├── layerManager.js   Background tile layers
+│   ├── layerManager.js   Tile layers with zIndex, parallax and culling
 │   ├── soundManager.js
 │   ├── constants.js      Collision categories
 │   ├── math.js           Vec2 and Angle helpers
@@ -104,7 +106,15 @@ Behaviours pinned by tests because they are easy to get wrong:
 
 `SceneLoader.load` validates raw JSON and applies defaults before `Scene` builds anything. The normalized output has the same shape as the input, so there is one scene format to know. Adding a field means adding it to the key lists at the top of `sceneLoader.js`. `test/sceneLoader.test.js` covers the validator. `examples/test/scenes.test.js` validates every scene JSON under `examples/src/` and the scene files of the first-game demo under `docs/demos/`.
 
-`Scene` creates entities through `game.createEntity`, which builds the body from the prefab's physics block and the object's placement and passes `properties` to the actor constructor. The entity named `Player` is stored as `game.player` and followed by the camera.
+`Scene` creates entities through `game.createEntity`, which builds the body from the prefab's physics block and the object's placement and passes `properties` to the actor constructor. The entity named `Player` is stored as `game.player` and followed by the camera. A prefab `footprint` makes the body a short box at the bottom of the object and hangs `body.frame` on it, which the `Entity` constructor turns into `size` and `frameOffset`; that is the only thing on a body handle beyond the physics contract besides `entity`.
+
+`Scene.drawWorld` draws tile layers and entities in one ascending order, `zIndex` then `depth`, rebuilt every frame because bodies move and the set changes. `LayerManager` keeps its layers sorted by `zIndex`, applies each layer's parallax as a shift of `camera · (1 - parallax)` and skips tiles outside `camera.getVisibleArea()`. The background hook runs before every layer, so ground detail that must sit above the floor layer is an entity at the floor's `zIndex`.
+
+`SceneManager.switchTo` keeps `loading` set until the new scene's `load()` has finished, so no frame draws a scene's hooks before its setup has built the world (`test/sceneActions.test.js` pins it).
+
+`game.projection` (`core/projection.js`) maps the ground plane the simulation runs on to the render plane the camera and renderer work in. It is applied in exactly four places: `Entity.renderAnchor` (and so `renderPosition` and `depth`), `LayerManager` for tile centres and culling, `InputManager.toWorld` for the inverse on pointer positions, and `M2D.worldToUI`. Nothing in physics or the renderer knows it exists. A scene sets it from `world.projection`; `reset` clears it.
+
+The camera is a full world-to-view affine (`geometry/matrix.js` `viewMatrix`): translate, zoom and rotation about the view centre. Both backends apply that one matrix in `applyCamera`, and `Camera.worldToScreen` and `screenToWorld` use it and its inverse, so drawing, input and the world overlay cannot disagree.
 
 ## UI
 

@@ -1,6 +1,6 @@
 # Renderer API
 
-All drawing goes through a renderer backend. `game.renderer` draws in world space with the camera applied. `game.uiRenderer` draws in screen space. It forwards the draw primitives, the transform and clip stack, `measureText`, `hitTest`, `setCursor`, `clear`, `capabilities` and `supports` with `isScreenSpace` set. Lights, post effects, statistics and the debug flag are on `game.renderer` only. The contract is defined by `BaseRenderer` in `packages/engine/src/core/renderers/baseRenderer.js`.
+All drawing goes through a renderer backend. `game.renderer` draws in world space with the camera applied (the render plane; a scene's projection is applied by callers to positions, not by the renderer). `game.uiRenderer` draws in screen space. It forwards the draw primitives, the transform and clip stack, `measureText`, `hitTest`, `setCursor`, `clear`, `capabilities` and `supports` with `isScreenSpace` set. Lights, post effects, statistics and the debug flag are on `game.renderer` only. The contract is defined by `BaseRenderer` in `packages/engine/src/core/renderers/baseRenderer.js`.
 
 ## Choosing a backend
 
@@ -223,3 +223,11 @@ Pushes and pops of both kinds share one stack and must nest strictly. Both accep
 ## Writing a backend
 
 Subclass `BaseRenderer`, implement every method that throws `Method not implemented`, set the capabilities you support and register the class. [Writing a renderer backend](../contributing/renderer-backend) walks through it.
+
+## Ground shadows
+
+`drawGroundShadow(renderer, x, y, width, { spread, fade, ratio, color })` in `core/renderers/shadows.js` draws the soft ellipse a thing stands in, and `shadowForLift(lift, maxLift)` gives the `spread` and `fade` for a sprite at a given `elevation`. The demos' top-down, isometric and belt views all use it.
+
+## Texture filtering
+
+`setTextureFilter('linear' | 'nearest')` chooses how sprites and images are sampled when drawn at another size, for pixel art drawn enlarged. The `textureFilter` engine option sets it at startup. `setWorldFilter` is separate: it is about presenting the world surface when the render resolution is below the display's.
