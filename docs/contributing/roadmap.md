@@ -43,9 +43,9 @@ The engine ships a side view and a top-down view. The ones below simulate on the
 | 3/4 oblique top-down | Zelda, Stardew Valley, Enter the Gungeon | A prefab `footprint` so the collider is the feet and the sprite stands above it; a demo that walks behind things | **Shipped** |
 | Isometric, dimetric 2:1 | Hades, Diablo, tactics games, city builders | A ground-to-render projection applied to positions only, a diamond tile layer with sparse cells, inverse projection for picking, screen-aligned keys and click-to-move. Physics stays unprojected | **Shipped** |
 | Beat 'em up, belt scroller | Streets of Rage, Castle Crashers | The `belt` projection, `elevation` as the jump, the engine's ground shadow, `followAxes` and section locks through `bounds` | **Shipped** |
-| Auto-scrolling shmup, endless runner | — | `camera.mode = 'scroll'`; spawn and despawn relative to the view edge | Camera mode shipped; no demo yet |
+| Auto-scrolling shmup, endless runner | — | `camera.mode = 'scroll'`; a simulation-side scroll front for the window's rules | **Shipped** as Beeline |
 | Rotating top-down | Twin-stick shooters, Hotline Miami | `camera.followRotation` and `ThrustControl` | **Shipped** as Salvage Run |
-| Single-screen, room-based | Bomberman, Celeste rooms | `camera.mode = 'rooms'` with `roomSize` | Camera mode shipped; no demo yet |
+| Single-screen, room-based | Bomberman, Celeste rooms | `camera.mode = 'rooms'` with `roomSize` | **Shipped** as Hedgerow Court (the maze example, rebuilt as a garden of one-screen courts) |
 | Point-and-click adventure | Monkey Island | Walk-behind layers, sprite scale by depth, pathfinding on a walkable polygon | Later |
 | Mode 7 pseudo-3D | F-Zero, SNES Mario Kart | A ground-plane shader in the WebGL effects pass over flat top-down physics | Stretch |
 | 2.5D parallax side view | Ori, Rayman Legends | Scenery planes at their own parallax fractions above and in front of the play plane | **Shipped** in Ash Row's street: skyline at 0.12, blocks at 0.45, frontage at 1, bollards at 1.25 |

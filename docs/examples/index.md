@@ -1,6 +1,6 @@
 # Example games
 
-Ten games ship with the engine. Each exercises a different part of it. Sources are under [`examples/src/`](https://github.com/mert574/m2d-engine/tree/master/examples/src) and [Adding a demo](../contributing/adding-a-demo) explains how they are wired.
+These games ship with the engine. Each exercises a different part of it. Sources are under [`examples/src/`](https://github.com/mert574/m2d-engine/tree/master/examples/src) and [Adding a demo](../contributing/adding-a-demo) explains how they are wired.
 
 <div class="example-grid">
 
@@ -17,9 +17,15 @@ Ten games ship with the engine. Each exercises a different part of it. Sources a
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/maze/">
-<span class="example-card-tag">camera · character</span>
-<strong>Top-down maze</strong>
-<span>A generated maze explored with a following camera. Find the green goal in the far corner.</span>
+<span class="example-card-tag">rooms camera · character</span>
+<strong>Hedgerow Court</strong>
+<span>A hedge-maze garden of single-screen courts. The camera holds each court and glides to the next at the gate; daisies bloom where you have walked.</span>
+</a>
+
+<a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/scroller/">
+<span class="example-card-tag">scroll camera · parallax</span>
+<strong>Beeline</strong>
+<span>An auto-scroller down a golden-hour meadow: gather pollen, weave past wasps, deliver to the hive at the end of the lane.</span>
 </a>
 
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/physics/">
@@ -101,15 +107,25 @@ A side-scrolling level with a dynamic-body player, moving platforms, a chasing e
 | `Space` | Jump |
 | `X` | Attack |
 
-### Top-down maze
+### Hedgerow Court
 
 [Play](https://mert574.github.io/m2d-engine/examples/maze/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/maze)
 
-A procedurally carved maze with a fixed seed: a stone maze at night, cobbles underfoot, walked by lantern light. The walls brighten as the lantern comes near and the route is chalked on the floor behind the player. Wall cells are merged into runs, so the world holds dozens of static bodies instead of hundreds. The player is a `character` body, the camera follows it through a world larger than the view and a sensor at the far corner resets the run. The scene is built in code; the floor and walls are CC0 textures from ambientCG.
+The single-screen, room-based perspective: a hedge-maze garden in three maps, each a grid of walled courts, and each court exactly one screen. The camera's `rooms` mode holds the court the gardener stands in and glides through the hedge when they take a gate, the classic room transition. Every court is its own seeded maze, connected along a spanning tree with a loop or two, and a test pins that every map stays solvable. Dead ends are flower beds, daisies bloom along the walked path (the route you have taken is the garden in bloom), butterflies work the beds, cloud shadows cross the lawn, and the fountain at the far end opens the next map. The scene is built in code; the lawn and hedge are CC0 materials from ambientCG.
 
 | Key | Action |
 | --- | --- |
 | Arrow keys | Move |
+
+### Beeline
+
+[Play](https://mert574.github.io/m2d-engine/examples/scroller/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/scroller)
+
+The auto-scroller: the camera runs in `scroll` mode down a meadow verge at golden hour, and a bee keeps up. Pollen glows at the flower heads and hangs in chains on the open air; wasps patrol seeded loops and thistles crowd the low route, and either scatters some of what the bee carries; the hive at the end of the lane takes the count. The simulation never reads the camera — a `ScrollFront` entity advances at the same speed per fixed tick and enforces the window, the worked example of the [determinism contract](../contributing/determinism). The meadow is four parallax planes of Kenney foliage silhouettes, pre-tinted to the palette at asset time, and a test pins that every grain stays inside the flight band.
+
+| Key | Action |
+| --- | --- |
+| Arrow keys | Fly |
 
 ### Physics playground
 

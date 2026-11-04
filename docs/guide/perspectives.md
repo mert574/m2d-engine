@@ -108,7 +108,7 @@ Depth in a side view comes from planes that slide at a fraction of the camera's 
 
 ## Camera modes
 
-`camera.mode` picks how the camera moves: `'follow'` eases toward the target, `'scroll'` moves at `scrollVelocity` regardless of the target (an auto-scroller: spawn relative to `getVisibleArea()` and despawn behind it), and `'rooms'` snaps to the room of `roomSize` the target stands in, easing between rooms (a single-screen game with transitions). `followAxes` locks an axis of the follow. A rotating top-down game sets `camera.rotation` from the heading each frame. See [Camera](./camera#modes).
+`camera.mode` picks how the camera moves: `'follow'` eases toward the target, `'scroll'` moves at `scrollVelocity` regardless of the target (an auto-scroller: the game's spawn and despawn rules track a simulation-side scroll front at the same velocity, never the camera — see [Determinism](../contributing/determinism#the-worked-example-an-auto-scroller)), and `'rooms'` snaps to the room of `roomSize` the target stands in, easing between rooms (a single-screen game with transitions). `followAxes` locks an axis of the follow. A rotating top-down game sets `camera.rotation` from the heading each frame. See [Camera](./camera#modes).
 
 ## Camera zoom and rotation
 
@@ -122,5 +122,5 @@ Depth in a side view comes from planes that slide at a fraction of the camera's 
 | Isometric | `world.projection`, a diamond tile layer with `cells`, `spriteSize` on blocks, `inputSpace: 'screen'` or `PointerMove` | Nothing further. Cinder Keep is this |
 | Beat 'em up | The `belt` projection, `elevation` for the jump, `drawGroundShadow`, `followAxes` and section `bounds` | Nothing further. Ash Row is this |
 | Rotating top-down | `camera.followRotation`, `ThrustControl` | Nothing further. Salvage Run is this |
-| Auto-scroller | `camera.mode = 'scroll'` with `scrollVelocity` | Spawning relative to `camera.getVisibleArea()` |
-| Room-based | `camera.mode = 'rooms'` with `roomSize` | Nothing further |
+| Auto-scroller | `camera.mode = 'scroll'` with `scrollVelocity` | A simulation-side scroll front for the window's rules; the camera is never read from `fixedUpdate`. Beeline is this |
+| Room-based | `camera.mode = 'rooms'` with `roomSize` | Nothing further. Hedgerow Court is this |

@@ -50,6 +50,7 @@ export default defineConfig(({ command }) => ({
         // is only the dev server's landing page.
         platformer: resolve(import.meta.dirname, 'src/platformer/index.html'),
         maze: resolve(import.meta.dirname, 'src/maze/index.html'),
+        scroller: resolve(import.meta.dirname, 'src/scroller/index.html'),
         physics: resolve(import.meta.dirname, 'src/physics/index.html'),
         topdown: resolve(import.meta.dirname, 'src/topdown/index.html'),
         circuit: resolve(import.meta.dirname, 'src/circuit/index.html'),
