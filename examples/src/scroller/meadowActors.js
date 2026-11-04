@@ -1,6 +1,7 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
 import { LENGTH, HEIGHT, SPEED, BAND } from './meadow.js';
+import { progress } from './meadowScenery.js';
 
 /**
  * Beeline's cast. The rule that shapes everything: the camera scrolls on
@@ -17,7 +18,7 @@ import { LENGTH, HEIGHT, SPEED, BAND } from './meadow.js';
 /** Half the view width: the front's reach either side of its centre. */
 const HALF_VIEW = 480;
 
-const DASH = { speed: 640, time: 0.2, cooldown: 1.1, grace: 0.34 };
+const DASH = { speed: 780, time: 0.22, cooldown: 1.0, grace: 0.36 };
 /** Seconds the combo survives between grains. */
 const COMBO_WINDOW = 2.4;
 
@@ -64,9 +65,12 @@ export class Bee extends Entity {
 
   constructor(body, sprite, game) {
     super(body, sprite, game);
+    // Quick against a 130 px/s window: the bee must feel faster than the
+    // world it is being carried through.
     this.addConstraint('movement', new KeyboardControl(this, {
-      verticalMovement: true, continuous: true, acceleration: 1600, maxSpeed: 300
+      verticalMovement: true, continuous: true, acceleration: 2700, maxSpeed: 430
     }));
+    this.dashDir = { x: 1, y: 0 };
     this.clock = 0;
     this.pollen = 0;
     this.hearts = 3;
@@ -101,13 +105,18 @@ export class Bee extends Entity {
       let dy = input.axis('ArrowUp', 'ArrowDown');
       if (dx === 0 && dy === 0) dx = 1;
       const norm = Math.hypot(dx, dy);
-      this.body.setVelocity({ x: (dx / norm) * DASH.speed, y: (dy / norm) * DASH.speed });
+      this.dashDir = { x: dx / norm, y: dy / norm };
       this.dashLeft = DASH.time;
       this.dashCooldown = DASH.cooldown;
       this.invuln = Math.max(this.invuln, DASH.grace);
       this.game.soundManager.playSound('dash');
       for (const web of this.webs) web.tear();
       this.webs.clear();
+    }
+    // Hold the burst for the dash's whole window: set per tick, or the air
+    // friction eats it before it is felt.
+    if (this.dashLeft > 0) {
+      this.body.setVelocity({ x: this.dashDir.x * DASH.speed, y: this.dashDir.y * DASH.speed });
     }
 
     // Held by a web: heavy drag until the dash tears it.
@@ -305,11 +314,20 @@ export class Flower extends Entity {
     const pos = this.renderPosition;
     const w = this.size.x;
     const h = this.size.y;
+    const t = progress(this.game.camera);
+
+    // The flower's shadow pools at its roots and stretches as the sun sets.
+    renderer.pushTransform({ x: pos.x - w * 0.12 - t * 14, y: HEIGHT - 5, scaleX: 1, scaleY: 0.2 });
+    renderer.drawArc({ x: 0, y: 0, radius: w * (0.3 + t * 0.12), fillStyle: 'rgba(24, 34, 16, 0.32)' });
+    renderer.popTransform();
+
     renderer.pushTransform({ x: pos.x, y: pos.y + h / 2, rotation: Math.sin(this.clock * 0.8) * 0.035 });
     renderer.drawSprite({
       image, x: 0, y: -h / 2,
       tileWidth: image.width, tileHeight: image.height,
-      width: w, height: h
+      width: w, height: h,
+      // A soft cast off the sun's side: the cheap half of a rim light.
+      shadow: { color: 'rgba(40, 24, 48, 0.3)', blur: 6, offsetX: -(6 + t * 14), offsetY: 3 }
     });
     renderer.popTransform();
   }
@@ -404,6 +422,10 @@ export class Thistle extends Entity {
     // The stem, down to the verge, with one leaf pair.
     const footY = HEIGHT - 8;
     const lean = Math.sin(this.clock * 0.7) * 6;
+    const t = progress(this.game.camera);
+    renderer.pushTransform({ x: pos.x - 10 - t * 12, y: footY + 2, scaleX: 1, scaleY: 0.2 });
+    renderer.drawArc({ x: 0, y: 0, radius: size * (0.34 + t * 0.12), fillStyle: 'rgba(24, 34, 16, 0.35)' });
+    renderer.popTransform();
     renderer.drawPath({
       points: [
         { x: pos.x - 2.5, y: footY }, { x: pos.x + 2.5, y: footY },

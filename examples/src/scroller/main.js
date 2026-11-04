@@ -150,7 +150,7 @@ game.sceneManager.addScene('lane', {
       meadow: { actor: 'Meadow', physics: sensor },
       foreMeadow: { actor: 'ForeMeadow', physics: sensor },
       front: { actor: 'ScrollFront', physics: sensor },
-      player: { actor: 'Bee', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, frictionAir: 0.12 } },
+      player: { actor: 'Bee', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, frictionAir: 0.05 } },
       flowerballs: { actor: 'Flower', spritesheet: 'flowerballs', physics: sensor },
       seedheads: { actor: 'Flower', spritesheet: 'seedheads', physics: sensor },
       flowerspikes: { actor: 'Flower', spritesheet: 'flowerspikes', physics: sensor },

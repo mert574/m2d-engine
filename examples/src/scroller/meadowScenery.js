@@ -59,7 +59,7 @@ function makeStrip(rng, period, sprites, minSize, maxSize, spacingMin = 0.45, sp
 }
 
 /** Draw one strip, repeated across the view at its parallax. */
-function drawStrip(renderer, textures, camera, area, time, { clumps, period, parallax, baseY, swayAmount = 0.03, alpha = 1 }) {
+function drawStrip(renderer, textures, camera, area, time, { clumps, period, parallax, baseY, swayAmount = 0.03, alpha = 1, contactShadow = 0, shadowLean = 0 }) {
   const offset = shift(camera, parallax);
   const left = area.left - offset;
   const first = Math.floor((left - 400) / period) * period;
@@ -70,6 +70,16 @@ function drawStrip(renderer, textures, camera, area, time, { clumps, period, par
       const image = textures[clump.sprite];
       if (!image) continue;
       const sway = Math.sin(time * 0.7 + clump.sway) * swayAmount;
+      // The clump's shadow pools at its roots and leans away from the sun,
+      // longer as it sets.
+      if (contactShadow > 0) {
+        renderer.pushTransform({ x: x - clump.size * 0.1 - shadowLean, y: Math.min(baseY, HEIGHT - 6), scaleX: 1, scaleY: 0.22 });
+        renderer.drawArc({
+          x: 0, y: 0, radius: clump.size * (0.3 + shadowLean * 0.004),
+          fillStyle: `rgba(26, 36, 18, ${contactShadow})`
+        });
+        renderer.popTransform();
+      }
       renderer.pushTransform({ x, y: baseY, rotation: sway });
       renderer.drawSprite({
         image, x: 0, y: -clump.size / 2,
@@ -114,6 +124,13 @@ export class Meadow extends Entity {
       speed: range(rng, 10, 22),
       y: range(rng, 90, 420),
       wobble: range(rng, 14, 30)
+    }));
+    // The first stars, pinned to the view, out once the sun is low.
+    this.stars = Array.from({ length: 42 }, () => ({
+      at: rng(),
+      y: range(rng, 0.03, 0.5),
+      size: range(rng, 0.7, 1.5),
+      twinkle: range(rng, 0, Math.PI * 2)
     }));
   }
 
@@ -175,6 +192,20 @@ export class Meadow extends Entity {
     }
     renderer.drawArc({ x: sunX, y: sunY, radius: sunR, fillStyle: sunColor });
 
+    // The first stars through the fading blue.
+    const starAlpha = Math.max(0, (t - 0.5) / 0.5);
+    if (starAlpha > 0) {
+      for (const star of this.stars) {
+        const twinkle = 0.55 + 0.45 * Math.sin(time * 1.3 + star.twinkle);
+        renderer.drawArc({
+          x: area.left + star.at * width, y: area.top + star.y * HEIGHT,
+          radius: star.size,
+          fillStyle: '#fff6e8',
+          globalAlpha: starAlpha * twinkle * (0.9 - star.y)
+        });
+      }
+    }
+
     // Clouds, under-lit as the light lowers.
     for (const cloud of this.clouds) {
       const span = width + 500;
@@ -209,19 +240,25 @@ export class Meadow extends Entity {
       clumps: this.far, period: this.farPeriod, parallax: 0.15, baseY: HEIGHT - 86, swayAmount: 0.015, alpha: 0.92
     });
     drawStrip(renderer, textures, camera, area, time, {
-      clumps: this.mid, period: this.midPeriod, parallax: 0.45, baseY: HEIGHT - 38, swayAmount: 0.02
+      clumps: this.mid, period: this.midPeriod, parallax: 0.45, baseY: HEIGHT - 38, swayAmount: 0.02,
+      contactShadow: 0.16, shadowLean: 4 + t * 10
     });
 
-    // The verge the flowers grow from.
+    // The verge the flowers grow from, its lip catching the low sun.
     renderer.drawRect({
       x: area.left, y: HEIGHT - 34, width, height: 34,
       fillStyle: {
         type: 'linear', x0: 0, y0: HEIGHT - 34, x1: 0, y1: HEIGHT,
-        stops: [{ offset: 0, color: '#6aa14a' }, { offset: 1, color: '#4a8033' }]
+        stops: [{ offset: 0, color: '#6aa14a' }, { offset: 1, color: '#41712c' }]
       }
     });
+    renderer.drawRect({
+      x: area.left, y: HEIGHT - 35, width, height: 2.5,
+      fillStyle: mixColor('#b8d87e', '#8a6a9a', t), globalAlpha: 0.8
+    });
     drawStrip(renderer, textures, camera, area, time, {
-      clumps: this.verge, period: this.vergePeriod, parallax: 1, baseY: HEIGHT + 4
+      clumps: this.verge, period: this.vergePeriod, parallax: 1, baseY: HEIGHT + 4,
+      contactShadow: 0.28, shadowLean: 6 + t * 16
     });
 
     // Dandelion seeds on the air, backlit.
