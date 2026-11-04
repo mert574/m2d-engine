@@ -48,3 +48,6 @@ yarn-error.log*
 
 # Free demo music in mp3 (credits in THIRD_PARTY_NOTICES.md)
 !/examples/src/shared/music/*.mp3
+
+# Local gameplay captures (drag into the GitHub README editor to publish)
+/recordings/
