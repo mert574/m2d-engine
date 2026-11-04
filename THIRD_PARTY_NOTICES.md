@@ -210,13 +210,14 @@ The Beeline demo's meadow — its parallax planes, flowers and thistles — is
 built from the **Foliage Sprites** pack by [Kenney](https://kenney.nl),
 dedicated to the public domain under
 [Creative Commons Zero 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
-The pack's white silhouettes were resized to demo tiles and flooded with the
-meadow's palette at asset time (the pack is designed to be recoloured);
-each file under `examples/src/scroller/textures/foliage/` is named for its
-role, e.g. `far-grass-a.png`, `seedheads.png`, `bramble-b.png`.
+The pack's white silhouettes (the shaded set) were resized to demo tiles
+and tinted through the meadow's palette at asset time — the pack is
+designed to be recoloured — with the foreground set additionally
+defocused. Each file under `examples/src/scroller/textures/foliage/` is
+named for its role, e.g. `far-grass-a.png`, `seedheads.png`, `bramble-b.png`.
 
 - Pack page: https://kenney.nl/assets/foliage-sprites
-- Obtained from the mirror: https://github.com/ETdoFresh/kenney.nl (`kenney_foliagesprites/PNG/Flat`)
+- Obtained from the mirror: https://github.com/ETdoFresh/kenney.nl (`kenney_foliagesprites/PNG/Shaded`)
 
 # Sprites: Kenney Racing Pack
 

@@ -14,8 +14,10 @@ keyboard. The repository is an npm workspaces monorepo.
 ## Documentation is in `docs/`
 
 All documentation lives in the VitePress site. Do not add documentation to
-this file, the README or source-adjacent README files. When a change alters
-behaviour, update the page that covers it in the same change, following
+this file, the README or source-adjacent README files — a README that only
+points at docs pages (`packages/engine/test/README.md`, the npm package
+README) is the exception. When a change alters behaviour, update the page
+that covers it in the same change, following
 `docs/contributing/writing-docs.md`.
 
 | Topic | Page |
@@ -89,28 +91,24 @@ npx playwright install chromium   # once, for test:browser
 - Anything attached to `window` or `document` keeps a stable handler
   reference so `destroy()` can remove it.
 - Keys are physical codes (`'KeyW'`, `'Space'`), never characters.
-- Any number of agents may be working on this repository at once, each in
-  its own git worktree. Never read or write the base checkout
-  (`~/Developer/mert574/m2d-engine`); work only in your worktree. For any
-  scratch files use a fresh `mktemp -d` per task — never a guessable or
-  reused path — and a random high port for dev servers (check `ss -ltnp`
-  first). Before killing a server, confirm its PID's working directory is
-  your worktree. Never trust a screenshot or log unless it came from your
-  own server and your own script, and expect that even your worktree may be
-  shared with another session: re-read files you rely on.
-- Build what a game needs at the engine level when it would serve other
-  games too (a constraint, an actor, a UI component), and keep only the
-  game-specific parts in the demo. The demos are engine demonstrations.
-- Do not generate sprites or textures in scripts. Demos use free, open
-  assets found online (OpenGameArt, ambientCG, Kenney; CC0 or CC BY), with
-  pack, author, license and source URL recorded in `THIRD_PARTY_NOTICES.md`.
-  Keep credits simple: no per-file checksums, and no counts of assets or
-  demos anywhere in notices or docs — numbers go stale with every addition.
-  Only the renderer showcase keeps a generator, for its batching stress
-  test. See `docs/contributing/adding-a-demo.md`.
-- New demos aim bright: cozy, sunlit, happy settings. The shipped set
-  already leans dark and nocturnal; do not add more of that register.
-  Brightness does not mean lower craft — lights, parallax and post effects
-  read in daylight too, and a warm, distinctive look beats a generic moody
-  one. Avoid cliché genre pastiches when picking a concept.
-  (Owner preference, Nov 2026 — to be moved to agent memory when writable.)
+- Other agents work on this repository concurrently, each in its own git
+  worktree. Never touch the base checkout (`~/Developer/mert574/m2d-engine`).
+  Scratch files go in a fresh `mktemp -d` per task; dev servers take a
+  random high port (check `ss -ltnp` first), and a server is only yours to
+  kill if its PID runs in your worktree. Trust no screenshot or log you did
+  not produce, and re-read files you rely on — even a worktree and a /tmp
+  path can turn out to be shared.
+- Build what another game could also want (a constraint, an actor, a UI
+  component) at the engine level; only game-specific parts stay in the
+  demo. The demos are engine demonstrations.
+- Never generate sprites or textures in scripts (the renderer showcase's
+  stress-test generator is the one exception). Demos use free, open assets
+  (OpenGameArt, ambientCG, Kenney; CC0 or CC BY), credited in
+  `THIRD_PARTY_NOTICES.md` with pack, author, license and source URL only —
+  no per-file checksums, and no counts of assets or demos anywhere, since
+  numbers go stale. See `docs/contributing/adding-a-demo.md`.
+- New demos aim bright: cozy, sunlit, distinctive. The shipped set already
+  leans nocturnal; do not add to that register, and avoid cliché genre
+  pastiches. Brightness is not lower craft — lights, parallax and post
+  effects read in daylight too. (Owner preference, Nov 2026 — move to agent
+  memory when writable.)

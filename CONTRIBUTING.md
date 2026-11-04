@@ -2,7 +2,7 @@
 
 The contributor guide lives in the documentation site: [Contributing](https://mert574.github.io/m2d-engine/contributing/), source at [`docs/contributing/index.md`](docs/contributing/index.md).
 
-In short: Node.js 22, `npm ci`, `npm run generate-sprites`, `npm run dev`. Run `npm test` and `npm run build` before opening a change, check both renderer backends and update the documentation page that covers what you changed.
+In short: Node.js 22, `npm ci`, `npm run dev`. Run `npm test` and `npm run build` before opening a change, check both renderer backends and update the documentation page that covers what you changed.
 
 Related pages:
 
