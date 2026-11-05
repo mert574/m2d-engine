@@ -118,6 +118,8 @@ const ZOOM_MIN = 0.7;
 const ZOOM_MAX = 1.6;
 
 let unsubscribe = [];
+/** The grove's per-tick rules, set up by onEnter. */
+let rules = null;
 
 game.sceneManager.addScene('grove', {
   fetch: async () => (await import('./scenes/grove.json')).default,
@@ -159,7 +161,7 @@ game.sceneManager.addScene('grove', {
       text: 'Arrows move · Space hops · X swings · 1 2 3 abilities · E talks · Wheel zooms',
       fontSize: '13px', color: 'rgba(230, 236, 220, 0.55)'
     }));
-    const dialogue = ui.add(new UIDialogue({ borderColor: 'rgba(255, 210, 140, 0.45)', nameColor: '#ffd27a' }));
+    const dialogue = ui.add(new UIDialogue({ borderColor: 'rgba(255, 210, 140, 0.45)', nameColor: '#ffd27a', clock: () => game.time.elapsed }));
     const minimap = ui.add(new UIMinimap(game, {
       size: 220, bounds: WORLD, paths: ground ? [ground.segments] : [],
       borderColor: 'rgba(255, 210, 140, 0.45)',
@@ -209,7 +211,13 @@ game.sceneManager.addScene('grove', {
       if (!ok && ability.locked) say('OSWIN KNOWS THE WARD');
     };
 
-    // Talking: E starts a conversation with whoever is near, or advances one.
+    // Talking: E starts a conversation with whoever is near, or advances
+    // one. It freezes the player and moves the quest on, so it runs on the
+    // tick, from the tick's input. The player thaws once the keys that
+    // closed the conversation are up, or the Space that closed it would
+    // also hop.
+    const TALK_KEYS = ['KeyE', 'Enter', 'Space'];
+    let thawing = false;
     const talk = () => {
       if (dialogue.open) { dialogue.advance(); return; }
       if (!dialogue.canOpen) return;
@@ -217,7 +225,17 @@ game.sceneManager.addScene('grove', {
       if (!npc) return;
       const { name, lines, done } = quest.talkTo(npc);
       game.player.frozen = true;
-      dialogue.start(name, lines, () => { game.player.frozen = false; done(); });
+      dialogue.start(name, lines, () => { thawing = true; done(); });
+    };
+    rules = {
+      fixed() {
+        const input = game.input.snapshot;
+        if (input.justPressed('KeyE') || (dialogue.open && (input.justPressed('Enter') || input.justPressed('Space')))) talk();
+        if (thawing && game.player && !TALK_KEYS.some(code => input.isDown(code))) {
+          thawing = false;
+          game.player.frozen = false;
+        }
+      }
     };
 
     unsubscribe.push(game.input.on('scroll', (event) => {
@@ -226,10 +244,11 @@ game.sceneManager.addScene('grove', {
       event.consume();
     }));
     unsubscribe.push(game.input.on('keydown', (event) => {
-      if (event.code === 'KeyE' || (dialogue.open && (event.code === 'Enter' || event.code === 'Space'))) { talk(); event.consume(); }
-      else if (event.code === 'Escape') { game.sceneManager.switchTo('mainMenu'); event.consume(); }
+      if (event.code === 'Escape') { game.sceneManager.switchTo('mainMenu'); event.consume(); }
     }));
   },
+
+  onFixedUpdate() { rules?.fixed(); },
 
   onDraw() {
     // Without a lighting pass there is no dusk, so lay one over the view:
@@ -245,6 +264,7 @@ game.sceneManager.addScene('grove', {
   onExit() {
     for (const stop of unsubscribe) stop();
     unsubscribe = [];
+    rules = null;
     game.renderer.setAmbientLight(null);
     game.renderer.setPostEffects(null);
   }

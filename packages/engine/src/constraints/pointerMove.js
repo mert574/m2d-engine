@@ -45,7 +45,7 @@ export class PointerMove extends Constraint {
 
   fixedUpdate(dt) {
     if (this.entity.dead) return;
-    const input = this.entity.game.input.snapshot;
+    const input = this.entity.input;
     const pointer = input.pointer;
     // The press edge carries its buttons, so a click that was released
     // before this tick still counts.

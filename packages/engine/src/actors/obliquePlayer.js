@@ -34,6 +34,8 @@ import { Angle } from '../core/math.js';
  *   size is the ground body rather than the frame (an isometric game)
  */
 export class ObliquePlayer extends TopDownPlayer {
+  static replicated = ['heading', 'lift'];
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
 

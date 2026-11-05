@@ -153,6 +153,12 @@ await game.sceneManager.switchTo('level1');
 
 `switchTo` fetches and validates the new scene on first use, then unloads the current scene, builds the new one and calls its `onEnter` hook. A scene that fails validation leaves the current scene running. Fetched data is cached, so switching back to a scene does not fetch it again.
 
+Every load starts with a fresh physics world. A level entered a second time therefore plays exactly as it did the first time.
+
+A switch requested inside a tick (from a collision handler, a game-time timer or `onFixedUpdate`) waits for that tick to finish. No further tick runs in that frame, and the outgoing scene is not updated or drawn again. If one tick requests two switches, the first wins and both calls return the same promise.
+
+`sceneManager.reload()` runs the current scene's load again under the same loading state as a switch. The game-over screen's R key calls it after `game.reset()`.
+
 Unloading also resets the camera — position, mode, bounds, zoom, every tunable — so one scene's camera setup never leaks into the next. A scene configures the camera it wants in `onEnter` and cleans up nothing. See [Camera](./camera#modes).
 
 The name `mainMenu` is special in two places. The game-over screen's M key switches to it, and the built-in `Trigger` actor switches to it when the player enters.
@@ -162,6 +168,8 @@ The name `mainMenu` is special in two places. The game-over screen's M key switc
 | Hook | When it runs |
 | --- | --- |
 | `onEnter()` | After the scene is built and its assets are loaded |
+| `onShow()` | Right after `onEnter`, only in a game with a display |
+| `onHide()` | Right before `onExit`, only in a game with a display |
 | `onExit()` | Before the scene is unloaded |
 | `onFixedUpdate(dt)` | Once per simulation tick, after entities' `fixedUpdate` and before physics steps. `dt` is the fixed tick length in seconds |
 | `onUpdate(deltaTime)` | Every frame, after the frame's ticks and after entities' per-frame `update`. `deltaTime` is the frame's game time in seconds |
@@ -169,6 +177,8 @@ The name `mainMenu` is special in two places. The game-over screen's M key switc
 | `onDraw(deltaTime)` | Every frame inside the world pass, after entities draw, with the camera applied |
 | `onResize(width, height, viewport)` | After the display size or resolution changes |
 | `onAction(name)` | When a scene button with an `action` is clicked and the engine did not handle it |
+
+`onEnter`, `onFixedUpdate` and `onExit` are simulation and run in a [headless game](./headless) too. `onShow`, `onHide` and the per-frame hooks are presentation: camera setup, lights, post effects, HUD and music go there. A game that never runs headless can keep everything in `onEnter` and `onExit`.
 
 `onFixedUpdate`, `onUpdate`, `onDrawBackground` and `onDraw` are for things that are not entities. A director that spawns waves or a win condition goes in `onFixedUpdate`, so it runs the same at every frame rate. A sky or a particle layer goes in `onUpdate` and the draw hooks. Screen-space drawing does not belong in either draw hook. Add a UI element to the scene instead, as shown in [UI](./ui).
 

@@ -5,8 +5,8 @@ import { UIText } from 'm2d-engine/core/ui/text.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
 import { Meadow, ForeMeadow, progress } from './meadowScenery.js';
-import { ScrollFront, Bee, Flower, Pollen, Thistle, Wasp, Web, Hive } from './meadowActors.js';
-import { LENGTH, HEIGHT, SPEED, buildMeadow } from './meadow.js';
+import { LENGTH, HEIGHT, SPEED } from './meadow.js';
+import { registerBeeline, laneScene, totalPollen } from './game.js';
 import {
   starsAtDawn, perfectUnion, audioOption,
   coinSound, damageSound, levelCompleteSound, jumpSound, removeSound, attackSound
@@ -20,6 +20,9 @@ import {
  * dusk on three wing hearts. The simulation never reads the camera — the
  * `ScrollFront` entity is the window it believes in (see
  * docs/contributing/determinism.md).
+ *
+ * The rules live in game.js, which a server can run headless. This file is
+ * what a player sees: the camera, the light, the HUD and the menus.
  */
 
 // Every silhouette in one folder, pre-tinted to the meadow's palette at
@@ -62,16 +65,7 @@ const sceneryTextures = Object.fromEntries(
   ].map(name => [name, loadImage(foliageUrl(name))])
 );
 
-game.registerActor('Meadow', Meadow);
-game.registerActor('ForeMeadow', ForeMeadow);
-game.registerActor('ScrollFront', ScrollFront);
-game.registerActor('Bee', Bee);
-game.registerActor('Flower', Flower);
-game.registerActor('Pollen', Pollen);
-game.registerActor('Thistle', Thistle);
-game.registerActor('Wasp', Wasp);
-game.registerActor('Web', Web);
-game.registerActor('Hive', Hive);
+registerBeeline(game);
 
 registerMainMenu(game, {
   title: 'Beeline',
@@ -84,13 +78,6 @@ registerMainMenu(game, {
   ],
   onEnter: () => game.soundManager.playMusic('menu')
 });
-
-// The lane is deterministic: built once, shared by the scene and its HUD.
-const meadow = buildMeadow();
-const totalPollen = meadow.pollen.length;
-
-/** Sensor prefabs never resolve collisions; they only report them. */
-const sensor = { bodyType: 'static', isSensor: true };
 
 /**
  * The post pass keeps the sky's time in three movements. Swapped only at
@@ -139,56 +126,17 @@ function rank(bee) {
 }
 
 game.sceneManager.addScene('lane', {
-  fetch: async () => ({
-    version: 1, name: 'lane', type: 'level', gameType: 'autoScroller',
-    world: { width: LENGTH, height: HEIGHT, gravity: { x: 0, y: 0 } },
-    assets: { spritesheets: Object.fromEntries(
-      ['flowerballs', 'seedheads', 'flowerspikes', 'cattails', 'bramble-a', 'bramble-b']
-        .map(name => [name, { url: foliageUrl(name), frameWidth: 256, frameHeight: 256 }])
-    ) },
-    prefabs: {
-      meadow: { actor: 'Meadow', physics: sensor },
-      foreMeadow: { actor: 'ForeMeadow', physics: sensor },
-      front: { actor: 'ScrollFront', physics: sensor },
-      player: { actor: 'Bee', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, frictionAir: 0.05 } },
-      flowerballs: { actor: 'Flower', spritesheet: 'flowerballs', physics: sensor },
-      seedheads: { actor: 'Flower', spritesheet: 'seedheads', physics: sensor },
-      flowerspikes: { actor: 'Flower', spritesheet: 'flowerspikes', physics: sensor },
-      cattails: { actor: 'Flower', spritesheet: 'cattails', physics: sensor },
-      pollen: { actor: 'Pollen', physics: sensor },
-      'bramble-a': { actor: 'Thistle', spritesheet: 'bramble-a', physics: sensor },
-      'bramble-b': { actor: 'Thistle', spritesheet: 'bramble-b', physics: sensor },
-      wasp: { actor: 'Wasp', physics: sensor },
-      web: { actor: 'Web', physics: sensor },
-      hive: { actor: 'Hive', physics: sensor }
-    },
-    layers: [{ name: 'lane', objects: [
-      { prefab: 'meadow', x: LENGTH / 2, y: HEIGHT / 2, width: 16, height: 16 },
-      { prefab: 'foreMeadow', x: LENGTH / 2, y: HEIGHT / 2, width: 16, height: 16 },
-      { prefab: 'front', x: 480, y: HEIGHT / 2, width: 16, height: 16 },
-      ...meadow.flowers.map(f => ({
-        prefab: f.sprite, x: f.x, y: HEIGHT - f.h / 2, width: f.w, height: f.h,
-        properties: { sway: f.sway }
-      })),
-      ...meadow.thistles.map(b => ({
-        prefab: b.sprite, x: b.x, y: b.y, width: b.size * 0.58, height: b.size * 0.58,
-        properties: { sway: b.sway }
-      })),
-      ...meadow.webs.map(w => ({
-        prefab: 'web', x: w.x, y: w.y, width: w.w, height: w.h,
-        properties: { sway: w.sway }
-      })),
-      ...meadow.pollen.map(p => ({ prefab: 'pollen', x: p.x, y: p.y, width: 26, height: 26 })),
-      ...meadow.wasps.map(w => ({
-        prefab: 'wasp', x: w.x, y: w.y, width: 32, height: 20,
-        properties: { amp: w.amp, rate: w.rate, drift: w.drift, phase: w.phase }
-      })),
-      { prefab: 'hive', x: meadow.hive.x, y: meadow.hive.y, width: 70, height: 110 },
-      { prefab: 'player', x: 220, y: HEIGHT / 2, width: 32, height: 24 }
-    ] }]
+  ...laneScene(game, {
+    assetUrl: foliageUrl,
+    onReached(bee) {
+      hud.notice.text = rank(bee);
+      hud.sub.text = `${bee.pollen} of ${totalPollen} pollen · best chain ×${bee.bestCombo} · score ${bee.score}`;
+      game.soundManager.playSound('arrived');
+      game.time.after(5, () => game.sceneManager.switchTo('mainMenu'));
+    }
   }),
 
-  onEnter() {
+  onShow() {
     const scene = game.sceneManager.getCurrentScene();
     game.soundManager.playMusic('game');
 
@@ -244,15 +192,6 @@ game.sceneManager.addScene('lane', {
     game.time.after(3.6, () => {
       if (hud) { hud.notice.text = ''; hud.sub.text = ''; }
     });
-
-    for (const e of game.entities) {
-      if (e instanceof Hive) e.onReached = (bee) => {
-        hud.notice.text = rank(bee);
-        hud.sub.text = `${bee.pollen} of ${totalPollen} pollen · best chain ×${bee.bestCombo} · score ${bee.score}`;
-        game.soundManager.playSound('arrived');
-        game.time.after(5, () => game.sceneManager.switchTo('mainMenu'));
-      };
-    }
   },
 
   onUpdate() {
@@ -272,7 +211,7 @@ game.sceneManager.addScene('lane', {
     }
   },
 
-  onExit() {
+  onHide() {
     hud = null;
     game.renderer.setAmbientLight(null);
     game.renderer.setPostEffects(null);

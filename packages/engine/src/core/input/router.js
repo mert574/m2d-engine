@@ -146,7 +146,11 @@ export class InputRouter {
     // the game". The stack decides which of its layers that is; the router
     // no longer asks each one in turn.
     this.game.ui?.handleInput(event);
-    if (event.consumed) return;
+    if (event.consumed) {
+      // Tells the input manager to keep this press out of the simulation.
+      event.handledByUI = true;
+      return;
+    }
 
     // Resolved before the subject runs, so a dragged entity's own onDrop can
     // already see what it landed on.
@@ -188,7 +192,10 @@ export class InputRouter {
    */
   #resolveTarget(event, exclude = null) {
     const element = this.uiContainer?.hitTest(event.ui.x, event.ui.y, exclude);
-    if (element) return element;
+    if (element) {
+      event.handledByUI = true;
+      return element;
+    }
     return this.#worldTarget(event, exclude);
   }
 

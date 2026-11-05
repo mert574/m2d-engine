@@ -37,6 +37,8 @@ that covers it in the same change, following
 | Developer console, cvars, commands | `docs/reference/console.md` |
 | Sprites, sound, game loop, building | `docs/guide/sprites.md`, `docs/guide/sound.md`, `docs/guide/game-loop.md`, `docs/guide/building.md` |
 | Clocks, the simulation tick, pause, time scale, timers | `docs/guide/time.md` |
+| Headless games, splitting simulation from presentation, the server input gate | `docs/guide/headless.md` |
+| Multiplayer: match modules, the server, tickets, the client, replication | `docs/guide/multiplayer.md` |
 | Engine options and instance API | `docs/reference/engine-options.md` |
 | Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
 | Example games and music credits | `docs/examples/index.md`, `docs/examples/music-credits.md` |
@@ -73,13 +75,23 @@ npx playwright install chromium   # once, for test:browser
 - Simulation state changes only in `fixedUpdate(dt)` (entities, constraints),
   `onFixedUpdate(dt)` (scenes), `game.time` timers and collision handlers.
   The per-frame `update(deltaTime)` is presentation only. Simulation code
-  reads input from `game.input.snapshot` and random numbers from `game.rng`.
+  reads input from `this.input` on an entity (`game.input.snapshot` in a
+  scene hook) and random numbers from `game.rng`.
   Nothing in game code reads `performance.now()`, calls `setTimeout` or uses
   `Math.random()` for anything the simulation sees.
 - `test/determinism.test.js` must keep passing: the same scene at 30, 60 and
   144 fps ends in bit-identical state. The full contract — including why
   simulation code never reads the camera — is
   `docs/contributing/determinism.md`.
+- Simulation code runs headless: actors, constraints and the `onEnter`,
+  `onFixedUpdate` and `onExit` hooks never read the camera, the renderer,
+  UI or the DOM, constructors included. Presentation setup goes in
+  `onShow` and `onHide`. A headless game throws on such a read
+  (`docs/guide/headless.md`).
+- Entities that appear during play are made with `game.spawn`, with plain
+  data `options`, so a server can send them. State a client draws is
+  declared in `static replicated`; events for a player's screen go
+  through `player.notify`.
 - Draw with `renderPosition` and `renderAngle`. Use `position` for logic.
 - Annotations about an entity go through `game.worldOverlay`.
 - A new scene JSON field goes into the key lists at the top of

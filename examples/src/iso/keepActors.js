@@ -11,6 +11,8 @@ import { AttackSwing, HitBurst } from '../shared/effects.js';
 import { makeRng, range } from '../shared/rng.js';
 import { drawGroundShadow } from 'm2d-engine/core/renderers/shadows.js';
 import { knightAbilities, tickAbilities, tickFlashes, drawUnder, drawOver } from './abilities.js';
+import { ProximityPrompt } from 'm2d-engine/constraints/proximityPrompt.js';
+import { creditEmber, newStock } from './keepIntents.js';
 
 /**
  * Cinder Keep's cast.
@@ -42,6 +44,10 @@ function diamond(projection, x, y, size) {
  * so its bottom corner meets the bottom corner of the floor diamond.
  */
 export class Wall extends Platform {
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.spriteFit = true;
@@ -50,8 +56,8 @@ export class Wall extends Platform {
     // one tile above it, so the frame's centre is half a diamond up.
     this.renderOffset.y = -TILE / 2;
     this.frame = options.frame ?? 0;
-    this.lit = game.renderer.supports('lights');
-    this.sprite.define(`block${this.frame}`, this.frame, 0);
+    // Headless there is no sheet to pick a block from.
+    this.sprite?.define(`block${this.frame}`, this.frame, 0);
     this.setAnimation(`block${this.frame}`);
   }
 
@@ -77,13 +83,15 @@ export class Wall extends Platform {
 
 /** A wall torch: an animated flame on a block's lit face, and a light. */
 export class Torch extends Entity {
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   name = 'Torch';
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: 0, mask: 0 });
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.spriteFit = true;
     this.spriteSize = { x: 64, y: 96 };
     // On the south face the flame hangs down-left of the block's centre; on
@@ -122,10 +130,12 @@ export class Torch extends Entity {
 
 /** An ember: a hot coal to gather. */
 export class Ember extends Coin {
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     const hover = this.constraints.get('hover');
     hover.amplitude = 4;
     hover.frequency = 1.8;
@@ -135,9 +145,14 @@ export class Ember extends Coin {
   }
 
   onCollisionStart(other) {
-    const wasAlive = this.game.entities.has(this);
-    super.onCollisionStart(other);
-    if (wasAlive && !this.game.entities.has(this)) this.onTaken?.(this);
+    const collector = other.entity;
+    // Any knight gathers it, not only `game.player`: on a server every
+    // player has one, and the ember goes to whoever touched it.
+    if (!collector || collector.name !== 'Player' || !this.game.entities.has(this)) return;
+    this.game.entities.delete(this);
+    this.game.physics.remove(this.body);
+    creditEmber(collector);
+    this.onTaken?.(this, collector);
   }
 
   draw() {
@@ -160,10 +175,13 @@ export class Ember extends Coin {
 
 /** The stair down: a glowing descent, sealed until every ember is gathered. */
 export class Stair extends Trigger {
+  static replicated = ['sealed'];
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.sealed = true;
     this.time = 0;
   }
@@ -241,10 +259,14 @@ export class Creature extends Ghost {
  * whatever direction they last faced.
  */
 export class Knight extends ObliquePlayer {
+  /** Its ability effects and pose hold, for a client to draw. */
+  static replicated = ['effects', 'swingHold'];
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, { ...options, attackRange: 70, attackArc: Math.PI * 1.4, jumpSpeed: 0 });
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.getConstraint('control').inputSpace = 'screen';
     this.addConstraint('walk', new PointerMove(this, {
       speed: 230, arrive: 10,
@@ -264,13 +286,16 @@ export class Knight extends ObliquePlayer {
 
   fixedUpdate(dt) {
     // A key press takes over from a click: stop walking to the old spot.
-    const input = this.game.input.snapshot;
+    const input = this.input;
     const keys = this.getConstraint('control').keys;
     if (input.isDown(keys.left) || input.isDown(keys.right) || input.isDown(keys.up) || input.isDown(keys.down)) {
       this.getConstraint('walk').stop();
     }
     super.fixedUpdate(dt);
     tickAbilities(this, this.effects, dt);
+    // Flashes are pushed by the simulation, so they age with it: on a
+    // server, where nothing draws, they would otherwise pile up forever.
+    tickFlashes(this.effects, dt);
     this.swingHold = Math.max(0, this.swingHold - dt);
   }
 
@@ -281,7 +306,6 @@ export class Knight extends ObliquePlayer {
     } else {
       super.update(deltaTime);
     }
-    tickFlashes(this.effects, deltaTime);
   }
 
   draw(deltaTime) {
@@ -301,6 +325,67 @@ export class Knight extends ObliquePlayer {
     super.draw(deltaTime);
     drawOver(this, this.effects);
     if (this.lit) renderer.drawLight({ x: a.x, y: a.y - 40, radius: 320, color: '#ffd9a8', intensity: 0.8, z: 40 });
+  }
+}
+
+/**
+ * The quartermaster: a hooded trader by a crate, who buys and sells for
+ * embers. Trading goes through intents (see keepIntents.js); this actor is
+ * the body the distance rule measures to and the prompt that says so.
+ */
+export class Quartermaster extends Entity {
+  name = 'Quartermaster';
+  static replicated = ['stock'];
+
+  get lit() { return this.game.renderer.supports('lights'); }
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    body.setCollisionFilter({ category: 0, mask: 0 });
+    this.addConstraint('prompt', new ProximityPrompt(this, { radius: 120, text: 'E · Trade', color: '#ffe3b0' }));
+    /** What is left of each ware. Simulation state: the `buy` intent spends it. */
+    this.stock = newStock();
+    const rng = makeRng(Math.round(body.position.x * 3 + body.position.y * 5));
+    this.sway = range(rng, 0, Math.PI * 2);
+    this.time = 0;
+  }
+
+  get playerNear() {
+    return this.getConstraint('prompt').isNear;
+  }
+
+  update(deltaTime) {
+    super.update(deltaTime);
+    this.time += deltaTime;
+  }
+
+  draw() {
+    if (this.dead || !this.visible) return;
+    const renderer = this.game.renderer;
+    const a = this.renderAnchor;
+    const bob = Math.sin(this.time * 1.4 + this.sway) * 1.5;
+    groundShadow(renderer, a.x, a.y, 70, 1.2, 0.8);
+
+    // The crate, to the right, with a brass band and a lantern on top.
+    renderer.pushTransform({ x: a.x + 34, y: a.y - 4 });
+    renderer.drawRect({ x: -22, y: -34, width: 44, height: 34, fillStyle: '#5a3a22', strokeStyle: '#2a1a10', lineWidth: 2, cornerRadius: 3 });
+    renderer.drawRect({ x: -22, y: -20, width: 44, height: 5, fillStyle: '#8a6a30' });
+    renderer.drawRect({ x: -5, y: -52, width: 10, height: 16, fillStyle: '#1d120c', cornerRadius: 2 });
+    renderer.drawRect({ x: -3, y: -49, width: 6, height: 10, fillStyle: 'rgba(255, 220, 150, 0.9)', cornerRadius: 1 });
+    renderer.popTransform();
+
+    // The trader: cloak, hood, a lit face, hands over the crate.
+    renderer.pushTransform({ x: a.x - 6, y: a.y + bob });
+    renderer.drawPath({ points: [{ x: -24, y: 0 }, { x: -16, y: -70 }, { x: 0, y: -84 }, { x: 16, y: -70 }, { x: 24, y: 0 }], closed: true, fillStyle: '#3a2a4a', strokeStyle: '#1a1222', lineWidth: 2 });
+    renderer.drawArc({ x: 0, y: -74, radius: 15, fillStyle: '#2c2038' });
+    renderer.drawArc({ x: 0, y: -70, radius: 9, fillStyle: '#e8c49a' });
+    renderer.drawArc({ x: -3, y: -72, radius: 1.5, fillStyle: '#2a1a10' });
+    renderer.drawArc({ x: 3, y: -72, radius: 1.5, fillStyle: '#2a1a10' });
+    renderer.drawArc({ x: 14, y: -34, radius: 6, fillStyle: '#e8c49a' });
+    renderer.drawArc({ x: 22, y: -36, radius: 6, fillStyle: '#e8c49a' });
+    renderer.popTransform();
+
+    if (this.lit) renderer.drawLight({ x: a.x + 34, y: a.y - 50, radius: 160, color: '#ffc06a', intensity: 0.6, z: 30 });
   }
 }
 

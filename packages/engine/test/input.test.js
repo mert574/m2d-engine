@@ -7,6 +7,7 @@ import { Interactive } from '../src/constraints/interactive.js';
 import { Container } from '../src/core/ui/container.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
 import { UIScreen } from '../src/core/ui/screen.js';
+import { UIRectangle } from '../src/core/ui/Rectangle.js';
 import {
   advanceInputClock, click, drag, holdKeys, keyDown, keyUp, pointerDown, pointerMove, releaseKeys,
   pointerUp, resetInputClock, scroll
@@ -501,14 +502,82 @@ describe('input', () => {
     });
 
     it('moves the body with the pointer when follow is set', () => {
-      const { body } = interactiveEntity(game, { x: 100, y: 100, follow: true });
+      const { body, entity } = interactiveEntity(game, { x: 100, y: 100, follow: true });
 
       // Grabbed off-centre: the offset has to survive the drag, or the
       // entity would snap its centre to the cursor on the first move.
       drag(game, [{ x: 110, y: 100 }, { x: 300, y: 200 }]);
+      // Pointer events only aim the hold; the body moves on the tick.
+      expect(body.position.x).toBeCloseTo(100, 5);
+      entity.fixedUpdate(1 / 60);
 
       expect(body.position.x).toBeCloseTo(290, 5);
       expect(body.position.y).toBeCloseTo(200, 5);
+    });
+  });
+
+  describe('a blocking screen owns the keys', () => {
+    it('samples an empty snapshot while one is up, and the keys again once it is gone', () => {
+      keyDown(game, 'ArrowRight');
+      expect(game.input.sample().isDown('ArrowRight')).toBe(true);
+      const screen = game.ui.push(new UIScreen({ name: 'inventory' }));
+      expect(game.ui.capturesInput).toBe(true);
+      const held = game.input.sample();
+      expect(held.down.size).toBe(0);
+      expect(held.pointer.isDown).toBe(false);
+      screen.close();
+      game.ui.update(0);
+      expect(game.input.sample().isDown('ArrowRight')).toBe(true);
+    });
+
+    it('a click the menu took never reaches the world, during or after it', () => {
+      const screen = game.ui.push(new UIScreen({ name: 'inventory' }));
+      pointerDown(game, 300, 200);
+      expect(game.input.sample().pointer.pressed).toBe(false);
+      // The click that closes it, then the menu is gone before the next tick.
+      screen.close();
+      game.ui.update(1);
+      game.input.beginFrame(0);
+      const after = game.input.sample();
+      expect(after.pointer.pressed).toBe(false);
+      // Still held: the world does not see that button down until it is released.
+      expect(after.pointer.isDown).toBe(false);
+      expect(after.pointer.buttons).toBe(0);
+      pointerUp(game, 300, 200);
+      game.input.beginFrame(16);
+      pointerDown(game, 320, 220);
+      game.input.beginFrame(32);
+      expect(game.input.sample().pointer).toMatchObject({ pressed: true, isDown: true });
+    });
+
+    it('a click on a scene UI element is the UI\'s, not the world\'s', () => {
+      const container = new Container(game);
+      container.add(new UIRectangle({ x: 300, y: 200, width: 100, height: 60, anchor: 'top-left', pivot: 'center', interactive: true }));
+      game.input.setUIContainer(container);
+      pointerDown(game, 300, 200);
+      game.input.beginFrame(0);
+      expect(game.input.sample().pointer.pressed).toBe(false);
+      pointerUp(game, 300, 200);
+      pointerDown(game, 700, 500);
+      game.input.beginFrame(16);
+      expect(game.input.sample().pointer.pressed).toBe(true);
+    });
+
+    it('a non-blocking screen with nothing to focus lets the arrows and Escape through', () => {
+      const toast = game.ui.push(new UIScreen({ name: 'toast', blocking: false }));
+      keyDown(game, 'ArrowRight');
+      keyDown(game, 'Escape');
+      const snapshot = game.input.sample();
+      expect(snapshot.isDown('ArrowRight')).toBe(true);
+      expect(snapshot.isDown('Escape')).toBe(true);
+      expect(game.ui.has('toast')).toBe(true);
+      expect(toast.isExiting).toBe(false);
+    });
+
+    it('a non-blocking screen (a HUD) does not take them', () => {
+      keyDown(game, 'ArrowRight');
+      game.ui.push(new UIScreen({ name: 'hud', blocking: false }));
+      expect(game.input.sample().isDown('ArrowRight')).toBe(true);
     });
   });
 

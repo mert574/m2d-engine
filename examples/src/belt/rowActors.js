@@ -237,7 +237,7 @@ export class Rogue extends ObliquePlayer {
     super.fixedUpdate(dt);
     if (this.dead) return;
     this.kickHold = Math.max(0, this.kickHold - dt);
-    const input = this.game.input.snapshot;
+    const input = this.input;
     if (input.justPressed('KeyC')) this.getConstraint('kick').startAttack(this.heading);
   }
 

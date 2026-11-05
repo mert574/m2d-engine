@@ -122,7 +122,18 @@ this.game.physics.remove(this.body);
 
 ## Creating entities at runtime
 
-Scenes create entities from prefabs. For entities that appear during play, such as projectiles or spawned pickups, create the body, construct the actor and add both to the game.
+Scenes create entities from prefabs. For entities that appear during play, such as projectiles or spawned pickups, spawn a registered actor by name:
+
+```javascript
+game.spawn('Rocket', x, y, 24, 8, {
+  options: { direction, speed: 400 },
+  physics: { frictionAir: 0, density: 0.001 }
+});
+```
+
+`spawn` builds the body from the prefab physics keys, constructs the actor, adds both to the game and returns the entity. Its options are `sprite` (a sprite sheet key of the current scene), `animation`, `options` (passed to the actor), `physics` and `playerId` (the owner). It records how the entity was made, which is what lets a server tell its clients to make the same one, so `options` must be plain data. See [Multiplayer](./multiplayer#what-is-sent).
+
+An entity can also be built by hand: create the body, construct the actor and add both. Such an entity is not sent to clients.
 
 ```javascript
 const body = game.physics.createBox({ x, y, width: 24, height: 8, frictionAir: 0 });
@@ -214,6 +225,16 @@ export class Blink extends Constraint {
 ```
 
 A constraint that registers with an engine service must implement `destroy` to unregister. `Interactive` does this for the input system.
+
+A constraint that reads input reads `this.entity.input`, never `game.input` (see [Input](./input#the-snapshot)).
+
+### Snapshots
+
+`game.snapshot()` captures an entity's own fields and its constraints' fields without any code in the actor. Give an actor or a constraint `saveState()` and `loadState(state)` methods when the generic capture is wrong for it. See [Snapshots](./game-loop#snapshots).
+
+### Identity and ownership
+
+Every entity has a `netId`, a whole number handed out in creation order and reset with the scene. `game.entityById(id)` returns the live entity with that id, or `null`. `entity.playerId` names the player whose input drives the entity (`null` for the local player), and `entity.player` is that player. See [Players](./headless#players).
 
 ## Timing, movement and randomness
 

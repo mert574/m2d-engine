@@ -79,7 +79,7 @@ export class GlideControl extends Constraint {
     const entity = this.entity;
     if (entity.dead) return;
     const body = entity.body;
-    const input = entity.game.input.snapshot;
+    const input = entity.input;
 
     // The latest press wins the buffer.
     for (const [name, direction] of [

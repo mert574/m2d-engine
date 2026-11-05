@@ -3,6 +3,14 @@ import { Angle, DIRECTIONS_8 as DIRECTIONS } from './math.js';
 export class Entity {
   name = 'Entity';
 
+  /**
+   * Fields a server sends to clients when they change, beside the
+   * transform. A subclass adds its own with a `static replicated` array of
+   * its own; the lists of every class in the chain are joined. Values must
+   * be plain data. See net/replication.js.
+   */
+  static replicated = ['elevation', 'visible', 'dead'];
+
   constructor(body, sprite, game) {
     if (!body) {
       throw new Error('Physics body is required');
@@ -14,6 +22,20 @@ export class Entity {
     this.body = body;
     this.sprite = sprite;
     this.game = game;
+
+    /**
+     * A stable id for networking, allocated in creation order and reset
+     * with the scene, so a server and a client that build the same scene
+     * agree on it. Null in a game object without the allocator (tests).
+     * @type {number|null}
+     */
+    this.netId = game.allocateNetId?.(this) ?? null;
+    /**
+     * The player whose input drives this entity, by id, or null for the
+     * local player. See core/players.js.
+     * @type {string|null}
+     */
+    this.playerId = null;
 
     // Link body to entity for collision detection
     body.entity = this;
@@ -119,6 +141,23 @@ export class Entity {
    * torn down, or the router keeps hit-testing an entity that no longer
    * exists and clicks land on empty space.
    */
+  /**
+   * The owning player, or null when the local player drives this entity
+   * (or the game has no players registry).
+   */
+  get player() {
+    return this.playerId === null ? null : (this.game.players?.get(this.playerId) ?? null);
+  }
+
+  /**
+   * This tick's input for this entity: the owning player's snapshot, or
+   * the game's own. Constraints read this and never `game.input` directly,
+   * so one actor serves a single-player game and every player on a server.
+   */
+  get input() {
+    return (this.player ?? this.game.players?.local)?.snapshot ?? this.game.input.snapshot;
+  }
+
   destroy() {
     for (const constraint of this.constraints.values()) {
       constraint.destroy?.();

@@ -35,6 +35,8 @@ export class Race {
    * @param {object} [options]
    * @param {object} [options.car] - The chosen car (see cars.js)
    * @param {(label: string) => void} [options.onBoost] - Any boost fired
+   * @param {() => void} [options.buildWalls] - Adds the track's static
+   *   bodies to the fresh world each round starts with
    */
   constructor(game, map, track, images, marks, announce, options = {}) {
     this.game = game;
@@ -48,6 +50,7 @@ export class Race {
     /** The car driving this round: the chosen one, or a replay's. */
     this.activeCar = this.carSpec;
     this.onBoost = options.onBoost ?? null;
+    this.buildWalls = options.buildWalls ?? null;
     /** Every car pose since the green light, for the PB ghost. */
     this.roundFrames = [];
 
@@ -105,6 +108,11 @@ export class Race {
     }
     this.roundEntities = [];
     this.ghost.stop();
+    // A fresh physics world per round. Removing and re-adding bodies leaves
+    // Rapier's internal state behind, and a replay in a world that has
+    // already run a round drifts from the lap it reproduces.
+    game.physics.reset();
+    this.buildWalls?.();
 
     this.mode = 'countdown';
     this.roundSpills = (replay ? replay.spills : this.spills).map((spill) => ({ ...spill }));
@@ -336,7 +344,7 @@ export class Race {
         lapEnd: this.recorder.inputs.length,
         inputs: this.recorder.inputs.slice(),
         checks: this.recorder.checks.slice(),
-        spills: this.spills.map((spill) => ({ ...spill })),
+        spills: this.roundSpills.map((spill) => ({ ...spill })),
         car: this.carSpec?.id ?? 'balanced',
         // The ghost is the whole round from the green light, so it sets off
         // alongside the player next time rather than waiting for the line.

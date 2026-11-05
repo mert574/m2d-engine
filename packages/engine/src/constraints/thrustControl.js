@@ -70,7 +70,7 @@ export class ThrustControl extends Constraint {
   fixedUpdate(dt) {
     const entity = this.entity;
     if (entity.dead) return;
-    const input = entity.game.input.snapshot;
+    const input = entity.input;
     const body = entity.body;
 
     this.boostWait = Math.max(0, this.boostWait - dt);

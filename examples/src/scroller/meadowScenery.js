@@ -95,13 +95,15 @@ function drawStrip(renderer, textures, camera, area, time, { clumps, period, par
 export class Meadow extends Entity {
   name = 'Meadow';
 
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: 0, mask: 0 });
     this.zIndex = 0;
     this.depth = -Infinity;
     this.textures = options.textures ?? {};
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
 
     const rng = makeRng(options.seed ?? 0x5eed5);
     this.treePeriod = 3000;
@@ -275,14 +277,16 @@ export class Meadow extends Entity {
 export class ForeMeadow extends Entity {
   name = 'ForeMeadow';
 
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: 0, mask: 0 });
     this.zIndex = 6;
     this.depth = Infinity;
     this.textures = options.textures ?? {};
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     const rng = makeRng(options.seed ?? 0x0f0e);
     this.period = 2600;
     this.clumps = makeStrip(rng, this.period, ['fore-grass-a', 'fore-grass-b', 'fore-bush'], 150, 260, 1.8, 3.2);

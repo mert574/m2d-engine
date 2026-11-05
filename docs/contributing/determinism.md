@@ -23,6 +23,10 @@ It may never read:
 
 The inverse also holds: presentation never writes simulation state. `update(deltaTime)` may spin a sprite's visual flourish, not nudge a body.
 
+Pointer events and UI handlers count as presentation. A handler that wants to change the world queues the change for the next tick, as the physics playground does with its spawns, flings and gravity. A UI component whose state decides what the simulation does takes a game-time clock: `UIDialogue` with `clock: () => game.time.elapsed` types on game time, so whether a press finishes a line or closes the conversation does not depend on the frame rate.
+
+The engine gives every scene load a fresh physics world, and a scene switch requested inside a tick runs after it. A game that rebuilds its world inside a scene, as Night Circuit does every round, calls `game.physics.reset()` and adds its static bodies again. Removing and re-adding bodies in the same world does not reproduce a first run.
+
 ## The worked example: an auto-scroller
 
 `camera.mode = 'scroll'` moves the camera at `scrollVelocity` per frame, on wall time. An auto-scroller's rules — spawn ahead of the view, despawn behind it, push the player along, crush them against the trailing edge — are simulation, so they cannot ask the camera where the view is: at 144 fps the camera has moved through slightly different positions than at 30 fps whenever either clock stutters, and the moment a spawn depends on it, the runs diverge.
@@ -52,4 +56,5 @@ A quick review checklist for any change touching gameplay or the engine:
 1. Does anything in a `fixedUpdate` path read the camera, a `render*` field, a wall clock or `Math.random()`?
 2. Does anything per-frame write a body, a velocity, health, or any state a `fixedUpdate` reads?
 3. Does a new feature tempt game code to break 1 or 2? Give it a deterministic door.
-4. `npm run test:node` — `determinism.test.js` is the backstop, but it only covers the scenes it runs; it will not catch a nondeterministic demo on its own.
+4. Would it run headless? A presentation read in simulation code throws in a [headless game](../guide/headless), so `test/headless.test.js` and a game's own headless run catch what this checklist misses.
+5. `npm run test:node`. `determinism.test.js` is the backstop. It runs every engine actor and constraint from a scripted input stream at several frame rates and through a pause and slow motion. It only covers the scenes it runs and will not catch a nondeterministic demo on its own.

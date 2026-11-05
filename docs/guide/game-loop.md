@@ -33,7 +33,7 @@ On that screen R restarts the current scene and M switches to the scene named `m
 
 ## Resetting
 
-`game.reset()` destroys each entity's constraints and clears the entities, the physics world and the background layers. It sets `game.player` to `null`, resets the camera entirely — position, target, mode, bounds, zoom, every tunable, through `camera.resetConfig()` — and stops the music. It also resets the loop clock and `game.time` (clocks, counters, accumulator and timers; the time scale is kept), reseeds `game.rng` and reinstalls the engine's collision handlers. The game-over screen calls it before reloading a scene, whose `onEnter` sets the camera up again.
+`game.reset()` destroys each entity's constraints and clears the entities, the physics world and the background layers. It sets `game.player` to `null`, resets the camera entirely — position, target, mode, bounds, zoom, every tunable, through `camera.resetConfig()` — and stops the music. It also resets the loop clock and `game.time` (clocks, counters, accumulator and timers; the time scale is kept), reseeds `game.rng` and reinstalls the engine's collision handlers. The game-over screen calls it before `sceneManager.reload()`, whose `onEnter` sets the camera up again.
 
 ## Destroying
 
@@ -53,6 +53,12 @@ function frame(now) {
   game.time.tick((now - last) / 1000, { paused: game.paused, step: game.fixedUpdate });
   last = now;
   const dt = game.time.unscaledDelta;
+
+  // A tick asked for a scene switch: the outgoing scene is done.
+  if (game.sceneManager.loading) {
+    game.input.endFrame();
+    return requestAnimationFrame(frame);
+  }
 
   if (!game.paused) {
     game.camera.update(dt);
@@ -76,7 +82,7 @@ function frame(now) {
 | --- | --- |
 | `input.beginFrame(now)` | Delivers buffered pointer moves and fires time-based gestures |
 | `time.tick(rawDelta, { paused, step })` | Clamps the frame delta, advances the clocks, fires timers and calls `step(dt)` once per tick. `time.delta` and `time.unscaledDelta` are what the rest of the frame reads |
-| `game.fixedUpdate(dt)` | One simulation tick: samples the input, runs the scene's and every entity's `fixedUpdate`, steps physics. Pass it as the `step`, or wrap it to do more per tick |
+| `game.fixedUpdate(dt)` | One simulation tick: samples the input, runs the scene's and every entity's `fixedUpdate`, steps physics. Returns `false` once a scene switch is pending, which stops `time.tick`. Pass it as the `step`, or wrap it and return its result |
 | `camera.update(dt)` | Moves the camera toward its target, corrected for the frame length |
 | `drawWorld(scene)` | Clears the world overlay, applies the camera and draws the scene |
 | `drawOverlays(dt)` | Draws world overlay annotations, then `game.ui` (screens and the debug layer), then the pointer-lock cursor |
@@ -87,6 +93,33 @@ The demo at the top of this page is a loop like this one. It skips `start()` and
 The rewind shows what owning the loop allows. The demo's `step` wraps `game.fixedUpdate` and records each body's position, angle and velocity after every tick. Rewinding restores one snapshot per frame through `setPosition`, `setAngle` and `setVelocity`, and removes bodies that were created after the snapshot. The step button calls `game.time.stepOnce` with the same wrapper to run one tick while paused.
 
 The engine loop does three more things. It draws a loading screen while `game.sceneManager.loading` is true, and does not tick `game.time` on those frames. It draws the game-over screen and handles its R and M keys when `game.isGameOver` is set. It skips simulation on the first frame to seed its clock. A custom loop that wants those does them itself.
+
+## Snapshots
+
+`game.snapshot()` captures the whole simulation between ticks. `game.restore(snapshot)` puts it back. Given the same input, the ticks after a restore are bit-identical to the ticks after the snapshot was taken. A snapshot can be restored any number of times.
+
+```javascript
+const before = game.snapshot();
+game.step(30);            // a guess at what happens next
+game.restore(before);     // the real input arrived
+game.step(30);            // the real thing
+```
+
+A snapshot holds the physics world, every entity in set order with its fields and its constraints' fields, the game-time timers, the clock, the seeded generator, the network ids, each player's `state` and the player avatars. It lives in memory, and its entities, bodies, constraints and timers are the same objects after a restore. An entity spawned after the snapshot is removed and one removed after it comes back as itself. Restoring needs the scene the snapshot was taken in.
+
+Fields are captured generically. Numbers, strings and booleans are copied. Plain objects, arrays, Sets and Maps are copied by content and restored in place, so an object a closure also holds stays the object the entity holds. Anything else, such as another entity, a class instance or a function, is kept by reference. A field that did not exist at the snapshot is deleted. An entity or constraint with `saveState()` and `loadState(state)` methods is saved through them instead.
+
+State outside entities, such as a counter in a scene's closure, is invisible to a snapshot until the scene registers it. Registrations are dropped when the next scene loads, so register in `onEnter`:
+
+```javascript
+onEnter() {
+  game.trackState('waves', { save: () => wave, load: (saved) => { wave = saved; } });
+}
+```
+
+Not captured: the camera, UI and other presentation, wall-time timers, and players' intent queues, which hold input for ticks still to come. An input source that replays after a restore must be a function of the tick, like a recorded log, so it feeds the rewound ticks the same input again.
+
+A snapshot of Cinder Keep's 615 entities takes about 4 ms to take and 4 ms to restore in Node, against 0.4 ms per tick.
 
 ## Demo source
 

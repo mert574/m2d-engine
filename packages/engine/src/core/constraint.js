@@ -15,6 +15,9 @@
  * `draw` runs in the world pass with the frame delta.
  */
 export class Constraint {
+  /** Fields a server sends when they change. See `Entity.replicated`. */
+  static replicated = [];
+
   constructor(entity) {
     this.entity = entity;
   }

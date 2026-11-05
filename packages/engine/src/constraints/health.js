@@ -1,6 +1,8 @@
 import { Constraint } from '../core/constraint.js';
 
 export class Health extends Constraint {
+  static replicated = ['currentHealth', 'maxHealth'];
+
   constructor(entity, options = {}) {
     super(entity);
     this.maxHealth = options.maxHealth || 100;

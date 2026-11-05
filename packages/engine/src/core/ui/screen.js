@@ -203,8 +203,14 @@ export class UIScreen extends UIElement {
     if (this.blocking) event.consume();
   }
 
-  /** Navigation and activation keys. Returns whether the key was used. */
+  /**
+   * Navigation and activation keys. Returns whether the key was used.
+   *
+   * A non-blocking screen with nothing to focus (a HUD, a toast) takes no
+   * keys at all: the arrows, Space and Escape belong to the game under it.
+   */
   #handleKey(event) {
+    if (!this.blocking && this.focus.candidates().length === 0) return false;
     switch (event.code) {
       case 'Tab':
         this.focus.advance(event.modifiers?.shift ? -1 : 1);

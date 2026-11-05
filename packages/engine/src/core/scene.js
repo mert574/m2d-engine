@@ -1,5 +1,6 @@
 import { SpriteSheet } from './spriteSheet.js';
 import { Projection } from './projection.js';
+import { presentationGuard } from './headless.js';
 import { Container } from './ui/container.js';
 import { MovingPlatform } from '../actors/movingPlatform.js';
 import { UIButton } from './ui/button.js';
@@ -13,18 +14,32 @@ export class Scene {
     this.config = config;
     this.sprites = new Map();
     this.spriteSheets = new Map();
-    this.ui = new Container(game);
+    // A headless game has no UI; a scene hook that reaches for it fails by name.
+    this.ui = game.headless ? presentationGuard('scene.ui') : new Container(game);
   }
 
+  /**
+   * Build the scene, then call `onEnter` and, with a display, `onShow`.
+   *
+   * `onEnter` is the scene's simulation setup and runs headless too.
+   * `onShow` is its presentation: camera, lights, post effects, HUD. A
+   * headless game loads no assets, builds no tile layers and runs no
+   * presentation hook; a UI scene cannot load headless at all.
+   */
   async load() {
-    await this.loadAssets();
+    const headless = this.game.headless;
+    if (headless && this.config.type !== 'level') {
+      throw new Error(`M2D headless: scene '${this.config.name}' is a UI scene, and a headless game has no UI`);
+    }
+    if (!headless) await this.loadAssets();
     this.setupScene();
 
-    // A scene registers no input listeners of its own: it hands its UI to
-    // the router, which hit-tests it between the overlay and world bands.
-    this.game.input.setUIContainer(this.ui);
-
-    this.game.camera.init(this);
+    if (!headless) {
+      // A scene registers no input listeners of its own: it hands its UI to
+      // the router, which hit-tests it between the overlay and world bands.
+      this.game.input.setUIContainer(this.ui);
+      this.game.camera.init(this);
+    }
 
     if (this.config.type === 'level') {
       console.debug('Setting up level scene');
@@ -34,9 +49,13 @@ export class Scene {
       await this.setupUIScene();
     }
 
-    if (this.config.onEnter) {
-      this.config.onEnter();
-    }
+    this.game.markSceneBuilt?.();
+
+    // A replica shows a world the server simulates: a level's simulation
+    // hooks are the server's to run. A UI scene has no simulation, so a
+    // menu's hooks run as ever.
+    if (!this.#serverRuns) this.config.onEnter?.();
+    if (!headless) this.config.onShow?.();
   }
 
   async loadAssets() {
@@ -77,10 +96,17 @@ export class Scene {
 
   setupScene() {
     this.game.entities.clear();
-    this.game.physics.clear();
-    this.game.layers.clear();
+    this.game.resetNetIds?.();
+    this.game.trackedState?.clear();
+    // A fresh world, not an emptied one: Rapier keeps freed handles and
+    // broad-phase state across removals, and a level entered a second time
+    // in a reused world steps differently in the last bits.
+    this.game.physics.reset();
     this.game.player = null;
-    this.ui.clear();
+    if (!this.game.headless) {
+      this.game.layers.clear();
+      this.ui.clear();
+    }
     // A fresh scene starts its random sequence over, so the same level with
     // the same seed plays the same every time it is entered.
     this.game.rng?.reseed(this.game.options.seed ?? this.game.rng.seed);
@@ -99,6 +125,8 @@ export class Scene {
     // every position through the projection while physics stays flat.
     this.game.projection = Projection.fromConfig(this.config.world?.projection);
 
+    // Tile layers are drawn and nothing else; the simulation never sees them.
+    if (this.game.headless) return;
     if (this.config.background) {
       this.setupBackground(this.config.background);
     }
@@ -184,7 +212,7 @@ export class Scene {
           if (object.zIndex !== undefined) entity.zIndex = object.zIndex;
           if (entity.name === 'Player') {
             this.game.player = entity;
-            this.game.camera.follow(entity);
+            if (!this.game.headless) this.game.camera.follow(entity);
           }
           this.game.entities.add(entity);
           this.game.physics.add(entity.body);
@@ -305,10 +333,22 @@ export class Scene {
     });
   }
 
+  /** Whether this is a level a server simulates for this replica. */
+  get #serverRuns() {
+    return this.game.replica && this.config.type === 'level';
+  }
+
+  /** `onHide` (with a display), then `onExit`, then tear down. */
   unload() {
-    // Call onExit callback if defined
-    if (this.config.onExit) {
-      this.config.onExit();
+    const headless = this.game.headless;
+    if (!headless) this.config.onHide?.();
+    if (!this.#serverRuns) this.config.onExit?.();
+
+    // Headless there is no camera, UI or cursor to reset, only the scene's
+    // timers (see the end of this method).
+    if (headless) {
+      this.game.time?.clear();
+      return;
     }
 
     // Camera setup is scene state: the mode, bounds, zoom or rotation follow

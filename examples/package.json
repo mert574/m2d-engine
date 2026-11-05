@@ -14,7 +14,8 @@
   "author": "Mert Yildiz",
   "license": "MIT",
   "dependencies": {
-    "m2d-engine": "^1.0.0"
+    "m2d-engine": "^1.0.0",
+    "m2d-server": "*"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^1.1.0",

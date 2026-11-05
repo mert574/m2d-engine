@@ -107,12 +107,12 @@ async function countdown() {
 | --- | --- |
 | `after(seconds, fn, options)` | Run `fn` once after `seconds`. Returns a `Timer` |
 | `every(seconds, fn, options)` | Run `fn` every `seconds`. The interval must be greater than 0. Returns a `Timer` |
-| `wait(seconds, options)` | `after` as a promise. The `Timer` is on the promise's `timer` property |
+| `wait(seconds, options)` | `after` as a promise. The `Timer` is on the promise's `timer` property. Code after `await` runs once the frame has finished, after any further ticks that frame ran, so use it for presentation and scene flow. A change to the simulation belongs in an `after` callback |
 | `clear()` | Cancel every timer |
 | `activeCount` | Timers waiting to fire |
 | `reset()` | Zero the clocks, the counters and the accumulator and cancel every timer. The scale and the tick settings are kept. `game.reset()` calls it |
-| `tick(rawDelta, { paused, step })` | Advance one frame: clocks, then as many ticks as the frame paid for, calling `step(dt)` for each. Returns the number of ticks. The engine loop calls it with `game.fixedUpdate` as the step. See [Replacing the loop](./game-loop#replacing-the-loop) |
-| `stepOnce(step)` | Run exactly one tick now, whatever the accumulator holds. For a step button or a loop that drives ticks itself |
+| `tick(rawDelta, { paused, step })` | Advance one frame: clocks, then as many ticks as the frame paid for, calling `step(dt)` for each. A `step` that returns `false` ends the frame's ticks there and drops the rest of the accumulator. Returns the number of ticks. The engine loop calls it with `game.fixedUpdate` as the step. See [Replacing the loop](./game-loop#replacing-the-loop) |
+| `stepOnce(step)` | Run exactly one tick now, whatever the accumulator holds, and return what `step` returned. For a step button or a loop that drives ticks itself. `game.step(ticks)` wraps it for the engine's own tick |
 
 `options.unscaled` is the only timer option. It defaults to `false`.
 

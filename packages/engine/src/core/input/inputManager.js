@@ -49,117 +49,12 @@ import { Keyboard } from './keyboard.js';
 import { Cursor } from './cursor.js';
 import { GestureRecognizer } from './gestures.js';
 import { InputRouter } from './router.js';
+import { InputSnapshot } from './snapshot.js';
+
+export { InputSnapshot };
 
 const NO_MODIFIERS = Object.freeze({ shift: false, ctrl: false, alt: false, meta: false });
 
-/**
- * Immutable input state for one simulation tick. The same reading API as
- * the live keyboard, over a copy taken by `InputManager.sample`.
- */
-export class InputSnapshot {
-  /**
-   * @param {object} state
-   * @param {Set<string>} state.down
-   * @param {Set<string>} state.pressed
-   * @param {Set<string>} state.released
-   * @param {object} state.pointer
-   */
-  constructor({ down, pressed, released, pointer }) {
-    this.down = down;
-    this.pressed = pressed;
-    this.released = released;
-    /**
-     * `{ ui, world, isDown, pressed, pressedButtons, buttons, type }` as of
-     * the sample. `world` is on the ground plane (through the scene's
-     * projection, if any); `pressed` is true on the tick a button went
-     * down and `pressedButtons` is the mask of which, even if it was
-     * released again before the tick.
-     */
-    this.pointer = pointer;
-    Object.freeze(this);
-  }
-
-  /** Nothing held, nothing pressed, pointer at the origin. */
-  static empty() {
-    return new InputSnapshot({
-      down: new Set(),
-      pressed: new Set(),
-      released: new Set(),
-      pointer: { ui: { x: 0, y: 0 }, world: { x: 0, y: 0 }, isDown: false, pressed: false, pressedButtons: 0, buttons: 0, type: 'mouse' }
-    });
-  }
-
-  /**
-   * The snapshot as plain JSON, for recording a tick's input. Everything a
-   * replay needs to reproduce the tick: `JSON.stringify` works directly on
-   * an array of these, and `InputSnapshot.from` turns them back.
-   */
-  toJSON() {
-    return {
-      down: [...this.down],
-      pressed: [...this.pressed],
-      released: [...this.released],
-      pointer: {
-        ui: { x: this.pointer.ui.x, y: this.pointer.ui.y },
-        world: { x: this.pointer.world.x, y: this.pointer.world.y },
-        isDown: this.pointer.isDown,
-        pressed: this.pointer.pressed ?? false,
-        pressedButtons: this.pointer.pressedButtons ?? 0,
-        buttons: this.pointer.buttons,
-        type: this.pointer.type
-      }
-    };
-  }
-
-  /**
-   * Rebuild a snapshot from `toJSON` output (or anything shaped like it —
-   * a recorder that only stores key codes can omit the rest).
-   * @param {object} json
-   * @returns {InputSnapshot}
-   */
-  static from(json = {}) {
-    const pointer = json.pointer ?? {};
-    return new InputSnapshot({
-      down: new Set(json.down ?? []),
-      pressed: new Set(json.pressed ?? []),
-      released: new Set(json.released ?? []),
-      pointer: {
-        ui: { x: pointer.ui?.x ?? 0, y: pointer.ui?.y ?? 0 },
-        world: { x: pointer.world?.x ?? 0, y: pointer.world?.y ?? 0 },
-        isDown: pointer.isDown ?? false,
-        pressed: pointer.pressed ?? false,
-        pressedButtons: pointer.pressedButtons ?? 0,
-        buttons: pointer.buttons ?? 0,
-        type: pointer.type ?? 'mouse'
-      }
-    });
-  }
-
-  /** Whether a physical key was held. @param {string} code */
-  isDown(code) { return this.down.has(code); }
-
-  /** Whether a key went down this frame, seen by this tick only. */
-  justPressed(code) { return this.pressed.has(code); }
-
-  /** Whether a key came up this frame, seen by this tick only. */
-  justReleased(code) { return this.released.has(code); }
-
-  /** A -1..1 axis from two keys. Both held cancel out. */
-  axis(negative, positive) {
-    return (this.down.has(positive) ? 1 : 0) - (this.down.has(negative) ? 1 : 0);
-  }
-
-  /** A direction from four keys, normalized so diagonals are not faster. */
-  vector(up, down, left, right) {
-    const x = this.axis(left, right);
-    const y = this.axis(up, down);
-    if (x !== 0 && y !== 0) {
-      const inverse = 1 / Math.SQRT2;
-      return { x: x * inverse, y: y * inverse };
-    }
-    return { x, y };
-  }
-}
 
 export class InputManager {
   /**
@@ -206,6 +101,13 @@ export class InputManager {
      * that samples it would otherwise see no button held at all.
      */
     this.pointerPressed = 0;
+    /**
+     * Buttons whose press the UI took (a screen consumed it, or it landed on
+     * a scene UI element), as a mask. They stay out of every snapshot until
+     * released, so a button held over a menu is not seen as held by the
+     * world once the menu closes. See `#onDown`.
+     */
+    this.claimedButtons = 0;
     /**
      * When set, `sample()` asks this instead of the live devices — the seam
      * a replay (or, one day, a network layer) feeds recorded ticks through.
@@ -394,6 +296,18 @@ export class InputManager {
         : fed ? InputSnapshot.from(fed) : InputSnapshot.empty();
       return this.snapshot;
     }
+    // A blocking screen (an inventory, a dialog, the console) owns the
+    // keyboard and the pointer while it is up: typing in it or holding an
+    // arrow over it must not move the avatar. The tick sees nothing held.
+    if (this.game.ui?.capturesInput) {
+      this.edgesSampled = true;
+      // Nothing that happened under the screen survives it.
+      this.carriedPressed.clear();
+      this.carriedReleased.clear();
+      this.pointerPressed = 0;
+      this.snapshot = InputSnapshot.empty();
+      return this.snapshot;
+    }
     const keyboard = this.keyboard;
     const edges = !this.edgesSampled;
     this.edgesSampled = true;
@@ -401,6 +315,7 @@ export class InputManager {
     const pressed = edges ? new Set([...this.carriedPressed, ...keyboard.pressed]) : new Set();
     const released = edges ? new Set([...this.carriedReleased, ...keyboard.released]) : new Set();
     const pointerPressed = edges ? this.pointerPressed : 0;
+    const worldButtons = pointer.buttons & ~this.claimedButtons;
     if (edges) {
       this.carriedPressed.clear();
       this.carriedReleased.clear();
@@ -413,10 +328,10 @@ export class InputManager {
       pointer: {
         ui: { ...pointer.ui },
         world: { ...pointer.world },
-        isDown: pointer.isDown,
+        isDown: worldButtons !== 0,
         pressed: pointerPressed !== 0,
         pressedButtons: pointerPressed,
-        buttons: pointer.buttons,
+        buttons: worldButtons,
         type: pointer.type
       }
     });
@@ -554,8 +469,14 @@ export class InputManager {
     if (!event.consumed) this.keyboard.apply(record);
   }
 
+  /**
+   * A press is dispatched before it is recorded for the simulation, like a
+   * key. One the UI took (a screen consumed it, or it landed on a scene UI
+   * element) never reaches a snapshot, and its button reads as up to the
+   * world until it is released: clicking a menu item, or the button that
+   * closes the menu, must not also walk the avatar to where the cursor was.
+   */
   #onDown(record) {
-    this.pointerPressed |= 1 << (record.button ?? 0);
     this.pointerType = record.pointerType;
     this.buttons = record.buttons;
     const event = this.#resolve('pointerdown', record);
@@ -563,6 +484,9 @@ export class InputManager {
     // will grant a lock.
     this.cursor.request();
     this.router.dispatch(event);
+    const bit = 1 << (record.button ?? 0);
+    if (event.handledByUI) this.claimedButtons |= bit;
+    else this.pointerPressed |= bit;
     this.recognizer.pointerDown(event);
   }
 
@@ -579,6 +503,8 @@ export class InputManager {
 
   #onUp(record, cancelled) {
     this.buttons = record.buttons;
+    // A claimed button is the world's again once it is up.
+    this.claimedButtons &= record.buttons ?? 0;
     const event = this.#resolve('pointerup', record, { cancelled });
     this.router.dispatch(event);
     this.recognizer.pointerUp(event, { cancelled });
@@ -675,6 +601,8 @@ export class InputManager {
       /** What a drop landed on, underneath the subject. */
       dropTarget: null,
       consumed: false,
+      /** Set by the router when the UI took the event. */
+      handledByUI: false,
       consume() { this.consumed = true; },
       ...extra
     };

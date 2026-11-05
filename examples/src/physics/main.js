@@ -96,6 +96,20 @@ game.sceneManager.addScene('physics', {
   onExit() {
     backdrop?.clearAtmosphere();
     backdrop = null;
+    pending.length = 0;
+  },
+  // Pointer play arrives per frame; the world changes here, on the tick.
+  onFixedUpdate() {
+    for (const action of pending.splice(0)) action();
+    for (const entity of game.entities) {
+      const target = entity.grabTarget;
+      if (!target) continue;
+      const body = entity.body;
+      body.setVelocity({
+        x: (target.x - body.position.x) * GRAB_STIFFNESS,
+        y: (target.y - body.position.y) * GRAB_STIFFNESS
+      });
+    }
   },
   onUpdate(deltaTime) {
     backdrop?.update(deltaTime);
@@ -118,6 +132,14 @@ let backdrop = null;
 // it, right-click (or long-press) to remove one, click empty space to
 // drop a new one in, and scroll or pinch to change gravity. All of it goes
 // through `game.input`; nothing here touches a DOM event.
+//
+// The handlers below never change the world themselves. They queue what the
+// pointer asked for, and the next tick does it, so a drop or a fling lands
+// on a tick like everything else the simulation does.
+
+/** World changes the pointer asked for since the last tick. */
+const pending = [];
+const onNextTick = (action) => { pending.push(action); };
 
 /**
  * How hard a grabbed body is pulled toward the pointer, in 1/s.
@@ -159,14 +181,12 @@ function makeGrabbable(entity) {
     draggable: true,
     cursor: 'grab',
     onDrag(event) {
+      // Where the body is steered toward each tick while it is held.
       const { grabOffset } = this.getConstraint('grab');
-      const body = this.body;
-      body.setVelocity({
-        x: (event.world.x + grabOffset.x - body.position.x) * GRAB_STIFFNESS,
-        y: (event.world.y + grabOffset.y - body.position.y) * GRAB_STIFFNESS
-      });
+      this.grabTarget = { x: event.world.x + grabOffset.x, y: event.world.y + grabOffset.y };
     },
-    onRightClick() { despawn(this); }
+    onDragEnd() { this.grabTarget = null; },
+    onRightClick() { onNextTick(() => { if (game.entities.has(this)) despawn(this); }); }
   }));
   return entity;
 }
@@ -191,21 +211,28 @@ function spawn(x, y) {
 }
 
 game.input.on('keydown', (event) => {
-  if (event.code === 'Space') spawn(game.rng.range(120, 840), 40);
+  if (event.code === 'Space') onNextTick(() => spawn(game.rng.range(120, 840), 40));
 });
 
 // Click empty space to spawn; existing bodies remain available to grab.
 game.input.on('click', (event) => {
   if (event.inContent && !event.target) {
-    spawn(event.world.x, event.world.y);
+    const { x, y } = event.world;
+    onNextTick(() => spawn(x, y));
   }
 });
 
 // Scroll and pinch both mean "change gravity" here. The engine hands over
 // the raw numbers and takes no view on what they should do: pinch reports a
 // scale factor, and scaling gravity by it is this game's reading of it.
-game.input.on('scroll', (event) => setGravity(gravityY - event.scroll.y * GRAVITY_PER_SCROLL));
-game.input.on('pinch', (event) => setGravity(gravityY * event.scaleDelta));
+game.input.on('scroll', (event) => {
+  const dy = event.scroll.y;
+  onNextTick(() => setGravity(gravityY - dy * GRAVITY_PER_SCROLL));
+});
+game.input.on('pinch', (event) => {
+  const factor = event.scaleDelta;
+  onNextTick(() => setGravity(gravityY * factor));
+});
 
 // Settings overlay (O), with the demos' shared Audio row added on.
 new SettingsMenu(game).addOption(audioOption(game));

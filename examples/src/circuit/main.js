@@ -173,17 +173,19 @@ for (const map of MAPS) {
       const scene = game.sceneManager.getCurrentScene();
       const marks = [];
 
-      // The barriers are physics: a static box per wall piece, built once
-      // per visit (the scene loader cleared the world on entry). Rounds
-      // rebuild props, never these.
-      for (const wall of track.walls) {
-        game.physics.add(game.physics.createBox({
-          x: wall.x, y: wall.y,
-          width: wall.length, height: WALL_THICKNESS,
-          angle: wall.angle, bodyType: 'static',
-          friction: 0.05, restitution: 0.4
-        }));
-      }
+      // The barriers are physics: a static box per wall piece. Every round
+      // starts from a fresh world, so a replay runs in the same world its
+      // lap was recorded in, and the race builds these into each one.
+      const buildWalls = () => {
+        for (const wall of track.walls) {
+          game.physics.add(game.physics.createBox({
+            x: wall.x, y: wall.y,
+            width: wall.length, height: WALL_THICKNESS,
+            angle: wall.angle, bodyType: 'static',
+            friction: 0.05, restitution: 0.4
+          }));
+        }
+      };
 
       game.soundManager.playMusic('game');
       game.renderer.setAmbientLight(map.ambient);
@@ -257,6 +259,7 @@ for (const map of MAPS) {
       race = new Race(game, map, track, images, marks, say, {
         car: selectedCar(),
         carById: (id) => CARS.find((car) => car.id === id),
+        buildWalls,
         // The boost shows itself: flash, streaks and the exhaust. No caption.
         onBoost: () => { flash = 1; }
       });

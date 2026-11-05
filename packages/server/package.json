@@ -1,0 +1,30 @@
+{
+  "name": "m2d-server",
+  "version": "0.1.0",
+  "description": "Authoritative multiplayer host for m2d-engine games: matches in workers, signed tickets, hardened WebSocket connections and state replication",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "author": "Mert Yildiz",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "m2d-engine": "*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mert574/m2d-engine.git",
+    "directory": "packages/server"
+  }
+}

@@ -114,9 +114,12 @@ game.sceneManager.addScene('row', {
     game.camera.y = cameraY;
     game.camera.lerp = 0.12;
     game.camera.zoom = 1;
-    const view = game.camera.width;
+    // The camera's width follows the window under the "Fill" aspect mode.
+    // Where thugs spawn and when a wave wakes are rules, so they measure
+    // from the design width instead; only the camera lock uses the real one.
+    const view = game.options.width;
     const setLock = (right) => { game.camera.bounds = { left: 0, top: cameraY - 10, right, bottom: cameraY + 10 }; };
-    setLock(layout.sections[0].lock + view / 2);
+    setLock(layout.sections[0].lock + game.camera.width / 2);
 
     // High noon: the lights pass only sweetens the lamps' glass.
     game.renderer.setAmbientLight('#f2ecdf');
@@ -165,7 +168,7 @@ game.sceneManager.addScene('row', {
       game.soundManager.playSound('go');
       goTime = 2.5;
       const next = layout.sections[section];
-      setLock(next ? next.lock + view / 2 : layout.length);
+      setLock(next ? next.lock + game.camera.width / 2 : layout.length);
       objective.text = next ? 'GO →' : 'THE DOOR IS OPEN';
       if (next) armed = true;
     };
@@ -173,13 +176,21 @@ game.sceneManager.addScene('row', {
     spawnWave(layout.sections[0]);
     armed = false;
 
+    // A notice clears itself after two seconds of wall time.
+    let noticeTimer = null;
+    const say = (text, { stay = false } = {}) => {
+      notice.text = text;
+      noticeTimer?.cancel();
+      noticeTimer = stay ? null : game.time.after(2, () => { notice.text = ''; }, { unscaled: true });
+    };
+
     const door = [...game.entities].find(e => e instanceof Trigger);
     if (door) {
       let done = false;
       door.onEnter = () => {
-        if (done || section < layout.sections.length) { if (!done) notice.text = 'NOT YET · CLEAR THE ROW'; return; }
+        if (done || section < layout.sections.length) { if (!done) say('NOT YET · CLEAR THE ROW'); return; }
         done = true;
-        notice.text = 'YOU MADE IT OUT';
+        say('YOU MADE IT OUT', { stay: true });
         game.soundManager.playSound('levelComplete');
         game.time.after(3, () => game.sceneManager.switchTo('mainMenu'), { unscaled: true });
       };
@@ -193,7 +204,6 @@ game.sceneManager.addScene('row', {
       update(deltaTime) {
         goTime = Math.max(0, goTime - deltaTime);
         goSign.text = goTime > 0 && Math.sin(goTime * 10) > 0 ? 'GO  →' : '';
-        if (notice.text && notice.text !== 'YOU MADE IT OUT') game.time.after(2, () => { notice.text = ''; }, { unscaled: true });
       }
     };
     scene.frame = frame;

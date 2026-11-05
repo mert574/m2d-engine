@@ -1,6 +1,6 @@
 {
   "name": "m2d-engine",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "A 2D browser game engine: Rapier physics, batched WebGL2 rendering with a Canvas 2D fallback, a deterministic fixed tick, JSON scenes and one input API",
   "type": "module",
   "exports": {

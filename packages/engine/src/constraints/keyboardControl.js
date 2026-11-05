@@ -62,8 +62,9 @@ export class KeyboardControl extends Constraint {
 
     // The snapshot taken for this tick, not the live keyboard: every tick
     // in a frame sees the same held keys, and a press edge reaches exactly
-    // one tick. See InputManager.sample.
-    const input = this.entity.game.input.snapshot;
+    // one tick. See InputManager.sample. Through the entity, so on a server
+    // it is the owning player's snapshot.
+    const input = this.entity.input;
     let dx = input.axis(this.keys.left, this.keys.right);
     let dy = this.verticalMovement ? input.axis(this.keys.up, this.keys.down) : 0;
 

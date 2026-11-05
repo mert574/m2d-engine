@@ -100,7 +100,7 @@ export class RaceCar extends Entity {
 
     super.fixedUpdate(dt);
 
-    this.braking = this.game.input.snapshot.isDown(this.drive.keys.brake);
+    this.braking = this.input.isDown(this.drive.keys.brake);
 
     // Skid marks from the rear axle: drifting, or scrabbling on grass.
     if (this.marks && (this.drive.drifting || (this.surface !== 'road' && this.drive.speed > 120))) {

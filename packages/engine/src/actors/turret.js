@@ -13,6 +13,8 @@ export class Turret extends Entity {
     body.setCollisionFilter({ category: CollisionCategories.enemy });
     body.bodyType = 'static';
     super(body, sprite, game);
+    // The rockets it fires are spawned by name, on a server and on its clients alike.
+    if (game.actors && !game.actors.has('Rocket')) game.registerActor('Rocket', Rocket);
 
     this.detectionRange = options.detectionRange || 350;
     this.fireRate = options.fireRate || 2; // seconds between shots
@@ -123,26 +125,16 @@ export class Turret extends Entity {
       y: this.position.y + this.aimDirection.y * spawnOffset
     };
 
-    const rocketBody = this.game.physics.createBox({
-      x: spawnPos.x,
-      y: spawnPos.y,
-      width: 24,
-      height: 8,
-      friction: 0,
-      frictionAir: 0,
-      restitution: 0,
-      density: 0.001
+    // Through `spawn`, so a server can tell its clients to make the same rocket.
+    this.game.spawn('Rocket', spawnPos.x, spawnPos.y, 24, 8, {
+      physics: { friction: 0, frictionAir: 0, restitution: 0, density: 0.001 },
+      options: {
+        speed: this.rocketSpeed,
+        damage: this.rocketDamage,
+        direction: { ...this.aimDirection },
+        maxLifetime: 6
+      }
     });
-
-    const rocket = new Rocket(rocketBody, null, this.game, {
-      speed: this.rocketSpeed,
-      damage: this.rocketDamage,
-      direction: { ...this.aimDirection },
-      maxLifetime: 6
-    });
-
-    this.game.entities.add(rocket);
-    this.game.physics.add(rocketBody);
   }
 
   draw() {

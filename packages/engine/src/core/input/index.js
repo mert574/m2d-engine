@@ -12,3 +12,4 @@ export { GestureRecognizer } from './gestures.js';
 export { PointerSource } from './pointerSource.js';
 export { Keyboard } from './keyboard.js';
 export { Cursor } from './cursor.js';
+export { InputSnapshot } from './snapshot.js';

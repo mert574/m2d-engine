@@ -81,6 +81,11 @@ export class Interactive extends Constraint {
     this.isDragging = false;
     /** Where the pointer sat inside the entity when the drag began. */
     this.grabOffset = { x: 0, y: 0 };
+    /**
+     * Where a `follow` drag holds the body, applied on the next tick. Pointer
+     * events arrive per frame; the body moves only in `fixedUpdate`.
+     */
+    this.heldAt = null;
 
     this.handlers = new Map();
     for (const [type, name] of Interactive.EVENT_HANDLERS) {
@@ -176,11 +181,11 @@ export class Interactive extends Constraint {
           x: this.entity.position.x - event.start.world.x,
           y: this.entity.position.y - event.start.world.y
         };
-        if (this.follow) this.#moveTo(event.world);
+        if (this.follow) this.#holdAt(event.world);
         break;
       case 'drag':
         if (!this.draggable) return;
-        if (this.follow) this.#moveTo(event.world);
+        if (this.follow) this.#holdAt(event.world);
         break;
       case 'dragend':
         if (!this.draggable) return;
@@ -199,15 +204,21 @@ export class Interactive extends Constraint {
     if (this.consume && this.handles(event.type)) event.consume();
   }
 
-  /** Place the body under the pointer, preserving where it was grabbed. */
-  #moveTo(world) {
+  /** Aim the hold under the pointer, preserving where it was grabbed. */
+  #holdAt(world) {
+    this.heldAt = { x: world.x + this.grabOffset.x, y: world.y + this.grabOffset.y };
+  }
+
+  /** Hold a `follow` drag's body where the pointer last put it. */
+  fixedUpdate(dt) {
+    if (!this.heldAt) return;
     const body = this.entity.body;
-    const x = world.x + this.grabOffset.x;
-    const y = world.y + this.grabOffset.y;
     // setPosition teleports and carries no riders, which is exactly right
     // for something being held: it is not moving under its own power.
-    body.setPosition({ x, y });
+    body.setPosition(this.heldAt);
     body.setVelocity({ x: 0, y: 0 });
+    // Released: the last position still lands, once.
+    if (!this.isDragging) this.heldAt = null;
   }
 
   /** Stop responding to the pointer without removing the constraint. */

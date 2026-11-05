@@ -121,6 +121,24 @@ describe('Time', () => {
       expect(budgeted.tick(DT)).toBe(1);
     });
 
+    it('ends the frame early when the step callback returns false, dropping the backlog', () => {
+      let calls = 0;
+      const ran = time.tick(10 * DT, { step: () => { calls++; return calls < 3; } });
+      expect(ran).toBe(3);
+      expect(time.steps).toBe(3);
+      expect(time.accumulator).toBe(0);
+      // A callback that returns nothing keeps the frame going.
+      expect(time.tick(2 * DT, { step: () => {} })).toBe(2);
+    });
+
+    it('reports inStep through the tick, its timers included', () => {
+      const seen = [];
+      time.after(0, () => seen.push(['timer', time.inStep]));
+      time.tick(DT, { step: () => seen.push(['step', time.inStep]) });
+      expect(seen).toEqual([['timer', true], ['step', true]]);
+      expect(time.inStep).toBe(false);
+    });
+
     it('does not drift: sixty uneven frames make exactly sixty ticks', () => {
       // Summing and subtracting floats leaves the accumulator ulps short of
       // a tick; the epsilon keeps that from skipping one.

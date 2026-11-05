@@ -1,0 +1,36 @@
+import { readFile } from 'node:fs/promises';
+import { defineMatch } from 'm2d-server';
+import { KEEP_INPUT, KEEP_GAME, registerKeep, keepScene, spawnKnight } from './game.js';
+
+/**
+ * Cinder Keep as a match: the same game.js the browser plays, run headless
+ * in a worker by m2d-server. Each player who joins gets a knight of their
+ * own in the start room; the keep's embers, creatures, quartermaster and
+ * stair are shared.
+ */
+
+const SCENE = new URL('./scenes/keep.json', import.meta.url);
+
+let arrivals = 0;
+
+export default defineMatch({
+  input: KEEP_INPUT,
+  game: KEEP_GAME,
+  maxPlayers: 4,
+
+  async setup(game) {
+    registerKeep(game);
+    game.sceneManager.addScene('keep', keepScene(game, { loadScene: async () => JSON.parse(await readFile(SCENE, 'utf8')) }));
+    await game.sceneManager.switchTo('keep');
+    // The scene's own knight is the single-player one. Online, every
+    // knight belongs to someone.
+    const solo = game.player;
+    game.entities.delete(solo);
+    game.physics.remove(solo.body);
+    game.player = null;
+  },
+
+  join(game, player) {
+    spawnKnight(game, player, arrivals++);
+  }
+});

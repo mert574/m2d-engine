@@ -377,7 +377,7 @@ A steppable row keeps faint chevrons either side of its value; they brighten wit
 
 ## UIDialogue
 
-`ui/dialogue.js`. A spoken line typed out, with the speaker's name and an advance hint. `start(speaker, lines, onDone)` opens it; `advance()` finishes the typing, then the next line, then closes and calls `onDone`. `open` says whether it is showing and `canOpen` is false for half a second after closing, so the key that closed one conversation cannot start the next. Options: `charsPerSecond` (46), `advanceHint` (`'E'`), `width`, `height`, `textColor`, `nameColor`, `background`, `borderColor`.
+`ui/dialogue.js`. A spoken line typed out, with the speaker's name and an advance hint. `start(speaker, lines, onDone)` opens it; `advance()` finishes the typing, then the next line, then closes and calls `onDone`. `open` says whether it is showing and `canOpen` is false for half a second after closing, so the key that closed one conversation cannot start the next. Options: `charsPerSecond` (46), `advanceHint` (`'E'`), `clock` (none), `width`, `height`, `textColor`, `nameColor`, `background`, `borderColor`. Without a `clock` the typing and the debounce count frame time. A game that calls `advance` from a tick, because a conversation freezes the player or moves a quest, passes `clock: () => game.time.elapsed` so the typing runs on game time and a press does the same thing at any frame rate.
 
 ## UIMinimap
 

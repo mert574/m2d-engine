@@ -48,10 +48,21 @@
 | `interpolatePhysics` | `true` | Blend drawn transforms between ticks |
 | `seed` | `1` | Seed for `game.rng`. Reseeded on every scene load and `reset()`. Pass `Date.now()` for a game that should differ between sessions |
 
+## Headless
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `headless` | `false` | Build the simulation only, for a server or a test. The canvas must be `null`. Display, input device and audio options are ignored. See [Headless games](../guide/headless) |
+
 ## Instance properties
 
 | Property | What it is |
 | --- | --- |
+| `game.headless` | True for a game built with `headless: true` |
+| `game.players` | The players: `local` and, on a server, one per connection. See [Players](../guide/headless#players) |
+| `game.replica` | True while the game is a client of a server, showing state it does not simulate. See [Multiplayer](../guide/multiplayer#the-client) |
+| `game.net` | The `NetClient`, while connected |
+| `game.sceneSignature` | A hash of the scene's own entities in network id order, which a client checks against the server's |
 | `game.physics` | The physics world. See [Physics API](./physics) |
 | `game.time` | The clocks, the simulation tick and timers. See [Time, ticks and timers](../guide/time) |
 | `game.rng` | Seeded random numbers for simulation code. See [Random numbers](#random-numbers) |
@@ -88,14 +99,21 @@
 
 | Method | What it does |
 | --- | --- |
-| `start()` | Load sounds, switch to the initial scene and start the loop. Returns a promise |
+| `start()` | Load sounds, switch to the initial scene and start the loop. Returns a promise. Headless, it switches to the initial scene and starts no loop |
+| `step(ticks)` | Run `ticks` whole ticks now (default 1) and return how many ran. Stops early when a tick requests a scene switch. Not gated on `paused`. A headless game's only way to advance |
 | `reset()` | Destroy constraints, clear entities, physics and layers, reset the camera to defaults, stop music. See [Game loop](../guide/game-loop#resetting) |
 | `destroy()` | Stop the loop and release every listener and resource |
 | `registerActor(name, Class)` | Make an actor available to scene prefabs |
+| `registerIntents(set)` | Install the game's intents from `defineIntents`. Every player gets a queue. See [Intents](../guide/headless#intents) |
+| `entityById(id)` | The live entity with this network id, or `null` |
+| `spawn(type, x, y, width, height, { sprite, animation, options, physics, playerId })` | Create an entity from a registered actor and add it to the world, recording how so a server can send it. Returns the entity. See [Creating entities at runtime](../guide/entities#creating-entities-at-runtime) |
+| `snapshot()` | The whole simulation, taken between ticks. See [Snapshots](../guide/game-loop#snapshots) |
+| `restore(snapshot)` | Put the simulation back to a snapshot taken in the current scene |
+| `trackState(key, { save, load })` | Have snapshots carry state that lives outside entities. Dropped when the next scene loads |
 | `createEntity(type, x, y, width, height, spritesheet, options, physics)` | Build an entity from a registered actor. The body is not added to the world. `physics` takes the prefab keys `bodyType`, `shape`, `angle`, `lockRotation`, `isSensor`, `friction`, `frictionAir` and `restitution`. Returns `null` for an unregistered name |
 | `gameOver()` | Set `isGameOver` and play the `gameOver` sound. The loop then draws the game-over screen |
 | `pause()`, `resume()`, `togglePause()` | Set `paused`. `togglePause` returns the new state |
-| `fixedUpdate(dt)` | One simulation tick: sample the input, run the scene's and every entity's `fixedUpdate`, step physics. The engine loop passes it to `game.time.tick`; a custom loop does the same or wraps it |
+| `fixedUpdate(dt)` | One simulation tick: sample the input, run the scene's and every entity's `fixedUpdate`, step physics. Returns `false` once a scene switch is pending. The engine loop passes it to `game.time.tick`; a custom loop does the same or wraps it and returns its result |
 | `setResolution(resolution)` | Change the world render resolution |
 | `setWorldFilter(filter)` | Change the upscaling filter |
 | `setAspectMode(mode)` | Change the aspect mode |

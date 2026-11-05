@@ -55,10 +55,28 @@ export class Abilities extends Constraint {
     return true;
   }
 
+  /**
+   * What a client needs to draw the ability bar: each ability's cooldown
+   * and lock. The abilities themselves (their `cast`) are code, not data.
+   */
+  replicaState() {
+    return { slots: this.list.map((a) => [Math.round(a.remaining * 100) / 100, a.locked]) };
+  }
+
+  replicaUpdated(changed) {
+    if (!changed.has('slots')) return;
+    this.slots.forEach(([remaining, locked], i) => {
+      const ability = this.list[i];
+      if (!ability) return;
+      ability.remaining = remaining;
+      ability.locked = locked;
+    });
+  }
+
   fixedUpdate(dt) {
     for (const ability of this.list) ability.remaining = Math.max(0, ability.remaining - dt);
     if (this.entity.dead || !this.canCast()) return;
-    const input = this.entity.game.input.snapshot;
+    const input = this.entity.input;
     for (const ability of this.list) {
       if (ability.key && input.justPressed(ability.key)) this.cast(ability.id);
     }

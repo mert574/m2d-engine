@@ -6,6 +6,7 @@ import { KeyboardControl } from '../constraints/keyboardControl.js';
 
 export class TopDownPlayer extends Entity {
   name = 'Player';
+  static replicated = ['facingDirection'];
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);

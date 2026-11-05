@@ -152,7 +152,7 @@ export class Time {
     this.accumulator = 0;
     /** Whether the last `tick` was a paused one. */
     this.paused = false;
-    /** True while `tick` is inside a step callback. */
+    /** True while a tick runs: its game-time timers and its step callback. */
     this.inStep = false;
 
     /** @type {Set<Timer>} */
@@ -203,9 +203,11 @@ export class Time {
    * @param {boolean} [options.paused=false] - Hold game time still: no
    *   ticks, no game-time timers. The unscaled clock, the frame counter and
    *   unscaled timers run regardless.
-   * @param {(dt: number) => void} [options.step] - Run once per tick with
-   *   the fixed dt, after `elapsed` and `steps` have advanced and the
-   *   game-time timers due at that tick have fired.
+   * @param {(dt: number) => boolean|void} [options.step] - Run once per
+   *   tick with the fixed dt, after `elapsed` and `steps` have advanced and
+   *   the game-time timers due at that tick have fired. Returning `false`
+   *   ends the frame's ticks there and drops the rest of the accumulator,
+   *   which is how the engine stops ticking a scene that is being left.
    * @returns {number} Ticks run this frame.
    */
   tick(rawDelta, { paused = false, step } = {}) {
@@ -227,10 +229,11 @@ export class Time {
   /**
    * Run exactly one tick regardless of the accumulator: a debugger's step
    * button, or a loop that drives ticks itself (a replay, a lockstep peer).
-   * @param {(dt: number) => void} [step]
+   * @param {(dt: number) => boolean|void} [step]
+   * @returns {boolean|void} What the step callback returned.
    */
   stepOnce(step) {
-    this.#step(step);
+    return this.#step(step);
   }
 
   /** Spend the accumulator in whole ticks, up to the budget. */
@@ -239,8 +242,12 @@ export class Time {
     let ticks = 0;
     while (this.accumulator + STEP_EPSILON >= dt && ticks < this.maxSubSteps) {
       this.accumulator -= dt;
-      this.#step(step);
+      const proceed = this.#step(step);
       ticks++;
+      if (proceed === false) {
+        this.accumulator = 0;
+        return ticks;
+      }
     }
     // Over budget: drop the backlog instead of letting it grow without bound.
     if (this.accumulator + STEP_EPSILON >= dt) this.accumulator = 0;
@@ -250,17 +257,15 @@ export class Time {
   #step(step) {
     this.elapsed += this.fixedTimestep;
     this.steps += 1;
-    // Timers before the callback: a timer due this tick observes the world
-    // as it was at the end of the previous one, and whatever it spawns is
-    // simulated by this tick like anything else.
-    this.#fireDue(false);
-    if (step) {
-      this.inStep = true;
-      try {
-        step(this.fixedTimestep);
-      } finally {
-        this.inStep = false;
-      }
+    this.inStep = true;
+    try {
+      // Timers before the callback: a timer due this tick observes the
+      // world as it was at the end of the previous one, and whatever it
+      // spawns is simulated by this tick like anything else.
+      this.#fireDue(false);
+      return step?.(this.fixedTimestep);
+    } finally {
+      this.inStep = false;
     }
   }
 
@@ -305,6 +310,11 @@ export class Time {
    * Resolves `true` when the delay elapses and `false` if the timer is
    * cancelled or cleared first, so an awaiting sequence can stop cleanly on
    * a scene switch instead of hanging.
+   *
+   * The timer fires on a tick, but the code after `await` runs once the
+   * whole frame has finished, after however many more ticks that frame
+   * ran. Use it for presentation and scene flow (a banner, a switch). Code
+   * that changes the simulation belongs in an `after` callback.
    *
    * @param {number} seconds
    * @param {object} [options]

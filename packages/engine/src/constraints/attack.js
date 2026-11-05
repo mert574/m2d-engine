@@ -45,6 +45,13 @@ const KNOCKBACK_IMPULSE = { x: 8335, y: -4997 };
  *   target's `elevation` here
  */
 export class Attack extends Constraint {
+  /**
+   * `swings` counts every swing, so a client can tell a new one from the
+   * same one still in progress and run `onStart` for it (its look, its
+   * sound) without running the simulation. See `replicaUpdated`.
+   */
+  static replicated = ['swings', 'step', 'angle', 'direction', 'sideways', 'isAttacking', 'attackTime'];
+
   constructor(entity, options = {}) {
     super(entity);
     this.damage = options.damage || 10;
@@ -61,6 +68,8 @@ export class Attack extends Constraint {
     this.step = -1;
     /** Seconds since the last swing ended, for the chain window. */
     this.sinceSwing = Infinity;
+    /** Swings started, ever. Replicated, so a client sees each new one. */
+    this.swings = 0;
 
     this.isAttacking = false;
     this.currentCooldown = 0;
@@ -161,6 +170,7 @@ export class Attack extends Constraint {
       this.step = this.sinceSwing <= this.comboWindow ? (this.step + 1) % this.combo.length : 0;
     }
     this.sinceSwing = 0;
+    this.swings++;
     this.isAttacking = true;
     // ±1 exactly is the side-view contract; anything else is an angle.
     this.sideways = direction === 1 || direction === -1;
@@ -174,6 +184,13 @@ export class Attack extends Constraint {
     if (this.onStart) {
       this.onStart(Math.max(0, this.step));
     }
+  }
+
+  /** On a client: a new swing arrived from the server. */
+  replicaUpdated(changed) {
+    if (!changed.has('swings')) return;
+    this.entity.setAnimation(this.direction > 0 ? 'attackRight' : 'attackLeft');
+    this.onStart?.(Math.max(0, this.step));
   }
 
   /**

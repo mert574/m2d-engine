@@ -8301,6 +8301,13 @@
         "bodyType": "static",
         "isSensor": true
       }
+    },
+    "quartermaster": {
+      "actor": "Quartermaster",
+      "physics": {
+        "bodyType": "static",
+        "isSensor": true
+      }
     }
   },
   "layers": [
@@ -15466,6 +15473,14 @@
             "spriteSize": 200,
             "spriteOffsetY": -56
           }
+        },
+        {
+          "id": 615,
+          "prefab": "quartermaster",
+          "x": 240,
+          "y": 2540,
+          "width": 40,
+          "height": 40
         }
       ]
     }

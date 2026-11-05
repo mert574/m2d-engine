@@ -99,7 +99,7 @@ export class Bee extends Entity {
 
     // The dash: a burst along the held direction (default: onward), a
     // short grace window, and the way out of a web.
-    const input = this.game.input.snapshot;
+    const input = this.input;
     if ((input.justPressed('Space') || input.justPressed('KeyX')) && this.dashCooldown === 0) {
       let dx = input.axis('ArrowLeft', 'ArrowRight');
       let dy = input.axis('ArrowUp', 'ArrowDown');
@@ -337,11 +337,13 @@ export class Flower extends Entity {
 export class Pollen extends Entity {
   name = 'Pollen';
 
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game) {
     super(body, sprite, game);
     this.clock = (body.position.x * 0.013) % (Math.PI * 2);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
   }
 
   onCollisionStart(other) {
@@ -618,12 +620,14 @@ export class Wasp extends Entity {
 export class Web extends Entity {
   name = 'Web';
 
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     this.torn = false;
     this.tornAt = 0;
     this.clock = options.sway ?? 0;
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
   }
 
   onCollisionStart(other) {
@@ -724,11 +728,13 @@ export class Web extends Entity {
 export class Hive extends Entity {
   name = 'Hive';
 
+  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  get lit() { return this.game.renderer.supports('lights'); }
+
   constructor(body, sprite, game) {
     super(body, sprite, game);
     this.reached = false;
     this.onReached = null;
-    this.lit = game.renderer.supports('lights');
   }
 
   onCollisionStart(other) {

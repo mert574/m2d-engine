@@ -264,21 +264,63 @@ export class RapierBody {
     this.collider = this.world.rWorld.createCollider(shapeDesc, this.rigidBody);
     this.#applyEventFlag();
 
-    if (s.bodyType === 'character') {
-      const c = this.world.rWorld.createCharacterController(CHARACTER_OFFSET);
-      // Screen coordinates grow downward, so "up" — the direction that makes
-      // a surface count as ground — is -y. Without this, ceilings ground.
-      c.setUp({ x: 0, y: -1 });
-      c.setSlideEnabled(true);
-      c.setNormalNudgeFactor(CHARACTER_NUDGE);
-      c.enableSnapToGround(CHARACTER_SNAP);
-      // Walking into a crate shoves it, with this body's weight behind it.
-      c.setApplyImpulsesToDynamicBodies(true);
-      c.setCharacterMass(this.mass);
-      this.controller = c;
-    }
+    if (s.bodyType === 'character') this.#createController();
 
     this.syncInterpolation();
+  }
+
+  #createController() {
+    const c = this.world.rWorld.createCharacterController(CHARACTER_OFFSET);
+    // Screen coordinates grow downward, so "up" — the direction that makes
+    // a surface count as ground — is -y. Without this, ceilings ground.
+    c.setUp({ x: 0, y: -1 });
+    c.setSlideEnabled(true);
+    c.setNormalNudgeFactor(CHARACTER_NUDGE);
+    c.enableSnapToGround(CHARACTER_SNAP);
+    // Walking into a crate shoves it, with this body's weight behind it.
+    c.setApplyImpulsesToDynamicBodies(true);
+    c.setCharacterMass(this.mass);
+    this.controller = c;
+  }
+
+  /**
+   * This body's own state, beside what Rapier keeps: the buffered spec
+   * (a character's live intent velocity among it), the interpolation
+   * baseline and the character's ground. For `RapierPhysicsWorld.snapshot`.
+   */
+  saveState() {
+    const s = this.spec;
+    return {
+      spec: { ...s, velocity: { ...s.velocity } },
+      previous: { ...this.previous },
+      charGrounded: this.charGrounded,
+      groundBody: this.groundBody,
+      hasTarget: this.hasTarget,
+      rigidBody: this.rigidBody?.handle ?? null,
+      collider: this.collider?.handle ?? null
+    };
+  }
+
+  /**
+   * Take back saved state and, if the body was simulated when it was
+   * saved, reattach to its rigid body and collider in a world restored
+   * from the same snapshot, where they keep their handles.
+   */
+  loadState(state) {
+    this.spec = { ...state.spec, velocity: { ...state.spec.velocity } };
+    this.previous = { ...state.previous };
+    this.charGrounded = state.charGrounded;
+    this.groundBody = state.groundBody;
+    this.hasTarget = state.hasTarget;
+    this.controller = null;
+    if (state.rigidBody === null) {
+      this.rigidBody = null;
+      this.collider = null;
+      return;
+    }
+    this.rigidBody = this.world.rWorld.getRigidBody(state.rigidBody);
+    this.collider = this.world.rWorld.getCollider(state.collider);
+    if (this.spec.bodyType === 'character') this.#createController();
   }
 
   /** Fold live state back into the spec and detach. Called by `remove()`. */
@@ -781,6 +823,50 @@ export class RapierPhysicsWorld extends PhysicsWorldBase {
     this.byCollider.clear();
     this.unindexed.clear();
     this.accumulator = 0;
+  }
+
+  /**
+   * The whole world as it is now: Rapier's own snapshot, every body
+   * wrapper's state and the query bookkeeping. Kept in memory; restoring
+   * it into this world reproduces the steps that follow bit for bit.
+   *
+   * Bodies created later are detached by `restore`; bodies removed later
+   * are attached again, the same objects with the same handles.
+   */
+  snapshot() {
+    return {
+      bytes: this.rWorld.takeSnapshot(),
+      gravity: { ...this.currentGravity },
+      bodies: [...this.added].map((body) => [body, body.saveState()]),
+      unindexed: [...this.unindexed]
+    };
+  }
+
+  /** Put the world back to a `snapshot()` taken from it. */
+  restore(snapshot) {
+    // Fold every live body into its spec and drop its controller while the
+    // old world still exists, then replace the world wholesale.
+    for (const body of this.added) body.dematerialize();
+    this.rWorld.free();
+    this.eventQueue.free();
+    this.rWorld = RAPIER.World.restoreSnapshot(snapshot.bytes);
+    this.rWorld.integrationParameters.lengthUnit = LENGTH_UNIT;
+    this.eventQueue = new RAPIER.EventQueue(true);
+    this.currentGravity = { ...snapshot.gravity };
+
+    this.added.clear();
+    this.characters.clear();
+    this.kinematics.clear();
+    this.byCollider.clear();
+    this.unindexed.clear();
+    for (const [body, state] of snapshot.bodies) {
+      body.loadState(state);
+      this.added.add(body);
+      if (body.bodyType === 'character') this.characters.add(body);
+      if (body.bodyType === 'kinematic') this.kinematics.add(body);
+      this.byCollider.set(body.collider.handle, body);
+    }
+    for (const body of snapshot.unindexed) this.unindexed.add(body);
   }
 
   destroy() {

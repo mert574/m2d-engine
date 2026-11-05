@@ -17,7 +17,7 @@ import { Constraint } from '../core/constraint.js';
  * Heading is driven through angular velocity, speed-sensitive so the car
  * cannot pivot in place.
  *
- * Runs in `fixedUpdate` and reads `game.input.snapshot`, so two runs with
+ * Runs in `fixedUpdate` and reads `entity.input`, so two runs with
  * the same inputs drive the same path — which is what makes lap replays
  * and ghosts possible. An AI driver sets `controls` instead (see
  * `setControls`).
@@ -185,7 +185,7 @@ export class CarControl extends Constraint {
 
   #readControls() {
     if (this.manual) return this.controls;
-    const input = this.entity.game.input.snapshot;
+    const input = this.entity.input;
     return {
       throttle: input.isDown(this.keys.throttle) ? 1 : 0,
       brake: input.isDown(this.keys.brake) ? 1 : 0,

@@ -9,8 +9,16 @@ import { UIElement } from './uiElement.js';
  * moment after closing, so the key that closed a conversation does not
  * start the next one.
  *
+ * By default the typing runs on frame time. A game whose conversations
+ * change the simulation (freeze the player, advance a quest) calls
+ * `advance` from a tick and passes `clock: () => game.time.elapsed`, so
+ * whether a press finishes the line or moves on is decided by game time
+ * and replays the same at any frame rate.
+ *
  * @param {Object} [options] - `UIElement` options, plus:
  * @param {number} [options.charsPerSecond=46]
+ * @param {() => number} [options.clock] - Seconds to type and debounce
+ *   against, read when needed. Without it the dialogue counts frames
  * @param {number} [options.width=720]
  * @param {number} [options.height=128]
  * @param {string} [options.advanceHint='E'] - The key named in the hint
@@ -20,6 +28,7 @@ export class UIDialogue extends UIElement {
     super({ anchor: 'bottom', pivot: 'bottom', x: 0, y: -64, width: 720, height: 128, visible: false, ...options });
     this.charsPerSecond = options.charsPerSecond ?? 46;
     this.advanceHint = options.advanceHint ?? 'E';
+    this.clock = options.clock ?? null;
     this.speaker = '';
     this.lines = [];
     this.index = 0;
@@ -34,6 +43,35 @@ export class UIDialogue extends UIElement {
 
   get open() { return this.visible; }
   get canOpen() { return !this.visible && this.sinceClosed > 0.5; }
+
+  /** Characters typed on the current line. Infinity once skipped to the end. */
+  get shown() {
+    if (!this.clock) return this.#shown;
+    return this.#skipped ? Infinity : (this.clock() - this.#lineStart) * this.charsPerSecond;
+  }
+
+  set shown(value) {
+    this.#shown = value;
+    if (!this.clock) return;
+    this.#skipped = value === Infinity;
+    if (!this.#skipped) this.#lineStart = this.clock() - value / this.charsPerSecond;
+  }
+
+  /** Seconds since the last conversation closed. */
+  get sinceClosed() {
+    return this.clock ? this.clock() - this.#closedAt : this.#sinceClosed;
+  }
+
+  set sinceClosed(value) {
+    this.#sinceClosed = value;
+    if (this.clock) this.#closedAt = this.clock() - value;
+  }
+
+  #shown = 0;
+  #skipped = false;
+  #lineStart = 0;
+  #sinceClosed = Infinity;
+  #closedAt = -Infinity;
 
   start(speaker, lines, onDone) {
     this.speaker = speaker;
@@ -58,6 +96,7 @@ export class UIDialogue extends UIElement {
 
   update(deltaTime) {
     super.update(deltaTime);
+    if (this.clock) return;
     if (this.visible) this.shown += deltaTime * this.charsPerSecond;
     else this.sinceClosed += deltaTime;
   }

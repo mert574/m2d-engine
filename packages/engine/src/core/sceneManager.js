@@ -52,10 +52,43 @@ export class SceneManager {
    * entities absent) — which is what a scene's `onDrawBackground` would
    * otherwise see for the first frame or two.
    */
-  async switchTo(sceneName) {
+  switchTo(sceneName) {
+    // Requested from inside a tick (a collision handler, a game-time timer,
+    // `onFixedUpdate`): that tick finishes against the scene it started in,
+    // no further tick runs this frame, and the switch begins after the
+    // frame. The first request in a tick wins.
+    if (this.game.time?.inStep) {
+      if (this.#deferred) return this.#deferred;
+      this.loading = true;
+      this.#deferred = Promise.resolve().then(() => {
+        this.#deferred = null;
+        return this.#run(() => this.#switch(sceneName));
+      });
+      return this.#deferred;
+    }
+    return this.#run(() => this.#switch(sceneName));
+  }
+
+  /**
+   * Run the current scene's `load()` again, under the same loading flag as
+   * a switch, so no tick or frame sees the world half rebuilt. The game-over
+   * restart uses this after `game.reset()`.
+   */
+  reload() {
+    const scene = this.currentScene;
+    if (!scene) return Promise.resolve(null);
+    return this.#run(async () => {
+      await scene.load();
+      return scene;
+    });
+  }
+
+  #deferred = null;
+
+  async #run(work) {
     this.loading = true;
     try {
-      return await this.#switch(sceneName);
+      return await work();
     } finally {
       this.loading = false;
     }

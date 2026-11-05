@@ -11,6 +11,7 @@ import { Health } from '../src/constraints/health.js';
 import { Abilities } from '../src/constraints/abilities.js';
 import { Footsteps } from '../src/constraints/footsteps.js';
 import { CollisionCategories } from '../src/core/constants.js';
+import { UIDialogue } from '../src/core/ui/dialogue.js';
 
 /**
  * The gameplay layer a 3/4 game stands on: animation playback, eight-way
@@ -225,6 +226,41 @@ describe('Quest', () => {
     expect(quest.advance()).toBe(false);
     expect(seen).toEqual([['b', 'a'], ['c', 'b']]);
     expect(() => quest.goTo('zzz')).toThrow();
+  });
+});
+
+describe('UIDialogue on a game clock', () => {
+  it('types and debounces on the clock it is given, and ignores frames', () => {
+    let now = 0;
+    const dialogue = new UIDialogue({ charsPerSecond: 10, clock: () => now });
+    let closed = 0;
+    dialogue.start('Oswin', ['Hello there', 'Bye'], () => { closed++; });
+
+    // Frames do not type.
+    dialogue.update(5);
+    expect(dialogue.shown).toBe(0);
+    now = 0.5;
+    expect(dialogue.shown).toBeCloseTo(5, 9);
+
+    // Mid-line, a press finishes the line; the next moves on and types afresh.
+    dialogue.advance();
+    expect(dialogue.shown).toBe(Infinity);
+    dialogue.advance();
+    expect(dialogue.index).toBe(1);
+    expect(dialogue.shown).toBe(0);
+    now = 1;
+    dialogue.advance();
+    expect(closed).toBe(1);
+    expect(dialogue.canOpen).toBe(false);
+    now = 1.6;
+    expect(dialogue.canOpen).toBe(true);
+  });
+
+  it('counts frames without a clock', () => {
+    const dialogue = new UIDialogue({ charsPerSecond: 10 });
+    dialogue.start('Oswin', ['Hello'], null);
+    dialogue.update(0.2);
+    expect(dialogue.shown).toBeCloseTo(2, 9);
   });
 });
 

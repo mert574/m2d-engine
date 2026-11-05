@@ -82,7 +82,7 @@ crate.addConstraint('grab', new Interactive(crate, {
 
 Handlers are bound to the entity. The full option list is in the [constraints reference](../reference/constraints#interactive).
 
-`Interactive` delivers drag events and leaves the body alone. Moving a dragged body is a physics decision. Teleporting a static prop, driving a kinematic one and steering a dynamic one are each right for different games. Pass `follow: true` to place the body under the pointer each frame. The physics playground steers the body toward the pointer with velocity instead, so a grabbed object still collides and can be thrown.
+`Interactive` delivers drag events and leaves the body alone. Moving a dragged body is a physics decision. Teleporting a static prop, driving a kinematic one and steering a dynamic one are each right for different games. Pass `follow: true` to place the body under the pointer on every tick of the drag. The physics playground steers the body toward the pointer with velocity instead, so a grabbed object still collides and can be thrown.
 
 ## Pointer lock
 
@@ -105,15 +105,19 @@ For what changes on a touchscreen and how to build on-screen controls, see [Touc
 
 ## Input in the tick
 
-Simulation code reads `game.input.snapshot`, a copy of the keyboard and pointer state taken at the start of every simulation tick. It has the same `isDown`, `justPressed`, `justReleased`, `axis` and `vector` methods and a `pointer` with `ui`, `world`, `isDown`, `buttons` and `type`. Every tick in a frame sees the same held keys, and a press or release edge reaches exactly one tick, so a frame that runs two ticks to catch up cannot fire a jump twice. `KeyboardControl` reads the snapshot. Code outside the tick, such as a UI element or a scene `onUpdate`, keeps reading `game.input` directly.
+Simulation code reads a snapshot: a copy of the keyboard and pointer state taken at the start of every simulation tick. It has the same `isDown`, `justPressed`, `justReleased`, `axis` and `vector` methods and a `pointer` with `ui`, `world`, `isDown`, `buttons` and `type`. Every tick in a frame sees the same held keys, and a press or release edge reaches exactly one tick, so a frame that runs two ticks to catch up cannot fire a jump twice. Code outside the tick, such as a UI element or a scene `onUpdate`, keeps reading `game.input` directly.
+
+An entity reads its snapshot through `entity.input`. In a single-player game that is `game.input.snapshot`. On a server it is the snapshot of the player who owns the entity (see [Players](./headless#players)), so one actor serves both. Every engine constraint reads it this way. Scene-level code with no entity, such as an `onFixedUpdate` hook, reads `game.input.snapshot`.
 
 ```javascript
 fixedUpdate(dt) {
-  const input = this.game.input.snapshot;
+  const input = this.input;
   if (input.justPressed('Space')) this.jump();
   const move = input.vector('KeyW', 'KeyS', 'KeyA', 'KeyD');
 }
 ```
+
+While a blocking screen is up (a dialog, an inventory, the console), the snapshot carries no keys and no pointer buttons. Typing in it or holding an arrow over it does not move anything in the world. A press the UI takes never reaches a snapshot at all: a key a screen consumed, a click a screen consumed and a click on a scene UI element. A button pressed on the UI reads as up to the world until it is released, so closing a menu with a click does not also act on the world under the cursor.
 
 Because every tick reads one snapshot, recording them (`snapshot.toJSON()`) and feeding them back through `game.input.setSnapshotSource(fn)` replays the simulation exactly: the recording drives the game through the same seam the keyboard does. The circuit example's lap replays are this and nothing more.
 

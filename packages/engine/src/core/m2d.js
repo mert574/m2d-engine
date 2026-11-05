@@ -18,6 +18,9 @@ import { CVarRegistry } from './console/cvars.js';
 import { CommandRegistry, registerBuiltins } from './console/commands.js';
 import { DevConsole } from './console/devConsole.js';
 import { PerformanceStats } from './ui/performanceStats.js';
+import { presentationGuard, createHeadlessInput, SilentSound } from './headless.js';
+import { Players } from './players.js';
+import { takeSnapshot, restoreSnapshot } from './snapshot.js';
 
 /** Restart and menu keys on the game-over screen, by physical key code. */
 const KEY_RESTART = 'KeyR';
@@ -171,6 +174,17 @@ export class M2D {
   constructor(canvas, options = {}) {
     this.options = { ...defaultOptions, ...options };
     this.constructorOptions = options;
+    /**
+     * True for a game with no display: the simulation only. See
+     * core/headless.js and `#initHeadless`.
+     */
+    this.headless = this.options.headless === true;
+    if (this.headless) {
+      if (canvas) throw new Error('M2D headless: pass null for the canvas; a headless game has no display');
+      this.#initSimulation();
+      this.#initHeadless();
+      return;
+    }
     
     // Initialize renderer backend and its screen-space (UI) view.
     // A `?renderer=<name>` query parameter overrides the option so any
@@ -246,57 +260,7 @@ export class M2D {
 
     if (this.options.autoResize) this.#watchDisplaySize();
 
-    /**
-     * The clocks and the scheduler: game time (pauses, scales) and wall
-     * time (does neither), plus `after` / `every` timers measured against
-     * them. Ticked once per frame at the top of `update`. See core/time.js.
-     * @type {Time}
-     */
-    this.time = new Time({
-      scale: options.physicsTimeScale ?? this.options.timeScale,
-      fixedTimestep: this.options.fixedTimestep,
-      maxSubSteps: this.options.maxSubSteps,
-      maxDelta: MAX_FRAME_DELTA
-    });
-
-    /**
-     * Seeded random numbers for simulation code. Reseeded on every scene
-     * load and `reset()`. See core/rng.js.
-     * @type {Rng}
-     */
-    this.rng = new Rng(this.options.seed);
-
-    /**
-     * The simulation. Games and actors reach physics only through this; see
-     * core/physics/index.js for the contract it implements. It shares the
-     * engine clock: the step settings, the time scale and the accumulator
-     * are `game.time`'s, and the loop steps it once per tick from
-     * `fixedUpdate`.
-     */
-    this.physics = createPhysicsWorld({
-      clock: this.time,
-      interpolate: this.options.interpolatePhysics
-    });
-    this.collisionCategories = CollisionCategories;
-
-    this.entities = new Set();
-    this.player = null;
-    this.actors = new Map();
-    this.isGameOver = false;
-    /**
-     * While true the engine loop stops simulating — no physics, no entity or
-     * camera updates — but keeps drawing, so the frozen frame stays visible
-     * under overlays like the settings menu. Toggle it directly; the settings
-     * menu's Paused row does. A game that replaces the engine loop honours it
-     * itself.
-     */
-    this.paused = false;
-    /**
-     * The mounted settings menu, if the game created one. Set by the menu's
-     * constructor; scene UI reaches it through the 'settings' button action.
-     * @type {import('./ui/settingsMenu.js').SettingsMenu|null}
-     */
-    this.settings = null;
+    this.#initSimulation();
 
     /**
      * Keyboard, mouse, touch and pen, and everything derived from them:
@@ -342,6 +306,103 @@ export class M2D {
     this.layers = new LayerManager();
     this.layers.setGame(this);
 
+    this.soundManager = new SoundManager();
+  }
+
+  /**
+   * Everything the simulation is made of, and nothing that shows it: the
+   * clocks, the generator, physics, the entity set and the scenes. Shared
+   * by a displayed game and a headless one, so the two cannot drift apart.
+   */
+  #initSimulation() {
+    /**
+     * The clocks and the scheduler: game time (pauses, scales) and wall
+     * time (does neither), plus `after` / `every` timers measured against
+     * them. Ticked once per frame at the top of `update`. See core/time.js.
+     * @type {Time}
+     */
+    this.time = new Time({
+      scale: this.constructorOptions.physicsTimeScale ?? this.options.timeScale,
+      fixedTimestep: this.options.fixedTimestep,
+      maxSubSteps: this.options.maxSubSteps,
+      maxDelta: MAX_FRAME_DELTA
+    });
+
+    /**
+     * Seeded random numbers for simulation code. Reseeded on every scene
+     * load and `reset()`. See core/rng.js.
+     * @type {Rng}
+     */
+    this.rng = new Rng(this.options.seed);
+
+    /**
+     * The simulation. Games and actors reach physics only through this; see
+     * core/physics/index.js for the contract it implements. It shares the
+     * engine clock: the step settings, the time scale and the accumulator
+     * are `game.time`'s, and the loop steps it once per tick from
+     * `fixedUpdate`.
+     */
+    this.physics = createPhysicsWorld({
+      clock: this.time,
+      interpolate: this.options.interpolatePhysics
+    });
+    this.collisionCategories = CollisionCategories;
+
+    this.entities = new Set();
+    this.player = null;
+    this.actors = new Map();
+    this.isGameOver = false;
+    /**
+     * Network ids: one per entity, in creation order, reset with the scene.
+     * `entityById` looks one up among the live entities.
+     */
+    this.nextNetId = 1;
+    this.entitiesById = new Map();
+    /** A network id the next entity constructed takes instead of the next free one. See `spawn`. */
+    this.pendingNetId = null;
+    /** Ids a replica hands to entities only it has (negative, so they never meet the server's). */
+    this.nextLocalNetId = -1;
+    /**
+     * The network ids the scene's own objects were built with, and a hash of
+     * their actor names in order. A client checks the server's against its
+     * own: the same scene module must build the same entities.
+     */
+    this.sceneNetIds = [];
+    this.sceneSignature = 0;
+    this.sceneBuilt = false;
+    /**
+     * A replica shows a simulation it does not run: a client of a server.
+     * Set by `NetClient`. Its ticks sample input and hand it to the
+     * connection; entities, scene simulation hooks and physics do not run.
+     */
+    this.replica = false;
+    /** The connection, while this game is a client. @type {import('../net/client.js').NetClient|null} */
+    this.net = null;
+    /**
+     * The players: the local one, and on a server one per connection. See
+     * core/players.js. @type {Players}
+     */
+    this.players = new Players(this);
+    /**
+     * State outside entities that snapshots carry, by key. Belongs to the
+     * scene: cleared whenever one loads. See `trackState`.
+     * @type {Map<string, {save: () => any, load: (data: any) => void}>}
+     */
+    this.trackedState = new Map();
+    /**
+     * While true the engine loop stops simulating — no physics, no entity or
+     * camera updates — but keeps drawing, so the frozen frame stays visible
+     * under overlays like the settings menu. Toggle it directly; the settings
+     * menu's Paused row does. A game that replaces the engine loop honours it
+     * itself.
+     */
+    this.paused = false;
+    /**
+     * The mounted settings menu, if the game created one. Set by the menu's
+     * constructor; scene UI reaches it through the 'settings' button action.
+     * @type {import('./ui/settingsMenu.js').SettingsMenu|null}
+     */
+    this.settings = null;
     /**
      * The scene's ground-to-render projection, or null for a view straight
      * down at the plane. Set from `world.projection` when a scene loads.
@@ -349,7 +410,6 @@ export class M2D {
      */
     this.projection = null;
     this.sceneManager = new SceneManager(this);
-    this.soundManager = new SoundManager();
 
     this.update = this.update.bind(this);
     this.fixedUpdate = this.fixedUpdate.bind(this);
@@ -357,6 +417,24 @@ export class M2D {
     /** rAF handle, so the loop can be cancelled by destroy(). */
     this.frameHandle = null;
     this.running = false;
+  }
+
+  /**
+   * A headless game's stand-ins for presentation. Each guard throws on
+   * first use, naming itself; sound is silent; input is fed by a snapshot
+   * source. See core/headless.js.
+   */
+  #initHeadless() {
+    this.canvas = null;
+    this.resizeListeners = [];
+    this.pendingResize = false;
+    for (const name of ['viewport', 'renderer', 'uiRenderer', 'theme', 'motion', 'ui', 'camera',
+      'worldOverlay', 'layers', 'cvars', 'commands', 'console', 'onResizeHandlers']) {
+      this[name] = presentationGuard(`game.${name}`);
+    }
+    this.stats = null;
+    this.input = createHeadlessInput();
+    this.soundManager = new SilentSound();
   }
 
   /**
@@ -664,6 +742,13 @@ export class M2D {
    * scene. After this the instance is inert and holds nothing global.
    */
   destroy() {
+    if (this.headless) {
+      this.running = false;
+      this.time.clear();
+      this.physics.destroy();
+      this.sceneManager.getCurrentScene()?.unload?.();
+      return;
+    }
     if (this.frameHandle !== null && typeof cancelAnimationFrame === 'function') {
       cancelAnimationFrame(this.frameHandle);
     }
@@ -692,6 +777,97 @@ export class M2D {
     this.actors.set(type, ActorClass);
   }
 
+  /**
+   * Install the game's intents, declared with `defineIntents`. Every player
+   * gets a queue; the local one sends through `game.players.local.send`.
+   * @param {import('../net/intents.js').IntentSet|null} intentSet
+   */
+  registerIntents(intentSet) {
+    this.players.useIntents(intentSet);
+  }
+
+  /**
+   * The whole simulation as it is now, to come back to with `restore`.
+   * Taken between ticks. See core/snapshot.js for what it holds.
+   */
+  snapshot() {
+    return takeSnapshot(this);
+  }
+
+  /**
+   * Put the simulation back to a snapshot taken in the current scene. The
+   * ticks that follow, given the same input, are the ticks that followed
+   * when it was taken.
+   */
+  restore(snapshot) {
+    restoreSnapshot(this, snapshot);
+  }
+
+  /**
+   * Have snapshots carry state that lives outside entities: a scene's wave
+   * counter, a director's queue. `save` returns a copy of it; `load` puts a
+   * copy back. Registrations belong to the scene and are dropped when the
+   * next one loads, so register in `onEnter`.
+   *
+   * @param {string} key
+   * @param {{save: () => any, load: (data: any) => void}} hooks
+   */
+  trackState(key, hooks) {
+    if (typeof hooks?.save !== 'function' || typeof hooks?.load !== 'function') {
+      throw new Error('M2D trackState: needs { save, load } functions');
+    }
+    this.trackedState.set(key, hooks);
+  }
+
+  /** Hand out the next network id. The Entity constructor calls this. */
+  allocateNetId(entity) {
+    let id;
+    if (this.pendingNetId !== null) {
+      id = this.pendingNetId;
+      this.pendingNetId = null;
+    } else if (this.replica && this.sceneBuilt) {
+      id = this.nextLocalNetId--;
+    } else {
+      id = this.nextNetId++;
+    }
+    this.entitiesById.set(id, entity);
+    return id;
+  }
+
+  /** The live entity with this network id, or null. */
+  entityById(id) {
+    const entity = this.entitiesById.get(id);
+    return entity && this.entities.has(entity) ? entity : null;
+  }
+
+  /** Start network ids over. Scene setup and `reset()` call this. */
+  resetNetIds() {
+    this.nextNetId = 1;
+    this.nextLocalNetId = -1;
+    this.entitiesById.clear();
+    this.sceneBuilt = false;
+    this.sceneNetIds = [];
+    this.sceneSignature = 0;
+  }
+
+  /**
+   * Record the scene's own entities once they are built: their ids, and a
+   * hash of `id:name;` in id order (FNV-1a over UTF-16 units).
+   */
+  markSceneBuilt() {
+    this.sceneBuilt = true;
+    this.sceneNetIds = [...this.entitiesById.keys()].filter((id) => id > 0).sort((a, b) => a - b);
+    let hash = 0x811c9dc5;
+    for (const id of this.sceneNetIds) {
+      const text = `${id}:${this.entitiesById.get(id).name};`;
+      for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+      }
+    }
+    this.sceneSignature = hash;
+  }
+
   createEntity(type, x, y, width, height, spritesheet, options = {}, physics = {}) {
     const ActorClass = this.actors.get(type);
     if (!ActorClass) {
@@ -714,7 +890,8 @@ export class M2D {
       isSensor: physics.isSensor || false,
       friction: physics.friction || 0.1,
       frictionAir: physics.frictionAir || 0.01,
-      restitution: physics.restitution || 0
+      restitution: physics.restitution || 0,
+      ...(physics.density !== undefined && { density: physics.density })
     };
     // A footprint splits the collider from the drawn frame: the body is a
     // short box at the bottom of the object (the feet) and the sprite stands
@@ -752,6 +929,61 @@ export class M2D {
     );
 
     body.entity = entity;
+    /**
+     * How this entity was made, for a server to tell clients to make the
+     * same one. `options` must be plain data for that to work.
+     */
+    entity.spawnInfo = {
+      type, x, y, width, height,
+      sprite: this.#sheetKey(spritesheet),
+      animation: null,
+      options: options ?? {},
+      physics: physics ?? {}
+    };
+    return entity;
+  }
+
+  #sheetKey(sheet) {
+    if (!sheet || this.headless) return null;
+    for (const [key, value] of this.sceneManager.getCurrentScene()?.spriteSheets ?? []) {
+      if (value === sheet) return key;
+    }
+    return null;
+  }
+
+  /**
+   * Create an entity from a registered actor and put it in the world: the
+   * way simulation code adds something at runtime that clients must see.
+   *
+   * @param {string} type - A registered actor name
+   * @param {number} x
+   * @param {number} y
+   * @param {number} width
+   * @param {number} height
+   * @param {object} [options]
+   * @param {string} [options.sprite] - A sprite sheet key of the current scene
+   * @param {string} [options.animation] - The animation to start in
+   * @param {object} [options.options] - Passed to the actor; plain data
+   * @param {object} [options.physics] - Prefab physics keys
+   * @param {string|null} [options.playerId] - The owning player
+   * @param {number} [options.netId] - Take this network id (a client replaying a server's spawn)
+   */
+  spawn(type, x, y, width, height, { sprite = null, animation, options = {}, physics = {}, playerId = null, netId } = {}) {
+    const sheet = sprite && !this.headless ? this.sceneManager.getCurrentScene()?.spriteSheets.get(sprite) ?? null : null;
+    if (netId !== undefined) this.pendingNetId = netId;
+    let entity;
+    try {
+      entity = this.createEntity(type, x, y, width, height, sheet, options, physics);
+    } finally {
+      this.pendingNetId = null;
+    }
+    if (!entity) throw new Error(`M2D spawn: actor '${type}' is not registered`);
+    entity.spawnInfo.sprite = sprite;
+    entity.spawnInfo.animation = animation ?? null;
+    if (animation) entity.setAnimation(animation);
+    entity.playerId = playerId;
+    this.entities.add(entity);
+    this.physics.add(entity.body);
     return entity;
   }
 
@@ -776,11 +1008,49 @@ export class M2D {
    * whether a tick happens, this decides what one is.
    *
    * @param {number} dt - Seconds; always `game.time.fixedTimestep`.
+   * @returns {boolean} False once a scene switch is pending, which tells
+   *   `time.tick` to run no further ticks this frame.
    */
   fixedUpdate(dt) {
+    // A scene switch requested by one of this tick's timers: the scene
+    // being left does not tick again.
+    if (this.sceneManager.loading) return false;
     this.input.sample();
+    if (this.replica) {
+      // The server runs the world. A replica's tick is its input, sent.
+      this.net?.tick(this.input.snapshot);
+      return true;
+    }
+    this.players.sample();
+    // Intents filed for this tick run before anything moves, so an entity
+    // sees the result of a request in the same tick a press would land.
+    this.players.applyIntents(this.time.steps);
     if (!this.isGameOver) this.sceneManager.getCurrentScene()?.fixedUpdate?.(dt);
     this.physics.step(dt);
+    // One requested during the tick runs after it, and ends the frame's
+    // ticks. See SceneManager.switchTo.
+    return !this.sceneManager.loading;
+  }
+
+  /**
+   * Run whole ticks now, outside any frame loop: what a server's clock
+   * calls, headless or not. Not gated on `paused`, like `fixedUpdate`.
+   * Stops early once a tick requests a scene switch, since the next scene
+   * is not built until the switch has run; await it and step on.
+   *
+   * @param {number} [ticks=1]
+   * @returns {number} Ticks run.
+   */
+  step(ticks = 1) {
+    if (!Number.isInteger(ticks) || ticks < 0) {
+      throw new Error(`M2D step: ticks must be a whole number from 0 up, got ${ticks}`);
+    }
+    let ran = 0;
+    while (ran < ticks && !this.sceneManager.loading) {
+      ran++;
+      if (this.time.stepOnce(this.fixedUpdate) === false) break;
+    }
+    return ran;
   }
 
   /**
@@ -894,6 +1164,7 @@ export class M2D {
   }
 
   update(currentTime) {
+    if (this.headless) throw new Error('M2D headless: there is no frame loop; drive the simulation with game.step()');
     // Display events are coalesced and applied here, between frames, so a
     // resize can never land in the middle of a draw.
     if (this.pendingResize) this.resize();
@@ -937,7 +1208,18 @@ export class M2D {
     // per-frame animation: zero while paused and stretched by the time
     // scale, so an animation cycle slows down with the body it belongs to.
     this.time.tick(rawDelta, { paused: this.paused, step: this.fixedUpdate });
+    if (this.sceneManager.loading) {
+      // A tick asked for a scene switch. The scene it leaves is not updated
+      // or drawn again.
+      this.drawLoading();
+      this.input.endFrame();
+      this.frameHandle = requestAnimationFrame(this.update);
+      return;
+    }
     const deltaTime = this.time.unscaledDelta;
+    // What the frame's ticks told the player at the keyboard. A client's
+    // arrive from the server instead; see NetClient.
+    if (!this.replica) this.players.local.dispatch(this.players.local.drainEvents());
     const currentScene = this.sceneManager.getCurrentScene();
 
     if (!this.isGameOver) {
@@ -962,7 +1244,7 @@ export class M2D {
       if (this.input.isDown(KEY_RESTART)) {
         this.isGameOver = false;
         this.reset();
-        currentScene.load();
+        this.sceneManager.reload();
       } else if (this.input.isDown(KEY_MENU)) {
         this.isGameOver = false;
         this.reset();
@@ -984,6 +1266,14 @@ export class M2D {
   }
 
   async start() {
+    if (this.headless) {
+      // No fonts, no sounds, no loop: the caller owns the clock and calls
+      // `step()`. See `#initHeadless`.
+      if (this.options.initialScene) await this.sceneManager.switchTo(this.options.initialScene);
+      this.setupCollisionHandlers();
+      this.running = true;
+      return;
+    }
     // Before the first label is drawn, not alongside it. Both backends
     // rasterize text through the browser and the WebGL one caches the
     // result as a texture keyed by text and style, so a label drawn in the
@@ -1017,13 +1307,14 @@ export class M2D {
     // testing) have to hand it back before the entities are dropped.
     for (const entity of this.entities) entity.destroy?.();
     this.entities.clear();
-    this.layers.clear();
+    this.resetNetIds();
+    if (!this.headless) this.layers.clear();
     this.player = null;
     this.lastTime = 0;
     this.time.reset();
     this.rng.reseed(this.options.seed);
 
-    this.camera.resetConfig();
+    if (!this.headless) this.camera.resetConfig();
     this.projection = null;
 
     this.setupCollisionHandlers();

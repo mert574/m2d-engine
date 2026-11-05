@@ -171,8 +171,9 @@ export default async function start(canvas) {
   // needs. time.tick calls it as many times as a frame paid for; the step
   // button calls it once.
   function tick(dt) {
-    game.fixedUpdate(dt);
+    const proceed = game.fixedUpdate(dt);
     record();
+    return proceed;
   }
 
   function frame(now) {
