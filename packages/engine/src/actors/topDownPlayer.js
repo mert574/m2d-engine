@@ -7,6 +7,14 @@ import { KeyboardControl } from '../constraints/keyboardControl.js';
 export class TopDownPlayer extends Entity {
   name = 'Player';
   static replicated = ['facingDirection'];
+  /**
+   * What a client may run for itself, a round trip before the server
+   * confirms it: the keys that move this player, and nothing else. The
+   * swing, the health and the abilities are the server's. See
+   * net/prediction.js.
+   */
+  static predictedConstraints = ['control'];
+  static predictedFields = ['facingDirection'];
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);

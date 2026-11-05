@@ -42,7 +42,7 @@ game.registerActor('Crate', Crate);
 
 ### The name property
 
-`name` identifies the kind of entity to other code. Collision handlers compare it, projectiles use it to decide what counts as a target and the scene uses it for one special case. The entity named `Player` is stored as `game.player`, the camera follows it and the game ends when it falls more than 50 px below the world height.
+`name` identifies the kind of entity to other code. Collision handlers compare it, projectiles use it to decide what counts as a target and the scene uses it for one special case. The entity named `Player` is stored as `game.player`, the camera follows it and the game ends when it falls more than 50 px below the world height. That is presentation's handle on the player; simulation code that needs "the player" (an enemy picking a target, a pickup deciding who may take it) asks `game.players.nearestAvatar` or `isAvatar`, which on a server see every connected player's avatar (see [Players](./headless#players)).
 
 ### Lifecycle methods
 

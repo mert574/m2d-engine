@@ -21,7 +21,8 @@ const SCENE = {
   prefabs: {
     floor: { actor: 'Platform', physics: { bodyType: 'static' } },
     hero: { actor: 'Player', physics: { bodyType: 'dynamic', lockRotation: true, frictionAir: 0.3 } },
-    thing: { actor: 'Platform', physics: { bodyType: 'static', isSensor: true } }
+    thing: { actor: 'Platform', physics: { bodyType: 'static', isSensor: true } },
+    bee: { actor: 'Bee', physics: { bodyType: 'dynamic', frictionAir: 0.05 } }
   },
   layers: [{ name: 'main', objects: [
     { id: 'floor', prefab: 'floor', x: 640, y: 700, width: 1280, height: 40 },
@@ -29,7 +30,8 @@ const SCENE = {
     { id: 'hero-b', prefab: 'hero', x: 900, y: 640, width: 32, height: 48 },
     { id: 'vendor', prefab: 'thing', x: 320, y: 600, width: 16, height: 16 }, // vendor near A
     { id: 'lantern-1', prefab: 'thing', x: 500, y: 600, width: 16, height: 16 }, // lantern
-    { id: 'lantern-2', prefab: 'thing', x: 520, y: 600, width: 16, height: 16 } // lantern
+    { id: 'lantern-2', prefab: 'thing', x: 520, y: 600, width: 16, height: 16 }, // lantern
+    { id: 'hunter', prefab: 'bee', x: 520, y: 500, width: 32, height: 32 } // a hunter, nearer A than B
   ] }]
 };
 
@@ -72,7 +74,7 @@ async function market() {
   game.setupCollisionHandlers();
   game.registerIntents(intents);
 
-  const [, heroA, heroB, vendor, lantern1, lantern2] = game.entities;
+  const [, heroA, heroB, vendor, lantern1, lantern2, bee] = game.entities;
   vendor.name = 'Vendor';
   lantern1.name = 'Lantern';
   lantern2.name = 'Lantern';
@@ -88,8 +90,10 @@ async function market() {
     player.setSnapshotSource(() => gate.take(game.time.steps));
     players[id] = { player, hero, gate, meter };
   }
-  return { game, players, vendor, lanterns: [lantern1, lantern2] };
+  return { game, players, vendor, lanterns: [lantern1, lantern2], bee };
 }
+
+const distance = (a, b) => Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y);
 
 const held = (tick, ...codes) => SCHEMA.encode(tick, InputSnapshot.from({ down: codes }));
 
@@ -147,12 +151,40 @@ describe('players', () => {
   it('network ids are stable across a re-entry and look up live entities', async () => {
     const { game, vendor, lanterns } = await market();
     const ids = [...game.entities].map((e) => e.netId);
-    expect(ids).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(ids).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(game.entityById(vendor.netId)).toBe(vendor);
     game.entities.delete(lanterns[0]);
     expect(game.entityById(lanterns[0].netId)).toBeNull();
     await game.sceneManager.switchTo('market');
     expect([...game.entities].map((e) => e.netId)).toEqual(ids);
+    game.destroy();
+  });
+});
+
+describe('the world sees every player', () => {
+  it('an enemy hunts the nearest avatar on a server, where game.player is null', async () => {
+    const { game, players, bee } = await market();
+    // A match removes the scene's solo player: every avatar belongs to someone.
+    game.player = null;
+    expect(game.players.avatars).toEqual([players.a.hero, players.b.hero]);
+    expect(game.players.nearestAvatar(bee.position)).toBe(players.a.hero);
+    expect(game.players.nearestAvatar(bee.position, 10)).toBeNull();
+    const before = distance(bee, players.a.hero);
+    game.step(60);
+    expect(distance(bee, players.a.hero)).toBeLessThan(before - 40);
+    game.destroy();
+  });
+
+  it('a dead avatar is nobody\'s quarry; with no avatars claimed, game.player is', async () => {
+    const { game, players, bee } = await market();
+    players.a.hero.dead = true;
+    expect(game.players.nearestAvatar(bee.position)).toBe(players.b.hero);
+    expect(game.players.isAvatar(players.a.hero)).toBe(false);
+    players.a.player.avatar = null;
+    players.b.player.avatar = null;
+    game.player = players.b.hero;
+    expect(game.players.avatars).toEqual([players.b.hero]);
+    expect(game.players.isAvatar(players.b.hero)).toBe(true);
     game.destroy();
   });
 });
@@ -257,6 +289,6 @@ describe('intents through players', () => {
     expect(await fingerprint()).toEqual(first);
     expect(first.a.gold).toBe(5);
     expect(first.b.results).toEqual([{ seq: 1, ok: false, reason: 'no-such-entity' }]);
-    expect(first.entities).toBe(5);
+    expect(first.entities).toBe(6);
   });
 });

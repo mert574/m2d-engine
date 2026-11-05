@@ -3,8 +3,10 @@ import { s } from '../core/schema.js';
 import { Vec2 } from '../core/math.js';
 
 /**
- * Enemy movement: chase the player while they are within range, otherwise
- * wander between random points near home. Movement pauses while the
+ * Enemy movement: chase the nearest player while one is within range,
+ * otherwise wander between random points near home. "The player" is any
+ * of `game.players.avatars`: alone that is `game.player`; on a server it
+ * is every connected player's avatar. Movement pauses while the
  * entity's `contactDamage` constraint reports it stunned, so a knockback
  * can play out instead of being immediately steered against.
  *
@@ -63,19 +65,21 @@ export class Chase extends Constraint {
     };
   }
 
-  #playerInRange() {
-    const player = this.entity.game.player;
-    if (!player) return false;
-    return Vec2.distance(this.entity.position, player.position) < this.detectionRange;
+  /** The avatar to hunt: the nearest one inside the detection range, or null. */
+  #quarry() {
+    const { entity } = this;
+    // Strictly inside the range, as the distance test always was.
+    const quarry = entity.game.players.nearestAvatar(entity.position, this.detectionRange);
+    return quarry && Vec2.distance(entity.position, quarry.position) < this.detectionRange ? quarry : null;
   }
 
   fixedUpdate(dt) {
     const { entity } = this;
-    if (!entity.game.player) return;
     if (entity.getConstraint('contactDamage')?.isStunned()) return;
 
-    if (this.#playerInRange()) {
-      const dir = Vec2.direction(entity.position, entity.game.player.position);
+    const quarry = this.#quarry();
+    if (quarry) {
+      const dir = Vec2.direction(entity.position, quarry.position);
       entity.body.setVelocity(Vec2.scale(Vec2.normalize(dir), this.speed));
       return;
     }
@@ -127,8 +131,9 @@ export class Chase extends Constraint {
       textAlign: 'left', textBaseline: 'top'
     });
 
-    if (this.#playerInRange()) {
-      const player = entity.game.player.renderPosition;
+    const quarry = this.#quarry();
+    if (quarry) {
+      const player = quarry.renderPosition;
       overlay.drawLine({
         x1: pos.x, y1: pos.y, x2: player.x, y2: player.y,
         strokeStyle: 'rgba(255, 107, 107, 0.4)', lineWidth: 1

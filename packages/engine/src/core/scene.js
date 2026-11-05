@@ -162,6 +162,10 @@ export class Scene {
     this.game.entities.clear();
     this.game.resetNetIds?.();
     this.game.trackedState?.clear();
+    // Listeners belong to the entities and the scene that registered them.
+    // Cleared before anything is built, so an entity's constructor and the
+    // scene's onShow can register straight away.
+    this.game.events?.clear();
     // A fresh world, not an emptied one: Rapier keeps freed handles and
     // broad-phase state across removals, and a level entered a second time
     // in a reused world steps differently in the last bits.

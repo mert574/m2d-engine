@@ -3,6 +3,7 @@ import { createPhysicsWorld } from '../../src/core/physics/index.js';
 import { RecordingRenderer } from './recordingRenderer.js';
 import { UIRenderer } from '../../src/core/renderers/uiRenderer.js';
 import { WorldOverlay } from '../../src/core/ui/worldOverlay.js';
+import { WorldEvents } from '../../src/core/events.js';
 import { Camera } from '../../src/core/camera.js';
 import { InputManager } from '../../src/core/input/index.js';
 import { viewToUI } from '../../src/core/viewport.js';
@@ -46,6 +47,11 @@ export function makeTestGame(options = {}) {
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 })
     },
     soundManager: { playSound() {}, stopMusic() {} },
+    entitiesById: new Map(),
+    entityById(id) {
+      const entity = this.entitiesById.get(id);
+      return entity && this.entities.has(entity) ? entity : null;
+    },
     paused: false,
     sceneManager: { switchTo() {} },
     // Camera centred on the view, so world (0..800, 0..600) is on screen and
@@ -78,6 +84,9 @@ export function makeTestGame(options = {}) {
   // on, it would switch the virtual cursor on and make every
   // synthesized position relative.
   game.input = new InputManager(game, { pointerLock: false });
+  // The real event bus, so a test sees what a game sees: simulation raises
+  // events, presentation hears them when they are delivered.
+  game.events = new WorldEvents(game);
   return game;
 }
 

@@ -43,9 +43,9 @@ export async function joinAs(env, player, { match = 'm1', held = () => [] } = {}
 }
 
 /** A raw socket, for saying things a well-behaved client never would. */
-export function rawSocket(url, { ticket, origin, query = '' } = {}) {
+export function rawSocket(url, { ticket, origin, query = '', deflate = false } = {}) {
   const target = ticket === undefined ? `${url}${query}` : `${url}?ticket=${encodeURIComponent(ticket)}${query}`;
-  const ws = new WebSocket(target, { origin, perMessageDeflate: false });
+  const ws = new WebSocket(target, { origin, perMessageDeflate: deflate });
   const messages = [];
   ws.on('message', (data) => messages.push(JSON.parse(data.toString())));
   const opened = new Promise((resolve, reject) => {

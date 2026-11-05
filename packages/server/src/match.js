@@ -24,6 +24,9 @@ import { InputSchema } from 'm2d-engine/net/input.js';
  * @param {number} [definition.sendEvery=2] - Ticks between state messages
  * @param {number} [definition.reconnectSeconds=10] - How long a dropped player's avatar waits for them
  * @param {number} [definition.maxEntities=5000] - A match that grows past this is ended
+ * @param {{radius: number}} [definition.interest] - Send each client only the
+ *   entities within `radius` of its avatar. Scenery, a player's own avatar and
+ *   anything `static alwaysRelevant` are always sent. Omitted sends the whole world
  */
 export function defineMatch(definition) {
   if (!definition || typeof definition !== 'object') throw new Error('m2d-server: defineMatch needs a definition object');
@@ -37,9 +40,16 @@ export function defineMatch(definition) {
     sendEvery: 2,
     reconnectSeconds: 10,
     maxEntities: 5000,
+    interest: null,
     leave: removeEntitiesOf,
     ...definition
   };
+  if (match.interest !== null) {
+    const radius = match.interest?.radius;
+    if (!Number.isFinite(radius) || radius <= 0) {
+      throw new Error('m2d-server: interest needs a positive radius, in world units');
+    }
+  }
   for (const key of ['maxPlayers', 'sendEvery', 'maxEntities']) {
     if (!Number.isInteger(match[key]) || match[key] < 1) throw new Error(`m2d-server: ${key} must be a whole number from 1 up`);
   }

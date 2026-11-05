@@ -97,6 +97,9 @@ player.avatar = hero;
 | `players.remove(id)` | Remove a player. Their entities keep their `playerId` and read empty input |
 | `players.get(id)`, `players.has(id)`, `players.all` | Look players up. `all` is sorted by id |
 | `players.turnOrder(tick)` | The order intents apply in on that tick: `all`, rotated so a different player goes first each tick |
+| `players.avatars` | Every player's living avatar, or `game.player` when no player has claimed one. What simulation code means by "the player" |
+| `players.nearestAvatar(position, range)` | The living avatar nearest a point within `range`, or null. Ties go to the lower player id |
+| `players.isAvatar(entity)` | Whether an entity is one of the `avatars` |
 | `player.id`, `player.local` | The id, and whether this is the player at the keyboard |
 | `player.snapshot` | This tick's input |
 | `player.setSnapshotSource(fn)` | Where a remote player's snapshots come from, called once per tick. The local player's source is `game.input` |
@@ -109,6 +112,33 @@ player.avatar = hero;
 | `player.on(name, handler)` | Listen for `notify` events. Presentation code. Returns a function that stops listening |
 
 Each tick, before anything updates, every player's snapshot is sampled and the intents filed for the tick are applied. An entity reads the owning player's snapshot through `entity.input`, so a player's input reaches only the entities that carry their id.
+
+Simulation code never reads `game.player` to find "the player". On a server it is null, and every avatar belongs to someone, so an enemy that hunted `game.player` would stand still. `Chase`, `Turret` and `Coin` ask `game.players.nearestAvatar` and `isAvatar` instead, which alone come to the same thing. `game.player` stays what the camera follows and the HUD reads: presentation.
+
+## World events
+
+Simulation decides that something happened; presentation decides what it looks and sounds like. On a server those are different processes: a flash or a sound written in `fixedUpdate` would be lost, and the clients that never ran the tick would have no way to know. Replicated state does not cover it either — two hits in one send interval look like one change to `currentHealth`, and a blocked hit or a footstep changes no state at all.
+
+So simulation raises them and presentation hears them:
+
+```javascript
+// Simulation, in a fixedUpdate or a collision handler:
+game.events.emit('damage', { id: entity.netId, amount, at: { x, y } });
+
+// Presentation, anywhere it is being drawn:
+game.events.on('damage', ({ id, amount }) => { /* a HUD, a camera shake */ });
+```
+
+| Member | Meaning |
+| --- | --- |
+| `events.emit(name, data)` | Raise one. Plain data; `id` names the entity it is about, `at` is where on the ground it happened. A client raises none of its own |
+| `events.on(name, handler)` | Listen for events that are not one entity's. Returns a function that stops listening |
+| `events.take()` | The events raised since the last take. The frame loop and the match host call it |
+| `events.dispatch(events)` | Deliver them. Called with the frame's own on a game alone, and with the server's on a client |
+
+An event that names an entity reaches that entity's `onWorldEvent(name, data)`, which offers it to each of its constraints — the path `onCollisionStart` takes. That is how `DamageFlash` flashes and `Footsteps` makes its sound without subscribing to anything, and it costs one lookup per event rather than a call to every entity in the world.
+
+Delivery is always **after** the tick that raised it, never inside it, so presentation cannot feed back into the simulation it is reacting to and a game behaves the same way alone and online. `Health` raises `damage`, `death` and `heal`; `Footsteps` raises `step` with the sound to play.
 
 ## Intents
 
@@ -170,7 +200,7 @@ A refusal from `run` or from a reference rule is a result, not a violation: an h
 
 To play a split game online, see [Multiplayer](./multiplayer).
 
-Cinder Keep's satchel and quartermaster are the shipped example: `examples/src/iso/keepIntents.js` declares `buy`, `sell`, `moveItem` and `use`, and `satchelUI.js` sends them from screens that block input without pausing.
+Cinder Keep's satchel and quartermaster are the worked example: `examples/src/iso/keepIntents.js` declares `buy`, `sell`, `moveItem` and `use`, and `satchelUI.js` sends them from screens that block input without pausing.
 
 ## The input gate
 

@@ -171,7 +171,7 @@ export class Wanderer extends ObliquePlayer {
     /** Effects the abilities leave behind, and the ward's remaining time. */
     this.effects = { flashes: [], wardLeft: 0 };
     this.addConstraint('swing', new AttackSwing(this, { color: '#ffe3b0', reach: 60 }));
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffb47a', radius: 30, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffb47a', radius: 30 }));
     this.addConstraint('abilities', groveAbilities(this, this.effects));
     this.addConstraint('footsteps', new Footsteps(this, { sounds: ['step1', 'step2', 'step3', 'step4'], stride: 34 }));
     this.onJump = () => this.game.soundManager.playSound('jump');

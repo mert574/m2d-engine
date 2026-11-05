@@ -85,6 +85,17 @@ export class Constraint {
     // Override in child classes
   }
 
+  /**
+   * An event the simulation raised about this constraint's entity, after
+   * the tick that raised it. Presentation: a flash, a sound, a burst. See
+   * core/events.js.
+   * @param {string} name
+   * @param {object} data
+   */
+  onWorldEvent(name, data) {
+    // Override in child classes
+  }
+
   onCollisionEnd(other) {
     // Override in child classes
   }

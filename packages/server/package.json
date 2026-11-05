@@ -1,6 +1,6 @@
 {
   "name": "m2d-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Authoritative multiplayer host for m2d-engine games: matches in workers, signed tickets, hardened WebSocket connections and state replication",
   "type": "module",
   "exports": {

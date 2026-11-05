@@ -11,7 +11,8 @@ export class Coin extends Entity {
 
   onCollisionStart(other) {
     super.onCollisionStart(other);
-    if (other.entity && other.entity === this.game.player) {
+    // Any player's avatar collects it: on a server there is one per player.
+    if (this.game.players.isAvatar(other.entity)) {
       // TODO: Add score/collection logic
       this.game.entities.delete(this);
       this.game.physics.remove(this.body);

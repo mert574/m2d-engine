@@ -103,7 +103,7 @@ export class Ship extends Entity {
       onDamage: () => { this.shieldFlash = 0.35; this.game.soundManager.playSound('hit'); },
       onDeath: () => { this.game.soundManager.playSound('lose'); this.game.gameOver(); }
     }));
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#9fe0ff', radius: 50, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#9fe0ff', radius: 50 }));
     // The HUD carries the hull; a bar beside a sprite turns into a stick
     // under a rotating camera.
     this.getConstraint('health').draw = () => {};
@@ -283,7 +283,7 @@ export class Drone extends Entity {
       onDamage: () => { this.hurt = 0.15; },
       onDeath: () => { this.game.soundManager.playSound('zap'); this.onDestroyed?.(this); this.game.entities.delete(this); this.game.physics.remove(this.body); }
     }));
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ff9a7a', radius: 44, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ff9a7a', radius: 44 }));
     this.getConstraint('health').draw = () => {};
     this.onDestroyed = null;
   }

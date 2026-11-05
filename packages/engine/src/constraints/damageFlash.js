@@ -2,10 +2,12 @@ import { Constraint } from '../core/constraint.js';
 import { s } from '../core/schema.js';
 
 /**
- * Tints an entity for a moment after it is hit. Call `flash()` from a
- * `Health` `onDamage` handler:
+ * Tints an entity for a moment after it is hit.
  *
- *   health.onDamage = () => this.getConstraint('damageFlash').flash();
+ * It flashes by itself: `Health` raises a `damage` world event, which
+ * reaches this constraint wherever the entity is being drawn, so a hit the
+ * server simulated flashes on every client that can see it. `flash()` is
+ * still there for a game that wants to tint for a reason of its own.
  *
  * This is the plainest possible hit read; a game that wants a burst, a
  * ring or a shake draws it with a constraint of its own (see the demos'
@@ -30,6 +32,11 @@ export class DamageFlash extends Constraint {
 
   flash() {
     this.timeLeft = this.duration;
+  }
+
+  /** A hit, wherever it was simulated. See core/events.js. */
+  onWorldEvent(name) {
+    if (name === 'damage') this.flash();
   }
 
   // Presentation: the flash is drawn, never consulted by the simulation, so

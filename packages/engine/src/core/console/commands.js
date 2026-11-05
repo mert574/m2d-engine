@@ -176,6 +176,37 @@ export function registerBuiltins(commands, game) {
     }
   });
 
+  commands.register('net', {
+    description: 'The connection: who, how fast, how far behind and how often corrected',
+    usage: 'net',
+    run(args, io) {
+      const net = game.net;
+      if (!net) {
+        io.print('not connected. A game plays online by connecting with NetClient.connect; see docs/guide/multiplayer');
+        return;
+      }
+      const stats = net.stats;
+      const view = net.view;
+      const predictor = net.predictor;
+      const kb = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
+      io.print(`player      ${net.you}`);
+      io.print(`state       ${net.closed ? `closed (${net.closed.code} ${net.closed.reason || ''})` : net.open ? 'open' : 'closing'}`);
+      io.print(`tick        server ${net.serverTick} · ${net.tickRate} Hz · state every ${net.sendEvery} tick(s)`);
+      io.print(`rtt         ${Math.round(net.rtt)} ms`);
+      io.print(`lead        ${net.lead} ticks · input arrived ${net.gate.margin ?? '—'} ticks early`);
+      io.print(`gate        ${net.gate.late} late · ${net.gate.missed} missed · ${net.gate.early} early`);
+      io.print(`drawing     ${view ? `${view.delay} ticks behind (${view.extraDelay} extra) · render tick ${view.renderTick === null ? '—' : view.renderTick.toFixed(1)}` : '—'}`);
+      io.print(`tracks      ${view ? view.tracks.size : 0} entities interpolated`);
+      io.print(`prediction  ${predictor ? (predictor.entity ? `on, entity #${predictor.entity.netId}` : 'on, nothing to predict') : 'off'}`);
+      if (predictor) {
+        io.print(`corrections ${predictor.corrections} · last ${predictor.lastError.toFixed(2)} px · history ${predictor.history.size} ticks`);
+      }
+      io.print(`traffic     in ${kb(stats.bytesIn)} (${(stats.inRate / 1024).toFixed(1)} KB/s) · out ${kb(stats.bytesOut)} (${(stats.outRate / 1024).toFixed(1)} KB/s)`);
+      io.print(`messages    ${stats.messagesIn} in · ${stats.messagesOut} out · ${stats.hidden} hidden by interest`);
+      void args;
+    }
+  });
+
   commands.register('find', {
     description: 'Search commands and cvars by name or description',
     usage: 'find <text>',

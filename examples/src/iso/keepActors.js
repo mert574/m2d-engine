@@ -224,7 +224,7 @@ export class Creature extends Ghost {
     this.contact = this.constraints.get('contactDamage');
     this.contact.damage = 18;
     this.contact.knockbackStrength = 260;
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd0a0', radius: 36, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd0a0', radius: 36 }));
   }
 
   update(deltaTime) {
@@ -261,6 +261,8 @@ export class Creature extends Ghost {
 export class Knight extends ObliquePlayer {
   /** Its ability effects and pose hold, for a client to draw. */
   static replicated = ['effects', 'swingHold'];
+  /** Clicking to walk is movement too, so a client runs it early as well. */
+  static predictedConstraints = ['walk'];
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
@@ -273,7 +275,7 @@ export class Knight extends ObliquePlayer {
       onMove: (dx, dy) => { this.heading = Math.atan2(dy, dx); }
     }));
     this.addConstraint('swing', new AttackSwing(this, { color: '#ffe3b0', reach: 70 }));
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffb47a', radius: 34, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffb47a', radius: 34 }));
     this.addConstraint('footsteps', new Footsteps(this, { sounds: ['step1', 'step2', 'step3', 'step4'], stride: 36 }));
     /** Effects the abilities leave behind, and their remaining times. */
     this.effects = { flashes: [], dashLeft: 0, shieldLeft: 0 };

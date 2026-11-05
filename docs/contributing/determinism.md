@@ -2,7 +2,7 @@
 
 The simulation is a function of three inputs: its fixed ticks, the input snapshot each tick reads, and the seed. Nothing else. Run the same scene with the same inputs and the same seed and every body ends in a bit-identical place, whether the display drew 30, 60 or 144 frames along the way. `packages/engine/test/determinism.test.js` pins this and must keep passing.
 
-This is not pedantry. It is what makes Night Circuit's replay and ghost a few kilobytes of input instead of a video, what makes a restarted level play the same, and it is the prerequisite for networking: a server-authoritative model, lockstep and rollback all assume that the same ticks produce the same world everywhere. Every nondeterminism shipped now is a desync bug waiting in that future.
+This is not pedantry. It is what makes Night Circuit's replay and ghost a few kilobytes of input instead of a video, what makes a restarted level play the same, and it is the prerequisite for networking: a server-authoritative model, lockstep and rollback all assume that the same ticks produce the same world everywhere. Every nondeterminism left in now is a desync bug waiting in that future.
 
 ## The contract
 
@@ -22,6 +22,8 @@ It may never read:
 - **Frame events.** Anything computed in `update(deltaTime)`, `onUpdate`, `draw` or a UI handler. Those run per frame and are presentation only; a frame hook that wants to change the world sets a flag the next `fixedUpdate` acts on, or routes through input.
 
 The inverse also holds: presentation never writes simulation state. `update(deltaTime)` may spin a sprite's visual flourish, not nudge a body.
+
+Simulation code that wants something *shown* — a hit flash, a footstep, a spark — raises a [world event](../guide/headless#world-events) rather than drawing or playing it. Events are queued during the tick and delivered after it, so the tick stays a function of its inputs, and the same code works on a server with nothing to draw with.
 
 Pointer events and UI handlers count as presentation. A handler that wants to change the world queues the change for the next tick, as the physics playground does with its spawns, flings and gravity. A UI component whose state decides what the simulation does takes a game-time clock: `UIDialogue` with `clock: () => game.time.elapsed` types on game time, so whether a press finishes a line or closes the conversation does not depend on the frame rate.
 

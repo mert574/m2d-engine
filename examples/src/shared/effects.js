@@ -92,15 +92,17 @@ export class AttackSwing extends Constraint {
 
 /**
  * A burst where an entity was hit: a flash over it that fades fast, and a
- * ring that leaves it. Call `flash()` from a `Health` `onDamage` handler,
- * or pass `hook: true` to wrap the entity's existing handler.
+ * ring that leaves it.
+ *
+ * It bursts by itself, on the `damage` world event `Health` raises, so a
+ * hit the server simulated bursts on every client watching it. `flash()`
+ * is there for a game that wants one for a reason of its own.
  *
  * @param {import('m2d-engine/core/entity.js').Entity} entity
  * @param {Object} [options]
  * @param {string} [options.color='#fff3e6'] - Flash and ring colour
  * @param {number} [options.duration=0.3] - Seconds the burst is visible
  * @param {number} [options.radius] - Ring reach; defaults to the entity's size
- * @param {boolean} [options.hook=false] - Wrap the Health constraint's `onDamage`
  */
 export class HitBurst extends Constraint {
   constructor(entity, options = {}) {
@@ -109,19 +111,15 @@ export class HitBurst extends Constraint {
     this.duration = options.duration ?? 0.3;
     this.radius = options.radius ?? null;
     this.timeLeft = 0;
-
-    if (options.hook) {
-      const health = entity.constraints.get('health');
-      const onDamage = health.onDamage;
-      health.onDamage = (amount) => {
-        onDamage?.(amount);
-        this.flash();
-      };
-    }
   }
 
   flash() {
     this.timeLeft = this.duration;
+  }
+
+  /** A hit, wherever it was simulated. See core/events.js. */
+  onWorldEvent(name) {
+    if (name === 'damage') this.flash();
   }
 
   update(deltaTime) {

@@ -214,6 +214,55 @@ export class Players {
     return [...this.map.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   }
 
+  /**
+   * The bodies the world should treat as "a player": every player's living
+   * avatar, or `game.player` when no player has claimed one (a scene that
+   * never set `players.local.avatar`). Simulation code that used to read
+   * `game.player` reads this instead, so an enemy on a server, where
+   * `game.player` is null and every knight belongs to someone, still has
+   * someone to hunt.
+   * @returns {import('./entity.js').Entity[]}
+   */
+  get avatars() {
+    const game = this.game;
+    const out = [];
+    let claimed = false;
+    for (const player of this.map.values()) {
+      const avatar = player.avatar;
+      if (!avatar) continue;
+      claimed = true;
+      if (!avatar.dead && game.entities.has(avatar)) out.push(avatar);
+    }
+    if (!claimed && game.player && !game.player.dead && game.entities.has(game.player)) out.push(game.player);
+    return out;
+  }
+
+  /** Whether an entity is one of the `avatars`. */
+  isAvatar(entity) {
+    return !!entity && this.avatars.includes(entity);
+  }
+
+  /**
+   * The living avatar nearest a point, within `range`, or null. Ties go to
+   * the player with the lower id, so a server and a replay agree.
+   * @param {{x: number, y: number}} position
+   * @param {number} [range=Infinity]
+   */
+  nearestAvatar(position, range = Infinity) {
+    let best = null;
+    let bestDistance = range;
+    for (const avatar of this.avatars) {
+      const distance = Math.hypot(avatar.position.x - position.x, avatar.position.y - position.y);
+      const closer = distance < bestDistance
+        || (distance === bestDistance && best && String(avatar.playerId) < String(best.playerId));
+      if (closer) {
+        best = avatar;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
   /** Install the game's intents. Every current and future player gets a queue. */
   useIntents(intentSet) {
     this.intentSet = intentSet;

@@ -124,6 +124,13 @@ export class RapierBody extends RapierBodyMaterial {
     /** Set by `setNextPosition`; consumed by the world's next step. */
     this.hasTarget = false;
 
+    /**
+     * A drawn transform supplied from outside, in place of interpolating
+     * between solver steps: `{ x, y, angle }`, or null. A replica's
+     * interpolator writes it; nothing else does. See net/interpolation.js.
+     * @type {{x: number, y: number, angle: number}|null}
+     */
+    this.renderOverride = null;
     /** Interpolation baseline; see `renderPosition`. */
     this.previous = { x: spec.x, y: spec.y, angle: spec.angle ?? 0 };
 
@@ -243,6 +250,12 @@ export class RapierBody extends RapierBodyMaterial {
   }
 
   get renderPosition() {
+    // A replica draws a world it never steps: its transforms come from the
+    // server, interpolated between states rather than between solver steps.
+    // See net/interpolation.js.
+    const override = this.renderOverride;
+    if (override) return { x: override.x, y: override.y };
+
     const alpha = this.world?.interpolation ?? 1;
     const current = this.position;
     if (alpha >= 1) return current;
@@ -255,8 +268,9 @@ export class RapierBody extends RapierBodyMaterial {
 
   get renderBounds() {
     const bounds = this.bounds;
+    const override = this.renderOverride;
     const alpha = this.world?.interpolation ?? 1;
-    if (alpha >= 1) return bounds;
+    if (!override && alpha >= 1) return bounds;
 
     const current = this.position;
     const drawn = this.renderPosition;
@@ -269,6 +283,9 @@ export class RapierBody extends RapierBodyMaterial {
   }
 
   get renderAngle() {
+    const override = this.renderOverride;
+    if (override) return override.angle;
+
     const alpha = this.world?.interpolation ?? 1;
     if (alpha >= 1) return this.angle;
 
@@ -812,6 +829,26 @@ export class RapierPhysicsWorld extends PhysicsWorldBase {
       const t = body.rigidBody.translation();
       body.rigidBody.setNextKinematicTranslation({ x: t.x + v.x * dt, y: t.y + v.y * dt });
     }
+  }
+
+  /**
+   * Advance one character body as a tick would, without stepping the world.
+   * See `PhysicsWorldBase.advanceBody`.
+   */
+  advanceBody(body, dt) {
+    if (body.bodyType !== 'character' || !body.controller || !body.rigidBody) return false;
+    // The same computation the tick runs, against the same colliders.
+    this.#driveCharacter(body, dt);
+    // `#driveCharacter` queues the move as the next kinematic translation,
+    // which only a world step would commit. Nothing is going to step, so
+    // commit it here; for a character body the two are the same move.
+    const next = body.rigidBody.nextTranslation();
+    body.rigidBody.setTranslation({ x: next.x, y: next.y }, true);
+    body.rigidBody.setNextKinematicTranslation({ x: next.x, y: next.y });
+    // The broad phase has not seen this move: queries fall back to the
+    // direct pass until the next step reindexes it.
+    this.unindex(body);
+    return true;
   }
 
   stepOnce(dt) {

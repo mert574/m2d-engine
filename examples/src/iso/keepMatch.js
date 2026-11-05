@@ -17,6 +17,10 @@ export default defineMatch({
   input: KEEP_INPUT,
   game: KEEP_GAME,
   maxPlayers: 4,
+  // Knights see the creatures and each other a room or two away. The keep
+  // itself — walls, torches, embers, the stair, the quartermaster — stands
+  // still and is sent once, so only the movers are filtered.
+  interest: { radius: 1400 },
 
   async setup(game) {
     registerKeep(game);

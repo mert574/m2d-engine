@@ -16,7 +16,7 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { InputGate, ViolationMeter } from 'm2d-engine/net/input.js';
 import { IntentQueue } from 'm2d-engine/net/intents.js';
-import { Replicator } from 'm2d-engine/net/replication.js';
+import { Replicator, StateFrame } from 'm2d-engine/net/replication.js';
 import { CLOSE } from './protocol.js';
 
 const post = (message) => parentPort.postMessage(message);
@@ -44,15 +44,33 @@ function sceneName() {
 }
 
 function welcome(seat) {
-  seat.replicator = new Replicator(game, seat.player);
+  seat.replicator = new Replicator(game, seat.player, { interest: match.interest });
   post({
     type: 'welcome',
     pid: seat.player.id,
     message: {
       t: 'welcome', you: seat.player.id, tick: game.time.steps, tickRate,
+      sendEvery: match.sendEvery,
       scene: sceneName(), signature: game.sceneSignature, full: seat.replicator.full()
     }
   });
+}
+
+/**
+ * How the gate has been finding a player's input since the last state
+ * message: `[missed, late, early, margin]`, where `margin` is how many
+ * ticks early the earliest message beat the tick it was for. The client
+ * steers how far ahead it sends by it. Sent only when there is something to
+ * say. See `NetClient.#steerLead`.
+ */
+function gateReport(seat) {
+  const counts = seat.gate.counts;
+  const now = { missed: seat.gate.missed, late: counts.late, early: counts.early };
+  const was = seat.reported;
+  const margin = seat.gate.readMargin();
+  const delta = [now.missed - was.missed, now.late - was.late, now.early - was.early, margin];
+  seat.reported = now;
+  return margin !== null || delta.slice(0, 3).some((value) => value !== 0) ? delta : null;
 }
 
 /** A fresh gate and intent queue for a (re)connected player, on the meter they already have. */
@@ -68,6 +86,7 @@ function connect(seat) {
   }
   seat.connected = true;
   seat.leaveAt = null;
+  seat.reported = { missed: 0, late: 0, early: 0 };
   welcome(seat);
 }
 
@@ -83,7 +102,7 @@ function join(pid) {
   }
   const meter = new ViolationMeter();
   const player = game.players.add(pid, { meter });
-  const fresh = { player, meter, gate: null, replicator: null, connected: false, leaveAt: null };
+  const fresh = { player, meter, gate: null, replicator: null, connected: false, leaveAt: null, reported: { missed: 0, late: 0, early: 0 } };
   seats.set(pid, fresh);
   match.join(game, player);
   connect(fresh);
@@ -148,9 +167,17 @@ function tick() {
     if (!seat.connected && seat.leaveAt !== null && tickNo >= seat.leaveAt) remove(seat.player.id);
   }
   if (tickNo % match.sendEvery === 0) {
+    // Taken once: every client is served from the same list, each keeping
+    // the events its player can see. The tick's entity state is shared the
+    // same way — it is the same state whoever is being told.
+    const worldEvents = game.events.take();
+    const frame = new StateFrame();
     for (const seat of seats.values()) {
       if (!seat.connected) continue;
-      post({ type: 'send', pid: seat.player.id, message: { t: 'state', ...seat.replicator.delta() } });
+      const message = { t: 'state', ...seat.replicator.delta(worldEvents, frame) };
+      const report = gateReport(seat);
+      if (report) message.g = report;
+      post({ type: 'send', pid: seat.player.id, message });
     }
   }
   // Four times a second: the watchdog's silence limit has to be longer than this.

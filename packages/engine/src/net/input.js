@@ -35,6 +35,11 @@
  * | Outcome | When | Counts as a violation |
  * | --- | --- | --- |
  * | `shape` | Not a plain object with exactly the expected fields | Yes |
+ *
+ * The gate also measures `margin`: how far ahead of its tick the earliest
+ * message arrived. A client steers what it sends by it, so how far ahead to
+ * send is measured rather than guessed from a round trip.
+ *
  * | `tick` | Not a whole number from 1 up | Yes |
  * | `held` | Not a whole number inside the key list's mask | Yes |
  * | `pointer` | Missing, extra, non-finite, out of bounds or bad buttons | Yes |
@@ -287,6 +292,15 @@ export class InputGate {
     this.counts = { shape: 0, tick: 0, held: 0, pointer: 0, conflict: 0, duplicate: 0, late: 0, early: 0 };
     /** Ticks taken with no message for them. */
     this.missed = 0;
+    /**
+     * The smallest number of ticks by which a message has beaten the tick
+     * it is for, since `readMargin`. 0 means one arrived just in time and a
+     * negative number means too late to be used. This is what tells a
+     * client whether it is sending far enough ahead — a measurement, where
+     * a round-trip estimate is a guess. Null when nothing has arrived.
+     * @type {number|null}
+     */
+    this.margin = null;
 
     this.#held = 0;
     this.#pointer = schema.pointer ? { x: 0, y: 0, buttons: 0 } : null;
@@ -310,7 +324,10 @@ export class InputGate {
     if (!decoded.ok) return this.#refuse(decoded.reason, decoded.detail);
     const input = decoded.value;
 
-    if (input.tick <= this.taken) return this.#refuse('late', `tick ${input.tick} was already simulated`);
+    if (input.tick <= this.taken) {
+      this.#observe(input.tick - this.taken - 1);
+      return this.#refuse('late', `tick ${input.tick} was already simulated`);
+    }
     if (input.tick > this.taken + this.maxAhead) {
       return this.#refuse('early', `tick ${input.tick} is more than ${this.maxAhead} ticks ahead`);
     }
@@ -320,7 +337,21 @@ export class InputGate {
       return this.#refuse('conflict', `tick ${input.tick} was already filed with different input`);
     }
     this.pending.set(input.tick, input);
+    // How far ahead of its tick this arrived. `taken` is the last tick
+    // simulated, so a message for `taken + 1` arrived with none to spare.
+    this.#observe(input.tick - this.taken - 1);
     return { accepted: true, reason: null };
+  }
+
+  #observe(margin) {
+    if (this.margin === null || margin < this.margin) this.margin = margin;
+  }
+
+  /** Take the margin since the last read, and start measuring again. */
+  readMargin() {
+    const margin = this.margin;
+    this.margin = null;
+    return margin;
   }
 
   /**

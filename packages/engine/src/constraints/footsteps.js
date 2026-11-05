@@ -13,7 +13,9 @@ import { s } from '../core/schema.js';
  *
  * Simulation, not presentation: the stride is integrated in `fixedUpdate`
  * from the body's velocity, so the same walk always produces the same
- * steps; only the sound played is a side effect.
+ * steps. The sound is not played there but raised as a `step` world event,
+ * so a knight the server walks is heard by the clients watching it rather
+ * than by a server with no speakers.
  *
  * @param {Object} options
  * @param {string[]} options.sounds - Sound keys loaded with the engine's `sounds` option
@@ -43,13 +45,24 @@ export class Footsteps extends Constraint {
     this.wasAirborne = false;
   }
 
-  /** Play the next step now. */
+  /** Take the next step now: the simulation's half of it. */
   step() {
+    const entity = this.entity;
     if (this.sounds.length) {
-      this.entity.game.soundManager.playSound(this.sounds[this.index % this.sounds.length]);
+      const { x, y } = entity.position;
+      entity.game.events?.emit('step', {
+        id: entity.netId,
+        sound: this.sounds[this.index % this.sounds.length],
+        at: { x: Math.round(x), y: Math.round(y) }
+      });
     }
     this.onStep?.(this.index);
     this.index = (this.index + 1) % Math.max(1, this.sounds.length);
+  }
+
+  /** The sound, wherever the step was taken. */
+  onWorldEvent(name, data) {
+    if (name === 'step' && data.sound) this.entity.game.soundManager.playSound(data.sound);
   }
 
   get #grounded() {

@@ -180,6 +180,25 @@ export class PhysicsWorldBase {
   // contract lists:
 
   /** Run the solver for `dt` seconds. @abstract @param {number} dt */
+  /**
+   * Advance one body as a tick would, without stepping the world.
+   *
+   * For a client predicting its own avatar (see net/prediction.js): the
+   * rest of the world is the server's and must not move, so the whole
+   * solver cannot run. Only a body whose motion is entirely its own —
+   * a character body, moved by its controller against the colliders around
+   * it rather than by the solver — can be advanced alone, and the result is
+   * the same one the server's tick produces from the same velocity.
+   *
+   * @param {object} body
+   * @param {number} dt - Seconds; the tick's fixed timestep.
+   * @returns {boolean} Whether the body was advanced. False means this body
+   *   cannot be advanced on its own and must be drawn from the server.
+   */
+  advanceBody(body, dt) {
+    return false;
+  }
+
   stepOnce(dt) {
     throw new Error('PhysicsWorld must implement stepOnce()');
   }

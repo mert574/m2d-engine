@@ -55,7 +55,7 @@ export class EmberPlayer extends Player {
     // The swing is the ember's own light thrown forward; a hit on the
     // lantern bursts the same colour.
     this.addConstraint('swing', new AttackSwing(this, { color: '#ffc98a' }));
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd9a0', radius: 40, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd9a0', radius: 40 }));
   }
 
   draw(deltaTime) {
@@ -635,7 +635,7 @@ export class DuskBee extends Bee {
     // the burst below replaces it and the sprite flashes pale instead.
     this.flash = this.constraints.get('damageFlash');
     this.constraints.delete('damageFlash');
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd2a8', radius: 30, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd2a8', radius: 30 }));
   }
 
   update(deltaTime) {

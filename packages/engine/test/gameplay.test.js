@@ -196,17 +196,49 @@ describe('Footsteps', () => {
     const played = [];
     game.soundManager = { playSound: (k) => played.push(k) };
     const entity = new Entity(makeBody(game, 0, 0, 16, 16, { bodyType: 'static' }), null, game);
+    entity.netId = 1;
+    game.entities.add(entity);
+    game.entitiesById.set(1, entity);
     entity.isAirborne = false;
     Object.defineProperty(entity, 'velocity', { value: { x: 100, y: 0 } });
     const steps = new Footsteps(entity, { sounds: ['l', 'r'], stride: 50 });
+    entity.addConstraint('footsteps', steps);
+    // A step is raised in the tick and heard when the event is delivered,
+    // which is what lets a server's footsteps reach a client. See
+    // core/events.js.
+    const hear = () => game.events.dispatch(game.events.take());
     for (let i = 0; i < 61; i++) steps.fixedUpdate(1 / 60); // just past 100 units
+    hear();
     expect(played).toEqual(['l', 'r']);
     entity.isAirborne = true;
     for (let i = 0; i < 60; i++) steps.fixedUpdate(1 / 60);
+    hear();
     expect(played).toHaveLength(2);
     entity.isAirborne = false;
     steps.fixedUpdate(1 / 60); // landing
+    hear();
     expect(played).toHaveLength(3);
+  });
+
+  it('a step the server took is heard by a client watching the walker', () => {
+    const game = makeTestGame();
+    const played = [];
+    game.soundManager = { playSound: (k) => played.push(k) };
+    const entity = new Entity(makeBody(game, 0, 0, 16, 16, { bodyType: 'static' }), null, game);
+    entity.netId = 7;
+    game.entities.add(entity);
+    game.entitiesById.set(7, entity);
+    entity.isAirborne = false;
+    Object.defineProperty(entity, 'velocity', { value: { x: 100, y: 0 } });
+    const steps = new Footsteps(entity, { sounds: ['l', 'r'], stride: 50 });
+    entity.addConstraint('footsteps', steps);
+    for (let i = 0; i < 61; i++) steps.fixedUpdate(1 / 60);
+    const raised = game.events.take();
+    expect(raised.map(([name]) => name)).toEqual(['step', 'step']);
+    expect(played).toEqual([]); // nothing plays inside the tick
+    // The same list a server would send, arriving at a client.
+    game.events.dispatch(raised);
+    expect(played).toEqual(['l', 'r']);
   });
 });
 

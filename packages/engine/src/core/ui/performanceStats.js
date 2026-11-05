@@ -28,6 +28,22 @@ import { UIElement } from './uiElement.js';
 const FPS_GOOD = 55;
 const FPS_FAIR = 30;
 
+/**
+ * Rows added when the game is a client, below the renderer's. The
+ * connection's health is the other half of "why does this not feel right",
+ * and reading it off the console while playing is not the same as seeing it
+ * move. Each reads from `game.net`.
+ */
+const NET_ROWS = [
+  ['ping', (net) => `${Math.round(net.rtt)} ms`],
+  ['lead', (net) => `${net.lead}`],
+  ['margin', (net) => `${net.gate.margin ?? '—'}`],
+  ['behind', (net) => `${net.view ? net.view.delay : 0}t`],
+  ['in', (net) => `${(net.stats.inRate / 1024).toFixed(1)}k`],
+  ['out', (net) => `${(net.stats.outRate / 1024).toFixed(1)}k`],
+  ['fixes', (net) => `${net.predictor?.corrections ?? 0}`]
+];
+
 /** Rows shown when expanded: label, and how to read it off the stats. */
 const DETAIL_ROWS = [
   ['primitives', (s) => s.primitives],
@@ -79,15 +95,20 @@ export class PerformanceStats extends UIElement {
     return this.expanded;
   }
 
-  /** Height the panel needs at the current size. */
+  /** Whether there is a connection to report on. */
+  get #net() {
+    return this.game?.net ?? null;
+  }
+
   /** The rows for the renderer in use: a 3D renderer counts differently. */
   get rows() {
     return this.game?.renderer?.dimensions === 3 ? DETAIL_ROWS_3D : DETAIL_ROWS;
   }
 
+  /** Height the panel needs at the current size. */
   get panelHeight() {
     if (!this.expanded) return 24;
-    const rows = 1 + this.rows.length;
+    const rows = 1 + this.rows.length + (this.#net ? NET_ROWS.length + 1 : 0);
     return 10 + rows * this.lineHeight + (this.graph ? this.graphHeight + 8 : 0) + 6;
   }
 
@@ -127,6 +148,22 @@ export class PerformanceStats extends UIElement {
     for (const [label, read] of this.rows) {
       this.#row(left, y, label, format(read(stats)), '$color.debug.value');
       y += this.lineHeight;
+    }
+
+    const net = this.#net;
+    if (net) {
+      this.#value(left, y, 'net', '$color.debug.label', 'left');
+      y += this.lineHeight;
+      for (const [label, read] of NET_ROWS) {
+        let value = '—';
+        try {
+          value = read(net);
+        } catch {
+          // A connection that has just gone is not worth a broken frame.
+        }
+        this.#row(left, y, label, value, '$color.debug.value');
+        y += this.lineHeight;
+      }
     }
 
     if (this.graph) this.#drawGraph(left, y + 4, frame.width - 20, this.graphHeight);

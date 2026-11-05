@@ -94,7 +94,8 @@ async function pair() {
   return { server, client, net, socket, pump, ann, avatar, gate };
 }
 
-const transformOf = (entity) => [entity.position.x, entity.position.y].map((v) => Math.round(v * 100) / 100);
+// To the tenth of a pixel the wire carries; see net/replication.js.
+const transformOf = (entity) => [entity.position.x, entity.position.y].map((v) => Math.round(v * 10) / 10);
 
 describe('replication', () => {
   it('collects replicated fields along the class chain', () => {

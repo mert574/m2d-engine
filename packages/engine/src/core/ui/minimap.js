@@ -90,9 +90,14 @@ export class UIMinimap extends UIElement {
         closed: true, fillStyle: '#ffffff'
       });
     }
+    // The view, on the ground. The camera lives on the render plane, so
+    // under a projection its rectangle is a quadrilateral on the map.
     const area = this.game.camera.getVisibleArea();
-    const a = this.map(area.left, area.top);
-    paint.drawRect({ x: a.x, y: a.y, width: (area.right - area.left) * sx, height: (area.bottom - area.top) * sy, strokeStyle: 'rgba(255, 255, 255, 0.35)', lineWidth: 1 });
+    const projection = this.game.projection;
+    const view = [[area.left, area.top], [area.right, area.top], [area.right, area.bottom], [area.left, area.bottom]]
+      .map(([x, y]) => (projection ? projection.toWorld(x, y) : { x, y }))
+      .map((p) => this.map(p.x, p.y));
+    paint.drawPath({ points: view, closed: true, strokeStyle: 'rgba(255, 255, 255, 0.35)', lineWidth: 1 });
     paint.popClip();
   }
 }

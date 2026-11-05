@@ -120,7 +120,7 @@ export class SpecterGhost extends Ghost {
     this.drift = makeRng(seedFrom(body.position))() * Math.PI * 2;
     this.wisp = 0;
     this.constraints.delete('damageFlash');
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#e8f0ff', radius: 34, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#e8f0ff', radius: 34 }));
   }
 
   draw(deltaTime) {
@@ -518,7 +518,7 @@ export class ScannerAgent extends TopDownPlayer {
     /** 1 on a hit, decaying to 0: drives the feed's glitch in the backdrop. */
     this.hurt = 0;
     this.addConstraint('swing', new AttackSwing(this, { color: '#ffe6c4' }));
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd9a0', radius: 34, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd9a0', radius: 34 }));
     const health = this.constraints.get('health');
     const onDamage = health.onDamage;
     health.onDamage = (amount) => {

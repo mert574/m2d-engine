@@ -93,10 +93,18 @@ export class Entity {
      * Simulation state — set it in `fixedUpdate`, where a hit test can ask
      * "is this thing in the air" — but one the physics body never sees: the
      * collider stays on the ground and only the drawn sprite rises. Drawing
-     * reads `renderElevation`, blended between ticks like the position.
+     * reads `renderElevation`, blended between ticks like the position (and
+     * on a replica taken from the server, which runs the ticks).
      */
     this.elevation = 0;
     this._previousElevation = 0;
+    /**
+     * `renderElevation` supplied from outside, for a replica drawing the
+     * server's states instead of blending its own ticks, or null. See
+     * net/interpolation.js.
+     * @type {number|null}
+     */
+    this.renderElevationOverride = null;
 
     /**
      * The drawn frame when it is not the collider. `createEntity` sets
@@ -172,6 +180,20 @@ export class Entity {
     }
     this.constraints.clear();
     this.dead = true;
+  }
+
+  /**
+   * Something the simulation says happened to this entity: a hit, a death,
+   * a step. Presentation — it runs after the tick that raised it, and on a
+   * client for an event the server raised. Offered to each constraint, the
+   * way a collision is. See core/events.js.
+   * @param {string} name
+   * @param {object} data
+   */
+  onWorldEvent(name, data) {
+    for (const constraint of this.constraints.values()) {
+      constraint.onWorldEvent?.(name, data);
+    }
   }
 
   onCollisionStart(other) {
@@ -327,9 +349,18 @@ export class Entity {
    * rises as smoothly as the body moves. See PhysicsBody.renderPosition.
    */
   get renderElevation() {
+    if (this.renderElevationOverride !== null) return this.renderElevationOverride;
     const current = this.elevation;
     const previous = this._previousElevation;
     if (current === previous) return current;
+    // A replica runs no ticks of its own, so `_previousElevation` — taken at
+    // the top of `fixedUpdate` — is never written and stays at whatever the
+    // constructor set. Blending from it would draw an entity with a standing
+    // elevation (a hovering pickup) somewhere between the ground and its real
+    // height, moving with the accumulator: a shake every frame. What the
+    // server last said is simply where it is; anything finer comes from the
+    // interpolator as an override.
+    if (this.game.replica) return current;
     const alpha = this.game.physics?.interpolation ?? 1;
     if (alpha >= 1) return current;
     return previous + (current - previous) * alpha;

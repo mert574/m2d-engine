@@ -8,8 +8,13 @@
  * 2. The `Origin`, when there is one, must be on the allow list.
  * 3. The ticket is verified (signature, expiry, single use) before the
  *    upgrade completes; a bad one never becomes a WebSocket.
- * 4. Frames are capped in size by the WebSocket layer, compression is off
- *    (no inflation bombs), and binary frames are refused.
+ * 4. Frames are capped in size by the WebSocket layer and binary frames are
+ *    refused. Compression is on, which is safe here because `maxPayload` is
+ *    enforced against the *decompressed* size, so a small frame that
+ *    inflates enormously is rejected at the same 4 KB as any other; and
+ *    because the contexts are not carried over between messages, so a
+ *    connection costs a zlib window per message rather than one held open
+ *    for its lifetime. Turn it off with `compress: false`.
  * 5. Each connection has a message rate limit and an envelope check; the
  *    match's own gate and intent queue judge the content.
  * 6. Idle connections and peers that stop answering pings are closed, and
@@ -41,6 +46,8 @@ const DEFAULTS = {
   idleMs: 15000,
   pingMs: 10000,
   maxBufferedBytes: 1 << 20,
+  compress: true,
+  compressThreshold: 256,
   memoryMb: 256,
   watchdogMs: 5000,
   devTickets: false
@@ -76,7 +83,23 @@ export function createServer(options) {
   const wss = new WebSocketServer({
     noServer: true,
     maxPayload: config.maxMessageBytes,
-    perMessageDeflate: false,
+    // State messages are JSON full of repeated keys and so compress to about
+    // half, which on a busy level is the cheapest bandwidth there is. The
+    // inflation-bomb worry that had this off belongs to the inbound side,
+    // and `maxPayload` already bounds that after decompression. Context
+    // takeover is refused in both directions: holding a zlib window per
+    // connection for its lifetime is a per-client memory cost a server
+    // taking a thousand of them should not pay, and the dictionary buys
+    // little when each message is a few hundred bytes.
+    perMessageDeflate: config.compress
+      ? {
+          serverNoContextTakeover: true,
+          clientNoContextTakeover: true,
+          // Below this a frame's header costs more than the saving.
+          threshold: config.compressThreshold,
+          concurrencyLimit: 10
+        }
+      : false,
     clientTracking: false
   });
 

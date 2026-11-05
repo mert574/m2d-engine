@@ -13,12 +13,9 @@ export class Ghost extends Entity {
     body.setCollisionFilter({ category: CollisionCategories.enemy });
     super(body, sprite, game);
 
-    this.animTime = 0;
-    this.animSpeed = 6; // frames per second
     this.setAnimation('idle');
 
-    const flash = new DamageFlash(this);
-    this.addConstraint('damageFlash', flash);
+    this.addConstraint('damageFlash', new DamageFlash(this));
 
     this.addConstraint('health', new Health(this, {
       maxHealth: 100,
@@ -27,10 +24,10 @@ export class Ghost extends Entity {
         this.game.entities.delete(this);
         this.game.physics.remove(this.body);
       },
+      // Simulation-side: the pose. The flash and the sound are world
+      // events, so they also happen on a client watching this entity.
       onDamage: () => {
-        flash.flash();
         this.setAnimation('idle');
-        this.game.soundManager.playSound('damage');
       }
     }));
 
@@ -56,22 +53,22 @@ export class Ghost extends Entity {
     }));
   }
 
-  // Presentation only: the walk cycle. Movement, chasing and damage are in
-  // the constraints' fixedUpdate, reached through super.fixedUpdate.
+  // Presentation only. A sheet with named animations plays them from
+  // `Entity.update`'s clock at their own `fps`. A sheet without any (so no
+  // animation was set) keeps the old contract: its columns step at 6 fps.
+  // Movement, chasing and damage are in the constraints' fixedUpdate.
+  /** The hit sound, wherever the hit was simulated. */
+  onWorldEvent(name, data) {
+    super.onWorldEvent(name, data);
+    if (name === 'damage') this.game.soundManager.playSound('damage');
+  }
+
   update(deltaTime) {
     if (this.dead) return;
     super.update(deltaTime);
-
-    // Only animate if sprite has multiple frames
-    if (this.sprite && this.sprite.image) {
-      const frameCount = Math.floor(this.sprite.image.width / this.sprite.tileW);
-      if (frameCount > 1) {
-        this.animTime += this.animSpeed * deltaTime;
-        if (this.animTime >= frameCount) {
-          this.animTime = 0;
-        }
-        this.sprite.currentFrame = Math.floor(this.animTime);
-      }
+    if (!this.currentAnim && this.sprite?.image) {
+      const columns = Math.floor(this.sprite.image.width / this.sprite.tileW);
+      if (columns > 1) this.sprite.currentFrame = Math.floor(this.animTime * 6) % columns;
     }
   }
 }

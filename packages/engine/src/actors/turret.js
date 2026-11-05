@@ -76,12 +76,15 @@ export class Turret extends Entity {
       this.fireCooldown -= dt;
     }
 
-    if (!this.game.player || this.game.player.dead) {
+    // The nearest living player: `game.player` alone, any avatar on a server.
+    const target = this.game.players.nearestAvatar(this.position);
+    if (!target) {
       this.isPlayerInRange = false;
+      this.hasLineOfSight = false;
       return;
     }
 
-    const playerPos = this.game.player.position;
+    const playerPos = target.position;
     const distance = Vec2.distance(this.position, playerPos);
 
     const inRange = distance < this.detectionRange;

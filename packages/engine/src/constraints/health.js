@@ -1,6 +1,18 @@
 import { Constraint } from '../core/constraint.js';
 import { s } from '../core/schema.js';
 
+/**
+ * Hit points, and the two things that happen at them: taking damage and
+ * running out.
+ *
+ * `onDamage` and `onDeath` are simulation hooks — they run where
+ * `takeDamage` was called, which on a server is the server. What a hit
+ * *looks* like is a world event (`damage`, and `death` when the last of it
+ * goes), raised here and delivered to this entity's constraints after the
+ * tick, on every client that can see it. That is why `DamageFlash` reacts
+ * to the event rather than to `onDamage`: the same flash then happens
+ * alone and online, without the game writing it twice.
+ */
 export class Health extends Constraint {
   static params = {
     maxHealth: s.number({ initial: 100, positive: true }),
@@ -15,7 +27,9 @@ export class Health extends Constraint {
     this.maxHealth = options.maxHealth || 100;
     this.currentHealth = this.maxHealth;
     this.invulnerableTime = 0;
-    this.invulnerableDuration = options.invulnerableDuration || 1; // seconds of invulnerability after taking damage
+    // Seconds of invulnerability after a hit. `0` means none, so a game
+    // that wants every hit to land can say so.
+    this.invulnerableDuration = options.invulnerableDuration ?? 1;
     this.onDeath = options.onDeath || null;
     this.onDamage = options.onDamage || null;
     /** Whether to draw the bar above the entity. Off for entities whose health is shown elsewhere (a HUD). */
@@ -35,8 +49,10 @@ export class Health extends Constraint {
   takeDamage(amount) {
     if (this.isInvulnerable()) return;
 
+    const taken = Math.min(amount, this.currentHealth);
     this.currentHealth = Math.max(0, this.currentHealth - amount);
     this.invulnerableTime = this.invulnerableDuration;
+    this.#raise('damage', { amount: taken });
 
     if (this.onDamage) {
       this.onDamage(amount);
@@ -44,6 +60,7 @@ export class Health extends Constraint {
 
     if (this.currentHealth === 0) {
       this.entity.dead = true;
+      this.#raise('death', {});
       if (this.onDeath) {
         this.onDeath();
       }
@@ -51,7 +68,18 @@ export class Health extends Constraint {
   }
 
   heal(amount) {
+    const before = this.currentHealth;
     this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
+    if (this.currentHealth > before) this.#raise('heal', { amount: this.currentHealth - before });
+  }
+
+  /** Tell presentation, here and on every client that can see this entity. */
+  #raise(name, data) {
+    const entity = this.entity;
+    const events = entity.game?.events;
+    if (!events) return;
+    const { x, y } = entity.position;
+    events.emit(name, { ...data, id: entity.netId, at: { x: Math.round(x), y: Math.round(y) } });
   }
 
   draw() {

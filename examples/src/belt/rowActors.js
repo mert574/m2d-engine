@@ -77,7 +77,7 @@ export class Thug extends Ghost {
     this.windup = 0;
     this.strikeHold = 0;
     this.strikeWait = 1 + game.rng.next();
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd0a0', radius: 40, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd0a0', radius: 40 }));
     const health = this.constraints.get('health');
     const onDamage = health.onDamage;
     health.onDamage = (amount) => {
@@ -228,7 +228,7 @@ export class Rogue extends ObliquePlayer {
 
     this.addConstraint('swing', new AttackSwing(this, { color: ['#ffe3b0', '#ffd27a', '#ff9a4a'], reach: 80 }));
     this.addConstraint('sweep', new AttackSwing(this, { color: '#bfeaff', reach: 66, attack: 'kick', duration: 0.4 }));
-    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffb47a', radius: 34, hook: true }));
+    this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffb47a', radius: 34 }));
     this.addConstraint('footsteps', new Footsteps(this, { sounds: ['step1', 'step2', 'step3', 'step4'], stride: 36 }));
     this.onJump = () => this.game.soundManager.playSound('jump');
   }

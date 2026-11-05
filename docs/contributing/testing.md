@@ -18,7 +18,7 @@ Both load `test/helpers/setupPhysics.js`, which awaits `initPhysics()` once per 
 
 A suite that constructs an `M2D` in the node project installs a `window` global with `installWindowStub()` from `test/helpers/environment.js`. The stub carries the real `performance` object, which Rapier's WASM glue reads its clock through whenever `window` exists. A stub without it panics on the first physics step. See [Troubleshooting](./troubleshooting#development-environment).
 
-The examples workspace has one suite, `examples/test/scenes.test.js`, which validates every shipped scene JSON against the loader.
+The examples workspace has one suite, `examples/test/scenes.test.js`, which validates every example scene JSON against the loader.
 
 ## Layers
 

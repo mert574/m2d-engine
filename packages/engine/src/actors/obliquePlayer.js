@@ -35,6 +35,8 @@ import { Angle } from '../core/math.js';
  */
 export class ObliquePlayer extends TopDownPlayer {
   static replicated = ['heading', 'lift'];
+  /** The heading follows the keys, so a client that moves early turns early. */
+  static predictedFields = ['heading'];
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);

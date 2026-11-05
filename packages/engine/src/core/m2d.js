@@ -22,6 +22,8 @@ import { CommandRegistry, registerBuiltins } from './console/commands.js';
 import { DevConsole } from './console/devConsole.js';
 import { PerformanceStats } from './ui/performanceStats.js';
 import { presentationGuard, createHeadlessInput, SilentSound } from './headless.js';
+import { WorldEvents } from './events.js';
+import { baselineOf } from '../net/replication.js';
 import { Players } from './players.js';
 import { takeSnapshot, restoreSnapshot } from './snapshot.js';
 
@@ -397,6 +399,12 @@ export class M2D {
     this.sceneSignature = 0;
     this.sceneBuilt = false;
     /**
+     * Each scene-built entity's replicated state as it was built, by id.
+     * A joining client is seeded with it rather than sent the level it has
+     * just built itself. @type {Map<number, object>|null}
+     */
+    this.sceneBaseline = null;
+    /**
      * A replica shows a simulation it does not run: a client of a server.
      * Set by `NetClient`. Its ticks sample input and hand it to the
      * connection; entities, scene simulation hooks and physics do not run.
@@ -405,10 +413,22 @@ export class M2D {
     /** The connection, while this game is a client. @type {import('../net/client.js').NetClient|null} */
     this.net = null;
     /**
+     * How much the net layer logs: the `net_log` cvar's home, kept on the
+     * game so it survives connecting and disconnecting.
+     */
+    this.netLogLevel = 1;
+    /**
      * The players: the local one, and on a server one per connection. See
      * core/players.js. @type {Players}
      */
     this.players = new Players(this);
+    /**
+     * Things the simulation says happened that presentation should show: a
+     * hit, a death, a footstep. Raised in `fixedUpdate`, delivered after
+     * the frame's ticks, and on a server sent to the clients they concern.
+     * See core/events.js.
+     */
+    this.events = new WorldEvents(this);
     /**
      * State outside entities that snapshots carry, by key. Belongs to the
      * scene: cleared whenever one loads. See `trackState`.
@@ -517,7 +537,7 @@ export class M2D {
    * asks the engine rather than a copy that can drift, and writing goes
    * through the same methods a menu would call. Prefixes follow the Quake
    * convention the completion is built around: `r_` render, `g_` game,
-   * `cl_` client-side presentation.
+   * `cl_` client-side presentation, `net_` the connection.
    */
   #registerEngineCvars() {
     const cvars = this.cvars;
@@ -629,6 +649,44 @@ export class M2D {
       description: 'Multiplier on game time: 0.5 is slow motion',
       get: () => this.time.scale,
       set: (value) => { this.time.scale = value; }
+    });
+
+    // The connection's knobs. They are registered whether or not this game
+    // is online, so they can be set before connecting and read afterwards;
+    // each one that needs a connection says so when there is none.
+    cvars.register('net_log', {
+      type: 'number',
+      min: 0,
+      max: 2,
+      default: 1,
+      persist: true,
+      description: 'Net logging: 0 silent, 1 the connection\'s life, 2 leads, corrections and rates',
+      get: () => this.netLogLevel,
+      set: (value) => { this.netLogLevel = Math.round(value); }
+    });
+
+    cvars.register('net_predict', {
+      type: 'boolean',
+      default: true,
+      description: 'Run the local avatar\'s movement early instead of waiting for the server',
+      get: () => this.net?.predicts ?? true,
+      set: (value) => {
+        if (!this.net) throw new Error('net_predict: not connected to a server');
+        this.net.setPredicting(value);
+      }
+    });
+
+    cvars.register('net_interp', {
+      type: 'number',
+      min: 0,
+      max: 30,
+      default: 0,
+      description: 'Extra ticks to draw remote entities behind the server, on top of the usual delay',
+      get: () => this.net?.view?.extraDelay ?? 0,
+      set: (value) => {
+        if (!this.net?.view) throw new Error('net_interp: not connected to a server');
+        this.net.view.extraDelay = Math.round(value);
+      }
     });
 
     if (this.stats) {
@@ -971,6 +1029,7 @@ export class M2D {
     this.sceneBuilt = false;
     this.sceneNetIds = [];
     this.sceneSignature = 0;
+    this.sceneBaseline = null;
   }
 
   /**
@@ -980,6 +1039,12 @@ export class M2D {
   markSceneBuilt() {
     this.sceneBuilt = true;
     this.sceneNetIds = [...this.entitiesById.keys()].filter((id) => id > 0).sort((a, b) => a - b);
+    // What the build produced, which is also what a client joining later
+    // will have built for itself. See net/replication.js.
+    this.sceneBaseline = new Map();
+    for (const id of this.sceneNetIds) {
+      this.sceneBaseline.set(id, baselineOf(this.entitiesById.get(id)));
+    }
     let hash = 0x811c9dc5;
     for (const id of this.sceneNetIds) {
       const text = `${id}:${this.entitiesById.get(id).name};`;
@@ -1420,7 +1485,16 @@ export class M2D {
     const deltaTime = this.time.unscaledDelta;
     // What the frame's ticks told the player at the keyboard. A client's
     // arrive from the server instead; see NetClient.
-    if (!this.replica) this.players.local.dispatch(this.players.local.drainEvents());
+    if (!this.replica) {
+      this.players.local.dispatch(this.players.local.drainEvents());
+      // What this frame's ticks said happened. A client's arrive from the
+      // server instead, in applyState.
+      this.events.dispatch(this.events.take());
+    }
+    // A replica draws the server's states, interpolated: the clock that
+    // decides which moment of them is drawn moves here, once per frame,
+    // before the camera follows anything or anything is drawn.
+    else this.net?.beforeDraw(this.time.unscaledDelta);
     const currentScene = this.sceneManager.getCurrentScene();
 
     if (!this.isGameOver) {
