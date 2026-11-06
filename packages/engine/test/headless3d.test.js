@@ -147,6 +147,44 @@ describe('a 3D level, headless', () => {
     game.destroy();
   });
 
+  it('noclip lets the hero walk through a wall, and off again stops it', async () => {
+    const { game, scene } = await loadYard({
+      layers: [{
+        name: 'main',
+        objects: [
+          { id: 'floor', prefab: 'ground', x: 0, y: 0, z: 0, width: 10, height: 0.2, depth: 10 },
+          { id: 'wall', prefab: 'ground', x: 2, y: 1, z: 0, width: 0.4, height: 2, depth: 6 },
+          { id: 'hero-1', prefab: 'hero', x: 0, y: 1, z: 0, width: 0.6, height: 1.8 }
+        ]
+      }]
+    });
+    const hero = scene.entitiesById.get('hero-1');
+    game.player = hero;
+    // The console is presentation and a headless game has none; the command
+    // registry itself is plain code, so build one here as the console would.
+    const { CommandRegistry, registerBuiltins } = await import('../src/core/console/commands.js');
+    const commands = new CommandRegistry({});
+    registerBuiltins(commands, game);
+    const io = { lines: [], print(l) { this.lines.push(l); }, error(l) { this.lines.push(`! ${l}`); } };
+    for (let i = 0; i < 30; i++) game.fixedUpdate(1 / 60);
+
+    // Into the wall: stopped short of it.
+    hero.walking = true;
+    for (let i = 0; i < 120; i++) game.fixedUpdate(1 / 60);
+    expect(hero.position.x).toBeLessThan(2);
+
+    commands.execute('noclip', io);
+    expect(io.lines).toEqual(['noclip on']);
+    expect(hero.noclip).toBe(true);
+    for (let i = 0; i < 120; i++) game.fixedUpdate(1 / 60);
+    expect(hero.position.x).toBeGreaterThan(2.5);
+
+    commands.execute('noclip', io);
+    expect(hero.noclip).toBe(false);
+    expect(hero.body.collisionFilter.mask).toBe(0xFFFF);
+    game.destroy();
+  });
+
   it('plays the same twice from the same seed', async () => {
     const print = async () => {
       const { game, scene } = await loadYard();

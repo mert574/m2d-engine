@@ -531,15 +531,25 @@ export class SettingsMenu {
         choices: () => ({ index: cvars.get('r_aspect') === 'expand' ? 1 : 0, count: 2 }),
         description: 'Letterbox keeps the design frame; Fill widens the view to the window instead.'
       },
-      {
-        section: 'Rendering',
-        label: 'Renderer',
-        value: () => (cvars.get('r_renderer') === 'webgl' ? 'WebGL 2' : 'Canvas 2D'),
-        step: () => cvars.set('r_renderer',
-          cvars.get('r_renderer') === 'webgl' ? 'canvas' : 'webgl'),
-        choices: () => ({ index: cvars.get('r_renderer') === 'webgl' ? 1 : 0, count: 2 }),
-        description: 'The drawing backend. Reloads the page. WebGL 2 has lights, bloom and batching.'
-      },
+      // A 3D game has one renderer; the row then only says so.
+      game.renderer.dimensions === 3
+        ? {
+          section: 'Rendering',
+          label: 'Renderer',
+          value: () => 'WebGPU',
+          step: () => {},
+          choices: () => ({ index: 0, count: 1 }),
+          description: 'The 3D renderer. A 3D game has no other.'
+        }
+        : {
+          section: 'Rendering',
+          label: 'Renderer',
+          value: () => (cvars.get('r_renderer') === 'webgl' ? 'WebGL 2' : 'Canvas 2D'),
+          step: () => cvars.set('r_renderer',
+            cvars.get('r_renderer') === 'webgl' ? 'canvas' : 'webgl'),
+          choices: () => ({ index: cvars.get('r_renderer') === 'webgl' ? 1 : 0, count: 2 }),
+          description: 'The drawing backend. Reloads the page. WebGL 2 has lights, bloom and batching.'
+        },
       {
         section: 'Rendering',
         label: 'Debug overlay',

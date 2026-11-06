@@ -35,8 +35,13 @@ await Promise.all([initWebGPU(), initPhysics({ dimensions: 3 })]);
 // read as slow motion on a screen. The hero's numbers are tuned to it.
 const WALK_SPEED = 5.5;
 const JUMP_SPEED = 7.5;
+const FLY_SPEED = 10;
 
-/** The player: a capsule driven along the ground relative to where the camera looks. */
+/**
+ * The player: a capsule driven along the ground relative to where the
+ * camera looks. With the console's `noclip` on, it flies instead: Space
+ * climbs, Shift descends, and walls are not there.
+ */
 class Hero extends Entity {
   name = 'Hero';
 
@@ -52,6 +57,11 @@ class Hero extends Entity {
     if (input.isDown('KeyD') || input.isDown('ArrowRight')) Object.assign(move, Vec3.add(move, right));
     if (input.isDown('KeyA') || input.isDown('ArrowLeft')) Object.assign(move, Vec3.subtract(move, right));
     const dir = Vec3.normalize(move);
+    if (this.noclip) {
+      const climb = (input.isDown('Space') ? 1 : 0) - (input.isDown('ShiftLeft') || input.isDown('ShiftRight') ? 1 : 0);
+      this.body.setVelocity({ x: dir.x * FLY_SPEED, y: climb * FLY_SPEED, z: dir.z * FLY_SPEED });
+      return;
+    }
     const v = this.body.velocity;
     const vy = (input.isDown('Space') && this.isOnGround()) ? JUMP_SPEED : v.y;
     this.body.setVelocity({ x: dir.x * WALK_SPEED, y: vy, z: dir.z * WALK_SPEED });
@@ -76,7 +86,6 @@ game.registerActor('Ground', Ground);
 game.registerActor('Crate', Crate);
 
 let unsubscribe = [];
-let hud = null;
 /** 0 is afternoon, 1 is dusk; eased between on T. */
 let dusk = 0;
 let duskTarget = 0;
@@ -118,26 +127,18 @@ game.sceneManager.addScene('yard', {
     }));
     ui.add(new UIText({
       x: -20, y: -16, anchor: 'bottom-right', align: 'right',
-      text: 'Drag orbits · Scroll zooms · WASD walks · Space jumps · T dusk · O settings · F3 stats',
+      text: 'Drag orbits · Scroll zooms · WASD walks · Space jumps · T dusk · O settings · F3 stats · ` console (noclip)',
       fontSize: '13px', color: 'rgba(255, 248, 236, 0.75)', outlineColor: 'rgba(0, 0, 0, 0.3)', outlineWidth: 2
-    }));
-    hud = ui.add(new UIText({
-      x: 20, y: -16, anchor: 'bottom-left', text: '', fontSize: '13px',
-      color: 'rgba(255, 248, 236, 0.75)', outlineColor: 'rgba(0, 0, 0, 0.3)', outlineWidth: 2
     }));
   },
 
   onHide() {
     for (const off of unsubscribe) off();
     unsubscribe = [];
-    hud = null;
   },
 
   onUpdate(deltaTime) {
     dusk = lerp(dusk, duskTarget, 1 - Math.exp(-deltaTime * 1.5));
-    if (!hud) return;
-    const stats = game.renderer.getStats();
-    hud.text = `${game.entities.size} bodies · ${stats.drawCalls} draw calls · ${game.renderer.getFPS()} fps`;
   },
 
   onRender(frame) {

@@ -27,6 +27,10 @@ export class PostPass {
     this.sampler = device.createSampler({
       label: 'post', minFilter: 'linear', magFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge'
     });
+    /** For presenting the world at `worldFilter: 'nearest'`: crisp upscaling. */
+    this.nearestSampler = device.createSampler({
+      label: 'post nearest', minFilter: 'nearest', magFilter: 'nearest', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge'
+    });
     this.sourceLayout = device.createBindGroupLayout({
       label: 'post source',
       entries: [
@@ -97,8 +101,10 @@ export class PostPass {
     }
     this.hdrGroup = this.#source(this.hdrView);
     const bloomView = this.levels[0]?.view ?? this.blackView;
-    this.compositeGroup = this.#compositeSource(this.hdrView, bloomView);
-    this.compositeGroupNoBloom = this.#compositeSource(this.hdrView, this.blackView);
+    this.compositeGroups = {
+      linear: [this.#compositeSource(this.hdrView, this.blackView, this.sampler), this.#compositeSource(this.hdrView, bloomView, this.sampler)],
+      nearest: [this.#compositeSource(this.hdrView, this.blackView, this.nearestSampler), this.#compositeSource(this.hdrView, bloomView, this.nearestSampler)]
+    };
   }
 
   #source(view) {
@@ -108,19 +114,24 @@ export class PostPass {
     });
   }
 
-  #compositeSource(hdrView, bloomView) {
+  #compositeSource(hdrView, bloomView, sampler) {
     return this.device.createBindGroup({
       layout: this.compositeLayout,
       entries: [
         { binding: 0, resource: hdrView },
-        { binding: 1, resource: this.sampler },
+        { binding: 1, resource: sampler },
         { binding: 2, resource: bloomView }
       ]
     });
   }
 
-  #fullscreen(encoder, pipeline, view, sceneBindGroup, group, loadOp = 'clear') {
-    const pass = encoder.beginRenderPass({ colorAttachments: [{ view, loadOp, storeOp: 'store' }] });
+  #fullscreen(encoder, pipeline, view, sceneBindGroup, group, loadOp = 'clear', rect = null) {
+    const pass = encoder.beginRenderPass({
+      colorAttachments: [{ view, loadOp, storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 1 } }]
+    });
+    // The content rectangle: the rest of the canvas stays the clear's black,
+    // which is the letterbox.
+    if (rect) pass.setViewport(rect[0], rect[1], rect[2], rect[3], 0, 1);
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, sceneBindGroup);
     pass.setBindGroup(1, group);
@@ -129,10 +140,11 @@ export class PostPass {
   }
 
   /**
-   * Bloom, then composite onto `target`.
+   * Bloom, then composite onto `target`, into `rect` (x, y, width, height in
+   * target pixels) with the world upscaled through `filter`.
    * @returns {number} Draw calls issued
    */
-  run(encoder, sceneBindGroup, target, { bloom }) {
+  run(encoder, sceneBindGroup, target, { bloom, filter = 'linear', rect = null }) {
     let draws = 0;
     const levels = this.levels;
     if (bloom && levels.length) {
@@ -147,7 +159,8 @@ export class PostPass {
         draws++;
       }
     }
-    this.#fullscreen(encoder, this.composite, target, sceneBindGroup, bloom ? this.compositeGroup : this.compositeGroupNoBloom);
+    const groups = this.compositeGroups[filter === 'nearest' ? 'nearest' : 'linear'];
+    this.#fullscreen(encoder, this.composite, target, sceneBindGroup, groups[bloom && levels.length ? 1 : 0], 'clear', rect);
     return draws + 1;
   }
 

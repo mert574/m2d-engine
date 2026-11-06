@@ -107,6 +107,11 @@ export class WebGPURenderer extends BaseRenderer {
     this.currentTexture = null;
   }
 
+  /** Fullscreen takes the canvas's parent, so the HUD overlay comes along. */
+  get fullscreenElement() {
+    return this.canvas?.parentElement ?? this.canvas;
+  }
+
   // === Lifecycle ===
 
   init(element, options = {}) {
@@ -278,17 +283,19 @@ export class WebGPURenderer extends BaseRenderer {
   setViewport(viewport) {
     this.viewport = viewport;
     if (!this.device) return;
-    const { backingWidth, backingHeight } = viewport;
+    const { backingWidth, backingHeight, worldWidth, worldHeight } = viewport;
     this.canvas.width = backingWidth;
     this.canvas.height = backingHeight;
     this.colorTexture?.destroy();
     this.depthTexture?.destroy();
-    const size = { width: backingWidth, height: backingHeight };
+    // The world renders at the resolution setting and is presented into the
+    // content rectangle, as the 2D backends do; see viewport.js.
+    const size = { width: worldWidth, height: worldHeight };
     this.colorTexture = this.device.createTexture({
       label: 'color (msaa)', size, sampleCount: SAMPLES, format: HDR_FORMAT,
       usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
-    this.post.resize(backingWidth, backingHeight);
+    this.post.resize(worldWidth, worldHeight);
     this.depthTexture = this.device.createTexture({
       label: 'depth (msaa)', size, sampleCount: SAMPLES, format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT
@@ -406,8 +413,11 @@ export class WebGPURenderer extends BaseRenderer {
     pass.end();
 
     this.currentTexture = this.context.getCurrentTexture();
+    const { contentX, contentY, contentWidth, contentHeight } = this.viewport;
     this.stats.drawCalls += this.post.run(encoder, this.sceneBindGroup, this.currentTexture.createView(), {
-      bloom: (frame.bloom?.intensity ?? 0) > 0
+      bloom: (frame.bloom?.intensity ?? 0) > 0,
+      filter: this.worldFilter,
+      rect: [contentX, contentY, contentWidth, contentHeight]
     });
 
     device.queue.submit([encoder.finish()]);

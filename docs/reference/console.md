@@ -58,7 +58,7 @@ Prefixes follow the Quake convention the completion is built around: `r_` render
 | `r_worldfilter` | `linear\|nearest` | yes | |
 | `r_fullscreen` | boolean | | |
 | `r_debug` | boolean | | The renderer's debug overlay |
-| `r_renderer` | `webgl\|canvas` | | Setting it reloads with `?renderer=` |
+| `r_renderer` | `webgl\|canvas\|webgpu` | | Setting it reloads with `?renderer=`. A 3D game has only `webgpu` |
 | `g_paused` | boolean | | |
 | `g_timescale` | number 0–10 | | `game.time.scale`. `0.5` is slow motion |
 | `cl_showfps` | boolean | yes | The frame-rate readout |
@@ -83,7 +83,9 @@ game.commands.register('give', {
 
 `io` has `print`, `warn`, `error` and `clear`, so a command's output lands in the scrollback it was typed into. A command that throws is reported as an error line, not a crash. Arguments are split on whitespace with double quotes honoured (`echo "two words"`).
 
-Built-ins: `help [name]`, `find <text>`, `cvars [filter]`, `set`, `toggle`, `reset`, `echo`, `clear`, `scene <name>`, `scenes`, `entities`.
+Built-ins: `help [name]`, `find <text>`, `cvars [filter]`, `set`, `toggle`, `reset`, `echo`, `clear`, `scene <name>`, `scenes`, `entities`, `noclip`.
+
+`noclip` toggles the player's collision mask to nothing, so `game.player` walks through everything, and sets `entity.noclip` for the game to read: a character that checks it can fly, as the yard's hero does. The mask is restored when toggled off.
 
 `execute(line, io)` runs one line; `complete(line)` returns completions for the first token across commands and cvars together, or a string cvar's `choices` for its value.
 

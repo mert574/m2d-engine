@@ -571,10 +571,13 @@ export class RapierPhysicsWorld3D extends PhysicsWorldBase {
     // an upward (positive) velocity — a jump — passes untouched.
     if (body.charGrounded && v.y <= 0) v.y = 0;
 
+    // The character's own collision groups filter what it may walk into,
+    // as they filter what a dynamic body may hit; a mask of 0 is noclip.
     body.controller.computeColliderMovement(
       body.collider,
       { x: v.x * dt, y: v.y * dt, z: v.z * dt },
-      RAPIER.QueryFilterFlags.EXCLUDE_SENSORS);
+      RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
+      (body.spec.category << 16) | body.spec.mask);
     const move = body.controller.computedMovement();
     const t = body.rigidBody.translation();
     body.rigidBody.setNextKinematicTranslation({

@@ -598,7 +598,7 @@ export class M2D {
 
     cvars.register('r_renderer', {
       type: 'string',
-      choices: ['webgl', 'canvas'],
+      choices: ['webgl', 'canvas', 'webgpu'],
       default: DEFAULT_RENDERER,
       description: 'Rendering backend. Setting it reloads the page with ?renderer=',
       get: () => this.renderer.constructor.name.replace(/Renderer$/, '').toLowerCase(),
@@ -790,17 +790,27 @@ export class M2D {
     this.resize(true);
   }
 
-  /** Whether the canvas is currently the fullscreen element. */
+  /**
+   * The element fullscreen is requested on: the canvas, unless the renderer
+   * names another. The 3D renderer draws the HUD on a sibling canvas, so it
+   * asks for their parent; a canvas alone on the screen would leave the HUD
+   * behind.
+   */
+  get fullscreenElement() {
+    return this.renderer.fullscreenElement ?? this.canvas;
+  }
+
+  /** Whether the game is currently the fullscreen element. */
   get isFullscreen() {
-    return typeof document !== 'undefined' && document.fullscreenElement === this.canvas;
+    return typeof document !== 'undefined' && document.fullscreenElement === this.fullscreenElement;
   }
 
   /**
-   * Enter fullscreen on the canvas. The resize lifecycle handles the rest.
+   * Enter fullscreen. The resize lifecycle handles the rest.
    * @returns {Promise<void>}
    */
   async requestFullscreen() {
-    await this.canvas.requestFullscreen?.();
+    await this.fullscreenElement.requestFullscreen?.();
   }
 
   /** Leave fullscreen if this canvas is the fullscreen element. */

@@ -244,6 +244,24 @@ export function registerBuiltins(commands, game) {
     }
   });
 
+  commands.register('noclip', {
+    description: "Toggle the player's collisions off, so it walks through walls (and, in a game that honours entity.noclip, flies)",
+    usage: 'noclip',
+    run(_args, io) {
+      const player = game.player;
+      if (!player) return io.error('no player entity');
+      const on = !player.noclip;
+      player.noclip = on;
+      if (on) {
+        player.noclipMask = player.body.collisionFilter.mask;
+        player.body.setCollisionFilter({ mask: 0 });
+      } else {
+        player.body.setCollisionFilter({ mask: player.noclipMask ?? 0xFFFF });
+      }
+      io.print(`noclip ${on ? 'on' : 'off'}`);
+    }
+  });
+
   commands.register('scenes', {
     description: 'List registered scenes',
     run(_args, io) {

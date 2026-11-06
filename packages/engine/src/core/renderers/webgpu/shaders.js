@@ -269,7 +269,16 @@ fn fs(in: VertexOut) -> @location(0) vec4f {
   }
   // glTF packs roughness in green and metallic in blue.
   let metallic = clamp(inst.params.x * material.factors.x * mrSample.b, 0.0, 1.0);
-  let roughness = clamp(inst.params.y * material.factors.y * mrSample.g, 0.04, 1.0);
+  var roughness = clamp(inst.params.y * material.factors.y * mrSample.g, 0.04, 1.0);
+  // Specular anti-aliasing (Tokuyoshi and Kaplanyan): where the normal
+  // changes quickly across a pixel, a sharp highlight is smaller than the
+  // pixel and shimmers as it moves. Widening the lobe by the normal's
+  // variation over the pixel steadies it at no visible cost on flat areas.
+  let dndx = dpdx(n);
+  let dndy = dpdy(n);
+  let variance = 0.25 * (dot(dndx, dndx) + dot(dndy, dndy));
+  let kernel = min(2.0 * variance, 0.18);
+  roughness = sqrt(clamp(roughness * roughness + kernel, 0.0, 1.0));
 
   let f0 = mix(vec3f(0.04), base, metallic);
   let nDotV = max(dot(n, v), 1e-4);

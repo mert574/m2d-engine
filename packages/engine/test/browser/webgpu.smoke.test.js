@@ -357,6 +357,36 @@ describe('lighting', () => {
   });
 });
 
+describe('the display settings', () => {
+  beforeAll(() => initWebGPU());
+
+  it('renders the world at the resolution setting and letterboxes it into the content rectangle', async () => {
+    const { computeViewport } = await import('../../src/core/viewport.js');
+    // A 96x96 display showing a 16:9 design at half resolution: bars above
+    // and below, and a world surface a quarter the size of the content.
+    const viewport = computeViewport({
+      displayWidth: 96, displayHeight: 96, designWidth: 160, designHeight: 90,
+      pixelRatio: 1, aspectMode: 'letterbox', resolution: 0.5
+    });
+    expect(viewport.contentHeight).toBeLessThan(96);
+    expect(viewport.worldWidth).toBeLessThan(viewport.contentWidth);
+
+    const canvas = canvasInDocument(96, 96);
+    const renderer = new WebGPURenderer();
+    renderer.init(canvas, { viewport });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(viewport.viewWidth, viewport.viewHeight);
+    renderer.render(yardFrame(renderer, camera));
+    const pixels = await readPixels(renderer);
+
+    const bar = pixels.at(48, 2);
+    const inside = pixels.at(48, Math.round(viewport.contentY + 3));
+    expect(luma(bar), `letterbox bar is black: ${bar}`).toBeLessThan(8);
+    expect(inside[2], `sky inside the content rect: ${inside}`).toBeGreaterThan(inside[0]);
+    expect(luma(inside)).toBeGreaterThan(100);
+  });
+});
+
 describe('a textured model', () => {
   beforeAll(() => initWebGPU());
 
