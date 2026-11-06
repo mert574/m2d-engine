@@ -32,7 +32,6 @@
 
 import { validate } from './schema.js';
 import { SCENE_VERSION, schemaForType } from './sceneSchema.js';
-import { migrate } from './sceneMigrations.js';
 
 export { SCENE_VERSION };
 
@@ -77,20 +76,17 @@ export class SceneLoader {
     if (!data || typeof data !== 'object') fail('', 'scene data is not an object');
 
     // Version and type are settled before the schema, not by it: the
-    // version decides which format this document is in, and the type
-    // decides which schema to apply. Neither can be expressed inside a
-    // schema that has not been chosen yet.
-    if (!Number.isInteger(data.version) || data.version < 1) {
-      fail('version', `expected a scene format version, got ${JSON.stringify(data.version)}`);
+    // version says which format this document is in, and the type says
+    // which schema to apply. Neither can be expressed inside a schema that
+    // has not been chosen yet.
+    if (data.version !== SCENE_VERSION) {
+      fail('version', data.version > SCENE_VERSION
+        ? `scene format ${data.version} is newer than this engine understands ` +
+          `(${SCENE_VERSION}); upgrade m2d-engine`
+        : `expected scene format ${SCENE_VERSION}, got ${JSON.stringify(data.version)}`);
     }
-    if (data.version > SCENE_VERSION) {
-      fail('version', `scene format ${data.version} is newer than this engine understands ` +
-        `(up to ${SCENE_VERSION}); upgrade m2d-engine`);
-    }
-    // Older documents are upgraded rather than rejected, so that validation
-    // only ever has one format to know. See sceneMigrations.js.
-    let scene = data.version < SCENE_VERSION ? migrate(data, SCENE_VERSION, fail) : data;
 
+    let scene = data;
     const schema = schemaForType(scene.type);
     if (!schema) {
       fail('type', `expected 'level' or 'ui', got ${JSON.stringify(scene.type)}`);
@@ -115,21 +111,15 @@ export class SceneLoader {
   /**
    * Expand `uses` into the inline shape: an asset bound to a local name
    * becomes a sprite sheet in `assets.spritesheets` or a prefab in
-   * `prefabs`, exactly as if the scene had written it out.
+   * `prefabs`, exactly as if the scene had written it out. A scene that
+   * uses assets and one that declares everything itself are then the same
+   * document, so there is one format to understand and one path to test.
    *
-   * Keeping one shape downstream is the point. A scene that uses assets
-   * and a scene that declares everything itself are the same document by
-   * the time anything builds from it, so there is one scene format to
-   * understand and one code path to test.
-   *
-   * A used prefab brings its sprite sheet with it — the asset names it by
-   * uid, and the sheet has to be reachable under a scene-local name for
-   * the prefab to be valid here. It is bound under the asset's own name
-   * where that is free, and under its uid otherwise.
+   * A used prefab brings its sheet with it, since the asset names that
+   * sheet by uid and nothing downstream resolves uids.
    */
   #resolveUses(scene, fail) {
-    const uses = scene.uses;
-    if (!uses || typeof uses !== 'object') return scene;
+    if (!scene.uses || typeof scene.uses !== 'object') return scene;
 
     const database = this.game?.assets;
     if (!database) {
@@ -138,23 +128,18 @@ export class SceneLoader {
 
     const spritesheets = { ...scene.assets?.spritesheets };
     const prefabs = { ...scene.prefabs };
-    const inlineSheets = new Set(Object.keys(spritesheets));
-    const inlinePrefabs = new Set(Object.keys(prefabs));
-    /** Local name each sheet uid has been bound to, so one is bound once. */
+    const declaredSheets = new Set(Object.keys(spritesheets));
+    const declaredPrefabs = new Set(Object.keys(prefabs));
+    /** Local name each sheet uid was bound to, so one is bound once. */
     const sheetNames = new Map();
 
-    /** Bind a sprite-sheet asset to a local name and return that name. */
-    const bindSheet = (uid, preferred, path) => {
-      if (sheetNames.has(uid)) return sheetNames.get(uid);
-      const asset = database.get(uid);
-      if (!asset) fail(path, `no asset with uid '${uid}'`);
-      if (asset.type !== 'spritesheet') {
-        fail(path, `asset '${uid}' is a ${asset.type}, not a spritesheet`);
-      }
-      // Its own name unless a scene already has one, in which case the uid
-      // is the one name guaranteed not to clash.
-      const name = !spritesheets[preferred] ? preferred : uid;
-      if (spritesheets[name] && inlineSheets.has(name)) {
+    /**
+     * Add a sheet under `name`, refusing to shadow one the scene wrote
+     * itself: a precedence rule there would mean one of the two silently
+     * losing.
+     */
+    const addSheet = (name, uid, path) => {
+      if (declaredSheets.has(name)) {
         fail(path, `'${name}' is already a sprite sheet declared by this scene`);
       }
       spritesheets[name] = database.spritesheet(uid);
@@ -162,7 +147,16 @@ export class SceneLoader {
       return name;
     };
 
-    for (const [local, uid] of Object.entries(uses)) {
+    /** The local name for a prefab's sheet, binding it on first use. */
+    const sheetFor = (uid, path) => {
+      if (sheetNames.has(uid)) return sheetNames.get(uid);
+      // Its own name, or its uid when the scene already has that name —
+      // the uid being the one name that cannot collide.
+      const preferred = database.get(uid)?.name ?? uid;
+      return addSheet(declaredSheets.has(preferred) ? uid : preferred, uid, path);
+    };
+
+    for (const [local, uid] of Object.entries(scene.uses)) {
       const path = `uses.${local}`;
       if (typeof uid !== 'string') fail(path, 'must be an asset uid');
       const asset = database.get(uid);
@@ -171,28 +165,23 @@ export class SceneLoader {
       }
 
       if (asset.type === 'spritesheet') {
-        if (inlineSheets.has(local)) {
-          fail(path, `'${local}' is already a sprite sheet declared by this scene`);
-        }
-        spritesheets[local] = database.spritesheet(uid);
-        sheetNames.set(uid, local);
+        addSheet(local, uid, path);
       } else if (asset.type === 'prefab') {
-        if (inlinePrefabs.has(local)) {
+        if (declaredPrefabs.has(local)) {
           fail(path, `'${local}' is already a prefab declared by this scene`);
         }
-        prefabs[local] = database.prefab(uid,
-          sheetUid => bindSheet(sheetUid, database.get(sheetUid)?.name ?? sheetUid, path));
+        prefabs[local] = database.prefab(uid, sheetUid => sheetFor(sheetUid, path));
       } else {
+        // A type added to the manifest but not taught to scenes.
         fail(path, `asset '${uid}' is a ${asset.type}, which a scene cannot use directly`);
       }
     }
 
-    const resolved = { ...scene, prefabs };
-    if (Object.keys(spritesheets).length) {
-      resolved.assets = { ...scene.assets, spritesheets };
-    }
-    if (!Object.keys(prefabs).length) delete resolved.prefabs;
-    return resolved;
+    return {
+      ...scene,
+      ...(Object.keys(spritesheets).length && { assets: { ...scene.assets, spritesheets } }),
+      ...(Object.keys(prefabs).length && { prefabs })
+    };
   }
 
   /**

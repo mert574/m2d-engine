@@ -26,8 +26,9 @@ import { ANCHOR_ORIGINS } from './ui/uiElement.js';
 import { PROJECTION_TYPES } from './projection.js';
 
 /**
- * The scene format version this engine writes and validates. An older
- * document is migrated up to it first; see `sceneMigrations.js`.
+ * The scene format version this engine reads and writes. A scene declares
+ * the version it was written for, and anything else is refused rather than
+ * half-understood.
  */
 export const SCENE_VERSION = 2;
 

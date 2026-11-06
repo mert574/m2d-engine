@@ -33,20 +33,14 @@ export class Constraint {
 
   /**
    * The constraint's tunable data, as schema descriptors keyed by option
-   * name. See `core/schema.js`.
+   * name — what makes it something a scene can declare and an inspector
+   * can draw. A param absent here cannot be set from a scene file.
    *
-   * This is what makes a constraint something a scene can declare and an
-   * editor can show: the loader validates declared params against it, and
-   * an inspector reads the type, default and range of each one to draw the
-   * right control. A constraint with no entry here cannot be configured
-   * from a scene file at all.
-   *
-   * **Only data belongs here.** The callbacks a constraint takes —
-   * `onDeath`, `onMove`, `canCast` — are code, cannot be written in JSON,
-   * and are deliberately absent, so an actor still wires those up itself.
-   *
-   * A param is named after the field it sets, because that is what
-   * `configure` assigns it to.
+   * Only data belongs here. A constraint's callbacks (`onDeath`,
+   * `onMove`) cannot be written in JSON and stay the actor's job. Each
+   * param is named after the field it sets, which is what `configure`
+   * assigns it to, and records its default as `initial` rather than
+   * `default` — see `configure`.
    *
    * @type {Object<string, object>}
    */

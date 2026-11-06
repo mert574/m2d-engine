@@ -152,7 +152,17 @@ describe('constraints declared in a scene', () => {
 
   it('refuses an entry that tunes a slot nothing filled', async () => {
     await expect(build(level({ objectConstraints: { ghost: { params: { speed: 1 } } } })))
-      .rejects.toThrow(/tunes constraint 'ghost'.*no type was given/);
+      .rejects.toThrow(/constraint 'ghost': nothing attached one and no type was given/);
+  });
+
+  it('refuses a type that conflicts with the constraint already in the slot', async () => {
+    // Silently replacing would discard the callbacks the actor wired up;
+    // silently configuring the old one would set the wrong object. The
+    // author has to say which they meant.
+    await expect(build(level({
+      actor: 'Guard',
+      objectConstraints: { chase: { type: 'Hover' } }
+    }))).rejects.toThrow(/conflicts with the Chase already attached/);
   });
 
   it('refuses a param the constraint does not have, when applied', async () => {

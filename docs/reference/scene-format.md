@@ -1,6 +1,6 @@
 # Scene format
 
-A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `2`; a scene written for an older one is migrated on load, see [Versions and migration](#versions-and-migration).
+A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `2`; see [Versions](#versions).
 
 ## Top level
 
@@ -257,24 +257,12 @@ The checks, in addition to key lists and types:
 - `physics.bodyType` and `physics.shape` take listed values
 - `anchor` takes a listed value
 
-## Versions and migration
+## Versions
 
-A scene declares the format version it was written for. The current version is `2`.
-
-A scene at an older version is **migrated on load**: the loader upgrades it one version at a time and then validates the result against the current format only. Nothing needs to be edited for an engine upgrade, and the error you get from a scene is always about the current format.
-
-A scene at a *newer* version than the engine knows cannot be migrated — there is no forward migration to run — and the loader says so instead of failing field by field:
+A scene declares the format version it was written for, and the loader accepts exactly the one this engine reads. Anything else is refused rather than half-understood:
 
 ```
-Scene 'level1' at version: scene format 3 is newer than this engine understands (up to 2); upgrade m2d-engine
+Scene 'level1' at version: scene format 3 is newer than this engine understands (2); upgrade m2d-engine
 ```
 
-Migration happens in memory. The file on disk is untouched, and so is the object passed to `load`; the normalized scene it returns is a new one.
-
-| From | To | Change |
-| --- | --- | --- |
-| 1 | 2 | Every object and UI element carries a unique string `id`. A number becomes its decimal string; an object with no id gets one from its prefab and its position in the layer; a repeated id, which version 1 did not check for, is suffixed |
-
-Scenes that ship with the engine are always written at the current version, so the demos exercise the format rather than a migration of it. Migrations exist for scenes the engine does not own.
-
-Adding a version means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and registering a migration from its predecessor in `m2d-engine/core/sceneMigrations.js`.
+There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and rewriting the scenes — which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.

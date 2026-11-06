@@ -252,18 +252,16 @@ export class Scene {
   /**
    * Attach and tune the constraints a prefab and a placed object declare.
    *
-   * Three cases, in one rule: an entry whose slot is already filled —
-   * because the actor added it, or because the prefab declared it —
-   * retunes what is there through `configure`; an entry for an empty slot
-   * constructs the constraint. An object's entry for a slot the prefab
-   * also declares merges over it, so a single guard can patrol faster
-   * without needing a prefab of its own.
+   * One rule: an entry whose slot is already filled — by the actor's
+   * constructor, or by the prefab — retunes what is there through
+   * `configure`, and an entry for an empty slot constructs it. An
+   * object's entry merges over the prefab's, so one guard can patrol
+   * faster without a prefab of its own.
    *
-   * Params are validated here, against the constraint class's `static
-   * params`. The loader already checked the ones whose `type` it could
-   * resolve; this covers the rest — an entry that only retunes names no
-   * type, and until the entity exists there is nothing to say which class
-   * that slot holds.
+   * Params are validated here as well as in the loader, which can only
+   * check the entries whose `type` the document names. An entry that
+   * retunes names no type, and until the entity exists nothing says which
+   * class fills that slot.
    *
    * @param {import('./entity.js').Entity} entity
    * @param {Object} [fromPrefab]
@@ -279,20 +277,27 @@ export class Scene {
       const override = fromObject?.[slot];
       const type = override?.type ?? declared?.type;
       const existing = entity.getConstraint(slot);
+      const problem = (message) => {
+        throw new Error(`M2D scene '${this.config.name}': ${where}, constraint '${slot}': ${message}`);
+      };
 
       if (!type && !existing) {
-        throw new Error(`M2D scene '${this.config.name}': ${where} tunes constraint ` +
-          `'${slot}', but nothing attached one and no type was given`);
+        problem('nothing attached one and no type was given');
       }
 
       const ConstraintClass = type ? this.game.constraintTypes.get(type) : existing.constructor;
-      if (type && !ConstraintClass) {
-        throw new Error(`M2D scene '${this.config.name}': ${where} wants constraint type ` +
-          `'${type}', which is not registered`);
+      if (type && !ConstraintClass) problem(`constraint type '${type}' is not registered`);
+      // Naming a different type for a slot something else already fills
+      // would either discard that constraint and the callbacks its actor
+      // wired up, or quietly configure the wrong object. Neither is a
+      // thing to guess at.
+      if (existing && ConstraintClass !== existing.constructor) {
+        problem(`type '${type}' conflicts with the ${existing.constructor.name} already attached; ` +
+          'omit the type to retune it, or use a different slot');
       }
 
       const params = this.#constraintParams(
-        ConstraintClass, { ...declared?.params, ...override?.params }, slot, where);
+        ConstraintClass, { ...declared?.params, ...override?.params }, problem);
 
       if (existing) existing.configure(params);
       else entity.addConstraint(slot, new ConstraintClass(entity, params));
@@ -300,12 +305,10 @@ export class Scene {
   }
 
   /** Validated params for one constraint entry. */
-  #constraintParams(ConstraintClass, params, slot, where) {
-    const fail = (path, message) => {
-      throw new Error(`M2D scene '${this.config.name}': ${where}, constraint ` +
-        `'${slot}'${path ? ` at ${path}` : ''}: ${message}`);
-    };
-    return validate(constraintParamsSchema(ConstraintClass), params, { fail });
+  #constraintParams(ConstraintClass, params, problem) {
+    return validate(constraintParamsSchema(ConstraintClass), params, {
+      fail: (path, message) => problem(`${path ? `${path}: ` : ''}${message}`)
+    });
   }
 
   createPrefabInstance(data) {

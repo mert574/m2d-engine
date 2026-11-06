@@ -62,7 +62,6 @@ describe('the asset manifest', () => {
     const db = new AssetDatabase().load(manifest());
     expect(db.has('sheet-hero')).toBe(true);
     expect(db.uids.sort()).toEqual(['prefab-guard', 'sheet-hero']);
-    expect(db.ofType('prefab')).toEqual(['prefab-guard']);
   });
 
   it('resolves a sprite sheet into the shape a scene declares inline', () => {

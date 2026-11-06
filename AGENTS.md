@@ -105,9 +105,9 @@ npx playwright install chromium   # once, for test:browser
   `sceneSchema.js` and into `docs/reference/scene-format.md` — never into
   validation code written by hand, which tooling cannot read.
 - A scene format change that existing files would fail bumps
-  `SCENE_VERSION` and adds a migration in `sceneMigrations.js`. The repo's
-  own scenes are then rewritten at the new version (a test asserts it);
-  migrations are for scenes the engine does not own.
+  `SCENE_VERSION` and rewrites the repo's scenes at it (a test asserts
+  every shipped scene is at the current version). There is no migration
+  path, and adding one is editor work, not engine work.
 - A constraint declares its tunables in `static params` as schema
   descriptors named after the fields they set, with defaults recorded as
   `initial` (never a schema `default`, which an override would apply).

@@ -1,25 +1,16 @@
 /**
  * A small declarative schema: a data format written as data.
  *
- * The scene loader used to validate by hand — a `#checkKeys` call with the
- * allowed names as a local array, then an `if` per field. That reads well
- * and diagnoses well, and it has one fatal property: the format exists only
- * as control flow. Nothing can *ask* it what a field is. A visual editor
- * needs exactly that — for every property, its type, its default, its
- * range, its allowed values, and whether it names another thing in the
- * project — so an inspector can draw a number box here, a dropdown there
- * and an asset picker in the third place. Hand-written validation forces
- * the editor to keep a parallel copy of the format, which drifts from the
- * loader the week after it is written.
+ * Validation written by hand reads well and diagnoses well, and has one
+ * fatal property: the format then exists only as control flow, so nothing
+ * can *ask* it what a field is. Tooling needs exactly that — for every
+ * property its type, default, range, allowed values, and whether it names
+ * something elsewhere in the project — or it keeps a parallel copy of the
+ * format that drifts from the loader.
  *
  * So the format is descriptors, and the same descriptors do both jobs:
  * `validate` walks them to check and normalize a document, and an editor
- * walks them to build a UI. One source of truth, by construction.
- *
- * Validation is strict in the way the scene format has always been strict:
- * an unknown key is an error, naming the path and listing what was allowed,
- * because silently ignoring a field the author believed in is the failure
- * worth designing against.
+ * walks them to build an inspector.
  *
  * ```js
  * const Point = s.object({
@@ -30,10 +21,14 @@
  * validate(Point, { x: 1, y: 2 }, { fail });
  * ```
  *
- * Errors are reported through a caller-supplied `fail(path, message)`, which
- * must throw; this module never constructs an error class of its own, so it
- * stays usable by anything with its own error type. See `sceneSchema.js` for
- * the scene format and `sceneLoader.js` for the caller.
+ * Validation is strict: an unknown key is an error naming the path and
+ * what was allowed, because silently ignoring a field the author believed
+ * in is the failure worth designing against.
+ *
+ * Errors go through a caller-supplied `fail(path, message)`, which must
+ * throw. This module has no error class of its own, so it stays usable by
+ * anything with one. See `sceneSchema.js` and `assetSchema.js` for the
+ * formats built on it.
  */
 
 /**
@@ -116,11 +111,12 @@ function messageFor(desc, value, key) {
   return typeof message === 'function' ? message(value, key) : message;
 }
 
-/** The error for a field that is required and absent. */
-function missingMessage(desc, key) {
+/** What a descriptor wanted, for the error when it did not get it. */
+function expected(desc, key) {
   switch (desc.kind) {
     case 'string': case 'ref': return `missing or non-string ${key}`;
-    case 'number': case 'integer': return desc.positive ? 'must be a positive number' : 'must be a number';
+    case 'number': return desc.positive ? 'must be a positive number' : 'must be a number';
+    case 'integer': return 'must be an integer';
     case 'boolean': return 'must be a boolean';
     case 'object': case 'record': case 'tagged': return 'must be an object';
     case 'array': case 'tuple': return 'must be an array';
@@ -128,16 +124,22 @@ function missingMessage(desc, key) {
   }
 }
 
+/** A number or integer that failed its type or its range. */
 function numberMessage(desc, value) {
-  if (desc.positive) return 'must be a positive number';
-  if (desc.min !== undefined || desc.max !== undefined) {
-    const range = [
-      desc.min !== undefined ? `at least ${desc.min}` : null,
-      desc.max !== undefined ? `at most ${desc.max}` : null
-    ].filter(Boolean).join(' and ');
-    return `must be a number ${range}, got ${JSON.stringify(value)}`;
-  }
-  return `must be a number, got ${JSON.stringify(value)}`;
+  const kind = desc.kind === 'integer' ? 'an integer' : 'a number';
+  if (desc.positive) return `must be ${kind === 'an integer' ? 'a positive integer' : 'a positive number'}`;
+  const range = [
+    desc.min !== undefined ? `at least ${desc.min}` : null,
+    desc.max !== undefined ? `at most ${desc.max}` : null
+  ].filter(Boolean).join(' and ');
+  return `must be ${kind}${range ? ` ${range}` : ''}, got ${JSON.stringify(value)}`;
+}
+
+/** Whether a number sits inside the descriptor's bounds. */
+function inRange(desc, value) {
+  return (!desc.positive || value > 0)
+    && (desc.min === undefined || value >= desc.min)
+    && (desc.max === undefined || value <= desc.max);
 }
 
 /** Whether a field is required here, given the object that contains it. */
@@ -171,65 +173,56 @@ function join(path, key) {
 export function validate(desc, value, ctx) {
   const { fail, path = '', key = '', parent } = ctx;
 
+  /** Fail with the descriptor's own message, or `fallback`. */
+  const reject = (fallback) => fail(path, messageFor(desc, value, key) ?? fallback);
+
   if (value === undefined || value === null) {
-    if (isRequired(desc, parent)) {
-      fail(path, messageFor(desc, value, key) ?? missingMessage(desc, key));
-    }
+    if (isRequired(desc, parent)) reject(expected(desc, key));
     return desc.default !== undefined ? structuredClone(desc.default) : undefined;
   }
-
-  const reject = () => fail(path, messageFor(desc, value, key) ?? missingMessage(desc, key));
 
   switch (desc.kind) {
     case 'any':
       return value;
 
-    case 'number': {
-      const ok = Number.isFinite(value)
-        && (!desc.positive || value > 0)
-        && (desc.min === undefined || value >= desc.min)
-        && (desc.max === undefined || value <= desc.max);
-      if (!ok) fail(path, messageFor(desc, value, key) ?? numberMessage(desc, value));
-      return value;
-    }
-
+    case 'number':
     case 'integer': {
-      const ok = Number.isSafeInteger(value)
-        && (!desc.positive || value > 0)
-        && (desc.min === undefined || value >= desc.min)
-        && (desc.max === undefined || value <= desc.max);
-      if (!ok) fail(path, messageFor(desc, value, key) ?? `must be an integer, got ${JSON.stringify(value)}`);
+      const isNumber = desc.kind === 'integer' ? Number.isSafeInteger(value) : Number.isFinite(value);
+      if (!isNumber || !inRange(desc, value)) reject(numberMessage(desc, value));
       return value;
     }
 
     case 'string': {
-      if (typeof value !== 'string' || (desc.nonEmpty && !value)) reject();
-      if (desc.pattern && !desc.pattern.test(value)) reject();
+      if (typeof value !== 'string' || (desc.nonEmpty && !value)) reject(expected(desc, key));
+      // A pattern failure is not a type failure: "missing or non-string"
+      // would be a lie about a string that is simply spelled wrong.
+      if (desc.pattern && !desc.pattern.test(value)) {
+        reject(`'${value}' does not match ${desc.pattern}`);
+      }
       return value;
     }
 
     case 'boolean': {
-      if (typeof value !== 'boolean') reject();
+      if (typeof value !== 'boolean') reject(expected(desc, key));
       return value;
     }
 
     case 'enum': {
       if (!desc.values.includes(value)) {
-        fail(path, messageFor(desc, value, key)
-          ?? `expected one of ${desc.values.join(', ')}, got ${JSON.stringify(value)}`);
+        reject(`expected one of ${desc.values.join(', ')}, got ${JSON.stringify(value)}`);
       }
       return value;
     }
 
     case 'ref': {
-      if (typeof value !== 'string' || !value) reject();
+      if (typeof value !== 'string' || !value) reject(expected(desc, key));
       const scope = ctx.refs?.[desc.scope];
       if (scope && !scope.has(value)) fail(path, scope.describe(value));
       return value;
     }
 
     case 'object': {
-      if (typeof value !== 'object' || Array.isArray(value)) reject();
+      if (typeof value !== 'object' || Array.isArray(value)) reject(expected(desc, key));
       const { fields } = desc;
       const allowed = Object.keys(fields);
       for (const name of Object.keys(value)) {
@@ -248,7 +241,7 @@ export function validate(desc, value, ctx) {
     }
 
     case 'record': {
-      if (typeof value !== 'object' || Array.isArray(value)) reject();
+      if (typeof value !== 'object' || Array.isArray(value)) reject(expected(desc, key));
       const out = {};
       for (const [name, entry] of Object.entries(value)) {
         out[name] = validate(desc.value, entry,
@@ -258,8 +251,10 @@ export function validate(desc, value, ctx) {
     }
 
     case 'array': {
-      if (!Array.isArray(value)) reject();
-      if (desc.minLength !== undefined && value.length < desc.minLength) reject();
+      if (!Array.isArray(value)) reject(expected(desc, key));
+      if (desc.minLength !== undefined && value.length < desc.minLength) {
+        reject(`must have at least ${desc.minLength} item${desc.minLength === 1 ? '' : 's'}`);
+      }
       const out = value.map((entry, i) => validate(desc.item, entry,
         { ...ctx, path: `${path}[${i}]`, key: String(i), parent: value }));
       desc.refine?.(out, { path, fail, refs: ctx.refs, context: ctx.context });
@@ -267,7 +262,9 @@ export function validate(desc, value, ctx) {
     }
 
     case 'tuple': {
-      if (!Array.isArray(value) || value.length !== desc.items.length) reject();
+      if (!Array.isArray(value) || value.length !== desc.items.length) {
+        reject(`must be an array of ${desc.items.length}`);
+      }
       return value.map((entry, i) => validate(desc.items[i], entry,
         { ...ctx, path: `${path}[${i}]`, key: String(i), parent: value }));
     }
@@ -278,13 +275,14 @@ export function validate(desc, value, ctx) {
     }
 
     case 'union': {
-      const branch = desc.branches.find(option => option.match(value));
-      if (!branch) reject();
+      // A branch with no `match` is the fallback, and matches anything.
+      const branch = desc.branches.find(option => !option.match || option.match(value));
+      if (!branch) reject(expected(desc, key));
       return validate(branch, value, ctx);
     }
 
     case 'tagged': {
-      if (typeof value !== 'object' || Array.isArray(value)) reject();
+      if (typeof value !== 'object' || Array.isArray(value)) reject(expected(desc, key));
       const tag = value[desc.tag];
       const branch = desc.variants[tag];
       if (!branch) {

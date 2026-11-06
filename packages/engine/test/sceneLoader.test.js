@@ -77,10 +77,10 @@ describe('SceneLoader', () => {
       expect(() => loader.load(ui([]))).not.toThrow();
     });
 
-    it('rejects a malformed version', () => {
+    it('rejects a version that is not this engine\'s', () => {
+      expectError(level({ version: SCENE_VERSION - 1 }), 'version', `expected scene format ${SCENE_VERSION}`);
       expectError(level({ version: '1.0' }), 'version', '"1.0"');
       expectError(level({ version: undefined }), 'version');
-      expectError(level({ version: 0 }), 'version');
     });
 
     it('rejects a version newer than the engine, saying so', () => {
@@ -232,68 +232,6 @@ describe('SceneLoader', () => {
       ];
       expectError({ version: SCENE_VERSION, name: 'menu', type: 'ui', elements },
         'elements[1].id', /duplicate id 'play'/);
-    });
-  });
-
-  /**
-   * A project is a body of files the user owns. Opening one written for an
-   * older format must upgrade it, not reject it — that is the whole reason
-   * the format carries a version.
-   */
-  describe('migration from older formats', () => {
-    const v1Level = (objects) => ({
-      version: 1,
-      name: 'level1',
-      type: 'level',
-      prefabs: { player: { actor: 'Player' } },
-      layers: [{ name: 'main', objects }]
-    });
-
-    it('loads a version 1 level, giving every object an id', () => {
-      const loaded = loader.load(v1Level([
-        { prefab: 'player', x: 0, y: 0 },
-        { prefab: 'player', x: 1, y: 1 }
-      ]));
-
-      expect(loaded.version).toBe(SCENE_VERSION);
-      expect(loaded.layers[0].objects.map(o => o.id)).toEqual(['player-0', 'player-1']);
-    });
-
-    it('carries version 1 numeric ids over as strings', () => {
-      const loaded = loader.load(v1Level([{ id: 7, prefab: 'player', x: 0, y: 0 }]));
-      expect(loaded.layers[0].objects[0].id).toBe('7');
-    });
-
-    it('separates ids that version 1 allowed to collide', () => {
-      // v1 never checked uniqueness, so a document may genuinely repeat one.
-      const loaded = loader.load(v1Level([
-        { id: 'gate', prefab: 'player', x: 0, y: 0 },
-        { id: 'gate', prefab: 'player', x: 1, y: 1 }
-      ]));
-      expect(loaded.layers[0].objects.map(o => o.id)).toEqual(['gate', 'gate-2']);
-    });
-
-    it('does not modify the document it was given', () => {
-      // The caller may still hold it, and a cached scene config must not
-      // change under it.
-      const data = v1Level([{ prefab: 'player', x: 0, y: 0 }]);
-      loader.load(data);
-      expect(data.version).toBe(1);
-      expect(data.layers[0].objects[0].id).toBeUndefined();
-    });
-
-    it('still rejects what the current schema rejects, after migrating', () => {
-      // A migration upgrades a format; it does not excuse bad data.
-      expectError(v1Level([{ prefab: 'ghost', x: 0, y: 0 }]),
-        'layers[0].objects[0].prefab', /no prefab named 'ghost'/);
-    });
-
-    it('migrates a version 1 UI scene', () => {
-      const loaded = loader.load({
-        version: 1, name: 'menu', type: 'ui',
-        elements: [{ type: 'button', x: 0, y: 0, properties: { text: 'Play', action: 'start' } }]
-      });
-      expect(loaded.elements[0].id).toBe('button-0');
     });
   });
 

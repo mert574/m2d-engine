@@ -1,39 +1,23 @@
 /**
  * The asset manifest format, written as schema descriptors.
  *
- * A scene can declare everything it needs inside itself — its sprite
- * sheets, its prefabs — and for a game written by hand in one repository
- * that is the simplest thing that works. It stops working the moment
- * assets are shared and owned: the same prefab wanted by four levels, a
- * texture renamed, a model dropped into a project by someone who is not
- * going to hand-edit six JSON files afterwards.
+ * Beside each asset's uid sit the things an engine cannot infer from the
+ * bytes: where the source file is, and the **import settings** that say
+ * how to read it — the frame size that turns one PNG into a sprite sheet.
+ * Unity keeps this per file in `.meta`, Godot in `.import`; in a browser
+ * the equivalent is one document the game fetches, which is what this is.
  *
- * The manifest is the answer Unity and Godot both arrived at. Every asset
- * has a **UID**: an identity that is not its name and not its path, so
- * renaming a file or moving it does not break the scenes that use it.
- * Beside the UID sit the things an engine cannot infer from the bytes —
- * where the source file is, and the **import settings** that say how to
- * read it, such as the frame size that turns one PNG into a sprite sheet.
- * Unity writes this per file as `.meta` with a GUID, Godot as `.import`
- * with a `uid://`. In a browser the equivalent is one document the game
- * fetches, which is what this is: the compiled asset database, however it
- * was produced.
+ * Two kinds of asset, by what they are made of:
  *
- * Two kinds of asset, distinguished by what they are made of:
+ * - **Imported** — there is a source file. `source` is its path, `import`
+ *   holds the settings for reading it. A sprite sheet is this.
+ * - **Authored** — there is no file, the asset *is* data, in `data`. A
+ *   prefab is this.
  *
- * - **Imported** — there is a source file. `source` is its path and
- *   `import` holds the settings for reading it. A sprite sheet is this.
- * - **Authored** — there is no file, the asset *is* data. `data` holds it.
- *   A prefab is this.
- *
- * References *between* assets are by UID, because that is the identity
- * that survives. References from a scene are by local name: a scene binds
- * the UIDs it needs to short names in its `uses` block and reads normally
- * after that, so scene files stay legible and diffable. Godot does the
- * same thing with `ext_resource`.
- *
- * See `assets.js` for the database built from this, and `sceneSchema.js`
- * for the `uses` block.
+ * References between assets are by uid, the identity that survives a
+ * rename. References from a scene are by local name, bound in its `uses`
+ * block, so scene files stay legible — Godot's `ext_resource` does the
+ * same. See `assets.js` for the database and `sceneSchema.js` for `uses`.
  */
 
 import { s } from './schema.js';

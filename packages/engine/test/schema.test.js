@@ -68,6 +68,17 @@ describe('schema', () => {
       expectFail(s.string({ nonEmpty: true }), '', '', /missing or non-string/);
     });
 
+    it('says a pattern failed rather than calling the value non-string', () => {
+      // "missing or non-string" would be a lie about a string that is
+      // simply spelled wrong.
+      expectFail(s.string({ pattern: /^[a-z]+$/ }), 'Nope', '', /'Nope' does not match/);
+    });
+
+    it('reports a range failure as a range failure', () => {
+      expectFail(s.integer({ min: 1 }), 0, '', /must be an integer at least 1, got 0/);
+      expectFail(s.integer(), 'x', '', /must be an integer, got "x"/);
+    });
+
     it('lists the allowed values of an enum', () => {
       expectFail(s.enumOf(['a', 'b']), 'c', '', /expected one of a, b, got "c"/);
     });

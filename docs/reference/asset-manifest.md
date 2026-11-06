@@ -127,7 +127,5 @@ Problems with a scene's `uses` block are scene errors and throw `SceneValidation
 | `game.loadAssets(manifest)` | Validate and index a manifest, replacing anything loaded before |
 | `assets.has(uid)` / `get(uid)` | Whether an asset is loaded; its raw entry or `null` |
 | `assets.uids` | Every loaded uid |
-| `assets.ofType(type)` | Every uid of one type |
 | `assets.spritesheet(uid)` | The sheet in the shape a scene declares inline, url included |
 | `assets.prefab(uid, sheetName)` | The prefab in the shape a scene declares inline, its sheet uid mapped through `sheetName` |
-| `assets.clear()` | Forget everything |
