@@ -39,9 +39,15 @@ const creatureAnimations = () => directional({
 });
 
 const objects = [];
-let nextId = 1;
+const counts = new Map();
+/** A stable id, readable in a diff: the prefab and its ordinal. */
+const nextId = (prefab) => {
+  const n = (counts.get(prefab) ?? 0) + 1;
+  counts.set(prefab, n);
+  return `${prefab}-${n}`;
+};
 const add = (prefab, x, y, width, height, properties) => {
-  const o = { id: nextId++, prefab, x: Math.round(x), y: Math.round(y) };
+  const o = { id: nextId(prefab), prefab, x: Math.round(x), y: Math.round(y) };
   if (width !== undefined) { o.width = Math.round(width); o.height = Math.round(height); }
   if (properties) o.properties = properties;
   objects.push(o);
@@ -75,7 +81,7 @@ add('door', LENGTH - 120, (LANE.top + LANE.bottom) / 2, 120, 200, { visible: tru
 add('player', 240, (LANE.top + LANE.bottom) / 2, 28, 24, { spriteSize: 200, spriteOffsetY: -56 });
 
 const scene = {
-  version: 1, name: 'row', type: 'level', gameType: 'belt',
+  version: 2, name: 'row', type: 'level', gameType: 'belt',
   world: { width: LENGTH, height: DEPTH, gravity: { x: 0, y: 0 }, sort: 'depth', projection: { type: 'belt', ratio: 0.5 } },
   assets: {
     spritesheets: {

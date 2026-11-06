@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "row",
   "type": "level",
   "gameType": "belt",
@@ -2806,7 +2806,7 @@
       "type": "objects",
       "objects": [
         {
-          "id": 1,
+          "id": "bound-1",
           "prefab": "bound",
           "x": 2600,
           "y": -80,
@@ -2814,7 +2814,7 @@
           "height": 240
         },
         {
-          "id": 2,
+          "id": "bound-2",
           "prefab": "bound",
           "x": 2600,
           "y": 480,
@@ -2822,7 +2822,7 @@
           "height": 240
         },
         {
-          "id": 3,
+          "id": "bound-3",
           "prefab": "bound",
           "x": -120,
           "y": 200,
@@ -2830,7 +2830,7 @@
           "height": 880
         },
         {
-          "id": 4,
+          "id": "bound-4",
           "prefab": "bound",
           "x": 5320,
           "y": 200,
@@ -2838,7 +2838,7 @@
           "height": 880
         },
         {
-          "id": 5,
+          "id": "street-1",
           "prefab": "street",
           "x": 2600,
           "y": 200,
@@ -2854,7 +2854,7 @@
           }
         },
         {
-          "id": 6,
+          "id": "foreground-1",
           "prefab": "foreground",
           "x": 2600,
           "y": 200,
@@ -2868,7 +2868,7 @@
           }
         },
         {
-          "id": 7,
+          "id": "lamp-1",
           "prefab": "lamp",
           "x": 300,
           "y": 50,
@@ -2876,7 +2876,7 @@
           "height": 24
         },
         {
-          "id": 8,
+          "id": "lamp-2",
           "prefab": "lamp",
           "x": 820,
           "y": 50,
@@ -2884,7 +2884,7 @@
           "height": 24
         },
         {
-          "id": 9,
+          "id": "lamp-3",
           "prefab": "lamp",
           "x": 1340,
           "y": 50,
@@ -2892,7 +2892,7 @@
           "height": 24
         },
         {
-          "id": 10,
+          "id": "lamp-4",
           "prefab": "lamp",
           "x": 1860,
           "y": 50,
@@ -2900,7 +2900,7 @@
           "height": 24
         },
         {
-          "id": 11,
+          "id": "lamp-5",
           "prefab": "lamp",
           "x": 2380,
           "y": 50,
@@ -2908,7 +2908,7 @@
           "height": 24
         },
         {
-          "id": 12,
+          "id": "lamp-6",
           "prefab": "lamp",
           "x": 2900,
           "y": 50,
@@ -2916,7 +2916,7 @@
           "height": 24
         },
         {
-          "id": 13,
+          "id": "lamp-7",
           "prefab": "lamp",
           "x": 3420,
           "y": 50,
@@ -2924,7 +2924,7 @@
           "height": 24
         },
         {
-          "id": 14,
+          "id": "lamp-8",
           "prefab": "lamp",
           "x": 3940,
           "y": 50,
@@ -2932,7 +2932,7 @@
           "height": 24
         },
         {
-          "id": 15,
+          "id": "lamp-9",
           "prefab": "lamp",
           "x": 4460,
           "y": 50,
@@ -2940,7 +2940,7 @@
           "height": 24
         },
         {
-          "id": 16,
+          "id": "lamp-10",
           "prefab": "lamp",
           "x": 4980,
           "y": 50,
@@ -2948,7 +2948,7 @@
           "height": 24
         },
         {
-          "id": 17,
+          "id": "door-1",
           "prefab": "door",
           "x": 5080,
           "y": 200,
@@ -2961,7 +2961,7 @@
           }
         },
         {
-          "id": 18,
+          "id": "player-1",
           "prefab": "player",
           "x": 240,
           "y": 200,

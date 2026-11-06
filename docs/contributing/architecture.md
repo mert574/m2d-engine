@@ -16,6 +16,7 @@ packages/engine/src/
 │   ├── scene.js          Builds a scene from validated JSON
 │   ├── schema.js         Declarative schema descriptors and their validator
 │   ├── sceneSchema.js    The scene format, written as descriptors
+│   ├── sceneMigrations.js Upgrades a scene written for an older format
 │   ├── sceneLoader.js    Validates scene JSON against the scene schema
 │   ├── sceneManager.js   Registration, caching, switching
 │   ├── quest.js          A quest as a line of stages
@@ -109,6 +110,8 @@ Behaviours pinned by tests because they are easy to get wrong:
 `SceneLoader.load` validates raw JSON and applies defaults before `Scene` builds anything. The normalized output has the same shape as the input, so there is one scene format to know.
 
 The format itself is data. `sceneSchema.js` describes every field — its type, default, range, allowed values, and whether it names a spritesheet, prefab, actor or scene — using the descriptor vocabulary in `schema.js`; `sceneLoader.js` is only what cannot be data: choosing the schema for a scene's `type`, building the namespaces that references resolve against, and raising `SceneValidationError`. Adding a field means adding it to `sceneSchema.js` and to the [scene format reference](../reference/scene-format).
+
+A scene written for an older format version is migrated before it is validated, one version at a time, so validation only ever knows the current format and a format change does not invalidate files the engine does not own. See [Versions and migration](../reference/scene-format#versions-and-migration). The engine's own scenes are always at the current version; `examples/test/scenes.test.js` asserts it, because a shipped scene left behind would validate through its migration and hide what the format now asks for.
 
 Writing the format as descriptors rather than as validation code is what lets tooling read it. Validation and an inspector panel need the same facts about each property, and a tool that restates them keeps a copy that drifts from the loader. `refScopesOf` reports which namespaces a format points into, `fieldsOf` walks an object's properties. `test/schema.test.js` covers the vocabulary, `test/sceneLoader.test.js` the scene format. `examples/test/scenes.test.js` validates every scene JSON under `examples/src/` and the scene files of the first-game demo under `docs/demos/`.
 

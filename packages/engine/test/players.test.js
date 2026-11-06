@@ -16,7 +16,7 @@ const SIZE = 4;
 
 /** Two players' avatars, two lanterns and a vendor, on a floor. */
 const SCENE = {
-  version: 1, type: 'level', name: 'market',
+  version: 2, type: 'level', name: 'market',
   world: { gravity: { x: 0, y: 0 } },
   prefabs: {
     floor: { actor: 'Platform', physics: { bodyType: 'static' } },
@@ -24,12 +24,12 @@ const SCENE = {
     thing: { actor: 'Platform', physics: { bodyType: 'static', isSensor: true } }
   },
   layers: [{ name: 'main', objects: [
-    { prefab: 'floor', x: 640, y: 700, width: 1280, height: 40 },
-    { prefab: 'hero', x: 300, y: 640, width: 32, height: 48 },
-    { prefab: 'hero', x: 900, y: 640, width: 32, height: 48 },
-    { prefab: 'thing', x: 320, y: 600, width: 16, height: 16 }, // vendor near A
-    { prefab: 'thing', x: 500, y: 600, width: 16, height: 16 }, // lantern
-    { prefab: 'thing', x: 520, y: 600, width: 16, height: 16 } // lantern
+    { id: 'floor', prefab: 'floor', x: 640, y: 700, width: 1280, height: 40 },
+    { id: 'hero-a', prefab: 'hero', x: 300, y: 640, width: 32, height: 48 },
+    { id: 'hero-b', prefab: 'hero', x: 900, y: 640, width: 32, height: 48 },
+    { id: 'vendor', prefab: 'thing', x: 320, y: 600, width: 16, height: 16 }, // vendor near A
+    { id: 'lantern-1', prefab: 'thing', x: 500, y: 600, width: 16, height: 16 }, // lantern
+    { id: 'lantern-2', prefab: 'thing', x: 520, y: 600, width: 16, height: 16 } // lantern
   ] }]
 };
 

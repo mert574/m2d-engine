@@ -14,6 +14,15 @@ export class Scene {
     this.config = config;
     this.sprites = new Map();
     this.spriteSheets = new Map();
+    /**
+     * Entities placed by the scene file, by their object `id`. Lets one
+     * placed object refer to another — the gate a lever opens, the point a
+     * patrol walks to — without searching by name or position, and is what
+     * an editor's selection resolves against. Entities spawned during play
+     * are not in it: they come from `game.spawn` and have no scene object.
+     * @type {Map<string, import('./entity.js').Entity>}
+     */
+    this.entitiesById = new Map();
     // A headless game has no UI; a scene hook that reaches for it fails by name.
     this.ui = game.headless ? presentationGuard('scene.ui') : new Container(game);
   }
@@ -209,6 +218,8 @@ export class Scene {
         });
 
         if (entity) {
+          entity.sceneId = object.id;
+          this.entitiesById.set(object.id, entity);
           if (object.zIndex !== undefined) entity.zIndex = object.zIndex;
           if (entity.name === 'Player') {
             this.game.player = entity;
@@ -343,6 +354,11 @@ export class Scene {
     const headless = this.game.headless;
     if (!headless) this.config.onHide?.();
     if (!this.#serverRuns) this.config.onExit?.();
+
+    // Those entities are gone with the scene; holding them here would keep
+    // every body of every scene ever loaded alive. onExit runs first so it
+    // can still look one up.
+    this.entitiesById.clear();
 
     // Headless there is no camera, UI or cursor to reset, only the scene's
     // timers (see the end of this method).

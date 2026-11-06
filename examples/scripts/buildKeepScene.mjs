@@ -66,9 +66,15 @@ for (let i = 0; i < COLS; i++) {
 }
 
 const objects = [];
-let nextId = 1;
+const counts = new Map();
+/** A stable id, readable in a diff: the prefab and its ordinal. */
+const nextId = (prefab) => {
+  const n = (counts.get(prefab) ?? 0) + 1;
+  counts.set(prefab, n);
+  return `${prefab}-${n}`;
+};
 function add(prefab, x, y, width, height, properties) {
-  const o = { id: nextId++, prefab, x: Math.round(x), y: Math.round(y) };
+  const o = { id: nextId(prefab), prefab, x: Math.round(x), y: Math.round(y) };
   if (width !== undefined) { o.width = Math.round(width); o.height = Math.round(height); }
   if (properties) o.properties = properties;
   objects.push(o);
@@ -133,6 +139,8 @@ const start = at(centre(ROOMS[0]).i, centre(ROOMS[0]).j);
 const stair = at(centre(ROOMS[ROOMS.length - 1]).i, centre(ROOMS[ROOMS.length - 1]).j);
 add('stair', stair.x, stair.y, TILE * 1.5, TILE * 1.5, { visible: true, triggers: 'levelComplete', active: true });
 add('player', start.x, start.y, 28, 28, { spriteSize: 200, spriteOffsetY: -56 });
+// The satchel vendor, beside the entrance.
+add('quartermaster', 240, 2540, 40, 40);
 
 // Flare's row order: W, NW, N, NE, E, SE, S, SW.
 const FLARE_ROWS = ['left', 'up_left', 'up', 'up_right', 'right', 'down_right', 'down', 'down_left'];
@@ -165,7 +173,7 @@ function directional(columns) {
 }
 
 const scene = {
-  version: 1, name: 'keep', type: 'level', gameType: 'isometric',
+  version: 2, name: 'keep', type: 'level', gameType: 'isometric',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth', projection: 'isometric' },
   assets: {
     spritesheets: {
@@ -195,7 +203,8 @@ const scene = {
     ember: { actor: 'Coin', physics: { bodyType: 'static', isSensor: true, shape: 'circle' } },
     skeleton: { actor: 'Ghost', spritesheet: 'skeleton', defaultAnimation: 'idle_down', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, friction: 0.1, frictionAir: 0.25 } },
     goblin: { actor: 'Ghost', spritesheet: 'goblin', defaultAnimation: 'idle_down', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, friction: 0.1, frictionAir: 0.25 } },
-    stair: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } }
+    stair: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } },
+    quartermaster: { actor: 'Quartermaster', physics: { bodyType: 'static', isSensor: true } }
   },
   layers: [{ name: 'keep', type: 'objects', objects }]
 };

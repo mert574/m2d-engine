@@ -30,15 +30,15 @@ export const intents = defineIntents({
 });
 
 export const SCENE = {
-  version: 1, type: 'level', name: 'arena',
+  version: 2, type: 'level', name: 'arena',
   world: { gravity: { x: 0, y: 900 } },
   prefabs: {
     floor: { actor: 'Platform', physics: { bodyType: 'static', friction: 0.6 } },
     vendor: { actor: 'Vendor', physics: { bodyType: 'static', isSensor: true } }
   },
   layers: [{ name: 'main', objects: [
-    { prefab: 'floor', x: 640, y: 700, width: 1280, height: 40 },
-    { prefab: 'vendor', x: 640, y: 600, width: 32, height: 32 }
+    { id: 'floor', prefab: 'floor', x: 640, y: 700, width: 1280, height: 40 },
+    { id: 'vendor', prefab: 'vendor', x: 640, y: 600, width: 32, height: 32 }
   ] }]
 };
 

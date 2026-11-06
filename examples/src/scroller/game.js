@@ -2,6 +2,7 @@ import { InputSchema } from 'm2d-engine/net/input.js';
 import { Meadow, ForeMeadow } from './meadowScenery.js';
 import { ScrollFront, Bee, Flower, Pollen, Thistle, Wasp, Web, Hive } from './meadowActors.js';
 import { LENGTH, HEIGHT, buildMeadow } from './meadow.js';
+import { withIds } from '../shared/sceneIds.js';
 
 /**
  * Beeline's simulation: the actors, the lane and the scene's rules, and
@@ -47,7 +48,7 @@ const FOLIAGE = ['flowerballs', 'seedheads', 'flowerspikes', 'cattails', 'brambl
 export function laneScene(game, { assetUrl = () => '', onReached } = {}) {
   return {
     fetch: async () => ({
-      version: 1, name: 'lane', type: 'level', gameType: 'autoScroller',
+      version: 2, name: 'lane', type: 'level', gameType: 'autoScroller',
       world: { width: LENGTH, height: HEIGHT, gravity: { x: 0, y: 0 } },
       assets: { spritesheets: Object.fromEntries(
         FOLIAGE.map(name => [name, { url: assetUrl(name), frameWidth: 256, frameHeight: 256 }])
@@ -68,7 +69,7 @@ export function laneScene(game, { assetUrl = () => '', onReached } = {}) {
         web: { actor: 'Web', physics: sensor },
         hive: { actor: 'Hive', physics: sensor }
       },
-      layers: [{ name: 'lane', objects: [
+      layers: [{ name: 'lane', objects: withIds([
         { prefab: 'meadow', x: LENGTH / 2, y: HEIGHT / 2, width: 16, height: 16 },
         { prefab: 'foreMeadow', x: LENGTH / 2, y: HEIGHT / 2, width: 16, height: 16 },
         { prefab: 'front', x: 480, y: HEIGHT / 2, width: 16, height: 16 },
@@ -91,7 +92,7 @@ export function laneScene(game, { assetUrl = () => '', onReached } = {}) {
         })),
         { prefab: 'hive', x: meadow.hive.x, y: meadow.hive.y, width: 70, height: 110 },
         { prefab: 'player', x: 220, y: HEIGHT / 2, width: 32, height: 24 }
-      ] }]
+      ]) }]
     }),
 
     onEnter() {

@@ -42,6 +42,8 @@
  * - `required` — `true`, or a predicate on the containing object, so a
  *   field can be required only in some shapes (a UI element needs `x`
  *   unless it fills the screen).
+ * - `nonEmpty`, `pattern` — on a string; `positive`, `min`, `max` — on a
+ *   number.
  * - `default` — applied when the field is absent. Normalization happens
  *   once, here, rather than at each use site.
  * - `message` — overrides the generated error, as a string or as
@@ -192,6 +194,7 @@ export function validate(desc, value, ctx) {
 
     case 'string': {
       if (typeof value !== 'string' || (desc.nonEmpty && !value)) reject();
+      if (desc.pattern && !desc.pattern.test(value)) reject();
       return value;
     }
 

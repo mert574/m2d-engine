@@ -14,7 +14,7 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "type": "level",
   "name": "level1",
   "world": { "gravity": { "x": 0, "y": 1000 } },
@@ -55,11 +55,11 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
     {
       "name": "main",
       "objects": [
-        { "prefab": "player", "x": 100, "y": 100 },
-        { "prefab": "platform", "x": 200, "y": 300, "width": 320, "height": 32 },
-        { "prefab": "platform", "x": 480, "y": 240, "width": 96, "height": 16, "angle": 0.3 },
+        { "id": "player", "prefab": "player", "x": 100, "y": 100 },
+        { "id": "ground", "prefab": "platform", "x": 200, "y": 300, "width": 320, "height": 32 },
+        { "id": "ramp", "prefab": "platform", "x": 480, "y": 240, "width": 96, "height": 16, "angle": 0.3 },
         {
-          "prefab": "lift", "x": 600, "y": 200, "width": 96, "height": 16,
+          "id": "lift", "prefab": "lift", "x": 600, "y": 200, "width": 96, "height": 16,
           "properties": {
             "path": { "points": [{ "x": 600, "y": 200 }, { "x": 800, "y": 200 }], "speed": 60, "waitTime": 1000 }
           }
@@ -105,7 +105,7 @@ A UI scene has `"type": "ui"` and an `elements` array instead of layers. Element
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "type": "ui",
   "name": "mainMenu",
   "elements": [
@@ -133,7 +133,8 @@ Scenes are checked before anything is built from them. The check covers the form
 - A prefab's `spritesheet` and the `background` sprite sheet must exist in `assets.spritesheets`.
 - A prefab's `defaultAnimation` must exist on its sprite sheet.
 - A button's `onClick` must name a registered scene.
-- Unknown keys are errors, including misspellings such as `"anchour"`. Three places are not checked: the contents of `world`, the keys of a prefab's `physics` other than `bodyType` and `shape`, and an object's `properties`. Sprite sheet contents are checked in level scenes only.
+- Every object and UI element needs an `id`, unique within the scene.
+- Unknown keys are errors, including misspellings such as `"anchour"`. The one place not checked is an object's `properties`, which belongs to the actor. Sprite sheet contents are checked in level scenes only.
 
 A failure throws `SceneValidationError` with the scene name and the path to the field, for example `Scene 'level1' at layers[0].objects[3].prefab: no prefab named 'platfrom' (declared: player, platform, lift)`.
 

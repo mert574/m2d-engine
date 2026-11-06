@@ -236,6 +236,15 @@ A constraint that reads input reads `this.entity.input`, never `game.input` (see
 
 Every entity has a `netId`, a whole number handed out in creation order and reset with the scene. `game.entityById(id)` returns the live entity with that id, or `null`. `entity.playerId` names the player whose input drives the entity (`null` for the local player), and `entity.player` is that player. See [Players](./headless#players).
 
+An entity placed by a scene file also has `entity.sceneId`: the `id` of the object it was built from, chosen by whoever wrote the scene and unchanged by reordering or re-saving it. `scene.entitiesById` looks one up, which is how one placed object refers to another — the gate a lever opens, the point a patrol walks to — without searching by name or position. An entity created by `game.spawn` during play has no scene object, so its `sceneId` is `null`.
+
+```javascript
+onEnter() {
+  const scene = game.sceneManager.getCurrentScene();
+  scene.entitiesById.get('north-gate').locked = true;
+}
+```
+
 ## Timing, movement and randomness
 
 Timers count seconds of the tick's `dt` inside `fixedUpdate`. Frame counts vary with the display's refresh rate; ticks do not.

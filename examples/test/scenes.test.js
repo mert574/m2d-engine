@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { SceneLoader } from 'm2d-engine/core/sceneLoader.js';
+import { SceneLoader, SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 
 /**
  * Every scene the repo ships must satisfy the engine's scene schema, so
@@ -62,5 +62,13 @@ describe('shipped example scenes', () => {
     const game = makeGame({ actors: actors[example], scenes: scenes[example] });
     const data = JSON.parse(readFileSync(path, 'utf8'));
     expect(() => new SceneLoader(game).load(data)).not.toThrow();
+  });
+
+  // Migrations exist for documents the engine does not own. A shipped scene
+  // left at an older version would validate through its migration and hide
+  // whatever the current format now asks for.
+  it.each(files)('$name is written at the current scene version', ({ path }) => {
+    const data = JSON.parse(readFileSync(path, 'utf8'));
+    expect(data.version).toBe(SCENE_VERSION);
   });
 });

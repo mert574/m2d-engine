@@ -206,7 +206,7 @@ export function registerMainMenu(game, { items, onEnter, onExit, ...options }) {
 
   game.sceneManager.addScene('mainMenu', {
     fetch: async () => ({
-      version: 1, name: 'mainMenu', type: 'ui', title: 'Main Menu', assets: {}, elements: []
+      version: 2, name: 'mainMenu', type: 'ui', title: 'Main Menu', assets: {}, elements: []
     }),
     onEnter() {
       screen = createMainMenu(game, { ...options, items: items(game) });

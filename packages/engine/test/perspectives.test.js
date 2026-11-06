@@ -181,7 +181,7 @@ describe('scene draw order and tile layers', () => {
   }
 
   function levelScene(config = {}) {
-    return new Scene(game, { type: 'level', version: 1, layers: [], prefabs: {}, ...config });
+    return new Scene(game, { type: 'level', version: 2, layers: [], prefabs: {}, ...config });
   }
 
   /** Draw the scene and return the drawn rect y positions, in call order. */
@@ -284,10 +284,10 @@ describe('scene draw order and tile layers', () => {
 
   it('applies object zIndex and tileLayers from scene JSON', async () => {
     const config = new SceneLoader(game).load({
-      version: 1, type: 'level', name: 't',
+      version: 2, type: 'level', name: 't',
       assets: { spritesheets: { g: { url: 'g.png', frameWidth: 64, frameHeight: 64 } } },
       prefabs: { thing: { actor: 'Thing' } },
-      layers: [{ objects: [{ prefab: 'thing', x: 10, y: 10, zIndex: 7 }] }],
+      layers: [{ objects: [{ id: 'thing', prefab: 'thing', x: 10, y: 10, zIndex: 7 }] }],
       tileLayers: [{ name: 'clouds', spritesheet: 'g', zIndex: 10, parallax: 1.2 }]
     });
     const scene = new Scene(game, config);
@@ -305,7 +305,7 @@ describe('scene draw order and tile layers', () => {
 describe('scene loader perspective fields', () => {
   const loader = new SceneLoader(null);
   const base = {
-    version: 1, type: 'level', name: 't',
+    version: 2, type: 'level', name: 't',
     assets: { spritesheets: { g: { url: 'g.png', frameWidth: 64, frameHeight: 64 } } },
     prefabs: { thing: { actor: 'Thing', physics: {} } }
   };
@@ -335,7 +335,7 @@ describe('scene loader perspective fields', () => {
   });
 
   it('validates object zIndex', () => {
-    expect(() => loader.load({ ...base, layers: [{ objects: [{ prefab: 'thing', x: 0, y: 0, zIndex: 'top' }] }] }))
+    expect(() => loader.load({ ...base, layers: [{ objects: [{ id: 'thing', prefab: 'thing', x: 0, y: 0, zIndex: 'top' }] }] }))
       .toThrow(/zIndex/);
   });
 });

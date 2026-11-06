@@ -156,7 +156,7 @@ describe('SettingsMenu', () => {
 
   it('offers a Main menu row when a mainMenu scene exists, outside of it', () => {
     const { game, menu } = makeGameWithMenu();
-    game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: 1, name: 'mainMenu', type: 'ui', elements: [] }) });
+    game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: 2, name: 'mainMenu', type: 'ui', elements: [] }) });
     game.sceneManager.switchTo = vi.fn(async () => {});
     openAndLayout(game, menu);
     expect(row(menu, 'Main menu')).toBeTruthy();

@@ -16,6 +16,7 @@ import lawnTexture from './textures/lawn.jpg';
 import hedgeTexture from './textures/hedge.jpg';
 import fountainTexture from './textures/fountain.png';
 import plazaTexture from './textures/plaza.png';
+import { withIds } from '../shared/sceneIds.js';
 
 /**
  * Hedgerow Court: a hedge-maze garden in three maps, and the engine's
@@ -474,7 +475,7 @@ for (const mapConfig of MAPS) {
 
   game.sceneManager.addScene(mapConfig.scene, {
     fetch: async () => ({
-      version: 1, name: mapConfig.scene, type: 'level', gameType: 'topDown',
+      version: 2, name: mapConfig.scene, type: 'level', gameType: 'topDown',
       world: { width: built().width, height: built().height, gravity: { x: 0, y: 0 } },
       assets: { spritesheets: {
         lawn: { url: lawnTexture, frameWidth: 512, frameHeight: 512 },
@@ -491,7 +492,7 @@ for (const mapConfig of MAPS) {
         fountain: { actor: 'Fountain', spritesheet: 'fountain', physics: { bodyType: 'static', isSensor: true } },
         bed: { actor: 'FlowerBed', physics: { bodyType: 'static', isSensor: true } }
       },
-      layers: [{ name: 'garden', objects: [
+      layers: [{ name: 'garden', objects: withIds([
         // 26px in 32px corridors: the character controller keeps an 0.5px gap
         // on each side, so a full-width 32px body physically cannot fit — it
         // jammed against both walls at once, even on straights.
@@ -502,7 +503,7 @@ for (const mapConfig of MAPS) {
           properties: { seed: bed.seed }
         })),
         ...wallObjects(built().wall)
-      ] }]
+      ]) }]
     }),
 
     // Screen-space elements belong in the scene's UI container (onDraw would

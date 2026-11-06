@@ -1,12 +1,12 @@
 # Scene format
 
-A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. Version is always the number `1`.
+A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `2`; a scene written for an older one is migrated on load, see [Versions and migration](#versions-and-migration).
 
 ## Top level
 
 | Key | Scene types | Required | Meaning |
 | --- | --- | --- | --- |
-| `version` | both | yes | `1` |
+| `version` | both | yes | The format version the scene is written for. The current one is `2` |
 | `type` | both | yes | `"level"` or `"ui"` |
 | `name` | both | no | Free text. Error messages use the registered name |
 | `title` | both | no | Free text, unused by the engine |
@@ -27,7 +27,6 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `gravity` | `{ "x", "y" }` in px/s². Applied to the physics world when the scene loads |
 | `projection` | How the ground plane is seen: `"isometric"` or `"belt"`, or `{ "type", "ratio" }`. Isometric draws a ground square as a `2:ratio·2` diamond; belt keeps x and compresses y by `ratio`. Positions are drawn through it; physics stays flat. See [Perspectives](../guide/perspectives#isometric-a-projection-on-positions) |
 | `sort` | Entity draw order within a `zIndex`. `"depth"` (default) draws by the bottom edge of the body, so whatever stands lower on the ground is in front. `"insertion"` keeps scene order. See [Perspectives](../guide/perspectives) |
-
 
 ## `assets.spritesheets`
 
@@ -86,12 +85,12 @@ An array of layers.
 
 | Key | Required | Default | Meaning |
 | --- | --- | --- | --- |
+| `id` | yes | | Identity, unique within the scene. Letters, digits, `-`, `_` and `.`, starting with a letter or digit. Reaches the entity as `entity.sceneId`, and the scene as `scene.entitiesById` |
 | `prefab` | yes | | A key in `prefabs` |
 | `x`, `y` | yes | | Centre position in world units |
 | `width`, `height` | no | `32` | Size in world units. A circle's diameter is `width` |
 | `angle` | no | `0` | Rotation in radians |
 | `zIndex` | no | `0` | Draw order. Entities and tile layers draw in ascending `zIndex`; within one, entities draw by `world.sort` |
-| `id` | no | | Free value |
 | `properties` | no | `{}` | Passed to the actor constructor as `options` |
 
 ## `background`
@@ -127,7 +126,7 @@ An array of UI elements. Every element accepts these keys.
 | Key | Required | Meaning |
 | --- | --- | --- |
 | `type` | yes | `"button"`, `"text"`, `"image"` or `"rect"` |
-| `id` | no | Free value |
+| `id` | yes | Identity, unique within the scene. Same spelling rules as an object's |
 | `x`, `y` | yes for all but a filled rect | Offset from the anchor, in UI units |
 | `anchor` | no | One of `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right`. Default `top-left` |
 | `properties` | no | Type-specific, below |
@@ -198,8 +197,31 @@ The checks, in addition to key lists and types:
 - `physics.footprint.height` is positive
 - `objects[].zIndex` and `world.sort` take valid values
 - `prefabs.*.defaultAnimation` exists on that sheet
+- every `objects[].id` and `elements[].id` is present, well-formed and unique within the scene
 - `button.onClick` names a registered scene
 - `button` has exactly one of `onClick` and `action`
 - `button.variant` takes a listed value
 - `physics.bodyType` and `physics.shape` take listed values
 - `anchor` takes a listed value
+
+## Versions and migration
+
+A scene declares the format version it was written for. The current version is `2`.
+
+A scene at an older version is **migrated on load**: the loader upgrades it one version at a time and then validates the result against the current format only. Nothing needs to be edited for an engine upgrade, and the error you get from a scene is always about the current format.
+
+A scene at a *newer* version than the engine knows cannot be migrated — there is no forward migration to run — and the loader says so instead of failing field by field:
+
+```
+Scene 'level1' at version: scene format 3 is newer than this engine understands (up to 2); upgrade m2d-engine
+```
+
+Migration happens in memory. The file on disk is untouched, and so is the object passed to `load`; the normalized scene it returns is a new one.
+
+| From | To | Change |
+| --- | --- | --- |
+| 1 | 2 | Every object and UI element carries a unique string `id`. A number becomes its decimal string; an object with no id gets one from its prefab and its position in the layer; a repeated id, which version 1 did not check for, is suffixed |
+
+Scenes that ship with the engine are always written at the current version, so the demos exercise the format rather than a migration of it. Migrations exist for scenes the engine does not own.
+
+Adding a version means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and registering a migration from its predecessor in `m2d-engine/core/sceneMigrations.js`.

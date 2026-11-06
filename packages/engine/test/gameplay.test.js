@@ -113,7 +113,7 @@ describe('Entity animation', () => {
 describe('scene loader animation rates', () => {
   const loader = new SceneLoader(null);
   const scene = (anim) => ({
-    version: 1, type: 'level', name: 't',
+    version: 2, type: 'level', name: 't',
     assets: { spritesheets: { s: { url: 's.png', frameWidth: 16, frameHeight: 16, animations: { run: anim } } } }
   });
 

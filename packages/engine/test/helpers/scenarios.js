@@ -35,7 +35,7 @@ import { InputSnapshot } from '../../src/core/input/snapshot.js';
 export const ARENA_ACTORS = [Player, Bee, Turret, Platform, MovingPlatform];
 
 export const SCENE = {
-  version: 1, type: 'level', name: 'arena',
+  version: 2, type: 'level', name: 'arena',
   world: { gravity: { x: 0, y: 900 } },
   prefabs: {
     floor: { actor: 'Platform', physics: { bodyType: 'static', friction: 0.6 } },
@@ -45,18 +45,18 @@ export const SCENE = {
     lift: { actor: 'MovingPlatform', physics: { bodyType: 'kinematic' } }
   },
   layers: [{ name: 'main', objects: [
-    { prefab: 'floor', x: 640, y: 700, width: 1280, height: 40 },
-    { prefab: 'player', x: 200, y: 640, width: 32, height: 48 },
-    { prefab: 'bee', x: 420, y: 560, width: 32, height: 32 },
-    { prefab: 'bee', x: 700, y: 500, width: 32, height: 32 },
-    { prefab: 'turret', x: 1000, y: 660, width: 32, height: 32, properties: { fireRate: 0.4, detectionRange: 1200 } },
-    { prefab: 'lift', x: 500, y: 620, width: 120, height: 16, properties: {
+    { id: 'floor', prefab: 'floor', x: 640, y: 700, width: 1280, height: 40 },
+    { id: 'player', prefab: 'player', x: 200, y: 640, width: 32, height: 48 },
+    { id: 'bee-1', prefab: 'bee', x: 420, y: 560, width: 32, height: 32 },
+    { id: 'bee-2', prefab: 'bee', x: 700, y: 500, width: 32, height: 32 },
+    { id: 'turret', prefab: 'turret', x: 1000, y: 660, width: 32, height: 32, properties: { fireRate: 0.4, detectionRange: 1200 } },
+    { id: 'lift', prefab: 'lift', x: 500, y: 620, width: 120, height: 16, properties: {
       path: { points: [{ x: 500, y: 620 }, { x: 650, y: 520 }], speed: 120, waitTime: 300 }
     } }
   ] }]
 };
 
-export const OTHER = { version: 1, type: 'level', name: 'other', layers: [{ name: 'main', objects: [] }] };
+export const OTHER = { version: 2, type: 'level', name: 'other', layers: [{ name: 'main', objects: [] }] };
 
 /** Everything the simulation is made of, as plain numbers, in a stable order. */
 export function fingerprint(game) {
@@ -128,10 +128,20 @@ class Walker extends Entity {
 
 export const COVERAGE_ACTORS = [ObliquePlayer, TopDownPlayer, Ghost, Npc, Coin, Trigger, Platform, Car, Ship, Glider, Walker];
 
-const box = (prefab, x, y, width, height, properties) => ({ prefab, x, y, width, height, ...(properties && { properties }) });
+/**
+ * A placed object. Every object in a scene needs a unique id, and these
+ * fixtures have nothing to say about ids, so they are numbered per prefab
+ * in placement order — the same scheme the demos' build scripts use.
+ */
+const counts = new Map();
+const box = (prefab, x, y, width, height, properties) => {
+  const n = (counts.get(prefab) ?? 0) + 1;
+  counts.set(prefab, n);
+  return { id: `${prefab}-${n}`, prefab, x, y, width, height, ...(properties && { properties }) };
+};
 
 export const GROVE = {
-  version: 1, type: 'level', name: 'grove',
+  version: 2, type: 'level', name: 'grove',
   world: { gravity: { x: 0, y: 0 } },
   prefabs: {
     wall: { actor: 'Platform', physics: { bodyType: 'static' } },
@@ -159,7 +169,7 @@ export const GROVE = {
 };
 
 export const KEEP = {
-  version: 1, type: 'level', name: 'keep',
+  version: 2, type: 'level', name: 'keep',
   world: { gravity: { x: 0, y: 0 }, projection: 'isometric' },
   prefabs: {
     wall: { actor: 'Platform', physics: { bodyType: 'static' } },

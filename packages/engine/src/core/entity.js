@@ -31,6 +31,14 @@ export class Entity {
      */
     this.netId = game.allocateNetId?.(this) ?? null;
     /**
+     * The `id` of the scene object this entity was placed from, or null for
+     * an entity spawned during play. Author-chosen and stable across edits
+     * and reloads, unlike `netId`, which is allocated in creation order.
+     * Look one up with `scene.entitiesById`.
+     * @type {string|null}
+     */
+    this.sceneId = null;
+    /**
      * The player whose input drives this entity, by id, or null for the
      * local player. See core/players.js.
      * @type {string|null}

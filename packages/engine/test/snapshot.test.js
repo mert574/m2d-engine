@@ -143,7 +143,7 @@ describe('snapshot and restore', () => {
         if (this.game.time.steps % 10 === 0) this.effects.marks.push(this.game.time.steps);
       }
     }
-    const game = await arena({ actors: [Holder], objects: [{ prefab: 'floor', x: 50, y: 50, width: 10, height: 10 }] });
+    const game = await arena({ actors: [Holder], objects: [{ id: 'floor-2', prefab: 'floor', x: 50, y: 50, width: 10, height: 10 }] });
     const holder = game.createEntity('Holder', 900, 100, 10, 10, null, {}, { bodyType: 'static' });
     game.entities.add(holder);
     game.physics.add(holder.body);

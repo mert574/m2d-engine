@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "level1",
   "type": "level",
   "gameType": "sideScroll",
@@ -19,7 +19,7 @@
       "actor": "Player",
       "physics": {
         "bodyType": "dynamic",
-        "friction": 5.0,
+        "friction": 5,
         "frictionAir": 0.001
       }
     },
@@ -27,14 +27,14 @@
       "actor": "Platform",
       "physics": {
         "bodyType": "static",
-        "friction": 1.0
+        "friction": 1
       }
     },
     "movingPlatform": {
       "actor": "MovingPlatform",
       "physics": {
         "bodyType": "kinematic",
-        "friction": 1.0
+        "friction": 1
       }
     },
     "coin": {
@@ -67,7 +67,7 @@
       "type": "static",
       "objects": [
         {
-          "id": 1,
+          "id": "platform-1",
           "prefab": "platform",
           "x": 300,
           "y": 1400,
@@ -75,7 +75,7 @@
           "height": 32
         },
         {
-          "id": 2,
+          "id": "platform-2",
           "prefab": "platform",
           "x": 740,
           "y": 1316,
@@ -83,7 +83,7 @@
           "height": 32
         },
         {
-          "id": 3,
+          "id": "platform-3",
           "prefab": "platform",
           "x": 1010,
           "y": 1220,
@@ -91,7 +91,7 @@
           "height": 32
         },
         {
-          "id": 4,
+          "id": "platform-4",
           "prefab": "platform",
           "x": 1750,
           "y": 1020,
@@ -99,7 +99,7 @@
           "height": 32
         },
         {
-          "id": 5,
+          "id": "platform-5",
           "prefab": "platform",
           "x": 1480,
           "y": 900,
@@ -107,7 +107,7 @@
           "height": 32
         },
         {
-          "id": 6,
+          "id": "platform-6",
           "prefab": "platform",
           "x": 1180,
           "y": 800,
@@ -115,7 +115,7 @@
           "height": 32
         },
         {
-          "id": 7,
+          "id": "platform-7",
           "prefab": "platform",
           "x": 690,
           "y": 380,
@@ -123,7 +123,7 @@
           "height": 32
         },
         {
-          "id": 8,
+          "id": "platform-8",
           "prefab": "platform",
           "x": 1010,
           "y": 300,
@@ -131,7 +131,7 @@
           "height": 32
         },
         {
-          "id": 9,
+          "id": "platform-9",
           "prefab": "platform",
           "x": 16,
           "y": 720,
@@ -139,7 +139,7 @@
           "height": 1440
         },
         {
-          "id": 10,
+          "id": "platform-10",
           "prefab": "platform",
           "x": 1904,
           "y": 720,
@@ -153,7 +153,7 @@
       "type": "dynamic",
       "objects": [
         {
-          "id": 11,
+          "id": "player-1",
           "prefab": "player",
           "x": 120,
           "y": 1300,
@@ -161,7 +161,7 @@
           "height": 34
         },
         {
-          "id": 12,
+          "id": "movingPlatform-1",
           "prefab": "movingPlatform",
           "x": 1230,
           "y": 1120,
@@ -186,7 +186,7 @@
           }
         },
         {
-          "id": 13,
+          "id": "movingPlatform-2",
           "prefab": "movingPlatform",
           "x": 950,
           "y": 700,
@@ -211,7 +211,7 @@
           }
         },
         {
-          "id": 14,
+          "id": "coin-1",
           "prefab": "coin",
           "x": 870,
           "y": 1240,
@@ -219,7 +219,7 @@
           "height": 24
         },
         {
-          "id": 15,
+          "id": "coin-2",
           "prefab": "coin",
           "x": 1395,
           "y": 1030,
@@ -227,7 +227,7 @@
           "height": 24
         },
         {
-          "id": 16,
+          "id": "coin-3",
           "prefab": "coin",
           "x": 1790,
           "y": 930,
@@ -235,7 +235,7 @@
           "height": 24
         },
         {
-          "id": 17,
+          "id": "coin-4",
           "prefab": "coin",
           "x": 1330,
           "y": 810,
@@ -243,7 +243,7 @@
           "height": 24
         },
         {
-          "id": 18,
+          "id": "coin-5",
           "prefab": "coin",
           "x": 870,
           "y": 540,
@@ -251,7 +251,7 @@
           "height": 24
         },
         {
-          "id": 19,
+          "id": "coin-6",
           "prefab": "coin",
           "x": 690,
           "y": 300,
@@ -259,7 +259,7 @@
           "height": 24
         },
         {
-          "id": 20,
+          "id": "bee-1",
           "prefab": "bee",
           "x": 1010,
           "y": 1188,
@@ -267,7 +267,7 @@
           "height": 32
         },
         {
-          "id": 21,
+          "id": "bee-2",
           "prefab": "bee",
           "x": 1180,
           "y": 768,
@@ -275,7 +275,7 @@
           "height": 32
         },
         {
-          "id": 22,
+          "id": "trigger-1",
           "prefab": "trigger",
           "x": 1010,
           "y": 268,

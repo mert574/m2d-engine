@@ -25,8 +25,51 @@ import { s } from './schema.js';
 import { ANCHOR_ORIGINS } from './ui/uiElement.js';
 import { PROJECTION_TYPES } from './projection.js';
 
-/** The only scene format version this engine understands. */
-export const SCENE_VERSION = 1;
+/**
+ * The scene format version this engine writes and validates. An older
+ * document is migrated up to it first; see `sceneMigrations.js`.
+ */
+export const SCENE_VERSION = 2;
+
+/**
+ * What an `id` may look like: letters, digits, `-`, `_` and `.`, starting
+ * with a letter or a digit. Narrow on purpose — an id is used as a map key,
+ * shown in an editor's outliner and meant to be readable in a diff, so
+ * whitespace and punctuation would only ever be a mistake.
+ */
+const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
+
+/**
+ * A stable identity, unique within the scene.
+ *
+ * Required, because identity you cannot rely on is not identity: an
+ * editor's selection, its undo entries and any reference from one object to
+ * another all need every object to have one, and the loader cannot invent
+ * one that stays the same when objects are reordered or the file is saved
+ * again.
+ */
+const identity = (label) => s.string({
+  required: true,
+  nonEmpty: true,
+  pattern: ID_PATTERN,
+  label,
+  message: value => (typeof value === 'string' && value
+    ? `'${value}' is not a valid id: letters, digits, '-', '_' and '.', starting with a letter or digit`
+    : 'missing or non-string id')
+});
+
+/**
+ * Reject a repeated id, naming the second one. Two objects with one id
+ * means a reference to it is ambiguous and an editor cannot tell them
+ * apart.
+ */
+function checkUniqueIds(entries, fail) {
+  const seen = new Set();
+  for (const { id, path } of entries) {
+    if (seen.has(id)) fail(path, `duplicate id '${id}'`);
+    seen.add(id);
+  }
+}
 
 /** Physics body types `createEntity` understands. */
 export const BODY_TYPES = ['static', 'dynamic', 'kinematic', 'character'];
@@ -154,13 +197,7 @@ const PREFAB = s.object({
 // === Layers and objects ===
 
 const OBJECT = s.object({
-  // Author-facing label only: nothing in the engine reads it, and the demos
-  // number theirs. A stable identity an editor can rely on is a separate
-  // concern — see `docs/plans/3d-and-editor.md`, step A2.
-  id: s.union([
-    s.string({ match: value => typeof value === 'string' }),
-    s.number({ match: value => typeof value === 'number' })
-  ], { message: 'must be a string or a number' }),
+  id: identity('Id'),
   prefab: s.ref('prefab', { required: true }),
   x: s.number({ required: true, unit: 'px' }),
   y: s.number({ required: true, unit: 'px' }),
@@ -214,7 +251,7 @@ const ANCHORS = Object.keys(ANCHOR_ORIGINS);
 
 const ELEMENT_COMMON = {
   type: s.string({ required: true }),
-  id: s.string(),
+  id: identity('Id'),
   // A rect that fills the screen ignores position, so it needs none.
   x: s.number({ required: element => !element.fill, unit: 'px' }),
   y: s.number({ required: element => !element.fill, unit: 'px' }),
@@ -315,6 +352,13 @@ export const LEVEL_SCHEMA = s.object({
   tileLayers: s.array(TILE_LAYER)
 }, {
   refine(level, { fail }) {
+    // Ids are unique across the scene, not per layer: an object keeps its
+    // identity when an editor moves it from one layer to another.
+    checkUniqueIds(
+      (level.layers ?? []).flatMap((layer, li) =>
+        layer.objects.map((object, oi) => ({ id: object.id, path: `layers[${li}].objects[${oi}].id` }))),
+      fail);
+
     // A tile layer is addressed by name, so two with the same one means the
     // second silently replaces the first.
     const names = new Set(level.background ? ['background'] : []);
@@ -331,6 +375,12 @@ export const UI_SCHEMA = s.object({
   ...SCENE_COMMON,
   assets: ASSETS,
   elements: s.array(ELEMENTS, { required: true })
+}, {
+  refine(scene, { fail }) {
+    checkUniqueIds(
+      scene.elements.map((element, i) => ({ id: element.id, path: `elements[${i}].id` })),
+      fail);
+  }
 });
 
 /** The schema for a scene of this `type`, or null. */

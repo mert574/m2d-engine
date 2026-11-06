@@ -11,7 +11,7 @@ The scene draws tile layers and entities in one ascending order: by `zIndex`, th
 `zIndex` is the coarse order. It defaults to `0` for entities and `-1` for the `background` layer, and a scene object can set it:
 
 ```json
-{ "prefab": "canopyBird", "x": 400, "y": 300, "zIndex": 10 }
+{ "id": "canopy-bird", "prefab": "canopyBird", "x": 400, "y": 300, "zIndex": 10 }
 ```
 
 Pin an entity's depth by assigning it: `this.depth = -Infinity` for ground detail that must draw under every foot, `Infinity` for an effect that must draw over everything at its `zIndex`.

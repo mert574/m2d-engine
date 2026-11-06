@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "type": "level",
   "name": "level1",
   "world": { "gravity": { "x": 0, "y": 1400 } },
@@ -20,11 +20,11 @@
     {
       "name": "main",
       "objects": [
-        { "prefab": "hero",   "x": 160,  "y": 600, "width": 28,   "height": 48 },
-        { "prefab": "ground", "x": 640,  "y": 700, "width": 1280, "height": 40 },
-        { "prefab": "ground", "x": 420,  "y": 560, "width": 224,  "height": 32 },
-        { "prefab": "ground", "x": 760,  "y": 440, "width": 224,  "height": 32 },
-        { "prefab": "ground", "x": 1100, "y": 320, "width": 224,  "height": 32 }
+        { "id": "hero",     "prefab": "hero",   "x": 160,  "y": 600, "width": 28,   "height": 48 },
+        { "id": "floor",    "prefab": "ground", "x": 640,  "y": 700, "width": 1280, "height": 40 },
+        { "id": "ledge-1",  "prefab": "ground", "x": 420,  "y": 560, "width": 224,  "height": 32 },
+        { "id": "ledge-2",  "prefab": "ground", "x": 760,  "y": 440, "width": 224,  "height": 32 },
+        { "id": "ledge-3",  "prefab": "ground", "x": 1100, "y": 320, "width": 224,  "height": 32 }
       ]
     }
   ]

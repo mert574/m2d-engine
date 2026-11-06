@@ -47,7 +47,7 @@ registerMainMenu(game, {
 
 game.sceneManager.addScene('showcase', {
   fetch: async () => ({
-    version: 1,
+    version: 2,
     name: 'showcase',
     type: 'level',
     world: { width: WORLD.width, height: WORLD.height, gravity: { x: 0, y: 0 } },

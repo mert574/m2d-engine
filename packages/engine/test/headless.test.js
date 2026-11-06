@@ -55,9 +55,9 @@ function probeScene(game, { construct, fixed } = {}) {
   game.registerActor('Probe', Probe);
   game.sceneManager.addScene('probe', {
     fetch: async () => ({
-      version: 1, type: 'level', name: 'probe',
+      version: 2, type: 'level', name: 'probe',
       prefabs: { probe: { actor: 'Probe', physics: { bodyType: 'static' } } },
-      layers: [{ name: 'main', objects: [{ prefab: 'probe', x: 0, y: 0, width: 10, height: 10 }] }]
+      layers: [{ name: 'main', objects: [{ id: 'probe', prefab: 'probe', x: 0, y: 0, width: 10, height: 10 }] }]
     })
   });
   return game.sceneManager.switchTo('probe');
@@ -78,6 +78,40 @@ describe('a headless game', () => {
     expect(print.steps).toBe(180);
     expect(print.entities.find((e) => e.name === 'Player').x).toBeGreaterThan(200);
     expect(print.entities.some((e) => e.name === 'Rocket')).toBe(true);
+    game.destroy();
+  });
+
+  /**
+   * A scene object's id is how one placed thing refers to another — the
+   * gate a lever opens — and how an editor will resolve a selection. It
+   * has to survive into the entity and be looked up without searching.
+   */
+  it('places entities under their scene ids', async () => {
+    const game = await arena();
+    const scene = game.sceneManager.getCurrentScene();
+
+    const player = scene.entitiesById.get('player');
+    expect(player).toBe(game.player);
+    expect(player.sceneId).toBe('player');
+    expect(scene.entitiesById.get('floor').name).toBe('Platform');
+    expect(scene.entitiesById.size).toBe(SCENE.layers[0].objects.length);
+    game.destroy();
+  });
+
+  it('gives an entity spawned during play no scene id', async () => {
+    const game = await arena();
+    game.step(180);
+    const rocket = [...game.entities].find(e => e.name === 'Rocket');
+    expect(rocket.sceneId).toBe(null);
+    expect([...game.sceneManager.getCurrentScene().entitiesById.values()]).not.toContain(rocket);
+    game.destroy();
+  });
+
+  it('forgets the scene ids when the scene unloads', async () => {
+    const game = await arena();
+    const scene = game.sceneManager.getCurrentScene();
+    await game.sceneManager.switchTo('other');
+    expect(scene.entitiesById.size).toBe(0);
     game.destroy();
   });
 
@@ -145,12 +179,12 @@ describe('a headless game', () => {
     for (const actor of ARENA_ACTORS) game.registerActor(actor.name, actor);
     game.sceneManager.addScene('art', {
       fetch: async () => ({
-        version: 1, type: 'level', name: 'art',
+        version: 2, type: 'level', name: 'art',
         assets: { spritesheets: { tiles: { url: 'https://nowhere.invalid/tiles.png', frameWidth: 32, frameHeight: 32 } } },
         background: { spritesheet: 'tiles' },
         tileLayers: [{ name: 'floor', spritesheet: 'tiles', parallax: 0.5 }],
         prefabs: { floor: { actor: 'Platform', spritesheet: 'tiles', physics: { bodyType: 'static' } } },
-        layers: [{ name: 'main', objects: [{ prefab: 'floor', x: 100, y: 100, width: 64, height: 16 }] }]
+        layers: [{ name: 'main', objects: [{ id: 'floor', prefab: 'floor', x: 100, y: 100, width: 64, height: 16 }] }]
       })
     });
     await game.sceneManager.switchTo('art');
@@ -257,7 +291,7 @@ describe('presentation in a headless game fails by name', () => {
 
   it('a UI scene', async () => {
     const game = headless();
-    game.sceneManager.addScene('menu', { fetch: async () => ({ version: 1, type: 'ui', name: 'menu', elements: [] }) });
+    game.sceneManager.addScene('menu', { fetch: async () => ({ version: 2, type: 'ui', name: 'menu', elements: [] }) });
     await expect(game.sceneManager.switchTo('menu')).rejects.toThrow(/UI scene/);
   });
 

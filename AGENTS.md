@@ -104,6 +104,13 @@ npx playwright install chromium   # once, for test:browser
   cross-references and raises errors. A new scene JSON field goes into
   `sceneSchema.js` and into `docs/reference/scene-format.md` — never into
   validation code written by hand, which tooling cannot read.
+- A scene format change that existing files would fail bumps
+  `SCENE_VERSION` and adds a migration in `sceneMigrations.js`. The repo's
+  own scenes are then rewritten at the new version (a test asserts it);
+  migrations are for scenes the engine does not own.
+- Every scene object and UI element has a unique `id`. Code that builds a
+  scene at runtime numbers its own objects; the loader never invents one,
+  because an invented id is not stable across a reorder or a save.
 - A new renderer feature is mandatory for every backend or declared through
   `capabilities`.
 - Both backends must pass `npm test`. Check visual changes with

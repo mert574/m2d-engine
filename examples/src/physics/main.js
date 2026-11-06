@@ -8,6 +8,7 @@ import { menuBackdrop } from './menuBackdrop.js';
 import { WorkshopBackdrop } from './workshopBackdrop.js';
 import { MachineRamp, AmberBall, WoodCrate } from './machineActors.js';
 import { spawnSound, removeSound, audioOption } from '../shared/audio.js';
+import { withIds } from '../shared/sceneIds.js';
 
 // Compile Rapier's WASM module before anything builds a physics world.
 await initPhysics();
@@ -41,7 +42,7 @@ const pegRow = (y, xs) => xs.map(x =>
 
 game.sceneManager.addScene('physics', {
   fetch: async () => ({
-    version: 1, name: 'physics', type: 'level', gameType: 'sideScroll',
+    version: 2, name: 'physics', type: 'level', gameType: 'sideScroll',
     world: { width: 960, height: 720, gravity: { x: 0, y: 1000 } },
     assets: { spritesheets: {} },
     prefabs: {
@@ -56,7 +57,7 @@ game.sceneManager.addScene('physics', {
       platform: { actor: 'Ramp', physics: { bodyType: 'static' } },
       peg: { actor: 'Ramp', physics: { bodyType: 'static' } }
     },
-    layers: [{ name: 'playground', objects: [
+    layers: [{ name: 'playground', objects: withIds([
       // Bounds
       { prefab: 'platform', x: 480, y: 704, width: 960, height: 32 },
       { prefab: 'platform', x: 16, y: 360, width: 32, height: 720 },
@@ -76,7 +77,7 @@ game.sceneManager.addScene('physics', {
       { prefab: 'ball', x: 660, y: 40, width: 32, height: 32 },
       { prefab: 'box', x: 400, y: 120, width: 64, height: 64 },
       { prefab: 'box', x: 560, y: 120, width: 64, height: 64 }
-    ] }]
+    ]) }]
   }),
 
   // The scene's own bodies exist by the time this runs, so this is where

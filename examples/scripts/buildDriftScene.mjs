@@ -55,9 +55,15 @@ for (const [name, m] of Object.entries(METEORS)) {
 }
 
 const objects = [];
-let nextId = 1;
+const counts = new Map();
+/** A stable id, readable in a diff: the prefab and its ordinal. */
+const nextId = (prefab) => {
+  const n = (counts.get(prefab) ?? 0) + 1;
+  counts.set(prefab, n);
+  return `${prefab}-${n}`;
+};
 const add = (prefab, x, y, width, height, properties) => {
-  const o = { id: nextId++, prefab, x: Math.round(x), y: Math.round(y) };
+  const o = { id: nextId(prefab), prefab, x: Math.round(x), y: Math.round(y) };
   if (width !== undefined) { o.width = Math.round(width); o.height = Math.round(height); }
   if (properties) o.properties = properties;
   objects.push(o);
@@ -124,7 +130,7 @@ add('gate', GATE.x, GATE.y, 220, 220, { visible: true, triggers: 'levelComplete'
 add('player', START.x, START.y, 60, 60);
 
 const scene = {
-  version: 1, name: 'field', type: 'level', gameType: 'rotatingTopDown',
+  version: 2, name: 'field', type: 'level', gameType: 'rotatingTopDown',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth' },
   assets: { spritesheets },
   // The far star field, barely moving; the Sky entity draws the nearer

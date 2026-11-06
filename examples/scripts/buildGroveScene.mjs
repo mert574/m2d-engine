@@ -107,9 +107,15 @@ for (const [name, d] of Object.entries(DECOR)) {
 }
 
 const objects = [];
-let nextId = 1;
+const counts = new Map();
+/** A stable id, readable in a diff: the prefab and its ordinal. */
+const nextId = (prefab) => {
+  const n = (counts.get(prefab) ?? 0) + 1;
+  counts.set(prefab, n);
+  return `${prefab}-${n}`;
+};
 function add(prefab, x, y, width, height, properties) {
-  const o = { id: nextId++, prefab, x: Math.round(x), y: Math.round(y) };
+  const o = { id: nextId(prefab), prefab, x: Math.round(x), y: Math.round(y) };
   if (width !== undefined) { o.width = Math.round(width); o.height = Math.round(height); }
   if (properties) o.properties = properties;
   objects.push(o);
@@ -248,7 +254,7 @@ for (const [x, y] of [[1500, 700], [2200, 1600], [700, 800], [2700, 1250], [1300
 add('player', SPAWN.x, SPAWN.y - CHARACTER_FRAME / 2, CHARACTER_FRAME, CHARACTER_FRAME, { spriteOffsetY: Math.round(CHARACTER_FRAME * CHARACTER_FEET) });
 
 const scene = {
-  version: 1, name: 'grove', type: 'level', gameType: 'oblique',
+  version: 2, name: 'grove', type: 'level', gameType: 'oblique',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth' },
   assets: { spritesheets },
   tileLayers: [{ name: 'ground', spritesheet: 'grass', zIndex: -1 }],

@@ -150,7 +150,7 @@ describe('scene switching', () => {
     const game = new M2D(displayCanvas(640, 360), { width: 640, height: 360, renderer: new RecordingRenderer() });
     let sawLoadingDuringSetup = null;
     game.sceneManager.addScene('a', {
-      fetch: async () => ({ version: 1, name: 'a', type: 'level', world: { projection: 'isometric' }, prefabs: {}, layers: [] }),
+      fetch: async () => ({ version: 2, name: 'a', type: 'level', world: { projection: 'isometric' }, prefabs: {}, layers: [] }),
       onEnter() { sawLoadingDuringSetup = game.sceneManager.loading; }
     });
     const pending = game.sceneManager.switchTo('a');

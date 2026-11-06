@@ -132,7 +132,7 @@ describe('stretched projected tiles', () => {
 
   it('is validated by the loader', () => {
     const loader = new SceneLoader(null);
-    const base = { version: 1, type: 'level', name: 't', assets: { spritesheets: { p: { url: 'p.jpg', frameWidth: 512, frameHeight: 512 } } } };
+    const base = { version: 2, type: 'level', name: 't', assets: { spritesheets: { p: { url: 'p.jpg', frameWidth: 512, frameHeight: 512 } } } };
     expect(() => loader.load({ ...base, world: { projection: 'belt' }, tileLayers: [{ name: 's', spritesheet: 'p', tileSize: 200, stretch: true }] })).not.toThrow();
     expect(() => loader.load({ ...base, tileLayers: [{ name: 's', spritesheet: 'p', stretch: 'yes' }] })).toThrow(/stretch/);
   });

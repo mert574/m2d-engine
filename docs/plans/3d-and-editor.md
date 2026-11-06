@@ -152,8 +152,19 @@ All dimension-free. All of it improves the current 2D engine.
   an `editor` hint, because several accept either a literal or a `$token`
   theme reference. Tightening them needs a `themed(desc)` union and a pass
   over the theme tokens.
-- A2. **Stable object IDs** in the scene format, plus the format-version
-  and migration story.
+- A2. **Stable object IDs**, plus the format-version and migration story.
+  *Done.* Scene format version 2: every object and UI element carries an
+  `id`, required, well-formed and unique within the scene; it reaches the
+  entity as `entity.sceneId` and the scene as `scene.entitiesById`. An
+  older document is migrated on load (`core/sceneMigrations.js`) rather
+  than rejected, one version at a time, so validation only ever knows the
+  current format; a newer one is refused with "upgrade m2d-engine". The
+  repo's own scenes are always written at the current version, asserted by
+  a test, so the demos exercise the format and not a migration of it.
+  The id is a string — the string-or-number duality of A1 is gone. Scenes
+  built in code number their own objects (`examples/src/shared/sceneIds.js`);
+  the loader never invents an id, since an invented one is not stable
+  across a reorder or a save.
 - A3. **Declarative constraints** in scene JSON with typed parameters.
 - A4. **Prefabs as project assets** with UIDs and per-instance overrides.
 - A5. **Asset database**: UID sidecars and import settings, with the

@@ -32,6 +32,7 @@
 
 import { validate } from './schema.js';
 import { SCENE_VERSION, schemaForType } from './sceneSchema.js';
+import { migrate } from './sceneMigrations.js';
 
 export { SCENE_VERSION };
 
@@ -75,22 +76,30 @@ export class SceneLoader {
 
     if (!data || typeof data !== 'object') fail('', 'scene data is not an object');
 
-    // Version and type are checked before the schema, not by it: the version
-    // decides whether this engine understands the document at all, and the
-    // type decides which schema to apply. Neither can be expressed inside a
+    // Version and type are settled before the schema, not by it: the
+    // version decides which format this document is in, and the type
+    // decides which schema to apply. Neither can be expressed inside a
     // schema that has not been chosen yet.
-    if (data.version !== SCENE_VERSION) {
-      fail('version', `expected ${SCENE_VERSION}, got ${JSON.stringify(data.version)}`);
+    if (!Number.isInteger(data.version) || data.version < 1) {
+      fail('version', `expected a scene format version, got ${JSON.stringify(data.version)}`);
     }
-    const schema = schemaForType(data.type);
+    if (data.version > SCENE_VERSION) {
+      fail('version', `scene format ${data.version} is newer than this engine understands ` +
+        `(up to ${SCENE_VERSION}); upgrade m2d-engine`);
+    }
+    // Older documents are upgraded rather than rejected, so that validation
+    // only ever has one format to know. See sceneMigrations.js.
+    const scene = data.version < SCENE_VERSION ? migrate(data, SCENE_VERSION, fail) : data;
+
+    const schema = schemaForType(scene.type);
     if (!schema) {
-      fail('type', `expected 'level' or 'ui', got ${JSON.stringify(data.type)}`);
+      fail('type', `expected 'level' or 'ui', got ${JSON.stringify(scene.type)}`);
     }
 
-    return validate(schema, data, {
+    return validate(schema, scene, {
       fail,
-      refs: this.#refs(data),
-      context: { spritesheets: data.assets?.spritesheets ?? {} }
+      refs: this.#refs(scene),
+      context: { spritesheets: scene.assets?.spritesheets ?? {} }
     });
   }
 

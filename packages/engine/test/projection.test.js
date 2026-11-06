@@ -208,7 +208,7 @@ describe('input under a projection', () => {
 
 describe('scene loader projection', () => {
   const loader = new SceneLoader(null);
-  const base = { version: 1, type: 'level', name: 't' };
+  const base = { version: 2, type: 'level', name: 't' };
   it('validates world.projection and tile layer sizing', () => {
     expect(() => loader.load({ ...base, world: { projection: 'isometric' } })).not.toThrow();
     expect(() => loader.load({ ...base, world: { projection: { type: 'isometric', ratio: 0.5 } } })).not.toThrow();
