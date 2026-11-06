@@ -9,6 +9,11 @@
  *   { tick: 812,
  *     spawn:  [{ id, type, x, y, w, h, sprite, anim, options, physics, owner }],
  *     update: [{ id, p: [x, y, angle, vx, vy], f: { heading: 1.2 }, c: { health: { currentHealth: 80 } } }],
+ *
+ * or, when the game runs in three dimensions,
+ *
+ *     spawn:  [{ id, type, x, y, z, w, h, d, ... }],
+ *     update: [{ id, p: [x, y, z, qx, qy, qz, qw, vx, vy, vz], ... }],
  *     remove: [id],
  *     me:  { ...the receiving player's state },
  *     av:  the receiving player's avatar's id, or null,
@@ -24,10 +29,28 @@
  *
  * The transport is ordered and reliable, so each change is sent once and a
  * `Replicator` diffs against what it last sent to its own client.
+ *
+ * The shape of `p` follows the game's dimension, which both ends already
+ * agree on (a 3D scene cannot load into a 2D game), so the wire format
+ * carries no version of its own.
  */
 
-/** Transform precision: positions to 1/100 px, angles to 1/1000 rad, speeds to 1/10 px/s. */
-const round = (value, scale) => Math.round(value * scale) / scale;
+/** Rounded, with -0 folded into 0 so a server's value and the replica's compare equal. */
+function round(value, scale) {
+  const rounded = Math.round(value * scale) / scale;
+  return rounded === 0 ? 0 : rounded;
+}
+
+/**
+ * Transform precision, by dimension. The two are the same physical
+ * precision in different units: 1/100 px is 0.1 mm, and 1/10 px/s is 1 mm/s.
+ * Rotation is a quaternion component in 3D and an angle in radians in 2D;
+ * 1/10000 on a unit quaternion is about the same arc as 1/1000 rad.
+ */
+const PRECISION = {
+  2: { position: 100, rotation: 1000, speed: 10 },
+  3: { position: 10000, rotation: 10000, speed: 1000 }
+};
 
 const fieldCache = new WeakMap();
 
@@ -54,10 +77,35 @@ function readFields(object) {
   return out;
 }
 
-function transform(entity) {
-  const { x, y } = entity.body.position;
-  const v = entity.body.velocity;
-  return [round(x, 100), round(y, 100), round(entity.body.angle, 1000), round(v.x, 10), round(v.y, 10)];
+function transform(entity, dimensions) {
+  const body = entity.body;
+  const p = body.position;
+  const v = body.velocity;
+  const { position, rotation, speed } = PRECISION[dimensions];
+  if (dimensions === 3) {
+    const q = body.rotation;
+    return [
+      round(p.x, position), round(p.y, position), round(p.z, position),
+      round(q.x, rotation), round(q.y, rotation), round(q.z, rotation), round(q.w, rotation),
+      round(v.x, speed), round(v.y, speed), round(v.z, speed)
+    ];
+  }
+  return [round(p.x, position), round(p.y, position), round(body.angle, rotation), round(v.x, speed), round(v.y, speed)];
+}
+
+/** Put a packed transform onto a replica's body. */
+function applyTransform(body, p, dimensions) {
+  if (dimensions === 3) {
+    const [x, y, z, qx, qy, qz, qw, vx, vy, vz] = p;
+    body.setPosition({ x, y, z });
+    body.setRotation({ x: qx, y: qy, z: qz, w: qw });
+    body.setVelocity({ x: vx, y: vy, z: vz });
+    return;
+  }
+  const [x, y, angle, vx, vy] = p;
+  body.setPosition({ x, y });
+  body.setAngle(angle);
+  body.setVelocity({ x: vx, y: vy });
 }
 
 /** Per client: what it has, and what it was last told about each entity. */
@@ -68,6 +116,8 @@ export class Replicator {
    */
   constructor(game, player) {
     this.game = game;
+    /** Decides the shape of a packed transform; see `transform`. */
+    this.dimensions = game.physics.dimensions;
     this.player = player;
     /** @type {Map<number, {p: string, f: Map<string, string>}>} */
     this.sent = new Map();
@@ -116,6 +166,7 @@ export class Replicator {
         }
         spawn.push({
           id, type: info.type, x: info.x, y: info.y, w: info.width, h: info.height,
+          ...(this.dimensions === 3 && { z: info.z, d: info.depth }),
           sprite: info.sprite ?? null, anim: info.animation ?? null,
           options: info.options ?? {}, physics: info.physics ?? {}, owner: entity.playerId ?? null
         });
@@ -158,7 +209,7 @@ export class Replicator {
     const record = { id };
     let changed = false;
 
-    const p = transform(entity);
+    const p = transform(entity, this.dimensions);
     const pKey = p.join(',');
     if (pKey !== sent.p) {
       sent.p = pKey;
@@ -228,6 +279,7 @@ export function applyState(game, message) {
     if (game.entityById(spawn.id)) continue;
     game.spawn({
       type: spawn.type, x: spawn.x, y: spawn.y, width: spawn.w, height: spawn.h,
+      ...(spawn.z !== undefined && { z: spawn.z }), ...(spawn.d !== undefined && { depth: spawn.d }),
       sprite: spawn.sprite, animation: spawn.anim ?? undefined, options: spawn.options,
       physics: spawn.physics, playerId: spawn.owner, netId: spawn.id
     });
@@ -236,13 +288,9 @@ export function applyState(game, message) {
     const entity = game.entityById(record.id);
     if (!entity) continue;
     if (record.p) {
-      const [x, y, angle, vx, vy] = record.p;
-      const body = entity.body;
-      body.setPosition({ x, y });
-      body.setAngle(angle);
-      body.setVelocity({ x: vx, y: vy });
+      applyTransform(entity.body, record.p, game.physics.dimensions);
       // Interpolation between server states is phase 6; for now, draw where it is.
-      body.syncInterpolation();
+      entity.body.syncInterpolation();
     }
     if (record.f) {
       const changed = assignFields(entity, record.f);

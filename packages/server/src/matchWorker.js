@@ -26,7 +26,7 @@ const MAX_CATCH_UP = 5;
 
 const { default: match } = await import(workerData.module);
 
-await initPhysics();
+await initPhysics({ dimensions: match.game.dimensions ?? 2 });
 const game = new M2D(null, { ...match.game, headless: true });
 await match.setup(game, { matchId: workerData.matchId });
 game.setupCollisionHandlers();

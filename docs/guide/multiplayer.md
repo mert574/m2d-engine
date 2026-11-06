@@ -119,9 +119,9 @@ Each tick the client encodes its input snapshot for the server tick it will arri
 
 A client builds the scene itself, so the server sends only changes:
 
-- An entity spawned at runtime with `game.spawn({ type, x, y, width, height, sprite, animation, options, physics, playerId })`, which records how it was made. An entity made with `new` is not sent. Spawn `options` must be plain data.
+- An entity spawned at runtime with `game.spawn({ type, x, y, width, height, sprite, animation, options, physics, playerId })` (plus `z` and `depth` in a 3D game), which records how it was made. An entity made with `new` is not sent. Spawn `options` must be plain data.
 - An entity removed from `game.entities`.
-- An entity's transform, when it moved.
+- An entity's transform, when it moved: position, angle and velocity in a 2D game; position, rotation quaternion and velocity in a 3D one. The shape follows the game's dimension, which both ends agree on before any state is sent. A 3D match says `dimensions: 3` in its `game` options and the worker loads the 3D solver.
 - Declared fields, when their value changed. A class lists them in `static replicated = ['field']`; the lists of every class in the chain are joined. `Entity` sends `elevation`, `visible` and `dead`. Constraints declare theirs the same way: `Health` sends `currentHealth`, `Attack` sends its swing state. Values must be plain data. A class with `replicaState()` sends what it returns instead, and `replicaUpdated(changed)` runs on the client after its fields arrive.
 - The receiving player's `state`, to that player alone.
 - Events the simulation raised for the player with `player.notify(name, data)`, to that player alone. `game.players.local.on(name, handler)` hears them, alone and online alike.
