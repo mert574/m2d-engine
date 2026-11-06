@@ -187,6 +187,17 @@ function meshFor(mesh) {
   return made;
 }
 const DEFAULT_MESH = Object.freeze({ color: [0.55, 0.55, 0.55], roughness: 0.7 });
+
+/** A prefab's `light` block with its colour taken to linear light, parsed once per block. */
+const lightCache = new WeakMap();
+function lightFor(light) {
+  let made = lightCache.get(light);
+  if (made) return made;
+  const [r, g, b] = light.color ? parseColor(light.color) : [1, 1, 1];
+  made = { ...light, color: [toLinear(r), toLinear(g), toLinear(b)] };
+  lightCache.set(light, made);
+  return made;
+}
 const toLinear = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 
 function rendererOverrideFromURL() {
@@ -1024,7 +1035,7 @@ export class M2D {
   }
 
   createEntity({
-    type, x, y, z = 0, width, height, depth, spritesheet = null, mesh, options = {}, physics = {}
+    type, x, y, z = 0, width, height, depth, spritesheet = null, mesh, light, options = {}, physics = {}
   }) {
     const ActorClass = this.actors.get(type);
     if (!ActorClass) {
@@ -1089,12 +1100,17 @@ export class M2D {
      */
     entity.mesh = this.physics.dimensions === 3 ? meshFor(mesh) : null;
     /**
+     * A point or spot light this entity carries, following its body, or
+     * null. The prefab's `light` block with its colour in linear light.
+     */
+    entity.light = this.physics.dimensions === 3 && light ? lightFor(light) : null;
+    /**
      * How this entity was made, for a server to tell clients to make the
      * same one. `options` must be plain data for that to work.
      */
     entity.spawnInfo = {
       type, x, y, width, height,
-      ...(this.physics.dimensions === 3 && { z, depth, ...(mesh && { mesh }) }),
+      ...(this.physics.dimensions === 3 && { z, depth, ...(mesh && { mesh }), ...(light && { light }) }),
       sprite: this.#sheetKey(spritesheet),
       animation: null,
       options: options ?? {},
@@ -1129,7 +1145,7 @@ export class M2D {
    * @param {number} [spec.netId] - Take this network id (a client replaying a server's spawn)
    */
   spawn({
-    type, x, y, z = 0, width, height, depth, mesh,
+    type, x, y, z = 0, width, height, depth, mesh, light,
     sprite = null, animation, options = {}, physics = {}, playerId = null, netId
   }) {
     const sheet = sprite && !this.headless ? this.sceneManager.getCurrentScene()?.spriteSheets.get(sprite) ?? null : null;
@@ -1137,7 +1153,7 @@ export class M2D {
     let entity;
     try {
       entity = this.createEntity({
-        type, x, y, z, width, height, depth, mesh, spritesheet: sheet, options, physics
+        type, x, y, z, width, height, depth, mesh, light, spritesheet: sheet, options, physics
       });
     } finally {
       this.pendingNetId = null;

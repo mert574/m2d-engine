@@ -34,6 +34,13 @@ export class Frame3D {
     /** Exposure applied before tonemapping. */
     this.exposure = 1;
     /**
+     * Bloom: light brighter than `threshold` (after exposure) spreads into
+     * a glow added at `intensity`; `intensity` 0 skips the passes.
+     */
+    this.bloom = { threshold: 1, intensity: 0.12 };
+    /** Point and spot lights, as packed records; see `addLight`. @type {Float32Array[]} */
+    this.lights = [];
+    /**
      * Where the sun's shadow map is focused: a sphere the map covers. Set
      * from the camera target by the scene; everything outside it is unshadowed.
      */
@@ -123,6 +130,34 @@ export class Frame3D {
     if (casts) { entry.shadow.push(data); this.casting++; }
   }
 
+  /**
+   * A point or spot light.
+   * @param {object} light
+   * @param {'point'|'spot'} [light.type='point']
+   * @param {{x,y,z}} light.position
+   * @param {number[]} [light.color=[1,1,1]] - Linear
+   * @param {number} [light.intensity=10] - Radiance at one metre, before falloff
+   * @param {number} [light.range=10] - Metres; the light ends smoothly here
+   * @param {{x,y,z}} [light.direction] - Where a spot points
+   * @param {number} [light.innerCone=0.4] - Radians, full brightness inside
+   * @param {number} [light.outerCone=0.6] - Radians, dark outside
+   */
+  addLight(light) {
+    if (this.lights.length >= MAX_LIGHTS) return;
+    const data = new Float32Array(LIGHT_FLOATS);
+    const p = light.position;
+    data[0] = p.x; data[1] = p.y; data[2] = p.z; data[3] = light.range ?? 10;
+    const c = light.color ?? WHITE;
+    data[4] = c[0]; data[5] = c[1]; data[6] = c[2]; data[7] = light.intensity ?? 10;
+    const spot = light.type === 'spot';
+    const d = light.direction ?? DOWN;
+    const len = Math.hypot(d.x, d.y, d.z) || 1;
+    data[8] = d.x / len; data[9] = d.y / len; data[10] = d.z / len; data[11] = spot ? 1 : 0;
+    data[12] = Math.cos(light.innerCone ?? 0.4);
+    data[13] = Math.cos(light.outerCone ?? 0.6);
+    this.lights.push(data);
+  }
+
   /** Every group with something to draw, in insertion order. */
   *entries() {
     for (const byMaterial of this.groups.values()) yield* byMaterial.values();
@@ -135,6 +170,15 @@ export class Frame3D {
 
 /** Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded), colour, params. */
 export const INSTANCE_FLOATS = 16 + 12 + 4 + 4;
+
+/** Floats per light in the GPU buffer: position+range, colour+intensity, direction+type, cone. */
+export const LIGHT_FLOATS = 16;
+
+/** Lights a frame may hold; beyond it, `addLight` drops the rest. Clustering (R6) lifts this. */
+export const MAX_LIGHTS = 256;
+
+const WHITE = [1, 1, 1];
+const DOWN = { x: 0, y: -1, z: 0 };
 
 const ZERO = { x: 0, y: 0, z: 0 };
 const IDENTITY_Q = { x: 0, y: 0, z: 0, w: 1 };

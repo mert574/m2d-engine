@@ -110,6 +110,54 @@ describe('a model as an asset', () => {
   });
 });
 
+describe('lights', () => {
+  it('packs point and spot lights for the GPU, up to the limit', async () => {
+    const { LIGHT_FLOATS, MAX_LIGHTS } = await import('../src/core/renderers/frame3d.js');
+    const frame = new Frame3D();
+    frame.addLight({ position: { x: 1, y: 2, z: 3 }, color: [1, 0.5, 0.25], intensity: 7, range: 9 });
+    frame.addLight({ type: 'spot', position: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: -2, z: 0 }, innerCone: 0.2, outerCone: 0.4 });
+    expect(frame.lights).toHaveLength(2);
+    const [point, spot] = frame.lights;
+    expect(point).toHaveLength(LIGHT_FLOATS);
+    expect([...point.slice(0, 8)]).toEqual([1, 2, 3, 9, 1, 0.5, 0.25, 7]);
+    expect(point[11]).toBe(0);
+    expect([...spot.slice(8, 12)]).toEqual([0, -1, 0, 1]);
+    expect(spot[12]).toBeCloseTo(Math.cos(0.2), 6);
+    expect(spot[13]).toBeCloseTo(Math.cos(0.4), 6);
+    for (let i = 0; i < MAX_LIGHTS + 5; i++) frame.addLight({ position: { x: i, y: 0, z: 0 } });
+    expect(frame.lights).toHaveLength(MAX_LIGHTS);
+  });
+
+  it('a prefab\'s light block reaches the entity in linear light and follows its body into the frame', async () => {
+    await initPhysics({ dimensions: 3 });
+    class Lamp extends Entity { name = 'Lamp'; }
+    const game = new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 1 });
+    game.registerActor('Lamp', Lamp);
+    game.sceneManager.addScene('yard', { fetch: async () => ({
+      version: SCENE_VERSION, type: 'level', name: 'yard', world: { dimensions: 3 },
+      prefabs: { lamp: { actor: 'Lamp', physics: { bodyType: 'static' }, light: { color: '#ff8000', intensity: 12, range: 8, offset: { x: 0, y: 0.5, z: 0 } } } },
+      layers: [{ name: 'main', objects: [{ id: 'l', prefab: 'lamp', x: 2, y: 3, z: 4, width: 0.5, height: 0.5 }] }]
+    }) });
+    await game.sceneManager.switchTo('yard');
+    const lamp = game.sceneManager.getCurrentScene().entitiesById.get('l');
+    expect(lamp.light.color[0]).toBeCloseTo(1, 3);
+    expect(lamp.light.color[1]).toBeCloseTo(0.2158, 3);
+    expect(lamp.light.color[2]).toBe(0);
+    expect(lamp.light.intensity).toBe(12);
+    game.destroy();
+  });
+
+  it('rejects a light block in a 2D level', () => {
+    const game = new M2D(null, { headless: true, worldWidth: 20, worldHeight: 20, seed: 1 });
+    game.registerActor('Lamp', class extends Entity { name = 'Lamp'; });
+    expect(() => new SceneLoader(game).load({
+      version: SCENE_VERSION, type: 'level', name: 'flat',
+      prefabs: { lamp: { actor: 'Lamp', light: { intensity: 1 } } },
+      layers: [{ name: 'main', objects: [] }]
+    })).toThrow(/prefabs.lamp.light: a light belongs to the 3D renderer, and this level is 2D/);
+  });
+});
+
 describe('the frame culls', () => {
   const camera = () => {
     const c = new Camera3D(16, 9, { mode: 'free', position: { x: 0, y: 2, z: 10 }, lookAt: { x: 0, y: 0, z: 0 } });

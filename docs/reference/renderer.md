@@ -257,10 +257,12 @@ game.sceneManager.addScene('yard', {
 | --- | --- |
 | `camera` | `viewProjection`, `inverseViewProjection` and `position`, filled from `game.camera` |
 | `sun` | One directional light: the `direction` its light travels, its linear `color`, and an `intensity` |
-| `ambient` | Hemisphere light: linear `sky` and `ground` colours and an `intensity`. Stands in for an environment map |
+| `ambient` | The environment's strength: linear `sky` and `ground` colours shape the sky, and `intensity` scales the image-based light taken from it |
 | `fog` | Distance fog toward a linear `color`, at a `density` per metre; `0` turns it off. The sky's horizon takes the same colour |
 | `exposure` | A multiplier before tonemapping, `1` by default |
+| `bloom` | Light brighter than `threshold` after exposure spreads into a glow added at `intensity` (`0.12` by default; `0` skips the passes) |
 | `shadow` | The sun's shadow map covers a sphere of `radius` metres around `center`, which the engine sets to the camera's look-at point; `enabled: false` turns shadows off |
+| `addLight(light)` | A point light (`position`, linear `color`, `intensity` as radiance at one metre, `range` in metres) or, with `type: 'spot'`, one pointing along `direction` with `innerCone` and `outerCone` in radians. Up to 256 a frame |
 | `setCamera(camera)` | Take the matrices, eye, frustum and shadow centre from a `Camera3D`. The engine does this before the scene's hook |
 | `add(geometry, instance)` | Draw a geometry once. `instance` is a `model` matrix or a `position`, unit-quaternion `rotation` and `scale`; a glTF `material` with textures, or none for a plain surface; and multipliers over it: linear `color`, `metallic`, `roughness`, `emissive`, `checker`. `castShadow: false` keeps it out of the shadow map |
 
@@ -268,7 +270,7 @@ Geometry for the primitive shapes comes from `m2d-engine/core/renderers/geometry
 
 `add` culls as it goes. An instance whose bounding sphere is outside the camera's frustum is left out of the main pass, and one outside the shadow map's reach is left out of the shadow pass; the frame's `added`, `drawn` and `casting` counts say what happened.
 
-The picture is a metallic-roughness model under the sun and the hemisphere, with a 2048-texel shadow map filtered over nine taps, fog, ACES tonemapping and 4x multisampling. A camera's `Camera3D` is in [Camera](../guide/camera#three-dimensions), and the `mesh` block a prefab draws with is in the [scene format](./scene-format#mesh). What is not here yet — image-based lighting, more lights, normal maps, skinning, post effects — follows the plan in `docs/plans/3d-and-editor.md`.
+The picture is a metallic-roughness model under the sun, the point and spot lights and an image-based environment, with a 2048-texel shadow map filtered over nine taps, fog, bloom, ACES tonemapping and 4x multisampling. The environment is the renderer's own sky, baked to a cubemap when the sun or sky settings change, prefiltered by roughness for reflections and convolved for diffuse, so a mirror sphere reflects the sky it stands under. Rendering is in high range to a 16-bit float target; the composite pass exposes, tonemaps and encodes to the canvas. A camera's `Camera3D` is in [Camera](../guide/camera#three-dimensions), and the `mesh` block a prefab draws with is in the [scene format](./scene-format#mesh). What is not here yet — image-based lighting, more lights, normal maps, skinning, post effects — follows the plan in `docs/plans/3d-and-editor.md`.
 
 **The HUD.** A canvas holds one context, so the UI pass cannot share the 3D canvas. The renderer makes a second canvas laid over the first, transparent to pointer events, and runs the WebGL2 backend on it; `game.uiRenderer` wraps that backend and the whole UI layer works unchanged. `game.renderer.overlayCanvas` and `game.renderer.uiBackend` are the two halves. Input and fullscreen still target the original canvas.
 

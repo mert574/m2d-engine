@@ -16,7 +16,8 @@ import { Vec3 } from 'm2d-engine/core/math.js';
  * file's `mesh` blocks.
  *
  * Drag to orbit, scroll to zoom. WASD walks relative to the camera, Space
- * jumps, O opens settings, F3 shows the frame statistics.
+ * jumps, T turns the afternoon to dusk and back, O opens settings, F3
+ * shows the frame statistics.
  */
 
 const canvas = document.getElementById('screen');
@@ -76,6 +77,12 @@ game.registerActor('Crate', Crate);
 
 let unsubscribe = [];
 let hud = null;
+/** 0 is afternoon, 1 is dusk; eased between on T. */
+let dusk = 0;
+let duskTarget = 0;
+
+const lerp = (a, b, t) => a + (b - a) * t;
+const mix = (a, b, t) => a.map((v, i) => lerp(v, b[i], t));
 
 game.sceneManager.addScene('yard', {
   fetch: async () => (await import('./scenes/yard.json')).default,
@@ -100,6 +107,9 @@ game.sceneManager.addScene('yard', {
       game.camera.zoom(Math.exp(event.scroll.y * 0.0012));
       event.consume();
     }));
+    unsubscribe.push(game.input.on('keydown', (event) => {
+      if (event.code === 'KeyT') { duskTarget = duskTarget ? 0 : 1; event.consume(); }
+    }));
 
     const ui = game.sceneManager.getCurrentScene().ui;
     ui.add(new UIText({
@@ -108,7 +118,7 @@ game.sceneManager.addScene('yard', {
     }));
     ui.add(new UIText({
       x: -20, y: -16, anchor: 'bottom-right', align: 'right',
-      text: 'Drag orbits · Scroll zooms · WASD walks · Space jumps · O settings · F3 stats',
+      text: 'Drag orbits · Scroll zooms · WASD walks · Space jumps · T dusk · O settings · F3 stats',
       fontSize: '13px', color: 'rgba(255, 248, 236, 0.75)', outlineColor: 'rgba(0, 0, 0, 0.3)', outlineWidth: 2
     }));
     hud = ui.add(new UIText({
@@ -123,18 +133,32 @@ game.sceneManager.addScene('yard', {
     hud = null;
   },
 
-  onUpdate() {
+  onUpdate(deltaTime) {
+    dusk = lerp(dusk, duskTarget, 1 - Math.exp(-deltaTime * 1.5));
     if (!hud) return;
     const stats = game.renderer.getStats();
     hud.text = `${game.entities.size} bodies · ${stats.drawCalls} draw calls · ${game.renderer.getFPS()} fps`;
   },
 
   onRender(frame) {
-    // Late afternoon: a low, warm sun from the south-west, a cool sky.
-    frame.sun = { direction: [0.55, -0.6, 0.45], color: [1, 0.88, 0.7], intensity: 4.2 };
-    frame.ambient = { sky: [0.36, 0.46, 0.68], ground: [0.22, 0.17, 0.12], intensity: 0.55 };
-    frame.fog = { color: [0.66, 0.74, 0.86], density: 0.006 };
-    frame.exposure = 0.95;
+    // Late afternoon — a low, warm sun from the south-west under a cool sky
+    // — easing into dusk: the sun at the horizon, deep orange and dim, the
+    // sky violet, and the lamps carrying the yard. The environment re-bakes
+    // as this moves, so the mirror sphere reflects the sky it stands under.
+    const t = dusk;
+    frame.sun = {
+      direction: [0.55, lerp(-0.6, -0.06, t), 0.45],
+      color: mix([1, 0.88, 0.7], [1, 0.4, 0.15], t),
+      intensity: lerp(4.2, 0.5, t)
+    };
+    frame.ambient = {
+      sky: mix([0.36, 0.46, 0.68], [0.1, 0.08, 0.22], t),
+      ground: mix([0.22, 0.17, 0.12], [0.04, 0.03, 0.05], t),
+      intensity: lerp(0.55, 0.3, t)
+    };
+    frame.fog = { color: mix([0.66, 0.74, 0.86], [0.3, 0.18, 0.3], t), density: lerp(0.006, 0.009, t) };
+    frame.exposure = lerp(0.95, 1.4, t);
+    frame.bloom = { threshold: 1, intensity: lerp(0.1, 0.25, t) };
     frame.shadow.radius = 22;
   }
 });

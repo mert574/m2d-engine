@@ -64,6 +64,7 @@ A map from prefab name to prefab.
 | `defaultAnimation` | no | An animation on that sheet. Defaults to `default` |
 | `physics` | no | Body settings, below |
 | `mesh` | no | How a 3D level draws it, below. 3D levels only |
+| `light` | no | A light it carries, below. 3D levels only |
 | `constraints` | no | Behaviours to attach, below |
 
 ### `prefabs.*.physics`
@@ -104,6 +105,22 @@ How a prefab is drawn in a 3D level, where there are no sprites. Without a `mesh
 
 A shape is sized by the object's `width`, `height` and `depth`, like the collider; a model keeps the file's size times `scale`, and the collider is whatever the object says, so a truck's box can be simpler than its body. An object's `overrides.mesh` merges over the prefab's, so one red crate among brown ones needs no prefab of its own. See the [renderer](./renderer#three-dimensions) for what the renderer makes of it.
 
+### `light`
+
+A light the prefab carries, following its body. In a 2D level a `light` is an error; 2D lighting is the renderer's `drawLight`.
+
+| Key | Values | Default |
+| --- | --- | --- |
+| `type` | `"point"` or `"spot"` | `"point"` |
+| `color` | A CSS colour, converted to linear light on load | white |
+| `intensity` | number, radiance at one metre before the inverse-square falloff; `10` is a bright room lamp | `10` |
+| `range` | metres; the light fades to nothing here | `10` |
+| `offset` | `{ "x", "y", "z" }` in metres from the body's centre | `0` |
+| `direction` | `{ "x", "y", "z" }`, where a spot points | straight down |
+| `innerCone`, `outerCone` | radians; full brightness inside the inner cone, dark outside the outer | `0.4`, `0.6` |
+
+The sun is the scene's, set in `onRender`, not a prefab's. See the [renderer](./renderer#three-dimensions).
+
 ## `layers`
 
 An array of layers.
@@ -140,6 +157,7 @@ What one placed object changes about its prefab, so a heavier crate or a recolou
 | `defaultAnimation` | An animation on that sheet |
 | `physics` | Body settings, merged field by field over the prefab's |
 | `mesh` | Drawing settings in a 3D level, merged field by field over the prefab's |
+| `light` | Light settings in a 3D level, merged field by field over the prefab's |
 
 ```json
 { "id": "heavy-crate", "prefab": "crate", "x": 300, "y": 200,

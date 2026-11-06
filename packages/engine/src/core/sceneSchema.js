@@ -84,6 +84,9 @@ export const BODY_SHAPES = {
 /** Shapes a 3D prefab's `mesh` may draw: the colliders', plus a flat plane. */
 export const MESH_SHAPES = [...BODY_SHAPES[3], 'plane'];
 
+/** Kinds of light a 3D prefab may carry. The sun is the scene's, not a prefab's. */
+export const LIGHT_TYPES = ['point', 'spot'];
+
 /** Dimensions a level can be simulated in. See `world.dimensions`. */
 export const DIMENSIONS = [2, 3];
 
@@ -272,12 +275,29 @@ const MESH = s.object({
   visible: s.boolean()
 }, { label: 'Mesh' });
 
+/**
+ * A light carried by a 3D prefab: a point light at the body, or a spot
+ * light pointing along `direction`. Intensity is radiance at one metre
+ * before the inverse-square falloff, so a 10 is a bright room lamp.
+ */
+const LIGHT = s.object({
+  type: s.enumOf(LIGHT_TYPES, { label: 'Type' }),
+  color: s.string({ label: 'Colour', description: 'CSS colour; sRGB' }),
+  intensity: s.number({ min: 0 }),
+  range: s.number({ positive: true, unit: 'm' }),
+  offset: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'From the body\'s centre, in metres' }),
+  direction: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Where a spot points' }),
+  innerCone: s.number({ min: 0, unit: 'rad' }),
+  outerCone: s.number({ min: 0, unit: 'rad' })
+}, { label: 'Light' });
+
 const PREFAB = s.object({
   actor: s.ref('actor', { required: true }),
   spritesheet: s.ref('spritesheet'),
   defaultAnimation: s.string(),
   physics: PHYSICS,
   mesh: MESH,
+  light: LIGHT,
   constraints: CONSTRAINTS
 }, {
   // An animation belongs to *this* prefab's sheet, so it cannot be a plain
@@ -309,7 +329,8 @@ const OVERRIDES = s.object({
   spritesheet: s.ref('spritesheet'),
   defaultAnimation: s.string(),
   physics: PHYSICS,
-  mesh: MESH
+  mesh: MESH,
+  light: LIGHT
 }, { label: 'Overrides' });
 
 // === Layers and objects ===
@@ -507,6 +528,10 @@ function checkDimension(level, fail) {
     if (dimensions === 2 && prefab.mesh) {
       fail(`prefabs.${name}.mesh`, 'a mesh is drawn by the 3D renderer, and this level is 2D ' +
         '(set world.dimensions to 3, or give the prefab a spritesheet)');
+    }
+    if (dimensions === 2 && prefab.light) {
+      fail(`prefabs.${name}.light`, 'a light belongs to the 3D renderer, and this level is 2D ' +
+        "(set world.dimensions to 3; 2D lights are the renderer's drawLight)");
     }
   }
 

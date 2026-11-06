@@ -4,7 +4,7 @@ import { initPhysics } from '../../src/core/physics/index.js';
 import { createRenderer, WebGPURenderer, WebGLRenderer } from '../../src/core/renderers/index.js';
 import { initWebGPU, webgpuSupported } from '../../src/core/renderers/webgpu/device.js';
 import { Camera3D } from '../../src/core/camera3d.js';
-import { box, plane, geometryFor } from '../../src/core/renderers/geometry/primitives.js';
+import { box, plane, sphere, geometryFor } from '../../src/core/renderers/geometry/primitives.js';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
 import { createCanvasElement } from '../helpers/environment.js';
 
@@ -63,6 +63,7 @@ function yardFrame(renderer, camera, { shadows = true } = {}) {
   // the box's shadow lies to its left, in view.
   frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
   frame.fog.density = 0;
+  frame.bloom.intensity = 0;
   frame.shadow = { center: { x: 0, y: 0, z: 0 }, radius: 12, enabled: shadows };
   frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.5, 0.5, 0.5], roughness: 0.9 });
   frame.add(box(), { position: { x: 0, y: 0.5, z: 0 }, color: [0.9, 0.05, 0.05], roughness: 0.5 });
@@ -110,8 +111,8 @@ describe('the 3D renderer', () => {
     // The floor is grey: no channel dominates, and it is lit.
     expect(Math.max(...floor.slice(0, 3)) - Math.min(...floor.slice(0, 3)), `floor is neutral: ${floor}`).toBeLessThan(30);
     expect(luma(floor), `floor is lit: ${floor}`).toBeGreaterThan(60);
-    // Two instanced draws (floor, box) in each of two passes, plus the sky.
-    expect(renderer.getStats().drawCalls).toBe(5);
+    // Two instanced draws (floor, box) in each of two passes, the sky and the composite.
+    expect(renderer.getStats().drawCalls).toBe(6);
   });
 
   it('draws a red box where the camera projects it, lit on the side facing the sun', async () => {
@@ -259,6 +260,103 @@ describe('a 3D game through the engine loop', () => {
   });
 });
 
+describe('lighting', () => {
+  beforeAll(() => initWebGPU());
+
+  function make(W, H) {
+    const canvas = canvasInDocument(W, H);
+    const renderer = new WebGPURenderer();
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    return renderer;
+  }
+
+  /** A dark floor and whatever `build` adds, under a weak sun so the lights show. */
+  function scene(renderer, camera, build, { bloom = 0 } = {}) {
+    const frame = renderer.createFrame();
+    frame.setCamera(camera);
+    frame.sun = { direction: [0.3, -1, 0.2], color: [1, 1, 1], intensity: 0.4 };
+    frame.ambient.intensity = 0.3;
+    frame.fog.density = 0;
+    frame.bloom = { threshold: 1, intensity: bloom };
+    frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.3, 0.3, 0.3], roughness: 0.9 });
+    build(frame);
+    return frame;
+  }
+
+  it('a mirror sphere reflects the sky above and the ground below', async () => {
+    const W = 96, H = 96;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 1, z: 4 });
+    const frame = scene(renderer, camera, (f) => {
+      f.sun.intensity = 3;
+      f.ambient.intensity = 1;
+      f.add(sphere(), { position: { x: 0, y: 1, z: 0 }, scale: 1.4, color: [1, 1, 1], metallic: 1, roughness: 0.05 });
+    });
+    renderer.render(frame);
+    const pixels = await readPixels(renderer);
+    const top = camera.worldToScreen(0, 1.62, 0.25);
+    const bottom = camera.worldToScreen(0, 0.4, 0.25);
+    const upper = pixels.at(Math.round(top.x), Math.round(top.y));
+    const lower = pixels.at(Math.round(bottom.x), Math.round(bottom.y));
+    // The upper face mirrors sky: blue over red, and bright. The lower face
+    // mirrors the floor and the haze below the horizon: markedly darker.
+    expect(upper[2], `sky in the mirror: ${upper}`).toBeGreaterThan(upper[0]);
+    expect(luma(upper), `bright reflection: ${upper}`).toBeGreaterThan(120);
+    expect(luma(lower), `ground reflection ${lower} darker than sky ${upper}`).toBeLessThan(luma(upper) * 0.9);
+  });
+
+  it('a point light brightens the floor near it and not far from it', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 6, z: 6 });
+    const lit = scene(renderer, camera, (f) => {
+      f.addLight({ position: { x: 0, y: 1.5, z: 0 }, color: [1, 0.8, 0.5], intensity: 20, range: 6 });
+    });
+    renderer.render(lit);
+    const near = camera.worldToScreen(0, 0, 0.5);
+    const far = camera.worldToScreen(-6, 0, -4);
+    const a = await readPixels(renderer);
+    const nearLit = a.at(Math.round(near.x), Math.round(near.y));
+    const farLit = a.at(Math.round(far.x), Math.round(far.y));
+    renderer.render(scene(renderer, camera, () => {}));
+    const b = await readPixels(renderer);
+    const nearDark = b.at(Math.round(near.x), Math.round(near.y));
+    expect(luma(nearLit), `near the light ${nearLit} vs without ${nearDark}`).toBeGreaterThan(luma(nearDark) * 1.8);
+    expect(Math.abs(luma(farLit) - luma(b.at(Math.round(far.x), Math.round(far.y)))), 'beyond the range nothing changes').toBeLessThan(6);
+    // Warm light: red over blue on the floor.
+    expect(nearLit[0]).toBeGreaterThan(nearLit[2]);
+  });
+
+  it('a spot light lights only inside its cone', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 8, z: 4 });
+    renderer.render(scene(renderer, camera, (f) => {
+      f.addLight({ type: 'spot', position: { x: 0, y: 3, z: 0 }, direction: { x: 0, y: -1, z: 0 }, color: [1, 1, 1], intensity: 40, range: 10, innerCone: 0.3, outerCone: 0.45 });
+    }));
+    const pixels = await readPixels(renderer);
+    const inside = camera.worldToScreen(0, 0, 0);
+    const outside = camera.worldToScreen(3, 0, 0);
+    const i = pixels.at(Math.round(inside.x), Math.round(inside.y));
+    const o = pixels.at(Math.round(outside.x), Math.round(outside.y));
+    expect(luma(i), `inside the cone ${i} vs outside ${o}`).toBeGreaterThan(luma(o) * 2);
+  });
+
+  it('bloom spreads an emissive surface into a glow around it', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 1, z: 5 });
+    const build = (f) => f.add(sphere(), { position: { x: 0, y: 1, z: 0 }, scale: 0.6, color: [1, 0.8, 0.4], emissive: 8 });
+    const beside = camera.worldToScreen(0.55, 1, 0);
+    renderer.render(scene(renderer, camera, build, { bloom: 0 }));
+    const without = (await readPixels(renderer)).at(Math.round(beside.x), Math.round(beside.y));
+    renderer.render(scene(renderer, camera, build, { bloom: 0.5 }));
+    const withBloom = (await readPixels(renderer)).at(Math.round(beside.x), Math.round(beside.y));
+    expect(luma(withBloom), `glow beside the lamp ${withBloom} vs none ${without}`).toBeGreaterThan(luma(without) + 15);
+  });
+});
+
 describe('a textured model', () => {
   beforeAll(() => initWebGPU());
 
@@ -280,6 +378,7 @@ describe('a textured model', () => {
     frame.setCamera(camera);
     frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
     frame.fog.density = 0;
+    frame.bloom.intensity = 0;
     frame.shadow.radius = 6;
     const [part] = model.parts;
     frame.add(part.geometry, { model: part.matrix, material: part.material, color: [1, 1, 1], metallic: 1, roughness: 1 });
@@ -298,7 +397,7 @@ describe('a textured model', () => {
     const qx = pixels.at(Math.round(q.x), Math.round(q.y));
     const differs = px.slice(0, 3).some((v, i) => Math.abs(v - qx[i]) > 12);
     expect(differs, `texture varies: ${px} vs ${qx}`).toBe(true);
-    expect(renderer.getStats().drawCalls).toBe(3);
+    expect(renderer.getStats().drawCalls).toBe(4);
   });
 });
 

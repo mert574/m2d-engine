@@ -246,7 +246,8 @@ export class Scene {
             ...base,
             ...object.overrides,
             physics: { ...base.physics, ...object.overrides.physics },
-            mesh: { ...base.mesh, ...object.overrides.mesh }
+            mesh: { ...base.mesh, ...object.overrides.mesh },
+            ...((base.light || object.overrides.light) && { light: { ...base.light, ...object.overrides.light } })
           }
           : base;
 
@@ -261,6 +262,7 @@ export class Scene {
           sprite: prefab.spritesheet,
           animation: prefab.defaultAnimation,
           mesh: prefab.mesh,
+          light: prefab.light,
           // Placement is the object's, material is the prefab's: an object
           // may rotate its instance (a ramp is a tilted platform) without
           // the prefab having to know.
@@ -642,6 +644,11 @@ export class Scene {
         const mesh = entity.mesh;
         if (!mesh || mesh.visible === false || !entity.visible || entity.dead) continue;
         const body = entity.body;
+        if (entity.light) {
+          const p = body.renderPosition;
+          const o = entity.light.offset ?? ZERO;
+          frame.addLight({ ...entity.light, position: { x: p.x + o.x, y: p.y + o.y, z: p.z + o.z } });
+        }
         if (mesh.model) {
           this.#addModel(frame, mesh, body);
           continue;
