@@ -106,6 +106,18 @@ export class Scene {
   }
 
   setupScene() {
+    // The engine builds its physics world once, at the dimension the game
+    // was constructed with, so a scene cannot quietly ask for the other
+    // one. Saying so here beats a level half-building into the wrong
+    // solver and failing on the first shape it cannot make.
+    const wanted = this.config.world?.dimensions ?? 2;
+    if (wanted !== this.game.physics.dimensions) {
+      throw new Error(`M2D scene '${this.config.name}': the scene is ${wanted}D ` +
+        `but the game runs ${this.game.physics.dimensions}D physics — ` +
+        `construct M2D with { dimensions: ${wanted} } and await ` +
+        `initPhysics({ dimensions: ${wanted} })`);
+    }
+
     this.game.entities.clear();
     this.game.resetNetIds?.();
     this.game.trackedState?.clear();
@@ -219,8 +231,10 @@ export class Scene {
           type: prefab.actor,
           x: object.x,
           y: object.y,
+          z: object.z,
           width: object.width,
           height: object.height,
+          depth: object.depth,
           sprite: prefab.spritesheet,
           animation: prefab.defaultAnimation,
           // Placement is the object's, material is the prefab's: an object

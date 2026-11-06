@@ -501,6 +501,10 @@ export class RapierPhysicsWorld extends PhysicsWorldBase {
     this.unindexed = new Set();
   }
 
+  get dimensions() {
+    return 2;
+  }
+
   #createWorld() {
     const world = new RAPIER.World(this.currentGravity);
     world.integrationParameters.lengthUnit = LENGTH_UNIT;

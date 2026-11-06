@@ -345,7 +345,8 @@ export class M2D {
      */
     this.physics = createPhysicsWorld({
       clock: this.time,
-      interpolate: this.options.interpolatePhysics
+      interpolate: this.options.interpolatePhysics,
+      dimensions: this.options.dimensions ?? 2
     });
     this.collisionCategories = CollisionCategories;
 
@@ -931,7 +932,48 @@ export class M2D {
    * @param {object} [spec.physics] - Prefab physics keys
    * @returns {import('./entity.js').Entity|null}
    */
-  createEntity({ type, x, y, width, height, spritesheet = null, options = {}, physics = {} }) {
+  /**
+   * The collider a prefab's `shape` asks for, in two dimensions.
+   *
+   * Prefabs size every actor as a box, so `shape` only chooses which
+   * collider that box is filled with: a circle takes its diameter from the
+   * width, a capsule is the box it fits inside. Width and height are left
+   * off the circle spec on purpose — `createCircle` derives both from the
+   * radius, and passing them too would let a non-square prefab end up with
+   * a size that disagrees with its collider.
+   */
+  #createBody2D({ x, y, width, height, material, physics }) {
+    if (physics.shape === 'circle') {
+      return this.physics.createCircle({ x, y, radius: width / 2, ...material });
+    }
+    if (physics.shape === 'capsule') {
+      return this.physics.createCapsule({ x, y, width, height, ...material });
+    }
+    return this.physics.createBox({ x, y, width, height, ...material });
+  }
+
+  /**
+   * The same, in three. A prefab's box gains a `depth`, defaulting to its
+   * width so a cube needs only two numbers, and the round shapes take a
+   * radius from the width exactly as their 2D counterparts do.
+   */
+  #createBody3D({ x, y, z, width, height, depth, material, physics }) {
+    const spec = { x, y, z, ...material };
+    if (physics.shape === 'sphere') {
+      return this.physics.createSphere({ ...spec, radius: width / 2 });
+    }
+    if (physics.shape === 'capsule') {
+      return this.physics.createCapsule({ ...spec, radius: width / 2, height });
+    }
+    if (physics.shape === 'cylinder') {
+      return this.physics.createCylinder({ ...spec, radius: width / 2, height });
+    }
+    return this.physics.createBox({ ...spec, width, height, depth: depth ?? width });
+  }
+
+  createEntity({
+    type, x, y, z = 0, width, height, depth, spritesheet = null, options = {}, physics = {}
+  }) {
     const ActorClass = this.actors.get(type);
     if (!ActorClass) {
       console.error(`Actor type not registered: ${type}`);
@@ -948,7 +990,7 @@ export class M2D {
     // a size that disagrees with its collider.
     const material = {
       bodyType: physics.bodyType || 'dynamic',
-      angle: physics.angle || 0,
+      ...(this.physics.dimensions === 3 ? {} : { angle: physics.angle || 0 }),
       lockRotation: physics.lockRotation || false,
       isSensor: physics.isSensor || false,
       friction: physics.friction || 0.1,
@@ -974,14 +1016,9 @@ export class M2D {
       frame = { width, height, offsetX: 0, offsetY: -(height - bodyHeight) / 2 };
     }
 
-    let body;
-    if (physics.shape === 'circle') {
-      body = this.physics.createCircle({ x: bodyX, y: bodyY, radius: bodyWidth / 2, ...material });
-    } else if (physics.shape === 'capsule') {
-      body = this.physics.createCapsule({ x: bodyX, y: bodyY, width: bodyWidth, height: bodyHeight, ...material });
-    } else {
-      body = this.physics.createBox({ x: bodyX, y: bodyY, width: bodyWidth, height: bodyHeight, ...material });
-    }
+    const body = this.physics.dimensions === 3
+      ? this.#createBody3D({ x: bodyX, y: bodyY, z, width: bodyWidth, height: bodyHeight, depth, material, physics })
+      : this.#createBody2D({ x: bodyX, y: bodyY, width: bodyWidth, height: bodyHeight, material, physics });
     if (frame) body.frame = frame;
 
     const entity = new ActorClass(
@@ -998,6 +1035,7 @@ export class M2D {
      */
     entity.spawnInfo = {
       type, x, y, width, height,
+      ...(this.physics.dimensions === 3 && { z, depth }),
       sprite: this.#sheetKey(spritesheet),
       animation: null,
       options: options ?? {},
@@ -1031,12 +1069,17 @@ export class M2D {
    * @param {string|null} [spec.playerId] - The owning player
    * @param {number} [spec.netId] - Take this network id (a client replaying a server's spawn)
    */
-  spawn({ type, x, y, width, height, sprite = null, animation, options = {}, physics = {}, playerId = null, netId }) {
+  spawn({
+    type, x, y, z = 0, width, height, depth,
+    sprite = null, animation, options = {}, physics = {}, playerId = null, netId
+  }) {
     const sheet = sprite && !this.headless ? this.sceneManager.getCurrentScene()?.spriteSheets.get(sprite) ?? null : null;
     if (netId !== undefined) this.pendingNetId = netId;
     let entity;
     try {
-      entity = this.createEntity({ type, x, y, width, height, spritesheet: sheet, options, physics });
+      entity = this.createEntity({
+        type, x, y, z, width, height, depth, spritesheet: sheet, options, physics
+      });
     } finally {
       this.pendingNetId = null;
     }

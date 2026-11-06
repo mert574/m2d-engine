@@ -47,6 +47,7 @@
 | `timeScale` | `1` | Multiplier on game time: ticks, and so physics, entity simulation and game-time timers. `0.5` is slow motion. Live at `game.time.scale`. `physicsTimeScale` is accepted as an older spelling |
 | `interpolatePhysics` | `true` | Blend drawn transforms between ticks |
 | `seed` | `1` | Seed for `game.rng`. Reseeded on every scene load and `reset()`. Pass `Date.now()` for a game that should differ between sessions |
+| `dimensions` | `2` | How many axes the simulation has, `2` or `3`. Must match what `initPhysics` loaded and what a level's `world.dimensions` declares. See [Three dimensions](./physics#three-dimensions) |
 
 ## Headless
 

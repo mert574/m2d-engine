@@ -221,13 +221,16 @@ for 3D, which is the main argument that doing A first was right.
   sprite-era features (tile layers, parallax, painter-sort) without
   violating the rule that a renderer feature is mandatory for every
   backend.
-- B6. **The scene format dispatches on `world.dimensions`.** With
-  `s.tagged` this is cheap and it is the right shape: a 2D level's object
-  requires `x` and `y`, a 3D level's requires `z` as well and takes a
-  rotation that is not a scalar, and neither has to tolerate the other's
-  fields. Breaking for 3D scenes only, which do not exist yet, so the
-  migration cost is zero — but it does mean the dimension is settled
-  before the rest of a scene validates, like `type` is today.
+- B6. **The scene format knows about `world.dimensions`.** *Done, with a
+  headless 3D level as the consumer.* Not the `s.tagged` split the plan
+  guessed at: the two shapes turned out to overlap almost entirely, so
+  one schema plus a `checkDimension` refine says everything a tagged pair
+  would have, in a fraction of the code. The dimension decides which
+  collider shapes exist, whether `z` and `depth` mean anything, and
+  whether a `footprint` is allowed — each an error rather than a field
+  that quietly does nothing. `M2D` takes `dimensions`, the world reports
+  its own, and a level whose dimension disagrees with its game fails on
+  load with the two lines needed to fix it.
 - B7. *Done.* **Positional constructor arguments had to go.** `createEntity(type,
   x, y, width, height, sheet, options, physics)` and `spawn(type, x, y,
   width, height, {...})` cannot grow a third axis without either a

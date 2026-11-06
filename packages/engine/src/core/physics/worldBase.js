@@ -55,6 +55,16 @@ export class PhysicsWorldBase {
     this.handlers = { onStart: null, onEnd: null };
   }
 
+  /**
+   * How many dimensions this world simulates in, 2 or 3. Engine code that
+   * has to build a shape or read a rotation asks the world rather than
+   * being told separately, so there is one answer and it cannot drift.
+   * @abstract @type {2|3}
+   */
+  get dimensions() {
+    throw new Error('PhysicsWorld must implement dimensions');
+  }
+
   /** Seconds per solver step. @type {number} */
   get fixedTimestep() { return this.clock ? this.clock.fixedTimestep : this.own.fixedTimestep; }
   set fixedTimestep(value) { if (this.clock) this.clock.fixedTimestep = value; else this.own.fixedTimestep = value; }

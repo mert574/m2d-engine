@@ -139,4 +139,6 @@ Returned objects such as `position` and `collisionFilter` are snapshots. Mutatin
 
 **Positions and velocities are three-component.** `z` defaults to `0` wherever it is omitted, so 2D-shaped calls still mean something.
 
+A level declares its dimension with `world.dimensions`, and `game.createEntity` builds the right collider from the prefab's `shape`. See [Dimensions](./scene-format#dimensions) for what a 3D level may say, and `game.physics.dimensions` for asking a world which it is.
+
 Not yet implemented, each because it wants a game to tune against rather than more code: a character riding a kinematic platform, and `snapshot`/`restore`.

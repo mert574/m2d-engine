@@ -24,8 +24,9 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 
 | Key | Meaning |
 | --- | --- |
+| `dimensions` | `2` (default) or `3`. How many axes the simulation has. A 3D level needs a game built for it: `initPhysics({ dimensions: 3 })` and `new M2D(canvas, { dimensions: 3 })`. See [Three dimensions](./physics#three-dimensions) |
 | `width`, `height` | Size of the playable area in world units. The engine does not read these; a game does, from `scene.config.world`, to set camera bounds or lay out a level |
-| `gravity` | `{ "x", "y" }` in px/s². Applied to the physics world when the scene loads |
+| `gravity` | `{ "x", "y" }` in px/s², plus `"z"` in a 3D level. Applied to the physics world when the scene loads |
 | `projection` | How the ground plane is seen: `"isometric"` or `"belt"`, or `{ "type", "ratio" }`. Isometric draws a ground square as a `2:ratio·2` diamond; belt keeps x and compresses y by `ratio`. Positions are drawn through it; physics stays flat. See [Perspectives](../guide/perspectives#isometric-a-projection-on-positions) |
 | `sort` | Entity draw order within a `zIndex`. `"depth"` (default) draws by the bottom edge of the body, so whatever stands lower on the ground is in front. `"insertion"` keeps scene order. See [Perspectives](../guide/perspectives) |
 
@@ -59,7 +60,7 @@ A map from prefab name to prefab.
 | Key | Values | Default |
 | --- | --- | --- |
 | `bodyType` | `"static"`, `"dynamic"`, `"kinematic"`, `"character"` | `"dynamic"` |
-| `shape` | `"box"`, `"circle"`, `"capsule"` | `"box"` |
+| `shape` | 2D: `"box"`, `"circle"`, `"capsule"`. 3D: `"box"`, `"sphere"`, `"capsule"`, `"cylinder"` | `"box"` |
 | `friction` | number. `0` falls back to the default | `0.1` |
 | `frictionAir` | number, fraction of velocity lost per 1/60 s. `0` falls back to the default | `0.01` |
 | `restitution` | number | `0` |
@@ -87,6 +88,8 @@ An array of layers.
 
 | Key | Required | Default | Meaning |
 | --- | --- | --- | --- |
+| `z` | no | `0` | Third axis. A 3D level only |
+| `depth` | no | the width | Size on the third axis. A 3D level only |
 | `id` | yes | | Identity, unique within the scene. Letters, digits, `-`, `_` and `.`, starting with a letter or digit. Reaches the entity as `entity.sceneId`, and the scene as `scene.entitiesById` |
 | `prefab` | yes | | A key in `prefabs` |
 | `x`, `y` | yes | | Centre position in world units |
@@ -256,6 +259,20 @@ The checks, in addition to key lists and types:
 - `button.variant` takes a listed value
 - `physics.bodyType` and `physics.shape` take listed values
 - `anchor` takes a listed value
+
+## Dimensions
+
+`world.dimensions` decides what the rest of a level may say, so it is checked before the fields that depend on it:
+
+- A collider `shape` must be one its dimension has. `"circle"` in a 3D level and `"sphere"` in a 2D one are both errors naming the level's dimension.
+- `z` and `depth` on an object, and `z` on `world.gravity`, are errors in a 2D level rather than fields that quietly do nothing.
+- A `footprint` is an error in a 3D level. It fakes depth for a 2D perspective by making the collider the feet; with a real third axis there is nothing to fake.
+
+A level's dimension must match the game's. The engine builds its physics world once, at the dimension `M2D` was constructed with, so a mismatch fails when the scene loads rather than part-way through building it:
+
+```
+M2D scene 'yard': the scene is 3D but the game runs 2D physics — construct M2D with { dimensions: 3 } and await initPhysics({ dimensions: 3 })
+```
 
 ## Versions
 

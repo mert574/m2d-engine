@@ -75,8 +75,14 @@ function checkUniqueIds(entries, fail) {
 /** Physics body types `createEntity` understands. */
 export const BODY_TYPES = ['static', 'dynamic', 'kinematic', 'character'];
 
-/** Collider shapes `createEntity` understands. */
-export const BODY_SHAPES = ['box', 'circle', 'capsule'];
+/** Collider shapes `createEntity` understands, by the scene's dimension. */
+export const BODY_SHAPES = {
+  2: ['box', 'circle', 'capsule'],
+  3: ['box', 'sphere', 'capsule', 'cylinder']
+};
+
+/** Dimensions a level can be simulated in. See `world.dimensions`. */
+export const DIMENSIONS = [2, 3];
 
 /** Button variants `setupUIScene` understands. */
 export const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'];
@@ -91,9 +97,11 @@ const list = values => values.join(', ');
 
 // === Shared pieces ===
 
-const vector2 = (label) => s.object({
+/** A world vector. `z` means something only in a 3D level; see checkDimension. */
+const vector = (label) => s.object({
   x: s.number({ required: true }),
-  y: s.number({ required: true })
+  y: s.number({ required: true }),
+  z: s.number()
 }, { label });
 
 /**
@@ -146,9 +154,13 @@ const PROJECTION = s.union([
 ], { message: value => `expected one of ${list(PROJECTION_TYPES)}, got ${JSON.stringify(value)}` });
 
 const WORLD = s.object({
+  dimensions: s.enumOf(DIMENSIONS, {
+    label: 'Dimensions',
+    description: 'How many axes the simulation has. 2 unless stated'
+  }),
   width: s.number({ unit: 'px' }),
   height: s.number({ unit: 'px' }),
-  gravity: vector2('Gravity'),
+  gravity: vector('Gravity'),
   sort: s.enumOf(SORT_MODES, { label: 'Draw order' }),
   projection: PROJECTION
 });
@@ -220,7 +232,9 @@ const FOOTPRINT = s.object({
 
 const PHYSICS = s.object({
   bodyType: s.enumOf(BODY_TYPES, { label: 'Body type' }),
-  shape: s.enumOf(BODY_SHAPES, { label: 'Collider' }),
+  // Which shapes exist depends on how many dimensions the scene runs in,
+  // so the check belongs where that is known: the level's refine, below.
+  shape: s.string({ label: 'Collider' }),
   angle: s.number({ unit: 'rad' }),
   lockRotation: s.boolean(),
   isSensor: s.boolean(),
@@ -276,8 +290,10 @@ const OBJECT = s.object({
   prefab: s.ref('prefab', { required: true }),
   x: s.number({ required: true, unit: 'px' }),
   y: s.number({ required: true, unit: 'px' }),
+  z: s.number({ unit: 'px', description: 'Three-dimensional levels only' }),
   width: s.number({ positive: true, unit: 'px', default: DEFAULT_OBJECT_SIZE }),
   height: s.number({ positive: true, unit: 'px', default: DEFAULT_OBJECT_SIZE }),
+  depth: s.number({ positive: true, unit: 'px', description: 'Three-dimensional levels only' }),
   angle: s.number({ unit: 'rad', message: value => `must be a number (radians), got ${JSON.stringify(value)}` }),
   zIndex: s.number({ label: 'Draw order' }),
   constraints: OBJECT_CONSTRAINTS,
@@ -432,6 +448,53 @@ const USES = s.record(s.ref('asset', { required: true, editor: 'asset' }), {
   description: 'Local name to asset uid'
 });
 
+/**
+ * The checks that depend on how many dimensions the level runs in.
+ *
+ * A dimension is not a field like the others: it decides what the rest of
+ * the document is allowed to say. Which collider shapes exist, and whether
+ * a third axis means anything, both follow from it — and a `z` quietly
+ * ignored by a 2D level is exactly the failure this format exists to
+ * prevent, so it is an error rather than a no-op.
+ */
+function checkDimension(level, fail) {
+  const dimensions = level.world?.dimensions ?? 2;
+  const shapes = BODY_SHAPES[dimensions];
+
+  for (const [name, prefab] of Object.entries(level.prefabs ?? {})) {
+    const shape = prefab.physics?.shape;
+    if (shape !== undefined && !shapes.includes(shape)) {
+      fail(`prefabs.${name}.physics.shape`,
+        `expected one of ${list(shapes)}, got ${JSON.stringify(shape)}` +
+        ` (this level is ${dimensions}D)`);
+    }
+    if (dimensions === 3 && prefab.physics?.footprint) {
+      // A footprint is the 2D perspective kit's answer to depth: the
+      // collider is the feet and the sprite stands above it. With a real
+      // third axis there is nothing to fake.
+      fail(`prefabs.${name}.physics.footprint`,
+        'a footprint fakes depth for a 2D perspective, and this level is 3D');
+    }
+  }
+
+  if (dimensions === 3) return;
+  if (level.world?.gravity?.z !== undefined) {
+    fail('world.gravity.z', "'z' needs a third axis, and this level is 2D " +
+      '(set world.dimensions to 3)');
+  }
+  (level.layers ?? []).forEach((layer, li) => {
+    layer.objects.forEach((object, oi) => {
+      for (const key of ['z', 'depth']) {
+        if (object[key] !== undefined) {
+          fail(`layers[${li}].objects[${oi}].${key}`,
+            `'${key}' needs a third axis, and this level is 2D ` +
+            "(set world.dimensions to 3)");
+        }
+      }
+    });
+  });
+}
+
 export const LEVEL_SCHEMA = s.object({
   ...SCENE_COMMON,
   gameType: s.string({ description: 'Free text, unused by the engine' }),
@@ -444,6 +507,8 @@ export const LEVEL_SCHEMA = s.object({
   tileLayers: s.array(TILE_LAYER)
 }, {
   refine(level, { fail }) {
+    checkDimension(level, fail);
+
     // Ids are unique across the scene, not per layer: an object keeps its
     // identity when an editor moves it from one layer to another.
     checkUniqueIds(
