@@ -1,5 +1,9 @@
 import RAPIER from '@dimforge/rapier2d-compat';
 import { PhysicsWorldBase } from './worldBase.js';
+import {
+  LENGTH_UNIT, CONTACT_PAD, CHARACTER_OFFSET, CHARACTER_SNAP, CHARACTER_NUDGE,
+  RapierBodyMaterial, bodyDescFor, frictionAirToDamping
+} from './rapierShared.js';
 
 /**
  * The Rapier 2D implementation of the physics contract described in
@@ -20,67 +24,6 @@ import { PhysicsWorldBase } from './worldBase.js';
  * units/s and units/s² with 1 unit = 1 px. `lengthUnit` tells the solver's
  * internal tolerances that "1" is a pixel, not a meter.
  */
-
-/** Tells Rapier's solver tolerances that world units are pixels (~100/m). */
-const LENGTH_UNIT = 100;
-
-/**
- * Body density, inherited from Matter.js's default when the engine moved off
- * it: a 32x32 box weighs ~1.024. Mass only matters relatively, so the number
- * itself is arbitrary — but game code sets absolute masses (`setMass(1)`)
- * against this scale, so changing it silently re-tunes every game.
- */
-const DEFAULT_DENSITY = 0.001;
-
-/**
- * Contact slack for the overlap queries, in px. The solver holds resting
- * bodies a hair apart, so an exact intersection test would flicker on the
- * "standing on the ground" case the queries exist for. 1px was also what
- * Matter.js's slightly-overlapping resting contacts gave, which is why games
- * are tuned to it.
- */
-const CONTACT_PAD = 1;
-
-/**
- * Gap, in px, a character controller keeps between its shape and whatever it
- * collides with. Rapier wants a small nonzero margin (around 1-2% of the
- * character's size) for numerical robustness; at 0.5px it is invisible.
- */
-const CHARACTER_OFFSET = 0.5;
-
-/**
- * How far below its feet a character snaps back onto ground it was standing
- * on, in px. Covers descending platforms and the crest of slopes; Rapier
- * skips the snap when the character moves upward, so jumps are unaffected.
- */
-const CHARACTER_SNAP = 4;
-
-/**
- * How hard the controller pushes a character back out along contact normals,
- * in px. Rapier's default (1e-4) assumes meters; at pixel scale it is
- * nothing, so a character pressed against a wall crept ~1px inside it — and
- * once flat against a face, the slide around that wall's corner deadlocks
- * (a face contact has no tangential escape). Tuned by sweep: 0.02 still
- * deadlocks the corner, while 0.1 holds the character so far off the ground
- * that `grounded` detection loses it and it hangs hovering. 0.05 does both.
- */
-const CHARACTER_NUDGE = 0.05;
-
-/**
- * `frictionAir` is the contract's drag knob, carried over from Matter.js,
- * which damped velocity by that fraction per 60Hz step. Rapier instead damps
- * by `1 / (1 + dt * linearDamping)` per step; equating the two per-step
- * multipliers gives this conversion, so existing values still feel right.
- */
-function frictionAirToDamping(frictionAir) {
-  if (!frictionAir) return 0;
-  return (frictionAir * 60) / (1 - frictionAir);
-}
-
-function dampingToFrictionAir(damping) {
-  if (!damping) return 0;
-  return damping / (60 + damping);
-}
 
 /**
  * The equivalent of `angle` nearest zero, in (-π, π].
@@ -122,60 +65,26 @@ function colliderDescFor(shape, width, height) {
   return RAPIER.ColliderDesc.cuboid(width / 2, height / 2);
 }
 
-function bodyDescFor(bodyType) {
-  if (bodyType === 'static') return RAPIER.RigidBodyDesc.fixed();
-  // A character is a kinematic body too — the controller computes its moves,
-  // the solver never does.
-  if (bodyType === 'kinematic' || bodyType === 'character') {
-    return RAPIER.RigidBodyDesc.kinematicPositionBased();
-  }
-  return RAPIER.RigidBodyDesc.dynamic();
-}
-
-function rigidBodyTypeFor(bodyType) {
-  if (bodyType === 'static') return RAPIER.RigidBodyType.Fixed;
-  if (bodyType === 'kinematic' || bodyType === 'character') {
-    return RAPIER.RigidBodyType.KinematicPositionBased;
-  }
-  return RAPIER.RigidBodyType.Dynamic;
-}
-
 /**
  * A rigid body over Rapier, implementing the contract's PhysicsBody surface.
  * Before `add()` it is pure bookkeeping (`this.spec`); after, reads and
  * writes go to the live rigid body and collider.
  */
-export class RapierBody {
+export class RapierBody extends RapierBodyMaterial {
   constructor(world, spec) {
-    this.world = world;
+    super(world, RAPIER, spec);
     this.shape = spec.shape;
     this.width = spec.width;
     this.height = spec.height;
 
-    /** Buffered state; authoritative whenever `rigidBody` is null. */
-    this.spec = {
+    /** The transform half of the buffered state; see RapierBodyMaterial. */
+    Object.assign(this.spec, {
       x: spec.x,
       y: spec.y,
       angle: spec.angle ?? 0,
       velocity: { x: 0, y: 0 },
-      angularVelocity: 0,
-      bodyType: spec.bodyType ?? 'dynamic',
-      lockRotation: spec.lockRotation ?? false,
-      isSensor: spec.isSensor ?? false,
-      friction: spec.friction ?? 0.1,
-      frictionAir: spec.frictionAir ?? 0.01,
-      restitution: spec.restitution ?? 0,
-      density: spec.density ?? DEFAULT_DENSITY,
-      category: spec.category ?? 0x0001,
-      mask: spec.mask ?? 0xFFFF,
-      mass: null,
-      bullet: false
-    };
-
-    /** @type {import('@dimforge/rapier2d-compat').RigidBody|null} */
-    this.rigidBody = null;
-    /** @type {import('@dimforge/rapier2d-compat').Collider|null} */
-    this.collider = null;
+      angularVelocity: 0
+    });
 
     /**
      * Character-only state. The controller computes each step's collision-
@@ -185,7 +94,6 @@ export class RapierBody {
      * the character stood on after the last step, kept so a moving platform
      * underfoot can carry it.
      */
-    this.controller = null;
     this.charGrounded = false;
     this.groundBody = null;
 
@@ -194,9 +102,6 @@ export class RapierBody {
 
     /** Interpolation baseline; see `renderPosition`. */
     this.previous = { x: spec.x, y: spec.y, angle: spec.angle ?? 0 };
-
-    /** @type {import('../entity.js').Entity|null} */
-    this.entity = null;
 
     /**
      * This body's shape as a standalone query object (a plain JS descriptor,
@@ -209,60 +114,21 @@ export class RapierBody {
     this.paddedShape = makeShape(this.shape, this.width, this.height, CONTACT_PAD);
   }
 
-  /**
-   * Whether the solver should report collision events for this body.
-   *
-   * Events fire when *either* collider asks for them, so plain static
-   * scenery can stay quiet: whatever hits it is dynamic or kinematic and
-   * carries the flag itself, and fixed-vs-fixed pairs are never reported at
-   * all. Sensors are the exception — reporting is their only purpose.
-   */
-  get #wantsEvents() {
-    return this.spec.bodyType !== 'static' || this.spec.isSensor;
-  }
-
-  #applyEventFlag() {
-    this.collider?.setActiveEvents(this.#wantsEvents
-      ? RAPIER.ActiveEvents.COLLISION_EVENTS
-      : RAPIER.ActiveEvents.NONE);
-  }
-
   /** Build the rigid body + collider. Called by the world's `add()`. */
   materialize() {
     const s = this.spec;
-    const bodyDesc = bodyDescFor(s.bodyType)
+    const bodyDesc = this.applyBodyMaterial(bodyDescFor(RAPIER, s.bodyType)
       .setTranslation(s.x, s.y)
       .setRotation(s.angle)
       .setLinvel(s.velocity.x, s.velocity.y)
-      .setAngvel(s.angularVelocity)
-      .setLinearDamping(frictionAirToDamping(s.frictionAir))
-      .setCcdEnabled(s.bullet);
-    // For velocity-driven actors whose sprites never rotate: contact
-    // friction would otherwise feed torque into the box and the collider
-    // visibly spins while the drawn sprite does not.
-    if (s.lockRotation) bodyDesc.lockRotations();
+      .setAngvel(s.angularVelocity));
 
-    const shapeDesc = colliderDescFor(this.shape, this.width, this.height);
-    shapeDesc
-      .setSensor(s.isSensor)
-      .setFriction(s.friction)
-      .setRestitution(s.restitution)
-      .setDensity(s.density)
-      .setCollisionGroups(((s.category & 0xFFFF) << 16) | (s.mask & 0xFFFF))
-      // Resolve pairs with min(friction) and max(restitution), the rule the
-      // games are tuned to. Rapier's default is averaging, which would
-      // soften every bounce.
-      .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
-      .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Max)
-      // Rapier's default pair set covers dynamic-vs-anything but omits
-      // kinematic-vs-static and kinematic-vs-kinematic, so a moving platform
-      // would silently stop reporting once it met a wall or another platform.
-      .setActiveCollisionTypes(RAPIER.ActiveCollisionTypes.ALL);
-    if (s.mass !== null) shapeDesc.setMass(s.mass);
+    const shapeDesc = this.applyColliderMaterial(
+      colliderDescFor(this.shape, this.width, this.height));
 
     this.rigidBody = this.world.rWorld.createRigidBody(bodyDesc);
     this.collider = this.world.rWorld.createCollider(shapeDesc, this.rigidBody);
-    this.#applyEventFlag();
+    this.applyEventFlag();
 
     if (s.bodyType === 'character') this.#createController();
 
@@ -427,19 +293,11 @@ export class RapierBody {
     return this.rigidBody ? this.rigidBody.rotation() : this.spec.angle;
   }
 
-  /** Mass on the engine's density scale; see DEFAULT_DENSITY. */
-  get mass() {
-    // Only trust the live body for dynamics — Rapier reports kinematic and
-    // fixed bodies as massless, but a character's weight is still real (it
-    // sizes the shove it gives dynamic bodies, and impulse responses).
-    if (this.rigidBody && this.spec.bodyType === 'dynamic') {
-      return this.rigidBody.mass();
-    }
-    if (this.spec.mass !== null) return this.spec.mass;
-    const area = this.shape === 'circle'
+  /** Area, for the density-derived mass in RapierBodyMaterial. */
+  shapeMeasure() {
+    return this.shape === 'circle'
       ? Math.PI * (this.width / 2) ** 2
       : this.width * this.height;
-    return area * this.spec.density;
   }
 
   /** Tight AABB from the shape and rotation, matching the contract. */
@@ -468,98 +326,6 @@ export class RapierBody {
 
   get size() {
     return { x: this.width, y: this.height };
-  }
-
-  /**
-   * `static` never moves, `dynamic` is driven by the solver, `kinematic` is
-   * driven by game code through `setNextPosition` and pushes dynamic bodies
-   * without being pushed back.
-   * @returns {'static'|'dynamic'|'kinematic'}
-   */
-  get bodyType() {
-    return this.spec.bodyType;
-  }
-
-  set bodyType(value) {
-    const previous = this.spec.bodyType;
-    if (value === previous) return;
-    if (this.rigidBody && (value === 'character' || previous === 'character')) {
-      // A character is more than a body type — it owns a controller with
-      // world-side state. Rebuilding that mid-simulation is not supported.
-      throw new Error(
-        "M2D: cannot change bodyType to or from 'character' while the body is "
-        + 'in a world — remove it, change the type, and add it again');
-    }
-    this.spec.bodyType = value;
-    if (!this.rigidBody) return;
-
-    this.rigidBody.setBodyType(rigidBodyTypeFor(value), true);
-    // The event flag is derived from the body type, so moving to or from
-    // static has to re-derive it.
-    this.#applyEventFlag();
-  }
-
-  get isSensor() {
-    return this.collider ? this.collider.isSensor() : this.spec.isSensor;
-  }
-
-  set isSensor(value) {
-    this.spec.isSensor = value;
-    if (!this.collider) return;
-    this.collider.setSensor(value);
-    this.#applyEventFlag();
-  }
-
-  get friction() {
-    return this.collider ? this.collider.friction() : this.spec.friction;
-  }
-
-  set friction(value) {
-    this.spec.friction = value;
-    if (this.collider) this.collider.setFriction(value);
-  }
-
-  get frictionAir() {
-    if (!this.rigidBody) return this.spec.frictionAir;
-    return dampingToFrictionAir(this.rigidBody.linearDamping());
-  }
-
-  set frictionAir(value) {
-    this.spec.frictionAir = value;
-    if (this.rigidBody) this.rigidBody.setLinearDamping(frictionAirToDamping(value));
-  }
-
-  get restitution() {
-    return this.collider ? this.collider.restitution() : this.spec.restitution;
-  }
-
-  set restitution(value) {
-    this.spec.restitution = value;
-    if (this.collider) this.collider.setRestitution(value);
-  }
-
-  /** Continuous collision detection: fast bodies stop instead of tunneling. */
-  get bullet() {
-    return this.rigidBody ? this.rigidBody.isCcdEnabled() : this.spec.bullet;
-  }
-
-  set bullet(value) {
-    this.spec.bullet = value;
-    if (this.rigidBody) this.rigidBody.enableCcd(value);
-  }
-
-  get collisionFilter() {
-    const { category, mask } = this.spec;
-    return { category, mask };
-  }
-
-  setCollisionFilter({ category, mask } = {}) {
-    if (category !== undefined) this.spec.category = category;
-    if (mask !== undefined) this.spec.mask = mask;
-    if (this.collider) {
-      this.collider.setCollisionGroups(
-        ((this.spec.category & 0xFFFF) << 16) | (this.spec.mask & 0xFFFF));
-    }
   }
 
   setPosition(position) {
@@ -648,12 +414,6 @@ export class RapierBody {
     } else {
       this.spec.angle = angle;
     }
-  }
-
-  setMass(mass) {
-    this.spec.mass = mass;
-    if (this.collider) this.collider.setMass(mass);
-    if (this.controller) this.controller.setCharacterMass(mass);
   }
 
   translate(delta) {
