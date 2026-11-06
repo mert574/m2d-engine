@@ -14,7 +14,7 @@
 | `resolution` | `'native'` | World render resolution. `'native'`, a scale factor such as `0.5`, or `{ width, height }`. Only `height` sets the scale |
 | `worldFilter` | `'linear'` | Upscaling filter below native resolution. `'nearest'` for pixel art |
 | `autoResize` | `true` | Follow the canvas's displayed size, the pixel ratio and fullscreen changes |
-| `renderer` | `'webgl'` | Backend name, class or instance. `'canvas'` is the other built-in. A `?renderer=` URL parameter overrides it. When the option is left at its default and WebGL2 is unavailable, the engine falls back to Canvas with a warning. A backend named explicitly that fails throws |
+| `renderer` | `'webgl'`, or `'webgpu'` when `dimensions` is `3` | Backend name, class or instance. `'canvas'` is the other 2D built-in. A `?renderer=` URL parameter overrides it. When the option is left at its default and WebGL2 is unavailable, the engine falls back to Canvas with a warning. A backend named explicitly that fails throws, as does one that draws in a different dimension from the game. See [Three dimensions](./renderer#three-dimensions) |
 | `performanceStats` | `true` | Add the frame-rate readout to the engine's debug layer |
 | `performanceStatsHotkey` | `'F3'` | Physical key code that expands the readout. `null` binds no key |
 | `devConsole` | `true` | Mount the [developer console](./console) (backquote). The cvar and command registries exist either way |
@@ -47,7 +47,7 @@
 | `timeScale` | `1` | Multiplier on game time: ticks, and so physics, entity simulation and game-time timers. `0.5` is slow motion. Live at `game.time.scale`. `physicsTimeScale` is accepted as an older spelling |
 | `interpolatePhysics` | `true` | Blend drawn transforms between ticks |
 | `seed` | `1` | Seed for `game.rng`. Reseeded on every scene load and `reset()`. Pass `Date.now()` for a game that should differ between sessions |
-| `dimensions` | `2` | How many axes the simulation has, `2` or `3`. Must match what `initPhysics` loaded and what a level's `world.dimensions` declares. See [Three dimensions](./physics#three-dimensions) |
+| `dimensions` | `2` | How many axes the simulation has, `2` or `3`. Must match what `initPhysics` loaded and what a level's `world.dimensions` declares. A 3D game also awaits `initWebGPU()` first. See [Three dimensions](./physics#three-dimensions) and the [renderer](./renderer#three-dimensions) |
 
 ## Headless
 

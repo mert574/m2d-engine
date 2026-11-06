@@ -104,7 +104,7 @@ To use an installed Chrome or Chromium instead, set `M2D_BROWSER` to its path. I
 M2D_BROWSER=/usr/bin/chromium npm run test:browser
 ```
 
-Headless Chromium has no GPU. `vitest.browser.config.js` passes flags so WebGL2 uses the SwiftShader software rasterizer. `browser/environment.smoke.test.js` fails first with a clear message if WebGL2 is still unavailable.
+Headless Chromium has no GPU. `vitest.browser.config.js` passes flags so WebGL2 uses the SwiftShader software rasterizer, and WebGPU runs on Dawn over SwiftShader's Vulkan. `browser/environment.smoke.test.js` fails first with a clear message if WebGL2 is still unavailable, and `browser/webgpu.smoke.test.js` does the same for WebGPU. The Vulkan flags are load-bearing: with only the ANGLE flags, the WebGPU instance is torn down on first use. A 2D-canvas snapshot of a WebGPU canvas reads back empty under SwiftShader, so 3D tests read pixels through `renderer.readPixels()` in the same task as the draw.
 
 A minimal Linux or WSL2 install may lack system libraries. If the browser fails with `error while loading shared libraries`:
 

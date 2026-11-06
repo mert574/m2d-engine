@@ -599,4 +599,16 @@ export class Scene {
   drawUI(deltaTime) {
     this.ui.drawTree(deltaTime);
   }
+
+  /**
+   * What a 3D renderer draws this frame. The scene's `onRender(frame,
+   * deltaTime)` hook fills it; see WebGPURenderer for the frame's shape.
+   * The 2D `draw` path and its entity draw calls are not used in 3D.
+   * @param {number} deltaTime
+   */
+  frame3D(deltaTime) {
+    const frame = { meshes: [] };
+    this.config.onRender?.(frame, deltaTime);
+    return frame;
+  }
 }

@@ -8,7 +8,7 @@ import { CollisionCategories } from './constants.js';
 import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
 import { SoundManager } from './soundManager.js';
-import { createRenderer, UIRenderer, DEFAULT_RENDERER, FALLBACK_RENDERER } from './renderers/index.js';
+import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D, FALLBACK_RENDERER } from './renderers/index.js';
 import { computeViewport, sameViewport, viewToUI } from './viewport.js';
 import { WorldOverlay } from './ui/worldOverlay.js';
 import { Theme, createTheme } from './ui/theme.js';
@@ -207,8 +207,10 @@ export class M2D {
     this.pendingResize = false;
 
     this.viewport = this.#computeViewport();
-    this.renderer = this.#initRenderer(canvas, rendererOverrideFromURL() || this.options.renderer);
-    this.uiRenderer = new UIRenderer(this.renderer);
+    this.renderer = this.#initRenderer(canvas, rendererOverrideFromURL() || this.#rendererOption());
+    // A 3D renderer draws the HUD through a 2D backend of its own, on a
+    // canvas laid over the world; see WebGPURenderer.
+    this.uiRenderer = new UIRenderer(this.renderer.uiBackend ?? this.renderer);
 
     /**
      * Design tokens every UI element resolves against. Elements reach it by
@@ -457,6 +459,28 @@ export class M2D {
    * start (typically no WebGL2), fall back to the Canvas backend with a
    * warning; an explicitly requested backend that fails is an error.
    */
+  /** The `renderer` option, defaulting by dimension when the game did not choose. */
+  #rendererOption() {
+    if ('renderer' in (this.constructorOptions || {})) return this.options.renderer;
+    return (this.options.dimensions ?? 2) === 3 ? DEFAULT_RENDERER_3D : DEFAULT_RENDERER;
+  }
+
+  /**
+   * A renderer must draw in the dimension the game simulates: the 2D
+   * backends have no mesh and the 3D one has no sprite, so a mismatch is
+   * caught here with the line that fixes it rather than at the first draw.
+   */
+  #checkRendererDimension(renderer) {
+    const wanted = this.options.dimensions ?? 2;
+    const has = renderer.dimensions ?? 2;
+    if (has === wanted) return;
+    const name = renderer.constructor.name.replace(/Renderer$/, '').toLowerCase();
+    const fix = wanted === 3
+      ? `use { renderer: '${DEFAULT_RENDERER_3D}' } and await initWebGPU()`
+      : `use { renderer: '${DEFAULT_RENDERER}' } or drop { dimensions: 3 }`;
+    throw new Error(`M2D: the '${name}' renderer draws in ${has}D but the game runs ${wanted}D physics — ${fix}`);
+  }
+
   #initRenderer(canvas, selection) {
     const size = {
       width: this.options.width,
@@ -466,6 +490,7 @@ export class M2D {
       textureFilter: this.options.textureFilter
     };
     let renderer = createRenderer(selection);
+    this.#checkRendererDimension(renderer);
     try {
       renderer.init(canvas, size);
       return renderer;
@@ -1238,6 +1263,12 @@ export class M2D {
     // pass below; clearing here (not when they are drawn) means a game loop
     // that never reaches drawOverlays cannot accumulate them across frames.
     this.worldOverlay.clear();
+    if (this.renderer.dimensions === 3) {
+      // A 3D renderer is retained: the scene describes the frame and the
+      // renderer draws it, instead of entities calling draw primitives.
+      this.renderer.render(currentScene.frame3D(deltaTime));
+      return;
+    }
     this.renderer.beginFrame();
     this.renderer.applyCamera(this.camera);
     currentScene.draw(deltaTime);

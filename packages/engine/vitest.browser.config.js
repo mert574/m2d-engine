@@ -11,7 +11,7 @@ export default defineConfig({
   // Pre-bundle the WASM physics module; discovering it mid-run makes Vite
   // reload the page under the tests.
   optimizeDeps: {
-    include: ['@dimforge/rapier2d-compat']
+    include: ['@dimforge/rapier2d-compat', '@dimforge/rapier3d-compat']
   },
   test: {
     name: 'browser',
@@ -25,6 +25,14 @@ export default defineConfig({
           args: [
             // Headless Chromium has no GPU; allow WebGL2 via SwiftShader.
             '--enable-unsafe-swiftshader',
+            // And WebGPU, on Dawn over SwiftShader's Vulkan. The Vulkan flags
+            // matter: with only the ANGLE flags above, the WebGPU instance is
+            // torn down on first use ("A valid external Instance reference no
+            // longer exists"). Tests are served from localhost, a secure
+            // context, which navigator.gpu requires.
+            '--enable-unsafe-webgpu',
+            '--enable-features=Vulkan',
+            '--use-vulkan=swiftshader',
             '--use-gl=angle',
             '--use-angle=swiftshader',
             '--ignore-gpu-blocklist'

@@ -128,6 +128,15 @@ export class BaseRenderer {
     this.viewport = identityViewport(800, 600);
 
     /**
+     * How many dimensions this renderer draws in. The 2D backends are
+     * immediate-mode and driven through the draw primitives below; a 3D
+     * renderer is retained and driven through `render(frame)`. The engine
+     * matches this against its physics dimension at start-up.
+     * @type {2|3}
+     */
+    this.dimensions = 2;
+
+    /**
      * How the world surface is filtered when it is upscaled — that is, when
      * the render resolution is below the display's. `'nearest'` keeps pixel
      * art crisp instead of smearing it. Has no effect at `'native'`, where

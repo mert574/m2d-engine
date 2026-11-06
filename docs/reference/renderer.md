@@ -6,16 +6,19 @@ All drawing goes through a renderer backend. `game.renderer` draws in world spac
 
 | Selector | Effect |
 | --- | --- |
-| `renderer: 'webgl'` | WebGL2 backend. The default |
+| `renderer: 'webgl'` | WebGL2 backend. The default for a 2D game |
 | `renderer: 'canvas'` | Canvas 2D backend |
+| `renderer: 'webgpu'` | The 3D renderer. The default for a game with `dimensions: 3`; see [Three dimensions](#three-dimensions) |
 | `renderer: SomeRendererClass` or an instance | A custom backend |
 | `?renderer=canvas` in the page URL | Overrides the option |
 
 When the default backend cannot initialize, usually because WebGL2 is unavailable, the engine falls back to Canvas with a console warning. An explicitly requested backend that fails throws.
 
+A renderer draws in two dimensions or three, and must match the game's `dimensions`: the 2D backends have no mesh and the 3D one has no sprite. A mismatch throws at construction with the option that fixes it.
+
 ```javascript
 import { registerRenderer } from 'm2d-engine/core/renderers/index.js';
-registerRenderer('webgpu', WebGPURenderer);    // then renderer: 'webgpu'
+registerRenderer('mine', MyRenderer);    // then renderer: 'mine'
 ```
 
 ## Capabilities
@@ -219,6 +222,48 @@ Pushes and pops of both kinds share one stack and must nest strictly. Both accep
 | `width`, `height` | The view size in world units, or the UI size on `uiRenderer` |
 
 `primitives` counts what callers asked for. `drawCalls` counts what the backend submitted, so a batching backend reports fewer.
+
+## Three dimensions
+
+A game with `dimensions: 3` draws through the WebGPU renderer, which is a different kind of renderer from the two above. They are immediate-mode: an entity calls `drawSprite` and it is batched and drawn. A 3D frame needs everything in it before the first pixel is shaded, so the 3D renderer is *retained*: once a frame the engine asks the scene for a `frame` and calls `renderer.render(frame)`. Entities' `draw` methods are not called in a 3D scene.
+
+WebGPU hands out its device asynchronously, so a 3D game acquires it before constructing the engine, the way it compiles physics:
+
+```javascript
+import { initWebGPU } from 'm2d-engine/core/renderers/index.js';
+import { initPhysics } from 'm2d-engine/core/physics/index.js';
+
+await Promise.all([initWebGPU(), initPhysics({ dimensions: 3 })]);
+const game = new M2D(canvas, { dimensions: 3 });
+```
+
+It needs a Chromium browser with WebGPU; `initWebGPU` rejects with the reason otherwise.
+
+**The frame.** A scene fills it in an `onRender(frame, deltaTime)` hook:
+
+```javascript
+game.sceneManager.addScene('yard', {
+  fetch: () => import('./yard.json'),
+  onRender(frame) {
+    frame.clearColor = '#204060';
+    frame.light = { direction: [0.3, -1, 0.2], color: [1, 1, 1], ambient: [0.1, 0.1, 0.1] };
+    frame.meshes.push({ vertices });   // Float32Array: position xyz, normal xyz, colour rgb per vertex
+  }
+});
+```
+
+| Key | Meaning |
+| --- | --- |
+| `clearColor` | A CSS colour or `[r, g, b, a]`. The engine's per-frame `clear` otherwise |
+| `viewProjection` | A column-major `Float32Array(16)`. Identity when omitted, so positions are clip space |
+| `light` | One directional light: the `direction` it travels, its `color`, and an `ambient` term |
+| `meshes` | `{ vertices }` entries, nine floats per vertex, drawn as triangle lists under the light |
+
+This is the renderer at its first phase — one lit mesh pipeline, meshes uploaded per frame — and the frame grows with each phase of the 3D work: a camera, model assets and materials, lights, shadows. The plan is in `docs/plans/3d-and-editor.md`.
+
+**The HUD.** A canvas holds one context, so the UI pass cannot share the 3D canvas. The renderer makes a second canvas laid over the first, transparent to pointer events, and runs the WebGL2 backend on it; `game.uiRenderer` wraps that backend and the whole UI layer works unchanged. `game.renderer.overlayCanvas` and `game.renderer.uiBackend` are the two halves. Input and fullscreen still target the original canvas.
+
+`game.renderer.readPixels()` returns the frame just drawn as RGBA with a top-left origin, for tests and tooling. It stalls on the GPU and must be called in the same task as the draw.
 
 ## Writing a backend
 
