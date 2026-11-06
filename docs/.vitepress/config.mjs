@@ -11,7 +11,9 @@ export default defineConfig({
   outDir: 'dist',
   cleanUrls: true,
   lastUpdated: true,
-  srcExclude: ['README.md', 'demos/**'],
+  // `plans/**` holds working plans for large in-flight work. They are
+  // tracked with the docs but are not published to the site.
+  srcExclude: ['README.md', 'demos/**', 'plans/**'],
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },

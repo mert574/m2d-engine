@@ -23,11 +23,11 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 
 | Key | Meaning |
 | --- | --- |
+| `width`, `height` | Size of the playable area in world units. The engine does not read these; a game does, from `scene.config.world`, to set camera bounds or lay out a level |
 | `gravity` | `{ "x", "y" }` in px/s². Applied to the physics world when the scene loads |
 | `projection` | How the ground plane is seen: `"isometric"` or `"belt"`, or `{ "type", "ratio" }`. Isometric draws a ground square as a `2:ratio·2` diamond; belt keeps x and compresses y by `ratio`. Positions are drawn through it; physics stays flat. See [Perspectives](../guide/perspectives#isometric-a-projection-on-positions) |
 | `sort` | Entity draw order within a `zIndex`. `"depth"` (default) draws by the bottom edge of the body, so whatever stands lower on the ground is in front. `"insertion"` keeps scene order. See [Perspectives](../guide/perspectives) |
 
-Other keys under `world` are accepted and ignored.
 
 ## `assets.spritesheets`
 
@@ -64,11 +64,13 @@ A map from prefab name to prefab.
 | `restitution` | number | `0` |
 | `lockRotation` | boolean | `false` |
 | `isSensor` | boolean | `false` |
+| `angle` | number, radians. An object's own `angle` overrides it | `0` |
+| `density` | number greater than 0. Mass is density times area | the engine default |
 | `footprint` | `{ "height", "width" }` | none |
 
 A `footprint` makes the collider the object's feet: a box `footprint.height` tall (and `footprint.width` wide, default the object's width) at the bottom of the object's rectangle. The sprite keeps the object's full size and stands above the collider, so a character can walk behind a tree whose trunk is the only solid part. The entity's `depth` is then the feet, which is what the default draw order sorts by. `height` must be positive; both are capped at the object's size.
 
-Keys other than `bodyType`, `shape` and `footprint` are not validated, and unknown keys inside `physics` are ignored.
+An unknown key inside `physics` is an error, like everywhere else in the format.
 
 ## `layers`
 
@@ -182,7 +184,9 @@ Exactly one of `onClick` and `action` is required.
 
 ## Errors
 
-Validation throws `SceneValidationError` from `m2d-engine/core/sceneLoader.js`. The message has the form `Scene '<name>' at <path>: <problem>`. The error also carries `scene` and `path` properties.
+Validation throws `SceneValidationError` from `m2d-engine/core/sceneLoader.js`. The message has the form `Scene '<name>' at <path>: <problem>`, where the path names the exact field at fault. The error also carries `scene` and `path` properties.
+
+The format on this page is defined as data, in `m2d-engine/core/sceneSchema.js`, using the descriptor vocabulary in `m2d-engine/core/schema.js`. The loader validates against those descriptors, and tooling can read the same descriptors to discover the format rather than restate it.
 
 The checks, in addition to key lists and types:
 

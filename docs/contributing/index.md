@@ -30,7 +30,7 @@ The browser test suite needs Chromium once: `npx playwright install chromium`. S
 - Use elapsed seconds for timers and movement. Check simulation changes at more than one frame rate; the [determinism contract](./determinism) says what simulation code may read, and `test/determinism.test.js` must keep passing.
 - Renderer changes must keep both backends passing `npm test`. A new backend feature is either mandatory for every backend or declared through `capabilities` with callers degrading. See [Capabilities](../reference/renderer#capabilities).
 - Check visual changes on both backends. Every example accepts `?renderer=canvas` and `?renderer=webgl`.
-- Adding a scene JSON field means adding it to the key lists at the top of `packages/engine/src/core/sceneLoader.js` and to the [scene format reference](../reference/scene-format).
+- Adding a scene JSON field means adding a descriptor to `packages/engine/src/core/sceneSchema.js` and a row to the [scene format reference](../reference/scene-format).
 - Run `npm test` and `npm run build`, then check the affected demos with `npm run preview`. Check rendering, controls, scene transitions and audio after a user gesture.
 - Update the documentation page that covers the change. Documentation lives only in `docs/`. See [Writing documentation](./writing-docs).
 - Describe the verification steps and any known limitations in the change.

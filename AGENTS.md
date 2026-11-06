@@ -20,6 +20,11 @@ README) is the exception. When a change alters behaviour, update the page
 that covers it in the same change, following
 `docs/contributing/writing-docs.md`.
 
+Working plans for large in-flight work live in `docs/plans/`. They are
+tracked with the docs but excluded from the published site, and they are
+not a substitute for documenting shipped behaviour on the page that covers
+it.
+
 | Topic | Page |
 | --- | --- |
 | Setup, commands, minimal game | `docs/guide/getting-started.md` |
@@ -94,8 +99,11 @@ npx playwright install chromium   # once, for test:browser
   through `player.notify`.
 - Draw with `renderPosition` and `renderAngle`. Use `position` for logic.
 - Annotations about an entity go through `game.worldOverlay`.
-- A new scene JSON field goes into the key lists at the top of
-  `sceneLoader.js` and into `docs/reference/scene-format.md`.
+- The scene format is data: `sceneSchema.js` describes it with the
+  descriptors in `schema.js`, and `sceneLoader.js` only resolves
+  cross-references and raises errors. A new scene JSON field goes into
+  `sceneSchema.js` and into `docs/reference/scene-format.md` — never into
+  validation code written by hand, which tooling cannot read.
 - A new renderer feature is mandatory for every backend or declared through
   `capabilities`.
 - Both backends must pass `npm test`. Check visual changes with

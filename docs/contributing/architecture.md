@@ -14,7 +14,9 @@ packages/engine/src/
 │   ├── constraint.js     Base constraint
 │   ├── projectile.js     Base projectile
 │   ├── scene.js          Builds a scene from validated JSON
-│   ├── sceneLoader.js    Validates scene JSON
+│   ├── schema.js         Declarative schema descriptors and their validator
+│   ├── sceneSchema.js    The scene format, written as descriptors
+│   ├── sceneLoader.js    Validates scene JSON against the scene schema
 │   ├── sceneManager.js   Registration, caching, switching
 │   ├── quest.js          A quest as a line of stages
 │   ├── projection.js     Ground plane to render plane (isometric)
@@ -104,7 +106,11 @@ Behaviours pinned by tests because they are easy to get wrong:
 
 ## Scenes
 
-`SceneLoader.load` validates raw JSON and applies defaults before `Scene` builds anything. The normalized output has the same shape as the input, so there is one scene format to know. Adding a field means adding it to the key lists at the top of `sceneLoader.js`. `test/sceneLoader.test.js` covers the validator. `examples/test/scenes.test.js` validates every scene JSON under `examples/src/` and the scene files of the first-game demo under `docs/demos/`.
+`SceneLoader.load` validates raw JSON and applies defaults before `Scene` builds anything. The normalized output has the same shape as the input, so there is one scene format to know.
+
+The format itself is data. `sceneSchema.js` describes every field — its type, default, range, allowed values, and whether it names a spritesheet, prefab, actor or scene — using the descriptor vocabulary in `schema.js`; `sceneLoader.js` is only what cannot be data: choosing the schema for a scene's `type`, building the namespaces that references resolve against, and raising `SceneValidationError`. Adding a field means adding it to `sceneSchema.js` and to the [scene format reference](../reference/scene-format).
+
+Writing the format as descriptors rather than as validation code is what lets tooling read it. Validation and an inspector panel need the same facts about each property, and a tool that restates them keeps a copy that drifts from the loader. `refScopesOf` reports which namespaces a format points into, `fieldsOf` walks an object's properties. `test/schema.test.js` covers the vocabulary, `test/sceneLoader.test.js` the scene format. `examples/test/scenes.test.js` validates every scene JSON under `examples/src/` and the scene files of the first-game demo under `docs/demos/`.
 
 `Scene` creates entities through `game.createEntity`, which builds the body from the prefab's physics block and the object's placement and passes `properties` to the actor constructor. The entity named `Player` is stored as `game.player` and followed by the camera. A prefab `footprint` makes the body a short box at the bottom of the object and hangs `body.frame` on it, which the `Entity` constructor turns into `size` and `frameOffset`; that is the only thing on a body handle beyond the physics contract besides `entity`.
 

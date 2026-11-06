@@ -147,9 +147,12 @@ describe('SceneLoader', () => {
         'assets.spritesheets.hero.animations.idle.frames[0]', /\[tileX, tileY\] pair/);
     });
 
-    it('rejects an object with non-numeric coordinates', () => {
+    it('rejects an object with non-numeric coordinates, naming the field', () => {
       const data = level({ layers: [{ name: 'main', objects: [{ prefab: 'player', x: '10', y: 20 }] }] });
-      expectError(data, 'layers[0].objects[0]', /x and y must be numbers/);
+      expectError(data, 'layers[0].objects[0].x', /must be a number, got "10"/);
+
+      const missing = level({ layers: [{ name: 'main', objects: [{ prefab: 'player', x: 10 }] }] });
+      expectError(missing, 'layers[0].objects[0].y', /must be a number/);
     });
 
     it('applies the default object size without touching explicit ones', () => {
@@ -188,7 +191,7 @@ describe('SceneLoader', () => {
     });
 
     it('requires x and y unless the element fills the screen', () => {
-      expectError(ui([{ type: 'text', properties: { text: 'hi' } }]), 'elements[0]', /x and y must be numbers/);
+      expectError(ui([{ type: 'text', properties: { text: 'hi' } }]), 'elements[0].x', /must be a number/);
       expect(() => loader.load(ui([{ type: 'rect', fill: true, color: '#fff' }]))).not.toThrow();
     });
 
