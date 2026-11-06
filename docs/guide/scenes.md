@@ -99,6 +99,34 @@ The `physics` block of a prefab configures the body the scene creates.
 
 A circle takes its diameter from the object's width. A capsule is the object's box with semicircular ends, which lets a character cross the seams between floor tiles without catching. [Physics](./physics) explains the body types.
 
+## Sharing assets between scenes
+
+A scene that declares its sprite sheets and prefabs inline owns them: nothing else can use them, and a change has to be made in every scene that copied it. Once an asset is shared — one prefab placed by four levels, one texture drawn by all of them — put it in an [asset manifest](../reference/asset-manifest) instead.
+
+```javascript
+import manifest from './assets.json';
+
+game.registerActor('Ghost', Thug);
+game.loadAssets(manifest);
+```
+
+The scene names the uids it wants, binds them to short local names, and reads as it always did:
+
+```json
+{
+  "version": 2,
+  "type": "level",
+  "name": "row",
+  "uses": { "zombie": "prefab-zombie", "goblin": "prefab-goblin" },
+  "layers": [{
+    "name": "row",
+    "objects": [{ "id": "z1", "prefab": "zombie", "x": 400, "y": 200 }]
+  }]
+}
+```
+
+An asset's identity is its uid, not its name and not its path, so renaming the texture or relabelling the creature changes the manifest and nothing else. Inline and used assets mix freely in one scene; a name declared both ways is an error.
+
 ## UI scenes
 
 A UI scene has `"type": "ui"` and an `elements` array instead of layers. Element types are `button`, `text`, `image` and `rect`.

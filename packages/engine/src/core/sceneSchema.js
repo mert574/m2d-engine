@@ -253,6 +253,21 @@ const PREFAB = s.object({
   }
 });
 
+/**
+ * What a placed object may change about its prefab.
+ *
+ * Placement (`x`, `width`, `angle`) is the object's own and sits at the
+ * top level; this is for the prefab's *definition* — a heavier crate, a
+ * recoloured guard — so one object can differ without a prefab of its own.
+ * `actor` is deliberately absent: a different actor is a different prefab,
+ * not an override of one.
+ */
+const OVERRIDES = s.object({
+  spritesheet: s.ref('spritesheet'),
+  defaultAnimation: s.string(),
+  physics: PHYSICS
+}, { label: 'Overrides' });
+
 // === Layers and objects ===
 
 const OBJECT = s.object({
@@ -265,6 +280,7 @@ const OBJECT = s.object({
   angle: s.number({ unit: 'rad', message: value => `must be a number (radians), got ${JSON.stringify(value)}` }),
   zIndex: s.number({ label: 'Draw order' }),
   constraints: OBJECT_CONSTRAINTS,
+  overrides: OVERRIDES,
   properties: actorProperties
 });
 
@@ -401,9 +417,24 @@ const SCENE_COMMON = {
   title: s.string()
 };
 
+/**
+ * External assets this scene uses, binding a uid to a short local name.
+ *
+ * Everything else in the scene refers to that name, so the body of a
+ * scene file stays readable and reviewable while identity rests on the
+ * uid, which survives a rename. Godot's `ext_resource` block is the same
+ * idea. A used sprite sheet or prefab joins the inline ones; a name
+ * declared in both places is an error rather than a precedence rule.
+ */
+const USES = s.record(s.ref('asset', { required: true, editor: 'asset' }), {
+  label: 'Assets used',
+  description: 'Local name to asset uid'
+});
+
 export const LEVEL_SCHEMA = s.object({
   ...SCENE_COMMON,
   gameType: s.string({ description: 'Free text, unused by the engine' }),
+  uses: USES,
   world: WORLD,
   assets: ASSETS,
   prefabs: s.record(PREFAB),
@@ -433,6 +464,7 @@ export const LEVEL_SCHEMA = s.object({
 
 export const UI_SCHEMA = s.object({
   ...SCENE_COMMON,
+  uses: USES,
   assets: ASSETS,
   elements: s.array(ELEMENTS, { required: true })
 }, {

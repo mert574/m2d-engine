@@ -113,6 +113,10 @@ npx playwright install chromium   # once, for test:browser
   `initial` (never a schema `default`, which an override would apply).
   Callbacks stay out of `params`: they are code, not scene data. Override
   `configure` when a param is derived or merges.
+- An asset shared between scenes belongs in an asset manifest, keyed by a
+  uid that a rename cannot break (`core/assets.js`). A scene's `uses`
+  block binds uids to local names and the loader expands it into the
+  inline shape, so nothing downstream knows which way an asset arrived.
 - Every scene object and UI element has a unique `id`. Code that builds a
   scene at runtime numbers its own objects; the loader never invents one,
   because an invented id is not stable across a reorder or a save.

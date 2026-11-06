@@ -39,6 +39,7 @@ import facadeAUrl from './textures/facade-a.jpg';
 import facadeBUrl from './textures/facade-b.jpg';
 import facadeCUrl from './textures/facade-c.jpg';
 import layout from './layout.json';
+import assetManifest from './assets.json';
 
 const canvas = document.getElementById('screen');
 await initPhysics();
@@ -80,6 +81,12 @@ game.registerActor('Bound', Bound);
 game.registerActor('Street', Street);
 game.registerActor('Foreground', Foreground);
 game.registerActor('Trigger', Trigger);
+
+// The creatures come from the asset manifest, by uid: three sprite sheets
+// and the one prefab that wears them, defined once in assets.json and
+// bound into the scene by its `uses` block. Actors first, so a prefab
+// naming one that is not registered fails here.
+game.loadAssets(assetManifest);
 
 registerMainMenu(game, {
   title: 'Ash Row',
@@ -152,8 +159,13 @@ game.sceneManager.addScene('row', {
           // boundary wall: a thug born outside the map cannot walk back in.
           const x = Math.min(s.lock + view / 2 + 80 + i * 70, layout.length - 160 - (i % 4) * 60);
           const y = lane.top + 40 + ((i * 97 + count * 53) % (lane.bottom - lane.top - 80));
-          const thug = game.createEntity('Ghost', x, y, 30, 30, scene.spriteSheets.get(kind), {}, { bodyType: 'dynamic', shape: 'circle', lockRotation: true, friction: 0.1, frictionAir: 0.25 });
-          thug.setAnimation('idle_left');
+          // The creature is defined once, as a prefab asset, and the scene
+          // bound it under this name. Restating its body here is how this
+          // used to work, and how it drifted from the scene's copy.
+          const prefab = scene.config.prefabs[kind];
+          const thug = game.createEntity(prefab.actor, x, y, 30, 30,
+            scene.spriteSheets.get(prefab.spritesheet), {}, prefab.physics);
+          thug.setAnimation(prefab.defaultAnimation);
           thug.onDeath = () => { alive--; if (alive === 0) release(); };
           game.entities.add(thug);
           game.physics.add(thug.body);

@@ -80,25 +80,56 @@ const SECTIONS = [
 add('door', LENGTH - 120, (LANE.top + LANE.bottom) / 2, 120, 200, { visible: true, triggers: 'levelComplete', active: true });
 add('player', 240, (LANE.top + LANE.bottom) / 2, 28, 24, { spriteSize: 200, spriteOffsetY: -56 });
 
+/**
+ * The three creatures are one prefab wearing three sprite sheets, which is
+ * what an asset manifest is for: each is an asset with a uid, defined once
+ * and bound into the scene by name. Renaming a texture or relabelling a
+ * creature then changes this file and nothing else.
+ */
+const CREATURES = ['zombie', 'goblin', 'skeleton'];
+const CREATURE_BODY = {
+  bodyType: 'dynamic', shape: 'circle', lockRotation: true, friction: 0.1, frictionAir: 0.25
+};
+
+function buildManifest() {
+  const assets = {};
+  for (const name of CREATURES) {
+    assets[`sheet-${name}`] = {
+      type: 'spritesheet',
+      name,
+      source: `textures/characters/${name}.png`,
+      import: { frameWidth: 128, frameHeight: 128, animations: creatureAnimations() }
+    };
+    assets[`prefab-${name}`] = {
+      type: 'prefab',
+      name,
+      data: {
+        actor: 'Ghost',
+        spritesheet: `sheet-${name}`,
+        defaultAnimation: 'idle_left',
+        physics: CREATURE_BODY
+      }
+    };
+  }
+  return { version: 1, name: 'Ash Row', assets };
+}
+
 const scene = {
   version: 2, name: 'row', type: 'level', gameType: 'belt',
   world: { width: LENGTH, height: DEPTH, gravity: { x: 0, y: 0 }, sort: 'depth', projection: { type: 'belt', ratio: 0.5 } },
+  // The three creatures live in the asset manifest instead, bound here by
+  // uid. See CREATURES below.
+  uses: Object.fromEntries(CREATURES.map(name => [name, `prefab-${name}`])),
   assets: {
     spritesheets: {
       paving: { url: 'textures/paving.jpg', frameWidth: 512, frameHeight: 512 },
-      rogue: { url: 'textures/characters/rogue.png', frameWidth: 128, frameHeight: 128, animations: heroAnimations() },
-      zombie: { url: 'textures/characters/zombie.png', frameWidth: 128, frameHeight: 128, animations: creatureAnimations() },
-      goblin: { url: 'textures/characters/goblin.png', frameWidth: 128, frameHeight: 128, animations: creatureAnimations() },
-      skeleton: { url: 'textures/characters/skeleton.png', frameWidth: 128, frameHeight: 128, animations: creatureAnimations() }
+      rogue: { url: 'textures/characters/rogue.png', frameWidth: 128, frameHeight: 128, animations: heroAnimations() }
     }
   },
   // The paving stretched into the compressed lane: a 200-unit ground tile is 200 wide by 100 tall on screen.
   tileLayers: [{ name: 'street', spritesheet: 'paving', zIndex: -1, tileSize: 200, stretch: true }],
   prefabs: {
     player: { actor: 'ObliquePlayer', spritesheet: 'rogue', defaultAnimation: 'idle_right', physics: { bodyType: 'character', shape: 'circle', frictionAir: 0.2 } },
-    zombie: { actor: 'Ghost', spritesheet: 'zombie', defaultAnimation: 'idle_left', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, friction: 0.1, frictionAir: 0.25 } },
-    goblin: { actor: 'Ghost', spritesheet: 'goblin', defaultAnimation: 'idle_left', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, friction: 0.1, frictionAir: 0.25 } },
-    skeleton: { actor: 'Ghost', spritesheet: 'skeleton', defaultAnimation: 'idle_left', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, friction: 0.1, frictionAir: 0.25 } },
     lamp: { actor: 'Lamp', physics: { bodyType: 'static', shape: 'circle' } },
     street: { actor: 'Street', physics: { bodyType: 'static', isSensor: true } },
     foreground: { actor: 'Foreground', physics: { bodyType: 'static', isSensor: true } },
@@ -109,5 +140,7 @@ const scene = {
 };
 const out = fileURLToPath(new URL('../src/belt/scenes/row.json', import.meta.url));
 writeFileSync(out, JSON.stringify(scene, null, 2) + '\n');
+writeFileSync(fileURLToPath(new URL('../src/belt/assets.json', import.meta.url)),
+  JSON.stringify(buildManifest(), null, 2) + '\n');
 writeFileSync(fileURLToPath(new URL('../src/belt/layout.json', import.meta.url)), JSON.stringify({ lane: LANE, length: LENGTH, sections: SECTIONS }, null, 2) + '\n');
 console.log(`row: ${objects.length} objects, ${SECTIONS.length} sections → ${out}`);

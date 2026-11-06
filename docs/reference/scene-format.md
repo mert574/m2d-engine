@@ -11,6 +11,7 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `name` | both | no | Free text. Error messages use the registered name |
 | `title` | both | no | Free text, unused by the engine |
 | `gameType` | level | no | Free text, unused by the engine |
+| `uses` | both | no | External assets by uid. See [Asset manifest](./asset-manifest#using-assets-in-a-scene) |
 | `world` | level | no | See below |
 | `assets` | both | no | See below |
 | `prefabs` | level | no | See below |
@@ -93,7 +94,25 @@ An array of layers.
 | `angle` | no | `0` | Rotation in radians |
 | `zIndex` | no | `0` | Draw order. Entities and tile layers draw in ascending `zIndex`; within one, entities draw by `world.sort` |
 | `constraints` | no | | Behaviours to attach or retune for this one object, below |
+| `overrides` | no | | What this object changes about its prefab, below |
 | `properties` | no | `{}` | Passed to the actor constructor as `options` |
+
+## `overrides`
+
+What one placed object changes about its prefab, so a heavier crate or a recoloured guard needs no prefab of its own. Placement — `x`, `width`, `angle`, `zIndex` — is the object's own and sits at the top level; this is the prefab's definition.
+
+| Key | Meaning |
+| --- | --- |
+| `spritesheet` | A key in `assets.spritesheets` |
+| `defaultAnimation` | An animation on that sheet |
+| `physics` | Body settings, merged field by field over the prefab's |
+
+```json
+{ "id": "heavy-crate", "prefab": "crate", "x": 300, "y": 200,
+  "overrides": { "physics": { "friction": 0.9, "density": 0.004 } } }
+```
+
+`physics` merges, so an override can change the friction without restating the body type. `actor` is deliberately not overridable: a different actor is a different prefab.
 
 ## `constraints`
 

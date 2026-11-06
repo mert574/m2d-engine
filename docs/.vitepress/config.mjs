@@ -73,6 +73,7 @@ export default defineConfig({
           items: [
             { text: 'Engine options', link: '/reference/engine-options' },
             { text: 'Scene format', link: '/reference/scene-format' },
+            { text: 'Asset manifest', link: '/reference/asset-manifest' },
             { text: 'Physics API', link: '/reference/physics' },
             { text: 'Renderer API', link: '/reference/renderer' },
             { text: 'Input events', link: '/reference/input-events' },

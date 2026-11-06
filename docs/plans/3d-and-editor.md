@@ -166,9 +166,31 @@ All dimension-free. All of it improves the current 2D engine.
   the loader never invents an id, since an invented one is not stable
   across a reorder or a save.
 - A3. **Declarative constraints** in scene JSON with typed parameters.
-- A4. **Prefabs as project assets** with UIDs and per-instance overrides.
-- A5. **Asset database**: UID sidecars and import settings, with the
-  existing spritesheet path as the first consumer.
+  *Done.* `game.registerConstraint`, a `constraints` block on a prefab and
+  on a placed object, and `static params` on all eighteen engine
+  constraints. An entry whose slot is already filled retunes through
+  `configure` rather than replacing, including a constraint the actor
+  attached in code. Defaults are recorded as `initial`, never a schema
+  `default`, so an override does not reset what it did not mention.
+  Additive, so no version bump.
+- A4/A5. **Prefabs as assets, and the asset database.** *Done, together,*
+  since a prefab asset is an asset and the database is what gives it a
+  uid. `core/assets.js` and `core/assetSchema.js`: a manifest of assets by
+  uid, each either imported (a `source` file plus `import` settings — a
+  sprite sheet) or authored (`data` — a prefab). A scene's `uses` block
+  binds uids to local names and the loader expands it into the inline
+  shape, so `Scene` sees one kind of sprite sheet and one kind of prefab.
+  Per-instance `overrides` let one object change its prefab's sheet,
+  animation or physics without a prefab of its own. Inline declarations
+  still work unchanged; the whole thing is additive, so again no version
+  bump. The belt demo is the worked example: three creatures that were one
+  prefab copied three times are now three prefab assets, and the demo's
+  wave spawner reads the prefab instead of restating its body.
+
+  Left for the editor: per-file sidecars. The engine consumes one compiled
+  manifest, which is what an editor would produce from per-source import
+  settings — the browser-side equivalent of Unity's `.meta` or Godot's
+  `.import`. Nothing in the engine needs the sidecars themselves.
 
 ### Track B — dimension enablement
 

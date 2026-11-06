@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { SceneLoader, SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { Chase } from 'm2d-engine/constraints/chase.js';
+import { AssetDatabase } from 'm2d-engine/core/assets.js';
 
 /**
  * Every scene the repo ships must satisfy the engine's scene schema, so
@@ -17,12 +18,22 @@ import { Chase } from 'm2d-engine/constraints/chase.js';
 const CONSTRAINT_CLASSES = { Chase };
 
 /** A game stub exposing only what the loader cross-references. */
-function makeGame({ actors = [], scenes = [], constraints = [] } = {}) {
+function makeGame({ actors = [], scenes = [], constraints = [], manifest = null } = {}) {
+  const actorMap = new Map(actors.map(name => [name, class {}]));
+  const assets = new AssetDatabase();
+  if (manifest) assets.load(manifest, { actors: actorMap });
   return {
-    actors: new Map(actors.map(name => [name, class {}])),
+    actors: actorMap,
     constraintTypes: new Map(constraints.map(name => [name, CONSTRAINT_CLASSES[name]])),
+    assets,
     sceneManager: { scenes: new Map(), scenesToLoad: scenes.map(name => ({ name })) }
   };
+}
+
+/** A demo's asset manifest, if it ships one beside its scenes. */
+function manifestFor(example) {
+  const path = join(import.meta.dirname, '..', 'src', example, 'assets.json');
+  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
 }
 
 describe('shipped example scenes', () => {
@@ -74,7 +85,8 @@ describe('shipped example scenes', () => {
 
   it.each(files)('$name validates', ({ example, path }) => {
     const game = makeGame({
-      actors: actors[example], scenes: scenes[example], constraints: constraints[example]
+      actors: actors[example], scenes: scenes[example], constraints: constraints[example],
+      manifest: manifestFor(example)
     });
     const data = JSON.parse(readFileSync(path, 'utf8'));
     expect(() => new SceneLoader(game).load(data)).not.toThrow();

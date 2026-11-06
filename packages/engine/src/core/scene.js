@@ -199,11 +199,22 @@ export class Scene {
 
     this.config.layers.forEach(layer => {
       layer.objects.forEach(object => {
-        const prefab = this.config.prefabs[object.prefab];
-        if (!prefab) {
+        const base = this.config.prefabs[object.prefab];
+        if (!base) {
           console.error(`Prefab not found: ${object.prefab}`);
           return;
         }
+        // What this one object makes of the prefab. `physics` merges field
+        // by field so an override can change the friction without
+        // restating the body type.
+        const prefab = object.overrides
+          ? {
+            ...base,
+            ...object.overrides,
+            physics: { ...base.physics, ...object.overrides.physics }
+          }
+          : base;
+
         const entity = this.createPrefabInstance({
           type: prefab.actor,
           position: [object.x, object.y],

@@ -3,6 +3,7 @@ import { Time } from './time.js';
 import { Rng } from './rng.js';
 import { InputManager } from './input/index.js';
 import { LayerManager } from './layerManager.js';
+import { AssetDatabase } from './assets.js';
 import { CollisionCategories } from './constants.js';
 import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
@@ -358,6 +359,12 @@ export class M2D {
      * @type {Map<string, typeof import('./constraint.js').Constraint>}
      */
     this.constraintTypes = new Map();
+    /**
+     * Assets the game owns, by uid. Empty until `loadAssets`; a game whose
+     * scenes declare everything inline never needs it. See `assets.js`.
+     * @type {AssetDatabase}
+     */
+    this.assets = new AssetDatabase();
     this.isGameOver = false;
     /**
      * Network ids: one per entity, in creation order, reset with the scene.
@@ -797,6 +804,22 @@ export class M2D {
    */
   registerConstraint(type, ConstraintClass) {
     this.constraintTypes.set(type, ConstraintClass);
+  }
+
+  /**
+   * Load an asset manifest: the sprite sheets and prefabs the game's
+   * scenes may reach for by uid, through their `uses` block.
+   *
+   * Call it before loading a scene that uses one. Actors should be
+   * registered first, so a prefab asset naming an unregistered actor
+   * fails here rather than when some level eventually places one.
+   *
+   * @param {object} manifest - A parsed manifest document.
+   * @returns {import('./assets.js').AssetDatabase}
+   * @throws {import('./assets.js').AssetManifestError}
+   */
+  loadAssets(manifest) {
+    return this.assets.load(manifest, { actors: this.actors });
   }
 
   /**
