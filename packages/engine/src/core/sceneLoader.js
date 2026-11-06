@@ -127,8 +127,10 @@ export class SceneLoader {
     }
 
     const spritesheets = { ...scene.assets?.spritesheets };
+    const models = { ...scene.assets?.models };
     const prefabs = { ...scene.prefabs };
     const declaredSheets = new Set(Object.keys(spritesheets));
+    const declaredModels = new Set(Object.keys(models));
     const declaredPrefabs = new Set(Object.keys(prefabs));
     /** Local name each sheet uid was bound to, so one is bound once. */
     const sheetNames = new Map();
@@ -166,6 +168,9 @@ export class SceneLoader {
 
       if (asset.type === 'spritesheet') {
         addSheet(local, uid, path);
+      } else if (asset.type === 'model') {
+        if (declaredModels.has(local)) fail(path, `'${local}' is already a model declared by this scene`);
+        models[local] = database.model(uid);
       } else if (asset.type === 'prefab') {
         if (declaredPrefabs.has(local)) {
           fail(path, `'${local}' is already a prefab declared by this scene`);
@@ -177,9 +182,12 @@ export class SceneLoader {
       }
     }
 
+    const assets = { ...scene.assets };
+    if (Object.keys(spritesheets).length) assets.spritesheets = spritesheets;
+    if (Object.keys(models).length) assets.models = models;
     return {
       ...scene,
-      ...(Object.keys(spritesheets).length && { assets: { ...scene.assets, spritesheets } }),
+      ...(Object.keys(assets).length && { assets }),
       ...(Object.keys(prefabs).length && { prefabs })
     };
   }
@@ -198,7 +206,9 @@ export class SceneLoader {
       spritesheet: scope(Object.keys(data.assets?.spritesheets ?? {}),
         (name, known) => `no spritesheet named '${name}' (declared: ${known.join(', ') || 'none'})`),
       prefab: scope(Object.keys(data.prefabs ?? {}),
-        (name, known) => `no prefab named '${name}' (declared: ${known.join(', ') || 'none'})`)
+        (name, known) => `no prefab named '${name}' (declared: ${known.join(', ') || 'none'})`),
+      model: scope(Object.keys(data.assets?.models ?? {}),
+        (name, known) => `no model named '${name}' (declared: ${known.join(', ') || 'none'})`)
     };
 
     if (this.game?.assets) {

@@ -3,23 +3,23 @@ import { M2D } from '../../src/core/m2d.js';
 import { initPhysics } from '../../src/core/physics/index.js';
 import { createRenderer, WebGPURenderer, WebGLRenderer } from '../../src/core/renderers/index.js';
 import { initWebGPU, webgpuSupported } from '../../src/core/renderers/webgpu/device.js';
+import { Camera3D } from '../../src/core/camera3d.js';
+import { box, plane, geometryFor } from '../../src/core/renderers/geometry/primitives.js';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
 import { createCanvasElement } from '../helpers/environment.js';
 
 /**
- * First light: WebGPU works in the test browser, the 3D renderer clears and
- * draws one lit triangle, the engine drives it through its frame loop, and
- * the HUD lands on the overlay canvas above it.
+ * The 3D renderer in the test browser: WebGPU works, a shaded scene draws
+ * through the engine's frame loop with a sky, a sun, shadows and the HUD
+ * on its overlay canvas, and a scene file's `mesh` block reaches the frame.
  *
- * This is the R0 gate in docs/plans/3d-and-editor.md. If it fails on
- * `navigator.gpu`, check `--enable-unsafe-webgpu` in vitest.browser.config.js.
+ * SwiftShader is slow and these frames are small; the assertions are about
+ * relationships between pixels (lit brighter than shadowed, sky above the
+ * horizon, red where the red box is), not exact values from a software
+ * rasterizer. If this fails on `navigator.gpu`, check the WebGPU flags in
+ * vitest.browser.config.js.
  */
 
-/**
- * The renderer's own readback, in the same task as the draw. (A 2D canvas
- * snapshot of a WebGPU canvas reads back empty under SwiftShader, so the
- * pixels come off the GPU instead.)
- */
 async function readPixels(renderer) {
   const image = await renderer.readPixels();
   return {
@@ -32,27 +32,7 @@ async function readPixels(renderer) {
   };
 }
 
-const close = (actual, expected, tolerance = 3) =>
-  actual.every((v, i) => Math.abs(v - expected[i]) <= tolerance);
-
-/** Assert a pixel, showing what was there when it is not. */
-function expectPixel(actual, expected, label) {
-  expect(close(actual, expected), `${label}: got [${actual}], wanted [${expected}]`).toBe(true);
-}
-
-/** A triangle filling the middle of clip space, facing the viewer (+z toward the eye), red. */
-function triangle() {
-  const n = [0, 0, 1];
-  const c = [1, 0, 0];
-  return new Float32Array([
-    -0.8, -0.8, 0, ...n, ...c,
-    0.8, -0.8, 0, ...n, ...c,
-    0, 0.8, 0, ...n, ...c
-  ]);
-}
-
-/** Light travelling away from the viewer, so a viewer-facing surface is fully lit. */
-const LIGHT = { direction: [0, 0, -1], color: [1, 1, 1], ambient: [0, 0, 0] };
+const luma = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
 const cleanup = [];
 afterEach(() => { for (const fn of cleanup.splice(0).reverse()) fn(); });
@@ -64,6 +44,29 @@ function canvasInDocument(width, height) {
   document.body.appendChild(canvas);
   cleanup.push(() => canvas.remove());
   return canvas;
+}
+
+/** A camera above and in front of the origin, looking at it; +z toward the eye. */
+function cameraAt(width, height, position = { x: 0, y: 3, z: 8 }) {
+  const camera = new Camera3D(width, height, { mode: 'free', position, lookAt: { x: 0, y: 0, z: 0 } });
+  camera.update(0);
+  return camera;
+}
+
+/** A frame: a 20 m floor, a red 1 m cube on it, the sun from high up and behind the camera. */
+function yardFrame(renderer, camera, { shadows = true } = {}) {
+  const frame = renderer.createFrame();
+  frame.camera.viewProjection = camera.viewProjection;
+  frame.camera.inverseViewProjection = camera.inverseViewProjection;
+  frame.camera.position = camera.position;
+  // Light travelling toward -x: the sun is high on the camera's right and
+  // the box's shadow lies to its left, in view.
+  frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+  frame.fog.density = 0;
+  frame.shadow = { center: { x: 0, y: 0, z: 0 }, radius: 12, enabled: shadows };
+  frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.5, 0.5, 0.5], roughness: 0.9 });
+  frame.add(box(), { position: { x: 0, y: 0.5, z: 0 }, color: [0.9, 0.05, 0.05], roughness: 0.5 });
+  return frame;
 }
 
 describe('WebGPU in the test browser', () => {
@@ -85,32 +88,60 @@ describe('WebGPU in the test browser', () => {
 describe('the 3D renderer', () => {
   beforeAll(() => initWebGPU());
 
-  it('clears to a colour and draws one lit triangle', async () => {
-    const W = 64, H = 48;
+  function make(W, H) {
     const canvas = canvasInDocument(W, H);
     const renderer = new WebGPURenderer();
     renderer.init(canvas, { width: W, height: H });
     cleanup.push(() => renderer.destroy());
+    return renderer;
+  }
 
-    renderer.render({ clearColor: '#204060', light: LIGHT, meshes: [{ vertices: triangle() }] });
-
+  it('draws a sky above the horizon and a shaded floor below it', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H);
+    renderer.render(yardFrame(renderer, camera));
     const pixels = await readPixels(renderer);
-    expectPixel(pixels.at(W / 2, H / 2), [255, 0, 0, 255], 'centre is the lit red triangle');
-    expectPixel(pixels.at(1, 1), [0x20, 0x40, 0x60, 255], 'corner is the clear colour');
-    expect(renderer.getStats().drawCalls).toBe(1);
+
+    const sky = pixels.at(W / 2, 2);
+    const floor = pixels.at(8, H - 4);
+    expect(sky[2], `sky is blue: ${sky}`).toBeGreaterThan(sky[0]);
+    expect(luma(sky), 'sky is bright').toBeGreaterThan(120);
+    // The floor is grey: no channel dominates, and it is lit.
+    expect(Math.max(...floor.slice(0, 3)) - Math.min(...floor.slice(0, 3)), `floor is neutral: ${floor}`).toBeLessThan(30);
+    expect(luma(floor), `floor is lit: ${floor}`).toBeGreaterThan(60);
+    // Two instanced draws (floor, box) in each of two passes, plus the sky.
+    expect(renderer.getStats().drawCalls).toBe(5);
   });
 
-  it('shades by the light: a surface facing away is only ambient', async () => {
-    const W = 32, H = 32;
-    const canvas = canvasInDocument(W, H);
-    const renderer = new WebGPURenderer();
-    renderer.init(canvas, { width: W, height: H });
-    cleanup.push(() => renderer.destroy());
-
-    const away = { direction: [0, 0, 1], color: [1, 1, 1], ambient: [0.2, 0.2, 0.2] };
-    renderer.render({ clearColor: '#000', light: away, meshes: [{ vertices: triangle() }] });
+  it('draws a red box where the camera projects it, lit on the side facing the sun', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H);
+    renderer.render(yardFrame(renderer, camera));
     const pixels = await readPixels(renderer);
-    expectPixel(pixels.at(W / 2, H / 2), [51, 0, 0, 255], 'red at 0.2 ambient only');
+
+    const centre = camera.worldToScreen(0, 0.5, 0.5);
+    const px = pixels.at(Math.round(centre.x), Math.round(centre.y));
+    expect(px[0], `red box at ${px}`).toBeGreaterThan(px[1] * 2);
+    expect(px[0]).toBeGreaterThan(px[2] * 2);
+  });
+
+  it('casts a shadow: the floor behind the box is darker with shadows than without', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 6, z: 6 });
+    // The shadow of the box's top edge lands 0.8 m to the left per metre
+    // of height, so this floor point is inside it and clear of the box.
+    const sample = () => {
+      const p = camera.worldToScreen(-1.0, 0, -0.3);
+      return [Math.round(p.x), Math.round(p.y)];
+    };
+    renderer.render(yardFrame(renderer, camera, { shadows: true }));
+    const shadowed = (await readPixels(renderer)).at(...sample());
+    renderer.render(yardFrame(renderer, camera, { shadows: false }));
+    const lit = (await readPixels(renderer)).at(...sample());
+    expect(luma(shadowed), `shadowed ${shadowed} vs lit ${lit}`).toBeLessThan(luma(lit) * 0.8);
   });
 
   it('puts the HUD on an overlay canvas driven by the WebGL2 backend', () => {
@@ -141,10 +172,20 @@ describe('a 3D game through the engine loop', () => {
   const YARD = {
     version: SCENE_VERSION, type: 'level', name: 'yard',
     world: { dimensions: 3, gravity: { x: 0, y: -9.81, z: 0 } },
-    prefabs: {}, layers: [{ name: 'main', objects: [] }]
+    prefabs: {
+      ground: { actor: 'Ground', physics: { bodyType: 'static' }, mesh: { color: '#808080', roughness: 0.9 } },
+      crate: { actor: 'Crate', physics: { bodyType: 'static' }, mesh: { color: '#ff0000', roughness: 0.5 } }
+    },
+    layers: [{ name: 'main', objects: [
+      { id: 'floor', prefab: 'ground', x: 0, y: -0.1, z: 0, width: 20, height: 0.2, depth: 20 },
+      { id: 'crate', prefab: 'crate', x: 0, y: 0.5, z: 0, width: 1, height: 1, depth: 1 }
+    ] }]
   };
 
-  function game3D(width = 64, height = 48, options = {}) {
+  class Ground {}
+  class Crate {}
+
+  function game3D(width = 96, height = 72, options = {}) {
     const canvas = canvasInDocument(width, height);
     const game = new M2D(canvas, {
       dimensions: 3, width, height, worldWidth: 20, worldHeight: 20, performanceStats: false, ...options
@@ -153,36 +194,48 @@ describe('a 3D game through the engine loop', () => {
     return { canvas, game };
   }
 
-  it('picks the webgpu renderer by default and draws the scene\'s frame', async () => {
-    const { canvas, game } = game3D();
+  it('picks the webgpu renderer and a 3D camera, and draws the scene file\'s meshes', async () => {
+    const { Entity } = await import('../../src/core/entity.js');
+    const { game } = game3D();
     expect(game.renderer).toBeInstanceOf(WebGPURenderer);
+    expect(game.camera).toBeInstanceOf(Camera3D);
     expect(game.uiRenderer.renderer).toBe(game.renderer.uiBackend);
 
+    game.registerActor('Ground', class extends Entity { name = 'Ground'; });
+    game.registerActor('Crate', class extends Entity { name = 'Crate'; });
     game.sceneManager.addScene('yard', {
       fetch: async () => YARD,
+      onEnter() {
+        Object.assign(game.camera, { mode: 'free', position: { x: 0, y: 3, z: 8 }, lookAt: { x: 0, y: 0, z: 0 } });
+      },
       onRender(frame) {
-        frame.clearColor = '#204060';
-        frame.light = LIGHT;
-        frame.meshes.push({ vertices: triangle() });
+        frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+        frame.fog.density = 0;
       }
     });
     await game.sceneManager.switchTo('yard');
 
+    const crate = game.sceneManager.getCurrentScene().entitiesById.get('crate');
+    expect(crate.mesh.color[0]).toBeCloseTo(1, 2);
+    expect(crate.mesh.color[1]).toBe(0);
+    expect(crate.mesh.roughness).toBe(0.5);
+
     // One frame of the engine loop, with the clock primed so it simulates
-    // and draws rather than just arming itself. (Priming through a first
-    // `update` would leave a second animation frame pending that `destroy`
-    // does not know about.)
+    // and draws rather than just arming itself.
     game.lastTime = 1000;
     game.update(1016);
 
     const pixels = await readPixels(game.renderer);
-    expectPixel(pixels.at(32, 24), [255, 0, 0, 255], 'the triangle through game.update');
-    expectPixel(pixels.at(1, 1), [0x20, 0x40, 0x60, 255], 'the clear colour');
+    const p = game.camera.worldToScreen(0, 0.5, 0.5);
+    const px = pixels.at(Math.round(p.x), Math.round(p.y));
+    expect(px[0], `the crate is red through game.update: ${px}`).toBeGreaterThan(px[1] * 2);
+    const sky = pixels.at(48, 2);
+    expect(sky[2], `sky through game.update: ${sky}`).toBeGreaterThan(sky[0]);
   });
 
   it('draws the HUD over the world on the overlay canvas', async () => {
     const { game } = game3D();
-    game.sceneManager.addScene('yard', { fetch: async () => YARD });
+    game.sceneManager.addScene('yard', { fetch: async () => ({ ...YARD, prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });
     await game.sceneManager.switchTo('yard');
 
     const ui = game.uiRenderer;
@@ -193,7 +246,7 @@ describe('a 3D game through the engine loop', () => {
     const gl = game.renderer.overlayCanvas.getContext('webgl2');
     const px = new Uint8Array(4);
     gl.readPixels(8, 8, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
-    expectPixel([...px], [0, 255, 0, 255], 'green HUD on the overlay');
+    expect([...px].slice(0, 3), 'green HUD on the overlay').toEqual([0, 255, 0]);
   });
 
   it('refuses a 2D renderer for a 3D game, and the reverse, naming the fix', () => {
@@ -203,5 +256,68 @@ describe('a 3D game through the engine loop', () => {
     const other = canvasInDocument(16, 16);
     expect(() => new M2D(other, { renderer: 'webgpu', performanceStats: false }))
       .toThrow(/'webgpu' renderer draws in 3D but the game runs 2D physics/);
+  });
+});
+
+describe('a textured model', () => {
+  beforeAll(() => initWebGPU());
+
+  it('draws a glTF box with its texture, lit and shadowed like everything else', async () => {
+    const { parseGLB } = await import('../../src/core/gltf.js');
+    const response = await fetch(new URL('../fixtures/models/BoxTextured.glb', import.meta.url));
+    const model = await parseGLB(await response.arrayBuffer(), { name: 'BoxTextured' });
+    expect(model.parts).toHaveLength(1);
+    expect(model.parts[0].material.baseColorTexture).toBeInstanceOf(ImageBitmap);
+
+    const W = 96, H = 72;
+    const canvas = canvasInDocument(W, H);
+    const renderer = new WebGPURenderer();
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(W, H, { x: 0, y: 1.5, z: 4 });
+
+    const frame = renderer.createFrame();
+    frame.setCamera(camera);
+    frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+    frame.fog.density = 0;
+    frame.shadow.radius = 6;
+    const [part] = model.parts;
+    frame.add(part.geometry, { model: part.matrix, material: part.material, color: [1, 1, 1], metallic: 1, roughness: 1 });
+    renderer.render(frame);
+    const pixels = await readPixels(renderer);
+
+    // Khronos's BoxTextured wears the Cesium logo: a mostly grey-blue
+    // face, so the box's front reads as a coloured, lit surface that is
+    // neither the sky nor the shader's grey default.
+    const p = camera.worldToScreen(0, 0, 0.5);
+    const px = pixels.at(Math.round(p.x), Math.round(p.y));
+    expect(luma(px), `textured face is lit: ${px}`).toBeGreaterThan(40);
+    expect(px[3]).toBe(255);
+    // The texture varies across the face where a flat colour would not.
+    const q = camera.worldToScreen(0.35, 0.35, 0.5);
+    const qx = pixels.at(Math.round(q.x), Math.round(q.y));
+    const differs = px.slice(0, 3).some((v, i) => Math.abs(v - qx[i]) > 12);
+    expect(differs, `texture varies: ${px} vs ${qx}`).toBe(true);
+    expect(renderer.getStats().drawCalls).toBe(3);
+  });
+});
+
+describe('primitive geometry', () => {
+  it('builds every body shape at its size, caching unit shapes', () => {
+    const a = geometryFor('box', { x: 2, y: 1, z: 3 });
+    const b = geometryFor('box', { x: 1, y: 1, z: 1 });
+    expect(a.geometry).toBe(b.geometry);
+    expect(a.scale).toEqual({ x: 2, y: 1, z: 3 });
+    expect(geometryFor('sphere', { x: 0.4, y: 0.4, z: 0.4 }).scale).toEqual({ x: 0.4, y: 0.4, z: 0.4 });
+    const c = geometryFor('capsule', { x: 0.6, y: 1.8, z: 0.6 });
+    expect(c.scale).toEqual({ x: 1, y: 1, z: 1 });
+    // A capsule is built to its proportions: tip to tip is its height.
+    let top = -Infinity, bottom = Infinity;
+    for (let i = 1; i < c.geometry.positions.length; i += 3) {
+      top = Math.max(top, c.geometry.positions[i]);
+      bottom = Math.min(bottom, c.geometry.positions[i]);
+    }
+    expect(top - bottom).toBeCloseTo(1.8, 5);
+    expect(geometryFor('capsule', { x: 0.6, y: 1.8 }).geometry).toBe(c.geometry);
   });
 });

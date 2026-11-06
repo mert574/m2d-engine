@@ -84,6 +84,23 @@ When the view is larger than the bounded area, the camera centres on that area. 
 
 Input events already carry world coordinates, and `game.worldToUI(x, y)` maps a world point into UI space. These helpers are for everything else.
 
+## Three dimensions
+
+A game with `dimensions: 3` gets a `Camera3D` as `game.camera`: an eye, a point it looks at and a perspective projection, with two modes.
+
+- `'orbit'` (the default) circles a target at a `distance`, by a `yaw` around the up axis and a `pitch` above the ground. `follow(entity)` sets the target and `targetOffset` lifts the look-at point off its feet; `orbit(deltaYaw, deltaPitch)` and `zoom(factor)` are what a drag and a scroll call. `minDistance`, `maxDistance`, `minPitch` and `maxPitch` bound it and `lerp` eases the look-at point.
+- `'free'` leaves `position` and `lookAt` to game code: a flying camera, a first-person view.
+
+`fov` is the vertical field of view in radians, `near` and `far` the clip planes. `forward` and `right` are the view direction flattened to the ground, for steering a character relative to the camera. `resetConfig`, `init`, `follow`, `update` and `resize` are called by the engine as for the 2D camera.
+
+| Method | Converts |
+| --- | --- |
+| `screenToRay(x, y)` | A view point to a world ray, `{ origin, direction }`; with `game.physics.raycast`, this is picking |
+| `screenToWorld(x, y, groundY = 0)` | A view point to where its ray meets the ground plane |
+| `worldToScreen(x, y, z)` | A world point to view coordinates, with clip depth in `z` |
+
+`viewProjection`, `view`, `projection` and `inverseViewProjection` are the matrices, as column-major `Float32Array`s, rebuilt by `update`.
+
 ## Resizing
 
 The engine calls `camera.resize` when the view size changes. That only happens in the `expand` aspect mode, where a wider display shows more world. Changing the render resolution does not change the view. See [Display and resolution](./display).

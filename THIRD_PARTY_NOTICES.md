@@ -256,3 +256,8 @@ Hedgerow Court's two are also lightly colour-graded (the lawn warmed, the hedge 
 | [Facade018A](https://ambientcg.com/view?id=Facade018A) | Ash Row buildings | `examples/src/belt/textures/facade-a.jpg` |
 | [Facade019A](https://ambientcg.com/view?id=Facade019A) | Ash Row buildings | `examples/src/belt/textures/facade-b.jpg` |
 | [Facade020A](https://ambientcg.com/view?id=Facade020A) | Ash Row buildings | `examples/src/belt/textures/facade-c.jpg` |
+
+## 3D sample models: Cesium Milk Truck, Box Textured
+
+- Cesium Milk Truck — © 2017 Cesium, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode), from the [Khronos glTF Sample Assets](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMilkTruck). Used as-is in `examples/src/yard/models/`. The Cesium logo on it is a trademark of Cesium and not covered by the licence.
+- Box Textured — © 2017 Cesium, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode), from the [Khronos glTF Sample Assets](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/BoxTextured). Used as-is as a test fixture in `packages/engine/test/fixtures/models/`.

@@ -43,6 +43,16 @@ A map from sheet name to sheet. The checks below run for level scenes. A UI scen
 
 `frames` is a non-empty array of `[tileX, tileY]` pairs. An animation may also give `fps` (frames per second, default `0`: hold the first frame) and `loop` (default `true`). A sheet without `animations` gets one named `default` at `[0, 0]`.
 
+## `assets.models`
+
+A map from model name to model, for a 3D level. A model is a glTF 2.0 `.glb` file, in metres with y up — the 3D world's own conventions, so nothing is converted. Its meshes, node transforms, metallic-roughness materials and base colour, metallic-roughness and emissive textures are read; skins and animations are not yet.
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `url` | yes | File path, prefixed with the engine's `basePath` |
+
+A prefab draws a model by naming it in its [`mesh`](#mesh) block.
+
 ## `prefabs`
 
 A map from prefab name to prefab.
@@ -53,6 +63,7 @@ A map from prefab name to prefab.
 | `spritesheet` | no | A key in `assets.spritesheets` |
 | `defaultAnimation` | no | An animation on that sheet. Defaults to `default` |
 | `physics` | no | Body settings, below |
+| `mesh` | no | How a 3D level draws it, below. 3D levels only |
 | `constraints` | no | Behaviours to attach, below |
 
 ### `prefabs.*.physics`
@@ -73,6 +84,25 @@ A map from prefab name to prefab.
 A `footprint` makes the collider the object's feet: a box `footprint.height` tall (and `footprint.width` wide, default the object's width) at the bottom of the object's rectangle. The sprite keeps the object's full size and stands above the collider, so a character can walk behind a tree whose trunk is the only solid part. The entity's `depth` is then the feet, which is what the default draw order sorts by. `height` must be positive; both are capped at the object's size.
 
 An unknown key inside `physics` is an error, like everywhere else in the format.
+
+### `mesh`
+
+How a prefab is drawn in a 3D level, where there are no sprites. Without a `mesh` block an entity draws its collider's shape in grey; a block chooses a shape and a material. In a 2D level a `mesh` is an error.
+
+| Key | Values | Default |
+| --- | --- | --- |
+| `model` | A key in `assets.models`. Drawn instead of a shape, with the file's own materials; `color`, `metallic`, `roughness` and `checker` are then ignored and `emissive` adds a glow | none |
+| `scale` | number, multiplies the model's own size | `1` |
+| `offset` | `{ "x", "y", "z" }` in metres, moving the model against the body; a model whose origin is at its feet wants `y` of minus half the body's height | `0` |
+| `shape` | `"box"`, `"sphere"`, `"capsule"`, `"cylinder"`, `"plane"` | the collider's shape |
+| `color` | A CSS colour, converted to linear light on load | grey |
+| `metallic` | `0` to `1` | `0` |
+| `roughness` | `0` to `1` | `0.6` |
+| `emissive` | number, self-illumination as a multiple of the colour | `0` |
+| `checker` | number, metres: a two-tone checker of that cell size on the surface, or `0` | `0` |
+| `visible` | boolean | `true` |
+
+A shape is sized by the object's `width`, `height` and `depth`, like the collider; a model keeps the file's size times `scale`, and the collider is whatever the object says, so a truck's box can be simpler than its body. An object's `overrides.mesh` merges over the prefab's, so one red crate among brown ones needs no prefab of its own. See the [renderer](./renderer#three-dimensions) for what the renderer makes of it.
 
 ## `layers`
 
@@ -109,6 +139,7 @@ What one placed object changes about its prefab, so a heavier crate or a recolou
 | `spritesheet` | A key in `assets.spritesheets` |
 | `defaultAnimation` | An animation on that sheet |
 | `physics` | Body settings, merged field by field over the prefab's |
+| `mesh` | Drawing settings in a 3D level, merged field by field over the prefab's |
 
 ```json
 { "id": "heavy-crate", "prefab": "crate", "x": 300, "y": 200,

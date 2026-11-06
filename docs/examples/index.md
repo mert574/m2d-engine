@@ -4,6 +4,14 @@ These games ship with the engine. Each exercises a different part of it. Sources
 
 <div class="example-grid">
 
+<a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/yard/">
+<div class="example-card-body">
+<span class="example-card-tag">3D · WebGPU</span>
+<strong>The Yard</strong>
+<span>The first three-dimensional scene: a walled yard of crates, spheres, barrels and a glTF milk truck under a low sun, with soft shadows, metallic-roughness shading, a sky and fog. Drag to orbit, WASD to walk. Chromium only.</span>
+</div>
+</a>
+
 <a class="example-card" target="_self" href="https://mert574.github.io/m2d-engine/examples/showcase/">
 <img src="./shots/showcase.jpg" alt="" loading="lazy">
 <div class="example-card-body">
@@ -110,6 +118,19 @@ Each example opens on a main menu with a scene of its own behind the type, drawn
 Pointer lock is enabled only in the physics playground. The other examples leave the pointer free.
 
 ## Controls
+
+### The Yard
+
+The engine's first 3D scene, on the WebGPU renderer. The yard is primitive shapes from the scene file's `mesh` blocks, plus one glTF model, the Cesium milk truck. Needs a Chromium browser.
+
+| Input | Action |
+| --- | --- |
+| Drag | Orbit the camera |
+| Scroll | Zoom |
+| `W` `A` `S` `D` or arrows | Walk, relative to the camera |
+| `Space` | Jump |
+| `O` | Settings |
+| `F3` | Frame statistics |
 
 ### Renderer showcase
 

@@ -44,7 +44,8 @@ describe('shipped example scenes', () => {
     oblique: ['ObliquePlayer', 'Ghost', 'Tree', 'Decor', 'Bound', 'Pond', 'Coin', 'Trigger', 'Npc', 'GroundDetail'],
     iso: ['ObliquePlayer', 'Ghost', 'Wall', 'Torch', 'Coin', 'Trigger', 'Quartermaster'],
     belt: ['ObliquePlayer', 'Ghost', 'Lamp', 'Bound', 'Trigger', 'Street', 'Foreground'],
-    drift: ['Ship', 'Meteor', 'Drone', 'Salvage', 'Gate', 'Bound', 'Sky']
+    drift: ['Ship', 'Meteor', 'Drone', 'Salvage', 'Gate', 'Bound', 'Sky'],
+    yard: ['Hero', 'Ground', 'Crate']
   };
   // Constraints each demo registers with `game.registerConstraint`, and so
   // may attach and tune from its scene files.
@@ -57,7 +58,8 @@ describe('shipped example scenes', () => {
     oblique: ['mainMenu', 'grove'],
     iso: ['mainMenu', 'keep'],
     belt: ['mainMenu', 'row'],
-    drift: ['mainMenu', 'field']
+    drift: ['mainMenu', 'field'],
+    yard: ['yard']
   };
 
   const files = readdirSync(examples)

@@ -239,27 +239,36 @@ const game = new M2D(canvas, { dimensions: 3 });
 
 It needs a Chromium browser with WebGPU; `initWebGPU` rejects with the reason otherwise.
 
-**The frame.** A scene fills it in an `onRender(frame, deltaTime)` hook:
+**The frame.** Each frame the engine builds a `Frame3D` from the scene — the camera's matrices and every visible entity as its mesh at its body's blended transform — then gives the scene's `onRender(frame, deltaTime)` hook a chance to set the light and add geometry, and draws it:
 
 ```javascript
 game.sceneManager.addScene('yard', {
   fetch: () => import('./yard.json'),
   onRender(frame) {
-    frame.clearColor = '#204060';
-    frame.light = { direction: [0.3, -1, 0.2], color: [1, 1, 1], ambient: [0.1, 0.1, 0.1] };
-    frame.meshes.push({ vertices });   // Float32Array: position xyz, normal xyz, colour rgb per vertex
+    frame.sun = { direction: [0.55, -0.6, 0.45], color: [1, 0.88, 0.7], intensity: 4 };
+    frame.ambient = { sky: [0.36, 0.46, 0.68], ground: [0.22, 0.17, 0.12], intensity: 0.55 };
+    frame.fog = { color: [0.66, 0.74, 0.86], density: 0.006 };
+    frame.add(sphere(), { position: { x: 0, y: 3, z: 0 }, scale: 0.5, color: [1, 0.8, 0.4], emissive: 4 });
   }
 });
 ```
 
 | Key | Meaning |
 | --- | --- |
-| `clearColor` | A CSS colour or `[r, g, b, a]`. The engine's per-frame `clear` otherwise |
-| `viewProjection` | A column-major `Float32Array(16)`. Identity when omitted, so positions are clip space |
-| `light` | One directional light: the `direction` it travels, its `color`, and an `ambient` term |
-| `meshes` | `{ vertices }` entries, nine floats per vertex, drawn as triangle lists under the light |
+| `camera` | `viewProjection`, `inverseViewProjection` and `position`, filled from `game.camera` |
+| `sun` | One directional light: the `direction` its light travels, its linear `color`, and an `intensity` |
+| `ambient` | Hemisphere light: linear `sky` and `ground` colours and an `intensity`. Stands in for an environment map |
+| `fog` | Distance fog toward a linear `color`, at a `density` per metre; `0` turns it off. The sky's horizon takes the same colour |
+| `exposure` | A multiplier before tonemapping, `1` by default |
+| `shadow` | The sun's shadow map covers a sphere of `radius` metres around `center`, which the engine sets to the camera's look-at point; `enabled: false` turns shadows off |
+| `setCamera(camera)` | Take the matrices, eye, frustum and shadow centre from a `Camera3D`. The engine does this before the scene's hook |
+| `add(geometry, instance)` | Draw a geometry once. `instance` is a `model` matrix or a `position`, unit-quaternion `rotation` and `scale`; a glTF `material` with textures, or none for a plain surface; and multipliers over it: linear `color`, `metallic`, `roughness`, `emissive`, `checker`. `castShadow: false` keeps it out of the shadow map |
 
-This is the renderer at its first phase — one lit mesh pipeline, meshes uploaded per frame — and the frame grows with each phase of the 3D work: a camera, model assets and materials, lights, shadows. The plan is in `docs/plans/3d-and-editor.md`.
+Geometry for the primitive shapes comes from `m2d-engine/core/renderers/geometry/primitives.js`: `box()`, `sphere()`, `cylinder()` and `plane()` are unit-sized and scaled per instance, `capsule(radius, height)` is built to its proportions, and `geometryFor(shape, size)` returns the right one for a body. Models come from `m2d-engine/core/gltf.js`: `loadGLB(url)` and `parseGLB(buffer)` read a `.glb` into parts, each a geometry, a material and a node matrix. Geometry, images and materials are uploaded to the GPU once each and drawn instanced, grouped by geometry and material: a frame of a hundred crates is one draw call.
+
+`add` culls as it goes. An instance whose bounding sphere is outside the camera's frustum is left out of the main pass, and one outside the shadow map's reach is left out of the shadow pass; the frame's `added`, `drawn` and `casting` counts say what happened.
+
+The picture is a metallic-roughness model under the sun and the hemisphere, with a 2048-texel shadow map filtered over nine taps, fog, ACES tonemapping and 4x multisampling. A camera's `Camera3D` is in [Camera](../guide/camera#three-dimensions), and the `mesh` block a prefab draws with is in the [scene format](./scene-format#mesh). What is not here yet — image-based lighting, more lights, normal maps, skinning, post effects — follows the plan in `docs/plans/3d-and-editor.md`.
 
 **The HUD.** A canvas holds one context, so the UI pass cannot share the 3D canvas. The renderer makes a second canvas laid over the first, transparent to pointer events, and runs the WebGL2 backend on it; `game.uiRenderer` wraps that backend and the whole UI layer works unchanged. `game.renderer.overlayCanvas` and `game.renderer.uiBackend` are the two halves. Input and fullscreen still target the original canvas.
 

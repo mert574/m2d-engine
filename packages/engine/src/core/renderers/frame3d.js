@@ -1,0 +1,141 @@
+import * as mat4 from './geometry/mat4.js';
+import { boundingSphere } from './geometry/primitives.js';
+
+/**
+ * Everything a 3D renderer draws in one frame, as plain data.
+ *
+ * The 2D renderers are told what to draw one call at a time. A 3D frame
+ * has to be known whole before the first pixel is shaded — the shadow
+ * pass draws every caster before the main pass draws anything — so the
+ * scene fills one of these and hands it over. `add` groups instances by
+ * geometry and material as they arrive, which is the order the GPU wants
+ * them in: one instanced draw per group.
+ *
+ * `add` also culls. An instance outside the camera's frustum is not drawn
+ * in the main pass, and one outside the shadow map's reach is not drawn
+ * in the shadow pass; an instance may be in either, both or neither, so
+ * each group keeps the two lists apart. Call `setCamera` first, or
+ * nothing is culled.
+ *
+ * Units are the world's: metres, y up. Colours are linear 0..1.
+ */
+export class Frame3D {
+  constructor() {
+    /** The camera's matrices and eye, from `setCamera` or hand-built. */
+    this.camera = { viewProjection: null, inverseViewProjection: null, position: { x: 0, y: 0, z: 0 } };
+    /** The camera's frustum planes, for culling; null draws everything. */
+    this.frustum = null;
+    /** The sun: the direction its light travels, its colour and intensity. */
+    this.sun = { direction: [0.4, -1, 0.3], color: [1, 0.96, 0.9], intensity: 3 };
+    /** Hemisphere ambient: light from the sky above and the ground below. */
+    this.ambient = { sky: [0.35, 0.45, 0.6], ground: [0.12, 0.1, 0.08], intensity: 1 };
+    /** Distance fog toward `color`; `density` 0 turns it off. */
+    this.fog = { color: [0.55, 0.65, 0.8], density: 0.012 };
+    /** Exposure applied before tonemapping. */
+    this.exposure = 1;
+    /**
+     * Where the sun's shadow map is focused: a sphere the map covers. Set
+     * from the camera target by the scene; everything outside it is unshadowed.
+     */
+    this.shadow = { center: { x: 0, y: 0, z: 0 }, radius: 25, enabled: true };
+    /** @type {Map<string, Group>} */
+    this.groups = new Map();
+    /** Instances added, drawn or not. */
+    this.added = 0;
+    /** Instances in the main pass after culling. */
+    this.drawn = 0;
+    /** Instances in the shadow pass after culling. */
+    this.casting = 0;
+  }
+
+  /** Take the camera's matrices, eye and frustum from a `Camera3D`. */
+  setCamera(camera) {
+    this.camera.viewProjection = camera.viewProjection;
+    this.camera.inverseViewProjection = camera.inverseViewProjection;
+    this.camera.position = camera.position;
+    this.frustum = mat4.frustumPlanes(camera.viewProjection, this.frustum ?? new Float32Array(24));
+    this.shadow.center = camera.lookAt;
+  }
+
+  /**
+   * Draw `geometry` once, at a transform and in a material.
+   * @param {object} geometry - A `primitives.js` or glTF geometry (positions, normals, uvs, indices)
+   * @param {object} instance
+   * @param {Float32Array} [instance.model] - A model matrix; or give the three below
+   * @param {{x,y,z}} [instance.position]
+   * @param {{x,y,z,w}} [instance.rotation] - A unit quaternion
+   * @param {{x,y,z}|number} [instance.scale]
+   * @param {object} [instance.material] - A glTF material (`gltf.js`); textures and factors. None for a plain surface
+   * @param {number[]} [instance.color=[0.8,0.8,0.8]] - Linear base colour, multiplied into the material's
+   * @param {number} [instance.metallic=0] - Multiplied into the material's
+   * @param {number} [instance.roughness=0.6] - Multiplied into the material's
+   * @param {number} [instance.emissive=0] - Self-illumination, as a multiple of the base colour
+   * @param {number} [instance.checker=0] - Size in metres of a two-tone checker on the surface; 0 for none
+   * @param {boolean} [instance.castShadow=true]
+   */
+  add(geometry, instance = {}) {
+    let model = instance.model;
+    if (!model) {
+      const s = instance.scale ?? 1;
+      const scale = typeof s === 'number' ? { x: s, y: s, z: s } : s;
+      model = mat4.fromTRS(instance.position ?? ZERO, instance.rotation ?? IDENTITY_Q, scale);
+    }
+    this.added++;
+
+    // Cull by the geometry's bounding sphere carried through the model matrix.
+    const sphere = boundingSphere(geometry);
+    const cx = model[0] * sphere.x + model[4] * sphere.y + model[8] * sphere.z + model[12];
+    const cy = model[1] * sphere.x + model[5] * sphere.y + model[9] * sphere.z + model[13];
+    const cz = model[2] * sphere.x + model[6] * sphere.y + model[10] * sphere.z + model[14];
+    const maxScale = Math.sqrt(Math.max(
+      model[0] * model[0] + model[1] * model[1] + model[2] * model[2],
+      model[4] * model[4] + model[5] * model[5] + model[6] * model[6],
+      model[8] * model[8] + model[9] * model[9] + model[10] * model[10]));
+    const radius = sphere.radius * maxScale;
+    const visible = !this.frustum || mat4.sphereInFrustum(this.frustum, cx, cy, cz, radius);
+    let casts = false;
+    if (this.shadow.enabled !== false && instance.castShadow !== false) {
+      const c = this.shadow.center;
+      const dx = cx - c.x, dy = cy - c.y, dz = cz - c.z;
+      // The map's orthographic box is the radius across and twice it deep;
+      // a sphere test against the larger covers both.
+      const reach = this.shadow.radius * 2 + radius;
+      casts = dx * dx + dy * dy + dz * dz <= reach * reach;
+    }
+    if (!visible && !casts) return;
+
+    const data = new Float32Array(INSTANCE_FLOATS);
+    data.set(model, 0);
+    mat4.normalMatrix(model, data.subarray(16, 28));
+    const color = instance.color ?? GREY;
+    data[28] = color[0]; data[29] = color[1]; data[30] = color[2]; data[31] = 1;
+    data[32] = instance.metallic ?? 0;
+    data[33] = instance.roughness ?? 0.6;
+    data[34] = instance.emissive ?? 0;
+    data[35] = instance.checker ?? 0;
+
+    const material = instance.material ?? null;
+    let group = this.groups.get(geometry);
+    if (!group) this.groups.set(geometry, group = new Map());
+    let entry = group.get(material);
+    if (!entry) group.set(material, entry = { geometry, material, main: [], shadow: [] });
+    if (visible) { entry.main.push(data); this.drawn++; }
+    if (casts) { entry.shadow.push(data); this.casting++; }
+  }
+
+  /** Every group with something to draw, in insertion order. */
+  *entries() {
+    for (const byMaterial of this.groups.values()) yield* byMaterial.values();
+  }
+}
+
+/**
+ * @typedef {{geometry: object, material: object|null, main: Float32Array[], shadow: Float32Array[]}} Group
+ */
+
+/** Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded), colour, params. */
+export const INSTANCE_FLOATS = 16 + 12 + 4 + 4;
+
+const ZERO = { x: 0, y: 0, z: 0 };
+const IDENTITY_Q = { x: 0, y: 0, z: 0, w: 1 };
+const GREY = [0.8, 0.8, 0.8];

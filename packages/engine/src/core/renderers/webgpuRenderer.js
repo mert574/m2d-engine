@@ -1,49 +1,49 @@
 import { BaseRenderer } from './baseRenderer.js';
 import { WebGLRenderer } from './webglRenderer.js';
 import { identityViewport } from '../viewport.js';
-import { parseColor } from './geometry/color.js';
 import { webgpuDevice } from './webgpu/device.js';
-import { MESH_SHADER, MESH_VERTEX_FLOATS, FRAME_UNIFORM_FLOATS } from './webgpu/shaders.js';
+import { SKY_SHADER, SHADOW_SHADER, MESH_SHADER, FRAME_UNIFORM_FLOATS, MATERIAL_UNIFORM_FLOATS } from './webgpu/shaders.js';
+import { TextureCache3D } from './webgpu/textures.js';
+import { Frame3D, INSTANCE_FLOATS } from './frame3d.js';
+import * as mat4 from './geometry/mat4.js';
 
 /**
  * The 3D renderer, on WebGPU.
  *
  * It is a different kind of renderer from the 2D backends. They are
  * immediate-mode: an entity calls `drawSprite` and the call is batched and
- * drawn. A 3D frame cannot be drawn that way — shadows, light culling,
- * transparency sorting and post effects all need the whole frame's contents
- * before the first pixel is shaded — so this renderer is *retained*: once a
- * frame the engine hands it a `Frame3D` describing everything to draw, and
- * `render(frame)` draws it.
+ * drawn. A 3D frame cannot be drawn that way — the shadow pass needs every
+ * caster before the main pass shades anything — so this renderer is
+ * *retained*: once a frame the engine hands it a `Frame3D` describing
+ * everything to draw, and `render(frame)` draws it.
  *
  * It extends `BaseRenderer` for the parts that are not about drawing — the
  * viewport, the statistics, the debug flag, the capability table — and so
  * that the 2D primitives fail loudly if anything calls them. `dimensions`
  * is how the engine tells the two kinds apart.
  *
+ * **The frame**, in three passes:
+ *
+ *   1. the sun's shadow map: every instance, depth only, from the sun;
+ *   2. the sky: one full-screen triangle, gradient and sun disc;
+ *   3. the meshes: one instanced, indexed draw per geometry and material,
+ *      shaded with a metallic-roughness model, the shadow map, hemisphere
+ *      ambient and fog, then tonemapped.
+ *
+ * The main pass renders at 4x MSAA and resolves to the canvas. Geometry,
+ * images and materials are uploaded once each and cached by identity;
+ * instance data is one storage buffer rewritten per frame, the frame's
+ * culled main-pass instances first and its shadow casters after.
+ *
  * **The HUD.** A canvas holds one context, so the UI pass cannot share this
  * renderer's canvas. The renderer makes a second canvas, laid exactly over
  * the first and transparent to pointer events, and runs the WebGL2 backend
  * on it unchanged; `uiBackend` is what `game.uiRenderer` wraps. Input and
  * fullscreen still target the original canvas.
- *
- * **What a frame is**, so far (R0; see docs/plans/3d-and-editor.md):
- *
- *   { clearColor:     a CSS colour, or [r, g, b, a],
- *     viewProjection: Float32Array(16), column-major; identity if omitted,
- *     light: { direction: [x, y, z], color: [r, g, b], ambient: [r, g, b] },
- *     meshes: [{ vertices: Float32Array }] }
- *
- * where each vertex is position xyz, normal xyz, colour rgb — nine floats.
- * Vertices are uploaded every frame into one growable buffer; caching,
- * instancing and materials are later phases' work and will reshape this.
  */
-const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
-/** Overhead sun, white, with a little fill, when a frame names no light. */
-const DEFAULT_LIGHT = Object.freeze({
-  direction: [0, -1, 0], color: [1, 1, 1], ambient: [0.1, 0.1, 0.1]
-});
+const SHADOW_MAP_SIZE = 2048;
+const SAMPLES = 4;
 
 export class WebGPURenderer extends BaseRenderer {
   constructor() {
@@ -58,15 +58,36 @@ export class WebGPURenderer extends BaseRenderer {
     this.overlayCanvas = null;
     /** The 2D backend drawing the HUD onto `overlayCanvas`. */
     this.uiBackend = null;
-    this.pipeline = null;
+
     this.frameUniform = null;
-    this.frameBindGroup = null;
-    this.depthTexture = null;
-    this.clearColor = [0, 0, 0, 1];
     this.frameData = new Float32Array(FRAME_UNIFORM_FLOATS);
-    /** One vertex buffer for the whole frame, grown when a frame outgrows it. */
-    this.vertexBuffer = null;
-    this.vertexBufferSize = 0;
+    this.sceneBindGroupLayout = null;
+    this.sceneBindGroup = null;
+    this.shadowBindGroup = null;
+    this.materialBindGroupLayout = null;
+    /** @type {TextureCache3D|null} */
+    this.textures = null;
+    /** @type {WeakMap<object, GPUBindGroup>} material -> its bind group; `defaultMaterial` for none. */
+    this.materialCache = new WeakMap();
+    this.defaultMaterial = null;
+    this.skyPipeline = null;
+    this.shadowPipeline = null;
+    this.meshPipeline = null;
+
+    this.colorTexture = null;
+    this.depthTexture = null;
+    this.shadowTexture = null;
+    this.shadowView = null;
+
+    /** One instance buffer for the whole frame, grown when a frame outgrows it. */
+    this.instanceBuffer = null;
+    this.instanceCapacity = 0;
+    this.instanceData = new Float32Array(0);
+    /** @type {WeakMap<object, {positions: GPUBuffer, normals: GPUBuffer, uvs: GPUBuffer, index: GPUBuffer, count: number, format: GPUIndexFormat}>} */
+    this.geometryCache = new WeakMap();
+
+    this.lightView = mat4.create();
+    this.lightProjection = mat4.create();
     /** The canvas texture of the frame being drawn; valid until the task ends. */
     this.currentTexture = null;
   }
@@ -93,7 +114,7 @@ export class WebGPURenderer extends BaseRenderer {
     );
 
     this.#createOverlay(element, options, viewport);
-    this.#createPipeline();
+    this.#createResources();
     this.setViewport(viewport);
     return true;
   }
@@ -128,41 +149,99 @@ export class WebGPURenderer extends BaseRenderer {
     style.height = canvas.style.height || `${canvas.clientHeight}px`;
   }
 
-  #createPipeline() {
+  #createResources() {
     const device = this.device;
-    const module = device.createShaderModule({ code: MESH_SHADER, label: 'mesh' });
     this.frameUniform = device.createBuffer({
       label: 'frame',
       size: FRAME_UNIFORM_FLOATS * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
-    const bindGroupLayout = device.createBindGroupLayout({
-      label: 'frame',
-      entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }]
+    this.sceneBindGroupLayout = device.createBindGroupLayout({
+      label: 'scene',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }
+      ]
     });
-    this.frameBindGroup = device.createBindGroup({
-      layout: bindGroupLayout,
-      entries: [{ binding: 0, resource: { buffer: this.frameUniform } }]
+    const shadowBindGroupLayout = device.createBindGroupLayout({
+      label: 'shadow',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'comparison' } }
+      ]
     });
-    this.pipeline = device.createRenderPipeline({
-      label: 'mesh',
-      layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
-      vertex: {
-        module,
-        entryPoint: 'vs',
-        buffers: [{
-          arrayStride: MESH_VERTEX_FLOATS * 4,
-          attributes: [
-            { shaderLocation: 0, offset: 0, format: 'float32x3' },
-            { shaderLocation: 1, offset: 12, format: 'float32x3' },
-            { shaderLocation: 2, offset: 24, format: 'float32x3' }
-          ]
-        }]
-      },
-      fragment: { module, entryPoint: 'fs', targets: [{ format: this.format }] },
+    this.materialBindGroupLayout = device.createBindGroupLayout({
+      label: 'material',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+        { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+        { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } }
+      ]
+    });
+    this.textures = new TextureCache3D(device);
+    this.defaultMaterial = this.#materialBindGroup(null);
+
+    this.shadowTexture = device.createTexture({
+      label: 'shadow map',
+      size: { width: SHADOW_MAP_SIZE, height: SHADOW_MAP_SIZE },
+      format: 'depth32float',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+    });
+    this.shadowView = this.shadowTexture.createView();
+    this.shadowBindGroup = device.createBindGroup({
+      layout: shadowBindGroupLayout,
+      entries: [
+        { binding: 0, resource: this.shadowView },
+        { binding: 1, resource: device.createSampler({ compare: 'less', magFilter: 'linear', minFilter: 'linear' }) }
+      ]
+    });
+
+    const vertexBuffers = [
+      { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] },
+      { arrayStride: 12, attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x3' }] },
+      { arrayStride: 8, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x2' }] }
+    ];
+    const sceneLayout = device.createPipelineLayout({ bindGroupLayouts: [this.sceneBindGroupLayout] });
+
+    const sky = device.createShaderModule({ code: SKY_SHADER, label: 'sky' });
+    this.skyPipeline = device.createRenderPipeline({
+      label: 'sky',
+      layout: sceneLayout,
+      vertex: { module: sky, entryPoint: 'vs' },
+      fragment: { module: sky, entryPoint: 'fs', targets: [{ format: this.format }] },
+      primitive: { topology: 'triangle-list' },
+      multisample: { count: SAMPLES },
+      depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' }
+    });
+
+    const shadow = device.createShaderModule({ code: SHADOW_SHADER, label: 'shadow' });
+    this.shadowPipeline = device.createRenderPipeline({
+      label: 'shadow',
+      layout: sceneLayout,
+      vertex: { module: shadow, entryPoint: 'vs', buffers: vertexBuffers.slice(0, 2) },
       primitive: { topology: 'triangle-list', cullMode: 'none' },
+      depthStencil: {
+        format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less',
+        depthBias: 2, depthBiasSlopeScale: 2
+      }
+    });
+
+    const mesh = device.createShaderModule({ code: MESH_SHADER, label: 'mesh' });
+    this.meshPipeline = device.createRenderPipeline({
+      label: 'mesh',
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [this.sceneBindGroupLayout, shadowBindGroupLayout, this.materialBindGroupLayout]
+      }),
+      vertex: { module: mesh, entryPoint: 'vs', buffers: vertexBuffers },
+      fragment: { module: mesh, entryPoint: 'fs', targets: [{ format: this.format }] },
+      primitive: { topology: 'triangle-list', cullMode: 'back' },
+      multisample: { count: SAMPLES },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' }
     });
+
+    this.#ensureInstanceBuffer(256);
   }
 
   setViewport(viewport) {
@@ -171,11 +250,15 @@ export class WebGPURenderer extends BaseRenderer {
     const { backingWidth, backingHeight } = viewport;
     this.canvas.width = backingWidth;
     this.canvas.height = backingHeight;
+    this.colorTexture?.destroy();
     this.depthTexture?.destroy();
+    const size = { width: backingWidth, height: backingHeight };
+    this.colorTexture = this.device.createTexture({
+      label: 'color (msaa)', size, sampleCount: SAMPLES, format: this.format,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT
+    });
     this.depthTexture = this.device.createTexture({
-      label: 'depth',
-      size: { width: backingWidth, height: backingHeight },
-      format: 'depth24plus',
+      label: 'depth (msaa)', size, sampleCount: SAMPLES, format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
     if (this.overlayCanvas) this.#placeOverlay();
@@ -195,17 +278,21 @@ export class WebGPURenderer extends BaseRenderer {
   destroy() {
     this.uiBackend?.destroy();
     this.overlayCanvas?.remove?.();
-    this.depthTexture?.destroy();
+    for (const texture of [this.colorTexture, this.depthTexture, this.shadowTexture]) texture?.destroy();
+    this.textures?.destroy();
+    this.textures = null;
+    this.materialCache = new WeakMap();
+    this.defaultMaterial = null;
     this.frameUniform?.destroy();
-    this.vertexBuffer?.destroy();
+    this.instanceBuffer?.destroy();
     this.context?.unconfigure();
     this.uiBackend = null;
     this.overlayCanvas = null;
-    this.depthTexture = null;
-    this.frameUniform = null;
-    this.vertexBuffer = null;
-    this.vertexBufferSize = 0;
-    this.pipeline = null;
+    this.colorTexture = this.depthTexture = this.shadowTexture = this.shadowView = null;
+    this.frameUniform = this.instanceBuffer = null;
+    this.instanceCapacity = 0;
+    this.skyPipeline = this.shadowPipeline = this.meshPipeline = null;
+    this.geometryCache = new WeakMap();
     this.context = null;
     this.device = null;
     this.canvas = null;
@@ -214,36 +301,54 @@ export class WebGPURenderer extends BaseRenderer {
   // === The frame ===
 
   /**
-   * The colour `render` clears to when the frame does not say. The engine
-   * calls this at the top of every frame, so it is also where the HUD's
+   * The engine calls this at the top of every frame. The 3D frame draws
+   * its own sky, so there is nothing to clear here; it is where the HUD's
    * overlay is wiped to transparent for the UI pass that follows.
    */
-  clear(color) {
-    this.clearColor = color ? parseColor(color) : [0, 0, 0, 0];
+  clear() {
     this.uiBackend?.clear();
   }
 
+  /** A fresh frame to fill; see `Frame3D`. */
+  createFrame() {
+    return new Frame3D();
+  }
+
   /**
-   * Draw one frame. See the class note for the frame's shape.
-   * @param {object} frame
+   * Draw one frame.
+   * @param {Frame3D} frame
    */
-  render(frame = {}) {
+  render(frame) {
     super.beginFrame();
     const device = this.device;
-    const clear = frame.clearColor === undefined
-      ? this.clearColor
-      : (typeof frame.clearColor === 'string' ? parseColor(frame.clearColor) : frame.clearColor);
-
     this.#writeFrameUniform(frame);
+    const groups = this.#uploadInstances(frame);
 
     const encoder = device.createCommandEncoder({ label: 'frame' });
+
+    if (frame.shadow.enabled !== false) {
+      const pass = encoder.beginRenderPass({
+        label: 'shadow',
+        colorAttachments: [],
+        depthStencilAttachment: {
+          view: this.shadowView, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store'
+        }
+      });
+      pass.setPipeline(this.shadowPipeline);
+      pass.setBindGroup(0, this.sceneBindGroup);
+      this.#drawGroups(pass, groups, 'shadow');
+      pass.end();
+    }
+
     this.currentTexture = this.context.getCurrentTexture();
     const pass = encoder.beginRenderPass({
+      label: 'main',
       colorAttachments: [{
-        view: this.currentTexture.createView(),
-        clearValue: { r: clear[0], g: clear[1], b: clear[2], a: clear[3] ?? 1 },
+        view: this.colorTexture.createView(),
+        resolveTarget: this.currentTexture.createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1 },
         loadOp: 'clear',
-        storeOp: 'store'
+        storeOp: 'discard'
       }],
       depthStencilAttachment: {
         view: this.depthTexture.createView(),
@@ -252,48 +357,203 @@ export class WebGPURenderer extends BaseRenderer {
         depthStoreOp: 'discard'
       }
     });
+    pass.setBindGroup(0, this.sceneBindGroup);
+    pass.setPipeline(this.skyPipeline);
+    pass.draw(3);
+    this.stats.drawCalls++;
 
-    const meshes = frame.meshes ?? [];
-    if (meshes.length) {
-      let total = 0;
-      for (const mesh of meshes) total += mesh.vertices.byteLength;
-      this.#ensureVertexBuffer(total);
-      pass.setPipeline(this.pipeline);
-      pass.setVertexBuffer(0, this.vertexBuffer);
-      pass.setBindGroup(0, this.frameBindGroup);
-      this.stats.stateChanges += 3;
-      // Every mesh's vertices go into the one buffer, back to back; the
-      // writes are queued ahead of the submit below, so the pass reads
-      // this frame's data.
-      let offset = 0;
-      let first = 0;
-      for (const mesh of meshes) {
-        const vertices = mesh.vertices;
-        const count = Math.floor(vertices.length / MESH_VERTEX_FLOATS);
-        if (!count) continue;
-        device.queue.writeBuffer(this.vertexBuffer, offset, vertices, 0, count * MESH_VERTEX_FLOATS);
-        pass.draw(count, 1, first);
-        offset += count * MESH_VERTEX_FLOATS * 4;
-        first += count;
-        this.stats.drawCalls++;
-        this.stats.primitives++;
-      }
-    }
+    pass.setPipeline(this.meshPipeline);
+    pass.setBindGroup(1, this.shadowBindGroup);
+    this.stats.stateChanges += 3;
+    this.#drawGroups(pass, groups, 'main');
     pass.end();
+
     device.queue.submit([encoder.finish()]);
   }
 
-  /** A vertex buffer of at least `bytes`, grown geometrically so frames settle on one. */
-  #ensureVertexBuffer(bytes) {
-    if (this.vertexBuffer && this.vertexBufferSize >= bytes) return;
-    this.vertexBuffer?.destroy();
-    const size = Math.max(bytes, 64 * 1024, this.vertexBufferSize * 2);
-    this.vertexBuffer = this.device.createBuffer({
-      label: 'frame vertices',
-      size,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+  /**
+   * One instanced, indexed draw per group, over the group's range in the
+   * instance buffer for the given pass. The shadow pass binds no material
+   * and reads no texture coordinates.
+   */
+  #drawGroups(pass, groups, which) {
+    let boundMaterial = null;
+    for (const group of groups) {
+      const range = group[which];
+      if (!range.count) continue;
+      const gpu = group.gpu;
+      pass.setVertexBuffer(0, gpu.positions);
+      pass.setVertexBuffer(1, gpu.normals);
+      if (which === 'main') {
+        pass.setVertexBuffer(2, gpu.uvs);
+        if (group.material !== boundMaterial) {
+          pass.setBindGroup(2, group.material);
+          boundMaterial = group.material;
+          this.stats.stateChanges++;
+        }
+      }
+      pass.setIndexBuffer(gpu.index, gpu.format);
+      pass.drawIndexed(gpu.count, range.count, 0, 0, range.first);
+      this.stats.drawCalls++;
+      this.stats.primitives += range.count;
+    }
+  }
+
+  /**
+   * Pack the frame's instances into the instance buffer — every group's
+   * main-pass instances, then every group's shadow casters — and return
+   * the draw list with each group's two ranges. The write is queued ahead
+   * of the submit, so the passes read this frame's data.
+   */
+  #uploadInstances(frame) {
+    const total = frame.drawn + frame.casting;
+    this.#ensureInstanceBuffer(total);
+    const data = this.instanceData;
+    const groups = [];
+    let first = 0;
+    const pack = (list) => {
+      const start = first;
+      for (let i = 0; i < list.length; i++) data.set(list[i], (first + i) * INSTANCE_FLOATS);
+      first += list.length;
+      return { first: start, count: list.length };
+    };
+    for (const entry of frame.entries()) {
+      groups.push({
+        gpu: this.#geometry(entry.geometry),
+        material: this.#material(entry.material),
+        main: pack(entry.main),
+        shadow: null,
+        entry
+      });
+    }
+    for (const group of groups) group.shadow = pack(group.entry.shadow);
+    if (total) this.device.queue.writeBuffer(this.instanceBuffer, 0, data, 0, total * INSTANCE_FLOATS);
+    return groups;
+  }
+
+  /** The bind group for a glTF material, or the default for none, made on first sight. */
+  #material(material) {
+    if (!material) return this.defaultMaterial;
+    let group = this.materialCache.get(material);
+    if (!group) this.materialCache.set(material, group = this.#materialBindGroup(material));
+    return group;
+  }
+
+  #materialBindGroup(material) {
+    const device = this.device;
+    const textures = this.textures;
+    const data = new Float32Array(MATERIAL_UNIFORM_FLOATS);
+    const base = material?.baseColor ?? [1, 1, 1, 1];
+    data.set(base, 0);
+    data[4] = material?.metallic ?? 1;
+    data[5] = material?.roughness ?? 1;
+    const emissive = material?.emissive ?? [0, 0, 0];
+    data[8] = emissive[0]; data[9] = emissive[1]; data[10] = emissive[2]; data[11] = 0;
+    const uniform = device.createBuffer({
+      label: `material ${material?.name ?? 'default'}`,
+      size: data.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
-    this.vertexBufferSize = size;
+    device.queue.writeBuffer(uniform, 0, data);
+    const texture = (image, fallback, srgb) => (image ? textures.get(image, { srgb }) : fallback).createView();
+    return device.createBindGroup({
+      label: `material ${material?.name ?? 'default'}`,
+      layout: this.materialBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: uniform } },
+        { binding: 1, resource: textures.sampler },
+        { binding: 2, resource: texture(material?.baseColorTexture, textures.whiteSRGB, true) },
+        { binding: 3, resource: texture(material?.metallicRoughnessTexture, textures.white, false) },
+        { binding: 4, resource: texture(material?.emissiveTexture, textures.black, true) }
+      ]
+    });
+  }
+
+  /** An instance buffer for at least `count` instances, grown geometrically so frames settle on one. */
+  #ensureInstanceBuffer(count) {
+    if (this.instanceBuffer && this.instanceCapacity >= count) return;
+    const capacity = Math.max(count, 256, this.instanceCapacity * 2);
+    this.instanceBuffer?.destroy();
+    this.instanceBuffer = this.device.createBuffer({
+      label: 'instances',
+      size: capacity * INSTANCE_FLOATS * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    this.instanceCapacity = capacity;
+    this.instanceData = new Float32Array(capacity * INSTANCE_FLOATS);
+    this.sceneBindGroup = this.device.createBindGroup({
+      layout: this.sceneBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.frameUniform } },
+        { binding: 1, resource: { buffer: this.instanceBuffer } }
+      ]
+    });
+  }
+
+  /** The GPU copy of a geometry, uploaded on first sight. */
+  #geometry(geometry) {
+    let gpu = this.geometryCache.get(geometry);
+    if (gpu) return gpu;
+    const upload = (array, usage, label) => {
+      const buffer = this.device.createBuffer({
+        label, size: Math.ceil(array.byteLength / 4) * 4, usage, mappedAtCreation: true
+      });
+      new array.constructor(buffer.getMappedRange(), 0, array.length).set(array);
+      buffer.unmap();
+      return buffer;
+    };
+    gpu = {
+      positions: upload(geometry.positions, GPUBufferUsage.VERTEX, 'positions'),
+      normals: upload(geometry.normals, GPUBufferUsage.VERTEX, 'normals'),
+      uvs: upload(geometry.uvs ?? new Float32Array((geometry.positions.length / 3) * 2), GPUBufferUsage.VERTEX, 'uvs'),
+      index: upload(geometry.indices, GPUBufferUsage.INDEX, 'indices'),
+      count: geometry.indices.length,
+      format: geometry.indices instanceof Uint32Array ? 'uint32' : 'uint16'
+    };
+    this.geometryCache.set(geometry, gpu);
+    return gpu;
+  }
+
+  #writeFrameUniform(frame) {
+    const data = this.frameData;
+    const camera = frame.camera;
+    data.set(camera.viewProjection ?? IDENTITY, 0);
+    this.#lightMatrix(frame, data.subarray(16, 32));
+    if (camera.inverseViewProjection) data.set(camera.inverseViewProjection, 32);
+    else mat4.invert(camera.viewProjection ?? IDENTITY, data.subarray(32, 48));
+    const eye = camera.position ?? ZERO;
+    data[48] = eye.x; data[49] = eye.y; data[50] = eye.z; data[51] = 0;
+    const sun = frame.sun;
+    const dir = normalized(sun.direction);
+    data[52] = dir[0]; data[53] = dir[1]; data[54] = dir[2]; data[55] = sun.intensity ?? 1;
+    const sc = sun.color ?? WHITE;
+    data[56] = sc[0]; data[57] = sc[1]; data[58] = sc[2]; data[59] = 0;
+    const ambient = frame.ambient;
+    data[60] = ambient.sky[0]; data[61] = ambient.sky[1]; data[62] = ambient.sky[2]; data[63] = ambient.intensity ?? 1;
+    data[64] = ambient.ground[0]; data[65] = ambient.ground[1]; data[66] = ambient.ground[2]; data[67] = 0;
+    const fog = frame.fog;
+    data[68] = fog.color[0]; data[69] = fog.color[1]; data[70] = fog.color[2]; data[71] = fog.density ?? 0;
+    data[72] = frame.exposure ?? 1;
+    data[73] = frame.shadow.enabled === false ? 0 : 1;
+    data[74] = 1 / SHADOW_MAP_SIZE;
+    data[75] = frame.shadow.radius;
+    this.device.queue.writeBuffer(this.frameUniform, 0, data);
+  }
+
+  /**
+   * The sun's view-projection: an orthographic box of the shadow radius
+   * around the shadow centre, looking along the sun's direction. Depth
+   * spans twice the radius each way so casters outside the sphere but
+   * between it and the sun still shadow it.
+   */
+  #lightMatrix(frame, out) {
+    const { center, radius } = frame.shadow;
+    const dir = normalized(frame.sun.direction);
+    const eye = { x: center.x - dir[0] * radius * 2, y: center.y - dir[1] * radius * 2, z: center.z - dir[2] * radius * 2 };
+    const up = Math.abs(dir[1]) > 0.99 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+    mat4.lookAt(eye, center, up, this.lightView);
+    mat4.orthographic(-radius, radius, -radius, radius, 0.01, radius * 4, this.lightProjection);
+    return mat4.multiply(this.lightProjection, this.lightView, out);
   }
 
   /**
@@ -333,21 +593,6 @@ export class WebGPURenderer extends BaseRenderer {
     return { width, height, data };
   }
 
-  #writeFrameUniform(frame) {
-    const data = this.frameData;
-    const vp = frame.viewProjection;
-    if (vp) data.set(vp, 0);
-    else data.set(IDENTITY, 0);
-    const light = frame.light ?? DEFAULT_LIGHT;
-    const direction = light.direction ?? DEFAULT_LIGHT.direction;
-    const color = light.color ?? DEFAULT_LIGHT.color;
-    const ambient = light.ambient ?? DEFAULT_LIGHT.ambient;
-    data[16] = direction[0]; data[17] = direction[1]; data[18] = direction[2];
-    data[20] = color[0]; data[21] = color[1]; data[22] = color[2];
-    data[24] = ambient[0]; data[25] = ambient[1]; data[26] = ambient[2];
-    this.device.queue.writeBuffer(this.frameUniform, 0, data);
-  }
-
   // The 2D world pass is not how this renderer is driven; the engine calls
   // `render` instead. These exist so an engine path written for 2D does
   // not explode on the way to the one that is not.
@@ -358,4 +603,13 @@ export class WebGPURenderer extends BaseRenderer {
   setCursor(style) {
     if (this.canvas) this.canvas.style.cursor = style;
   }
+}
+
+const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+const ZERO = { x: 0, y: 0, z: 0 };
+const WHITE = [1, 1, 1];
+
+function normalized([x, y, z]) {
+  const len = Math.hypot(x, y, z) || 1;
+  return [x / len, y / len, z / len];
 }

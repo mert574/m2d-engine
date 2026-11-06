@@ -98,6 +98,15 @@ export class AssetDatabase {
   }
 
   /**
+   * A model asset in the shape a scene's inline `assets.models` entry has.
+   */
+  model(uid) {
+    const asset = this.get(uid);
+    if (asset?.type !== 'model') return null;
+    return { url: this.basePath + asset.source };
+  }
+
+  /**
    * A prefab asset in the shape a scene's inline prefab has.
    *
    * The one difference between the two is the sprite sheet: an asset names

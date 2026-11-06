@@ -26,7 +26,7 @@ import { s } from './schema.js';
 export const MANIFEST_VERSION = 1;
 
 /** Asset types the engine knows how to resolve. */
-export const ASSET_TYPES = ['spritesheet', 'prefab'];
+export const ASSET_TYPES = ['spritesheet', 'prefab', 'model'];
 
 /**
  * What a UID may look like. Deliberately the same spelling as a scene
@@ -76,7 +76,20 @@ const PREFAB_DATA = s.object({
   constraints: s.any({ description: 'Validated as part of the scene that uses it' })
 }, { required: true });
 
+/**
+ * Import settings for a model: a glTF 2.0 `.glb`. Nothing to say yet — the
+ * file is in metres with y up, as the 3D world is — but the block exists
+ * so an editor has somewhere to put a scale or a material override later.
+ */
+const MODEL_IMPORT = s.object({});
+
 const ASSET = s.tagged('type', {
+  model: s.object({
+    type: s.string(),
+    name: s.string({ nonEmpty: true, label: 'Name' }),
+    source: s.string({ required: true, nonEmpty: true, editor: 'file', label: 'Source file (.glb)' }),
+    import: MODEL_IMPORT
+  }),
   spritesheet: s.object({
     type: s.string(),
     name: s.string({ nonEmpty: true, label: 'Name', description: 'For the editor and error messages' }),

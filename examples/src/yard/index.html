@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M2D - Yard (3D)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: system-ui;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #0d1117;
+    }
+
+    /*
+     * The 3D renderer lays its HUD canvas over the world canvas with
+     * absolute positioning, so the stage is positioned to be its
+     * containing block.
+     */
+    .stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    #screen {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #unsupported {
+      display: none;
+      position: absolute;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      color: #c9d1d9;
+      font-size: 18px;
+      text-align: center;
+      padding: 32px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="stage">
+    <canvas id="screen" width="1280" height="720"></canvas>
+    <div id="unsupported"></div>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+
+</html>

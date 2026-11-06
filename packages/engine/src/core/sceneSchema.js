@@ -81,6 +81,9 @@ export const BODY_SHAPES = {
   3: ['box', 'sphere', 'capsule', 'cylinder']
 };
 
+/** Shapes a 3D prefab's `mesh` may draw: the colliders', plus a flat plane. */
+export const MESH_SHAPES = [...BODY_SHAPES[3], 'plane'];
+
 /** Dimensions a level can be simulated in. See `world.dimensions`. */
 export const DIMENSIONS = [2, 3];
 
@@ -139,8 +142,14 @@ const SPRITESHEET = s.object({
   animations: s.record(ANIMATION)
 });
 
+/** A model a 3D level draws: a glTF 2.0 `.glb`, in metres, y up. */
+const MODEL = s.object({
+  url: s.string({ required: true, nonEmpty: true, description: 'Relative to the game\'s basePath' })
+});
+
 const ASSETS = s.object({
-  spritesheets: s.record(SPRITESHEET)
+  spritesheets: s.record(SPRITESHEET),
+  models: s.record(MODEL)
 });
 
 // === World ===
@@ -245,11 +254,30 @@ const PHYSICS = s.object({
   footprint: FOOTPRINT
 });
 
+/**
+ * How a 3D prefab is drawn. Without one, an entity draws its collider's
+ * shape in grey; with one, a shape and a material. Colours are CSS, as
+ * everywhere else in a scene file, and converted to linear light on load.
+ */
+const MESH = s.object({
+  model: s.ref('model', { label: 'Model', description: 'A key in assets.models; drawn instead of a shape' }),
+  scale: s.number({ positive: true, description: 'Multiplies the model\'s own size' }),
+  offset: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Moves the model against the body, in metres' }),
+  shape: s.enumOf(MESH_SHAPES, { label: 'Shape', description: 'The collider shape unless stated' }),
+  color: s.string({ label: 'Colour', description: 'CSS colour; sRGB' }),
+  metallic: s.number({ min: 0, max: 1 }),
+  roughness: s.number({ min: 0, max: 1 }),
+  emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour' }),
+  checker: s.number({ min: 0, unit: 'm', description: 'A two-tone checker of this cell size; 0 for none' }),
+  visible: s.boolean()
+}, { label: 'Mesh' });
+
 const PREFAB = s.object({
   actor: s.ref('actor', { required: true }),
   spritesheet: s.ref('spritesheet'),
   defaultAnimation: s.string(),
   physics: PHYSICS,
+  mesh: MESH,
   constraints: CONSTRAINTS
 }, {
   // An animation belongs to *this* prefab's sheet, so it cannot be a plain
@@ -280,7 +308,8 @@ const PREFAB = s.object({
 const OVERRIDES = s.object({
   spritesheet: s.ref('spritesheet'),
   defaultAnimation: s.string(),
-  physics: PHYSICS
+  physics: PHYSICS,
+  mesh: MESH
 }, { label: 'Overrides' });
 
 // === Layers and objects ===
@@ -474,6 +503,10 @@ function checkDimension(level, fail) {
       // third axis there is nothing to fake.
       fail(`prefabs.${name}.physics.footprint`,
         'a footprint fakes depth for a 2D perspective, and this level is 3D');
+    }
+    if (dimensions === 2 && prefab.mesh) {
+      fail(`prefabs.${name}.mesh`, 'a mesh is drawn by the 3D renderer, and this level is 2D ' +
+        '(set world.dimensions to 3, or give the prefab a spritesheet)');
     }
   }
 

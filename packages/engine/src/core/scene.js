@@ -2,6 +2,9 @@ import { SpriteSheet } from './spriteSheet.js';
 import { validate } from './schema.js';
 import { constraintParamsSchema } from './sceneSchema.js';
 import { Projection } from './projection.js';
+import { geometryFor } from './renderers/geometry/primitives.js';
+import { loadGLB } from './gltf.js';
+import * as mat4 from './renderers/geometry/mat4.js';
 import { presentationGuard } from './headless.js';
 import { Container } from './ui/container.js';
 import { MovingPlatform } from '../actors/movingPlatform.js';
@@ -10,12 +13,19 @@ import { UIText } from './ui/text.js';
 import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
 
+const ZERO = { x: 0, y: 0, z: 0 };
+const UNIT = { x: 1, y: 1, z: 1 };
+const IDENTITY_Q = { x: 0, y: 0, z: 0, w: 1 };
+const WHITE = [1, 1, 1];
+
 export class Scene {
   constructor(game, config) {
     this.game = game;
     this.config = config;
     this.sprites = new Map();
     this.spriteSheets = new Map();
+    /** Models from `assets.models`, by key, once loaded. @type {Map<string, import('./gltf.js').Model>} */
+    this.models = new Map();
     /**
      * Entities placed by the scene file, by their object `id`. Lets one
      * placed object refer to another — the gate a lever opens, the point a
@@ -70,6 +80,18 @@ export class Scene {
   }
 
   async loadAssets() {
+    await Promise.all([this.#loadSpriteSheets(), this.#loadModels()]);
+  }
+
+  async #loadModels() {
+    const models = this.config.assets?.models;
+    if (!models) return;
+    await Promise.all(Object.entries(models).map(async ([key, model]) => {
+      this.models.set(key, await loadGLB(this.game.options.basePath + model.url));
+    }));
+  }
+
+  async #loadSpriteSheets() {
     if (!this.config.assets?.spritesheets) return;
 
     const loadPromises = Object.entries(this.config.assets.spritesheets).map(([key, spritesheet]) => 
@@ -223,7 +245,8 @@ export class Scene {
           ? {
             ...base,
             ...object.overrides,
-            physics: { ...base.physics, ...object.overrides.physics }
+            physics: { ...base.physics, ...object.overrides.physics },
+            mesh: { ...base.mesh, ...object.overrides.mesh }
           }
           : base;
 
@@ -237,6 +260,7 @@ export class Scene {
           depth: object.depth,
           sprite: prefab.spritesheet,
           animation: prefab.defaultAnimation,
+          mesh: prefab.mesh,
           // Placement is the object's, material is the prefab's: an object
           // may rotate its instance (a ramp is a tilted platform) without
           // the prefab having to know.
@@ -601,14 +625,68 @@ export class Scene {
   }
 
   /**
-   * What a 3D renderer draws this frame. The scene's `onRender(frame,
-   * deltaTime)` hook fills it; see WebGPURenderer for the frame's shape.
-   * The 2D `draw` path and its entity draw calls are not used in 3D.
+   * What a 3D renderer draws this frame: the camera, every visible entity
+   * as its mesh at its body's blended transform, and whatever the scene's
+   * `onRender(frame, deltaTime)` hook adds or changes — the sun, the fog,
+   * extra geometry. The 2D `draw` path and its entity draw calls are not
+   * used in 3D. See `Frame3D`.
    * @param {number} deltaTime
    */
   frame3D(deltaTime) {
-    const frame = { meshes: [] };
+    const game = this.game;
+    const frame = game.renderer.createFrame();
+    frame.setCamera(game.camera);
+
+    if (this.config.type === 'level') {
+      for (const entity of game.entities) {
+        const mesh = entity.mesh;
+        if (!mesh || mesh.visible === false || !entity.visible || entity.dead) continue;
+        const body = entity.body;
+        if (mesh.model) {
+          this.#addModel(frame, mesh, body);
+          continue;
+        }
+        const { geometry, scale } = geometryFor(mesh.shape ?? body.shape, body.size);
+        frame.add(geometry, {
+          position: body.renderPosition,
+          rotation: body.renderRotation,
+          scale,
+          color: mesh.color,
+          metallic: mesh.metallic,
+          roughness: mesh.roughness,
+          emissive: mesh.emissive,
+          checker: mesh.checker
+        });
+      }
+    }
     this.config.onRender?.(frame, deltaTime);
     return frame;
   }
+
+  /**
+   * A model at a body: each part's node matrix under the body's transform,
+   * scaled and offset as the mesh block says. The model's own materials
+   * draw it; the mesh block's `emissive` adds to them.
+   */
+  #addModel(frame, mesh, body) {
+    const model = this.models.get(mesh.model);
+    if (!model) return;
+    const s = mesh.scale ?? 1;
+    const offset = mesh.offset ?? ZERO;
+    const base = mat4.fromTRS(body.renderPosition, body.renderRotation, UNIT, this.#scratchBase);
+    // Offset and scale in the body's frame, before the parts' own matrices.
+    const local = mat4.fromTRS(offset, IDENTITY_Q, { x: s, y: s, z: s }, this.#scratchLocal);
+    mat4.multiply(base, local, base);
+    for (const part of model.parts) {
+      frame.add(part.geometry, {
+        model: mat4.multiply(base, part.matrix),
+        material: part.material,
+        color: WHITE, metallic: 1, roughness: 1,
+        emissive: mesh.emissive ?? 0
+      });
+    }
+  }
+
+  #scratchBase = new Float32Array(16);
+  #scratchLocal = new Float32Array(16);
 }

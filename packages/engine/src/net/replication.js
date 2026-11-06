@@ -166,7 +166,7 @@ export class Replicator {
         }
         spawn.push({
           id, type: info.type, x: info.x, y: info.y, w: info.width, h: info.height,
-          ...(this.dimensions === 3 && { z: info.z, d: info.depth }),
+          ...(this.dimensions === 3 && { z: info.z, d: info.depth, ...(info.mesh && { mesh: info.mesh }) }),
           sprite: info.sprite ?? null, anim: info.animation ?? null,
           options: info.options ?? {}, physics: info.physics ?? {}, owner: entity.playerId ?? null
         });
@@ -280,6 +280,7 @@ export function applyState(game, message) {
     game.spawn({
       type: spawn.type, x: spawn.x, y: spawn.y, width: spawn.w, height: spawn.h,
       ...(spawn.z !== undefined && { z: spawn.z }), ...(spawn.d !== undefined && { depth: spawn.d }),
+      ...(spawn.mesh && { mesh: spawn.mesh }),
       sprite: spawn.sprite, animation: spawn.anim ?? undefined, options: spawn.options,
       physics: spawn.physics, playerId: spawn.owner, netId: spawn.id
     });

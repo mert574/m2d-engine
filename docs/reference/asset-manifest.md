@@ -69,6 +69,17 @@ An **imported** asset: there is a source file, and settings for reading it.
 | `source` | yes | Path to the image, after `basePath` |
 | `import` | yes | `frameWidth`, `frameHeight` and `animations`, the same shape a scene's inline sheet has minus the url |
 
+### `model`
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `type` | yes | `"model"` |
+| `name` | no | A label |
+| `source` | yes | Path to a glTF 2.0 `.glb`, relative to `basePath` |
+| `import` | no | Import settings; none yet |
+
+A scene that uses it gets a `models` entry under the local name, for a prefab's `mesh.model`. See [`assets.models`](./scene-format#assets-models).
+
 ### `prefab`
 
 An **authored** asset: there is no file, the asset is the data.
@@ -128,4 +139,5 @@ Problems with a scene's `uses` block are scene errors and throw `SceneValidation
 | `assets.has(uid)` / `get(uid)` | Whether an asset is loaded; its raw entry or `null` |
 | `assets.uids` | Every loaded uid |
 | `assets.spritesheet(uid)` | The sheet in the shape a scene declares inline, url included |
+| `assets.model(uid)` | The model in the shape a scene declares inline: `{ url }` |
 | `assets.prefab(uid, sheetName)` | The prefab in the shape a scene declares inline, its sheet uid mapped through `sheetName` |

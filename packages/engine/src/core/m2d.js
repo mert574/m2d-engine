@@ -7,6 +7,8 @@ import { AssetDatabase } from './assets.js';
 import { CollisionCategories } from './constants.js';
 import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
+import { Camera3D } from './camera3d.js';
+import { parseColor } from './renderers/geometry/color.js';
 import { SoundManager } from './soundManager.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D, FALLBACK_RENDERER } from './renderers/index.js';
 import { computeViewport, sameViewport, viewToUI } from './viewport.js';
@@ -166,6 +168,27 @@ function defaultSaveId() {
   return typeof location !== 'undefined' ? location.pathname : '';
 }
 
+/**
+ * A prefab's `mesh` block as the renderer wants it: colour parsed from CSS
+ * and taken from sRGB to linear light, the rest as given. Shared across
+ * entities made from one prefab, so the parse happens once per block.
+ */
+const meshCache = new WeakMap();
+function meshFor(mesh) {
+  if (!mesh) return DEFAULT_MESH;
+  let made = meshCache.get(mesh);
+  if (made) return made;
+  const [r, g, b] = mesh.color ? parseColor(mesh.color) : [0.8, 0.8, 0.8];
+  made = {
+    ...mesh,
+    color: [toLinear(r), toLinear(g), toLinear(b)]
+  };
+  meshCache.set(mesh, made);
+  return made;
+}
+const DEFAULT_MESH = Object.freeze({ color: [0.55, 0.55, 0.55], roughness: 0.7 });
+const toLinear = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+
 function rendererOverrideFromURL() {
   if (typeof location === 'undefined' || !location.search) return null;
   return new URLSearchParams(location.search).get('renderer');
@@ -246,11 +269,15 @@ export class M2D {
       }));
     }
 
-    this.camera = new Camera(this.viewport.viewWidth, this.viewport.viewHeight, {
-      worldWidth: this.options.worldWidth,
-      worldHeight: this.options.worldHeight,
-      lerp: 0.1
-    });
+    // A 3D game looks through a different camera: an eye and a projection
+    // rather than a window onto a plane. Same lifecycle, same call sites.
+    this.camera = this.renderer.dimensions === 3
+      ? new Camera3D(this.viewport.viewWidth, this.viewport.viewHeight)
+      : new Camera(this.viewport.viewWidth, this.viewport.viewHeight, {
+        worldWidth: this.options.worldWidth,
+        worldHeight: this.options.worldHeight,
+        lerp: 0.1
+      });
 
     /**
      * Annotations drawn *on* the world rather than in it: debug geometry
@@ -997,7 +1024,7 @@ export class M2D {
   }
 
   createEntity({
-    type, x, y, z = 0, width, height, depth, spritesheet = null, options = {}, physics = {}
+    type, x, y, z = 0, width, height, depth, spritesheet = null, mesh, options = {}, physics = {}
   }) {
     const ActorClass = this.actors.get(type);
     if (!ActorClass) {
@@ -1055,12 +1082,19 @@ export class M2D {
 
     body.entity = entity;
     /**
+     * How a 3D entity is drawn: the prefab's `mesh` block with its colour
+     * in linear light, or its collider's shape in grey. Null in 2D, where
+     * the sprite is the presentation. `mesh.visible = false` hides it;
+     * `entity.mesh = null` removes it from the frame entirely.
+     */
+    entity.mesh = this.physics.dimensions === 3 ? meshFor(mesh) : null;
+    /**
      * How this entity was made, for a server to tell clients to make the
      * same one. `options` must be plain data for that to work.
      */
     entity.spawnInfo = {
       type, x, y, width, height,
-      ...(this.physics.dimensions === 3 && { z, depth }),
+      ...(this.physics.dimensions === 3 && { z, depth, ...(mesh && { mesh }) }),
       sprite: this.#sheetKey(spritesheet),
       animation: null,
       options: options ?? {},
@@ -1095,7 +1129,7 @@ export class M2D {
    * @param {number} [spec.netId] - Take this network id (a client replaying a server's spawn)
    */
   spawn({
-    type, x, y, z = 0, width, height, depth,
+    type, x, y, z = 0, width, height, depth, mesh,
     sprite = null, animation, options = {}, physics = {}, playerId = null, netId
   }) {
     const sheet = sprite && !this.headless ? this.sceneManager.getCurrentScene()?.spriteSheets.get(sprite) ?? null : null;
@@ -1103,7 +1137,7 @@ export class M2D {
     let entity;
     try {
       entity = this.createEntity({
-        type, x, y, z, width, height, depth, spritesheet: sheet, options, physics
+        type, x, y, z, width, height, depth, mesh, spritesheet: sheet, options, physics
       });
     } finally {
       this.pendingNetId = null;
