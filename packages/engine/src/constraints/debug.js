@@ -1,6 +1,23 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 export class Debug extends Constraint {
+  static params = {
+    showBounds: s.boolean({ initial: true }),
+    showCenter: s.boolean({ initial: true }),
+    showVelocity: s.boolean({ initial: true }),
+    showHealth: s.boolean({ initial: true }),
+    boundsColor: s.string({ initial: '#00ff00', editor: 'color' }),
+    boundsFillColor: s.string({ initial: 'rgba(0, 255, 0, 0.1)', editor: 'color' }),
+    centerColor: s.string({ initial: '#ff0000', editor: 'color' }),
+    textColor: s.string({ initial: '#00ff00', editor: 'color' }),
+    healthyColor: s.string({ initial: '#00ff00', editor: 'color' }),
+    lowHealthColor: s.string({ initial: '#ff0000', editor: 'color' }),
+    lowHealthThreshold: s.number({ initial: 30, min: 0 }),
+    fontSize: s.string({ initial: '12px' }),
+    fontFamily: s.string({ initial: 'monospace', editor: 'font' })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.options = {

@@ -1,6 +1,7 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+import { Chase } from 'm2d-engine/constraints/chase.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
 import { DuskLevelBackdrop } from './levelBackdrop.js';
@@ -52,6 +53,11 @@ game.registerActor('Platform', DuskPlatform);
 game.registerActor('MovingPlatform', DuskMovingPlatform);
 game.registerActor('Coin', GlowCoin);
 game.registerActor('Trigger', ValleyGate);
+
+// Constraints the scene may attach and tune by name. The higher bee is a
+// faster, longer-sighted hunter than the lower one, set in level1.json
+// rather than in a second actor or a second prefab.
+game.registerConstraint('Chase', Chase);
 
 // Register scenes
 registerMainMenu(game, {

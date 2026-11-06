@@ -1,4 +1,5 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint, KEY_BINDINGS } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * Default bindings, as physical key codes (see core/input/keyboard.js).
@@ -36,6 +37,15 @@ const DEFAULT_KEYS = Object.freeze({
  * - `keys`: bindings, as physical codes.
  */
 export class GlideControl extends Constraint {
+  static params = {
+    speed: s.number({ initial: 240, positive: true, unit: 'px/s' }),
+    grid: s.number({ initial: 32, positive: true, unit: 'px' }),
+    buffer: s.number({ initial: 0.35, min: 0, unit: 's' }),
+    snap: s.number({ initial: 0.6, min: 0, max: 1 }),
+    stopOnRepeat: s.boolean({ initial: true }),
+    keys: KEY_BINDINGS
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.keys = { ...DEFAULT_KEYS, ...options.keys };
@@ -52,6 +62,13 @@ export class GlideControl extends Constraint {
     this.queuedLeft = 0;
     this.onMove = options.onMove?.bind(entity);
     this.onStop = options.onStop?.bind(entity);
+  }
+
+  /** `keys` merges over the bindings already in place, never replaces them. */
+  configure(params) {
+    const { keys, ...rest } = params;
+    super.configure(rest);
+    if (keys) this.keys = { ...this.keys, ...keys };
   }
 
   /** The centre of the cell containing `v`, on one axis. */

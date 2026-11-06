@@ -1,4 +1,5 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * Makes an entity respond to the pointer.
@@ -39,6 +40,21 @@ import { Constraint } from '../core/constraint.js';
  * into the simple answer (place the body under the pointer each frame).
  */
 export class Interactive extends Constraint {
+  static params = {
+    hitArea: s.union([
+      s.enumOf(['body'], { match: value => typeof value === 'string' }),
+      s.object({ width: s.number({ required: true }), height: s.number({ required: true }) },
+        { match: value => value?.width !== undefined }),
+      s.object({ radius: s.number({ required: true }) }, { match: value => value?.radius !== undefined })
+    ], { initial: 'body', message: "must be 'body', { width, height } or { radius }" }),
+    follow: s.boolean({ initial: false }),
+    draggable: s.boolean({ description: 'Defaults to follow' }),
+    priority: s.number({ initial: 0 }),
+    cursor: s.string({ editor: 'cursor', description: 'CSS cursor while hovered' }),
+    consume: s.boolean({ initial: true }),
+    enabled: s.boolean({ initial: true })
+  };
+
   /**
    * @param {import('../core/entity.js').Entity} entity
    * @param {Object} [options]

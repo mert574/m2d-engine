@@ -1,4 +1,5 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint, KEY_BINDINGS } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * Default bindings, as physical key codes (see keyboardControl.js).
@@ -37,6 +38,19 @@ const DEFAULT_KEYS = Object.freeze({
  * @param {Function} [options.onBoost] - Called when a boost ignites
  */
 export class ThrustControl extends Constraint {
+  static params = {
+    thrust: s.number({ initial: 520, positive: true, unit: 'px/s²' }),
+    reverse: s.number({ initial: 260, min: 0, unit: 'px/s²' }),
+    maxSpeed: s.number({ initial: 420, positive: true, unit: 'px/s' }),
+    turn: s.number({ initial: 3.2, positive: true, unit: 'rad/s' }),
+    drag: s.number({ initial: 0.35, min: 0 }),
+    boostThrust: s.number({ initial: 2.2, positive: true, label: 'Boost thrust multiplier' }),
+    boostSpeed: s.number({ initial: 1.6, positive: true, label: 'Boost speed multiplier' }),
+    boostDuration: s.number({ initial: 1, positive: true, unit: 's' }),
+    boostCooldown: s.number({ initial: 5, min: 0, unit: 's' }),
+    keys: KEY_BINDINGS
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.keys = { ...DEFAULT_KEYS, ...options.keys };
@@ -57,6 +71,13 @@ export class ThrustControl extends Constraint {
     this.steer = 0;
     this.boostLeft = 0;
     this.boostWait = 0;
+  }
+
+  /** `keys` merges over the bindings already in place, never replaces them. */
+  configure(params) {
+    const { keys, ...rest } = params;
+    super.configure(rest);
+    if (keys) this.keys = { ...this.keys, ...keys };
   }
 
   get boosting() {

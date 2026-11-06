@@ -1,4 +1,5 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint, KEY_BINDINGS } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * Default bindings, as physical key codes. Codes rather than characters
@@ -29,6 +30,16 @@ const ZERO_VELOCITY = { x: 0, y: 0 };
 const BLOCKED_DOT = 0.85;
 
 export class KeyboardControl extends Constraint {
+  static params = {
+    acceleration: s.number({ initial: 600, positive: true, unit: 'px/s²' }),
+    deceleration: s.number({ positive: true, unit: 'px/s²', description: 'Defaults to acceleration' }),
+    maxSpeed: s.number({ initial: 300, positive: true, unit: 'px/s' }),
+    continuous: s.boolean({ initial: true }),
+    verticalMovement: s.boolean({ initial: true }),
+    inputSpace: s.enumOf(['world', 'screen'], { initial: 'world' }),
+    keys: KEY_BINDINGS
+  };
+
   constructor(entity, options = {}) {
     super(entity);
 
@@ -41,6 +52,7 @@ export class KeyboardControl extends Constraint {
     // the control has to stop them itself; in the air velocity persists,
     // like it always has.
     this.deceleration = options.deceleration ?? this.acceleration;
+    this.decelerationSet = options.deceleration !== undefined;
     this.maxSpeed = options.maxSpeed || 300; // px/s
     this.continuous = options.continuous ?? true;
     this.verticalMovement = options.verticalMovement ?? true;
@@ -55,6 +67,18 @@ export class KeyboardControl extends Constraint {
     this.onDirectionChange = options.onDirectionChange?.bind(entity);
     this.onJump = options.onJump?.bind(entity);
     this.onAttack = options.onAttack?.bind(entity);
+  }
+
+  /**
+   * `keys` merges rather than replaces, and `deceleration` follows
+   * `acceleration` unless it was set explicitly.
+   */
+  configure(params) {
+    const { keys, ...rest } = params;
+    super.configure(rest);
+    if (keys) this.keys = { ...this.keys, ...keys };
+    if (params.deceleration !== undefined) this.decelerationSet = true;
+    else if (params.acceleration !== undefined && !this.decelerationSet) this.deceleration = this.acceleration;
   }
 
   fixedUpdate(dt) {

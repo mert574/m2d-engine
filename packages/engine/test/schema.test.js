@@ -229,7 +229,7 @@ describe('schema', () => {
     });
 
     it('reports every ref scope a format reaches, for an editor\'s pickers', () => {
-      expect(refScopesOf(LEVEL_SCHEMA).sort()).toEqual(['actor', 'prefab', 'spritesheet']);
+      expect(refScopesOf(LEVEL_SCHEMA).sort()).toEqual(['actor', 'constraint', 'prefab', 'spritesheet']);
       expect(refScopesOf(UI_SCHEMA)).toEqual(['scene']);
     });
 

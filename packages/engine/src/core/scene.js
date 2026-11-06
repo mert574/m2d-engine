@@ -1,4 +1,6 @@
 import { SpriteSheet } from './spriteSheet.js';
+import { validate } from './schema.js';
+import { constraintParamsSchema } from './sceneSchema.js';
 import { Projection } from './projection.js';
 import { presentationGuard } from './headless.js';
 import { Container } from './ui/container.js';
@@ -218,6 +220,10 @@ export class Scene {
         });
 
         if (entity) {
+          // After the actor's own constructor, so a scene can retune what
+          // the actor set up rather than race it.
+          this.#applyConstraints(entity, prefab.constraints, object.constraints,
+            `object '${object.id}'`);
           entity.sceneId = object.id;
           this.entitiesById.set(object.id, entity);
           if (object.zIndex !== undefined) entity.zIndex = object.zIndex;
@@ -230,6 +236,65 @@ export class Scene {
         }
       });
     });
+  }
+
+  /**
+   * Attach and tune the constraints a prefab and a placed object declare.
+   *
+   * Three cases, in one rule: an entry whose slot is already filled —
+   * because the actor added it, or because the prefab declared it —
+   * retunes what is there through `configure`; an entry for an empty slot
+   * constructs the constraint. An object's entry for a slot the prefab
+   * also declares merges over it, so a single guard can patrol faster
+   * without needing a prefab of its own.
+   *
+   * Params are validated here, against the constraint class's `static
+   * params`. The loader already checked the ones whose `type` it could
+   * resolve; this covers the rest — an entry that only retunes names no
+   * type, and until the entity exists there is nothing to say which class
+   * that slot holds.
+   *
+   * @param {import('./entity.js').Entity} entity
+   * @param {Object} [fromPrefab]
+   * @param {Object} [fromObject]
+   * @param {string} where - For error messages.
+   */
+  #applyConstraints(entity, fromPrefab, fromObject, where) {
+    if (!fromPrefab && !fromObject) return;
+
+    const slots = new Set([...Object.keys(fromPrefab ?? {}), ...Object.keys(fromObject ?? {})]);
+    for (const slot of slots) {
+      const declared = fromPrefab?.[slot];
+      const override = fromObject?.[slot];
+      const type = override?.type ?? declared?.type;
+      const existing = entity.getConstraint(slot);
+
+      if (!type && !existing) {
+        throw new Error(`M2D scene '${this.config.name}': ${where} tunes constraint ` +
+          `'${slot}', but nothing attached one and no type was given`);
+      }
+
+      const ConstraintClass = type ? this.game.constraintTypes.get(type) : existing.constructor;
+      if (type && !ConstraintClass) {
+        throw new Error(`M2D scene '${this.config.name}': ${where} wants constraint type ` +
+          `'${type}', which is not registered`);
+      }
+
+      const params = this.#constraintParams(
+        ConstraintClass, { ...declared?.params, ...override?.params }, slot, where);
+
+      if (existing) existing.configure(params);
+      else entity.addConstraint(slot, new ConstraintClass(entity, params));
+    }
+  }
+
+  /** Validated params for one constraint entry. */
+  #constraintParams(ConstraintClass, params, slot, where) {
+    const fail = (path, message) => {
+      throw new Error(`M2D scene '${this.config.name}': ${where}, constraint ` +
+        `'${slot}'${path ? ` at ${path}` : ''}: ${message}`);
+    };
+    return validate(constraintParamsSchema(ConstraintClass), params, { fail });
   }
 
   createPrefabInstance(data) {

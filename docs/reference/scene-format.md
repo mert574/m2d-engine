@@ -51,6 +51,7 @@ A map from prefab name to prefab.
 | `spritesheet` | no | A key in `assets.spritesheets` |
 | `defaultAnimation` | no | An animation on that sheet. Defaults to `default` |
 | `physics` | no | Body settings, below |
+| `constraints` | no | Behaviours to attach, below |
 
 ### `prefabs.*.physics`
 
@@ -91,7 +92,40 @@ An array of layers.
 | `width`, `height` | no | `32` | Size in world units. A circle's diameter is `width` |
 | `angle` | no | `0` | Rotation in radians |
 | `zIndex` | no | `0` | Draw order. Entities and tile layers draw in ascending `zIndex`; within one, entities draw by `world.sort` |
+| `constraints` | no | | Behaviours to attach or retune for this one object, below |
 | `properties` | no | `{}` | Passed to the actor constructor as `options` |
+
+## `constraints`
+
+A map from **slot name** — the name `entity.getConstraint` uses — to an entry. A prefab's constraints apply to every instance; an object's apply to that one, merged over the prefab's.
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `type` | see below | A name passed to `game.registerConstraint` |
+| `params` | no | The constraint's tunables, validated against its `static params` |
+
+`type` may be omitted when the entry only retunes a constraint that is already there — one the actor attached in its constructor, or one the prefab declared. An entry for an empty slot with no `type` is an error when the scene builds.
+
+```json
+"prefabs": {
+  "guard": {
+    "actor": "Ghost",
+    "constraints": { "chase": { "type": "Chase", "params": { "speed": 80 } } }
+  }
+},
+"layers": [{
+  "name": "main",
+  "objects": [
+    { "id": "guard-1", "prefab": "guard", "x": 100, "y": 100 },
+    { "id": "guard-2", "prefab": "guard", "x": 300, "y": 100,
+      "constraints": { "chase": { "params": { "speed": 160 } } } }
+  ]
+}]
+```
+
+An entry merges rather than replaces: `guard-2` chases faster and keeps every other param the prefab set. Params are checked against the constraint class wherever this document names it — on the prefab, or on an object whose prefab declared the same slot. An override of a constraint an *actor* attached names no type anywhere in the file, so its params are checked when the scene builds instead, with the same messages.
+
+Only a constraint's data can be declared. Its callbacks are code and stay in the actor. See [Built-in constraints](./constraints).
 
 ## `background`
 

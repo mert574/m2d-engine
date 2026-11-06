@@ -152,6 +152,64 @@ const WORLD = s.object({
   projection: PROJECTION
 });
 
+// === Constraints ===
+
+/**
+ * The schema for one constraint's `params`: its class's `static params`,
+ * as an object descriptor.
+ *
+ * Defaults are deliberately not applied. A constraint's defaults belong to
+ * its constructor, and a scene object that overrides one param must not
+ * thereby reset the rest — which is what filling in defaults here would
+ * do. `static params` records a default as `initial`, which validation
+ * ignores and an inspector shows.
+ */
+export function constraintParamsSchema(ConstraintClass) {
+  return s.object(ConstraintClass?.params ?? {});
+}
+
+/**
+ * A constraint attached by a prefab or by a placed object.
+ *
+ * `type` names a class registered with `game.registerConstraint`. It may
+ * be omitted when the entry only retunes a constraint that is already
+ * there — one the actor added in its constructor, or one the prefab
+ * declared — which is how a single placed guard patrols faster than the
+ * rest without a new prefab.
+ */
+function constraintEntry(inheritedType) {
+  return s.object({
+    type: s.ref('constraint', { label: 'Constraint' }),
+    params: s.dynamic((value, ctx) => {
+      const type = ctx.parent?.type ?? inheritedType;
+      const ConstraintClass = type ? ctx.context?.constraintTypes?.get(type) : null;
+      // Nothing names a class here: the entry retunes a constraint its
+      // actor attached in code, or there is no registry to ask because the
+      // loader has no game. Either way the params are checked when they
+      // are applied, where the entity makes the class known.
+      return ConstraintClass ? constraintParamsSchema(ConstraintClass) : null;
+    }, { label: 'Parameters' })
+  });
+}
+
+const CONSTRAINTS = s.record(constraintEntry(null), {
+  label: 'Constraints',
+  description: 'By slot name, as passed to entity.getConstraint'
+});
+
+/**
+ * The constraints block on a placed object.
+ *
+ * An entry here usually names no `type`, because it retunes one already
+ * attached. When the prefab is the thing that attached it, the type is
+ * knowable from this document, so the override's params are checked here
+ * rather than left to load time — which is most of them.
+ */
+const OBJECT_CONSTRAINTS = s.dynamic((value, ctx) => {
+  const declared = ctx.context?.prefabs?.[ctx.parent?.prefab]?.constraints;
+  return s.record(s.dynamic((entry, entryCtx) => constraintEntry(declared?.[entryCtx.key]?.type)));
+}, { label: 'Constraints' });
+
 // === Prefabs ===
 
 const FOOTPRINT = s.object({
@@ -176,7 +234,8 @@ const PREFAB = s.object({
   actor: s.ref('actor', { required: true }),
   spritesheet: s.ref('spritesheet'),
   defaultAnimation: s.string(),
-  physics: PHYSICS
+  physics: PHYSICS,
+  constraints: CONSTRAINTS
 }, {
   // An animation belongs to *this* prefab's sheet, so it cannot be a plain
   // `ref` — the namespace depends on a sibling field.
@@ -205,6 +264,7 @@ const OBJECT = s.object({
   height: s.number({ positive: true, unit: 'px', default: DEFAULT_OBJECT_SIZE }),
   angle: s.number({ unit: 'rad', message: value => `must be a number (radians), got ${JSON.stringify(value)}` }),
   zIndex: s.number({ label: 'Draw order' }),
+  constraints: OBJECT_CONSTRAINTS,
   properties: actorProperties
 });
 

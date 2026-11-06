@@ -195,6 +195,41 @@ const health = this.getConstraint('health');
 
 Prefer a constraint over logic inside an actor when another actor could want the same behaviour. The built-in `Bee` is collision setup plus `Chase`, `Health`, `ContactDamage`, `DamageFlash` and `Debug`.
 
+### Declaring constraints in a scene
+
+A behaviour does not need an actor written for it. Register the constraint, and a scene can attach and tune it — on a prefab, for every instance, or on a single placed object.
+
+```javascript
+import { Chase } from 'm2d-engine/constraints/chase.js';
+
+game.registerConstraint('Chase', Chase);
+```
+
+```json
+"prefabs": {
+  "guard": {
+    "actor": "Ghost",
+    "constraints": { "chase": { "type": "Chase", "params": { "speed": 80 } } }
+  }
+},
+"objects": [
+  { "id": "guard-1", "prefab": "guard", "x": 100, "y": 100 },
+  { "id": "guard-2", "prefab": "guard", "x": 300, "y": 100,
+    "constraints": { "chase": { "params": { "speed": 160 } } } }
+]
+```
+
+The key is the slot name `getConstraint` uses. An object's entry merges over the prefab's, so `guard-2` chases faster and keeps the rest.
+
+An entry whose slot is already filled **retunes** what is there rather than replacing it, and that includes a constraint the actor attached in its own constructor. So one bee in a level can see further than the others without a second actor or a second prefab, and without losing the callbacks its actor wired up:
+
+```json
+{ "id": "bee-2", "prefab": "bee", "x": 1180, "y": 768,
+  "constraints": { "chase": { "params": { "speed": 110, "detectionRange": 620 } } } }
+```
+
+`type` is only needed when the slot is empty. What a scene may set is the constraint's `static params`, its data; callbacks cannot be written in JSON and stay in the actor. Params are validated on load wherever the file names the type, and when the scene builds otherwise. See [Scene format](../reference/scene-format#constraints).
+
 ### Writing a constraint
 
 Extend `Constraint` and override the methods you need. The entity calls them in the same situations as its own.

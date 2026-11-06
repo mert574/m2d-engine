@@ -8,6 +8,29 @@ Constraints from `m2d-engine/constraints/`. Attach one with `entity.addConstrain
 
 Options marked with an asterisk treat `0` as unset and fall back to the default.
 
+## Attaching one from a scene
+
+A constraint can also be declared in a scene file instead of in an actor, on a prefab or on a single placed object. Register it first, the way actors are registered:
+
+```javascript
+import { Chase } from 'm2d-engine/constraints/chase.js';
+
+game.registerConstraint('Chase', Chase);
+```
+
+```json
+"prefabs": {
+  "guard": {
+    "actor": "Ghost",
+    "constraints": { "chase": { "type": "Chase", "params": { "speed": 80 } } }
+  }
+}
+```
+
+What a scene may set is the class's `static params` — the constraint's data. Callbacks are code and are not in `params`, so an actor still wires those up. See [Scene format](./scene-format#constraints) for the block, and [Entities](../guide/entities#declaring-constraints-in-a-scene) for overriding and retuning.
+
+Writing a constraint of your own? Give it a `static params` of schema descriptors, one per tunable, named after the field it sets. A tunable missing from `params` cannot be set from a scene, and tooling cannot see it. Record a default as `initial`, never as a schema `default`: an override that filled in defaults would reset every param the author did not mention. Override `configure(params)` when a value is not simply stored — when another field is derived from it, or a map should merge rather than replace.
+
 ## Health
 
 `constraints/health.js`. Hit points, invulnerability after a hit and a health bar above the entity.

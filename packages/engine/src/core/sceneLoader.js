@@ -99,7 +99,11 @@ export class SceneLoader {
     return validate(schema, scene, {
       fail,
       refs: this.#refs(scene),
-      context: { spritesheets: scene.assets?.spritesheets ?? {} }
+      context: {
+        spritesheets: scene.assets?.spritesheets ?? {},
+        prefabs: scene.prefabs ?? {},
+        constraintTypes: this.game?.constraintTypes ?? null
+      }
     });
   }
 
@@ -120,6 +124,10 @@ export class SceneLoader {
         (name, known) => `no prefab named '${name}' (declared: ${known.join(', ') || 'none'})`)
     };
 
+    if (this.game?.constraintTypes) {
+      refs.constraint = scope(this.game.constraintTypes.keys(),
+        (name, known) => `constraint '${name}' is not registered (registered: ${known.join(', ') || 'none'})`);
+    }
     if (this.game?.actors) {
       refs.actor = scope(this.game.actors.keys(),
         (name, known) => `actor '${name}' is not registered (registered: ${known.join(', ') || 'none'})`);

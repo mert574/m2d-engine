@@ -1,4 +1,5 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 import { CollisionCategories } from '../core/constants.js';
 import { Angle } from '../core/math.js';
 
@@ -45,6 +46,17 @@ const KNOCKBACK_IMPULSE = { x: 8335, y: -4997 };
  *   target's `elevation` here
  */
 export class Attack extends Constraint {
+  static params = {
+    damage: s.number({ initial: 10, min: 0 }),
+    range: s.number({ initial: 40, positive: true, unit: 'px' }),
+    cooldown: s.number({ initial: 30, min: 0, unit: 'frames at 60fps' }),
+    arc: s.number({ initial: Math.PI, min: 0, unit: 'rad' }),
+    knockback: s.number({ min: 0, unit: 'px/s' }),
+    comboWindow: s.number({ initial: 0.8, min: 0, unit: 's' }),
+    targetCategory: s.number({ label: 'Target category', description: 'A CollisionCategories bit' })
+    // `combo` steps may carry their own callbacks, so they stay code.
+  };
+
   /**
    * `swings` counts every swing, so a client can tell a new one from the
    * same one still in progress and run `onStart` for it (its look, its

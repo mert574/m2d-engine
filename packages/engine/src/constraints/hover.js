@@ -1,4 +1,5 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * A purely visual idle motion: bob on a sine wave, spin at a constant rate,
@@ -13,6 +14,12 @@ import { Constraint } from '../core/constraint.js';
  * @param {number} [options.spin] - Spin rate, rad/s. 0 disables the spin.
  */
 export class Hover extends Constraint {
+  static params = {
+    amplitude: s.number({ initial: 5, min: 0, unit: 'px' }),
+    frequency: s.number({ initial: 2, min: 0, unit: 'Hz' }),
+    spin: s.number({ initial: 0, unit: 'rad/s' })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.amplitude = options.amplitude ?? 5;

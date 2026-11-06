@@ -2,16 +2,25 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { SceneLoader, SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
+import { Chase } from 'm2d-engine/constraints/chase.js';
 
 /**
  * Every scene the repo ships must satisfy the engine's scene schema, so
  * tightening the validator or editing a scene cannot quietly break an example.
  */
 
+/**
+ * Constraint classes a demo may name in a scene file. The real classes,
+ * not stubs: their `static params` is what declared params validate
+ * against, so a mistyped param in a demo scene fails here.
+ */
+const CONSTRAINT_CLASSES = { Chase };
+
 /** A game stub exposing only what the loader cross-references. */
-function makeGame({ actors = [], scenes = [] } = {}) {
+function makeGame({ actors = [], scenes = [], constraints = [] } = {}) {
   return {
     actors: new Map(actors.map(name => [name, class {}])),
+    constraintTypes: new Map(constraints.map(name => [name, CONSTRAINT_CLASSES[name]])),
     sceneManager: { scenes: new Map(), scenesToLoad: scenes.map(name => ({ name })) }
   };
 }
@@ -25,6 +34,11 @@ describe('shipped example scenes', () => {
     iso: ['ObliquePlayer', 'Ghost', 'Wall', 'Torch', 'Coin', 'Trigger', 'Quartermaster'],
     belt: ['ObliquePlayer', 'Ghost', 'Lamp', 'Bound', 'Trigger', 'Street', 'Foreground'],
     drift: ['Ship', 'Meteor', 'Drone', 'Salvage', 'Gate', 'Bound', 'Sky']
+  };
+  // Constraints each demo registers with `game.registerConstraint`, and so
+  // may attach and tune from its scene files.
+  const constraints = {
+    platformer: ['Chase']
   };
   const scenes = {
     platformer: ['mainMenu', 'level1'],
@@ -59,7 +73,9 @@ describe('shipped example scenes', () => {
   });
 
   it.each(files)('$name validates', ({ example, path }) => {
-    const game = makeGame({ actors: actors[example], scenes: scenes[example] });
+    const game = makeGame({
+      actors: actors[example], scenes: scenes[example], constraints: constraints[example]
+    });
     const data = JSON.parse(readFileSync(path, 'utf8'));
     expect(() => new SceneLoader(game).load(data)).not.toThrow();
   });

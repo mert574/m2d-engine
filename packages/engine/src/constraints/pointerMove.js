@@ -1,4 +1,5 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * Click to move: a press on the world sets a destination on the ground, and
@@ -19,6 +20,13 @@ import { Constraint } from '../core/constraint.js';
  * @param {Function} [options.onMove] - `(dx, dy)` unit direction each tick while moving
  */
 export class PointerMove extends Constraint {
+  static params = {
+    speed: s.number({ initial: 200, positive: true, unit: 'px/s' }),
+    speedSpace: s.enumOf(['screen', 'world'], { initial: 'screen' }),
+    arrive: s.number({ initial: 8, min: 0, unit: 'px' }),
+    button: s.integer({ initial: 0, min: 0, label: 'Pointer button' })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.speed = options.speed ?? 200;

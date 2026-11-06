@@ -108,6 +108,11 @@ npx playwright install chromium   # once, for test:browser
   `SCENE_VERSION` and adds a migration in `sceneMigrations.js`. The repo's
   own scenes are then rewritten at the new version (a test asserts it);
   migrations are for scenes the engine does not own.
+- A constraint declares its tunables in `static params` as schema
+  descriptors named after the fields they set, with defaults recorded as
+  `initial` (never a schema `default`, which an override would apply).
+  Callbacks stay out of `params`: they are code, not scene data. Override
+  `configure` when a param is derived or merges.
 - Every scene object and UI element has a unique `id`. Code that builds a
   scene at runtime numbers its own objects; the loader never invents one,
   because an invented id is not stable across a reorder or a save.

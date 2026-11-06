@@ -20,6 +20,10 @@ import { Constraint } from '../core/constraint.js';
  * @param {() => boolean} [options.canCast] - Extra gate, e.g. not while talking
  */
 export class Abilities extends Constraint {
+  // Each ability carries a `cast` function, so a set of them is code,
+  // not data, and cannot come from a scene file.
+  static params = {};
+
   constructor(entity, options = {}) {
     super(entity);
     this.list = (options.abilities ?? []).map(a => ({ locked: false, remaining: 0, ...a }));

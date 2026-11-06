@@ -1,4 +1,5 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint, KEY_BINDINGS } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * Arcade top-down car handling.
@@ -63,6 +64,27 @@ import { Constraint } from '../core/constraint.js';
  * @param {() => void} [options.onNitro] - Nitro ignited.
  */
 export class CarControl extends Constraint {
+  static params = {
+    manual: s.boolean({ initial: false, label: 'Manual drift' }),
+    acceleration: s.number({ initial: 420, positive: true, unit: 'px/s²' }),
+    maxSpeed: s.number({ initial: 560, positive: true, unit: 'px/s' }),
+    brake: s.number({ initial: 780, positive: true, unit: 'px/s²' }),
+    maxReverse: s.number({ initial: 170, min: 0, unit: 'px/s' }),
+    drag: s.number({ initial: 0.6, min: 0 }),
+    grip: s.number({ initial: 18, min: 0 }),
+    driftGrip: s.number({ initial: 2.4, min: 0 }),
+    steer: s.number({ initial: 2.4, positive: true, unit: 'rad/s' }),
+    driftSteer: s.number({ initial: 3.6, positive: true, unit: 'rad/s' }),
+    driftThreshold: s.number({ initial: 90, min: 0, unit: 'px/s' }),
+    nitroThrust: s.number({ initial: 2.1, positive: true }),
+    nitroBoost: s.number({ initial: 1.35, positive: true }),
+    nitroDuration: s.number({ initial: 1.1, positive: true, unit: 's' }),
+    nitroCooldown: s.number({ initial: 5, min: 0, unit: 's' }),
+    driftBoost: s.tuple([s.number(), s.number()], { label: 'Drift boost thresholds, seconds' }),
+    driftBoostSpeed: s.tuple([s.number(), s.number()], { label: 'Drift boost speed multipliers' }),
+    keys: KEY_BINDINGS
+  };
+
   constructor(entity, options = {}) {
     super(entity);
 
@@ -131,6 +153,13 @@ export class CarControl extends Constraint {
     // Telemetry, refreshed every tick; what HUDs and skid marks read.
     this.forwardSpeed = 0;
     this.lateralSpeed = 0;
+  }
+
+  /** `keys` merges over the bindings already in place, never replaces them. */
+  configure(params) {
+    const { keys, ...rest } = params;
+    super.configure(rest);
+    if (keys) this.keys = { ...this.keys, ...keys };
   }
 
   /** Whether the nitro would ignite right now. */

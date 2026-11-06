@@ -351,6 +351,13 @@ export class M2D {
     this.entities = new Set();
     this.player = null;
     this.actors = new Map();
+    /**
+     * Constraint classes a scene may attach by name, registered with
+     * `registerConstraint`. Like actors, a game registers the ones it uses,
+     * so a build only carries the behaviours it actually plays.
+     * @type {Map<string, typeof import('./constraint.js').Constraint>}
+     */
+    this.constraintTypes = new Map();
     this.isGameOver = false;
     /**
      * Network ids: one per entity, in creation order, reset with the scene.
@@ -775,6 +782,21 @@ export class M2D {
 
   registerActor(type, ActorClass) {
     this.actors.set(type, ActorClass);
+  }
+
+  /**
+   * Make a constraint available to scene files by name, so a prefab or a
+   * placed object can attach and tune it without an actor written for it.
+   *
+   * What the scene may set is the class's `static params`; the loader
+   * validates against it and an editor reads it to draw an inspector. A
+   * constraint's callbacks are not in `params` and stay the actor's job.
+   *
+   * @param {string} type - The name scenes use, conventionally the class name.
+   * @param {typeof import('./constraint.js').Constraint} ConstraintClass
+   */
+  registerConstraint(type, ConstraintClass) {
+    this.constraintTypes.set(type, ConstraintClass);
   }
 
   /**

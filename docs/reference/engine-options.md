@@ -104,6 +104,7 @@
 | `reset()` | Destroy constraints, clear entities, physics and layers, reset the camera to defaults, stop music. See [Game loop](../guide/game-loop#resetting) |
 | `destroy()` | Stop the loop and release every listener and resource |
 | `registerActor(name, Class)` | Make an actor available to scene prefabs |
+| `registerConstraint(name, Class)` | Make a constraint available to scene prefabs and placed objects. See [Built-in constraints](./constraints#attaching-one-from-a-scene) |
 | `registerIntents(set)` | Install the game's intents from `defineIntents`. Every player gets a queue. See [Intents](../guide/headless#intents) |
 | `entityById(id)` | The live entity with this network id, or `null` |
 | `spawn(type, x, y, width, height, { sprite, animation, options, physics, playerId })` | Create an entity from a registered actor and add it to the world, recording how so a server can send it. Returns the entity. See [Creating entities at runtime](../guide/entities#creating-entities-at-runtime) |

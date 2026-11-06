@@ -1,4 +1,5 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * Footsteps paced by distance travelled.
@@ -22,6 +23,13 @@ import { Constraint } from '../core/constraint.js';
  * @param {Function} [options.onStep] - Called with the step index, bound to the entity
  */
 export class Footsteps extends Constraint {
+  static params = {
+    sounds: s.array(s.string({ nonEmpty: true }), { label: 'Sound keys' }),
+    stride: s.number({ initial: 34, positive: true, unit: 'px' }),
+    minSpeed: s.number({ initial: 30, min: 0, unit: 'px/s' }),
+    landing: s.boolean({ initial: true })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.sounds = options.sounds ?? [];

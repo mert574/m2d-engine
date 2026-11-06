@@ -1,6 +1,13 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 export class Health extends Constraint {
+  static params = {
+    maxHealth: s.number({ initial: 100, positive: true }),
+    invulnerableDuration: s.number({ initial: 1, min: 0, unit: 's' }),
+    showBar: s.boolean({ initial: true })
+  };
+
   static replicated = ['currentHealth', 'maxHealth'];
 
   constructor(entity, options = {}) {

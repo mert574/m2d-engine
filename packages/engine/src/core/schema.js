@@ -95,6 +95,16 @@ export const s = {
    * what tells an editor which picker to show.
    */
   ref: (scope, options = {}) => descriptor('ref', { scope, ...options }),
+  /**
+   * A shape chosen at validation time rather than written here: the params
+   * of a constraint depend on which constraint it is, and the set of
+   * constraints is a registry a game fills, not a fixed list.
+   *
+   * `select(value, ctx)` returns the descriptor to use, or null to accept
+   * the value unchecked — which is the honest answer when the registry
+   * cannot say, as in a loader with no game attached.
+   */
+  dynamic: (select, options = {}) => descriptor('dynamic', { select, ...options }),
   /** Anything at all. For a field the engine passes through untouched. */
   any: (options = {}) => descriptor('any', options)
 };
@@ -260,6 +270,11 @@ export function validate(desc, value, ctx) {
       if (!Array.isArray(value) || value.length !== desc.items.length) reject();
       return value.map((entry, i) => validate(desc.items[i], entry,
         { ...ctx, path: `${path}[${i}]`, key: String(i), parent: value }));
+    }
+
+    case 'dynamic': {
+      const chosen = desc.select(value, ctx);
+      return chosen ? validate(chosen, value, ctx) : value;
     }
 
     case 'union': {

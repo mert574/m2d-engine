@@ -272,7 +272,15 @@
           "x": 1180,
           "y": 768,
           "width": 32,
-          "height": 32
+          "height": 32,
+          "constraints": {
+            "chase": {
+              "params": {
+                "speed": 110,
+                "detectionRange": 620
+              }
+            }
+          }
         },
         {
           "id": "trigger-1",

@@ -1,4 +1,5 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /** How close to a path point counts as arrived, in px. */
 const ARRIVE_DISTANCE = 1;
@@ -27,12 +28,21 @@ const ARRIVE_DISTANCE = 1;
  *   reaching cruise speed in half a second.
  */
 export class PathFollow extends Constraint {
+  static params = {
+    points: s.array(s.object({ x: s.number({ required: true }), y: s.number({ required: true }) }),
+      { label: 'Path points' }),
+    speed: s.number({ initial: 3, positive: true }),
+    waitTime: s.number({ initial: 1000, min: 0, unit: 'ms' }),
+    acceleration: s.number({ positive: true, description: 'Defaults to twice the speed' })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.points = options.points || [];
     this.speed = options.speed || 3;
     this.waitTime = (options.waitTime ?? 1000) / 1000;
     this.acceleration = options.acceleration ?? this.speed * 2;
+    this.accelerationSet = options.acceleration !== undefined;
     this.currentSpeed = 0;
     this.currentPoint = 0;
     /** Seconds of pause left; counted in game time, so pausing pauses it. */
@@ -41,6 +51,16 @@ export class PathFollow extends Constraint {
     if (this.points.length > 0) {
       entity.body.setPosition({ x: this.points[0].x, y: this.points[0].y });
     }
+  }
+
+  /**
+   * `acceleration` follows `speed` unless it was set explicitly, so a scene
+   * that retunes `speed` alone does not leave a stale `acceleration` behind.
+   */
+  configure(params) {
+    super.configure(params);
+    if (params.acceleration !== undefined) this.accelerationSet = true;
+    else if (params.speed !== undefined && !this.accelerationSet) this.acceleration = this.speed * 2;
   }
 
   /** Hold position, keeping riders steady rather than sliding out. */

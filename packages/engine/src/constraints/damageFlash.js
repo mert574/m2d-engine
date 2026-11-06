@@ -1,4 +1,5 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * Tints an entity for a moment after it is hit. Call `flash()` from a
@@ -15,6 +16,11 @@ import { Constraint } from '../core/constraint.js';
  * @param {string} [options.color] - Overlay fill.
  */
 export class DamageFlash extends Constraint {
+  static params = {
+    duration: s.number({ initial: 0.167, min: 0, unit: 's' }),
+    color: s.string({ initial: 'rgba(255, 0, 0, 0.5)', editor: 'color' })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.duration = options.duration ?? 0.167; // ~10 frames at 60fps

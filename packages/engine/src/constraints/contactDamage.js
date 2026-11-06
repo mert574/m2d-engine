@@ -1,6 +1,13 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 export class ContactDamage extends Constraint {
+  static params = {
+    damage: s.number({ initial: 33, min: 0 }),
+    knockbackStrength: s.number({ initial: 720, min: 0, unit: 'px/s' }),
+    stunDuration: s.number({ initial: 0.5, min: 0, unit: 's' })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.damage = options.damage ?? 33;

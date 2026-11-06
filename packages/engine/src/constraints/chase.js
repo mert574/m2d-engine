@@ -1,4 +1,5 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 import { Vec2 } from '../core/math.js';
 
 /**
@@ -19,16 +20,35 @@ import { Vec2 } from '../core/math.js';
  * @param {number} [options.wanderInterval] - Seconds between wander targets.
  */
 export class Chase extends Constraint {
+  static params = {
+    speed: s.number({ initial: 60, positive: true, unit: 'px/s', label: 'Pursuit speed' }),
+    idleSpeed: s.number({ positive: true, unit: 'px/s', label: 'Wander speed', description: 'Defaults to 60% of speed' }),
+    detectionRange: s.number({ initial: 400, positive: true, unit: 'px' }),
+    wanderRadius: s.number({ initial: 50, positive: true, unit: 'px' }),
+    wanderInterval: s.number({ initial: 2, positive: true, unit: 's' })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.speed = options.speed ?? 60;
     this.idleSpeed = options.idleSpeed ?? this.speed * 0.6;
+    this.idleSpeedSet = options.idleSpeed !== undefined;
     this.detectionRange = options.detectionRange ?? 400;
     this.wanderRadius = options.wanderRadius ?? 50;
     this.wanderInterval = options.wanderInterval ?? 2;
 
     this.wanderTime = 0;
     this.target = this.#newWanderTarget();
+  }
+
+  /**
+   * `idleSpeed` follows `speed` unless it was set explicitly, so a scene
+   * that retunes `speed` alone does not leave a stale `idleSpeed` behind.
+   */
+  configure(params) {
+    super.configure(params);
+    if (params.idleSpeed !== undefined) this.idleSpeedSet = true;
+    else if (params.speed !== undefined && !this.idleSpeedSet) this.idleSpeed = this.speed * 0.6;
   }
 
   #newWanderTarget() {

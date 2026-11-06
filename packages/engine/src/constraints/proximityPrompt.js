@@ -1,4 +1,5 @@
 import { Constraint } from '../core/constraint.js';
+import { s } from '../core/schema.js';
 
 /**
  * A prompt that appears over an entity while the player is close, and a
@@ -14,6 +15,13 @@ import { Constraint } from '../core/constraint.js';
  * @param {string} [options.color]
  */
 export class ProximityPrompt extends Constraint {
+  static params = {
+    radius: s.number({ initial: 110, positive: true, unit: 'px' }),
+    text: s.string({ initial: 'E' }),
+    offsetY: s.number({ unit: 'px' }),
+    color: s.string({ initial: 'rgba(240, 236, 220, 0.95)', editor: 'color' })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.radius = options.radius ?? 110;
