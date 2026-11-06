@@ -1,9 +1,27 @@
 import RAPIER from '@dimforge/rapier2d-compat';
 import { PhysicsWorldBase } from './worldBase.js';
 import {
-  LENGTH_UNIT, CONTACT_PAD, CHARACTER_OFFSET, CHARACTER_SNAP, CHARACTER_NUDGE,
+  LENGTH_UNIT, CONTACT_PAD, CHARACTER_OFFSET, CHARACTER_SNAP,
   RapierBodyMaterial, bodyDescFor, frictionAirToDamping
 } from './rapierShared.js';
+
+/**
+ * How hard the controller pushes a character back out along contact
+ * normals, in px. Rapier's default (1e-4) assumes meters; at pixel scale it
+ * is nothing, so a character pressed against a wall crept ~1px inside it —
+ * and once flat against a face, the slide around that wall's corner
+ * deadlocks (a face contact has no tangential escape). Tuned by sweep: 0.02
+ * still deadlocks the corner, while 0.1 holds the character so far off the
+ * ground that `grounded` detection loses it and it hangs hovering. 0.05
+ * does both.
+ *
+ * This is a 2D number. The same sweep against the 3D solver found neither
+ * problem to fix and a real cost: at 0.05 a walking character covered 70px
+ * of a commanded 120, because the nudge eats part of every step's
+ * horizontal move and the controller's velocity reconciliation feeds that
+ * loss back in. The 3D backend leaves Rapier's default alone.
+ */
+const CHARACTER_NUDGE = 0.05;
 
 /**
  * The Rapier 2D implementation of the physics contract described in

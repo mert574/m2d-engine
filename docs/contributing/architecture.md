@@ -41,7 +41,7 @@ packages/engine/src/
 
 ## Physics boundary
 
-Nothing outside `core/physics/` imports a physics library. `index.js` documents the contract and exports `initPhysics` and `createPhysicsWorld`. `rapierBackend.js` implements the contract over Rapier 2D. `worldBase.js` holds the solver-independent fixed-step clock and interpolation alpha.
+Nothing outside `core/physics/` imports a physics library. `index.js` documents the contract and exports `initPhysics` and `createPhysicsWorld`, which take the dimension to build on. `rapierBackend.js` implements the contract over Rapier 2D and `rapier3dBackend.js` over Rapier 3D; they are separate worlds on separate WASM modules, and a game loads only the one it plays. `rapierShared.js` holds what a dimension does not change — the tuning constants, the `frictionAir` conversion and the material half of a body handle — and imports no Rapier of its own, since a backend passes its module in. `worldBase.js` holds the solver-independent fixed-step clock and interpolation alpha.
 
 Rules the boundary keeps:
 

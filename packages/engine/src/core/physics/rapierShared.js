@@ -51,17 +51,6 @@ export const CHARACTER_OFFSET = 0.5;
 export const CHARACTER_SNAP = 4;
 
 /**
- * How hard the controller pushes a character back out along contact normals,
- * in px. Rapier's default (1e-4) assumes meters; at pixel scale it is
- * nothing, so a character pressed against a wall crept ~1px inside it — and
- * once flat against a face, the slide around that wall's corner deadlocks
- * (a face contact has no tangential escape). Tuned by sweep: 0.02 still
- * deadlocks the corner, while 0.1 holds the character so far off the ground
- * that `grounded` detection loses it and it hangs hovering. 0.05 does both.
- */
-export const CHARACTER_NUDGE = 0.05;
-
-/**
  * `frictionAir` is the contract's drag knob, carried over from Matter.js,
  * which damped velocity by that fraction per 60Hz step. Rapier instead damps
  * by `1 / (1 + dt * linearDamping)` per step; equating the two per-step

@@ -73,19 +73,39 @@
  * based tests.
  */
 
-/** The world constructor, once `initPhysics` has compiled the WASM module. */
-let PhysicsWorld = null;
+/**
+ * World constructors by dimension, once `initPhysics` has compiled the
+ * matching WASM module. A game that only ever runs 2D never fetches the 3D
+ * one, and the reverse.
+ */
+const PhysicsWorlds = { 2: null, 3: null };
 
 /**
- * Load and initialize the physics simulation. Await once before constructing
- * M2D: this is where Rapier's WASM module is fetched and compiled, and no
- * world can exist until it resolves. Calling it again is a no-op.
+ * Load and initialize the physics simulation. Await once before
+ * constructing M2D: this is where Rapier's WASM module is fetched and
+ * compiled, and no world can exist until it resolves. Calling it again for
+ * the same dimension is a no-op.
+ *
+ * @param {object} [options]
+ * @param {2|3} [options.dimensions=2] - Which solver to load. The two are
+ *   separate worlds and separate WASM modules; see
+ *   `docs/plans/3d-and-editor.md` for why the engine runs both rather than
+ *   treating 2D as a special case of 3D.
  */
-export async function initPhysics() {
-  if (PhysicsWorld) return;
+export async function initPhysics({ dimensions = 2 } = {}) {
+  if (dimensions !== 2 && dimensions !== 3) {
+    throw new Error(`M2D: physics dimensions must be 2 or 3, got ${JSON.stringify(dimensions)}`);
+  }
+  if (PhysicsWorlds[dimensions]) return;
+  if (dimensions === 3) {
+    const rapier = await import('./rapier3dBackend.js');
+    await rapier.init();
+    PhysicsWorlds[3] = rapier.RapierPhysicsWorld3D;
+    return;
+  }
   const rapier = await import('./rapierBackend.js');
   await rapier.init();
-  PhysicsWorld = rapier.RapierPhysicsWorld;
+  PhysicsWorlds[2] = rapier.RapierPhysicsWorld;
 }
 
 /**
@@ -105,10 +125,15 @@ export async function initPhysics() {
  *   it so the solver and the gameplay tick cannot disagree.
  * @param {boolean} [options.interpolate] - Blend drawn transforms between
  *   steps (default true). See PhysicsBody.renderPosition.
+ * @param {2|3} [options.dimensions=2] - Which solver to build on. It must
+ *   already be loaded by `initPhysics`.
  */
 export function createPhysicsWorld(options = {}) {
+  const dimensions = options.dimensions ?? 2;
+  const PhysicsWorld = PhysicsWorlds[dimensions];
   if (!PhysicsWorld) {
-    throw new Error('M2D: physics is not initialized — await initPhysics() first');
+    throw new Error(`M2D: ${dimensions}D physics is not initialized — ` +
+      `await initPhysics({ dimensions: ${dimensions} }) first`);
   }
   return new PhysicsWorld(options);
 }

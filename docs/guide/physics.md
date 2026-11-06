@@ -2,7 +2,7 @@
 
 The simulation runs on Rapier 2D, compiled to WebAssembly, behind an engine-owned interface. Game code uses `game.physics` and the body objects it returns. The [physics API reference](../reference/physics) lists every method.
 
-Call `initPhysics()` once before constructing the engine. It fetches and compiles the WASM module.
+Call `initPhysics()` once before constructing the engine. It fetches and compiles the WASM module. Pass `{ dimensions: 3 }` for a 3D world; the two solvers are separate modules, so a game only downloads the one it uses. See [Three dimensions](../reference/physics#three-dimensions).
 
 ```javascript
 import { initPhysics } from 'm2d-engine/core/physics/index.js';

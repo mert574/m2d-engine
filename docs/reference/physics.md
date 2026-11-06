@@ -1,8 +1,8 @@
 # Physics API
 
-`game.physics` is the physics world. Bodies are the objects it creates. The contract is implemented over Rapier 2D, and `packages/engine/test/physics.test.js` is the contract written as tests.
+`game.physics` is the physics world. Bodies are the objects it creates. The contract is implemented over Rapier, in two dimensions by default and in three on request, and `packages/engine/test/physics.test.js` and `physics3d.test.js` are the contract written as tests.
 
-Units are pixels, seconds and radians throughout. See [Physics](../guide/physics) for the concepts.
+Units are pixels and seconds throughout. The rest of this page describes the 2D world, where rotation is an angle in radians; see [Three dimensions](#three-dimensions) for what changes.
 
 ## Initialization
 
@@ -11,7 +11,9 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 await initPhysics();
 ```
 
-Compiles the WASM module. Must resolve before an `M2D` instance is constructed. Calling it again does nothing.
+Compiles the WASM module. Must resolve before an `M2D` instance is constructed. Calling it again for the same dimension does nothing.
+
+`initPhysics({ dimensions: 3 })` loads the 3D solver instead. The two are separate WASM modules and separate worlds, so a game only fetches the one it plays, and a body in one can never meet a body in the other.
 
 ## Creating bodies
 
@@ -108,3 +110,33 @@ Bodies added or moved by game code since the last step are included in query res
 | `setCollisionFilter({ category, mask })` | Change collision filtering |
 
 Returned objects such as `position` and `collisionFilter` are snapshots. Mutating them has no effect.
+
+## Three dimensions
+
+`initPhysics({ dimensions: 3 })` and `createPhysicsWorld({ dimensions: 3 })` build a world on Rapier 3D. It keeps the contract above — the same body types, the same material keys, the same queries, the same fixed step — and differs in the four places a dimension shows.
+
+**Up is -y, as it is in 2D.** This is worth saying because most 3D content disagrees: glTF is y-up, and so is Rapier's own documentation. The engine's screen coordinates grow downward and its gravity, ground normals and character controller are written against that, so a 3D world keeps the convention rather than flipping it halfway down the stack. A loader for y-up content converts at the boundary, where one place has to know. Default gravity is `{ x: 0, y: 1000, z: 0 }`.
+
+**Shapes.**
+
+| Creator | Spec |
+| --- | --- |
+| `createBox` | `x`, `y`, `z`, `width`, `height`, `depth` |
+| `createSphere` | `x`, `y`, `z`, `radius` |
+| `createCapsule` | `x`, `y`, `z`, `radius`, `height` tip to tip, standing on the up axis |
+| `createCylinder` | `x`, `y`, `z`, `radius`, `height` |
+
+**Rotation is a quaternion**, `{ x, y, z, w }` — the form Rapier reads and writes, so nothing converts at the boundary. The scalar `angle` has no meaning in three dimensions and is replaced:
+
+| 2D | 3D |
+| --- | --- |
+| `body.angle`, `setAngle` | `body.rotation`, `setRotation` |
+| `body.renderAngle` | `body.renderRotation`, blended with `Quat.slerp` |
+| `setNextAngle` | `setNextRotation` |
+| `angularVelocity` as a number | `angularVelocity` as a vector |
+
+`Vec3` and `Quat` in `m2d-engine/core/math.js` are the helpers for building these. `Quat.fromAxisAngle` is how game code says a rotation; Euler angles are deliberately not offered.
+
+**Positions and velocities are three-component.** `z` defaults to `0` wherever it is omitted, so 2D-shaped calls still mean something.
+
+Not yet implemented, each because it wants a game to tune against rather than more code: a character riding a kinematic platform, and `snapshot`/`restore`.

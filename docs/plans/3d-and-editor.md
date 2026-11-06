@@ -207,8 +207,11 @@ for 3D, which is the main argument that doing A first was right.
   buffering, collision filters, lifecycle, the `frictionAir` damping
   conversion, character tuning) and the 2D-specific shape and axis code.
   Add `dimensions` to `createPhysicsWorld` and `initPhysics`.
+  *Done, together with the 3D backend* — see the note below on why they
+  had to land together. `rapierShared.js` holds what a dimension does not
+  change; `rapier3dBackend.js` is the second implementation.
 - B2. Additive `Vec3` and a rotor/quaternion type in `math.js`. `Vec2` is
-  untouched, so no 2D code path moves.
+  untouched, so no 2D code path moves. *Done.*
 - B3. Generalise `Projection` into a `View` interface; the current 2x2
   (`isometric`, `belt`) becomes one implementation.
 - B4. Extract a dimension-free `Entity` base (lifecycle, constraints,
@@ -225,7 +228,7 @@ for 3D, which is the main argument that doing A first was right.
   fields. Breaking for 3D scenes only, which do not exist yet, so the
   migration cost is zero — but it does mean the dimension is settled
   before the rest of a scene validates, like `type` is today.
-- B7. **Positional constructor arguments have to go.** `createEntity(type,
+- B7. *Done.* **Positional constructor arguments had to go.** `createEntity(type,
   x, y, width, height, sheet, options, physics)` and `spawn(type, x, y,
   width, height, {...})` cannot grow a third axis without either a
   seventh positional number or two parallel APIs. They become one options
@@ -261,6 +264,31 @@ rejected "2D is 3D with z locked" model.
 Suggested order: B7 first (it is pure churn and everything after it
 touches the same call sites), then B1 and B2 together, then B6, then B3,
 B4, B5. B8 can wait until Phase 3 has something to replicate.
+
+### What doing B1 taught: build the split against two implementations
+
+B1 was written as "split the backend", with the 3D one arriving later in
+phase 3. Done that way it would have been a guess: an abstraction with a
+single implementation is speculative generality, which is the thing the
+track A review pass removed elsewhere. So B1 landed *with* a working
+rapier3d backend, and the second implementation immediately paid for
+itself.
+
+`CHARACTER_NUDGE` is the example. It had been lifted into the shared file
+as "character tuning", which reads like a dimension-free constant. The
+3D backend inherited it and a walking character covered 70px of a
+commanded 120 — the nudge eats part of every step's horizontal move, and
+the controller's velocity reconciliation feeds that loss back in, turning
+a constant 2% clip into exponential decay. A sweep against the 3D solver
+found neither of the two problems the constant exists to fix in 2D. It is
+a 2D number, and it went back to the 2D backend.
+
+Nothing but a second implementation would have found that. The same
+applies to the rest of track B: **B3, B4, B5 and B6 should each land with
+the 3D consumer that justifies them**, not before. A `View` interface
+with one view, an `Entity` base with one subclass and a renderer
+capability no backend declines are all the same mistake waiting to be
+made.
 
 ### Phase 3 — 3D physics
 
