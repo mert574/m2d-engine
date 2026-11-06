@@ -126,7 +126,8 @@ export class Turret extends Entity {
     };
 
     // Through `spawn`, so a server can tell its clients to make the same rocket.
-    this.game.spawn('Rocket', spawnPos.x, spawnPos.y, 24, 8, {
+    this.game.spawn({
+      type: 'Rocket', x: spawnPos.x, y: spawnPos.y, width: 24, height: 8,
       physics: { friction: 0, frictionAir: 0, restitution: 0, density: 0.001 },
       options: {
         speed: this.rocketSpeed,

@@ -103,7 +103,7 @@ export default async function start(canvas) {
       if (emptyFor < 1) return;
       emptyFor = 0;
       for (const [x, y] of CRATES) {
-        const crate = game.createEntity('Crate', x, y - 200, 44, 44, null, {}, { friction: 0.8 });
+        const crate = game.createEntity({ type: 'Crate', x, y: y - 200, width: 44, height: 44, physics: { friction: 0.8 } });
         game.entities.add(crate);
         game.physics.add(crate.body);
       }

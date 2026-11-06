@@ -226,7 +226,8 @@ function assignFields(target, fields) {
 export function applyState(game, message) {
   for (const spawn of message.spawn ?? []) {
     if (game.entityById(spawn.id)) continue;
-    game.spawn(spawn.type, spawn.x, spawn.y, spawn.w, spawn.h, {
+    game.spawn({
+      type: spawn.type, x: spawn.x, y: spawn.y, width: spawn.w, height: spawn.h,
       sprite: spawn.sprite, animation: spawn.anim ?? undefined, options: spawn.options,
       physics: spawn.physics, playerId: spawn.owner, netId: spawn.id
     });

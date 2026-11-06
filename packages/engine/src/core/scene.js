@@ -217,17 +217,19 @@ export class Scene {
 
         const entity = this.createPrefabInstance({
           type: prefab.actor,
-          position: [object.x, object.y],
-          size: [object.width, object.height],
+          x: object.x,
+          y: object.y,
+          width: object.width,
+          height: object.height,
           sprite: prefab.spritesheet,
-          defaultAnimation: prefab.defaultAnimation,
+          animation: prefab.defaultAnimation,
           // Placement is the object's, material is the prefab's: an object
           // may rotate its instance (a ramp is a tilted platform) without
           // the prefab having to know.
           physics: object.angle !== undefined
             ? { ...prefab.physics, angle: object.angle }
             : prefab.physics,
-          options: object.properties,
+          options: object.properties
         });
 
         if (entity) {
@@ -311,23 +313,22 @@ export class Scene {
     });
   }
 
-  createPrefabInstance(data) {
-    const spritesheet = this.spriteSheets.get(data.sprite);
-    const entity = this.game.createEntity(
-      data.type,
-      data.position[0],
-      data.position[1],
-      data.size[0],
-      data.size[1],
-      spritesheet,
-      data.options,
-      data.physics,
-    );
-
+  /**
+   * One entity from a prefab: `game.createEntity` with the scene's sprite
+   * sheet resolved from its name and the prefab's animation started.
+   *
+   * @param {object} spec - As `game.createEntity`, but `sprite` names one
+   *   of this scene's sheets and `animation` is the one to start in.
+   * @returns {import('./entity.js').Entity|null}
+   */
+  createPrefabInstance({ sprite, animation, ...spec }) {
+    const entity = this.game.createEntity({
+      ...spec,
+      spritesheet: this.spriteSheets.get(sprite)
+    });
     if (!entity) return null;
 
-    entity.setAnimation(data.defaultAnimation || 'default');
-
+    entity.setAnimation(animation || 'default');
     return entity;
   }
 

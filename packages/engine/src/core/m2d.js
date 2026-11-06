@@ -913,7 +913,25 @@ export class M2D {
     this.sceneSignature = hash;
   }
 
-  createEntity(type, x, y, width, height, spritesheet, options = {}, physics = {}) {
+  /**
+   * Build an entity from a registered actor, without adding it to the
+   * world. `game.spawn` is the one simulation code wants; this is the
+   * lower-level half, for a scene building its objects.
+   *
+   * @param {object} spec
+   * @param {string} spec.type - A registered actor name
+   * @param {number} spec.x - Centre, world units
+   * @param {number} spec.y
+   * @param {number} spec.width - Drawn size, and the collider's unless a
+   *   `physics.footprint` makes the body the feet
+   * @param {number} spec.height
+   * @param {import('./spriteSheet.js').SpriteSheet} [spec.spritesheet] -
+   *   The sheet itself, not its name; `spawn` takes the name
+   * @param {object} [spec.options] - Passed to the actor; plain data
+   * @param {object} [spec.physics] - Prefab physics keys
+   * @returns {import('./entity.js').Entity|null}
+   */
+  createEntity({ type, x, y, width, height, spritesheet = null, options = {}, physics = {} }) {
     const ActorClass = this.actors.get(type);
     if (!ActorClass) {
       console.error(`Actor type not registered: ${type}`);
@@ -1000,25 +1018,25 @@ export class M2D {
    * Create an entity from a registered actor and put it in the world: the
    * way simulation code adds something at runtime that clients must see.
    *
-   * @param {string} type - A registered actor name
-   * @param {number} x
-   * @param {number} y
-   * @param {number} width
-   * @param {number} height
-   * @param {object} [options]
-   * @param {string} [options.sprite] - A sprite sheet key of the current scene
-   * @param {string} [options.animation] - The animation to start in
-   * @param {object} [options.options] - Passed to the actor; plain data
-   * @param {object} [options.physics] - Prefab physics keys
-   * @param {string|null} [options.playerId] - The owning player
-   * @param {number} [options.netId] - Take this network id (a client replaying a server's spawn)
+   * @param {object} spec
+   * @param {string} spec.type - A registered actor name
+   * @param {number} spec.x - Centre, world units
+   * @param {number} spec.y
+   * @param {number} spec.width
+   * @param {number} spec.height
+   * @param {string} [spec.sprite] - A sprite sheet key of the current scene
+   * @param {string} [spec.animation] - The animation to start in
+   * @param {object} [spec.options] - Passed to the actor; plain data
+   * @param {object} [spec.physics] - Prefab physics keys
+   * @param {string|null} [spec.playerId] - The owning player
+   * @param {number} [spec.netId] - Take this network id (a client replaying a server's spawn)
    */
-  spawn(type, x, y, width, height, { sprite = null, animation, options = {}, physics = {}, playerId = null, netId } = {}) {
+  spawn({ type, x, y, width, height, sprite = null, animation, options = {}, physics = {}, playerId = null, netId }) {
     const sheet = sprite && !this.headless ? this.sceneManager.getCurrentScene()?.spriteSheets.get(sprite) ?? null : null;
     if (netId !== undefined) this.pendingNetId = netId;
     let entity;
     try {
-      entity = this.createEntity(type, x, y, width, height, sheet, options, physics);
+      entity = this.createEntity({ type, x, y, width, height, spritesheet: sheet, options, physics });
     } finally {
       this.pendingNetId = null;
     }

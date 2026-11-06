@@ -125,13 +125,14 @@ this.game.physics.remove(this.body);
 Scenes create entities from prefabs. For entities that appear during play, such as projectiles or spawned pickups, spawn a registered actor by name:
 
 ```javascript
-game.spawn('Rocket', x, y, 24, 8, {
+game.spawn({
+  type: 'Rocket', x, y, width: 24, height: 8,
   options: { direction, speed: 400 },
   physics: { frictionAir: 0, density: 0.001 }
 });
 ```
 
-`spawn` builds the body from the prefab physics keys, constructs the actor, adds both to the game and returns the entity. Its options are `sprite` (a sprite sheet key of the current scene), `animation`, `options` (passed to the actor), `physics` and `playerId` (the owner). It records how the entity was made, which is what lets a server tell its clients to make the same one, so `options` must be plain data. See [Multiplayer](./multiplayer#what-is-sent).
+`spawn` takes one object: `type` and the placement (`x`, `y`, `width`, `height`) are required, and beside them it accepts `sprite` (a sprite sheet key of the current scene), `animation`, `options` (passed to the actor), `physics` and `playerId` (the owner). It builds the body from the prefab physics keys, constructs the actor, adds both to the game and returns the entity. It records how the entity was made, which is what lets a server tell its clients to make the same one, so `options` must be plain data. See [Multiplayer](./multiplayer#what-is-sent).
 
 An entity can also be built by hand: create the body, construct the actor and add both. Such an entity is not sent to clients.
 
@@ -142,7 +143,7 @@ game.entities.add(rocket);
 game.physics.add(body);
 ```
 
-`createBox`, `createCircle` and `createCapsule` return a body that is not simulated until `physics.add`. `game.createEntity(type, x, y, width, height, spritesheet, options, physics)` builds an entity from a registered actor name the same way the scene does, and also leaves the body to be added. It returns `null` and logs an error for an unregistered name. Unlike the scene, it does not select an animation, so call `setAnimation` yourself when the entity has a sprite.
+`createBox`, `createCircle` and `createCapsule` return a body that is not simulated until `physics.add`. `game.createEntity({ type, x, y, width, height, spritesheet, options, physics })` builds an entity from a registered actor name the same way the scene does, and also leaves the body to be added. It returns `null` and logs an error for an unregistered name. Unlike the scene, it does not select an animation, so call `setAnimation` yourself when the entity has a sprite.
 
 Once `dead` is set, by `Health` or by `destroy()`, the base `update` and `draw` return early. An entity that is dead and still in `game.entities` freezes and disappears, so remove it.
 

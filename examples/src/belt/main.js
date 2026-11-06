@@ -163,8 +163,11 @@ game.sceneManager.addScene('row', {
           // bound it under this name. Restating its body here is how this
           // used to work, and how it drifted from the scene's copy.
           const prefab = scene.config.prefabs[kind];
-          const thug = game.createEntity(prefab.actor, x, y, 30, 30,
-            scene.spriteSheets.get(prefab.spritesheet), {}, prefab.physics);
+          const thug = game.createEntity({
+            type: prefab.actor, x, y, width: 30, height: 30,
+            spritesheet: scene.spriteSheets.get(prefab.spritesheet),
+            physics: prefab.physics
+          });
           thug.setAnimation(prefab.defaultAnimation);
           thug.onDeath = () => { alive--; if (alive === 0) release(); };
           game.entities.add(thug);

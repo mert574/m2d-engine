@@ -109,11 +109,11 @@
 | `assets` | The `AssetDatabase`, empty until `loadAssets` |
 | `registerIntents(set)` | Install the game's intents from `defineIntents`. Every player gets a queue. See [Intents](../guide/headless#intents) |
 | `entityById(id)` | The live entity with this network id, or `null` |
-| `spawn(type, x, y, width, height, { sprite, animation, options, physics, playerId })` | Create an entity from a registered actor and add it to the world, recording how so a server can send it. Returns the entity. See [Creating entities at runtime](../guide/entities#creating-entities-at-runtime) |
+| `spawn({ type, x, y, width, height, sprite, animation, options, physics, playerId })` | Create an entity from a registered actor and add it to the world, recording how so a server can send it. Returns the entity. See [Creating entities at runtime](../guide/entities#creating-entities-at-runtime) |
 | `snapshot()` | The whole simulation, taken between ticks. See [Snapshots](../guide/game-loop#snapshots) |
 | `restore(snapshot)` | Put the simulation back to a snapshot taken in the current scene |
 | `trackState(key, { save, load })` | Have snapshots carry state that lives outside entities. Dropped when the next scene loads |
-| `createEntity(type, x, y, width, height, spritesheet, options, physics)` | Build an entity from a registered actor. The body is not added to the world. `physics` takes the prefab keys `bodyType`, `shape`, `angle`, `lockRotation`, `isSensor`, `friction`, `frictionAir` and `restitution`. Returns `null` for an unregistered name |
+| `createEntity({ type, x, y, width, height, spritesheet, options, physics })` | Build an entity from a registered actor. The body is not added to the world. `spritesheet` is a sheet, not its name; `spawn` takes the name. `physics` takes the prefab keys `bodyType`, `shape`, `angle`, `lockRotation`, `isSensor`, `friction`, `frictionAir` and `restitution`. Returns `null` for an unregistered name |
 | `gameOver()` | Set `isGameOver` and play the `gameOver` sound. The loop then draws the game-over screen |
 | `pause()`, `resume()`, `togglePause()` | Set `paused`. `togglePause` returns the new state |
 | `fixedUpdate(dt)` | One simulation tick: sample the input, run the scene's and every entity's `fixedUpdate`, step physics. Returns `false` once a scene switch is pending. The engine loop passes it to `game.time.tick`; a custom loop does the same or wraps it and returns its result |

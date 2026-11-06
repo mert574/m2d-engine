@@ -144,7 +144,7 @@ describe('snapshot and restore', () => {
       }
     }
     const game = await arena({ actors: [Holder], objects: [{ id: 'floor-2', prefab: 'floor', x: 50, y: 50, width: 10, height: 10 }] });
-    const holder = game.createEntity('Holder', 900, 100, 10, 10, null, {}, { bodyType: 'static' });
+    const holder = game.createEntity({ type: 'Holder', x: 900, y: 100, width: 10, height: 10, physics: { bodyType: 'static' } });
     game.entities.add(holder);
     game.physics.add(holder.body);
     const effects = holder.effects;
@@ -172,7 +172,7 @@ describe('snapshot and restore', () => {
       loadState(state) { this.counter = state.counter; this.loads++; }
     }
     const game = await arena({ actors: [Custom] });
-    const custom = game.createEntity('Custom', 900, 100, 10, 10, null, {}, { bodyType: 'static' });
+    const custom = game.createEntity({ type: 'Custom', x: 900, y: 100, width: 10, height: 10, physics: { bodyType: 'static' } });
     game.entities.add(custom);
     game.physics.add(custom.body);
     game.step(5);

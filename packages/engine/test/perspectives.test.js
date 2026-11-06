@@ -193,7 +193,7 @@ describe('scene draw order and tile layers', () => {
   }
 
   function addThing(x, y, w, h) {
-    const entity = game.createEntity('Thing', x, y, w, h, null, {}, {});
+    const entity = game.createEntity({ type: 'Thing', x, y, width: w, height: h });
     game.entities.add(entity);
     return entity;
   }
@@ -274,7 +274,7 @@ describe('scene draw order and tile layers', () => {
   });
 
   it('builds a footprint body under the drawn frame', () => {
-    const entity = game.createEntity('Thing', 100, 100, 40, 80, null, {}, { footprint: { height: 16 } });
+    const entity = game.createEntity({ type: 'Thing', x: 100, y: 100, width: 40, height: 80, physics: { footprint: { height: 16 } } });
     expect(entity.body.size).toEqual({ x: 40, y: 16 });
     expect(entity.body.position.y).toBeCloseTo(132, 5); // feet: bottom of the 80-tall object
     expect(entity.size).toEqual({ x: 40, y: 80 });

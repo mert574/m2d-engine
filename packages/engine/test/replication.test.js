@@ -69,7 +69,7 @@ async function pair() {
   ann.state = {};
   const gate = new InputGate(SCHEMA, { meter, startTick: server.time.steps });
   ann.setSnapshotSource(() => gate.take(server.time.steps));
-  const avatar = server.spawn('Player', 300, 600, 32, 48, { physics: { bodyType: 'dynamic', lockRotation: true, friction: 0.6 }, playerId: 'ann' });
+  const avatar = server.spawn({ type: 'Player', x: 300, y: 600, width: 32, height: 48, physics: { bodyType: 'dynamic', lockRotation: true, friction: 0.6 }, playerId: 'ann' });
   ann.avatar = avatar;
   const replicator = new Replicator(server, ann);
 
@@ -140,7 +140,7 @@ describe('replication', () => {
 
   it('spawns, declared fields and removals reach the replica; undeclared fields do not', async () => {
     const { server, client, pump } = await pair();
-    const beacon = server.spawn('Beacon', 700, 300, 20, 20, { physics: { bodyType: 'static', isSensor: true }, options: { label: 'north' } });
+    const beacon = server.spawn({ type: 'Beacon', x: 700, y: 300, width: 20, height: 20, physics: { bodyType: 'static', isSensor: true }, options: { label: 'north' } });
     beacon.secret = 'changed on the server';
     pump();
     const mirror = client.entityById(beacon.netId);
@@ -171,7 +171,7 @@ describe('replication', () => {
 
   it('intents go to the server and their answers, state and events come back', async () => {
     const { server, client, pump } = await pair();
-    const beacon = server.spawn('Beacon', 700, 300, 20, 20, { physics: { bodyType: 'static', isSensor: true } });
+    const beacon = server.spawn({ type: 'Beacon', x: 700, y: 300, width: 20, height: 20, physics: { bodyType: 'static', isSensor: true } });
     pump();
     const heard = [];
     client.players.local.on('lit', (data) => heard.push(data));

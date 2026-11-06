@@ -119,7 +119,7 @@ Each tick the client encodes its input snapshot for the server tick it will arri
 
 A client builds the scene itself, so the server sends only changes:
 
-- An entity spawned at runtime with `game.spawn(type, x, y, width, height, { sprite, animation, options, physics, playerId })`, which records how it was made. An entity made with `new` is not sent. Spawn `options` must be plain data.
+- An entity spawned at runtime with `game.spawn({ type, x, y, width, height, sprite, animation, options, physics, playerId })`, which records how it was made. An entity made with `new` is not sent. Spawn `options` must be plain data.
 - An entity removed from `game.entities`.
 - An entity's transform, when it moved.
 - Declared fields, when their value changed. A class lists them in `static replicated = ['field']`; the lists of every class in the chain are joined. `Entity` sends `elevation`, `visible` and `dead`. Constraints declare theirs the same way: `Health` sends `currentHealth`, `Attack` sends its swing state. Values must be plain data. A class with `replicaState()` sends what it returns instead, and `replicaUpdated(changed)` runs on the client after its fields arrive.

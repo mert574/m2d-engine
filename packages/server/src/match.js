@@ -10,7 +10,7 @@ import { InputSchema } from 'm2d-engine/net/input.js';
  *     input: KEEP_INPUT,
  *     game: { worldWidth: 4096, worldHeight: 3072 },
  *     async setup(game) { registerKeep(game); await game.sceneManager.switchTo('keep'); },
- *     join(game, player) { player.avatar = game.spawn('ObliquePlayer', ...); },
+ *     join(game, player) { player.avatar = game.spawn({ type: 'ObliquePlayer', ... }); },
  *     leave(game, player) { ... }
  *   });
  *

@@ -14,7 +14,8 @@ export default defineMatch({
   },
   join(game, player) {
     player.state = { charms: 0 };
-    player.avatar = game.spawn('Player', 300 + 200 * (joined++ % 4), 640, 32, 48, {
+    player.avatar = game.spawn({
+      type: 'Player', x: 300 + 200 * (joined++ % 4), y: 640, width: 32, height: 48,
       physics: { bodyType: 'dynamic', lockRotation: true, friction: 0.6 }, playerId: player.id
     });
   }

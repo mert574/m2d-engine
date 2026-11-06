@@ -230,9 +230,15 @@ export class Meteor extends Entity {
         const name = spec.sheets[i % spec.sheets.length];
         const a = rng.next() * Math.PI * 2;
         const d = Meteor.SIZES[spec.next].size;
-        const chunk = game.createEntity('Meteor', this.position.x + Math.cos(a) * d * 0.6, this.position.y + Math.sin(a) * d * 0.6, d, d, sheet(game, name),
-          { sizeClass: spec.next, spin: (rng.next() - 0.5) * 2.4, drift: [this.velocity.x + Math.cos(a) * 90, this.velocity.y + Math.sin(a) * 90] },
-          { bodyType: 'dynamic', shape: 'circle', friction: 0.2, frictionAir: 0, restitution: 0.7 });
+        const chunk = game.createEntity({
+          type: 'Meteor',
+          x: this.position.x + Math.cos(a) * d * 0.6,
+          y: this.position.y + Math.sin(a) * d * 0.6,
+          width: d, height: d,
+          spritesheet: sheet(game, name),
+          options: { sizeClass: spec.next, spin: (rng.next() - 0.5) * 2.4, drift: [this.velocity.x + Math.cos(a) * 90, this.velocity.y + Math.sin(a) * 90] },
+          physics: { bodyType: 'dynamic', shape: 'circle', friction: 0.2, frictionAir: 0, restitution: 0.7 }
+        });
         chunk.onShatter = this.onShatter;
         game.entities.add(chunk);
         game.physics.add(chunk.body);

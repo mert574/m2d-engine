@@ -129,8 +129,10 @@ export default async function start(canvas) {
   // Click anywhere to drop a ball at the pointer's world position.
   const balls = [];
   game.input.on('click', (event) => {
-    const ball = game.createEntity('Block', event.world.x, event.world.y, 20, 20, null, {},
-      { bodyType: 'dynamic', shape: 'circle', restitution: 0.5 });
+    const ball = game.createEntity({
+      type: 'Block', x: event.world.x, y: event.world.y, width: 20, height: 20,
+      physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.5 }
+    });
     game.entities.add(ball);
     game.physics.add(ball.body);
     balls.push(ball);

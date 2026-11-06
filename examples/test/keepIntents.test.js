@@ -107,7 +107,7 @@ function addGuest(game, vendor, id, dx) {
   const meter = new ViolationMeter();
   const player = game.players.add(id, { meter });
   player.state = newPurse();
-  const knight = game.createEntity('ObliquePlayer', vendor.position.x + dx, vendor.position.y + 20, 28, 28, null, {}, { bodyType: 'character', shape: 'circle', frictionAir: 0.2 });
+  const knight = game.createEntity({ type: 'ObliquePlayer', x: vendor.position.x + dx, y: vendor.position.y + 20, width: 28, height: 28, physics: { bodyType: 'character', shape: 'circle', frictionAir: 0.2 } });
   game.entities.add(knight);
   game.physics.add(knight.body);
   knight.playerId = id;
@@ -212,7 +212,7 @@ describe('the satchel', () => {
     const other = game.players.add('guest', { meter });
     other.state = newPurse();
     // The guest's knight: a second hero, owned by them, standing by the trader.
-    const guest = game.createEntity('ObliquePlayer', vendor.position.x + 50, vendor.position.y, 28, 28, null, {}, { bodyType: 'character', shape: 'circle', frictionAir: 0.2 });
+    const guest = game.createEntity({ type: 'ObliquePlayer', x: vendor.position.x + 50, y: vendor.position.y, width: 28, height: 28, physics: { bodyType: 'character', shape: 'circle', frictionAir: 0.2 } });
     game.entities.add(guest);
     game.physics.add(guest.body);
     guest.playerId = 'guest';

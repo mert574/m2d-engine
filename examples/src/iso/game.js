@@ -92,7 +92,8 @@ export function keepScene(game, { loadScene }) {
  */
 export function spawnKnight(game, player, index) {
   const [dx, dy] = SPREAD[index % SPREAD.length];
-  const knight = game.spawn('ObliquePlayer', START.x + dx, START.y + dy, 28, 28, {
+  const knight = game.spawn({
+    type: 'ObliquePlayer', x: START.x + dx, y: START.y + dy, width: 28, height: 28,
     sprite: 'knight', animation: 'idle_down',
     options: { spriteSize: 200, spriteOffsetY: -56 },
     physics: { bodyType: 'character', shape: 'circle', frictionAir: 0.2 },

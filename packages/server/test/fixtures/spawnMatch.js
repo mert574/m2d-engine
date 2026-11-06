@@ -17,12 +17,12 @@ export default defineMatch({
         if (kind === 'crash') throw new Error('game code bug');
         if (kind === 'loop') for (;;) { /* stuck */ }
         if (kind === 'memory') for (let i = 0; i < 50; i++) hoard.push(new Array(1e5).fill(Math.random()));
-        if (kind === 'spawn') for (let i = 0; i < 20; i++) game.spawn('Platform', 10 * i, 10, 4, 4, { physics: { bodyType: 'static' } });
+        if (kind === 'spawn') for (let i = 0; i < 20; i++) game.spawn({ type: 'Platform', x: 10 * i, y: 10, width: 4, height: 4, physics: { bodyType: 'static' } });
       }
     });
     await game.sceneManager.switchTo('arena');
   },
   join(game, player) {
-    player.avatar = game.spawn('Player', 400, 640, 32, 48, { physics: { bodyType: 'dynamic' }, playerId: player.id });
+    player.avatar = game.spawn({ type: 'Player', x: 400, y: 640, width: 32, height: 48, physics: { bodyType: 'dynamic' }, playerId: player.id });
   }
 });

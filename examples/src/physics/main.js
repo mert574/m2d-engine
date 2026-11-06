@@ -201,10 +201,12 @@ function spawn(x, y) {
   const size = isBox ? 64 : 32;
   // Spawning goes straight to createEntity rather than through a prefab, so
   // the body spec has to be spelled out here to match the prefabs above.
-  const entity = game.createEntity(isBox ? 'Box' : 'Ball', x, y,
-    size, size, null, {}, isBox
+  const entity = game.createEntity({
+    type: isBox ? 'Box' : 'Ball', x, y, width: size, height: size,
+    physics: isBox
       ? { restitution: 0.4 }
-      : { shape: 'circle', restitution: 0.8, friction: 0.005, frictionAir: 0.001 });
+      : { shape: 'circle', restitution: 0.8, friction: 0.005, frictionAir: 0.001 }
+  });
   game.entities.add(entity);
   game.physics.add(entity.body);
   makeGrabbable(entity);
