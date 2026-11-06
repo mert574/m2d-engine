@@ -110,6 +110,79 @@ describe('a model as an asset', () => {
   });
 });
 
+describe('a rigged model', () => {
+  it('reads the skin, the joints and weights, the node tree and the clip', async () => {
+    const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
+    expect(model.skinned).toBe(true);
+    expect(model.skins).toHaveLength(1);
+    expect(model.skins[0].joints).toHaveLength(2);
+    expect(model.skins[0].inverseBind).toHaveLength(32);
+    const [part] = model.parts;
+    expect(part.skin).toBe(0);
+    expect(part.geometry.skinned).toBe(true);
+    expect(part.geometry.joints.length / 4).toBe(part.geometry.positions.length / 3);
+    expect(part.geometry.weights.length / 4).toBe(part.geometry.positions.length / 3);
+    expect(model.nodes).toHaveLength(5);
+    expect(model.nodes.filter((n) => n.parent < 0).length).toBeGreaterThan(0);
+    expect(model.animations).toHaveLength(1);
+    expect(model.animations[0].duration).toBeCloseTo(2.08, 1);
+    expect(model.animations[0].channels.map((c) => c.path).sort()).toEqual(['rotation', 'scale', 'translation']);
+  });
+
+  it('the animator poses the joints and moves them as a clip plays', async () => {
+    const { Animator3D } = await import('../src/core/animator3d.js');
+    const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
+    const animator = new Animator3D(model);
+    const rest = Float32Array.from(animator.jointMatrices(0));
+    // At rest a joint matrix is world * inverse bind: near identity for the root.
+    expect(rest[0]).toBeCloseTo(1, 3);
+    expect(animator.clipNames).toEqual(['clip 0']);
+    expect(animator.play('clip 0', { fade: 0 })).toBe(true);
+    expect(animator.play('nope')).toBe(false);
+    animator.update(0.5);
+    const moved = animator.jointMatrices(0);
+    let difference = 0;
+    for (let i = 0; i < rest.length; i++) difference = Math.max(difference, Math.abs(rest[i] - moved[i]));
+    expect(difference).toBeGreaterThan(0.05);
+    // Looping wraps time back into the clip.
+    animator.update(10);
+    expect(animator.layers[0].time).toBeLessThan(model.animations[0].duration);
+  });
+
+  it('crossfades: the old clip fades out as the new one fades in, then is dropped', async () => {
+    const { Animator3D } = await import('../src/core/animator3d.js');
+    const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
+    const animator = new Animator3D(model);
+    animator.play('clip 0', { fade: 0 });
+    animator.update(0.1);
+    animator.play('clip 0', { fade: 0.5, restart: true });
+    expect(animator.layers).toHaveLength(2);
+    animator.update(0.25);
+    expect(animator.layers[0].weight).toBeCloseTo(0.5, 2);
+    expect(animator.layers[1].weight).toBeCloseTo(0.5, 2);
+    animator.update(0.3);
+    expect(animator.layers).toHaveLength(1);
+    expect(animator.layers[0].weight).toBe(1);
+    expect(animator.current).toBe('clip 0');
+  });
+
+  it('a skinned instance carries its joints into the frame', async () => {
+    const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
+    const { INSTANCE_FLOATS } = await import('../src/core/renderers/frame3d.js');
+    const frame = new Frame3D();
+    const joints = new Float32Array(32);
+    const [part] = model.parts;
+    frame.add(part.geometry, { skin: joints });
+    frame.add(part.geometry, { skin: joints });
+    expect(frame.jointCount).toBe(4);
+    expect(frame.skins).toHaveLength(2);
+    const [entry] = frame.entries();
+    expect(entry.main[0][INSTANCE_FLOATS - 4]).toBe(0);
+    expect(entry.main[1][INSTANCE_FLOATS - 4]).toBe(2);
+    expect(entry.main[1][INSTANCE_FLOATS - 3]).toBe(1);
+  });
+});
+
 describe('lights', () => {
   it('packs point and spot lights for the GPU, up to the limit', async () => {
     const { LIGHT_FLOATS, MAX_LIGHTS } = await import('../src/core/renderers/frame3d.js');

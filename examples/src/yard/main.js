@@ -39,11 +39,28 @@ const FLY_SPEED = 10;
 
 /**
  * The player: a capsule driven along the ground relative to where the
- * camera looks. With the console's `noclip` on, it flies instead: Space
- * climbs, Shift descends, and walls are not there.
+ * camera looks, wearing the Khronos fox, which turns to face where it goes
+ * and surveys, walks or runs by how fast. With the console's `noclip` on,
+ * it flies instead: Space climbs, Shift descends, and walls are not there.
  */
 class Hero extends Entity {
   name = 'Hero';
+  heading = 0;
+
+  update(deltaTime) {
+    super.update(deltaTime);
+    const v = this.body.velocity;
+    const speed = Math.hypot(v.x, v.z);
+    if (speed > 0.2) {
+      // The fox's nose points down +z in its file; turn it to the velocity.
+      const target = Math.atan2(v.x, v.z);
+      let delta = target - this.heading;
+      delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+      this.heading += delta * Math.min(1, deltaTime * 12);
+    }
+    const clip = speed > 4 ? 'Run' : speed > 0.2 ? 'Walk' : 'Survey';
+    this.animator?.play(clip, { fade: 0.25 });
+  }
 
   fixedUpdate(dt) {
     super.fixedUpdate(dt);
@@ -101,8 +118,8 @@ game.sceneManager.addScene('yard', {
     const hero = scene.entitiesById.get('hero');
     game.player = hero;
     Object.assign(game.camera, {
-      mode: 'orbit', distance: 9, yaw: 0.6, pitch: 0.38, minDistance: 3, maxDistance: 30,
-      targetOffset: { x: 0, y: 0.9, z: 0 }, fov: Math.PI / 3.4
+      mode: 'orbit', distance: 8, yaw: 0.6, pitch: 0.36, minDistance: 3, maxDistance: 30,
+      targetOffset: { x: 0, y: 0.4, z: 0 }, fov: Math.PI / 3.4
     });
     game.camera.follow(hero);
   },
@@ -127,7 +144,7 @@ game.sceneManager.addScene('yard', {
     }));
     ui.add(new UIText({
       x: -20, y: -16, anchor: 'bottom-right', align: 'right',
-      text: 'Drag orbits · Scroll zooms · WASD walks · Space jumps · T dusk · O settings · F3 stats · ` console (noclip)',
+      text: 'Drag orbits · Scroll zooms · WASD walks the fox · Space jumps · T dusk · O settings · F3 stats · ` console (noclip)',
       fontSize: '13px', color: 'rgba(255, 248, 236, 0.75)', outlineColor: 'rgba(0, 0, 0, 0.3)', outlineWidth: 2
     }));
   },

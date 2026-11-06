@@ -4,6 +4,8 @@ import { constraintParamsSchema } from './sceneSchema.js';
 import { Projection } from './projection.js';
 import { geometryFor } from './renderers/geometry/primitives.js';
 import { loadGLB } from './gltf.js';
+import { Animator3D } from './animator3d.js';
+import { Quat } from './math.js';
 import * as mat4 from './renderers/geometry/mat4.js';
 import { presentationGuard } from './headless.js';
 import { Container } from './ui/container.js';
@@ -14,6 +16,7 @@ import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
 
 const ZERO = { x: 0, y: 0, z: 0 };
+const UP = { x: 0, y: 1, z: 0 };
 const UNIT = { x: 1, y: 1, z: 1 };
 const IDENTITY_Q = { x: 0, y: 0, z: 0, w: 1 };
 const WHITE = [1, 1, 1];
@@ -650,7 +653,7 @@ export class Scene {
           frame.addLight({ ...entity.light, position: { x: p.x + o.x, y: p.y + o.y, z: p.z + o.z } });
         }
         if (mesh.model) {
-          this.#addModel(frame, mesh, body);
+          this.#addModel(frame, mesh, body, deltaTime);
           continue;
         }
         const { geometry, scale } = geometryFor(mesh.shape ?? body.shape, body.size);
@@ -678,27 +681,49 @@ export class Scene {
    * scaled and offset as the mesh block says. The model's own materials
    * draw it; the mesh block's `emissive` adds to them.
    */
-  #addModel(frame, mesh, body) {
+  #addModel(frame, mesh, body, deltaTime) {
     const model = this.models.get(mesh.model);
     if (!model) return;
+    const entity = body.entity;
     const s = mesh.scale ?? 1;
     const offset = mesh.offset ?? ZERO;
-    const base = mat4.fromTRS(body.renderPosition, body.renderRotation, UNIT, this.#scratchBase);
+    // The body's rotation, then the entity's own heading about the up axis,
+    // which a character that does not tumble steers its model with.
+    const rotation = entity?.heading
+      ? Quat.multiply(Quat.fromAxisAngle(UP, entity.heading), body.renderRotation)
+      : body.renderRotation;
+    const base = mat4.fromTRS(body.renderPosition, rotation, UNIT, this.#scratchBase);
     // Offset and scale in the body's frame, before the parts' own matrices.
     const local = mat4.fromTRS(offset, IDENTITY_Q, { x: s, y: s, z: s }, this.#scratchLocal);
     mat4.multiply(base, local, base);
-    const previous = body.entity?.lastModels ?? [];
+
+    // A skinned or animated model gets an animator on first sight, playing
+    // what the mesh block asked for; it advances on the frame, never the tick.
+    let animator = entity?.animator ?? null;
+    if (!animator && entity && (model.skinned || model.animations.length)) {
+      animator = entity.animator = new Animator3D(model);
+      const first = mesh.animation?.clip ?? model.animations[0]?.name;
+      if (first) animator.play(first, { fade: 0, loop: mesh.animation?.loop ?? true, speed: mesh.animation?.speed ?? 1 });
+    }
+    animator?.update(deltaTime);
+
+    const previous = entity?.lastModels ?? [];
     const current = [];
     model.parts.forEach((part, i) => {
+      // A skinned part is placed by its joints, in model space; a rigid part
+      // rides its node, animated or at its bind pose.
+      const skinned = part.skin !== null && animator;
+      const partMatrix = skinned ? null : (animator ? animator.nodeMatrix(part.node) : part.matrix);
       current[i] = frame.add(part.geometry, {
-        model: mat4.multiply(base, part.matrix),
+        model: partMatrix ? mat4.multiply(base, partMatrix) : Float32Array.from(base),
         material: part.material,
         color: WHITE, metallic: 1, roughness: 1,
         emissive: mesh.emissive ?? 0,
-        previousModel: previous[i]
+        previousModel: previous[i],
+        skin: skinned ? animator.jointMatrices(part.skin) : undefined
       });
     });
-    if (body.entity) body.entity.lastModels = current;
+    if (entity) entity.lastModels = current;
   }
 
   #scratchBase = new Float32Array(16);

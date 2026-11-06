@@ -3,8 +3,8 @@ import { WebGLRenderer } from './webglRenderer.js';
 import { identityViewport } from '../viewport.js';
 import { webgpuDevice } from './webgpu/device.js';
 import {
-  SKY_SHADER, SHADOW_SHADER, MESH_SHADER, FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS,
-  MAX_CASCADES, MAX_SPOT_SHADOWS
+  SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER,
+  FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES, MAX_SPOT_SHADOWS
 } from './webgpu/shaders.js';
 import { TextureCache3D } from './webgpu/textures.js';
 import { Environment } from './webgpu/environment.js';
@@ -111,6 +111,12 @@ export class WebGPURenderer extends BaseRenderer {
     this.skyPipeline = null;
     this.shadowPipeline = null;
     this.meshPipeline = null;
+    /** The same two, reading joints and weights and skinning on the GPU. */
+    this.shadowSkinnedPipeline = null;
+    this.meshSkinnedPipeline = null;
+    this.jointBuffer = null;
+    this.jointCapacity = 0;
+    this.jointData = new Float32Array(0);
 
     this.colorTextures = [];
     this.colorViews = [];
@@ -226,9 +232,11 @@ export class WebGPURenderer extends BaseRenderer {
       entries: [
         { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         { binding: 1, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
-        { binding: 2, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }
+        { binding: 2, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
+        { binding: 3, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }
       ]
     });
+    this.#ensureJointBuffer(64);
     this.lightingBindGroupLayout = device.createBindGroupLayout({
       label: 'lighting',
       entries: [
@@ -276,6 +284,10 @@ export class WebGPURenderer extends BaseRenderer {
       { arrayStride: 12, attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x3' }] },
       { arrayStride: 8, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x2' }] }
     ];
+    const skinBuffers = [
+      { arrayStride: 8, attributes: [{ shaderLocation: 3, offset: 0, format: 'uint16x4' }] },
+      { arrayStride: 16, attributes: [{ shaderLocation: 4, offset: 0, format: 'float32x4' }] }
+    ];
     const sceneLayout = device.createPipelineLayout({ bindGroupLayouts: [this.sceneBindGroupLayout] });
     const shadowLayout = device.createPipelineLayout({ bindGroupLayouts: [this.sceneBindGroupLayout, this.shadowPassLayout] });
 
@@ -290,30 +302,36 @@ export class WebGPURenderer extends BaseRenderer {
       depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' }
     });
 
-    const shadow = device.createShaderModule({ code: SHADOW_SHADER, label: 'shadow' });
-    this.shadowPipeline = device.createRenderPipeline({
-      label: 'shadow',
+    const shadowPipeline = (code, label, buffers) => device.createRenderPipeline({
+      label,
       layout: shadowLayout,
-      vertex: { module: shadow, entryPoint: 'vs', buffers: vertexBuffers.slice(0, 2) },
+      vertex: { module: device.createShaderModule({ code, label }), entryPoint: 'vs', buffers },
       primitive: { topology: 'triangle-list', cullMode: 'none' },
       depthStencil: {
         format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less',
         depthBias: 2, depthBiasSlopeScale: 2
       }
     });
+    this.shadowPipeline = shadowPipeline(SHADOW_SHADER, 'shadow', vertexBuffers.slice(0, 2));
+    this.shadowSkinnedPipeline = shadowPipeline(SHADOW_SKINNED_SHADER, 'shadow skinned', [...vertexBuffers.slice(0, 2), ...skinBuffers]);
 
-    const mesh = device.createShaderModule({ code: MESH_SHADER, label: 'mesh' });
-    this.meshPipeline = device.createRenderPipeline({
-      label: 'mesh',
-      layout: device.createPipelineLayout({
-        bindGroupLayouts: [this.sceneBindGroupLayout, lightingBindGroupLayout, this.materialBindGroupLayout]
-      }),
-      vertex: { module: mesh, entryPoint: 'vs', buffers: vertexBuffers },
-      fragment: { module: mesh, entryPoint: 'fs', targets: MAIN_TARGETS.map(({ format }) => ({ format })) },
-      primitive: { topology: 'triangle-list', cullMode: 'back' },
-      multisample: { count: SAMPLES },
-      depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' }
+    const meshLayout = device.createPipelineLayout({
+      bindGroupLayouts: [this.sceneBindGroupLayout, lightingBindGroupLayout, this.materialBindGroupLayout]
     });
+    const meshPipeline = (code, label, buffers) => {
+      const module = device.createShaderModule({ code, label });
+      return device.createRenderPipeline({
+        label,
+        layout: meshLayout,
+        vertex: { module, entryPoint: 'vs', buffers },
+        fragment: { module, entryPoint: 'fs', targets: MAIN_TARGETS.map(({ format }) => ({ format })) },
+        primitive: { topology: 'triangle-list', cullMode: 'back' },
+        multisample: { count: SAMPLES },
+        depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' }
+      });
+    };
+    this.meshPipeline = meshPipeline(MESH_SHADER, 'mesh', vertexBuffers);
+    this.meshSkinnedPipeline = meshPipeline(MESH_SKINNED_SHADER, 'mesh skinned', [...vertexBuffers, ...skinBuffers]);
 
     this.#ensureInstanceBuffer(256);
   }
@@ -415,6 +433,9 @@ export class WebGPURenderer extends BaseRenderer {
     this.defaultMaterial = null;
     this.frameUniform?.destroy();
     this.instanceBuffer?.destroy();
+    this.jointBuffer?.destroy();
+    this.jointBuffer = null;
+    this.jointCapacity = 0;
     this.context?.unconfigure();
     this.uiBackend = null;
     this.overlayCanvas = null;
@@ -457,6 +478,7 @@ export class WebGPURenderer extends BaseRenderer {
     frame.resolveShadows(shadows.volumes);
     this.#writeFrameUniform(frame, shadows);
     this.#uploadLights(frame);
+    this.#uploadJoints(frame);
     const groups = this.#uploadInstances(frame);
 
     const encoder = device.createCommandEncoder({ label: 'frame' });
@@ -470,7 +492,6 @@ export class WebGPURenderer extends BaseRenderer {
         colorAttachments: [],
         depthStencilAttachment: { view, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' }
       });
-      pass.setPipeline(this.shadowPipeline);
       pass.setBindGroup(0, this.sceneBindGroup);
       pass.setBindGroup(1, this.shadowPassGroups[i]);
       this.#drawGroups(pass, groups, 'shadow');
@@ -499,9 +520,8 @@ export class WebGPURenderer extends BaseRenderer {
     pass.draw(3);
     this.stats.drawCalls++;
 
-    pass.setPipeline(this.meshPipeline);
     pass.setBindGroup(1, this.lightingBindGroup);
-    this.stats.stateChanges += 3;
+    this.stats.stateChanges += 2;
     this.#drawGroups(pass, groups, 'main');
     pass.end();
 
@@ -546,6 +566,44 @@ export class WebGPURenderer extends BaseRenderer {
     this.jitterNDC = [jx, jy];
   }
 
+  /** Every skinned instance's joint matrices, back to back, as the instances' offsets expect. */
+  #uploadJoints(frame) {
+    const count = frame.jointCount ?? 0;
+    if (!count) return;
+    this.#ensureJointBuffer(count);
+    let offset = 0;
+    for (const skin of frame.skins) {
+      this.jointData.set(skin, offset);
+      offset += skin.length;
+    }
+    this.device.queue.writeBuffer(this.jointBuffer, 0, this.jointData, 0, count * 16);
+  }
+
+  /** A joint buffer for at least `count` matrices; the scene bind group is rebuilt when it grows. */
+  #ensureJointBuffer(count) {
+    if (this.jointBuffer && this.jointCapacity >= count) return;
+    const capacity = Math.max(count, 64, this.jointCapacity * 2);
+    this.jointBuffer?.destroy();
+    this.jointBuffer = this.device.createBuffer({
+      label: 'joints', size: capacity * 64, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    this.jointCapacity = capacity;
+    this.jointData = new Float32Array(capacity * 16);
+    if (this.instanceBuffer) this.#sceneBindGroup();
+  }
+
+  #sceneBindGroup() {
+    this.sceneBindGroup = this.device.createBindGroup({
+      layout: this.sceneBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.frameUniform } },
+        { binding: 1, resource: { buffer: this.instanceBuffer } },
+        { binding: 2, resource: { buffer: this.lightBuffer } },
+        { binding: 3, resource: { buffer: this.jointBuffer } }
+      ]
+    });
+  }
+
   /** The frame's lights into the light buffer; the count rides in the frame uniform. */
   #uploadLights(frame) {
     const lights = frame.lights ?? [];
@@ -562,12 +620,25 @@ export class WebGPURenderer extends BaseRenderer {
    */
   #drawGroups(pass, groups, which) {
     let boundMaterial = null;
+    let skinned = null;
     for (const group of groups) {
       const range = group[which];
       if (!range.count) continue;
       const gpu = group.gpu;
+      // Skinned geometry takes the skinning pipeline; switch only on change.
+      if (gpu.skinned !== skinned) {
+        skinned = gpu.skinned;
+        pass.setPipeline(which === 'main'
+          ? (skinned ? this.meshSkinnedPipeline : this.meshPipeline)
+          : (skinned ? this.shadowSkinnedPipeline : this.shadowPipeline));
+        this.stats.stateChanges++;
+      }
       pass.setVertexBuffer(0, gpu.positions);
       pass.setVertexBuffer(1, gpu.normals);
+      if (gpu.skinned) {
+        pass.setVertexBuffer(which === 'main' ? 3 : 2, gpu.joints);
+        pass.setVertexBuffer(which === 'main' ? 4 : 3, gpu.weights);
+      }
       if (which === 'main') {
         pass.setVertexBuffer(2, gpu.uvs);
         if (group.material !== boundMaterial) {
@@ -665,14 +736,7 @@ export class WebGPURenderer extends BaseRenderer {
     });
     this.instanceCapacity = capacity;
     this.instanceData = new Float32Array(capacity * INSTANCE_FLOATS);
-    this.sceneBindGroup = this.device.createBindGroup({
-      layout: this.sceneBindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.frameUniform } },
-        { binding: 1, resource: { buffer: this.instanceBuffer } },
-        { binding: 2, resource: { buffer: this.lightBuffer } }
-      ]
-    });
+    this.#sceneBindGroup();
   }
 
   /** The GPU copy of a geometry, uploaded on first sight. */
@@ -691,6 +755,9 @@ export class WebGPURenderer extends BaseRenderer {
       positions: upload(geometry.positions, GPUBufferUsage.VERTEX, 'positions'),
       normals: upload(geometry.normals, GPUBufferUsage.VERTEX, 'normals'),
       uvs: upload(geometry.uvs ?? new Float32Array((geometry.positions.length / 3) * 2), GPUBufferUsage.VERTEX, 'uvs'),
+      skinned: !!geometry.skinned,
+      joints: geometry.skinned ? upload(geometry.joints, GPUBufferUsage.VERTEX, 'joints') : null,
+      weights: geometry.skinned ? upload(geometry.weights, GPUBufferUsage.VERTEX, 'weights') : null,
       index: upload(geometry.indices, GPUBufferUsage.INDEX, 'indices'),
       count: geometry.indices.length,
       format: geometry.indices instanceof Uint32Array ? 'uint32' : 'uint16'

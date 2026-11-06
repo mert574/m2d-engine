@@ -287,6 +287,19 @@ The picture is a metallic-roughness model under the sun, the point and spot ligh
 
 The display settings apply as they do in 2D: the world renders at the `r_resolution` setting and is presented into the viewport's content rectangle, letterboxed or expanded by `r_aspect`, upscaled through `r_worldfilter`. Fullscreen takes the canvas's parent element so the HUD overlay comes along, so give the canvas a parent of its own.
 
+### Animation
+
+A model with a skin or a clip animates. The scene gives its entity an `Animator3D` (`m2d-engine/core/animator3d.js`) on first draw, playing the prefab's `mesh.animation` clip or the model's first; the animator advances on the frame's delta, never on the simulation tick, and nothing in the simulation reads a pose.
+
+| Member | Meaning |
+| --- | --- |
+| `play(name, { fade, loop, speed, restart })` | Play a clip, crossfading over `fade` seconds (`0.2`) from whatever plays. Returns `false` for a name the model lacks |
+| `stop()` | Back to the bind pose |
+| `current`, `clipNames` | What is playing and what could |
+| `jointMatrices(skin)`, `nodeMatrix(node)` | The pose, for code that attaches things to bones |
+
+Skinning happens on the GPU: the joint matrices of every skinned instance go into one storage buffer a frame, and skinned geometry takes a pipeline that blends four joints per vertex, in the shadow passes too. A character that does not tumble steers its model with `entity.heading`, a yaw in radians the scene applies over the body's rotation; the yard's fox turns to where it runs.
+
 **The HUD.** A canvas holds one context, so the UI pass cannot share the 3D canvas. The renderer makes a second canvas laid over the first, transparent to pointer events, and runs the WebGL2 backend on it; `game.uiRenderer` wraps that backend and the whole UI layer works unchanged. `game.renderer.overlayCanvas` and `game.renderer.uiBackend` are the two halves. Input and fullscreen still target the original canvas.
 
 `game.renderer.readPixels()` returns the frame just drawn as RGBA with a top-left origin, for tests and tooling. It stalls on the GPU and must be called in the same task as the draw.

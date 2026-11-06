@@ -8,7 +8,7 @@ These games ship with the engine. Each exercises a different part of it. Sources
 <div class="example-card-body">
 <span class="example-card-tag">3D · WebGPU</span>
 <strong>The Yard</strong>
-<span>The first three-dimensional scene: a walled yard of crates, spheres, barrels and a glTF milk truck under a low sun, with soft shadows, a mirror sphere reflecting the sky, lamps and a floodlight that glow and light the yard, and a dusk to turn on. Drag to orbit, WASD to walk. Chromium only.</span>
+<span>The first three-dimensional scene: a walled yard of crates, spheres, barrels and a glTF milk truck under a low sun, with soft shadows, a mirror sphere reflecting the sky, lamps and a floodlight that glow and light the yard, a dusk to turn on, and the Khronos fox to walk and run through it. Drag to orbit, WASD to walk. Chromium only.</span>
 </div>
 </a>
 
@@ -127,7 +127,7 @@ The engine's first 3D scene, on the WebGPU renderer. The yard is primitive shape
 | --- | --- |
 | Drag | Orbit the camera |
 | Scroll | Zoom |
-| `W` `A` `S` `D` or arrows | Walk, relative to the camera |
+| `W` `A` `S` `D` or arrows | Walk the fox, relative to the camera; it runs when it can |
 | `Space` | Jump |
 | `T` | Afternoon to dusk and back |
 | `O` | Settings |

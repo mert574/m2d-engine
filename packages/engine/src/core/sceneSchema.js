@@ -272,6 +272,11 @@ const MESH = s.object({
   roughness: s.number({ min: 0, max: 1 }),
   emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour' }),
   checker: s.number({ min: 0, unit: 'm', description: 'A two-tone checker of this cell size; 0 for none' }),
+  animation: s.object({
+    clip: s.string({ required: true, description: 'A clip in the model' }),
+    loop: s.boolean(),
+    speed: s.number({ positive: true })
+  }, { description: 'The clip a skinned model plays when it appears; game code may change it through entity.animator' }),
   visible: s.boolean()
 }, { label: 'Mesh' });
 

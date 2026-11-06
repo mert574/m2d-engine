@@ -5,7 +5,8 @@
   "world": { "dimensions": 3, "gravity": { "x": 0, "y": -20, "z": 0 } },
   "assets": {
     "models": {
-      "truck": { "url": "models/CesiumMilkTruck.glb" }
+      "truck": { "url": "models/CesiumMilkTruck.glb" },
+      "fox": { "url": "models/Fox.glb" }
     }
   },
   "prefabs": {
@@ -74,7 +75,7 @@
     "hero": {
       "actor": "Hero",
       "physics": { "bodyType": "character", "shape": "capsule", "frictionAir": 0 },
-      "mesh": { "color": "#2e8b6f", "roughness": 0.55 }
+      "mesh": { "model": "fox", "scale": 0.012, "offset": { "x": 0, "y": -0.5, "z": 0 }, "animation": { "clip": "Survey" } }
     }
   },
   "layers": [{
@@ -118,7 +119,7 @@
       { "id": "flood-1", "prefab": "floodlight", "x": -2, "y": 6.2, "z": 8, "width": 0.6, "height": 0.3, "depth": 0.6 },
       { "id": "mirror-1", "prefab": "mirror", "x": 5.5, "y": 0.9, "z": -1, "width": 1.8, "height": 1.8 },
 
-      { "id": "hero", "prefab": "hero", "x": 0, "y": 1, "z": 6, "width": 0.7, "height": 1.8 }
+      { "id": "hero", "prefab": "hero", "x": 0, "y": 1, "z": 6, "width": 0.5, "height": 1.0 }
     ]
   }]
 }

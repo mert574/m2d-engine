@@ -68,6 +68,9 @@ export class Frame3D {
       vignette: 0,
       grain: 0
     };
+    /** Joint matrix arrays of the skinned instances this frame, in order; the renderer packs them. @type {Float32Array[]} */
+    this.skins = [];
+    this.jointCount = 0;
     /** Point and spot lights, as packed records; see `addLight`. @type {Float32Array[]} */
     this.lights = [];
     /** The same lights as given, for the renderer to pick shadow casters from. */
@@ -112,6 +115,7 @@ export class Frame3D {
    * @param {number} [instance.checker=0] - Size in metres of a two-tone checker on the surface; 0 for none
    * @param {boolean} [instance.castShadow=true]
    * @param {Float32Array} [instance.previousModel] - Last frame's model matrix, for motion vectors; this one if omitted
+   * @param {Float32Array} [instance.skin] - Joint matrices (16 floats each, model space) for a skinned geometry
    * @returns {Float32Array|null} The model matrix used, to hand back as next frame's `previousModel`
    */
   add(geometry, instance = {}) {
@@ -124,7 +128,9 @@ export class Frame3D {
     this.added++;
 
     // The geometry's bounding sphere carried through the model matrix.
+    // A skinned mesh moves well outside its bind pose; give the sphere room.
     const sphere = boundingSphere(geometry);
+    const slack = geometry.skinned ? 1.5 : 1;
     const cx = model[0] * sphere.x + model[4] * sphere.y + model[8] * sphere.z + model[12];
     const cy = model[1] * sphere.x + model[5] * sphere.y + model[9] * sphere.z + model[13];
     const cz = model[2] * sphere.x + model[6] * sphere.y + model[10] * sphere.z + model[14];
@@ -132,7 +138,7 @@ export class Frame3D {
       model[0] * model[0] + model[1] * model[1] + model[2] * model[2],
       model[4] * model[4] + model[5] * model[5] + model[6] * model[6],
       model[8] * model[8] + model[9] * model[9] + model[10] * model[10]));
-    const radius = sphere.radius * maxScale;
+    const radius = sphere.radius * maxScale * slack;
     const visible = !this.frustum || mat4.sphereInFrustum(this.frustum, cx, cy, cz, radius);
     const mayCast = this.shadow.enabled !== false && instance.castShadow !== false;
     if (!visible && !mayCast) return model;
@@ -147,6 +153,12 @@ export class Frame3D {
     data[34] = instance.emissive ?? 0;
     data[35] = instance.checker ?? 0;
     data.set(instance.previousModel ?? model, 36);
+    if (instance.skin && geometry.skinned) {
+      data[52] = this.jointCount;
+      data[53] = 1;
+      this.skins.push(instance.skin);
+      this.jointCount += instance.skin.length / 16;
+    }
 
     const material = instance.material ?? null;
     let group = this.groups.get(geometry);
@@ -224,8 +236,8 @@ export class Frame3D {
  * @typedef {{geometry: object, material: object|null, main: Float32Array[], shadow: Float32Array[], casters: object[]}} Group
  */
 
-/** Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded), colour, params, mat4 previous model. */
-export const INSTANCE_FLOATS = 16 + 12 + 4 + 4 + 16;
+/** Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded), colour, params, mat4 previous model, skin. */
+export const INSTANCE_FLOATS = 16 + 12 + 4 + 4 + 16 + 4;
 
 /** Floats per light in the GPU buffer: position+range, colour+intensity, direction+type, cone+shadow. */
 export const LIGHT_FLOATS = 16;

@@ -8,20 +8,27 @@ import * as mat4 from './renderers/geometry/mat4.js';
  * has, so nothing here converts an axis or a unit. The result is a
  * `Model`:
  *
- *   { parts: [{ geometry, material, matrix }], bounds: { min, max } }
+ *   { parts: [{ geometry, material, matrix, node, skin }],
+ *     nodes, skins, animations, skinned, bounds: { min, max } }
  *
  * One part per mesh primitive per node that uses it, with the node's
- * world matrix baked in; `geometry` is the `primitives.js` shape with a
- * `uvs` array added, and `material` is a metallic-roughness material with
- * its textures as decoded images. The renderer uploads geometry and
- * images once each, by identity.
+ * bind-pose world matrix baked in; `geometry` is the `primitives.js` shape
+ * with `uvs` added, and `joints` and `weights` when the mesh is skinned;
+ * `material` is a metallic-roughness material with its textures as decoded
+ * images. The renderer uploads geometry and images once each, by identity.
+ *
+ * `nodes` is the node tree as plain data (parent index and local TRS),
+ * `skins` the joint lists with inverse bind matrices, and `animations`
+ * the clips as sampled channels, for `Animator3D` to play. A model with
+ * no skin or clip is drawn from `parts` alone.
  *
  * Read so far: positions, normals (flat ones made when absent), one set
- * of texture coordinates, indices, node transforms, and the core
- * metallic-roughness material with base colour, metallic-roughness and
- * emissive textures. Not yet: skins and animations (R5), vertex colours,
- * normal and occlusion maps, material extensions, `.gltf` with external
- * files. Each is a few lines when something needs it.
+ * of texture coordinates, joints and weights, indices, node transforms,
+ * skins, animations (linear and step; cubic splines keep their key values
+ * and interpolate linearly), and the core metallic-roughness material
+ * with base colour, metallic-roughness and emissive textures. Not yet:
+ * vertex colours, normal and occlusion maps, morph targets, material
+ * extensions, `.gltf` with external files.
  */
 
 const MAGIC = 0x46546C67;
@@ -180,9 +187,61 @@ async function buildModel(json, bin, { decodeImage, name }) {
       ? read(prim.attributes.TEXCOORD_0, { asFloat: true })
       : new Float32Array(vertexCount * 2);
     const geometry = { positions, normals, uvs, indices };
+    if (prim.attributes.JOINTS_0 !== undefined && prim.attributes.WEIGHTS_0 !== undefined) {
+      const joints = read(prim.attributes.JOINTS_0);
+      geometry.joints = joints instanceof Uint16Array ? joints : Uint16Array.from(joints);
+      geometry.weights = read(prim.attributes.WEIGHTS_0, { asFloat: true });
+      geometry.skinned = true;
+    }
     geometryCache.set(key, geometry);
     return geometry;
   };
+
+  // The node tree as data, for the animator: parent, local TRS (or a
+  // fixed matrix, which no channel can drive), and children.
+  const nodes = (json.nodes ?? []).map((node, index) => ({
+    index,
+    name: node.name ?? `node ${index}`,
+    parent: -1,
+    children: node.children ?? [],
+    translation: node.translation ? [...node.translation] : [0, 0, 0],
+    rotation: node.rotation ? [...node.rotation] : [0, 0, 0, 1],
+    scale: node.scale ? [...node.scale] : [1, 1, 1],
+    matrix: node.matrix ? new Float32Array(node.matrix) : null
+  }));
+  for (const node of nodes) for (const child of node.children) nodes[child].parent = node.index;
+
+  const skins = (json.skins ?? []).map((skin, index) => ({
+    index,
+    name: skin.name,
+    joints: [...skin.joints],
+    inverseBind: skin.inverseBindMatrices !== undefined
+      ? read(skin.inverseBindMatrices, { asFloat: true })
+      : identityMatrices(skin.joints.length)
+  }));
+
+  const animations = (json.animations ?? []).map((animation, index) => {
+    let duration = 0;
+    const channels = animation.channels.map((channel) => {
+      const sampler = animation.samplers[channel.sampler];
+      const times = read(sampler.input, { asFloat: true });
+      let values = read(sampler.output, { asFloat: true });
+      const interpolation = sampler.interpolation ?? 'LINEAR';
+      const path = channel.target.path;
+      const stride = path === 'rotation' ? 4 : path === 'weights' ? values.length / times.length : 3;
+      if (interpolation === 'CUBICSPLINE') {
+        // In-tangent, value, out-tangent per key: keep the values.
+        const keys = new Float32Array(times.length * stride);
+        for (let k = 0; k < times.length; k++) {
+          for (let c = 0; c < stride; c++) keys[k * stride + c] = values[(k * 3 + 1) * stride + c];
+        }
+        values = keys;
+      }
+      duration = Math.max(duration, times[times.length - 1] ?? 0);
+      return { node: channel.target.node, path, times, values, stride, step: interpolation === 'STEP' };
+    }).filter((c) => c.node !== undefined && c.path !== 'weights');
+    return { index, name: animation.name ?? `clip ${index}`, duration, channels };
+  });
 
   const parts = [];
   const bounds = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
@@ -198,8 +257,11 @@ async function buildModel(json, bin, { decodeImage, name }) {
         const geometry = geometryFor(node.mesh, primIndex);
         if (!geometry) return;
         const material = prim.material !== undefined ? materials[prim.material] : DEFAULT_MATERIAL;
-        parts.push({ geometry, material, matrix: world });
-        growBounds(bounds, geometry.positions, world);
+        const skin = node.skin !== undefined && geometry.skinned ? node.skin : null;
+        parts.push({ geometry, material, matrix: world, node: nodeIndex, skin });
+        // A skinned mesh is placed by its joints, not its node; its bind
+        // pose is still the right thing to measure.
+        growBounds(bounds, geometry.positions, skin === null ? world : mat4.create());
       });
     }
     for (const child of node.children ?? []) visit(child, world);
@@ -212,8 +274,19 @@ async function buildModel(json, bin, { decodeImage, name }) {
   return {
     name: json.asset?.extras?.title ?? name,
     parts,
+    nodes,
+    roots,
+    skins,
+    animations,
+    skinned: skins.length > 0 && parts.some((part) => part.skin !== null),
     bounds: { min: { x: bounds.min[0], y: bounds.min[1], z: bounds.min[2] }, max: { x: bounds.max[0], y: bounds.max[1], z: bounds.max[2] } }
   };
+}
+
+function identityMatrices(count) {
+  const out = new Float32Array(count * 16);
+  for (let i = 0; i < count; i++) { out[i * 16] = out[i * 16 + 5] = out[i * 16 + 10] = out[i * 16 + 15] = 1; }
+  return out;
 }
 
 /** The material a primitive without one gets: glTF's defaults, which are white, fully metallic, rough. */

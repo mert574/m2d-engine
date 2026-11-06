@@ -92,6 +92,8 @@ struct Instance {
   params: vec4f,
   // Last frame's model matrix, for motion vectors.
   previousModel: mat4x4f,
+  // x first joint matrix in the joints array, y 1 when skinned.
+  skin: vec4f,
 };
 
 struct Light {
@@ -108,6 +110,13 @@ struct Light {
 @group(0) @binding(0) var<uniform> frame: Frame;
 @group(0) @binding(1) var<storage, read> instances: array<Instance>;
 @group(0) @binding(2) var<storage, read> lights: array<Light>;
+@group(0) @binding(3) var<storage, read> joints: array<mat4x4f>;
+
+// The blend of the four joint matrices a skinned vertex follows.
+fn skinMatrix(inst: Instance, j: vec4u, w: vec4f) -> mat4x4f {
+  let base = u32(inst.skin.x);
+  return joints[base + j.x] * w.x + joints[base + j.y] * w.y + joints[base + j.z] * w.z + joints[base + j.w] * w.w;
+}
 
 const PI = 3.14159265;
 
@@ -182,7 +191,7 @@ fn fs(in: SkyOut) -> SkyFragment {
 }
 `;
 
-const MESH_VERTEX = /* wgsl */ `
+const meshVertex = (skinned) => /* wgsl */ `
 struct VertexOut {
   @builtin(position) position: vec4f,
   @location(0) worldPosition: vec3f,
@@ -199,24 +208,32 @@ fn vs(
   @builtin(instance_index) instanceIndex: u32,
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
-  @location(2) uv: vec2f
+  @location(2) uv: vec2f${skinned ? `,
+  @location(3) jointIndices: vec4u,
+  @location(4) jointWeights: vec4f` : ''}
 ) -> VertexOut {
   let inst = instances[instanceIndex];
-  let world = inst.model * vec4f(position, 1.0);
+  ${skinned ? `
+  let skin = skinMatrix(inst, jointIndices, jointWeights);
+  let local = skin * vec4f(position, 1.0);
+  let localNormal = (skin * vec4f(normal, 0.0)).xyz;` : `
+  let local = vec4f(position, 1.0);
+  let localNormal = normal;`}
+  let world = inst.model * local;
   var out: VertexOut;
   let clip = frame.viewProjection * world;
   out.position = clip;
   out.worldPosition = world.xyz;
-  out.normal = inst.normal * normal;
+  out.normal = inst.normal * localNormal;
   out.uv = uv;
   out.instance = instanceIndex;
   out.clipNow = vec4f(clip.xy - frame.jitter.xy * clip.w, clip.zw);
-  out.clipPrev = frame.previousViewProjection * inst.previousModel * vec4f(position, 1.0);
+  out.clipPrev = frame.previousViewProjection * inst.previousModel * local;
   return out;
 }
 `;
 
-export const SHADOW_SHADER = /* wgsl */ `
+const shadowShader = (skinned) => /* wgsl */ `
 ${COMMON}
 
 // The light's view-projection for this pass: one cascade or one spot.
@@ -226,16 +243,22 @@ ${COMMON}
 fn vs(
   @builtin(instance_index) instanceIndex: u32,
   @location(0) position: vec3f,
-  @location(1) normal: vec3f
+  @location(1) normal: vec3f${skinned ? `,
+  @location(3) jointIndices: vec4u,
+  @location(4) jointWeights: vec4f` : ''}
 ) -> @builtin(position) vec4f {
-  let world = instances[instanceIndex].model * vec4f(position, 1.0);
-  return lightViewProjection * world;
+  let inst = instances[instanceIndex];
+  ${skinned ? 'let local = skinMatrix(inst, jointIndices, jointWeights) * vec4f(position, 1.0);' : 'let local = vec4f(position, 1.0);'}
+  return lightViewProjection * inst.model * local;
 }
 `;
 
-export const MESH_SHADER = /* wgsl */ `
+export const SHADOW_SHADER = shadowShader(false);
+export const SHADOW_SKINNED_SHADER = shadowShader(true);
+
+const meshShader = (skinned) => /* wgsl */ `
 ${COMMON}
-${MESH_VERTEX}
+${meshVertex(skinned)}
 
 @group(1) @binding(0) var sunShadowMaps: texture_depth_2d_array;
 @group(1) @binding(1) var shadowSampler: sampler_comparison;
@@ -446,6 +469,9 @@ fn fs(in: VertexOut) -> MeshFragment {
   return out;
 }
 `;
+
+export const MESH_SHADER = meshShader(false);
+export const MESH_SKINNED_SHADER = meshShader(true);
 
 // === Environment bakes ===
 

@@ -635,6 +635,49 @@ describe('a textured model', () => {
   });
 });
 
+describe('a skinned model', () => {
+  beforeAll(() => initWebGPU());
+
+  it('is skinned on the GPU: the pose changes as the clip plays', async () => {
+    const { parseGLB } = await import('../../src/core/gltf.js');
+    const { Animator3D } = await import('../../src/core/animator3d.js');
+    const response = await fetch(new URL('../fixtures/models/RiggedSimple.glb', import.meta.url));
+    const model = await parseGLB(await response.arrayBuffer(), { name: 'RiggedSimple' });
+    const animator = new Animator3D(model);
+    animator.play('clip 0', { fade: 0 });
+
+    const W = 96, H = 72;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(W, H, { x: 0, y: 3, z: 12 });
+    const draw = () => {
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [-0.5, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      const [part] = model.parts;
+      frame.add(part.geometry, { model: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]), material: part.material, color: [0.9, 0.3, 0.3], metallic: 0, roughness: 0.6, skin: animator.jointMatrices(0) });
+      renderer.render(frame);
+      return readPixels(renderer);
+    };
+    const before = await draw();
+    animator.update(1.0);
+    const after = await draw();
+    // The cylinder bends: somewhere on screen the picture changed a lot.
+    let changed = 0;
+    for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
+      if (Math.abs(luma(before.at(x, y)) - luma(after.at(x, y))) > 40) changed++;
+    }
+    expect(changed, `${changed} sample points changed`).toBeGreaterThan(8);
+    // And it is drawn at all: red where the cylinder is.
+    const centre = before.at(W / 2, H / 2);
+    expect(centre[0]).toBeGreaterThan(centre[2]);
+  });
+});
+
 describe('primitive geometry', () => {
   it('builds every body shape at its size, caching unit shapes', () => {
     const a = geometryFor('box', { x: 2, y: 1, z: 3 });

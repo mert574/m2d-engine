@@ -45,7 +45,7 @@ A map from sheet name to sheet. The checks below run for level scenes. A UI scen
 
 ## `assets.models`
 
-A map from model name to model, for a 3D level. A model is a glTF 2.0 `.glb` file, in metres with y up — the 3D world's own conventions, so nothing is converted. Its meshes, node transforms, metallic-roughness materials and base colour, metallic-roughness and emissive textures are read; skins and animations are not yet.
+A map from model name to model, for a 3D level. A model is a glTF 2.0 `.glb` file, in metres with y up — the 3D world's own conventions, so nothing is converted. Its meshes, node transforms, metallic-roughness materials, base colour, metallic-roughness and emissive textures, skins and animation clips are read. An entity whose model has a skin or a clip gets an `entity.animator`; see [Animation](./renderer#animation).
 
 | Key | Required | Meaning |
 | --- | --- | --- |
@@ -95,6 +95,7 @@ How a prefab is drawn in a 3D level, where there are no sprites. Without a `mesh
 | `model` | A key in `assets.models`. Drawn instead of a shape, with the file's own materials; `color`, `metallic`, `roughness` and `checker` are then ignored and `emissive` adds a glow | none |
 | `scale` | number, multiplies the model's own size | `1` |
 | `offset` | `{ "x", "y", "z" }` in metres, moving the model against the body; a model whose origin is at its feet wants `y` of minus half the body's height | `0` |
+| `animation` | `{ "clip", "loop", "speed" }`: the clip a skinned model plays when it appears. Game code changes it through `entity.animator` | the model's first clip |
 | `shape` | `"box"`, `"sphere"`, `"capsule"`, `"cylinder"`, `"plane"` | the collider's shape |
 | `color` | A CSS colour, converted to linear light on load | grey |
 | `metallic` | `0` to `1` | `0` |
