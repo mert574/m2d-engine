@@ -49,6 +49,22 @@ export class Frame3D {
      * shadow off.
      */
     this.shadow = { distance: 60, normalOffset: 1.5, bias: 0.03, enabled: true };
+    /**
+     * Post-processing, as the scene wants it. The player's `r_*` settings
+     * decide which stages run at all; these are the strengths. `dof.focus`
+     * null leaves depth of field off; `autoExposure.enabled` false keeps
+     * the scene's `exposure` as is; `lut` is a 256x16 grading strip image.
+     */
+    this.post = {
+      taa: { blend: 0.1 },
+      ao: { radius: 0.8, intensity: 1 },
+      dof: { focus: null, range: 8, maxBlur: 12 },
+      motionBlur: { strength: 0.5 },
+      autoExposure: { enabled: false, key: 0.18, min: 0.25, max: 4, speed: 1.5 },
+      grade: { saturation: 1, contrast: 1, temperature: 0, lut: null },
+      vignette: 0,
+      grain: 0
+    };
     /** Point and spot lights, as packed records; see `addLight`. @type {Float32Array[]} */
     this.lights = [];
     /** The same lights as given, for the renderer to pick shadow casters from. */
@@ -92,6 +108,8 @@ export class Frame3D {
    * @param {number} [instance.emissive=0] - Self-illumination, as a multiple of the base colour
    * @param {number} [instance.checker=0] - Size in metres of a two-tone checker on the surface; 0 for none
    * @param {boolean} [instance.castShadow=true]
+   * @param {Float32Array} [instance.previousModel] - Last frame's model matrix, for motion vectors; this one if omitted
+   * @returns {Float32Array|null} The model matrix used, to hand back as next frame's `previousModel`
    */
   add(geometry, instance = {}) {
     let model = instance.model;
@@ -114,7 +132,7 @@ export class Frame3D {
     const radius = sphere.radius * maxScale;
     const visible = !this.frustum || mat4.sphereInFrustum(this.frustum, cx, cy, cz, radius);
     const mayCast = this.shadow.enabled !== false && instance.castShadow !== false;
-    if (!visible && !mayCast) return;
+    if (!visible && !mayCast) return model;
 
     const data = new Float32Array(INSTANCE_FLOATS);
     data.set(model, 0);
@@ -125,6 +143,7 @@ export class Frame3D {
     data[33] = instance.roughness ?? 0.6;
     data[34] = instance.emissive ?? 0;
     data[35] = instance.checker ?? 0;
+    data.set(instance.previousModel ?? model, 36);
 
     const material = instance.material ?? null;
     let group = this.groups.get(geometry);
@@ -133,6 +152,7 @@ export class Frame3D {
     if (!entry) group.set(material, entry = { geometry, material, main: [], shadow: [], casters: [] });
     if (visible) { entry.main.push(data); this.drawn++; }
     if (mayCast) entry.casters.push({ data, x: cx, y: cy, z: cz, radius });
+    return model;
   }
 
   /**
@@ -201,8 +221,8 @@ export class Frame3D {
  * @typedef {{geometry: object, material: object|null, main: Float32Array[], shadow: Float32Array[], casters: object[]}} Group
  */
 
-/** Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded), colour, params. */
-export const INSTANCE_FLOATS = 16 + 12 + 4 + 4;
+/** Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded), colour, params, mat4 previous model. */
+export const INSTANCE_FLOATS = 16 + 12 + 4 + 4 + 16;
 
 /** Floats per light in the GPU buffer: position+range, colour+intensity, direction+type, cone+shadow. */
 export const LIGHT_FLOATS = 16;

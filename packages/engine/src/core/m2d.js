@@ -596,6 +596,27 @@ export class M2D {
       set: (value) => this.renderer.setDebugEnabled(value)
     });
 
+    if (this.renderer.effects) {
+      // The 3D post stack, one switch each; the scene sets the strengths.
+      const effects = this.renderer.effects;
+      const toggles = [
+        ['r_taa', 'taa', 'Temporal anti-aliasing'],
+        ['r_ao', 'ao', 'Ambient occlusion'],
+        ['r_dof', 'dof', 'Depth of field, where the scene focuses'],
+        ['r_motionblur', 'motionBlur', 'Per-object motion blur'],
+        ['r_autoexposure', 'autoExposure', 'Auto exposure, where the scene asks for it'],
+        ['r_bloom', 'bloom', 'Bloom'],
+        ['r_film', 'film', 'Vignette and film grain']
+      ];
+      for (const [name, key, description] of toggles) {
+        cvars.register(name, {
+          type: 'boolean', default: true, persist: true, description,
+          get: () => effects[key],
+          set: (value) => { effects[key] = value; }
+        });
+      }
+    }
+
     if (typeof this.renderer.setShadowQuality === 'function') {
       cvars.register('r_shadows', {
         type: 'string',

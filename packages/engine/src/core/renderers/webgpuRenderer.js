@@ -3,7 +3,7 @@ import { WebGLRenderer } from './webglRenderer.js';
 import { identityViewport } from '../viewport.js';
 import { webgpuDevice } from './webgpu/device.js';
 import {
-  SKY_SHADER, SHADOW_SHADER, MESH_SHADER, FRAME_UNIFORM_FLOATS, MATERIAL_UNIFORM_FLOATS,
+  SKY_SHADER, SHADOW_SHADER, MESH_SHADER, FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS,
   MAX_CASCADES, MAX_SPOT_SHADOWS
 } from './webgpu/shaders.js';
 import { TextureCache3D } from './webgpu/textures.js';
@@ -38,12 +38,16 @@ import * as mat4 from './geometry/mat4.js';
  *   2. the sky: one full-screen triangle, gradient and sun disc;
  *   3. the meshes: one instanced, indexed draw per geometry and material,
  *      shaded with a metallic-roughness model under the sun, the point
- *      and spot lights and the environment, with the shadow map and fog;
- *   4. post: bloom, then the composite that exposes, tonemaps and encodes
- *      to the canvas (post.js).
+ *      and spot lights and the environment, with the shadow maps, into
+ *      four targets: direct light, indirect light, normal and depth, and
+ *      velocity;
+ *   4. post: occlusion, resolve with fog, temporal anti-aliasing, depth of
+ *      field, motion blur, auto exposure, bloom, and the composite that
+ *      tonemaps, grades and encodes to the canvas (post.js).
  *
- * Passes 2 and 3 render in high range at 4x MSAA and resolve to an HDR
- * target. Geometry, images and materials are uploaded once each and
+ * Passes 2 and 3 render in high range at 4x MSAA, with a sub-pixel jitter
+ * for the anti-aliasing, and resolve into the post pass's targets. The
+ * `effects` flags, set by the `r_*` cvars, say which post stages run. Geometry, images and materials are uploaded once each and
  * cached by identity; instance and light data are storage buffers
  * rewritten per frame, the frame's culled main-pass instances first and
  * its shadow casters after.
@@ -108,7 +112,8 @@ export class WebGPURenderer extends BaseRenderer {
     this.shadowPipeline = null;
     this.meshPipeline = null;
 
-    this.colorTexture = null;
+    this.colorTextures = [];
+    this.colorViews = [];
     this.depthTexture = null;
     /** Shadow maps: a depth array for the sun's cascades and one for the spots. */
     this.sunShadowTexture = null;
@@ -122,6 +127,13 @@ export class WebGPURenderer extends BaseRenderer {
     this.lightingBindGroupLayout = null;
     this.shadowSampler = null;
     this.shadowQuality = 'medium';
+    /** Which post stages run; the frame's `post` block holds their strengths. */
+    this.effects = { taa: true, ao: true, dof: true, motionBlur: true, autoExposure: true, bloom: true, film: true };
+    this.previousViewProjection = mat4.create();
+    this.jitteredViewProjection = mat4.create();
+    this.frameCounter = 0;
+    this.lastFrameTime = 0;
+    this.startTime = typeof performance !== 'undefined' ? performance.now() : 0;
     this.cascadeScratch = { eye: { x: 0, y: 0, z: 0 }, view: mat4.create(), projection: mat4.create(), lightBasis: mat4.create() };
 
     /** One instance buffer for the whole frame, grown when a frame outgrows it. */
@@ -272,7 +284,7 @@ export class WebGPURenderer extends BaseRenderer {
       label: 'sky',
       layout: sceneLayout,
       vertex: { module: sky, entryPoint: 'vs' },
-      fragment: { module: sky, entryPoint: 'fs', targets: [{ format: HDR_FORMAT }] },
+      fragment: { module: sky, entryPoint: 'fs', targets: MAIN_TARGETS.map(({ format }) => ({ format })) },
       primitive: { topology: 'triangle-list' },
       multisample: { count: SAMPLES },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' }
@@ -297,7 +309,7 @@ export class WebGPURenderer extends BaseRenderer {
         bindGroupLayouts: [this.sceneBindGroupLayout, lightingBindGroupLayout, this.materialBindGroupLayout]
       }),
       vertex: { module: mesh, entryPoint: 'vs', buffers: vertexBuffers },
-      fragment: { module: mesh, entryPoint: 'fs', targets: [{ format: HDR_FORMAT }] },
+      fragment: { module: mesh, entryPoint: 'fs', targets: MAIN_TARGETS.map(({ format }) => ({ format })) },
       primitive: { topology: 'triangle-list', cullMode: 'back' },
       multisample: { count: SAMPLES },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' }
@@ -357,15 +369,16 @@ export class WebGPURenderer extends BaseRenderer {
     const { backingWidth, backingHeight, worldWidth, worldHeight } = viewport;
     this.canvas.width = backingWidth;
     this.canvas.height = backingHeight;
-    this.colorTexture?.destroy();
+    for (const t of this.colorTextures ?? []) t.destroy();
     this.depthTexture?.destroy();
     // The world renders at the resolution setting and is presented into the
     // content rectangle, as the 2D backends do; see viewport.js.
     const size = { width: worldWidth, height: worldHeight };
-    this.colorTexture = this.device.createTexture({
-      label: 'color (msaa)', size, sampleCount: SAMPLES, format: HDR_FORMAT,
+    this.colorTextures = MAIN_TARGETS.map(({ label, format }) => this.device.createTexture({
+      label: `${label} (msaa)`, size, sampleCount: SAMPLES, format,
       usage: GPUTextureUsage.RENDER_ATTACHMENT
-    });
+    }));
+    this.colorViews = this.colorTextures.map((t) => t.createView());
     this.post.resize(worldWidth, worldHeight);
     this.depthTexture = this.device.createTexture({
       label: 'depth (msaa)', size, sampleCount: SAMPLES, format: 'depth24plus',
@@ -388,7 +401,7 @@ export class WebGPURenderer extends BaseRenderer {
   destroy() {
     this.uiBackend?.destroy();
     this.overlayCanvas?.remove?.();
-    for (const texture of [this.colorTexture, this.depthTexture, this.sunShadowTexture, this.spotShadowTexture]) texture?.destroy();
+    for (const texture of [...(this.colorTextures ?? []), this.depthTexture, this.sunShadowTexture, this.spotShadowTexture]) texture?.destroy();
     for (const buffer of this.shadowPassUniforms) buffer.destroy();
     this.shadowPassUniforms = [];
     this.shadowPassGroups = [];
@@ -405,7 +418,8 @@ export class WebGPURenderer extends BaseRenderer {
     this.context?.unconfigure();
     this.uiBackend = null;
     this.overlayCanvas = null;
-    this.colorTexture = this.depthTexture = this.sunShadowTexture = this.spotShadowTexture = this.lightingBindGroup = null;
+    this.colorTextures = [];
+    this.depthTexture = this.sunShadowTexture = this.spotShadowTexture = this.lightingBindGroup = null;
     this.frameUniform = this.instanceBuffer = null;
     this.instanceCapacity = 0;
     this.skyPipeline = this.shadowPipeline = this.meshPipeline = null;
@@ -438,6 +452,7 @@ export class WebGPURenderer extends BaseRenderer {
   render(frame) {
     super.beginFrame();
     const device = this.device;
+    this.#jitter(frame);
     const shadows = this.#planShadows(frame);
     frame.resolveShadows(shadows.volumes);
     this.#writeFrameUniform(frame, shadows);
@@ -462,15 +477,16 @@ export class WebGPURenderer extends BaseRenderer {
       pass.end();
     }
 
+    const resolves = this.post.attachments;
     const pass = encoder.beginRenderPass({
       label: 'main',
-      colorAttachments: [{
-        view: this.colorTexture.createView(),
-        resolveTarget: this.post.hdrView,
+      colorAttachments: this.colorViews.map((view, i) => ({
+        view,
+        resolveTarget: resolves[i],
         clearValue: { r: 0, g: 0, b: 0, a: 1 },
         loadOp: 'clear',
         storeOp: 'discard'
-      }],
+      })),
       depthStencilAttachment: {
         view: this.depthTexture.createView(),
         depthClearValue: 1,
@@ -491,13 +507,43 @@ export class WebGPURenderer extends BaseRenderer {
 
     this.currentTexture = this.context.getCurrentTexture();
     const { contentX, contentY, contentWidth, contentHeight } = this.viewport;
+    const e = this.effects;
+    const post = frame.post ?? {};
     this.stats.drawCalls += this.post.run(encoder, this.sceneBindGroup, this.currentTexture.createView(), {
-      bloom: (frame.bloom?.intensity ?? 0) > 0,
+      effects: {
+        ao: e.ao && (post.ao?.intensity ?? 0) > 0,
+        taa: e.taa,
+        dof: e.dof && post.dof?.focus != null,
+        motionBlur: e.motionBlur && (post.motionBlur?.strength ?? 0) > 0,
+        autoExposure: e.autoExposure && !!post.autoExposure?.enabled,
+        bloom: e.bloom && (frame.bloom?.intensity ?? 0) > 0
+      },
+      lut: post.grade?.lut ?? null,
       filter: this.worldFilter,
       rect: [contentX, contentY, contentWidth, contentHeight]
     });
 
     device.queue.submit([encoder.finish()]);
+    // This frame's unjittered camera is next frame's previous.
+    if (frame.camera.viewProjection) this.previousViewProjection.set(frame.camera.viewProjection);
+    this.frameCounter++;
+  }
+
+  /**
+   * The sub-pixel jitter for temporal anti-aliasing: a Halton (2, 3) point
+   * per frame, in NDC, folded into the frame's view-projection. Off when
+   * TAA is off, so the image is steady.
+   */
+  #jitter(frame) {
+    const { worldWidth, worldHeight } = this.viewport;
+    if (!this.effects.taa) {
+      this.jitterNDC = [0, 0];
+      return;
+    }
+    const i = (this.frameCounter % 8) + 1;
+    const jx = (halton(i, 2) - 0.5) * 2 / worldWidth;
+    const jy = (halton(i, 3) - 0.5) * 2 / worldHeight;
+    this.jitterNDC = [jx, jy];
   }
 
   /** The frame's lights into the light buffer; the count rides in the frame uniform. */
@@ -656,7 +702,16 @@ export class WebGPURenderer extends BaseRenderer {
   #writeFrameUniform(frame, shadows) {
     const data = this.frameData;
     const camera = frame.camera;
-    data.set(camera.viewProjection ?? IDENTITY, 0);
+    const vp = camera.viewProjection ?? IDENTITY;
+    const [jx, jy] = this.jitterNDC ?? [0, 0];
+    // Translate in clip space: x' = x + jx * w, which is row 0, column 3.
+    const jittered = this.jitteredViewProjection;
+    jittered.set(vp);
+    jittered[12] += jx * vp[15]; jittered[13] += jy * vp[15];
+    jittered[0] += jx * vp[3]; jittered[1] += jy * vp[3];
+    jittered[4] += jx * vp[7]; jittered[5] += jy * vp[7];
+    jittered[8] += jx * vp[11]; jittered[9] += jy * vp[11];
+    data.set(jittered, 0);
     data.set(camera.view ?? IDENTITY, 16);
     if (camera.inverseViewProjection) data.set(camera.inverseViewProjection, 32);
     else mat4.invert(camera.viewProjection ?? IDENTITY, data.subarray(32, 48));
@@ -692,6 +747,43 @@ export class WebGPURenderer extends BaseRenderer {
     data[o + 39] = frame.shadow.normalOffset ?? 1.5;
     data[o + 44] = frame.shadow.bias ?? 0.03;
     data[o + 45] = data[o + 46] = data[o + 47] = 0;
+
+    const post = frame.post ?? {};
+    const p = FRAME_OFFSETS.post;
+    const now = (typeof performance !== 'undefined' ? performance.now() : 0) - this.startTime;
+    const dt = this.lastFrameTime ? Math.min(0.1, (now - this.lastFrameTime) / 1000) : 1 / 60;
+    this.lastFrameTime = now;
+    data[p] = this.post.historyValid ? (post.taa?.blend ?? 0.1) : 1;
+    data[p + 1] = post.ao?.radius ?? 0.8;
+    data[p + 2] = post.ao?.intensity ?? 1;
+    data[p + 3] = this.effects.ao && (post.ao?.intensity ?? 0) > 0 ? 1 : 0;
+    data[p + 4] = post.dof?.focus ?? 0;
+    data[p + 5] = post.dof?.range ?? 8;
+    data[p + 6] = post.dof?.maxBlur ?? 12;
+    data[p + 7] = post.dof?.focus != null ? 1 : 0;
+    data[p + 8] = post.motionBlur?.strength ?? 0;
+    data[p + 9] = this.effects.film ? (post.vignette ?? 0) : 0;
+    data[p + 10] = this.effects.film ? (post.grain ?? 0) : 0;
+    data[p + 11] = now / 1000;
+    data[p + 12] = this.effects.autoExposure && post.autoExposure?.enabled ? 1 : 0;
+    data[p + 13] = post.autoExposure?.key ?? 0.18;
+    data[p + 14] = post.autoExposure?.min ?? 0.25;
+    data[p + 15] = post.autoExposure?.max ?? 4;
+    data[p + 16] = post.grade?.saturation ?? 1;
+    data[p + 17] = post.grade?.contrast ?? 1;
+    data[p + 18] = post.grade?.temperature ?? 0;
+    data[p + 19] = post.grade?.lut ? 1 : 0;
+    data[p + 20] = post.autoExposure?.speed ?? 1.5;
+    data[p + 21] = dt;
+    data[p + 22] = this.effects.taa ? 1 : 0;
+    data[p + 23] = this.effects.motionBlur ? 1 : 0;
+    const l = FRAME_OFFSETS.lens;
+    const tanY = Math.tan((camera.fov ?? Math.PI / 3) / 2);
+    data[l] = tanY * (camera.aspect ?? 16 / 9); data[l + 1] = tanY; data[l + 2] = camera.near ?? 0.1; data[l + 3] = camera.far ?? 500;
+    const j = FRAME_OFFSETS.jitter;
+    data[j] = jx; data[j + 1] = jy; data[j + 2] = this.viewport.worldWidth; data[j + 3] = this.viewport.worldHeight;
+    data.set(this.previousValid ? this.previousViewProjection : vp, FRAME_OFFSETS.previousViewProjection);
+    this.previousValid = true;
     this.device.queue.writeBuffer(this.frameUniform, 0, data);
   }
 
@@ -833,6 +925,26 @@ export class WebGPURenderer extends BaseRenderer {
   setCursor(style) {
     if (this.canvas) this.canvas.style.cursor = style;
   }
+}
+
+/** The main pass's colour targets, in attachment order; `PostPass.attachments` resolves them. */
+const MAIN_TARGETS = Object.freeze([
+  { label: 'direct', format: HDR_FORMAT },
+  { label: 'indirect', format: HDR_FORMAT },
+  { label: 'normal depth', format: HDR_FORMAT },
+  { label: 'velocity', format: 'rg16float' }
+]);
+
+/** The i-th point of the Halton sequence in `base`, in [0, 1). */
+function halton(i, base) {
+  let f = 1;
+  let r = 0;
+  while (i > 0) {
+    f /= base;
+    r += f * (i % base);
+    i = Math.floor(i / base);
+  }
+  return r;
 }
 
 const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);

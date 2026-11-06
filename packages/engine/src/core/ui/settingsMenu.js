@@ -564,6 +564,17 @@ export class SettingsMenu {
         choices: () => ({ index: Math.max(0, Object.keys(SHADOW_LABELS).indexOf(cvars.get('r_shadows'))), count: 4 }),
         description: 'How many shadow cascades the sun gets and how many spot lights cast shadows.'
       }] : []),
+      ...(cvars.has('r_taa') ? [
+        ['Anti-aliasing', 'r_taa', 'Temporal anti-aliasing: smooth edges, settled over frames.'],
+        ['Ambient occlusion', 'r_ao', 'Darkens creases and contact where light has trouble reaching.'],
+        ['Depth of field', 'r_dof', 'Blur away from the focus, where the scene sets one.'],
+        ['Motion blur', 'r_motionblur', 'Smears fast-moving objects along their motion.'],
+        ['Auto exposure', 'r_autoexposure', 'Adapts brightness to the view, where the scene asks for it.'],
+        ['Bloom', 'r_bloom', 'Glow around bright light.'],
+        ['Film', 'r_film', 'Vignette and grain, where the scene sets them.']
+      ].map(([label, name, description]) => ({
+        section: 'Effects', label, value: onOff(name), step: toggle(name), choices: binary(name), description
+      })) : []),
       {
         section: 'Rendering',
         label: 'Debug overlay',

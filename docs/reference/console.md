@@ -59,6 +59,7 @@ Prefixes follow the Quake convention the completion is built around: `r_` render
 | `r_fullscreen` | boolean | | |
 | `r_debug` | boolean | | The renderer's debug overlay |
 | `r_shadows` | `off\|low\|medium\|high` | yes | 3D games only: the sun's shadow cascades and how many spot lights cast |
+| `r_taa`, `r_ao`, `r_dof`, `r_motionblur`, `r_autoexposure`, `r_bloom`, `r_film` | boolean | yes | 3D games only: one switch per post-process stage. The scene sets the strengths |
 | `r_renderer` | `webgl\|canvas\|webgpu` | | Setting it reloads with `?renderer=`. A 3D game has only `webgpu` |
 | `g_paused` | boolean | | |
 | `g_timescale` | number 0–10 | | `game.time.scale`. `0.5` is slow motion |

@@ -37,6 +37,16 @@ const luma = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 const cleanup = [];
 afterEach(() => { for (const fn of cleanup.splice(0).reverse()) fn(); });
 
+/**
+ * Every post stage off but bloom, so a test sees the lighting it set up
+ * and nothing smoothed, blurred or adapted over it. The post tests turn
+ * one stage on each.
+ */
+function quiet(renderer) {
+  renderer.effects = { taa: false, ao: false, dof: false, motionBlur: false, autoExposure: false, bloom: true, film: false };
+  return renderer;
+}
+
 function canvasInDocument(width, height) {
   const canvas = createCanvasElement(width, height);
   canvas.style.width = `${width}px`;
@@ -90,7 +100,7 @@ describe('the 3D renderer', () => {
 
   function make(W, H) {
     const canvas = canvasInDocument(W, H);
-    const renderer = new WebGPURenderer();
+    const renderer = quiet(new WebGPURenderer());
     renderer.init(canvas, { width: W, height: H });
     cleanup.push(() => renderer.destroy());
     return renderer;
@@ -111,8 +121,8 @@ describe('the 3D renderer', () => {
     expect(Math.max(...floor.slice(0, 3)) - Math.min(...floor.slice(0, 3)), `floor is neutral: ${floor}`).toBeLessThan(30);
     expect(luma(floor), `floor is lit: ${floor}`).toBeGreaterThan(60);
     // Two instanced draws (floor, box) in each of three cascades and the
-    // main pass, the sky and the composite.
-    expect(renderer.getStats().drawCalls).toBe(2 * 4 + 2);
+    // main pass, the sky, the resolve and the composite.
+    expect(renderer.getStats().drawCalls).toBe(2 * 4 + 1 + 2);
   });
 
   it('draws a red box where the camera projects it, lit on the side facing the sun', async () => {
@@ -191,6 +201,7 @@ describe('a 3D game through the engine loop', () => {
     const game = new M2D(canvas, {
       dimensions: 3, width, height, worldWidth: 20, worldHeight: 20, performanceStats: false, ...options
     });
+    quiet(game.renderer);
     cleanup.push(() => game.destroy());
     return { canvas, game };
   }
@@ -265,7 +276,7 @@ describe('lighting', () => {
 
   function make(W, H) {
     const canvas = canvasInDocument(W, H);
-    const renderer = new WebGPURenderer();
+    const renderer = quiet(new WebGPURenderer());
     renderer.init(canvas, { width: W, height: H });
     cleanup.push(() => renderer.destroy());
     return renderer;
@@ -352,11 +363,10 @@ describe('lighting', () => {
     const camera = cameraAt(W, H);
     renderer.setShadowQuality('off');
     renderer.render(yardFrame(renderer, camera));
-    expect(renderer.getStats().drawCalls).toBe(2 + 2);
+    expect(renderer.getStats().drawCalls).toBe(2 + 1 + 2);
     renderer.setShadowQuality('high');
-    renderer.resetStats();
     renderer.render(yardFrame(renderer, camera));
-    expect(renderer.getStats().drawCalls).toBe(2 * 5 + 2);
+    expect(renderer.getStats().drawCalls).toBe(2 * 5 + 1 + 2);
     renderer.setShadowQuality('medium');
   });
 
@@ -404,7 +414,7 @@ describe('the display settings', () => {
     expect(viewport.worldWidth).toBeLessThan(viewport.contentWidth);
 
     const canvas = canvasInDocument(96, 96);
-    const renderer = new WebGPURenderer();
+    const renderer = quiet(new WebGPURenderer());
     renderer.init(canvas, { viewport });
     cleanup.push(() => renderer.destroy());
     const camera = cameraAt(viewport.viewWidth, viewport.viewHeight);
@@ -416,6 +426,162 @@ describe('the display settings', () => {
     expect(luma(bar), `letterbox bar is black: ${bar}`).toBeLessThan(8);
     expect(inside[2], `sky inside the content rect: ${inside}`).toBeGreaterThan(inside[0]);
     expect(luma(inside)).toBeGreaterThan(100);
+  });
+});
+
+describe('the post stack', () => {
+  beforeAll(() => initWebGPU());
+
+  function make(W, H) {
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    return renderer;
+  }
+
+  /** A grey floor, a grey box, a steady sun; `tune` edits the frame. */
+  function scene(renderer, camera, tune = () => {}) {
+    const frame = renderer.createFrame();
+    frame.setCamera(camera);
+    frame.sun = { direction: [-0.5, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+    frame.fog.density = 0;
+    frame.bloom.intensity = 0;
+    frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.5, 0.5, 0.5], roughness: 0.9 });
+    frame.add(box(), { position: { x: 0, y: 0.5, z: 0 }, color: [0.5, 0.5, 0.5], roughness: 0.8 });
+    tune(frame);
+    return frame;
+  }
+  const at = (pixels, camera, x, y, z) => {
+    const p = camera.worldToScreen(x, y, z);
+    return pixels.at(Math.round(p.x), Math.round(p.y));
+  };
+
+  it('ambient occlusion darkens the floor at the foot of the box, not out in the open', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 3, y: 4, z: 5 });
+    // A dim sun and a strong sky, so indirect light — what occlusion scales — carries the floor.
+    const dim = (f) => { f.sun.intensity = 0.3; f.ambient.intensity = 1.6; };
+    renderer.render(scene(renderer, camera, dim));
+    const plain = await readPixels(renderer);
+    renderer.effects.ao = true;
+    renderer.render(scene(renderer, camera, (f) => { dim(f); f.post.ao = { radius: 1, intensity: 1.5 }; }));
+    const occluded = await readPixels(renderer);
+    const foot = [0.62, 0, 0.62];
+    const open = [-1.5, 0, 1];
+    const footDrop = luma(at(plain, camera, ...foot)) - luma(at(occluded, camera, ...foot));
+    const openDrop = luma(at(plain, camera, ...open)) - luma(at(occluded, camera, ...open));
+    expect(footDrop, `foot of the box darkens by ${footDrop}, the open floor by ${openDrop}`).toBeGreaterThan(openDrop + 6);
+  });
+
+  it('temporal anti-aliasing settles a still scene to the same picture frame after frame', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 3, y: 3, z: 5 });
+    renderer.effects.taa = true;
+    const samples = [];
+    for (let i = 0; i < 12; i++) {
+      renderer.render(scene(renderer, camera));
+      if (i >= 8) samples.push(await readPixels(renderer));
+    }
+    // Once converged, consecutive frames agree closely across a row of pixels.
+    let worst = 0;
+    for (let x = 4; x < W - 4; x += 4) {
+      const a = samples[0].at(x, H / 2);
+      const b = samples[samples.length - 1].at(x, H / 2);
+      worst = Math.max(worst, Math.abs(luma(a) - luma(b)));
+    }
+    expect(worst, `largest frame-to-frame change ${worst}`).toBeLessThan(8);
+    // And it is still the scene: a grey box on a grey floor under a sky.
+    const sky = samples[0].at(W / 2, 2);
+    expect(sky[2]).toBeGreaterThan(sky[0]);
+  });
+
+  it('depth of field blurs the far floor and leaves the focus sharp', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 2, z: 6 });
+    // A hard checker on the floor gives the blur something to soften.
+    const tune = (focus) => (f) => {
+      f.post.dof = { focus, range: 1.5, maxBlur: 10 };
+    };
+    const checkerScene = (focus) => {
+      const frame = scene(renderer, camera, tune(focus));
+      frame.add(plane(), { position: { x: 0, y: 0.01, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.9, 0.9, 0.9], roughness: 0.9, checker: 0.5 });
+      return frame;
+    };
+    const contrast = (pixels, z) => {
+      // Luma range along a short run of the floor at depth z.
+      const values = [];
+      for (let x = -1; x <= 1; x += 0.125) values.push(luma(at(pixels, camera, x, 0.01, z)));
+      return Math.max(...values) - Math.min(...values);
+    };
+    renderer.render(checkerScene(null));
+    const sharp = await readPixels(renderer);
+    renderer.effects.dof = true;
+    renderer.render(checkerScene(camera.position.z - 1));
+    const focused = await readPixels(renderer);
+    const far = -5;
+    expect(contrast(focused, far), 'far floor softened').toBeLessThan(contrast(sharp, far) * 0.7);
+    expect(contrast(focused, 1), 'near the focus unchanged').toBeGreaterThan(contrast(sharp, 1) * 0.8);
+  });
+
+  it('vignette darkens the corners and leaves the centre', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 3, z: 6 });
+    renderer.render(scene(renderer, camera));
+    const plain = await readPixels(renderer);
+    renderer.effects.film = true;
+    renderer.render(scene(renderer, camera, (f) => { f.post.vignette = 0.6; }));
+    const filmed = await readPixels(renderer);
+    const corner = [2, 2];
+    const centre = [W / 2, H / 2];
+    expect(luma(filmed.at(...corner)), 'corner darker').toBeLessThan(luma(plain.at(...corner)) * 0.8);
+    expect(Math.abs(luma(filmed.at(...centre)) - luma(plain.at(...centre))), 'centre kept').toBeLessThan(6);
+  });
+
+  it('auto exposure brings a dark scene up over a few frames', async () => {
+    const W = 64, H = 48;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 3, z: 6 });
+    const dark = (f) => {
+      f.exposure = 0.2;
+      f.post.autoExposure = { enabled: true, key: 0.18, min: 0.25, max: 8, speed: 20 };
+    };
+    renderer.render(scene(renderer, camera, dark));
+    const first = luma((await readPixels(renderer)).at(W / 2, H - 6));
+    renderer.effects.autoExposure = true;
+    let last = first;
+    for (let i = 0; i < 6; i++) {
+      renderer.render(scene(renderer, camera, dark));
+      last = luma((await readPixels(renderer)).at(W / 2, H - 6));
+    }
+    // Tonemapping compresses the gain; a clear step up is what counts.
+    expect(last, `floor went from ${first} to ${last}`).toBeGreaterThan(first + 15);
+  });
+
+  it('a moving box smears along its motion when motion blur is on', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 2, z: 7 });
+    // A second, dark box in front of the scene's, that was 1.5 m to the left last frame.
+    const moving = (x, previousX) => (f) => {
+      f.post.motionBlur = { strength: 1 };
+      const previousModel = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, previousX, 0.5, 2, 1]);
+      f.add(box(), { position: { x, y: 0.5, z: 2 }, color: [0.02, 0.02, 0.02], previousModel });
+    };
+    // A pixel just inside its trailing edge stays dark without blur and
+    // takes in the floor beside it when the box smears.
+    const trail = [-0.42, 0.5, 2.51];
+    renderer.render(scene(renderer, camera, moving(0, -1.5)));
+    const still = await readPixels(renderer);
+    renderer.effects.motionBlur = true;
+    renderer.render(scene(renderer, camera, moving(0, -1.5)));
+    const blurred = await readPixels(renderer);
+    expect(luma(at(blurred, camera, ...trail)), `trail ${at(blurred, camera, ...trail)} vs still ${at(still, camera, ...trail)}`)
+      .toBeGreaterThan(luma(at(still, camera, ...trail)) * 1.3 + 4);
   });
 });
 
@@ -431,7 +597,7 @@ describe('a textured model', () => {
 
     const W = 96, H = 72;
     const canvas = canvasInDocument(W, H);
-    const renderer = new WebGPURenderer();
+    const renderer = quiet(new WebGPURenderer());
     renderer.init(canvas, { width: W, height: H });
     cleanup.push(() => renderer.destroy());
     const camera = cameraAt(W, H, { x: 0, y: 1.5, z: 4 });
@@ -458,8 +624,8 @@ describe('a textured model', () => {
     const qx = pixels.at(Math.round(q.x), Math.round(q.y));
     const differs = px.slice(0, 3).some((v, i) => Math.abs(v - qx[i]) > 12);
     expect(differs, `texture varies: ${px} vs ${qx}`).toBe(true);
-    // One instanced draw per cascade and in the main pass, the sky and the composite.
-    expect(renderer.getStats().drawCalls).toBe(3 + 1 + 2);
+    // One instanced draw per cascade and in the main pass, the sky, the resolve and the composite.
+    expect(renderer.getStats().drawCalls).toBe(3 + 1 + 1 + 2);
   });
 });
 

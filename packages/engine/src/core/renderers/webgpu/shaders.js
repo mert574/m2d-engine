@@ -17,7 +17,12 @@ export const MAX_CASCADES = 4;
 export const MAX_SPOT_SHADOWS = 4;
 
 /** Floats in the frame uniform, in the order `Frame` declares them. */
-export const FRAME_UNIFORM_FLOATS = 16 * 3 + 16 * MAX_CASCADES + 16 * MAX_SPOT_SHADOWS + 4 * 12;
+export const FRAME_UNIFORM_FLOATS = 16 * 3 + 16 * MAX_CASCADES + 16 * MAX_SPOT_SHADOWS + 4 * 12 + 4 * 8 + 4 * 2 + 16;
+
+/** Float offsets into the frame uniform of the post-process blocks; see `Frame`. */
+export const FRAME_OFFSETS = Object.freeze({
+  post: 224, lens: 256, jitter: 260, previousViewProjection: 264
+});
 
 /** Floats in a material's uniform, in the order `Material` declares them. */
 export const MATERIAL_UNIFORM_FLOATS = 4 * 3;
@@ -48,10 +53,36 @@ struct Frame {
   cascadeSplits: vec4f,
   // x cascade count, y sun shadow texel (1/size), z spot shadow texel, w normal offset in texels.
   shadowParams: vec4f,
-  // Half-extent of each cascade's orthographic box, in metres; x unused, y bias in metres.
+  // Half-extent of each cascade's orthographic box, in metres.
   cascadeRadii: vec4f,
+  // x bias in metres.
   shadowBias: vec4f,
+  // Post-process settings; see Frame3D.post and the pass that reads each.
+  // post[0]: x taa blend, y ao radius (m), z ao intensity, w ao on.
+  // post[1]: x dof focus distance (m), y dof range (m), z dof max blur (px), w dof on.
+  // post[2]: x motion blur strength, y vignette, z grain, w time (s).
+  // post[3]: x auto exposure on, y key, z min exposure, w max exposure.
+  // post[4]: x saturation, y contrast, z temperature, w lut on.
+  // post[5]: x adaptation speed, y frame delta (s), z taa on, w motion blur on.
+  // post[6], post[7]: unused.
+  post: array<vec4f, 8>,
+  // x tan(fov/2) * aspect, y tan(fov/2), z near, w far.
+  lens: vec4f,
+  // xy the sub-pixel jitter in NDC this frame, zw the world surface size in pixels.
+  jitter: vec4f,
+  // Last frame's unjittered view-projection, for motion vectors.
+  previousViewProjection: mat4x4f,
 };
+
+// A point's position in view space, from its screen uv and linear depth.
+fn viewPosition(uv: vec2f, depth: f32) -> vec3f {
+  let ndc = vec2f(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+  return vec3f(ndc.x * frame.lens.x * depth, ndc.y * frame.lens.y * depth, -depth);
+}
+
+fn luminance(c: vec3f) -> f32 {
+  return dot(c, vec3f(0.2126, 0.7152, 0.0722));
+}
 
 struct Instance {
   model: mat4x4f,
@@ -59,6 +90,8 @@ struct Instance {
   color: vec4f,
   // x metallic, y roughness, z emissive, w checker size.
   params: vec4f,
+  // Last frame's model matrix, for motion vectors.
+  previousModel: mat4x4f,
 };
 
 struct Light {
@@ -123,12 +156,29 @@ fn vs(@builtin(vertex_index) i: u32) -> SkyOut {
   return out;
 }
 
+struct SkyFragment {
+  @location(0) direct: vec4f,
+  @location(1) indirect: vec4f,
+  @location(2) normalDepth: vec4f,
+  @location(3) velocity: vec2f,
+};
+
 @fragment
-fn fs(in: SkyOut) -> @location(0) vec4f {
-  let far = frame.inverseViewProjection * vec4f(in.ndc, 1.0, 1.0);
-  let near = frame.inverseViewProjection * vec4f(in.ndc, 0.0, 1.0);
+fn fs(in: SkyOut) -> SkyFragment {
+  let ndc = in.ndc - frame.jitter.xy;
+  let far = frame.inverseViewProjection * vec4f(ndc, 1.0, 1.0);
+  let near = frame.inverseViewProjection * vec4f(ndc, 0.0, 1.0);
   let dir = normalize(far.xyz / far.w - near.xyz / near.w);
-  return vec4f(skyColor(dir, true), 1.0);
+  var out: SkyFragment;
+  out.direct = vec4f(skyColor(dir, true), 1.0);
+  out.indirect = vec4f(0.0);
+  // No geometry: depth 0 tells the post passes to leave the sky alone.
+  out.normalDepth = vec4f(0.0, 1.0, 0.0, 0.0);
+  // The sky moves only with the camera: reproject a point far along the ray.
+  let world = frame.camera.xyz + dir * 1.0e4;
+  let prev = frame.previousViewProjection * vec4f(world, 1.0);
+  out.velocity = (ndc - prev.xy / prev.w) * vec2f(0.5, -0.5);
+  return out;
 }
 `;
 
@@ -139,6 +189,9 @@ struct VertexOut {
   @location(1) normal: vec3f,
   @location(2) uv: vec2f,
   @location(3) @interpolate(flat) instance: u32,
+  // This frame's and last frame's clip positions, unjittered, for velocity.
+  @location(4) clipNow: vec4f,
+  @location(5) clipPrev: vec4f,
 };
 
 @vertex
@@ -151,11 +204,14 @@ fn vs(
   let inst = instances[instanceIndex];
   let world = inst.model * vec4f(position, 1.0);
   var out: VertexOut;
-  out.position = frame.viewProjection * world;
+  let clip = frame.viewProjection * world;
+  out.position = clip;
   out.worldPosition = world.xyz;
   out.normal = inst.normal * normal;
   out.uv = uv;
   out.instance = instanceIndex;
+  out.clipNow = vec4f(clip.xy - frame.jitter.xy * clip.w, clip.zw);
+  out.clipPrev = frame.previousViewProjection * inst.previousModel * vec4f(position, 1.0);
   return out;
 }
 `;
@@ -297,8 +353,15 @@ fn falloff(distance: f32, range: f32) -> f32 {
   return (window * window) / d2;
 }
 
+struct MeshFragment {
+  @location(0) direct: vec4f,
+  @location(1) indirect: vec4f,
+  @location(2) normalDepth: vec4f,
+  @location(3) velocity: vec2f,
+};
+
 @fragment
-fn fs(in: VertexOut) -> @location(0) vec4f {
+fn fs(in: VertexOut) -> MeshFragment {
   let inst = instances[in.instance];
   let n = normalize(in.normal);
   let v = normalize(frame.camera.xyz - in.worldPosition);
@@ -366,16 +429,21 @@ fn fs(in: VertexOut) -> @location(0) vec4f {
   let prefiltered = textureSampleLevel(prefilteredMap, environmentSampler, r, roughness * frame.params2.w).rgb;
   let lut = textureSample(brdfLut, environmentSampler, vec2f(nDotV, roughness)).rg;
   let specular = prefiltered * (fr * lut.x + lut.y);
-  color += (diffuse + specular) * ambient;
+  // Indirect light goes out on its own so ambient occlusion can scale it
+  // and nothing else; fog is applied over both in the resolve pass.
+  let indirect = (diffuse + specular) * ambient;
 
   color += base * inst.params.z + material.emissive.rgb * emissiveSample.rgb;
 
-  // Distance fog toward the horizon colour.
-  let distance = length(frame.camera.xyz - in.worldPosition);
-  let fogAmount = 1.0 - exp(-frame.fog.w * distance);
-  color = mix(color, frame.fog.rgb, fogAmount);
-
-  return vec4f(color, 1.0);
+  var out: MeshFragment;
+  out.direct = vec4f(color, 1.0);
+  out.indirect = vec4f(indirect, 1.0);
+  let viewDepth = -(frame.view * vec4f(in.worldPosition, 1.0)).z;
+  out.normalDepth = vec4f(n, viewDepth);
+  let now = in.clipNow.xy / in.clipNow.w;
+  let prev = in.clipPrev.xy / in.clipPrev.w;
+  out.velocity = (now - prev) * vec2f(0.5, -0.5);
+  return out;
 }
 `;
 
@@ -582,6 +650,20 @@ fn vs(@builtin(vertex_index) i: u32) -> PostOut {
 `;
 
 /**
+ * Exposure this frame: the scene's, or the auto-exposure adaptation when
+ * that is on, in which case the scene steers with the key instead.
+ */
+const EXPOSURE = /* wgsl */ `
+@group(1) @binding(2) var exposureTexture: texture_2d<f32>;
+fn exposure() -> f32 {
+  if (frame.post[3].x > 0.5) {
+    return textureLoad(exposureTexture, vec2u(0u, 0u), 0).r;
+  }
+  return frame.params.x;
+}
+`;
+
+/**
  * Bloom's first step: keep what is brighter than the threshold, softly, at
  * half resolution. A smooth knee so a surface just over the threshold does
  * not flicker in and out.
@@ -589,10 +671,11 @@ fn vs(@builtin(vertex_index) i: u32) -> PostOut {
 export const BLOOM_PREFILTER_SHADER = /* wgsl */ `
 ${COMMON}
 ${POST_COMMON}
+${EXPOSURE}
 
 @fragment
 fn fs(in: PostOut) -> @location(0) vec4f {
-  let color = textureSample(source, sourceSampler, in.uv).rgb * frame.params.x;
+  let color = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb * exposure();
   let threshold = frame.params2.y;
   let knee = threshold * 0.5;
   let brightness = max(color.r, max(color.g, color.b));
@@ -604,6 +687,347 @@ fn fs(in: PostOut) -> @location(0) vec4f {
 }
 `;
 
+/**
+ * Ambient occlusion from the depth and normal buffer, at half resolution:
+ * a normal-oriented hemisphere of samples in view space, each counted as
+ * occluding when the surface at its screen position is in front of it,
+ * with a range check so distant geometry does not darken a silhouette.
+ */
+export const AO_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+
+const SAMPLES = 12u;
+
+// A fixed hemisphere kernel, weighted toward the centre.
+fn kernel(i: u32) -> vec3f {
+  var k = array<vec3f, 12>(
+    vec3f(0.04, 0.06, 0.08), vec3f(-0.12, 0.05, 0.10), vec3f(0.10, -0.14, 0.12),
+    vec3f(-0.18, -0.10, 0.20), vec3f(0.25, 0.12, 0.16), vec3f(-0.08, 0.30, 0.22),
+    vec3f(0.32, -0.26, 0.30), vec3f(-0.38, 0.14, 0.36), vec3f(0.20, 0.42, 0.40),
+    vec3f(-0.30, -0.44, 0.48), vec3f(0.54, 0.20, 0.52), vec3f(-0.22, 0.58, 0.60));
+  return k[i];
+}
+
+fn hash(p: vec2f) -> f32 {
+  return fract(52.9829189 * fract(dot(p, vec2f(0.06711056, 0.00583715))));
+}
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let nd = textureSampleLevel(source, sourceSampler, in.uv, 0.0);
+  let depth = nd.w;
+  if (depth <= 0.0) { return vec4f(1.0); }
+  let p = viewPosition(in.uv, depth);
+  let n = normalize((frame.view * vec4f(nd.xyz, 0.0)).xyz);
+  let radius = frame.post[0].y;
+  // A random rotation about the normal per pixel; the blur evens it out.
+  let angle = hash(floor(in.position.xy)) * 6.2831853;
+  var tangent = normalize(cross(n, vec3f(0.0, 0.0, 1.0) + vec3f(1e-3, 0.0, 0.0)));
+  let c = cos(angle);
+  let s2 = sin(angle);
+  let bitangent = cross(n, tangent);
+  let t = tangent * c + bitangent * s2;
+  let b = cross(n, t);
+  var occlusion = 0.0;
+  for (var i = 0u; i < SAMPLES; i++) {
+    let k = kernel(i);
+    let samplePos = p + (t * k.x + b * k.y + n * k.z) * radius;
+    // Project back to the screen.
+    let sampleDepth = -samplePos.z;
+    let ndc = vec2f(samplePos.x / (frame.lens.x * sampleDepth), samplePos.y / (frame.lens.y * sampleDepth));
+    let uv = vec2f(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+    if (any(uv < vec2f(0.0)) || any(uv > vec2f(1.0))) { continue; }
+    let sceneDepth = textureSampleLevel(source, sourceSampler, uv, 0.0).w;
+    if (sceneDepth <= 0.0) { continue; }
+    let rangeCheck = smoothstep(0.0, 1.0, radius / max(abs(depth - sceneDepth), 1e-4));
+    if (sceneDepth < sampleDepth - 0.02) { occlusion += rangeCheck; }
+  }
+  let ao = 1.0 - (occlusion / f32(SAMPLES)) * frame.post[0].z;
+  return vec4f(clamp(ao, 0.0, 1.0));
+}
+`;
+
+/** A 4x4 box blur of the occlusion that stays within the surface, by depth. */
+export const AO_BLUR_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+@group(1) @binding(2) var normalDepth: texture_2d<f32>;
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let texel = 1.0 / vec2f(textureDimensions(source));
+  let depth = textureSampleLevel(normalDepth, sourceSampler, in.uv, 0.0).w;
+  if (depth <= 0.0) { return vec4f(1.0); }
+  var sum = 0.0;
+  var weight = 0.0;
+  for (var y = -2; y < 2; y++) {
+    for (var x = -2; x < 2; x++) {
+      let uv = in.uv + (vec2f(f32(x), f32(y)) + 0.5) * texel;
+      let d = textureSampleLevel(normalDepth, sourceSampler, uv, 0.0).w;
+      let w = select(0.0, 1.0, abs(d - depth) < depth * 0.1);
+      sum += textureSampleLevel(source, sourceSampler, uv, 0.0).r * w;
+      weight += w;
+    }
+  }
+  return vec4f(select(1.0, sum / weight, weight > 0.0));
+}
+`;
+
+/** Direct plus occluded indirect light, then fog by depth: the lit frame. */
+export const RESOLVE_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+@group(1) @binding(2) var indirect: texture_2d<f32>;
+@group(1) @binding(3) var ao: texture_2d<f32>;
+@group(1) @binding(4) var normalDepth: texture_2d<f32>;
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let direct = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb;
+  let ambient = textureSampleLevel(indirect, sourceSampler, in.uv, 0.0).rgb;
+  var occlusion = 1.0;
+  if (frame.post[0].w > 0.5) { occlusion = textureSampleLevel(ao, sourceSampler, in.uv, 0.0).r; }
+  var color = direct + ambient * occlusion;
+  let depth = textureSampleLevel(normalDepth, sourceSampler, in.uv, 0.0).w;
+  if (depth > 0.0) {
+    let distance = length(viewPosition(in.uv, depth));
+    let fogAmount = 1.0 - exp(-frame.fog.w * distance);
+    color = mix(color, frame.fog.rgb, fogAmount);
+  }
+  return vec4f(color, 1.0);
+}
+`;
+
+/**
+ * Temporal anti-aliasing. The main pass is jittered by a sub-pixel offset
+ * each frame; this blends the new frame with the history reprojected
+ * through the velocity buffer, after clamping the history to the new
+ * frame's 3x3 colour range so a moving object leaves no ghost.
+ */
+export const TAA_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+@group(1) @binding(2) var history: texture_2d<f32>;
+@group(1) @binding(3) var velocity: texture_2d<f32>;
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let texel = 1.0 / frame.jitter.zw;
+  let current = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb;
+  let v = textureSampleLevel(velocity, sourceSampler, in.uv, 0.0).xy;
+  let prevUV = in.uv - v;
+  if (frame.post[0].x >= 1.0 || any(prevUV < vec2f(0.0)) || any(prevUV > vec2f(1.0))) {
+    return vec4f(current, 1.0);
+  }
+  var mean = vec3f(0.0);
+  var sq = vec3f(0.0);
+  for (var y = -1; y <= 1; y++) {
+    for (var x = -1; x <= 1; x++) {
+      let c = textureSampleLevel(source, sourceSampler, in.uv + vec2f(f32(x), f32(y)) * texel, 0.0).rgb;
+      mean += c;
+      sq += c * c;
+    }
+  }
+  mean /= 9.0;
+  let sigma = sqrt(max(sq / 9.0 - mean * mean, vec3f(0.0)));
+  let lo = mean - sigma * 1.25;
+  let hi = mean + sigma * 1.25;
+  var hist = textureSampleLevel(history, sourceSampler, prevUV, 0.0).rgb;
+  // Clip the history toward the current mean, keeping it inside the box.
+  let centre = (lo + hi) * 0.5;
+  let extent = (hi - lo) * 0.5 + 1e-4;
+  let offset = hist - centre;
+  let unit = abs(offset / extent);
+  let maxUnit = max(unit.x, max(unit.y, unit.z));
+  if (maxUnit > 1.0) { hist = centre + offset / maxUnit; }
+  // Faster convergence where the image moves, so edges do not smear.
+  let speed = length(v * frame.jitter.zw);
+  let alpha = clamp(frame.post[0].x + speed * 0.02, frame.post[0].x, 0.5);
+  return vec4f(mix(hist, current, alpha), 1.0);
+}
+`;
+
+/**
+ * Depth of field, first half: the frame at half resolution with each
+ * pixel's circle of confusion in alpha, from its depth against the focus.
+ */
+export const DOF_DOWN_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+@group(1) @binding(2) var normalDepth: texture_2d<f32>;
+
+fn coc(depth: f32) -> f32 {
+  if (depth <= 0.0) { return 1.0; }
+  return clamp(abs(depth - frame.post[1].x) / frame.post[1].y, 0.0, 1.0);
+}
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let color = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb;
+  let depth = textureSampleLevel(normalDepth, sourceSampler, in.uv, 0.0).w;
+  return vec4f(color, coc(depth));
+}
+`;
+
+/**
+ * Depth of field, second half: a disc gather over the half-resolution
+ * frame, each tap weighted by whether its own circle reaches this pixel,
+ * blended with the sharp frame by the pixel's circle.
+ */
+export const DOF_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+@group(1) @binding(2) var half: texture_2d<f32>;
+
+const TAPS = 24u;
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let sharp = textureSampleLevel(source, sourceSampler, in.uv, 0.0);
+  let centre = textureSampleLevel(half, sourceSampler, in.uv, 0.0);
+  let maxBlur = frame.post[1].z;
+  let radius = centre.a * maxBlur;
+  if (radius < 0.5) { return vec4f(sharp.rgb, 1.0); }
+  let texel = 1.0 / frame.jitter.zw;
+  var sum = centre.rgb;
+  var weight = 1.0;
+  for (var i = 0u; i < TAPS; i++) {
+    // A golden-angle spiral fills the disc evenly.
+    let t = (f32(i) + 0.5) / f32(TAPS);
+    let angle = f32(i) * 2.39996;
+    let r = sqrt(t) * radius;
+    let offset = vec2f(cos(angle), sin(angle)) * r * texel;
+    let tap = textureSampleLevel(half, sourceSampler, in.uv + offset, 0.0);
+    // A tap counts if its own circle reaches here, so sharp foreground
+    // does not bleed into a blurred background and vice versa.
+    let w = select(0.0, 1.0, tap.a * maxBlur >= r - 0.5);
+    sum += tap.rgb * w;
+    weight += w;
+  }
+  let blurred = sum / weight;
+  return vec4f(mix(sharp.rgb, blurred, smoothstep(0.0, 1.0, centre.a)), 1.0);
+}
+`;
+
+/** Per-object motion blur: taps along the pixel's velocity, clamped to a sane length. */
+export const MOTION_BLUR_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+@group(1) @binding(2) var velocity: texture_2d<f32>;
+
+const TAPS = 8u;
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  var v = textureSampleLevel(velocity, sourceSampler, in.uv, 0.0).xy * frame.post[2].x;
+  let px = v * frame.jitter.zw;
+  let len = length(px);
+  let maxLen = 24.0;
+  if (len > maxLen) { v *= maxLen / len; }
+  if (len < 0.5) { return textureSampleLevel(source, sourceSampler, in.uv, 0.0); }
+  var sum = vec3f(0.0);
+  for (var i = 0u; i < TAPS; i++) {
+    let t = (f32(i) + 0.5) / f32(TAPS) - 0.5;
+    sum += textureSampleLevel(source, sourceSampler, in.uv + v * t, 0.0).rgb;
+  }
+  return vec4f(sum / f32(TAPS), 1.0);
+}
+`;
+
+/** The frame's average log luminance, as one texel, from a coarse grid of taps. */
+export const LUMINANCE_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  var sum = 0.0;
+  for (var y = 0u; y < 24u; y++) {
+    for (var x = 0u; x < 24u; x++) {
+      let uv = (vec2f(f32(x), f32(y)) + 0.5) / 24.0;
+      sum += log(max(luminance(textureSampleLevel(source, sourceSampler, uv, 0.0).rgb), 1e-4));
+    }
+  }
+  return vec4f(exp(sum / 576.0), 0.0, 0.0, 1.0);
+}
+`;
+
+/** Auto-exposure adaptation: ease the exposure toward the one that puts the average at the key. */
+export const ADAPT_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+@group(1) @binding(2) var previous: texture_2d<f32>;
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let average = textureLoad(source, vec2u(0u, 0u), 0).r;
+  let wanted = clamp(frame.post[3].y / max(average, 1e-4), frame.post[3].z, frame.post[3].w);
+  let prev = textureLoad(previous, vec2u(0u, 0u), 0).r;
+  let k = 1.0 - exp(-frame.post[5].y * frame.post[5].x);
+  var e = prev + (wanted - prev) * k;
+  if (prev <= 0.0) { e = wanted; }
+  return vec4f(e, 0.0, 0.0, 1.0);
+}
+`;
+
+/**
+ * The last pass: the frame plus its bloom, exposed, tonemapped with
+ * Narkowicz's fit of the ACES curve, graded, vignetted, grained and encoded
+ * for the canvas, which is a plain unorm format expecting sRGB values.
+ */
+export const COMPOSITE_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+${EXPOSURE}
+@group(1) @binding(3) var bloom: texture_2d<f32>;
+@group(1) @binding(4) var lut: texture_2d<f32>;
+
+fn tonemap(color: vec3f) -> vec3f {
+  let a = 2.51; let b = 0.03; let c = 2.43; let d = 0.59; let e = 0.14;
+  return clamp((color * (a * color + b)) / (color * (c * color + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
+// A 16x16x16 LUT laid out as a 256x16 strip: blue picks the tile.
+fn applyLut(c: vec3f) -> vec3f {
+  let tile = c.b * 15.0;
+  let t0 = floor(tile);
+  let t1 = min(t0 + 1.0, 15.0);
+  let u = (c.r * 15.0 + 0.5) / 256.0;
+  let v = (c.g * 15.0 + 0.5) / 16.0;
+  let a = textureSampleLevel(lut, sourceSampler, vec2f(u + t0 / 16.0, v), 0.0).rgb;
+  let b = textureSampleLevel(lut, sourceSampler, vec2f(u + t1 / 16.0, v), 0.0).rgb;
+  return mix(a, b, tile - t0);
+}
+
+fn hash(p: vec2f) -> f32 {
+  return fract(52.9829189 * fract(dot(p, vec2f(0.06711056, 0.00583715))));
+}
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let e = exposure();
+  var color = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb * e;
+  color += textureSampleLevel(bloom, sourceSampler, in.uv, 0.0).rgb * frame.params2.z;
+  // Temperature before tonemapping: warm pushes red up and blue down.
+  let temperature = frame.post[4].z;
+  color *= vec3f(1.0 + temperature * 0.2, 1.0, 1.0 - temperature * 0.2);
+  color = tonemap(color);
+  // Contrast about middle grey and saturation, in display range.
+  color = (color - 0.5) * frame.post[4].y + 0.5;
+  let grey = luminance(color);
+  color = mix(vec3f(grey), color, frame.post[4].x);
+  color = clamp(color, vec3f(0.0), vec3f(1.0));
+  if (frame.post[4].w > 0.5) { color = applyLut(color); }
+  // Vignette: a soft darkening toward the corners.
+  let d = (in.uv - 0.5) * vec2f(1.0, frame.jitter.w / frame.jitter.z);
+  color *= 1.0 - frame.post[2].y * smoothstep(0.3, 0.9, length(d) * 1.4);
+  // Film grain, changing every frame.
+  let grain = hash(in.position.xy + fract(frame.post[2].w * 61.0) * 1000.0) - 0.5;
+  color += grain * frame.post[2].z;
+  return vec4f(pow(clamp(color, vec3f(0.0), vec3f(1.0)), vec3f(1.0 / 2.2)), 1.0);
+}
+`;
 /** A 13-tap downsample (Jimenez), the step between bloom levels. */
 export const BLOOM_DOWNSAMPLE_SHADER = /* wgsl */ `
 ${COMMON}
@@ -614,19 +1038,19 @@ fn fs(in: PostOut) -> @location(0) vec4f {
   let texel = 1.0 / vec2f(textureDimensions(source));
   let x = texel.x;
   let y = texel.y;
-  let a = textureSample(source, sourceSampler, in.uv + vec2f(-2.0 * x, 2.0 * y)).rgb;
-  let b = textureSample(source, sourceSampler, in.uv + vec2f(0.0, 2.0 * y)).rgb;
-  let c = textureSample(source, sourceSampler, in.uv + vec2f(2.0 * x, 2.0 * y)).rgb;
-  let d = textureSample(source, sourceSampler, in.uv + vec2f(-2.0 * x, 0.0)).rgb;
-  let e = textureSample(source, sourceSampler, in.uv).rgb;
-  let f = textureSample(source, sourceSampler, in.uv + vec2f(2.0 * x, 0.0)).rgb;
-  let g = textureSample(source, sourceSampler, in.uv + vec2f(-2.0 * x, -2.0 * y)).rgb;
-  let h = textureSample(source, sourceSampler, in.uv + vec2f(0.0, -2.0 * y)).rgb;
-  let i = textureSample(source, sourceSampler, in.uv + vec2f(2.0 * x, -2.0 * y)).rgb;
-  let j = textureSample(source, sourceSampler, in.uv + vec2f(-x, y)).rgb;
-  let k = textureSample(source, sourceSampler, in.uv + vec2f(x, y)).rgb;
-  let l = textureSample(source, sourceSampler, in.uv + vec2f(-x, -y)).rgb;
-  let m = textureSample(source, sourceSampler, in.uv + vec2f(x, -y)).rgb;
+  let a = textureSampleLevel(source, sourceSampler, in.uv + vec2f(-2.0 * x, 2.0 * y), 0.0).rgb;
+  let b = textureSampleLevel(source, sourceSampler, in.uv + vec2f(0.0, 2.0 * y), 0.0).rgb;
+  let c = textureSampleLevel(source, sourceSampler, in.uv + vec2f(2.0 * x, 2.0 * y), 0.0).rgb;
+  let d = textureSampleLevel(source, sourceSampler, in.uv + vec2f(-2.0 * x, 0.0), 0.0).rgb;
+  let e = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb;
+  let f = textureSampleLevel(source, sourceSampler, in.uv + vec2f(2.0 * x, 0.0), 0.0).rgb;
+  let g = textureSampleLevel(source, sourceSampler, in.uv + vec2f(-2.0 * x, -2.0 * y), 0.0).rgb;
+  let h = textureSampleLevel(source, sourceSampler, in.uv + vec2f(0.0, -2.0 * y), 0.0).rgb;
+  let i = textureSampleLevel(source, sourceSampler, in.uv + vec2f(2.0 * x, -2.0 * y), 0.0).rgb;
+  let j = textureSampleLevel(source, sourceSampler, in.uv + vec2f(-x, y), 0.0).rgb;
+  let k = textureSampleLevel(source, sourceSampler, in.uv + vec2f(x, y), 0.0).rgb;
+  let l = textureSampleLevel(source, sourceSampler, in.uv + vec2f(-x, -y), 0.0).rgb;
+  let m = textureSampleLevel(source, sourceSampler, in.uv + vec2f(x, -y), 0.0).rgb;
   var sum = e * 0.125;
   sum += (a + c + g + i) * 0.03125;
   sum += (b + d + f + h) * 0.0625;
@@ -645,38 +1069,15 @@ fn fs(in: PostOut) -> @location(0) vec4f {
   let texel = 1.0 / vec2f(textureDimensions(source));
   let x = texel.x;
   let y = texel.y;
-  var sum = textureSample(source, sourceSampler, in.uv).rgb * 4.0;
-  sum += textureSample(source, sourceSampler, in.uv + vec2f(-x, 0.0)).rgb * 2.0;
-  sum += textureSample(source, sourceSampler, in.uv + vec2f(x, 0.0)).rgb * 2.0;
-  sum += textureSample(source, sourceSampler, in.uv + vec2f(0.0, -y)).rgb * 2.0;
-  sum += textureSample(source, sourceSampler, in.uv + vec2f(0.0, y)).rgb * 2.0;
-  sum += textureSample(source, sourceSampler, in.uv + vec2f(-x, -y)).rgb;
-  sum += textureSample(source, sourceSampler, in.uv + vec2f(x, -y)).rgb;
-  sum += textureSample(source, sourceSampler, in.uv + vec2f(-x, y)).rgb;
-  sum += textureSample(source, sourceSampler, in.uv + vec2f(x, y)).rgb;
+  var sum = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb * 4.0;
+  sum += textureSampleLevel(source, sourceSampler, in.uv + vec2f(-x, 0.0), 0.0).rgb * 2.0;
+  sum += textureSampleLevel(source, sourceSampler, in.uv + vec2f(x, 0.0), 0.0).rgb * 2.0;
+  sum += textureSampleLevel(source, sourceSampler, in.uv + vec2f(0.0, -y), 0.0).rgb * 2.0;
+  sum += textureSampleLevel(source, sourceSampler, in.uv + vec2f(0.0, y), 0.0).rgb * 2.0;
+  sum += textureSampleLevel(source, sourceSampler, in.uv + vec2f(-x, -y), 0.0).rgb;
+  sum += textureSampleLevel(source, sourceSampler, in.uv + vec2f(x, -y), 0.0).rgb;
+  sum += textureSampleLevel(source, sourceSampler, in.uv + vec2f(-x, y), 0.0).rgb;
+  sum += textureSampleLevel(source, sourceSampler, in.uv + vec2f(x, y), 0.0).rgb;
   return vec4f(sum / 16.0, 1.0);
-}
-`;
-
-/**
- * The last pass: the frame plus its bloom, exposed, tonemapped with
- * Narkowicz's fit of the ACES curve, and encoded for the canvas, which is
- * a plain unorm format expecting sRGB values.
- */
-export const COMPOSITE_SHADER = /* wgsl */ `
-${COMMON}
-${POST_COMMON}
-@group(1) @binding(2) var bloom: texture_2d<f32>;
-
-fn tonemap(color: vec3f) -> vec3f {
-  let a = 2.51; let b = 0.03; let c = 2.43; let d = 0.59; let e = 0.14;
-  return clamp((color * (a * color + b)) / (color * (c * color + d) + e), vec3f(0.0), vec3f(1.0));
-}
-
-@fragment
-fn fs(in: PostOut) -> @location(0) vec4f {
-  var color = textureSample(source, sourceSampler, in.uv).rgb * frame.params.x;
-  color += textureSample(bloom, sourceSampler, in.uv).rgb * frame.params2.z;
-  return vec4f(pow(tonemap(color), vec3f(1.0 / 2.2)), 1.0);
 }
 `;

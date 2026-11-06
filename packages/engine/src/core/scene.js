@@ -654,7 +654,9 @@ export class Scene {
           continue;
         }
         const { geometry, scale } = geometryFor(mesh.shape ?? body.shape, body.size);
-        frame.add(geometry, {
+        // Last frame's matrix comes back as this frame's previous, for
+        // motion vectors; it lives on the entity because the frame does not.
+        entity.lastModel = frame.add(geometry, {
           position: body.renderPosition,
           rotation: body.renderRotation,
           scale,
@@ -662,7 +664,8 @@ export class Scene {
           metallic: mesh.metallic,
           roughness: mesh.roughness,
           emissive: mesh.emissive,
-          checker: mesh.checker
+          checker: mesh.checker,
+          previousModel: entity.lastModel ?? undefined
         });
       }
     }
@@ -684,14 +687,18 @@ export class Scene {
     // Offset and scale in the body's frame, before the parts' own matrices.
     const local = mat4.fromTRS(offset, IDENTITY_Q, { x: s, y: s, z: s }, this.#scratchLocal);
     mat4.multiply(base, local, base);
-    for (const part of model.parts) {
-      frame.add(part.geometry, {
+    const previous = body.entity?.lastModels ?? [];
+    const current = [];
+    model.parts.forEach((part, i) => {
+      current[i] = frame.add(part.geometry, {
         model: mat4.multiply(base, part.matrix),
         material: part.material,
         color: WHITE, metallic: 1, roughness: 1,
-        emissive: mesh.emissive ?? 0
+        emissive: mesh.emissive ?? 0,
+        previousModel: previous[i]
       });
-    }
+    });
+    if (body.entity) body.entity.lastModels = current;
   }
 
   #scratchBase = new Float32Array(16);

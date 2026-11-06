@@ -261,6 +261,7 @@ game.sceneManager.addScene('yard', {
 | `fog` | Distance fog toward a linear `color`, at a `density` per metre; `0` turns it off. The sky's horizon takes the same colour |
 | `exposure` | A multiplier before tonemapping, `1` by default |
 | `bloom` | Light brighter than `threshold` after exposure spreads into a glow added at `intensity` (`0.12` by default; `0` skips the passes) |
+| `post` | The post stack's strengths, below. The player's `r_*` settings decide which stages run at all |
 | `shadow` | Shadows reach `distance` metres from the camera (`60`), split into the sun's cascades; `normalOffset` in shadow texels and `bias` in metres trade acne against detached shadows; `enabled: false` turns every shadow off |
 | `addLight(light)` | A point light (`position`, linear `color`, `intensity` as radiance at one metre, `range` in metres) or, with `type: 'spot'`, one pointing along `direction` with `innerCone` and `outerCone` in radians. A spot casts a shadow map unless `shadow: false`; the nearest few do, by the quality setting. Up to 256 a frame |
 | `setCamera(camera)` | Take the matrices, eye, frustum and shadow centre from a `Camera3D`. The engine does this before the scene's hook |
@@ -269,6 +270,18 @@ game.sceneManager.addScene('yard', {
 Geometry for the primitive shapes comes from `m2d-engine/core/renderers/geometry/primitives.js`: `box()`, `sphere()`, `cylinder()` and `plane()` are unit-sized and scaled per instance, `capsule(radius, height)` is built to its proportions, and `geometryFor(shape, size)` returns the right one for a body. Models come from `m2d-engine/core/gltf.js`: `loadGLB(url)` and `parseGLB(buffer)` read a `.glb` into parts, each a geometry, a material and a node matrix. Geometry, images and materials are uploaded to the GPU once each and drawn instanced, grouped by geometry and material: a frame of a hundred crates is one draw call.
 
 `add` culls as it goes. An instance whose bounding sphere is outside the camera's frustum is left out of the main pass, and one outside the shadow map's reach is left out of the shadow pass; the frame's `added`, `drawn` and `casting` counts say what happened.
+
+**Post-processing.** The main pass leaves direct light, indirect light, normal-and-depth and velocity targets, and the post stack runs over them in order: ambient occlusion, resolve with fog, temporal anti-aliasing, depth of field, motion blur, auto exposure, bloom, composite. A scene sets the strengths in `frame.post`; a player turns stages off with the `r_taa`, `r_ao`, `r_dof`, `r_motionblur`, `r_autoexposure`, `r_bloom` and `r_film` cvars, which the settings menu lists under Effects.
+
+| `frame.post` key | Meaning |
+| --- | --- |
+| `taa` | `blend`: how much of each new frame enters the history (`0.1`) |
+| `ao` | Screen-space ambient occlusion over the indirect light: `radius` in metres (`0.8`), `intensity` (`1`); `0` skips it |
+| `dof` | Depth of field: `focus` distance in metres (`null` leaves it off), `range` over which blur builds, `maxBlur` in pixels |
+| `motionBlur` | Per-object blur along the velocity buffer: `strength` (`0.5`); `0` skips it |
+| `autoExposure` | `enabled` (`false`), the `key` grey the average is brought to (`0.18`), `min` and `max` exposure, adaptation `speed` per second. While on, it replaces `exposure`; steer with the key |
+| `grade` | `saturation`, `contrast` about middle grey, `temperature` (warm positive) and an optional `lut` image, a 256x16 strip of a 16-step colour cube |
+| `vignette`, `grain` | Film: corner darkening (`0`–`1`) and per-frame noise amplitude |
 
 The picture is a metallic-roughness model under the sun, the point and spot lights and an image-based environment, with cascaded shadow maps for the sun and perspective shadow maps for the nearest spot lights, each filtered over nine taps, fog, bloom, ACES tonemapping and 4x multisampling. Each sun cascade is an orthographic box fitted to a slice of the view frustum and snapped to its own texel grid, so shadow edges hold still as the camera moves. The `r_shadows` cvar (`off`, `low`, `medium`, `high`) sets how many cascades and spot maps there are and at what size, and the settings menu has a row for it. The environment is the renderer's own sky, baked to a cubemap when the sun or sky settings change, prefiltered by roughness for reflections and convolved for diffuse, so a mirror sphere reflects the sky it stands under. Rendering is in high range to a 16-bit float target; the composite pass exposes, tonemaps and encodes to the canvas. A camera's `Camera3D` is in [Camera](../guide/camera#three-dimensions), and the `mesh` block a prefab draws with is in the [scene format](./scene-format#mesh). What is not here yet — image-based lighting, more lights, normal maps, skinning, post effects — follows the plan in `docs/plans/3d-and-editor.md`.
 
