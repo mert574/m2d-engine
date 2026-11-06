@@ -13,7 +13,7 @@
  * The contract, in brief:
  *
  *   World      createBox / createCircle / createCapsule, add / remove,
- *              bodies, clear, reset, destroy, setGravity / gravity,
+ *              bodies, clear, reset, destroy, setGravity / gravity, up,
  *              advance / step / interpolation, setCollisionHandlers,
  *              contactsWith, surfacesWith, overlaps, queryPoint, raycast
  *
@@ -27,8 +27,11 @@
  *
  * Units and conventions — these are the contract's, not the solver's:
  *
- * - **Distance is pixels, time is seconds.** Velocity is px/s, gravity is
- *   px/s² (`{x: 0, y: 1000}` is the "normal down" the games are tuned to),
+ * - **Time is seconds; distance depends on the dimension.** In 2D a unit is
+ *   a pixel, up is -y and gravity is px/s² (`{x: 0, y: 1000}` is the
+ *   "normal down" the games are tuned to). In 3D a unit is a metre, up is
+ *   +y and gravity is m/s² (`{x: 0, y: -9.81, z: 0}`). `world.up` says
+ *   which; shared code asks it rather than assuming an axis.
  *   `advance`/`step` take seconds.
  * - **`bodyType` is `static`, `dynamic`, `kinematic` or `character`.** A
  *   kinematic body is driven by game code but still resolves contacts
@@ -111,7 +114,8 @@ export async function initPhysics({ dimensions = 2 } = {}) {
 /**
  * Create the physics world for a game.
  * @param {object} [options]
- * @param {{x: number, y: number}} [options.gravity] - px/s².
+ * @param {{x: number, y: number, z?: number}} [options.gravity] - px/s² in
+ *   2D, m/s² in 3D.
  * @param {number} [options.fixedTimestep] - Seconds per solver step
  *   (default 1/60). The solver always sees exactly this dt.
  * @param {number} [options.maxSubSteps] - Most steps `advance` will run in

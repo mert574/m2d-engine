@@ -16,7 +16,11 @@
  * See ./index.js for the contract both backends implement.
  */
 
-/** Tells Rapier's solver tolerances that world units are pixels (~100/m). */
+/**
+ * Tells Rapier's solver tolerances that the 2D world's units are pixels
+ * (~100/m). The 3D world is in metres and keeps its own constants; see
+ * rapier3dBackend.js. Everything below that carries a px unit is 2D tuning.
+ */
 export const LENGTH_UNIT = 100;
 
 /**
@@ -66,8 +70,12 @@ export function dampingToFrictionAir(damping) {
   return damping / (60 + damping);
 }
 
-/** The buffered material state every body carries, whatever its dimension. */
-export function materialSpec(spec) {
+/**
+ * The buffered material state every body carries, whatever its dimension.
+ * `defaults.density` is the backend's, since it depends on the unit the
+ * backend measures in.
+ */
+export function materialSpec(spec, defaults = {}) {
   return {
     bodyType: spec.bodyType ?? 'dynamic',
     lockRotation: spec.lockRotation ?? false,
@@ -75,7 +83,7 @@ export function materialSpec(spec) {
     friction: spec.friction ?? 0.1,
     frictionAir: spec.frictionAir ?? 0.01,
     restitution: spec.restitution ?? 0,
-    density: spec.density ?? DEFAULT_DENSITY,
+    density: spec.density ?? defaults.density ?? DEFAULT_DENSITY,
     category: spec.category ?? 0x0001,
     mask: spec.mask ?? 0xFFFF,
     mass: null,
@@ -116,11 +124,13 @@ export class RapierBodyMaterial {
    * @param {object} world - The owning PhysicsWorld.
    * @param {object} R - The backend's Rapier module.
    * @param {object} spec - Creation spec; material keys are read here.
+   * @param {{density?: number}} [defaults] - Backend defaults for keys the
+   *   spec leaves out.
    */
-  constructor(world, R, spec) {
+  constructor(world, R, spec, defaults) {
     this.world = world;
     this.R = R;
-    this.spec = materialSpec(spec);
+    this.spec = materialSpec(spec, defaults);
 
     this.rigidBody = null;
     this.collider = null;

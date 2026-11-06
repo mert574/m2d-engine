@@ -23,6 +23,9 @@ import {
  */
 const CHARACTER_NUDGE = 0.05;
 
+/** Which way is up; see `RapierPhysicsWorld.up`. */
+const UP = Object.freeze({ x: 0, y: -1 });
+
 /**
  * The Rapier 2D implementation of the physics contract described in
  * ./index.js.
@@ -157,7 +160,7 @@ export class RapierBody extends RapierBodyMaterial {
     const c = this.world.rWorld.createCharacterController(CHARACTER_OFFSET);
     // Screen coordinates grow downward, so "up" — the direction that makes
     // a surface count as ground — is -y. Without this, ceilings ground.
-    c.setUp({ x: 0, y: -1 });
+    c.setUp(UP);
     c.setSlideEnabled(true);
     c.setNormalNudgeFactor(CHARACTER_NUDGE);
     c.enableSnapToGround(CHARACTER_SNAP);
@@ -503,6 +506,15 @@ export class RapierPhysicsWorld extends PhysicsWorldBase {
 
   get dimensions() {
     return 2;
+  }
+
+  /**
+   * Which way is up. Screen coordinates grow downward, so in two
+   * dimensions it is -y. Shared code that needs to know (`Entity.groundBody`)
+   * asks the world rather than assuming an axis.
+   */
+  get up() {
+    return UP;
   }
 
   #createWorld() {

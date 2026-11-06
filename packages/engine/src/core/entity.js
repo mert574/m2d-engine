@@ -429,9 +429,11 @@ export class Entity {
    * part of every move. For everything else it is decided by contact
    * normals, not by where the other body's centre happens to sit: the
    * normal points from this body towards what it is touching, so a surface
-   * underneath gives a normal pointing down (+y) and a wall gives a
-   * sideways one. `GROUND_NORMAL_Y` is the cutoff, and at 0.5 it accepts
-   * slopes up to 60° while still rejecting walls.
+   * underneath gives a normal pointing away from `physics.up` and a wall
+   * gives a sideways one. Which axis is up is the world's to say — -y in
+   * 2D, +y in 3D — so this asks rather than assumes. `GROUND_NORMAL` is the
+   * cutoff, and at 0.5 it accepts slopes up to 60° while still rejecting
+   * walls.
    */
   isOnGround() {
     return this.groundBody !== null;
@@ -445,12 +447,13 @@ export class Entity {
    * ignores that fights the ride instead of adding to it.
    */
   get groundBody() {
-    const GROUND_NORMAL_Y = 0.5;
+    const GROUND_NORMAL = 0.5;
     if (this.body.bodyType === 'character') return this.body.groundBody;
 
+    const up = this.game.physics.up;
     const surface = this.game.physics
       .surfacesWith(this.body, (other) => !other.isSensor)
-      .find(({ normal }) => normal.y > GROUND_NORMAL_Y);
+      .find(({ normal }) => -(normal.x * up.x + normal.y * up.y + (normal.z ?? 0) * (up.z ?? 0)) > GROUND_NORMAL);
     return surface ? surface.body : null;
   }
 } 

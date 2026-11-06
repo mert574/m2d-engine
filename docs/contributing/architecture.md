@@ -31,7 +31,7 @@ packages/engine/src/
 │   ├── constants.js      Collision categories
 │   ├── math.js           Vec2 and Angle helpers
 │   ├── physics/          The simulation behind an engine-owned interface
-│   ├── renderers/        Backend contract, Canvas and WebGL2 backends, geometry
+│   ├── renderers/        Backend contract, Canvas and WebGL2 backends, the WebGPU 3D renderer, geometry
 │   ├── console/          CVar and command registries, the drop-down console
 │   ├── input/            inputManager.js (game.input) over pointer source, keyboard, cursor, gestures and router
 │   └── ui/               Element tree, theme tokens, components, layout/, screens, motion, backdrop, settings menu, world overlay
@@ -41,7 +41,7 @@ packages/engine/src/
 
 ## Physics boundary
 
-Nothing outside `core/physics/` imports a physics library. `index.js` documents the contract and exports `initPhysics` and `createPhysicsWorld`, which take the dimension to build on. `rapierBackend.js` implements the contract over Rapier 2D and `rapier3dBackend.js` over Rapier 3D; they are separate worlds on separate WASM modules, and a game loads only the one it plays. `rapierShared.js` holds what a dimension does not change — the tuning constants, the `frictionAir` conversion and the material half of a body handle — and imports no Rapier of its own, since a backend passes its module in. `worldBase.js` holds the solver-independent fixed-step clock and interpolation alpha.
+Nothing outside `core/physics/` imports a physics library. `index.js` documents the contract and exports `initPhysics` and `createPhysicsWorld`, which take the dimension to build on. `rapierBackend.js` implements the contract over Rapier 2D and `rapier3dBackend.js` over Rapier 3D; they are separate worlds on separate WASM modules, and a game loads only the one it plays. `rapierShared.js` holds what a dimension does not change — the `frictionAir` conversion and the material half of a body handle — and imports no Rapier of its own, since a backend passes its module in. The tuning constants are per backend, because they are in the backend's unit: pixels with up along `-y` in 2D, metres with up along `+y` in 3D. Shared code that needs the axis asks `world.up`. `worldBase.js` holds the solver-independent fixed-step clock and interpolation alpha.
 
 Rules the boundary keeps:
 
@@ -67,6 +67,7 @@ Backends:
 
 - `canvasRenderer.js` draws the world into a buffer and composites it in `endFrame`.
 - `webglRenderer.js` tessellates and transforms geometry on the CPU in `geometry/` and batches it in `webgl/batch.js` into as few draw calls as paint-state changes allow. Text is rasterized by the browser into cached label textures. Clips use stencil reference counting. Shadows render the silhouette offscreen and blur it. Lights and post effects live in `webgl/effectsPass.js`. The `geometry/` modules are API-neutral so another GPU backend would reuse them.
+- `webgpuRenderer.js` is the 3D renderer and a different kind: retained rather than immediate. The engine asks the scene for a frame and calls `render(frame)` once; entities do not draw themselves. It extends `BaseRenderer` for the viewport, statistics and debug plumbing, declares `dimensions = 3`, and the engine refuses to pair it with 2D physics or a 2D backend with 3D physics. `webgpu/device.js` acquires the one `GPUDevice` per page up front (`initWebGPU()`, awaited before `M2D` like `initPhysics`). The HUD draws through a WebGL2 backend on an overlay canvas the renderer owns, so the UI layer is unchanged in 3D. Its contract grows with the 3D plan in `docs/plans/3d-and-editor.md`.
 - `uiRenderer.js` wraps any backend and forwards calls with `isScreenSpace: true`. A new backend gets the UI layer for free.
 - `index.js` holds the registry and the default and fallback names. The fallback rule lives in `M2D`'s renderer setup. When the selected backend is the default, was not named in the constructor options and fails to initialize, the engine falls back to Canvas with a warning. Any other failing selection throws, including a `?renderer=` override that names a non-default backend.
 

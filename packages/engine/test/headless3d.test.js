@@ -12,7 +12,8 @@ import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
  * entities with 3D bodies, and a tick. If a 3D game can be simulated and
  * tested before anything can draw it, the parts underneath are right.
  *
- * Up is -y, as in the 2D engine. See rapier3dBackend.js.
+ * Up is +y and a unit is a metre, unlike the 2D engine. See
+ * rapier3dBackend.js.
  */
 
 class Crate extends Entity { name = 'Crate'; }
@@ -21,7 +22,7 @@ class Hero extends Entity {
   name = 'Hero';
   fixedUpdate(dt) {
     super.fixedUpdate(dt);
-    if (this.walking) this.body.setVelocity({ x: 120, y: 0, z: 60 });
+    if (this.walking) this.body.setVelocity({ x: 1.2, y: 0, z: 0.6 });
   }
 }
 
@@ -39,12 +40,15 @@ function makeGame(options = {}) {
   return game;
 }
 
-/** A floor at y = 0, a crate above it, and a hero standing on it. */
+/**
+ * A 10 m yard: a slab whose top is y = 0.1, crates and a ball dropped from
+ * a few metres, and a hero standing on it.
+ */
 const LEVEL = {
   version: SCENE_VERSION,
   type: 'level',
   name: 'yard',
-  world: { dimensions: 3, gravity: { x: 0, y: 1000, z: 0 } },
+  world: { dimensions: 3, gravity: { x: 0, y: -9.81, z: 0 } },
   prefabs: {
     ground: { actor: 'Ground', physics: { bodyType: 'static' } },
     crate: { actor: 'Crate', physics: { bodyType: 'dynamic', friction: 0.5 } },
@@ -55,12 +59,12 @@ const LEVEL = {
   layers: [{
     name: 'main',
     objects: [
-      { id: 'floor', prefab: 'ground', x: 0, y: 0, z: 0, width: 1000, height: 20, depth: 1000 },
-      { id: 'crate-1', prefab: 'crate', x: 0, y: -200, z: 0, width: 40, height: 40, depth: 40 },
-      { id: 'crate-2', prefab: 'crate', x: 0, y: -400, z: 120, width: 40, height: 40 },
-      { id: 'ball-1', prefab: 'ball', x: 200, y: -300, z: -100, width: 40, height: 40 },
-      { id: 'barrel-1', prefab: 'barrel', x: -200, y: -300, z: 0, width: 40, height: 60 },
-      { id: 'hero-1', prefab: 'hero', x: -300, y: -100, z: -300, width: 20, height: 40 }
+      { id: 'floor', prefab: 'ground', x: 0, y: 0, z: 0, width: 10, height: 0.2, depth: 10 },
+      { id: 'crate-1', prefab: 'crate', x: 0, y: 2, z: 0, width: 0.4, height: 0.4, depth: 0.4 },
+      { id: 'crate-2', prefab: 'crate', x: 0, y: 4, z: 1.2, width: 0.4, height: 0.4 },
+      { id: 'ball-1', prefab: 'ball', x: 2, y: 3, z: -1, width: 0.4, height: 0.4 },
+      { id: 'barrel-1', prefab: 'barrel', x: -2, y: 3, z: 0, width: 0.4, height: 0.6 },
+      { id: 'hero-1', prefab: 'hero', x: -3, y: 1, z: -3, width: 0.6, height: 1.8 }
     ]
   }]
 };
@@ -79,14 +83,14 @@ describe('a 3D level, headless', () => {
     expect(game.physics.dimensions).toBe(3);
     expect(scene.entitiesById.size).toBe(6);
     const crate = scene.entitiesById.get('crate-1');
-    expect(crate.position).toEqual({ x: 0, y: -200, z: 0 });
-    expect(crate.body.size).toEqual({ x: 40, y: 40, z: 40 });
+    expect(crate.position).toEqual({ x: 0, y: 2, z: 0 });
+    expect(crate.body.size).toEqual({ x: 0.4, y: 0.4, z: 0.4 });
     game.destroy();
   });
 
   it("defaults a box's depth to its width, so a cube needs two numbers", async () => {
     const { game, scene } = await loadYard();
-    expect(scene.entitiesById.get('crate-2').body.size).toEqual({ x: 40, y: 40, z: 40 });
+    expect(scene.entitiesById.get('crate-2').body.size).toEqual({ x: 0.4, y: 0.4, z: 0.4 });
     game.destroy();
   });
 
@@ -104,10 +108,10 @@ describe('a 3D level, headless', () => {
 
     for (const id of ['crate-1', 'crate-2', 'ball-1', 'barrel-1']) {
       const entity = scene.entitiesById.get(id);
-      // Floor top is y = -10; nothing may be below it, and nothing may
+      // Floor top is y = 0.1; nothing may be below it, and nothing may
       // still be where it started.
-      expect(entity.position.y, id).toBeLessThan(0);
-      expect(entity.position.y, id).toBeGreaterThan(-60);
+      expect(entity.position.y, id).toBeGreaterThan(0.1);
+      expect(entity.position.y, id).toBeLessThan(0.6);
     }
     game.destroy();
   });
@@ -116,9 +120,9 @@ describe('a 3D level, headless', () => {
     const { game, scene } = await loadYard();
     for (let i = 0; i < 120; i++) game.fixedUpdate(1 / 60);
     // Objects placed apart on z stay apart on z. These are dropped dynamic
-    // bodies, so they settle a few px rather than landing on the spot.
-    expect(scene.entitiesById.get('crate-2').position.z).toBeCloseTo(120, -1);
-    expect(scene.entitiesById.get('ball-1').position.z).toBeCloseTo(-100, -1);
+    // bodies, so they settle a little rather than landing on the spot.
+    expect(scene.entitiesById.get('crate-2').position.z).toBeCloseTo(1.2, 1);
+    expect(scene.entitiesById.get('ball-1').position.z).toBeCloseTo(-1, 1);
     game.destroy();
   });
 
@@ -133,13 +137,13 @@ describe('a 3D level, headless', () => {
     hero.walking = true;
     for (let i = 0; i < 60; i++) game.fixedUpdate(1 / 60);
 
-    // A hair under the commanded 120 and 60: a prefab's `frictionAir: 0`
+    // A hair under the commanded 1.2 and 0.6: a prefab's `frictionAir: 0`
     // means "unset" and takes the engine default, which bleeds a little
     // speed in the step between the intent being set and being integrated.
-    expect(hero.position.x - from.x).toBeGreaterThan(117);
-    expect(hero.position.x - from.x).toBeLessThanOrEqual(120);
-    expect(hero.position.z - from.z).toBeGreaterThan(58);
-    expect(hero.position.z - from.z).toBeLessThanOrEqual(60);
+    expect(hero.position.x - from.x).toBeGreaterThan(1.17);
+    expect(hero.position.x - from.x).toBeLessThanOrEqual(1.2);
+    expect(hero.position.z - from.z).toBeGreaterThan(0.58);
+    expect(hero.position.z - from.z).toBeLessThanOrEqual(0.6);
     game.destroy();
   });
 
@@ -157,12 +161,12 @@ describe('a 3D level, headless', () => {
   it('spawns into the world at runtime, with a third axis', async () => {
     const { game } = await loadYard();
     const extra = game.spawn({
-      type: 'Crate', x: 10, y: -500, z: 40, width: 20, height: 20, depth: 20,
+      type: 'Crate', x: 1, y: 5, z: 4, width: 0.2, height: 0.2, depth: 0.2,
       physics: { bodyType: 'dynamic' }
     });
-    expect(extra.position).toEqual({ x: 10, y: -500, z: 40 });
+    expect(extra.position).toEqual({ x: 1, y: 5, z: 4 });
     for (let i = 0; i < 180; i++) game.fixedUpdate(1 / 60);
-    expect(extra.position.y).toBeGreaterThan(-500);
+    expect(extra.position.y).toBeLessThan(5);
     game.destroy();
   });
 });

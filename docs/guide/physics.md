@@ -51,6 +51,8 @@ Not every player should be a character. The platformer example's player is a dyn
 | Impulse | px·mass/s. Multiply by `body.mass` for a velocity change independent of weight |
 | Angle | radians |
 
+These are the 2D world's. A 3D world measures in metres with up along `+y`, so its gravity is `{ x: 0, y: -9.81, z: 0 }`; see [Three dimensions](../reference/physics#three-dimensions). `game.physics.up` says which way is up in either.
+
 No solver unit appears outside the physics module.
 
 ## Fixed timestep

@@ -2,7 +2,7 @@
 
 `game.physics` is the physics world. Bodies are the objects it creates. The contract is implemented over Rapier, in two dimensions by default and in three on request, and `packages/engine/test/physics.test.js` and `physics3d.test.js` are the contract written as tests.
 
-Units are pixels and seconds throughout. The rest of this page describes the 2D world, where rotation is an angle in radians; see [Three dimensions](#three-dimensions) for what changes.
+Units are pixels and seconds in two dimensions, metres and seconds in three. The rest of this page describes the 2D world, where rotation is an angle in radians; see [Three dimensions](#three-dimensions) for what changes.
 
 ## Initialization
 
@@ -115,7 +115,15 @@ Returned objects such as `position` and `collisionFilter` are snapshots. Mutatin
 
 `initPhysics({ dimensions: 3 })` and `createPhysicsWorld({ dimensions: 3 })` build a world on Rapier 3D. It keeps the contract above — the same body types, the same material keys, the same queries, the same fixed step — and differs in the four places a dimension shows.
 
-**Up is -y, as it is in 2D.** This is worth saying because most 3D content disagrees: glTF is y-up, and so is Rapier's own documentation. The engine's screen coordinates grow downward and its gravity, ground normals and character controller are written against that, so a 3D world keeps the convention rather than flipping it halfway down the stack. A loader for y-up content converts at the boundary, where one place has to know. Default gravity is `{ x: 0, y: 1000, z: 0 }`.
+**Up is +y and a unit is a metre.** Both are the opposite of the 2D world, and both are deliberate: every piece of 3D content — glTF, the tools that export it, HDR environments, Rapier's own documentation — is y-up and metre-scale, so nothing is converted on the way in. The two worlds never meet, so no code has to handle both; shared code that needs to tell a floor from a wall asks `game.physics.up`, which is `{ x: 0, y: -1 }` in 2D and `{ x: 0, y: 1, z: 0 }` in 3D. Default gravity is Earth's, `{ x: 0, y: -9.81, z: 0 }`. Masses are kilograms at the density of water unless `density` or `setMass` says otherwise, so a 0.4 m crate weighs 64 kg.
+
+| Quantity | 2D | 3D |
+| --- | --- | --- |
+| Distance | px | m |
+| Velocity | px/s | m/s |
+| Gravity | px/s², down is `+y` | m/s², down is `-y` |
+| Impulse | px·mass/s | kg·m/s |
+| Mass | area × 0.001 | volume × 1000 kg/m³ |
 
 **Shapes.**
 

@@ -65,6 +65,16 @@ export class PhysicsWorldBase {
     throw new Error('PhysicsWorld must implement dimensions');
   }
 
+  /**
+   * Which way is up, as a unit vector: -y in 2D (screen coordinates grow
+   * downward), +y in 3D (as all 3D content is). Shared code that needs to
+   * tell a floor from a wall asks this rather than assuming an axis.
+   * @abstract @type {{x: number, y: number, z?: number}}
+   */
+  get up() {
+    throw new Error('PhysicsWorld must implement up');
+  }
+
   /** Seconds per solver step. @type {number} */
   get fixedTimestep() { return this.clock ? this.clock.fixedTimestep : this.own.fixedTimestep; }
   set fixedTimestep(value) { if (this.clock) this.clock.fixedTimestep = value; else this.own.fixedTimestep = value; }

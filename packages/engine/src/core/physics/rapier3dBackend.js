@@ -1,10 +1,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { PhysicsWorldBase } from './worldBase.js';
 import { Quat, Vec3 } from '../math.js';
-import {
-  LENGTH_UNIT, CONTACT_PAD, CHARACTER_OFFSET, CHARACTER_SNAP,
-  RapierBodyMaterial, bodyDescFor, frictionAirToDamping
-} from './rapierShared.js';
+import { RapierBodyMaterial, bodyDescFor, frictionAirToDamping } from './rapierShared.js';
 
 /**
  * The Rapier 3D implementation of the physics contract.
@@ -25,13 +22,19 @@ import {
  * `renderRotation` blends with `Quat.slerp` where the 2D one blends along
  * the shorter arc of a scalar. Both are solving the same problem.
  *
- * **Up is -y, as in 2D.** This is worth stating because most 3D content
- * disagrees — glTF is y-up, and so is Rapier's own documentation. The
- * engine's screen coordinates grow downward and its gravity, its ground
- * normals and its character controller are all written against that, so a
- * 3D world here keeps the same convention rather than flipping it halfway
- * down the stack. A loader for y-up content converts at the boundary,
- * where exactly one place has to know.
+ * **Up is +y and the unit is the metre.** This is the opposite of the 2D
+ * world, where screen coordinates grow downward and a unit is a pixel, and
+ * it is deliberate: every piece of 3D content — glTF, the modelling tools
+ * that export it, HDR environments, Rapier's own documentation — is y-up
+ * and metre-scale, so with this convention nothing is ever converted on
+ * the way in. The two dimensions never share a world, a camera or a
+ * renderer, so the difference is never seen by code; it is a line each in
+ * the physics guide's units table. The one thing shared code may ask is
+ * `world.up`, which both backends answer. Default gravity is Earth's.
+ *
+ * The tuning constants below are this backend's own. The 2D backend's are
+ * in pixels and dividing them by 100 is not the same as fitting them: the
+ * character offset, for one, is a fraction of the character's size.
  *
  * **Bounds** come from Rapier's own AABB rather than being derived by
  * hand. In 2D a rotated box's extent is two trig calls; in 3D it is a
@@ -47,8 +50,41 @@ import {
  * - `snapshot`/`restore`, which the 2D world uses for `game.snapshot()`.
  */
 
-/** Which way is up, matching the engine's y-down screen convention. */
-const UP = Object.freeze({ x: 0, y: -1, z: 0 });
+/** Which way is up. See the note at the top of this file. */
+const UP = Object.freeze({ x: 0, y: 1, z: 0 });
+
+/** Earth, in m/s², along -y. */
+const DEFAULT_GRAVITY = Object.freeze({ x: 0, y: -9.81, z: 0 });
+
+/** Rapier's tolerances are written for metres, so the scale is 1. */
+const LENGTH_UNIT = 1;
+
+/**
+ * Body density in kg/m³. Water, which puts a 0.4 m crate at 64 kg and a
+ * person-sized capsule within a factor of a few of a person. Mass only
+ * matters relatively, but game code sets absolute masses against this.
+ */
+const DEFAULT_DENSITY = 1000;
+
+/**
+ * Contact slack for the overlap queries, in m, so resting contact reads as
+ * touching (see rapierShared.js). Twice CHARACTER_OFFSET, as in 2D: a
+ * character at rest hovers in its offset, and a pad equal to it leaves the
+ * floor on the wrong side of a float32 rounding.
+ */
+const CONTACT_PAD = 0.02;
+
+/**
+ * Gap a character controller keeps from what it touches, in m. Rapier wants
+ * around 1-2% of the character's size; 1 cm suits a person-sized capsule.
+ */
+const CHARACTER_OFFSET = 0.01;
+
+/** How far below its feet a character snaps back onto ground, in m. */
+const CHARACTER_SNAP = 0.1;
+
+/** The material defaults handed to RapierBodyMaterial. */
+const MATERIAL_DEFAULTS = Object.freeze({ density: DEFAULT_DENSITY });
 
 /**
  * A capsule is given as a radius and the full tip-to-tip height, so it
@@ -80,7 +116,7 @@ function colliderDescFor(shape, size) {
 
 export class RapierBody3D extends RapierBodyMaterial {
   constructor(world, spec) {
-    super(world, RAPIER, spec);
+    super(world, RAPIER, spec, MATERIAL_DEFAULTS);
     this.shape = spec.shape;
     this.sizeVec = { x: spec.width, y: spec.height, z: spec.depth ?? spec.width };
 
@@ -221,7 +257,7 @@ export class RapierBody3D extends RapierBodyMaterial {
     return had;
   }
 
-  /** @returns {{x: number, y: number, z: number}} px/s. */
+  /** @returns {{x: number, y: number, z: number}} m/s. */
   get velocity() {
     const type = this.spec.bodyType;
     if (!this.rigidBody || type === 'character' || type === 'kinematic') {
@@ -365,7 +401,7 @@ export class RapierBody3D extends RapierBodyMaterial {
     this.setPosition({ x: p.x + delta.x, y: p.y + delta.y, z: p.z + (delta.z ?? 0) });
   }
 
-  /** Mass-dependent, in px·mass/s. Does nothing to static or kinematic. */
+  /** Mass-dependent, in kg·m/s. Does nothing to static or kinematic. */
   applyImpulse(impulse) {
     const v = { x: impulse.x, y: impulse.y, z: impulse.z ?? 0 };
     if (this.spec.bodyType === 'character') {
@@ -385,12 +421,12 @@ export class RapierBody3D extends RapierBodyMaterial {
 export class RapierPhysicsWorld3D extends PhysicsWorldBase {
   /**
    * @param {object} [options] - PhysicsWorldBase options, plus:
-   * @param {{x: number, y: number, z: number}} [options.gravity] - px/s².
+   * @param {{x: number, y: number, z: number}} [options.gravity] - m/s².
+   *   Earth's, along -y, by default.
    */
   constructor(options = {}) {
     super(options);
-    // Down is +y, as in 2D; see the note at the top of this file.
-    this.currentGravity = options.gravity ?? { x: 0, y: 1000, z: 0 };
+    this.currentGravity = options.gravity ?? { ...DEFAULT_GRAVITY };
     this.rWorld = this.#createWorld();
     this.eventQueue = new RAPIER.EventQueue(true);
     this.added = new Set();
@@ -403,6 +439,11 @@ export class RapierPhysicsWorld3D extends PhysicsWorldBase {
 
   get dimensions() {
     return 3;
+  }
+
+  /** Which way is up: +y. See `RapierPhysicsWorld.up` and the file note. */
+  get up() {
+    return UP;
   }
 
   #createWorld() {
@@ -526,9 +567,9 @@ export class RapierPhysicsWorld3D extends PhysicsWorldBase {
     v.z /= damping;
 
     // Standing on ground, drop the speed into it: gravity must not
-    // accumulate against a floor that keeps absorbing it. Down is +y, so
-    // an upward (negative) velocity — a jump — passes untouched.
-    if (body.charGrounded && v.y >= 0) v.y = 0;
+    // accumulate against a floor that keeps absorbing it. Up is +y, so
+    // an upward (positive) velocity — a jump — passes untouched.
+    if (body.charGrounded && v.y <= 0) v.y = 0;
 
     body.controller.computeColliderMovement(
       body.collider,
@@ -558,14 +599,16 @@ export class RapierPhysicsWorld3D extends PhysicsWorldBase {
       const collision = controller.computedCollision(i);
       const collider = collision?.collider;
       if (!collider) continue;
-      // normal1 is the obstacle's outward normal; ground points up (-y).
-      if (collision.normal1.y < -0.5) {
+      // normal1 is the obstacle's outward normal; ground points up (+y).
+      if (collision.normal1.y > 0.5) {
         const other = this.byCollider.get(collider.handle);
         if (other) return other;
       }
     }
+    // `surfacesWith` normals point from this body toward the other, so the
+    // floor's points down.
     const surface = this.surfacesWith(body, (other) => !other.isSensor)
-      .find(({ normal }) => normal.y > 0.5);
+      .find(({ normal }) => normal.y < -0.5);
     return surface ? surface.body : null;
   }
 
