@@ -81,6 +81,8 @@ The engine ships a side view and a top-down view. The ones below simulate on the
 ## Later
 
 
+- **Types.** The engine is plain JavaScript with JSDoc, and the JSDoc is not checked by anything. That was affordable while the shapes were small and local; it is getting expensive. The scene schema, the constraint `params` blocks and the asset database all pass around objects whose shape is the contract, a renderer backend and a physics backend each implement an interface written only in prose, and an editor will want to generate UI from these shapes. Two routes, and the choice is the item: turn on `checkJs` with a `tsconfig` and fix the JSDoc until it passes, which keeps the source as it is and buys editor hints and a build-time check; or move the engine to TypeScript, which is a larger change and a published-types story for `m2d-engine` consumers. Either way the win is the same — the interfaces that exist only as comments today become something a tool can verify.
+
 - Persist volumes and bindings once audio mixing and named actions exist (resolution, aspect and the world filter already persist through their cvars).
 - Cache sprite sheets across scenes. `Scene.unload` drops them, so re-entering a level decodes every image again.
 - More reusable UI components, actors and constraints.

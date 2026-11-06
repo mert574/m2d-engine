@@ -194,8 +194,10 @@ All dimension-free. All of it improves the current 2D engine.
 
 ### Track B — dimension enablement
 
-Can proceed independently of A; the two meet at the scene format, where
-`world.dimensions` is B's field living in A's descriptor system.
+Revised after Track A, which both changed what B has to do and gave it
+better tools. Track A's `s.tagged` and `s.dynamic` descriptors, the
+migration mechanism and the asset database all turn out to be load-bearing
+for 3D, which is the main argument that doing A first was right.
 
 - B1. Split `rapierBackend.js` into a dimension-neutral half (spec
   buffering, collision filters, lifecycle, the `frictionAir` damping
@@ -212,11 +214,49 @@ Can proceed independently of A; the two meet at the scene format, where
   sprite-era features (tile layers, parallax, painter-sort) without
   violating the rule that a renderer feature is mandatory for every
   backend.
+- B6. **The scene format dispatches on `world.dimensions`.** With
+  `s.tagged` this is cheap and it is the right shape: a 2D level's object
+  requires `x` and `y`, a 3D level's requires `z` as well and takes a
+  rotation that is not a scalar, and neither has to tolerate the other's
+  fields. Breaking for 3D scenes only, which do not exist yet, so the
+  migration cost is zero — but it does mean the dimension is settled
+  before the rest of a scene validates, like `type` is today.
+- B7. **Positional constructor arguments have to go.** `createEntity(type,
+  x, y, width, height, sheet, options, physics)` and `spawn(type, x, y,
+  width, height, {...})` cannot grow a third axis without either a
+  seventh positional number or two parallel APIs. They become one options
+  object. This is a breaking change to the most-used call in the engine
+  and touches every demo, so it is better done early and on its own.
+- B8. **Replication's transform is a 2D tuple.** `net/replication.js`
+  packs `[x, y, angle, vx, vy]` with per-field rounding. A 3D transform is
+  a different wire shape, and the rounding constants are tuned to pixels.
+  Needs a dimension-aware packer before any 3D game can be networked;
+  worth checking early whether the wire format wants a version field of
+  its own.
+
+Three things Track A added that Track B now has to carry:
+
+- **Constraint `params` are 2D-shaped.** Units are px/s and px/s²,
+  `PathFollow.points` is a list of `{x, y}`, and the control constraints
+  assume a ground plane. A 3D game needs either 3D variants of these or
+  vector-typed params; the `static params` blocks are where that gets
+  decided, and an editor reads them, so the choice is visible.
+- **`physics.shape` is a 2D enum** (`box`, `circle`, `capsule`). 3D wants
+  sphere, cylinder, cone and a mesh collider. Under B6 the shape enum
+  depends on the scene's dimensions.
+- **The asset manifest needs 3D types.** `ASSET_TYPES` is `spritesheet`
+  and `prefab`. glTF models, materials and textures join it in Phase 4,
+  and a prefab asset for a 3D game names a model rather than a sprite
+  sheet — so `PREFAB_DATA` becomes dimension-dependent too.
 
 Explicitly **not** in Track B: unifying `Entity.elevation` with a real `z`
 axis. Under dual mode `elevation` stays what it is — a render-only fake
 third axis for 2D perspectives. Merging it was only attractive under the
 rejected "2D is 3D with z locked" model.
+
+Suggested order: B7 first (it is pure churn and everything after it
+touches the same call sites), then B1 and B2 together, then B6, then B3,
+B4, B5. B8 can wait until Phase 3 has something to replicate.
 
 ### Phase 3 — 3D physics
 
