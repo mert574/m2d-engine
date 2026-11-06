@@ -445,14 +445,19 @@ describe('DevConsole', () => {
     expect(console_.input).toBe('hell');
   });
 
-  it('closes on Escape and on its own hotkey, releasing capture', () => {
+  it('closes on Escape and on its own hotkey, and opens again after', () => {
     const game = makeGame();
     keyDown(game, 'Backquote');
     keyDown(game, 'Escape');
     expect(game.console.isOpen).toBe(false);
-    expect(game.console.captureAll).toBe(false);
+    // It keeps first look at every event while closed: that is how its
+    // hotkey reaches it under a blocking menu. Closed, it touches nothing else.
+    expect(game.console.captureAll).toBe(true);
+    keyDown(game, 'KeyW');
+    expect(game.input.isDown('KeyW')).toBe(true);
 
     keyDown(game, 'Backquote');
+    expect(game.console.isOpen).toBe(true);
     keyDown(game, 'Backquote');
     expect(game.console.isOpen).toBe(false);
   });

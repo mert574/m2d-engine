@@ -758,9 +758,10 @@ export class WebGPURenderer extends BaseRenderer {
     data[p + 2] = post.ao?.intensity ?? 1;
     data[p + 3] = this.effects.ao && (post.ao?.intensity ?? 0) > 0 ? 1 : 0;
     data[p + 4] = post.dof?.focus ?? 0;
-    data[p + 5] = post.dof?.range ?? 8;
-    data[p + 6] = post.dof?.maxBlur ?? 12;
+    data[p + 5] = post.dof?.focalLength ?? 50;
+    data[p + 6] = post.dof?.maxBlur ?? 16;
     data[p + 7] = post.dof?.focus != null ? 1 : 0;
+    data[p + 24] = post.dof?.fStop ?? 2.8;
     data[p + 8] = post.motionBlur?.strength ?? 0;
     data[p + 9] = this.effects.film ? (post.vignette ?? 0) : 0;
     data[p + 10] = this.effects.film ? (post.grain ?? 0) : 0;

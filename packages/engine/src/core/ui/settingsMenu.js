@@ -198,6 +198,22 @@ class HotkeyCatcher extends UIElement {
   }
 }
 
+/**
+ * The clipping window the rows scroll in. Its layout runs after the stack's
+ * and before the plate's, which is when the stack's height is known and
+ * the plate has not yet sized itself to this.
+ */
+class ScrollViewport extends UIElement {
+  constructor(screen, options) {
+    super(options);
+    this.screen = screen;
+  }
+
+  layout() {
+    this.screen.fitViewport();
+  }
+}
+
 /** The settings panel. Built once and reused across openings. */
 class SettingsScreen extends UIScreen {
   /**
@@ -230,7 +246,18 @@ class SettingsScreen extends UIScreen {
       interactive: true
     }));
 
-    this.stack = panel.add(new Stack({
+    /**
+     * The rows scroll inside this when the plate would be taller than the
+     * screen: it clips, the stack slides within it, and `update` keeps the
+     * focused row in view. The plate sizes itself to this, not the stack.
+     */
+    this.viewport = panel.add(new ScrollViewport(this, {
+      anchor: 'top-left', pivot: 'top-left', clipChildren: true, width: 560, height: 100
+    }));
+    this.scroll = 0;
+    this.wants?.('scroll');
+
+    this.stack = this.viewport.add(new Stack({
       anchor: 'top-left',
       direction: 'column',
       // One fixed width so every row matches; the height follows the rows.
@@ -325,7 +352,28 @@ class SettingsScreen extends UIScreen {
     this.footer.height = compact ? 50 : 54;
   }
 
+  /** Size the scrolling viewport to what fits, and keep the focused row in it. */
+  fitViewport() {
+    const ui = this.game.uiRenderer;
+    const pad = this.panel.padding;
+    const room = Math.max(120, ui.height - 48 - pad.top - pad.bottom);
+    const content = this.stack.height || room;
+    this.viewport.width = this.stack.fixedWidth ?? this.stack.width ?? 560;
+    this.viewport.height = Math.min(content, room);
+    const maxScroll = Math.max(0, content - this.viewport.height);
+    const focused = this.focus.focused;
+    if (focused && this.rows.includes(focused) && this.focus.keyboardMode) {
+      const top = focused.offsetY;
+      const bottom = top + focused.height;
+      if (top < this.scroll) this.scroll = top - 8;
+      else if (bottom > this.scroll + this.viewport.height) this.scroll = bottom - this.viewport.height + 8;
+    }
+    this.scroll = Math.min(maxScroll, Math.max(0, this.scroll));
+    this.stack.offsetY = -this.scroll;
+  }
+
   onEnter() {
+    this.scroll = 0;
     this.#fit();
     const motion = this.game.motion;
     // The plate rises into place as the scrim fades in, and the rows light
@@ -348,6 +396,12 @@ class SettingsScreen extends UIScreen {
     // run, so the same key that opened the menu could never close it.
     if (event.type === 'keydown' && event.code === this.menu.hotkey) {
       this.close();
+      event.consume();
+      return;
+    }
+
+    if (event.type === 'scroll') {
+      this.scroll += event.scroll.y > 0 ? 48 : -48;
       event.consume();
       return;
     }

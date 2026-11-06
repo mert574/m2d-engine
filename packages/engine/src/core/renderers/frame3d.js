@@ -37,10 +37,11 @@ export class Frame3D {
     /** Exposure applied before tonemapping. */
     this.exposure = 1;
     /**
-     * Bloom: light brighter than `threshold` (after exposure) spreads into
-     * a glow added at `intensity`; `intensity` 0 skips the passes.
+     * Bloom: a share `intensity` of the light scatters into a wide glow;
+     * `threshold` (after exposure) keeps only what is brighter, or 0 lets
+     * everything scatter a little, as a lens does. `intensity` 0 skips it.
      */
-    this.bloom = { threshold: 1, intensity: 0.12 };
+    this.bloom = { threshold: 0, intensity: 0.05 };
     /**
      * Shadows. The sun's cascades cover the view out to `distance` metres;
      * `normalOffset` is how far, in shadow texels, a surface is pushed along
@@ -51,14 +52,16 @@ export class Frame3D {
     this.shadow = { distance: 60, normalOffset: 1.5, bias: 0.03, enabled: true };
     /**
      * Post-processing, as the scene wants it. The player's `r_*` settings
-     * decide which stages run at all; these are the strengths. `dof.focus`
-     * null leaves depth of field off; `autoExposure.enabled` false keeps
-     * the scene's `exposure` as is; `lut` is a 256x16 grading strip image.
+     * decide which stages run at all; these are the strengths. `dof` is a
+     * thin lens: `focus` distance in metres (null leaves it off), a
+     * `focalLength` in millimetres and an `fStop`, on a 24 mm sensor, with
+     * `maxBlur` capping the circle in pixels; `autoExposure.enabled` false
+     * keeps the scene's `exposure` as is; `lut` is a 256x16 grading strip.
      */
     this.post = {
       taa: { blend: 0.1 },
       ao: { radius: 0.8, intensity: 1 },
-      dof: { focus: null, range: 8, maxBlur: 12 },
+      dof: { focus: null, focalLength: 50, fStop: 2.8, maxBlur: 16 },
       motionBlur: { strength: 0.5 },
       autoExposure: { enabled: false, key: 0.18, min: 0.25, max: 4, speed: 1.5 },
       grade: { saturation: 1, contrast: 1, temperature: 0, lut: null },

@@ -53,7 +53,7 @@ Prefixes follow the Quake convention the completion is built around: `r_` render
 
 | Name | Type | Persists | Meaning |
 | --- | --- | --- | --- |
-| `r_resolution` | string | yes | `native`, a scale (`0.5`), or `WxH` (`960x540`) |
+| `r_resolution` | string | yes | `native`, a scale (`0.5`), or `WxH` (`960x540`). Defaults to `0.5` in a 3D game |
 | `r_aspect` | `letterbox\|expand` | yes | |
 | `r_worldfilter` | `linear\|nearest` | yes | |
 | `r_fullscreen` | boolean | | |

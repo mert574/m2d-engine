@@ -182,6 +182,8 @@ Durations and easings come from the theme, so changing the feel of every transit
 
 **A layout owns its children's offsets** and rewrites them every frame. Inside a `Stack` or `Grid`, animate `opacity`, `scale` or `rotation` — never `offsetX`/`offsetY`. To move a laid-out group, animate the container, which is what the examples' main menu does: the column rises as one piece while the items fade in one after another.
 
+The settings menu scrolls when its rows would not fit the screen: the wheel scrolls it, and keyboard navigation keeps the focused row in view.
+
 ## Screen transitions and backdrops
 
 A screen arrives and leaves with its `transition` — `'fade'` (the default), `'slide-up'`, `'slide-down'`, `'scale'`, or `null` for instant. Transitions only touch the screen's own opacity, offset and scale, so it moves as one piece and the resting layout stays the truth: adding one can never change where a screen ends up.

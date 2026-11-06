@@ -130,7 +130,8 @@ export class DevConsole extends UIElement {
   close() {
     if (!this.isOpen) return;
     this.isOpen = false;
-    this.captureAll = false;
+    // `captureAll` stays: it is how the hotkey reaches a closed console at
+    // all. Dropping it here left the console unopenable after one close.
     this.game.uiRenderer.setCursor('default');
     this.game.motion.to(this, { offsetY: -this.panelHeight }, {
       duration: '$motion.duration.fast',

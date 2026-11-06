@@ -11,7 +11,7 @@
 | `worldWidth` | `1920` | World width, used for the background layer |
 | `worldHeight` | `1080` | World height, used for the background layer and the fall-out check |
 | `aspectMode` | `'letterbox'` | `'letterbox'` keeps the view's aspect with bars. `'expand'` widens the view to fill the display |
-| `resolution` | `'native'` | World render resolution. `'native'`, a scale factor such as `0.5`, or `{ width, height }`. Only `height` sets the scale |
+| `resolution` | `'native'`, or `0.5` when `dimensions` is `3` | World render resolution. `'native'`, a scale factor such as `0.5`, or `{ width, height }`. Only `height` sets the scale. A 3D frame is many passes over many pixels, so half resolution is its default and the settings menu offers more |
 | `worldFilter` | `'linear'` | Upscaling filter below native resolution. `'nearest'` for pixel art |
 | `autoResize` | `true` | Follow the canvas's displayed size, the pixel ratio and fullscreen changes |
 | `renderer` | `'webgl'`, or `'webgpu'` when `dimensions` is `3` | Backend name, class or instance. `'canvas'` is the other 2D built-in. A `?renderer=` URL parameter overrides it. When the option is left at its default and WebGL2 is unavailable, the engine falls back to Canvas with a warning. A backend named explicitly that fails throws, as does one that draws in a different dimension from the game. See [Three dimensions](./renderer#three-dimensions) |

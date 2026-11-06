@@ -59,12 +59,12 @@ struct Frame {
   shadowBias: vec4f,
   // Post-process settings; see Frame3D.post and the pass that reads each.
   // post[0]: x taa blend, y ao radius (m), z ao intensity, w ao on.
-  // post[1]: x dof focus distance (m), y dof range (m), z dof max blur (px), w dof on.
+  // post[1]: x dof focus distance (m), y focal length (mm), z dof max blur (px), w dof on.
   // post[2]: x motion blur strength, y vignette, z grain, w time (s).
   // post[3]: x auto exposure on, y key, z min exposure, w max exposure.
   // post[4]: x saturation, y contrast, z temperature, w lut on.
   // post[5]: x adaptation speed, y frame delta (s), z taa on, w motion blur on.
-  // post[6], post[7]: unused.
+  // post[6]: x dof f-stop. post[7]: unused.
   post: array<vec4f, 8>,
   // x tan(fov/2) * aspect, y tan(fov/2), z near, w far.
   lens: vec4f,
@@ -673,17 +673,35 @@ ${COMMON}
 ${POST_COMMON}
 ${EXPOSURE}
 
+// A 2x2 box of the source, each tap weighted down by its brightness
+// (Karis) so one hot pixel cannot become a flickering square of bloom.
 @fragment
 fn fs(in: PostOut) -> @location(0) vec4f {
-  let color = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb * exposure();
+  let texel = 1.0 / vec2f(textureDimensions(source));
+  let e = exposure();
+  var sum = vec3f(0.0);
+  var weight = 0.0;
+  for (var y = -1; y <= 1; y += 2) {
+    for (var x = -1; x <= 1; x += 2) {
+      let c = textureSampleLevel(source, sourceSampler, in.uv + vec2f(f32(x), f32(y)) * texel * 0.5, 0.0).rgb * e;
+      let w = 1.0 / (1.0 + luminance(c));
+      sum += c * w;
+      weight += w;
+    }
+  }
+  var color = sum / weight;
+  // An optional threshold with a soft knee; 0 lets everything scatter a
+  // little, which is what a lens does.
   let threshold = frame.params2.y;
-  let knee = threshold * 0.5;
-  let brightness = max(color.r, max(color.g, color.b));
-  var soft = brightness - threshold + knee;
-  soft = clamp(soft, 0.0, 2.0 * knee);
-  soft = soft * soft / (4.0 * knee + 1e-4);
-  let contribution = max(soft, brightness - threshold) / max(brightness, 1e-4);
-  return vec4f(color * contribution, 1.0);
+  if (threshold > 0.0) {
+    let knee = threshold * 0.5;
+    let brightness = max(color.r, max(color.g, color.b));
+    var soft = brightness - threshold + knee;
+    soft = clamp(soft, 0.0, 2.0 * knee);
+    soft = soft * soft / (4.0 * knee + 1e-4);
+    color *= max(soft, brightness - threshold) / max(brightness, 1e-4);
+  }
+  return vec4f(color, 1.0);
 }
 `;
 
@@ -848,65 +866,148 @@ fn fs(in: PostOut) -> @location(0) vec4f {
 }
 `;
 
-/**
- * Depth of field, first half: the frame at half resolution with each
- * pixel's circle of confusion in alpha, from its depth against the focus.
- */
-export const DOF_DOWN_SHADER = /* wgsl */ `
-${COMMON}
-${POST_COMMON}
-@group(1) @binding(2) var normalDepth: texture_2d<f32>;
-
-fn coc(depth: f32) -> f32 {
-  if (depth <= 0.0) { return 1.0; }
-  return clamp(abs(depth - frame.post[1].x) / frame.post[1].y, 0.0, 1.0);
-}
-
-@fragment
-fn fs(in: PostOut) -> @location(0) vec4f {
-  let color = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb;
-  let depth = textureSampleLevel(normalDepth, sourceSampler, in.uv, 0.0).w;
-  return vec4f(color, coc(depth));
+const DOF_COC = /* wgsl */ `
+// The circle of confusion of a point at depth, in pixels, from a thin
+// lens: the aperture A = f / N, in sensor millimetres, scaled to the
+// screen by the sensor's 24 mm height. Negative in front of the focus.
+fn circleOfConfusion(depth: f32) -> f32 {
+  if (depth <= 0.0) { return frame.post[1].z; }
+  let focus = frame.post[1].x;
+  let f = frame.post[1].y * 0.001;
+  let aperture = f / frame.post[6].x;
+  let mm = aperture * f * (depth - focus) / (depth * max(focus - f, 1e-3)) * 1000.0;
+  let px = mm * (frame.jitter.w / 24.0);
+  return clamp(px, -frame.post[1].z, frame.post[1].z);
 }
 `;
 
 /**
- * Depth of field, second half: a disc gather over the half-resolution
- * frame, each tap weighted by whether its own circle reaches this pixel,
- * blended with the sharp frame by the pixel's circle.
+ * Depth of field, first step: the frame at half resolution with each
+ * pixel's signed circle of confusion in alpha. The circle of the four
+ * full-resolution pixels is the nearest one, so a thin in-focus edge is
+ * not smeared by its blurred surroundings.
  */
-export const DOF_SHADER = /* wgsl */ `
+export const DOF_DOWN_SHADER = /* wgsl */ `
 ${COMMON}
 ${POST_COMMON}
-@group(1) @binding(2) var half: texture_2d<f32>;
-
-const TAPS = 24u;
+${DOF_COC}
+@group(1) @binding(2) var normalDepth: texture_2d<f32>;
 
 @fragment
 fn fs(in: PostOut) -> @location(0) vec4f {
-  let sharp = textureSampleLevel(source, sourceSampler, in.uv, 0.0);
-  let centre = textureSampleLevel(half, sourceSampler, in.uv, 0.0);
-  let maxBlur = frame.post[1].z;
-  let radius = centre.a * maxBlur;
-  if (radius < 0.5) { return vec4f(sharp.rgb, 1.0); }
   let texel = 1.0 / frame.jitter.zw;
+  var color = vec3f(0.0);
+  var coc = 1e9;
+  for (var y = -1; y <= 1; y += 2) {
+    for (var x = -1; x <= 1; x += 2) {
+      let uv = in.uv + vec2f(f32(x), f32(y)) * texel * 0.5;
+      color += textureSampleLevel(source, sourceSampler, uv, 0.0).rgb;
+      let c = circleOfConfusion(textureSampleLevel(normalDepth, sourceSampler, uv, 0.0).w);
+      if (abs(c) < abs(coc)) { coc = c; }
+    }
+  }
+  return vec4f(color * 0.25, coc);
+}
+`;
+
+const DOF_GATHER = /* wgsl */ `
+const TAPS = 48u;
+
+// Taps on a golden-angle spiral over the disc, in half-resolution pixels.
+fn tap(i: u32, radius: f32) -> vec2f {
+  let t = (f32(i) + 0.5) / f32(TAPS);
+  let angle = f32(i) * 2.39996;
+  let r = sqrt(t) * radius;
+  return vec2f(cos(angle), sin(angle)) * r;
+}
+`;
+
+/**
+ * The far field: taps behind the focus gather onto a pixel when their own
+ * circle reaches it, but never with a circle wider than the pixel's own,
+ * so a blurred background does not bleed over a sharp edge in front of it.
+ */
+export const DOF_FAR_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+${DOF_GATHER}
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let texel = 1.0 / vec2f(textureDimensions(source));
+  let centre = textureSampleLevel(source, sourceSampler, in.uv, 0.0);
+  let own = max(centre.a, 0.0) * 0.5;
+  if (own < 0.5) { return vec4f(centre.rgb, 0.0); }
   var sum = centre.rgb;
   var weight = 1.0;
   for (var i = 0u; i < TAPS; i++) {
-    // A golden-angle spiral fills the disc evenly.
-    let t = (f32(i) + 0.5) / f32(TAPS);
-    let angle = f32(i) * 2.39996;
-    let r = sqrt(t) * radius;
-    let offset = vec2f(cos(angle), sin(angle)) * r * texel;
-    let tap = textureSampleLevel(half, sourceSampler, in.uv + offset, 0.0);
-    // A tap counts if its own circle reaches here, so sharp foreground
-    // does not bleed into a blurred background and vice versa.
-    let w = select(0.0, 1.0, tap.a * maxBlur >= r - 0.5);
-    sum += tap.rgb * w;
+    let offset = tap(i, own);
+    let dist = length(offset);
+    let s = textureSampleLevel(source, sourceSampler, in.uv + offset * texel, 0.0);
+    let reach = min(max(s.a, 0.0) * 0.5, own);
+    let w = clamp(reach - dist + 1.0, 0.0, 1.0);
+    sum += s.rgb * w;
     weight += w;
   }
-  let blurred = sum / weight;
-  return vec4f(mix(sharp.rgb, blurred, smoothstep(0.0, 1.0, centre.a)), 1.0);
+  return vec4f(sum / weight, 1.0);
+}
+`;
+
+/**
+ * The near field: taps in front of the focus spread over whatever is
+ * behind them, including a sharp subject, which is how a foreground blur
+ * looks through a real lens. Alpha is how much of the pixel they cover.
+ */
+export const DOF_NEAR_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+${DOF_GATHER}
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let texel = 1.0 / vec2f(textureDimensions(source));
+  let radius = frame.post[1].z * 0.5;
+  var sum = vec3f(0.0);
+  var weight = 0.0;
+  var coverage = 0.0;
+  for (var i = 0u; i < TAPS; i++) {
+    let offset = tap(i, radius);
+    let dist = length(offset);
+    let s = textureSampleLevel(source, sourceSampler, in.uv + offset * texel, 0.0);
+    let near = max(-s.a, 0.0) * 0.5;
+    let w = clamp(near - dist + 1.0, 0.0, 1.0);
+    sum += s.rgb * w;
+    weight += w;
+    coverage += w;
+  }
+  let centre = textureSampleLevel(source, sourceSampler, in.uv, 0.0);
+  let ownNear = clamp(max(-centre.a, 0.0) * 0.5, 0.0, 1.0);
+  let alpha = clamp(max(coverage / (f32(TAPS) * 0.35), ownNear), 0.0, 1.0);
+  if (weight <= 0.0) { return vec4f(0.0); }
+  return vec4f(sum / weight, alpha);
+}
+`;
+
+/** The frame in focus, the far field behind it and the near field over it. */
+export const DOF_COMBINE_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+${DOF_COC}
+@group(1) @binding(2) var normalDepth: texture_2d<f32>;
+@group(1) @binding(3) var farField: texture_2d<f32>;
+@group(1) @binding(4) var nearField: texture_2d<f32>;
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let sharp = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb;
+  let coc = circleOfConfusion(textureSampleLevel(normalDepth, sourceSampler, in.uv, 0.0).w);
+  let far = textureSampleLevel(farField, sourceSampler, in.uv, 0.0);
+  let near = textureSampleLevel(nearField, sourceSampler, in.uv, 0.0);
+  // Into the far field as the circle grows past a pixel, fully by two.
+  let farAmount = smoothstep(0.5, 2.0, max(coc, 0.0)) * far.a;
+  var color = mix(sharp, far.rgb, farAmount);
+  color = mix(color, near.rgb, near.a);
+  return vec4f(color, 1.0);
 }
 `;
 
@@ -1008,7 +1109,10 @@ fn hash(p: vec2f) -> f32 {
 fn fs(in: PostOut) -> @location(0) vec4f {
   let e = exposure();
   var color = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb * e;
-  color += textureSampleLevel(bloom, sourceSampler, in.uv, 0.0).rgb * frame.params2.z;
+  // Bloom replaces a share of the light rather than adding to it, so a
+  // bright frame does not get brighter still; the chain is normalised, so
+  // the share is the intensity.
+  color = mix(color, textureSampleLevel(bloom, sourceSampler, in.uv, 0.0).rgb, frame.params2.z);
   // Temperature before tonemapping: warm pushes red up and blue down.
   let temperature = frame.post[4].z;
   color *= vec3f(1.0 + temperature * 0.2, 1.0, 1.0 - temperature * 0.2);

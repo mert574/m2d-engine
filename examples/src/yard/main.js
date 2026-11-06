@@ -159,12 +159,13 @@ game.sceneManager.addScene('yard', {
     };
     frame.fog = { color: mix([0.66, 0.74, 0.86], [0.3, 0.18, 0.3], t), density: lerp(0.006, 0.009, t) };
     frame.exposure = lerp(0.95, 1.4, t);
-    frame.bloom = { threshold: 1, intensity: lerp(0.1, 0.25, t) };
+    frame.bloom = { threshold: 0, intensity: lerp(0.04, 0.09, t) };
     frame.shadow.distance = 70;
     // The post stack: a touch of focus on the hero, a little grain and
     // vignette, and the exposure adapting as dusk falls.
     const camera = game.camera;
-    frame.post.dof = { focus: camera.distance, range: 14, maxBlur: 8 };
+    // A 35 mm lens at f/4 on the hero: the yard stays readable, the far wall softens.
+    frame.post.dof = { focus: camera.distance, focalLength: 35, fStop: 4, maxBlur: 14 };
     frame.post.autoExposure = { enabled: true, key: lerp(0.2, 0.12, t), min: 0.5, max: 3, speed: 1.2 };
     frame.post.vignette = 0.3;
     frame.post.grain = 0.025;

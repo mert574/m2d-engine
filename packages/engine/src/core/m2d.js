@@ -225,6 +225,9 @@ export class M2D {
     // A `?renderer=<name>` query parameter overrides the option so any
     // example can be viewed with another backend without code changes.
     this.canvas = canvas;
+    // A 3D frame is many passes over many pixels; half resolution is the
+    // sane default and the menu is right there for more. 2D keeps native.
+    if (!('resolution' in options) && (this.options.dimensions ?? 2) === 3) this.options.resolution = 0.5;
     this.resolution = this.options.resolution;
     this.aspectMode = this.options.aspectMode;
     /** Listeners registered on window/document, torn down by destroy(). */
@@ -553,7 +556,7 @@ export class M2D {
 
     cvars.register('r_resolution', {
       type: 'string',
-      default: 'native',
+      default: serializeResolution(this.options.resolution),
       persist: true,
       description: 'World render resolution: native, a scale (0.5), or WxH (960x540)',
       get: () => serializeResolution(this.resolution),

@@ -395,7 +395,11 @@ describe('lighting', () => {
     const without = (await readPixels(renderer)).at(Math.round(beside.x), Math.round(beside.y));
     renderer.render(scene(renderer, camera, build, { bloom: 0.5 }));
     const withBloom = (await readPixels(renderer)).at(Math.round(beside.x), Math.round(beside.y));
-    expect(luma(withBloom), `glow beside the lamp ${withBloom} vs none ${without}`).toBeGreaterThan(luma(without) + 15);
+    // Bloom is energy-conserving — a share of the light scattered, not
+    // light added — so the sky pixel beside the warm lamp takes on its
+    // colour rather than simply getting brighter.
+    const warmth = (px) => px[0] - px[2];
+    expect(warmth(withBloom), `lamp colour spreads: ${withBloom} vs none ${without}`).toBeGreaterThan(warmth(without) + 10);
   });
 });
 
@@ -503,18 +507,20 @@ describe('the post stack', () => {
     const renderer = make(W, H);
     const camera = cameraAt(W, H, { x: 0, y: 2, z: 6 });
     // A hard checker on the floor gives the blur something to soften.
+    // A fast, long lens: at this tiny frame height the circle of confusion
+    // is a fraction of a pixel otherwise.
     const tune = (focus) => (f) => {
-      f.post.dof = { focus, range: 1.5, maxBlur: 10 };
+      f.post.dof = { focus, focalLength: 85, fStop: 0.5, maxBlur: 10 };
     };
     const checkerScene = (focus) => {
       const frame = scene(renderer, camera, tune(focus));
-      frame.add(plane(), { position: { x: 0, y: 0.01, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.9, 0.9, 0.9], roughness: 0.9, checker: 0.5 });
+      frame.add(plane(), { position: { x: 0, y: 0.01, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.9, 0.9, 0.9], roughness: 0.9, checker: 1 });
       return frame;
     };
     const contrast = (pixels, z) => {
-      // Luma range along a short run of the floor at depth z.
+      // Luma range along a run of the floor at depth z, clear of the box.
       const values = [];
-      for (let x = -1; x <= 1; x += 0.125) values.push(luma(at(pixels, camera, x, 0.01, z)));
+      for (let x = 1.5; x <= 4; x += 0.125) values.push(luma(at(pixels, camera, x, 0.01, z)));
       return Math.max(...values) - Math.min(...values);
     };
     renderer.render(checkerScene(null));

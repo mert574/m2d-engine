@@ -1,5 +1,6 @@
 import {
-  AO_SHADER, AO_BLUR_SHADER, RESOLVE_SHADER, TAA_SHADER, DOF_DOWN_SHADER, DOF_SHADER, MOTION_BLUR_SHADER,
+  AO_SHADER, AO_BLUR_SHADER, RESOLVE_SHADER, TAA_SHADER, DOF_DOWN_SHADER, DOF_FAR_SHADER, DOF_NEAR_SHADER,
+  DOF_COMBINE_SHADER, MOTION_BLUR_SHADER,
   LUMINANCE_SHADER, ADAPT_SHADER, BLOOM_PREFILTER_SHADER, BLOOM_DOWNSAMPLE_SHADER, BLOOM_UPSAMPLE_SHADER,
   COMPOSITE_SHADER
 } from './shaders.js';
@@ -26,7 +27,7 @@ import {
  */
 
 const HDR_FORMAT = 'rgba16float';
-const BLOOM_LEVELS = 6;
+const BLOOM_LEVELS = 8;
 
 export class PostPass {
   /**
@@ -75,7 +76,9 @@ export class PostPass {
       resolve: pipeline(RESOLVE_SHADER, 'resolve', 4, HDR_FORMAT),
       taa: pipeline(TAA_SHADER, 'taa', 3, HDR_FORMAT),
       dofDown: pipeline(DOF_DOWN_SHADER, 'dof down', 2, HDR_FORMAT),
-      dof: pipeline(DOF_SHADER, 'dof', 2, HDR_FORMAT),
+      dofFar: pipeline(DOF_FAR_SHADER, 'dof far', 1, HDR_FORMAT),
+      dofNear: pipeline(DOF_NEAR_SHADER, 'dof near', 1, HDR_FORMAT),
+      dofCombine: pipeline(DOF_COMBINE_SHADER, 'dof combine', 4, HDR_FORMAT),
       motionBlur: pipeline(MOTION_BLUR_SHADER, 'motion blur', 2, HDR_FORMAT),
       luminance: pipeline(LUMINANCE_SHADER, 'luminance', 1, HDR_FORMAT),
       adapt: pipeline(ADAPT_SHADER, 'adapt', 2, HDR_FORMAT),
@@ -179,6 +182,8 @@ export class PostPass {
       historyA: make('history a', width, height),
       historyB: make('history b', width, height),
       dofHalf: make('dof half', hw, hh),
+      dofFar: make('dof far', hw, hh),
+      dofNear: make('dof near', hw, hh),
       dof: make('dof', width, height),
       motion: make('motion', width, height)
     };
@@ -186,7 +191,7 @@ export class PostPass {
     this.levels = [];
     let w = hw;
     let h = hh;
-    for (let i = 0; i < BLOOM_LEVELS && w >= 2 && h >= 2; i++) {
+    for (let i = 0; i < BLOOM_LEVELS && w >= 4 && h >= 4; i++) {
       const texture = make(`bloom ${i}`, w, h);
       this.levels.push({ texture, view: texture.createView() });
       w = Math.max(1, w >> 1);
@@ -268,7 +273,9 @@ export class PostPass {
     }
     if (effects.dof) {
       draw(p.dofDown, v.dofHalf, [current, v.normalDepth]);
-      draw(p.dof, v.dof, [current, v.dofHalf]);
+      draw(p.dofFar, v.dofFar, [v.dofHalf]);
+      draw(p.dofNear, v.dofNear, [v.dofHalf]);
+      draw(p.dofCombine, v.dof, [current, v.normalDepth, v.dofFar, v.dofNear]);
       current = v.dof;
     }
     if (effects.motionBlur) {

@@ -260,7 +260,7 @@ game.sceneManager.addScene('yard', {
 | `ambient` | The environment's strength: linear `sky` and `ground` colours shape the sky, and `intensity` scales the image-based light taken from it |
 | `fog` | Distance fog toward a linear `color`, at a `density` per metre; `0` turns it off. The sky's horizon takes the same colour |
 | `exposure` | A multiplier before tonemapping, `1` by default |
-| `bloom` | Light brighter than `threshold` after exposure spreads into a glow added at `intensity` (`0.12` by default; `0` skips the passes) |
+| `bloom` | A share `intensity` (`0.05`) of the light scatters into a wide glow, energy-conserving; `threshold` keeps only light brighter than it, or `0` lets everything scatter a little, as a lens does. `intensity` `0` skips the passes |
 | `post` | The post stack's strengths, below. The player's `r_*` settings decide which stages run at all |
 | `shadow` | Shadows reach `distance` metres from the camera (`60`), split into the sun's cascades; `normalOffset` in shadow texels and `bias` in metres trade acne against detached shadows; `enabled: false` turns every shadow off |
 | `addLight(light)` | A point light (`position`, linear `color`, `intensity` as radiance at one metre, `range` in metres) or, with `type: 'spot'`, one pointing along `direction` with `innerCone` and `outerCone` in radians. A spot casts a shadow map unless `shadow: false`; the nearest few do, by the quality setting. Up to 256 a frame |
@@ -277,7 +277,7 @@ Geometry for the primitive shapes comes from `m2d-engine/core/renderers/geometry
 | --- | --- |
 | `taa` | `blend`: how much of each new frame enters the history (`0.1`) |
 | `ao` | Screen-space ambient occlusion over the indirect light: `radius` in metres (`0.8`), `intensity` (`1`); `0` skips it |
-| `dof` | Depth of field: `focus` distance in metres (`null` leaves it off), `range` over which blur builds, `maxBlur` in pixels |
+| `dof` | Depth of field as a thin lens on a 24 mm sensor: `focus` distance in metres (`null` leaves it off), `focalLength` in millimetres (`50`), `fStop` (`2.8`), and `maxBlur` capping the circle of confusion in pixels. Near and far fields are gathered separately, so a blurred background does not bleed over a sharp subject and a blurred foreground does bleed over it |
 | `motionBlur` | Per-object blur along the velocity buffer: `strength` (`0.5`); `0` skips it |
 | `autoExposure` | `enabled` (`false`), the `key` grey the average is brought to (`0.18`), `min` and `max` exposure, adaptation `speed` per second. While on, it replaces `exposure`; steer with the key |
 | `grade` | `saturation`, `contrast` about middle grey, `temperature` (warm positive) and an optional `lut` image, a 256x16 strip of a 16-step colour cube |
