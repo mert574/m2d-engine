@@ -6,23 +6,26 @@ import { boundingSphere } from './geometry/primitives.js';
  *
  * The 2D renderers are told what to draw one call at a time. A 3D frame
  * has to be known whole before the first pixel is shaded — the shadow
- * pass draws every caster before the main pass draws anything — so the
+ * passes draw every caster before the main pass draws anything — so the
  * scene fills one of these and hands it over. `add` groups instances by
  * geometry and material as they arrive, which is the order the GPU wants
  * them in: one instanced draw per group.
  *
- * `add` also culls. An instance outside the camera's frustum is not drawn
- * in the main pass, and one outside the shadow map's reach is not drawn
- * in the shadow pass; an instance may be in either, both or neither, so
- * each group keeps the two lists apart. Call `setCamera` first, or
+ * `add` culls the main pass as it goes: an instance outside the camera's
+ * frustum is not drawn. Shadow casting is decided later, in `resolveShadows`,
+ * once the renderer has fitted the sun's cascades and chosen which spot
+ * lights cast — both depend on the whole frame. Call `setCamera` first, or
  * nothing is culled.
  *
  * Units are the world's: metres, y up. Colours are linear 0..1.
  */
 export class Frame3D {
   constructor() {
-    /** The camera's matrices and eye, from `setCamera` or hand-built. */
-    this.camera = { viewProjection: null, inverseViewProjection: null, position: { x: 0, y: 0, z: 0 } };
+    /** The camera, from `setCamera` or hand-built. `view`, `fov`, `aspect`, `near` and `far` fit the shadow cascades. */
+    this.camera = {
+      viewProjection: null, inverseViewProjection: null, view: null,
+      position: { x: 0, y: 0, z: 0 }, fov: Math.PI / 3, aspect: 16 / 9, near: 0.1, far: 500
+    };
     /** The camera's frustum planes, for culling; null draws everything. */
     this.frustum = null;
     /** The sun: the direction its light travels, its colour and intensity. */
@@ -38,30 +41,40 @@ export class Frame3D {
      * a glow added at `intensity`; `intensity` 0 skips the passes.
      */
     this.bloom = { threshold: 1, intensity: 0.12 };
+    /**
+     * Shadows. The sun's cascades cover the view out to `distance` metres;
+     * `normalOffset` is how far, in shadow texels, a surface is pushed along
+     * its normal before the lookup, the trade between acne and peter-panning;
+     * `bias` is the depth tolerance in metres. `enabled: false` turns every
+     * shadow off.
+     */
+    this.shadow = { distance: 60, normalOffset: 1.5, bias: 0.03, enabled: true };
     /** Point and spot lights, as packed records; see `addLight`. @type {Float32Array[]} */
     this.lights = [];
-    /**
-     * Where the sun's shadow map is focused: a sphere the map covers. Set
-     * from the camera target by the scene; everything outside it is unshadowed.
-     */
-    this.shadow = { center: { x: 0, y: 0, z: 0 }, radius: 25, enabled: true };
+    /** The same lights as given, for the renderer to pick shadow casters from. */
+    this.lightInfo = [];
     /** @type {Map<string, Group>} */
     this.groups = new Map();
     /** Instances added, drawn or not. */
     this.added = 0;
     /** Instances in the main pass after culling. */
     this.drawn = 0;
-    /** Instances in the shadow pass after culling. */
+    /** Instances in the shadow passes after culling; set by `resolveShadows`. */
     this.casting = 0;
   }
 
-  /** Take the camera's matrices, eye and frustum from a `Camera3D`. */
+  /** Take the camera's matrices, eye, frustum and lens from a `Camera3D`. */
   setCamera(camera) {
-    this.camera.viewProjection = camera.viewProjection;
-    this.camera.inverseViewProjection = camera.inverseViewProjection;
-    this.camera.position = camera.position;
+    const c = this.camera;
+    c.viewProjection = camera.viewProjection;
+    c.inverseViewProjection = camera.inverseViewProjection;
+    c.view = camera.view;
+    c.position = camera.position;
+    c.fov = camera.fov;
+    c.aspect = camera.width / camera.height;
+    c.near = camera.near;
+    c.far = camera.far;
     this.frustum = mat4.frustumPlanes(camera.viewProjection, this.frustum ?? new Float32Array(24));
-    this.shadow.center = camera.lookAt;
   }
 
   /**
@@ -89,7 +102,7 @@ export class Frame3D {
     }
     this.added++;
 
-    // Cull by the geometry's bounding sphere carried through the model matrix.
+    // The geometry's bounding sphere carried through the model matrix.
     const sphere = boundingSphere(geometry);
     const cx = model[0] * sphere.x + model[4] * sphere.y + model[8] * sphere.z + model[12];
     const cy = model[1] * sphere.x + model[5] * sphere.y + model[9] * sphere.z + model[13];
@@ -100,16 +113,8 @@ export class Frame3D {
       model[8] * model[8] + model[9] * model[9] + model[10] * model[10]));
     const radius = sphere.radius * maxScale;
     const visible = !this.frustum || mat4.sphereInFrustum(this.frustum, cx, cy, cz, radius);
-    let casts = false;
-    if (this.shadow.enabled !== false && instance.castShadow !== false) {
-      const c = this.shadow.center;
-      const dx = cx - c.x, dy = cy - c.y, dz = cz - c.z;
-      // The map's orthographic box is the radius across and twice it deep;
-      // a sphere test against the larger covers both.
-      const reach = this.shadow.radius * 2 + radius;
-      casts = dx * dx + dy * dy + dz * dz <= reach * reach;
-    }
-    if (!visible && !casts) return;
+    const mayCast = this.shadow.enabled !== false && instance.castShadow !== false;
+    if (!visible && !mayCast) return;
 
     const data = new Float32Array(INSTANCE_FLOATS);
     data.set(model, 0);
@@ -125,9 +130,9 @@ export class Frame3D {
     let group = this.groups.get(geometry);
     if (!group) this.groups.set(geometry, group = new Map());
     let entry = group.get(material);
-    if (!entry) group.set(material, entry = { geometry, material, main: [], shadow: [] });
+    if (!entry) group.set(material, entry = { geometry, material, main: [], shadow: [], casters: [] });
     if (visible) { entry.main.push(data); this.drawn++; }
-    if (casts) { entry.shadow.push(data); this.casting++; }
+    if (mayCast) entry.casters.push({ data, x: cx, y: cy, z: cz, radius });
   }
 
   /**
@@ -141,6 +146,7 @@ export class Frame3D {
    * @param {{x,y,z}} [light.direction] - Where a spot points
    * @param {number} [light.innerCone=0.4] - Radians, full brightness inside
    * @param {number} [light.outerCone=0.6] - Radians, dark outside
+   * @param {boolean} [light.shadow=true] - Whether a spot casts a shadow map (the nearest few do)
    */
   addLight(light) {
     if (this.lights.length >= MAX_LIGHTS) return;
@@ -155,7 +161,34 @@ export class Frame3D {
     data[8] = d.x / len; data[9] = d.y / len; data[10] = d.z / len; data[11] = spot ? 1 : 0;
     data[12] = Math.cos(light.innerCone ?? 0.4);
     data[13] = Math.cos(light.outerCone ?? 0.6);
+    data[14] = 0; // shadow layer + 1, assigned by the renderer
     this.lights.push(data);
+    this.lightInfo.push(light);
+  }
+
+  /**
+   * Decide the shadow casters, once the renderer has fitted the shadow
+   * volumes: an instance casts if its sphere touches the sun's reach or any
+   * shadowed spot's. Called by the renderer before upload.
+   * @param {Array<{x: number, y: number, z: number, radius: number}>} volumes
+   */
+  resolveShadows(volumes) {
+    this.casting = 0;
+    for (const entry of this.entries()) {
+      entry.shadow.length = 0;
+      if (!volumes.length) continue;
+      for (const c of entry.casters) {
+        for (const v of volumes) {
+          const dx = c.x - v.x, dy = c.y - v.y, dz = c.z - v.z;
+          const reach = v.radius + c.radius;
+          if (dx * dx + dy * dy + dz * dz <= reach * reach) {
+            entry.shadow.push(c.data);
+            this.casting++;
+            break;
+          }
+        }
+      }
+    }
   }
 
   /** Every group with something to draw, in insertion order. */
@@ -165,21 +198,20 @@ export class Frame3D {
 }
 
 /**
- * @typedef {{geometry: object, material: object|null, main: Float32Array[], shadow: Float32Array[]}} Group
+ * @typedef {{geometry: object, material: object|null, main: Float32Array[], shadow: Float32Array[], casters: object[]}} Group
  */
 
 /** Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded), colour, params. */
 export const INSTANCE_FLOATS = 16 + 12 + 4 + 4;
 
-/** Floats per light in the GPU buffer: position+range, colour+intensity, direction+type, cone. */
+/** Floats per light in the GPU buffer: position+range, colour+intensity, direction+type, cone+shadow. */
 export const LIGHT_FLOATS = 16;
 
 /** Lights a frame may hold; beyond it, `addLight` drops the rest. Clustering (R6) lifts this. */
 export const MAX_LIGHTS = 256;
 
-const WHITE = [1, 1, 1];
-const DOWN = { x: 0, y: -1, z: 0 };
-
 const ZERO = { x: 0, y: 0, z: 0 };
 const IDENTITY_Q = { x: 0, y: 0, z: 0, w: 1 };
 const GREY = [0.8, 0.8, 0.8];
+const WHITE = [1, 1, 1];
+const DOWN = { x: 0, y: -1, z: 0 };

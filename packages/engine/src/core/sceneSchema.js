@@ -288,7 +288,8 @@ const LIGHT = s.object({
   offset: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'From the body\'s centre, in metres' }),
   direction: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Where a spot points' }),
   innerCone: s.number({ min: 0, unit: 'rad' }),
-  outerCone: s.number({ min: 0, unit: 'rad' })
+  outerCone: s.number({ min: 0, unit: 'rad' }),
+  shadow: s.boolean({ description: 'Whether a spot casts a shadow map; the nearest few do' })
 }, { label: 'Light' });
 
 const PREFAB = s.object({

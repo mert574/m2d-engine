@@ -596,6 +596,18 @@ export class M2D {
       set: (value) => this.renderer.setDebugEnabled(value)
     });
 
+    if (typeof this.renderer.setShadowQuality === 'function') {
+      cvars.register('r_shadows', {
+        type: 'string',
+        choices: ['off', 'low', 'medium', 'high'],
+        default: 'medium',
+        persist: true,
+        description: 'Shadow quality: cascades and map sizes for the sun, how many spot lights cast',
+        get: () => this.renderer.shadowQuality,
+        set: (value) => this.renderer.setShadowQuality(value)
+      });
+    }
+
     cvars.register('r_renderer', {
       type: 'string',
       choices: ['webgl', 'canvas', 'webgpu'],

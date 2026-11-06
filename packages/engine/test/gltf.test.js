@@ -168,22 +168,25 @@ describe('the frame culls', () => {
   it('keeps what the camera sees and drops what it does not', () => {
     const frame = new Frame3D();
     frame.setCamera(camera());
-    frame.shadow.radius = 5;
     frame.add(box(), { position: { x: 0, y: 0, z: 0 } });
     frame.add(box(), { position: { x: 0, y: 0, z: 30 } });   // behind the camera
     frame.add(box(), { position: { x: 200, y: 0, z: 0 } });  // far to the side
     expect(frame.added).toBe(3);
     expect(frame.drawn).toBe(1);
-    // In view and inside the shadow sphere casts; the far ones cast nothing.
+    // Shadow casting is decided once the renderer knows the shadow volumes:
+    // inside this one, only the box at the origin.
+    frame.resolveShadows([{ x: 0, y: 0, z: 0, radius: 5 }]);
     expect(frame.casting).toBe(1);
+    frame.resolveShadows([]);
+    expect(frame.casting).toBe(0);
   });
 
-  it('keeps an unseen caster near the camera target for the shadow pass alone', () => {
+  it('keeps an unseen caster inside a shadow volume for the shadow pass alone', () => {
     const frame = new Frame3D();
     frame.setCamera(camera());
-    frame.shadow.radius = 10;
     // Behind the camera but within the shadow map's reach.
     frame.add(box(), { position: { x: 0, y: 0, z: 14 } });
+    frame.resolveShadows([{ x: 0, y: 0, z: 0, radius: 15 }]);
     expect(frame.drawn).toBe(0);
     expect(frame.casting).toBe(1);
     const [entry] = frame.entries();

@@ -2,7 +2,10 @@ import { BaseRenderer } from './baseRenderer.js';
 import { WebGLRenderer } from './webglRenderer.js';
 import { identityViewport } from '../viewport.js';
 import { webgpuDevice } from './webgpu/device.js';
-import { SKY_SHADER, SHADOW_SHADER, MESH_SHADER, FRAME_UNIFORM_FLOATS, MATERIAL_UNIFORM_FLOATS } from './webgpu/shaders.js';
+import {
+  SKY_SHADER, SHADOW_SHADER, MESH_SHADER, FRAME_UNIFORM_FLOATS, MATERIAL_UNIFORM_FLOATS,
+  MAX_CASCADES, MAX_SPOT_SHADOWS
+} from './webgpu/shaders.js';
 import { TextureCache3D } from './webgpu/textures.js';
 import { Environment } from './webgpu/environment.js';
 import { PostPass } from './webgpu/post.js';
@@ -28,7 +31,10 @@ import * as mat4 from './geometry/mat4.js';
  *
  *   0. the environment, when the sky changed: the sky baked to a cubemap,
  *      prefiltered for reflections and convolved for diffuse (environment.js);
- *   1. the sun's shadow map: every caster, depth only, from the sun;
+ *   1. shadow maps: the sun's cascades, each an orthographic box fitted
+ *      to a slice of the view frustum and snapped to its own texels so the
+ *      shadows hold still as the camera moves, then a perspective map for
+ *      each of the nearest shadowed spot lights; every caster, depth only;
  *   2. the sky: one full-screen triangle, gradient and sun disc;
  *   3. the meshes: one instanced, indexed draw per geometry and material,
  *      shaded with a metallic-roughness model under the sun, the point
@@ -49,9 +55,22 @@ import * as mat4 from './geometry/mat4.js';
  * fullscreen still target the original canvas.
  */
 
-const SHADOW_MAP_SIZE = 2048;
 const SAMPLES = 4;
 const HDR_FORMAT = 'rgba16float';
+
+/**
+ * What the `r_shadows` setting buys: cascade count and size for the sun,
+ * how many spot lights get a map and at what size.
+ */
+export const SHADOW_QUALITY = Object.freeze({
+  off: { cascades: 0, sunSize: 1, spots: 0, spotSize: 1 },
+  low: { cascades: 2, sunSize: 1024, spots: 1, spotSize: 512 },
+  medium: { cascades: 3, sunSize: 2048, spots: 2, spotSize: 1024 },
+  high: { cascades: 4, sunSize: 2048, spots: 4, spotSize: 1024 }
+});
+
+/** Where the cascade splits fall between linear and logarithmic spacing. */
+const CASCADE_LAMBDA = 0.6;
 
 export class WebGPURenderer extends BaseRenderer {
   constructor() {
@@ -91,8 +110,19 @@ export class WebGPURenderer extends BaseRenderer {
 
     this.colorTexture = null;
     this.depthTexture = null;
-    this.shadowTexture = null;
-    this.shadowView = null;
+    /** Shadow maps: a depth array for the sun's cascades and one for the spots. */
+    this.sunShadowTexture = null;
+    this.spotShadowTexture = null;
+    this.sunShadowLayers = [];
+    this.spotShadowLayers = [];
+    /** One 64-byte uniform and bind group per shadow pass, holding its light matrix. */
+    this.shadowPassUniforms = [];
+    this.shadowPassGroups = [];
+    this.shadowPassLayout = null;
+    this.lightingBindGroupLayout = null;
+    this.shadowSampler = null;
+    this.shadowQuality = 'medium';
+    this.cascadeScratch = { eye: { x: 0, y: 0, z: 0 }, view: mat4.create(), projection: mat4.create(), lightBasis: mat4.create() };
 
     /** One instance buffer for the whole frame, grown when a frame outgrows it. */
     this.instanceBuffer = null;
@@ -101,8 +131,6 @@ export class WebGPURenderer extends BaseRenderer {
     /** @type {WeakMap<object, {positions: GPUBuffer, normals: GPUBuffer, uvs: GPUBuffer, index: GPUBuffer, count: number, format: GPUIndexFormat}>} */
     this.geometryCache = new WeakMap();
 
-    this.lightView = mat4.create();
-    this.lightProjection = mat4.create();
     /** The canvas texture of the frame being drawn; valid until the task ends. */
     this.currentTexture = null;
   }
@@ -189,17 +217,31 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 2, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }
       ]
     });
-    const lightingBindGroupLayout = device.createBindGroupLayout({
+    this.lightingBindGroupLayout = device.createBindGroupLayout({
       label: 'lighting',
       entries: [
-        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth' } },
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth', viewDimension: '2d-array' } },
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'comparison' } },
         { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: 'cube' } },
         { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: 'cube' } },
         { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-        { binding: 5, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+        { binding: 5, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 6, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth', viewDimension: '2d-array' } }
       ]
     });
+    const lightingBindGroupLayout = this.lightingBindGroupLayout;
+    this.shadowPassLayout = device.createBindGroupLayout({
+      label: 'shadow pass',
+      entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } }]
+    });
+    for (let i = 0; i < MAX_CASCADES + MAX_SPOT_SHADOWS; i++) {
+      const buffer = device.createBuffer({ label: `shadow pass ${i}`, size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      this.shadowPassUniforms.push(buffer);
+      this.shadowPassGroups.push(device.createBindGroup({
+        layout: this.shadowPassLayout, entries: [{ binding: 0, resource: { buffer } }]
+      }));
+    }
+    this.shadowSampler = device.createSampler({ compare: 'less', magFilter: 'linear', minFilter: 'linear' });
     this.environment = new Environment(device, this.sceneBindGroupLayout);
     this.post = new PostPass(device, this.sceneBindGroupLayout, this.format);
     this.materialBindGroupLayout = device.createBindGroupLayout({
@@ -215,24 +257,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.textures = new TextureCache3D(device);
     this.defaultMaterial = this.#materialBindGroup(null);
 
-    this.shadowTexture = device.createTexture({
-      label: 'shadow map',
-      size: { width: SHADOW_MAP_SIZE, height: SHADOW_MAP_SIZE },
-      format: 'depth32float',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
-    });
-    this.shadowView = this.shadowTexture.createView();
-    this.lightingBindGroup = device.createBindGroup({
-      layout: lightingBindGroupLayout,
-      entries: [
-        { binding: 0, resource: this.shadowView },
-        { binding: 1, resource: device.createSampler({ compare: 'less', magFilter: 'linear', minFilter: 'linear' }) },
-        { binding: 2, resource: this.environment.irradianceView },
-        { binding: 3, resource: this.environment.prefilteredView },
-        { binding: 4, resource: this.environment.lutView },
-        { binding: 5, resource: this.environment.sampler }
-      ]
-    });
+    this.#createShadowMaps();
 
     const vertexBuffers = [
       { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] },
@@ -240,6 +265,7 @@ export class WebGPURenderer extends BaseRenderer {
       { arrayStride: 8, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x2' }] }
     ];
     const sceneLayout = device.createPipelineLayout({ bindGroupLayouts: [this.sceneBindGroupLayout] });
+    const shadowLayout = device.createPipelineLayout({ bindGroupLayouts: [this.sceneBindGroupLayout, this.shadowPassLayout] });
 
     const sky = device.createShaderModule({ code: SKY_SHADER, label: 'sky' });
     this.skyPipeline = device.createRenderPipeline({
@@ -255,7 +281,7 @@ export class WebGPURenderer extends BaseRenderer {
     const shadow = device.createShaderModule({ code: SHADOW_SHADER, label: 'shadow' });
     this.shadowPipeline = device.createRenderPipeline({
       label: 'shadow',
-      layout: sceneLayout,
+      layout: shadowLayout,
       vertex: { module: shadow, entryPoint: 'vs', buffers: vertexBuffers.slice(0, 2) },
       primitive: { topology: 'triangle-list', cullMode: 'none' },
       depthStencil: {
@@ -278,6 +304,51 @@ export class WebGPURenderer extends BaseRenderer {
     });
 
     this.#ensureInstanceBuffer(256);
+  }
+
+  /**
+   * The shadow maps at the current quality, and the lighting bind group that
+   * reads them. Rebuilt when the quality changes.
+   */
+  #createShadowMaps() {
+    const device = this.device;
+    const q = SHADOW_QUALITY[this.shadowQuality];
+    this.sunShadowTexture?.destroy();
+    this.spotShadowTexture?.destroy();
+    const array = (size, layers, label) => device.createTexture({
+      label, size: { width: size, height: size, depthOrArrayLayers: layers }, format: 'depth32float',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+    });
+    // Arrays always have their full layer count, so the bind group layout
+    // holds whatever the quality; unused layers are never drawn or read.
+    this.sunShadowTexture = array(q.sunSize, MAX_CASCADES, 'sun shadow maps');
+    this.spotShadowTexture = array(q.spotSize, MAX_SPOT_SHADOWS, 'spot shadow maps');
+    const layers = (texture, count) => Array.from({ length: count }, (_, i) =>
+      texture.createView({ dimension: '2d', baseArrayLayer: i, arrayLayerCount: 1 }));
+    this.sunShadowLayers = layers(this.sunShadowTexture, MAX_CASCADES);
+    this.spotShadowLayers = layers(this.spotShadowTexture, MAX_SPOT_SHADOWS);
+    this.lightingBindGroup = device.createBindGroup({
+      layout: this.lightingBindGroupLayout,
+      entries: [
+        { binding: 0, resource: this.sunShadowTexture.createView({ dimension: '2d-array' }) },
+        { binding: 1, resource: this.shadowSampler },
+        { binding: 2, resource: this.environment.irradianceView },
+        { binding: 3, resource: this.environment.prefilteredView },
+        { binding: 4, resource: this.environment.lutView },
+        { binding: 5, resource: this.environment.sampler },
+        { binding: 6, resource: this.spotShadowTexture.createView({ dimension: '2d-array' }) }
+      ]
+    });
+  }
+
+  /**
+   * Shadow quality: `off`, `low`, `medium` or `high`; see `SHADOW_QUALITY`.
+   * The `r_shadows` cvar sets it.
+   */
+  setShadowQuality(quality) {
+    if (!(quality in SHADOW_QUALITY) || quality === this.shadowQuality) return;
+    this.shadowQuality = quality;
+    if (this.device) this.#createShadowMaps();
   }
 
   setViewport(viewport) {
@@ -317,7 +388,10 @@ export class WebGPURenderer extends BaseRenderer {
   destroy() {
     this.uiBackend?.destroy();
     this.overlayCanvas?.remove?.();
-    for (const texture of [this.colorTexture, this.depthTexture, this.shadowTexture]) texture?.destroy();
+    for (const texture of [this.colorTexture, this.depthTexture, this.sunShadowTexture, this.spotShadowTexture]) texture?.destroy();
+    for (const buffer of this.shadowPassUniforms) buffer.destroy();
+    this.shadowPassUniforms = [];
+    this.shadowPassGroups = [];
     this.textures?.destroy();
     this.textures = null;
     this.environment?.destroy();
@@ -331,7 +405,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.context?.unconfigure();
     this.uiBackend = null;
     this.overlayCanvas = null;
-    this.colorTexture = this.depthTexture = this.shadowTexture = this.shadowView = this.lightingBindGroup = null;
+    this.colorTexture = this.depthTexture = this.sunShadowTexture = this.spotShadowTexture = this.lightingBindGroup = null;
     this.frameUniform = this.instanceBuffer = null;
     this.instanceCapacity = 0;
     this.skyPipeline = this.shadowPipeline = this.meshPipeline = null;
@@ -364,23 +438,26 @@ export class WebGPURenderer extends BaseRenderer {
   render(frame) {
     super.beginFrame();
     const device = this.device;
-    this.#writeFrameUniform(frame);
+    const shadows = this.#planShadows(frame);
+    frame.resolveShadows(shadows.volumes);
+    this.#writeFrameUniform(frame, shadows);
     this.#uploadLights(frame);
     const groups = this.#uploadInstances(frame);
 
     const encoder = device.createCommandEncoder({ label: 'frame' });
     if (this.environment.update(encoder, frame, this.sceneBindGroup)) this.stats.stateChanges++;
 
-    if (frame.shadow.enabled !== false) {
+    for (let i = 0; i < shadows.passes.length; i++) {
+      const { view, matrix } = shadows.passes[i];
+      device.queue.writeBuffer(this.shadowPassUniforms[i], 0, matrix);
       const pass = encoder.beginRenderPass({
         label: 'shadow',
         colorAttachments: [],
-        depthStencilAttachment: {
-          view: this.shadowView, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store'
-        }
+        depthStencilAttachment: { view, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' }
       });
       pass.setPipeline(this.shadowPipeline);
       pass.setBindGroup(0, this.sceneBindGroup);
+      pass.setBindGroup(1, this.shadowPassGroups[i]);
       this.#drawGroups(pass, groups, 'shadow');
       pass.end();
     }
@@ -576,50 +653,137 @@ export class WebGPURenderer extends BaseRenderer {
     return gpu;
   }
 
-  #writeFrameUniform(frame) {
+  #writeFrameUniform(frame, shadows) {
     const data = this.frameData;
     const camera = frame.camera;
     data.set(camera.viewProjection ?? IDENTITY, 0);
-    this.#lightMatrix(frame, data.subarray(16, 32));
+    data.set(camera.view ?? IDENTITY, 16);
     if (camera.inverseViewProjection) data.set(camera.inverseViewProjection, 32);
     else mat4.invert(camera.viewProjection ?? IDENTITY, data.subarray(32, 48));
+    for (let i = 0; i < shadows.cascades.length; i++) data.set(shadows.cascades[i].matrix, 48 + i * 16);
+    for (let i = 0; i < shadows.spots.length; i++) data.set(shadows.spots[i].matrix, 112 + i * 16);
+    const o = 176;
     const eye = camera.position ?? ZERO;
-    data[48] = eye.x; data[49] = eye.y; data[50] = eye.z; data[51] = 0;
+    data[o] = eye.x; data[o + 1] = eye.y; data[o + 2] = eye.z; data[o + 3] = 0;
     const sun = frame.sun;
     const dir = normalized(sun.direction);
-    data[52] = dir[0]; data[53] = dir[1]; data[54] = dir[2]; data[55] = sun.intensity ?? 1;
+    data[o + 4] = dir[0]; data[o + 5] = dir[1]; data[o + 6] = dir[2]; data[o + 7] = sun.intensity ?? 1;
     const sc = sun.color ?? WHITE;
-    data[56] = sc[0]; data[57] = sc[1]; data[58] = sc[2]; data[59] = 0;
+    data[o + 8] = sc[0]; data[o + 9] = sc[1]; data[o + 10] = sc[2]; data[o + 11] = 0;
     const ambient = frame.ambient;
-    data[60] = ambient.sky[0]; data[61] = ambient.sky[1]; data[62] = ambient.sky[2]; data[63] = ambient.intensity ?? 1;
-    data[64] = ambient.ground[0]; data[65] = ambient.ground[1]; data[66] = ambient.ground[2]; data[67] = 0;
+    data[o + 12] = ambient.sky[0]; data[o + 13] = ambient.sky[1]; data[o + 14] = ambient.sky[2]; data[o + 15] = ambient.intensity ?? 1;
+    data[o + 16] = ambient.ground[0]; data[o + 17] = ambient.ground[1]; data[o + 18] = ambient.ground[2]; data[o + 19] = 0;
     const fog = frame.fog;
-    data[68] = fog.color[0]; data[69] = fog.color[1]; data[70] = fog.color[2]; data[71] = fog.density ?? 0;
-    data[72] = frame.exposure ?? 1;
-    data[73] = frame.shadow.enabled === false ? 0 : 1;
-    data[74] = 1 / SHADOW_MAP_SIZE;
-    data[75] = frame.shadow.radius;
-    data[76] = Math.min(frame.lights?.length ?? 0, MAX_LIGHTS);
-    data[77] = frame.bloom?.threshold ?? 1;
-    data[78] = frame.bloom?.intensity ?? 0;
-    data[79] = this.environment.prefilteredMips - 1;
+    data[o + 20] = fog.color[0]; data[o + 21] = fog.color[1]; data[o + 22] = fog.color[2]; data[o + 23] = fog.density ?? 0;
+    data[o + 24] = frame.exposure ?? 1;
+    data[o + 25] = 0; data[o + 26] = 0; data[o + 27] = 0;
+    data[o + 28] = Math.min(frame.lights?.length ?? 0, MAX_LIGHTS);
+    data[o + 29] = frame.bloom?.threshold ?? 1;
+    data[o + 30] = frame.bloom?.intensity ?? 0;
+    data[o + 31] = this.environment.prefilteredMips - 1;
+    const q = SHADOW_QUALITY[this.shadowQuality];
+    for (let i = 0; i < 4; i++) {
+      data[o + 32 + i] = shadows.cascades[i]?.split ?? 0;
+      data[o + 40 + i] = shadows.cascades[i]?.radius ?? 1;
+    }
+    data[o + 36] = shadows.cascades.length;
+    data[o + 37] = 1 / q.sunSize;
+    data[o + 38] = 1 / q.spotSize;
+    data[o + 39] = frame.shadow.normalOffset ?? 1.5;
+    data[o + 44] = frame.shadow.bias ?? 0.03;
+    data[o + 45] = data[o + 46] = data[o + 47] = 0;
     this.device.queue.writeBuffer(this.frameUniform, 0, data);
   }
 
   /**
-   * The sun's view-projection: an orthographic box of the shadow radius
-   * around the shadow centre, looking along the sun's direction. Depth
-   * spans twice the radius each way so casters outside the sphere but
-   * between it and the sun still shadow it.
+   * Fit the frame's shadow maps: the sun's cascades over slices of the view
+   * frustum out to `shadow.distance`, and a perspective map for each of the
+   * nearest shadowed spot lights. Returns the matrices, the passes to draw,
+   * and the volumes a caster must touch to be worth drawing.
    */
-  #lightMatrix(frame, out) {
-    const { center, radius } = frame.shadow;
-    const dir = normalized(frame.sun.direction);
-    const eye = { x: center.x - dir[0] * radius * 2, y: center.y - dir[1] * radius * 2, z: center.z - dir[2] * radius * 2 };
-    const up = Math.abs(dir[1]) > 0.99 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
-    mat4.lookAt(eye, center, up, this.lightView);
-    mat4.orthographic(-radius, radius, -radius, radius, 0.01, radius * 4, this.lightProjection);
-    return mat4.multiply(this.lightProjection, this.lightView, out);
+  #planShadows(frame) {
+    const none = { cascades: [], spots: [], passes: [], volumes: [] };
+    const q = SHADOW_QUALITY[this.shadowQuality];
+    const camera = frame.camera;
+    if (frame.shadow.enabled === false || !camera.view || (!q.cascades && !q.spots)) return none;
+
+    const cascades = [];
+    const volumes = [];
+    const passes = [];
+    if (q.cascades) {
+      const near = camera.near;
+      const far = Math.min(camera.far, frame.shadow.distance);
+      const dir = normalized(frame.sun.direction);
+      const inverseView = mat4.invert(camera.view, this.cascadeScratch.lightBasis);
+      const tanY = Math.tan(camera.fov / 2);
+      const tanX = tanY * camera.aspect;
+      const up = Math.abs(dir[1]) > 0.99 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+      // A light-space basis at the origin, so cascade centres can be snapped
+      // to the map's texel grid in it; what the map sees then only ever
+      // moves by whole texels, and shadow edges do not swim.
+      const basis = mat4.lookAt(ZERO, { x: dir[0], y: dir[1], z: dir[2] }, up);
+      let start = near;
+      for (let i = 0; i < q.cascades; i++) {
+        const t = (i + 1) / q.cascades;
+        const linear = near + (far - near) * t;
+        const log = near * Math.pow(far / near, t);
+        const end = CASCADE_LAMBDA * log + (1 - CASCADE_LAMBDA) * linear;
+        // The slice's bounding sphere, in view space then world.
+        const corners = [];
+        for (const d of [start, end]) {
+          for (const sx of [-1, 1]) for (const sy of [-1, 1]) corners.push({ x: sx * tanX * d, y: sy * tanY * d, z: -d });
+        }
+        const centre = { x: 0, y: 0, z: -(start + end) / 2 };
+        let radius = 0;
+        for (const c of corners) radius = Math.max(radius, Math.hypot(c.x - centre.x, c.y - centre.y, c.z - centre.z));
+        const world = mat4.transformPoint(inverseView, centre);
+        // Snap in light space.
+        const texel = (radius * 2) / q.sunSize;
+        const ls = mat4.transformPoint(basis, world);
+        ls.x = Math.round(ls.x / texel) * texel;
+        ls.y = Math.round(ls.y / texel) * texel;
+        const snapped = mat4.transformPoint(mat4.invert(basis), ls);
+        const eye = { x: snapped.x - dir[0] * radius * 2, y: snapped.y - dir[1] * radius * 2, z: snapped.z - dir[2] * radius * 2 };
+        const view = mat4.lookAt(eye, snapped, up);
+        const projection = mat4.orthographic(-radius, radius, -radius, radius, 0.01, radius * 4);
+        const matrix = mat4.multiply(projection, view);
+        cascades.push({ matrix, split: end, radius });
+        passes.push({ view: this.sunShadowLayers[i], matrix });
+        // Casters anywhere along the light's path through the box count.
+        volumes.push({ x: snapped.x - dir[0] * radius, y: snapped.y - dir[1] * radius, z: snapped.z - dir[2] * radius, radius: radius * 1.8 });
+        start = end;
+      }
+    }
+
+    const spots = [];
+    if (q.spots) {
+      const eye = camera.position;
+      const candidates = [];
+      frame.lightInfo.forEach((light, index) => {
+        if (light.type !== 'spot' || light.shadow === false) return;
+        const p = light.position;
+        const d = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z);
+        if (d > (light.range ?? 10) + frame.shadow.distance) return;
+        candidates.push({ light, index, d });
+      });
+      candidates.sort((a, b) => a.d - b.d);
+      for (const { light, index } of candidates.slice(0, q.spots)) {
+        const p = light.position;
+        const dir = normalized([light.direction?.x ?? 0, light.direction?.y ?? -1, light.direction?.z ?? 0]);
+        const up = Math.abs(dir[1]) > 0.99 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+        const range = light.range ?? 10;
+        const view = mat4.lookAt(p, { x: p.x + dir[0], y: p.y + dir[1], z: p.z + dir[2] }, up);
+        const fov = Math.min(Math.PI * 0.95, 2 * (light.outerCone ?? 0.6) + 0.1);
+        const projection = mat4.perspective(fov, 1, 0.05, range);
+        const matrix = mat4.multiply(projection, view);
+        const layer = spots.length;
+        spots.push({ matrix, index });
+        frame.lights[index][14] = layer + 1;
+        passes.push({ view: this.spotShadowLayers[layer], matrix });
+        volumes.push({ x: p.x, y: p.y, z: p.z, radius: range });
+      }
+    }
+    return { cascades, spots, passes, volumes };
   }
 
   /**

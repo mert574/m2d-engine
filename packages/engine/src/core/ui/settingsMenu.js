@@ -19,6 +19,8 @@ const DEFAULT_SCALES = [1, 0.75, 0.5, 0.25];
  * dialog box. The grade is built from the live frame, because gradient
  * coordinates are absolute and the panel is centred at open time.
  */
+const SHADOW_LABELS = { off: 'Off', low: 'Low', medium: 'Medium', high: 'High' };
+
 class SettingsPlate extends UIPanel {
   get fillStyle() {
     const f = this.frame;
@@ -550,6 +552,18 @@ export class SettingsMenu {
           choices: () => ({ index: cvars.get('r_renderer') === 'webgl' ? 1 : 0, count: 2 }),
           description: 'The drawing backend. Reloads the page. WebGL 2 has lights, bloom and batching.'
         },
+      ...(cvars.has('r_shadows') ? [{
+        section: 'Rendering',
+        label: 'Shadows',
+        value: () => SHADOW_LABELS[cvars.get('r_shadows')] ?? cvars.get('r_shadows'),
+        step: (step) => {
+          const levels = Object.keys(SHADOW_LABELS);
+          const index = levels.indexOf(cvars.get('r_shadows'));
+          cvars.set('r_shadows', levels[(index + (step ?? 1) + levels.length) % levels.length]);
+        },
+        choices: () => ({ index: Math.max(0, Object.keys(SHADOW_LABELS).indexOf(cvars.get('r_shadows'))), count: 4 }),
+        description: 'How many shadow cascades the sun gets and how many spot lights cast shadows.'
+      }] : []),
       {
         section: 'Rendering',
         label: 'Debug overlay',

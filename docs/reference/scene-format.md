@@ -118,6 +118,7 @@ A light the prefab carries, following its body. In a 2D level a `light` is an er
 | `offset` | `{ "x", "y", "z" }` in metres from the body's centre | `0` |
 | `direction` | `{ "x", "y", "z" }`, where a spot points | straight down |
 | `innerCone`, `outerCone` | radians; full brightness inside the inner cone, dark outside the outer | `0.4`, `0.6` |
+| `shadow` | boolean; whether a spot casts a shadow map. The nearest few spots do, as the `r_shadows` setting allows | `true` |
 
 The sun is the scene's, set in `onRender`, not a prefab's. See the [renderer](./renderer#three-dimensions).
 

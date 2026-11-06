@@ -56,15 +56,14 @@ function cameraAt(width, height, position = { x: 0, y: 3, z: 8 }) {
 /** A frame: a 20 m floor, a red 1 m cube on it, the sun from high up and behind the camera. */
 function yardFrame(renderer, camera, { shadows = true } = {}) {
   const frame = renderer.createFrame();
-  frame.camera.viewProjection = camera.viewProjection;
-  frame.camera.inverseViewProjection = camera.inverseViewProjection;
-  frame.camera.position = camera.position;
+  frame.setCamera(camera);
   // Light travelling toward -x: the sun is high on the camera's right and
   // the box's shadow lies to its left, in view.
   frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
   frame.fog.density = 0;
   frame.bloom.intensity = 0;
-  frame.shadow = { center: { x: 0, y: 0, z: 0 }, radius: 12, enabled: shadows };
+  frame.shadow.enabled = shadows;
+  frame.shadow.distance = 30;
   frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.5, 0.5, 0.5], roughness: 0.9 });
   frame.add(box(), { position: { x: 0, y: 0.5, z: 0 }, color: [0.9, 0.05, 0.05], roughness: 0.5 });
   return frame;
@@ -111,8 +110,9 @@ describe('the 3D renderer', () => {
     // The floor is grey: no channel dominates, and it is lit.
     expect(Math.max(...floor.slice(0, 3)) - Math.min(...floor.slice(0, 3)), `floor is neutral: ${floor}`).toBeLessThan(30);
     expect(luma(floor), `floor is lit: ${floor}`).toBeGreaterThan(60);
-    // Two instanced draws (floor, box) in each of two passes, the sky and the composite.
-    expect(renderer.getStats().drawCalls).toBe(6);
+    // Two instanced draws (floor, box) in each of three cascades and the
+    // main pass, the sky and the composite.
+    expect(renderer.getStats().drawCalls).toBe(2 * 4 + 2);
   });
 
   it('draws a red box where the camera projects it, lit on the side facing the sun', async () => {
@@ -328,6 +328,38 @@ describe('lighting', () => {
     expect(nearLit[0]).toBeGreaterThan(nearLit[2]);
   });
 
+  it('a shadowed spot light leaves the floor dark behind a box', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 8, z: 5 });
+    const build = (shadow) => (f) => {
+      f.add(box(), { position: { x: 0, y: 0.5, z: 0 }, color: [0.6, 0.6, 0.6] });
+      f.addLight({ type: 'spot', position: { x: 0, y: 4, z: 3 }, direction: { x: 0, y: -1, z: -0.75 }, color: [1, 1, 1], intensity: 60, range: 12, innerCone: 0.6, outerCone: 0.8, shadow });
+    };
+    // The box's shadow from a light above and in front of it lands behind
+    // it, from z -0.5 to -1.7; the camera sees the floor only past -1.3.
+    const behind = camera.worldToScreen(0, 0, -1.55);
+    renderer.render(scene(renderer, camera, build(true)));
+    const shadowed = (await readPixels(renderer)).at(Math.round(behind.x), Math.round(behind.y));
+    renderer.render(scene(renderer, camera, build(false)));
+    const lit = (await readPixels(renderer)).at(Math.round(behind.x), Math.round(behind.y));
+    expect(luma(shadowed), `behind the box: shadowed ${shadowed} vs unshadowed ${lit}`).toBeLessThan(luma(lit) * 0.75);
+  });
+
+  it('shadow quality off draws no shadow passes, high draws four cascades', async () => {
+    const W = 64, H = 48;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H);
+    renderer.setShadowQuality('off');
+    renderer.render(yardFrame(renderer, camera));
+    expect(renderer.getStats().drawCalls).toBe(2 + 2);
+    renderer.setShadowQuality('high');
+    renderer.resetStats();
+    renderer.render(yardFrame(renderer, camera));
+    expect(renderer.getStats().drawCalls).toBe(2 * 5 + 2);
+    renderer.setShadowQuality('medium');
+  });
+
   it('a spot light lights only inside its cone', async () => {
     const W = 96, H = 72;
     const renderer = make(W, H);
@@ -409,7 +441,6 @@ describe('a textured model', () => {
     frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
     frame.fog.density = 0;
     frame.bloom.intensity = 0;
-    frame.shadow.radius = 6;
     const [part] = model.parts;
     frame.add(part.geometry, { model: part.matrix, material: part.material, color: [1, 1, 1], metallic: 1, roughness: 1 });
     renderer.render(frame);
@@ -427,7 +458,8 @@ describe('a textured model', () => {
     const qx = pixels.at(Math.round(q.x), Math.round(q.y));
     const differs = px.slice(0, 3).some((v, i) => Math.abs(v - qx[i]) > 12);
     expect(differs, `texture varies: ${px} vs ${qx}`).toBe(true);
-    expect(renderer.getStats().drawCalls).toBe(4);
+    // One instanced draw per cascade and in the main pass, the sky and the composite.
+    expect(renderer.getStats().drawCalls).toBe(3 + 1 + 2);
   });
 });
 

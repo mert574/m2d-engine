@@ -10,8 +10,14 @@
  * way to the composite pass, which tonemaps and encodes for the canvas.
  */
 
+/** Sun shadow cascades the frame uniform has room for. */
+export const MAX_CASCADES = 4;
+
+/** Spot lights that may cast a shadow map at once. */
+export const MAX_SPOT_SHADOWS = 4;
+
 /** Floats in the frame uniform, in the order `Frame` declares them. */
-export const FRAME_UNIFORM_FLOATS = 16 * 3 + 4 * 8;
+export const FRAME_UNIFORM_FLOATS = 16 * 3 + 16 * MAX_CASCADES + 16 * MAX_SPOT_SHADOWS + 4 * 12;
 
 /** Floats in a material's uniform, in the order `Material` declares them. */
 export const MATERIAL_UNIFORM_FLOATS = 4 * 3;
@@ -19,8 +25,11 @@ export const MATERIAL_UNIFORM_FLOATS = 4 * 3;
 const COMMON = /* wgsl */ `
 struct Frame {
   viewProjection: mat4x4f,
-  lightViewProjection: mat4x4f,
+  view: mat4x4f,
   inverseViewProjection: mat4x4f,
+  // The sun's view-projection per cascade, and each shadowed spot's.
+  cascades: array<mat4x4f, 4>,
+  spotShadows: array<mat4x4f, 4>,
   // xyz eye position.
   camera: vec4f,
   // xyz the direction the light travels; w intensity.
@@ -31,10 +40,17 @@ struct Frame {
   ground: vec4f,
   // rgb fog colour; w density.
   fog: vec4f,
-  // x exposure, y shadows on, z shadow texel size, w shadow radius.
+  // x exposure, y unused, z unused, w unused.
   params: vec4f,
   // x light count, y bloom threshold, z bloom intensity, w prefiltered mip count - 1.
   params2: vec4f,
+  // View-space distance where each cascade ends.
+  cascadeSplits: vec4f,
+  // x cascade count, y sun shadow texel (1/size), z spot shadow texel, w normal offset in texels.
+  shadowParams: vec4f,
+  // Half-extent of each cascade's orthographic box, in metres; x unused, y bias in metres.
+  cascadeRadii: vec4f,
+  shadowBias: vec4f,
 };
 
 struct Instance {
@@ -52,7 +68,7 @@ struct Light {
   color: vec4f,
   // xyz the direction a spot points; w 0 point, 1 spot.
   direction: vec4f,
-  // x cos inner cone, y cos outer cone.
+  // x cos inner cone, y cos outer cone, z shadow layer + 1 (0: none).
   cone: vec4f,
 };
 
@@ -147,6 +163,9 @@ fn vs(
 export const SHADOW_SHADER = /* wgsl */ `
 ${COMMON}
 
+// The light's view-projection for this pass: one cascade or one spot.
+@group(1) @binding(0) var<uniform> lightViewProjection: mat4x4f;
+
 @vertex
 fn vs(
   @builtin(instance_index) instanceIndex: u32,
@@ -154,7 +173,7 @@ fn vs(
   @location(1) normal: vec3f
 ) -> @builtin(position) vec4f {
   let world = instances[instanceIndex].model * vec4f(position, 1.0);
-  return frame.lightViewProjection * world;
+  return lightViewProjection * world;
 }
 `;
 
@@ -162,12 +181,13 @@ export const MESH_SHADER = /* wgsl */ `
 ${COMMON}
 ${MESH_VERTEX}
 
-@group(1) @binding(0) var shadowMap: texture_depth_2d;
+@group(1) @binding(0) var sunShadowMaps: texture_depth_2d_array;
 @group(1) @binding(1) var shadowSampler: sampler_comparison;
 @group(1) @binding(2) var irradianceMap: texture_cube<f32>;
 @group(1) @binding(3) var prefilteredMap: texture_cube<f32>;
 @group(1) @binding(4) var brdfLut: texture_2d<f32>;
 @group(1) @binding(5) var environmentSampler: sampler;
+@group(1) @binding(6) var spotShadowMaps: texture_depth_2d_array;
 
 // A glTF metallic-roughness material: factors multiplied into the
 // instance's, and textures that are 1x1 white where the material has none.
@@ -206,26 +226,52 @@ fn fresnelRoughness(cosTheta: f32, f0: vec3f, roughness: f32) -> vec3f {
   return f0 + (max(vec3f(1.0 - roughness), f0) - f0) * pow(1.0 - cosTheta, 5.0);
 }
 
-// How much sun reaches a point: 0 in shadow, 1 lit, filtered over a 3x3
-// tap so edges are soft rather than stair-stepped. The lookup is offset
-// along the normal by a texel so a lit surface does not shadow itself.
-fn sunVisibility(worldPosition: vec3f, normal: vec3f, nDotL: f32) -> f32 {
-  if (frame.params.y < 0.5) { return 1.0; }
-  let texelWorld = frame.params.w * 2.0 * frame.params.z;
-  let offset = normal * texelWorld * (1.5 + 2.0 * (1.0 - nDotL));
-  let lightSpace = frame.lightViewProjection * vec4f(worldPosition + offset, 1.0);
+// A 3x3 percentage-closer lookup in one layer of a shadow array, so edges
+// are soft rather than stair-stepped. Outside the map everything is lit.
+fn shadowLookup(maps: texture_depth_2d_array, layer: u32, lightSpace: vec4f, texel: f32, depthBias: f32) -> f32 {
   let proj = lightSpace.xyz / lightSpace.w;
   let uv = vec2f(proj.x * 0.5 + 0.5, 0.5 - proj.y * 0.5);
-  if (any(uv < vec2f(0.0)) || any(uv > vec2f(1.0)) || proj.z > 1.0) { return 1.0; }
-  let bias = 0.0008 + 0.002 * (1.0 - nDotL);
-  let depth = proj.z - bias;
+  if (any(uv < vec2f(0.0)) || any(uv > vec2f(1.0)) || proj.z > 1.0 || proj.z < 0.0) { return 1.0; }
+  let depth = proj.z - depthBias;
   var lit = 0.0;
   for (var y = -1; y <= 1; y++) {
     for (var x = -1; x <= 1; x++) {
-      lit += textureSampleCompareLevel(shadowMap, shadowSampler, uv + vec2f(f32(x), f32(y)) * frame.params.z, depth);
+      lit += textureSampleCompareLevel(maps, shadowSampler, uv + vec2f(f32(x), f32(y)) * texel, layer, depth);
     }
   }
   return lit / 9.0;
+}
+
+// How much sun reaches a point: 0 in shadow, 1 lit. The cascade is chosen
+// by view-space distance; the lookup is offset along the normal by a few
+// of that cascade's texels so a lit surface does not shadow itself.
+fn sunVisibility(worldPosition: vec3f, normal: vec3f, nDotL: f32) -> f32 {
+  let count = u32(frame.shadowParams.x);
+  if (count == 0u) { return 1.0; }
+  let viewDepth = -(frame.view * vec4f(worldPosition, 1.0)).z;
+  var splits = frame.cascadeSplits;
+  var radii = frame.cascadeRadii;
+  var cascade = count;
+  for (var i = 0u; i < count; i++) {
+    if (viewDepth <= splits[i]) { cascade = i; break; }
+  }
+  if (cascade >= count) { return 1.0; }
+  let radius = radii[cascade];
+  let texelWorld = radius * 2.0 * frame.shadowParams.y;
+  let offset = normal * texelWorld * frame.shadowParams.w * (1.0 + 2.0 * (1.0 - nDotL));
+  let lightSpace = frame.cascades[cascade] * vec4f(worldPosition + offset, 1.0);
+  // The orthographic depth range is four radii; the bias is metres over that.
+  let depthBias = frame.shadowBias.x * (1.0 + 2.0 * (1.0 - nDotL)) / (radius * 4.0);
+  return shadowLookup(sunShadowMaps, cascade, lightSpace, frame.shadowParams.y, depthBias);
+}
+
+// How much of a shadowed spot reaches a point, through its perspective map.
+fn spotVisibility(layer: u32, worldPosition: vec3f, normal: vec3f, nDotL: f32) -> f32 {
+  let offset = normal * frame.shadowBias.x * (1.0 + 2.0 * (1.0 - nDotL));
+  let lightSpace = frame.spotShadows[layer] * vec4f(worldPosition + offset, 1.0);
+  // Perspective depth is non-linear; the slope-scaled bias of the shadow
+  // pipeline carries most of the work, this is a hair on top.
+  return shadowLookup(spotShadowMaps, layer, lightSpace, frame.shadowParams.z, 0.0005);
 }
 
 // Cook-Torrance for one light arriving along l with the given radiance.
@@ -303,6 +349,10 @@ fn fs(in: VertexOut) -> @location(0) vec4f {
       attenuation *= smoothstep(light.cone.y, light.cone.x, cosAngle);
     }
     if (attenuation <= 0.0) { continue; }
+    if (light.cone.z > 0.5) {
+      attenuation *= spotVisibility(u32(light.cone.z) - 1u, in.worldPosition, n, max(dot(n, dir), 0.0));
+      if (attenuation <= 0.0) { continue; }
+    }
     color += shade(n, v, dir, light.color.rgb * light.color.w * attenuation, base, f0, metallic, roughness);
   }
 
