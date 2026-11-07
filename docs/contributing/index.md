@@ -15,6 +15,7 @@ Node.js 22 or later.
 ```bash
 npm ci
 npm run dev           # examples on port 3000
+npm run dev:lan       # the same over HTTPS on every interface, for a browser on another machine
 npm run docs:dev      # documentation site
 npm test              # engine suites plus example scene validation
 npm run build         # docs and demos into site/

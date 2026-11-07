@@ -55,6 +55,7 @@ const UP = Object.freeze({ x: 0, y: 1, z: 0 });
 
 /** Earth, in m/s², along -y. */
 const DEFAULT_GRAVITY = Object.freeze({ x: 0, y: -9.81, z: 0 });
+const NO_GRAVITY = Object.freeze({ x: 0, y: 0, z: 0 });
 
 /** Rapier's tolerances are written for metres, so the scale is 1. */
 const LENGTH_UNIT = 1;
@@ -556,7 +557,10 @@ export class RapierPhysicsWorld3D extends PhysicsWorldBase {
    */
   #driveCharacter(body, dt) {
     const v = body.spec.velocity;
-    const g = this.currentGravity;
+    // A character that collides with nothing (mask 0: the console's
+    // noclip) has no floor to absorb gravity, so it is not under any;
+    // otherwise it sinks through the level a few millimetres a step.
+    const g = body.spec.mask === 0 ? NO_GRAVITY : this.currentGravity;
 
     v.x += g.x * dt;
     v.y += g.y * dt;

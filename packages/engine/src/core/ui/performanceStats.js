@@ -39,6 +39,21 @@ const DETAIL_ROWS = [
   ['shapes', (s) => s.shapesDrawn]
 ];
 
+/**
+ * Rows for a 3D renderer, whose counts the GPU decides: instances
+ * submitted, drawn after culling, shadow casters, triangles drawn, and
+ * the GPU's own frame time where the adapter reports it.
+ */
+const DETAIL_ROWS_3D = [
+  ['instances', (s) => s.instances],
+  ['drawn', (s) => s.drawn],
+  ['casters', (s) => s.casters],
+  ['triangles', (s) => s.triangles],
+  ['draw calls', (s) => s.drawCalls],
+  ['state chg', (s) => s.stateChanges],
+  ['gpu', (s) => (s.gpuMs > 0 ? `${s.gpuMs.toFixed(2)} ms` : '—')]
+];
+
 export class PerformanceStats extends UIElement {
   /**
    * @param {Object} [options] - `UIElement` options, plus:
@@ -65,9 +80,14 @@ export class PerformanceStats extends UIElement {
   }
 
   /** Height the panel needs at the current size. */
+  /** The rows for the renderer in use: a 3D renderer counts differently. */
+  get rows() {
+    return this.game?.renderer?.dimensions === 3 ? DETAIL_ROWS_3D : DETAIL_ROWS;
+  }
+
   get panelHeight() {
     if (!this.expanded) return 24;
-    const rows = 1 + DETAIL_ROWS.length;
+    const rows = 1 + this.rows.length;
     return 10 + rows * this.lineHeight + (this.graph ? this.graphHeight + 8 : 0) + 6;
   }
 
@@ -104,7 +124,7 @@ export class PerformanceStats extends UIElement {
     if (!this.expanded) return;
 
     const stats = renderer.getStats();
-    for (const [label, read] of DETAIL_ROWS) {
+    for (const [label, read] of this.rows) {
       this.#row(left, y, label, format(read(stats)), '$color.debug.value');
       y += this.lineHeight;
     }

@@ -42,7 +42,11 @@ export function initWebGPU({ powerPreference = 'high-performance' } = {}) {
     if (!adapter) {
       throw new Error('M2D: no WebGPU adapter. The GPU may be blocklisted, or the browser is running without hardware acceleration');
     }
-    device = await adapter.requestDevice();
+    // Indirect draws that start at an instance offset, which the 3D
+    // renderer's GPU culling relies on, and GPU timestamps for its
+    // statistics; the renderer checks `device.features` for both.
+    const requiredFeatures = ['timestamp-query', 'indirect-first-instance'].filter((f) => adapter.features.has(f));
+    device = await adapter.requestDevice({ requiredFeatures });
     // Validation errors are asynchronous; without this they vanish silently.
     device.addEventListener('uncapturederror', (event) => {
       console.error(`M2D: WebGPU error: ${event.error.message}`);

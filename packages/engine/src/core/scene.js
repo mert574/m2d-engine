@@ -3,6 +3,8 @@ import { validate } from './schema.js';
 import { constraintParamsSchema } from './sceneSchema.js';
 import { Projection } from './projection.js';
 import { geometryFor } from './renderers/geometry/primitives.js';
+import { StaticBatch } from './renderers/frame3d.js';
+import { meshFor } from './presentation3d.js';
 import { loadGLB } from './gltf.js';
 import { Animator3D } from './animator3d.js';
 import { Quat } from './math.js';
@@ -29,6 +31,8 @@ export class Scene {
     this.spriteSheets = new Map();
     /** Models from `assets.models`, by key, once loaded. @type {Map<string, import('./gltf.js').Model>} */
     this.models = new Map();
+    /** The level's props as resident instance batches, built at load; see `setupProps`. @type {StaticBatch[]} */
+    this.batches = [];
     /**
      * Entities placed by the scene file, by their object `id`. Lets one
      * placed object refer to another — the gate a lever opens, the point a
@@ -234,6 +238,8 @@ export class Scene {
       return
     }
 
+    if (!this.game.headless && this.game.physics.dimensions === 3) this.setupProps();
+
     this.config.layers.forEach(layer => {
       layer.objects.forEach(object => {
         const base = this.config.prefabs[object.prefab];
@@ -292,6 +298,63 @@ export class Scene {
         }
       });
     });
+  }
+
+  /**
+   * The layers' `props` as static batches: one per geometry and material,
+   * with every placement of every prop that draws that pair written in as
+   * an instance record. A primitive prop is its prefab's shape at the
+   * prop's size; a model prop is each part of the model under the mesh
+   * block's scale and offset, with the file's own materials. Built once;
+   * `frame3D` hands the batches to every frame.
+   */
+  setupProps() {
+    const batches = new Map();
+    const batchFor = (geometry, material) => {
+      let byMaterial = batches.get(geometry);
+      if (!byMaterial) batches.set(geometry, byMaterial = new Map());
+      let batch = byMaterial.get(material);
+      if (!batch) byMaterial.set(material, batch = new StaticBatch(geometry, material));
+      return batch;
+    };
+    for (const layer of this.config.layers) {
+      for (const prop of layer.props ?? []) {
+        const prefab = this.config.prefabs[prop.prefab];
+        if (!prefab?.mesh) continue;
+        const mesh = meshFor(prefab.mesh);
+        const castShadow = prop.castShadow !== false;
+        const size = { x: prop.width ?? 1, y: prop.height ?? 1, z: prop.depth ?? prop.width ?? 1 };
+        if (mesh.model) {
+          const model = this.models.get(mesh.model);
+          if (!model) continue;
+          if (model.skinned) throw new Error(`M2D: prop '${prop.id}' uses skinned model '${mesh.model}'; a prop has no joints to pose`);
+          const s = mesh.scale ?? 1;
+          const local = mat4.fromTRS(mesh.offset ?? ZERO, IDENTITY_Q, { x: s, y: s, z: s });
+          for (const [x, y, z, yaw, scale] of prop.instances) {
+            const base = mat4.fromTRS({ x, y, z }, Quat.fromAxisAngle(UP, yaw), { x: scale, y: scale, z: scale });
+            mat4.multiply(base, local, base);
+            for (const part of model.parts) {
+              batchFor(part.geometry, part.material).push({
+                model: mat4.multiply(base, part.matrix), material: part.material,
+                color: WHITE, metallic: 1, roughness: 1, emissive: mesh.emissive ?? 0, castShadow
+              });
+            }
+          }
+          continue;
+        }
+        const { geometry, scale: shapeScale } = geometryFor(mesh.shape ?? prefab.physics?.shape ?? 'box', size);
+        const batch = batchFor(geometry, null);
+        for (const [x, y, z, yaw, scale] of prop.instances) {
+          batch.push({
+            position: { x, y, z }, rotation: Quat.fromAxisAngle(UP, yaw),
+            scale: { x: shapeScale.x * scale, y: shapeScale.y * scale, z: shapeScale.z * scale },
+            color: mesh.color, metallic: mesh.metallic, roughness: mesh.roughness,
+            emissive: mesh.emissive, checker: mesh.checker, castShadow
+          });
+        }
+      }
+    }
+    this.batches = [...batches.values()].flatMap((byMaterial) => [...byMaterial.values()]);
   }
 
   /**
@@ -482,6 +545,7 @@ export class Scene {
     // every body of every scene ever loaded alive. onExit runs first so it
     // can still look one up.
     this.entitiesById.clear();
+    this.batches = [];
 
     // Headless there is no camera, UI or cursor to reset, only the scene's
     // timers (see the end of this method).
@@ -643,6 +707,7 @@ export class Scene {
     frame.setCamera(game.camera);
 
     if (this.config.type === 'level') {
+      for (const batch of this.batches) frame.addBatch(batch);
       for (const entity of game.entities) {
         const mesh = entity.mesh;
         if (!mesh || mesh.visible === false || !entity.visible || entity.dead) continue;

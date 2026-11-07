@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
-import { cpSync, existsSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync } from 'node:fs';
+import { ensureDevCert } from './scripts/devCert.mjs';
 
 // Custom plugin to generate sprites
 const assetsPlugin = {
@@ -34,6 +35,33 @@ const assetsPlugin = {
   }
 };
 
+// The dev server on another machine. WebGPU (`navigator.gpu`) exists only in
+// a secure context, so testing a 3D demo from a second computer on the LAN
+// needs HTTPS as well as a reachable host. `npm run dev:lan` sets both.
+//
+//   M2D_HOST=0.0.0.0   listen on every interface (default: localhost only)
+//   M2D_HTTPS=1        serve HTTPS with the self-signed cert from scripts/devCert.mjs
+//   PORT=3100          the port; with PORT set, a busy port is an error, not a
+//                      silent hop to the next one, since several agents share
+//                      this machine and each must know which server is theirs
+function devServer() {
+  const host = process.env.M2D_HOST;
+  const https = process.env.M2D_HTTPS === '1';
+  const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+  const server = {
+    port,
+    strictPort: Boolean(process.env.PORT),
+    host: host || undefined,
+    // A LAN server is for a browser elsewhere; do not open one here.
+    open: !host && !https
+  };
+  if (https) {
+    const { keyPath, certPath } = ensureDevCert();
+    server.https = { key: readFileSync(keyPath), cert: readFileSync(certPath) };
+  }
+  return server;
+}
+
 export default defineConfig(({ command }) => ({
   root: 'src',
   // Deployed under the docs site: the demo hub lives at /m2d-engine/examples/.
@@ -63,10 +91,7 @@ export default defineConfig(({ command }) => ({
       }
     }
   },
-  server: {
-    port: 3000,
-    open: true
-  },
+  server: devServer(),
   plugins: [assetsPlugin],
   publicDir: false
 }));

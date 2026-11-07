@@ -21,6 +21,9 @@ import {
  * horizontal move and the controller's velocity reconciliation feeds that
  * loss back in. The 3D backend leaves Rapier's default alone.
  */
+/** What a character that collides with nothing falls under: see #driveCharacter. */
+const NO_GRAVITY = Object.freeze({ x: 0, y: 0 });
+
 const CHARACTER_NUDGE = 0.05;
 
 /** Which way is up; see `RapierPhysicsWorld.up`. */
@@ -688,7 +691,9 @@ export class RapierPhysicsWorld extends PhysicsWorldBase {
    */
   #driveCharacter(body, dt) {
     const v = body.spec.velocity;
-    const g = this.currentGravity;
+    // A character that collides with nothing (mask 0: the console's
+    // noclip) has no floor to absorb gravity, so it is not under any.
+    const g = body.spec.mask === 0 ? NO_GRAVITY : this.currentGravity;
 
     v.x += g.x * dt;
     v.y += g.y * dt;

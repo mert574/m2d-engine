@@ -132,6 +132,7 @@ An array of layers.
 | `name` | no | Free text |
 | `type` | no | Free text |
 | `objects` | yes | Array of placed objects |
+| `props` | no | Scenery placed many times, below. 3D levels only |
 
 ### `layers[].objects[]`
 
@@ -148,6 +149,27 @@ An array of layers.
 | `constraints` | no | | Behaviours to attach or retune for this one object, below |
 | `overrides` | no | | What this object changes about its prefab, below |
 | `properties` | no | `{}` | Passed to the actor constructor as `options` |
+
+### `layers[].props[]`
+
+A prefab placed many times as scenery, in a 3D level. A prop is presentation only: it has no entity, no body and no light, so the prefab's `physics` and `light` are not read, and game code cannot find it. What it has is the prefab's `mesh`, which is required, drawn from instance records the scene builds once at load and the renderer keeps on the GPU. Ten thousand trees cost the CPU nothing per frame. A `mesh.model` that is skinned cannot be a prop; it has no joints to pose.
+
+| Key | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `id` | yes | | Identity, unique within the scene like an object's |
+| `prefab` | yes | | A key in `prefabs`; the prefab must have a `mesh` |
+| `width`, `height`, `depth` | no | `32`, `32`, the width | Size in metres of a shape prop, before each instance's scale. A model keeps the file's size times `mesh.scale` |
+| `castShadow` | no | `true` | Whether the instances cast shadows |
+| `instances` | yes | | An array of `[x, y, z, yaw, scale]` tuples: position in metres, a turn about the up axis in radians, and a multiplier on the size |
+
+```json
+"props": [{
+  "id": "trees", "prefab": "tree", "width": 0.5, "height": 3,
+  "instances": [[12, 1.5, -4, 0, 1], [15.5, 1.8, -3, 1.2, 1.2]]
+}]
+```
+
+In a 2D level `props` is an error. The yard example's lot (`?scene=lot`) is laid out this way by `examples/scripts/buildLotScene.mjs`.
 
 ## `overrides`
 

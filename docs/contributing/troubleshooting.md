@@ -25,6 +25,8 @@
 | Symptom | Fix |
 | --- | --- |
 | `npm run test:browser` fails with `error while loading shared libraries` | Install Chromium's system libraries. See [Testing](./testing#the-browser-project) |
+| `navigator.gpu` is undefined when a 3D demo is opened from another machine | WebGPU exists only in a secure context, and `http://<lan-ip>:3000` is not one. Run `npm run dev:lan`, which serves HTTPS on every interface with a self-signed certificate from `examples/scripts/devCert.mjs`, and open the `Network:` URL it prints. The browser warns about the certificate once; accept it, or import `examples/.certs/dev.crt` into the other machine's trust store. The certificate names this machine's current addresses and is regenerated when they change |
+| Two dev servers fight over a port | Set `PORT=<n>`; with it set, a busy port is an error instead of a silent hop to the next one. Check `ss -ltnp` for a free one first |
 | The browser suite reports WebGL2 unavailable | Chromium is running without the SwiftShader flags from `vitest.browser.config.js`, or `M2D_BROWSER` points at a browser without WebGL2 |
 | The showcase's generated sprites are missing or stale | Run `npm run generate-sprites`. The dev server only generates what is missing, and only the renderer showcase uses generated art — the games ship committed textures |
 | `@napi-rs/canvas` fails to install | Install with optional dependencies enabled. The platform binding is one |

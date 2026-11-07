@@ -8,7 +8,7 @@ import { CollisionCategories } from './constants.js';
 import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
 import { Camera3D } from './camera3d.js';
-import { parseColor } from './renderers/geometry/color.js';
+import { meshFor, lightFor } from './presentation3d.js';
 import { SoundManager } from './soundManager.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D, FALLBACK_RENDERER } from './renderers/index.js';
 import { computeViewport, sameViewport, viewToUI } from './viewport.js';
@@ -167,38 +167,6 @@ function parseResolution(text) {
 function defaultSaveId() {
   return typeof location !== 'undefined' ? location.pathname : '';
 }
-
-/**
- * A prefab's `mesh` block as the renderer wants it: colour parsed from CSS
- * and taken from sRGB to linear light, the rest as given. Shared across
- * entities made from one prefab, so the parse happens once per block.
- */
-const meshCache = new WeakMap();
-function meshFor(mesh) {
-  if (!mesh) return DEFAULT_MESH;
-  let made = meshCache.get(mesh);
-  if (made) return made;
-  const [r, g, b] = mesh.color ? parseColor(mesh.color) : [0.8, 0.8, 0.8];
-  made = {
-    ...mesh,
-    color: [toLinear(r), toLinear(g), toLinear(b)]
-  };
-  meshCache.set(mesh, made);
-  return made;
-}
-const DEFAULT_MESH = Object.freeze({ color: [0.55, 0.55, 0.55], roughness: 0.7 });
-
-/** A prefab's `light` block with its colour taken to linear light, parsed once per block. */
-const lightCache = new WeakMap();
-function lightFor(light) {
-  let made = lightCache.get(light);
-  if (made) return made;
-  const [r, g, b] = light.color ? parseColor(light.color) : [1, 1, 1];
-  made = { ...light, color: [toLinear(r), toLinear(g), toLinear(b)] };
-  lightCache.set(light, made);
-  return made;
-}
-const toLinear = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 
 function rendererOverrideFromURL() {
   if (typeof location === 'undefined' || !location.search) return null;

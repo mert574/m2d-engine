@@ -11,11 +11,18 @@ import { boundingSphere } from './geometry/primitives.js';
  * geometry and material as they arrive, which is the order the GPU wants
  * them in: one instanced draw per group.
  *
- * `add` culls the main pass as it goes: an instance outside the camera's
- * frustum is not drawn. Shadow casting is decided later, in `resolveShadows`,
- * once the renderer has fitted the sun's cascades and chosen which spot
- * lights cast — both depend on the whole frame. Call `setCamera` first, or
- * nothing is culled.
+ * Nothing is culled here. Every instance record carries its world
+ * bounding sphere and whether it casts a shadow, and the renderer tests
+ * them on the GPU against every pass's frustum — the camera's and each
+ * shadow map's — in one compute pass, then draws each group through
+ * indirect arguments the cull wrote. `setCamera` still matters: it is the
+ * camera the renderer culls and draws with.
+ *
+ * Two kinds of instance. `add` takes one that changes every frame — an
+ * entity following its body. `addBatch` takes a `StaticBatch`: records a
+ * scene built once at load for things that never move (a level's props),
+ * which the renderer keeps resident on the GPU and copies into the frame
+ * without the CPU touching a record again.
  *
  * Units are the world's: metres, y up. Colours are linear 0..1.
  */
@@ -26,8 +33,6 @@ export class Frame3D {
       viewProjection: null, inverseViewProjection: null, view: null,
       position: { x: 0, y: 0, z: 0 }, fov: Math.PI / 3, aspect: 16 / 9, near: 0.1, far: 500
     };
-    /** The camera's frustum planes, for culling; null draws everything. */
-    this.frustum = null;
     /** The sun: the direction its light travels, its colour and intensity. */
     this.sun = { direction: [0.4, -1, 0.3], color: [1, 0.96, 0.9], intensity: 3 };
     /** Hemisphere ambient: light from the sky above and the ground below. */
@@ -75,17 +80,13 @@ export class Frame3D {
     this.lights = [];
     /** The same lights as given, for the renderer to pick shadow casters from. */
     this.lightInfo = [];
-    /** @type {Map<string, Group>} */
+    /** @type {Map<object, Map<object|null, Group>>} geometry -> material -> group */
     this.groups = new Map();
-    /** Instances added, drawn or not. */
+    /** Instances submitted this frame, per-frame and resident alike. */
     this.added = 0;
-    /** Instances in the main pass after culling. */
-    this.drawn = 0;
-    /** Instances in the shadow passes after culling; set by `resolveShadows`. */
-    this.casting = 0;
   }
 
-  /** Take the camera's matrices, eye, frustum and lens from a `Camera3D`. */
+  /** Take the camera's matrices, eye and lens from a `Camera3D`. */
   setCamera(camera) {
     const c = this.camera;
     c.viewProjection = camera.viewProjection;
@@ -96,7 +97,6 @@ export class Frame3D {
     c.aspect = camera.width / camera.height;
     c.near = camera.near;
     c.far = camera.far;
-    this.frustum = mat4.frustumPlanes(camera.viewProjection, this.frustum ?? new Float32Array(24));
   }
 
   /**
@@ -116,58 +116,39 @@ export class Frame3D {
    * @param {boolean} [instance.castShadow=true]
    * @param {Float32Array} [instance.previousModel] - Last frame's model matrix, for motion vectors; this one if omitted
    * @param {Float32Array} [instance.skin] - Joint matrices (16 floats each, model space) for a skinned geometry
-   * @returns {Float32Array|null} The model matrix used, to hand back as next frame's `previousModel`
+   * @returns {Float32Array} The model matrix used, to hand back as next frame's `previousModel`
    */
   add(geometry, instance = {}) {
-    let model = instance.model;
-    if (!model) {
-      const s = instance.scale ?? 1;
-      const scale = typeof s === 'number' ? { x: s, y: s, z: s } : s;
-      model = mat4.fromTRS(instance.position ?? ZERO, instance.rotation ?? IDENTITY_Q, scale);
-    }
-    this.added++;
-
-    // The geometry's bounding sphere carried through the model matrix.
-    // A skinned mesh moves well outside its bind pose; give the sphere room.
-    const sphere = boundingSphere(geometry);
-    const slack = geometry.skinned ? 1.5 : 1;
-    const cx = model[0] * sphere.x + model[4] * sphere.y + model[8] * sphere.z + model[12];
-    const cy = model[1] * sphere.x + model[5] * sphere.y + model[9] * sphere.z + model[13];
-    const cz = model[2] * sphere.x + model[6] * sphere.y + model[10] * sphere.z + model[14];
-    const maxScale = Math.sqrt(Math.max(
-      model[0] * model[0] + model[1] * model[1] + model[2] * model[2],
-      model[4] * model[4] + model[5] * model[5] + model[6] * model[6],
-      model[8] * model[8] + model[9] * model[9] + model[10] * model[10]));
-    const radius = sphere.radius * maxScale * slack;
-    const visible = !this.frustum || mat4.sphereInFrustum(this.frustum, cx, cy, cz, radius);
-    const mayCast = this.shadow.enabled !== false && instance.castShadow !== false;
-    if (!visible && !mayCast) return model;
-
     const data = new Float32Array(INSTANCE_FLOATS);
-    data.set(model, 0);
-    mat4.normalMatrix(model, data.subarray(16, 28));
-    const color = instance.color ?? GREY;
-    data[28] = color[0]; data[29] = color[1]; data[30] = color[2]; data[31] = 1;
-    data[32] = instance.metallic ?? 0;
-    data[33] = instance.roughness ?? 0.6;
-    data[34] = instance.emissive ?? 0;
-    data[35] = instance.checker ?? 0;
-    data.set(instance.previousModel ?? model, 36);
+    const model = writeInstance(data, 0, geometry, instance);
+    this.added++;
     if (instance.skin && geometry.skinned) {
       data[52] = this.jointCount;
       data[53] = 1;
       this.skins.push(instance.skin);
       this.jointCount += instance.skin.length / 16;
     }
+    this.#entry(geometry, instance.material ?? null).instances.push(data);
+    return model;
+  }
 
-    const material = instance.material ?? null;
+  /**
+   * Draw a resident batch of instances this frame. The batch was built
+   * once (`StaticBatch`); the renderer keeps its records on the GPU.
+   * @param {StaticBatch} batch
+   */
+  addBatch(batch) {
+    if (!batch.count) return;
+    this.added += batch.count;
+    this.#entry(batch.geometry, batch.material).batches.push(batch);
+  }
+
+  #entry(geometry, material) {
     let group = this.groups.get(geometry);
     if (!group) this.groups.set(geometry, group = new Map());
     let entry = group.get(material);
-    if (!entry) group.set(material, entry = { geometry, material, main: [], shadow: [], casters: [] });
-    if (visible) { entry.main.push(data); this.drawn++; }
-    if (mayCast) entry.casters.push({ data, x: cx, y: cy, z: cz, radius });
-    return model;
+    if (!entry) group.set(material, entry = { geometry, material, instances: [], batches: [] });
+    return entry;
   }
 
   /**
@@ -201,31 +182,6 @@ export class Frame3D {
     this.lightInfo.push(light);
   }
 
-  /**
-   * Decide the shadow casters, once the renderer has fitted the shadow
-   * volumes: an instance casts if its sphere touches the sun's reach or any
-   * shadowed spot's. Called by the renderer before upload.
-   * @param {Array<{x: number, y: number, z: number, radius: number}>} volumes
-   */
-  resolveShadows(volumes) {
-    this.casting = 0;
-    for (const entry of this.entries()) {
-      entry.shadow.length = 0;
-      if (!volumes.length) continue;
-      for (const c of entry.casters) {
-        for (const v of volumes) {
-          const dx = c.x - v.x, dy = c.y - v.y, dz = c.z - v.z;
-          const reach = v.radius + c.radius;
-          if (dx * dx + dy * dy + dz * dz <= reach * reach) {
-            entry.shadow.push(c.data);
-            this.casting++;
-            break;
-          }
-        }
-      }
-    }
-  }
-
   /** Every group with something to draw, in insertion order. */
   *entries() {
     for (const byMaterial of this.groups.values()) yield* byMaterial.values();
@@ -233,11 +189,94 @@ export class Frame3D {
 }
 
 /**
- * @typedef {{geometry: object, material: object|null, main: Float32Array[], shadow: Float32Array[], casters: object[]}} Group
+ * Instances of one geometry and material that never move, as records the
+ * renderer uploads once. A scene builds these at load for its props;
+ * `push` one instance at a time, then hand the batch to every frame with
+ * `Frame3D.addBatch`. Records are the same shape `Frame3D.add` writes, so
+ * the GPU does not know which kind it is drawing.
+ */
+export class StaticBatch {
+  /**
+   * @param {object} geometry
+   * @param {object|null} material
+   * @param {number} [capacity=64] - Grows as needed
+   */
+  constructor(geometry, material = null, capacity = 64) {
+    this.geometry = geometry;
+    this.material = material;
+    this.data = new Float32Array(capacity * INSTANCE_FLOATS);
+    this.count = 0;
+    /** Bumped by `push`; the renderer re-uploads a batch whose version it has not seen. */
+    this.version = 0;
+  }
+
+  /** One more instance; the same options as `Frame3D.add` minus `skin` and `previousModel`. */
+  push(instance) {
+    if ((this.count + 1) * INSTANCE_FLOATS > this.data.length) {
+      const grown = new Float32Array(this.data.length * 2);
+      grown.set(this.data);
+      this.data = grown;
+    }
+    writeInstance(this.data, this.count * INSTANCE_FLOATS, this.geometry, instance);
+    this.count++;
+    this.version++;
+  }
+
+  /** The records in use, for upload. */
+  get records() {
+    return this.data.subarray(0, this.count * INSTANCE_FLOATS);
+  }
+}
+
+/**
+ * Write one instance record at `offset` in `data`, from the options
+ * `Frame3D.add` documents, and return the model matrix used.
+ */
+export function writeInstance(data, offset, geometry, instance) {
+  let model = instance.model;
+  if (!model) {
+    const s = instance.scale ?? 1;
+    const scale = typeof s === 'number' ? { x: s, y: s, z: s } : s;
+    model = mat4.fromTRS(instance.position ?? ZERO, instance.rotation ?? IDENTITY_Q, scale);
+  }
+  data.set(model, offset);
+  mat4.normalMatrix(model, data.subarray(offset + 16, offset + 28));
+  const color = instance.color ?? GREY;
+  data[offset + 28] = color[0]; data[offset + 29] = color[1]; data[offset + 30] = color[2]; data[offset + 31] = 1;
+  data[offset + 32] = instance.metallic ?? 0;
+  data[offset + 33] = instance.roughness ?? 0.6;
+  data[offset + 34] = instance.emissive ?? 0;
+  data[offset + 35] = instance.checker ?? 0;
+  data.set(instance.previousModel ?? model, offset + 36);
+  // skin: x first joint, y skinned, z unused, w casts a shadow.
+  data[offset + 52] = 0; data[offset + 53] = 0; data[offset + 54] = 0;
+  data[offset + 55] = instance.castShadow === false ? 0 : 1;
+
+  // The geometry's bounding sphere carried through the model matrix.
+  // A skinned mesh moves well outside its bind pose; give the sphere room.
+  const sphere = boundingSphere(geometry);
+  const slack = geometry.skinned ? 1.5 : 1;
+  data[offset + 56] = model[0] * sphere.x + model[4] * sphere.y + model[8] * sphere.z + model[12];
+  data[offset + 57] = model[1] * sphere.x + model[5] * sphere.y + model[9] * sphere.z + model[13];
+  data[offset + 58] = model[2] * sphere.x + model[6] * sphere.y + model[10] * sphere.z + model[14];
+  const maxScale = Math.sqrt(Math.max(
+    model[0] * model[0] + model[1] * model[1] + model[2] * model[2],
+    model[4] * model[4] + model[5] * model[5] + model[6] * model[6],
+    model[8] * model[8] + model[9] * model[9] + model[10] * model[10]));
+  data[offset + 59] = sphere.radius * maxScale * slack;
+  return model;
+}
+
+/**
+ * @typedef {{geometry: object, material: object|null, instances: Float32Array[], batches: StaticBatch[]}} Group
  */
 
-/** Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded), colour, params, mat4 previous model, skin. */
-export const INSTANCE_FLOATS = 16 + 12 + 4 + 4 + 16 + 4;
+/**
+ * Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded),
+ * colour, params, mat4 previous model, skin (first joint, skinned, unused,
+ * casts shadow), bounds (world sphere centre and radius).
+ */
+export const INSTANCE_FLOATS = 16 + 12 + 4 + 4 + 16 + 4 + 4;
 
 /** Floats per light in the GPU buffer: position+range, colour+intensity, direction+type, cone+shadow. */
 export const LIGHT_FLOATS = 16;

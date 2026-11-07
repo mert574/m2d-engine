@@ -87,7 +87,7 @@ game.commands.register('give', {
 
 Built-ins: `help [name]`, `find <text>`, `cvars [filter]`, `set`, `toggle`, `reset`, `echo`, `clear`, `scene <name>`, `scenes`, `entities`, `noclip`.
 
-`noclip` toggles the player's collision mask to nothing, so `game.player` walks through everything, and sets `entity.noclip` for the game to read: a character that checks it can fly, as the yard's hero does. The mask is restored when toggled off.
+`noclip` toggles the player's collision mask to nothing, so `game.player` walks through everything, and sets `entity.noclip` for the game to read: a character that checks it can fly, as the yard's hero does. A character body with an empty mask is also out from under gravity, since there is no floor left to absorb it. The mask is restored when toggled off.
 
 `execute(line, io)` runs one line; `complete(line)` returns completions for the first token across commands and cvars together, or a string cvar's `choices` for its value.
 

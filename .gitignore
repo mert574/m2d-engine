@@ -25,6 +25,9 @@ dist/
 *.webp
 *.ico
 
+# Self-signed certificate for the HTTPS dev server (per machine; `npm run dev:lan`)
+/examples/.certs/
+
 # Logs
 *.log
 npm-debug.log*

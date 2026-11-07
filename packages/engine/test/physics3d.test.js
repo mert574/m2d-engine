@@ -404,6 +404,25 @@ describe('a character', () => {
     expect(hero.grounded).toBe(false);
   });
 
+  it('floats when its mask is empty: noclip is not under gravity', () => {
+    // The console's noclip clears the mask. With nothing to stand on,
+    // gravity would otherwise sink a flying hero a few millimetres a step.
+    const w = makeWorld();
+    floor(w);
+    const hero = makeCharacter(w, { y: 3, frictionAir: 0 });
+    hero.setCollisionFilter({ mask: 0 });
+    for (let i = 0; i < 120; i++) {
+      hero.setVelocity({ x: 0, y: 0, z: 0 });
+      w.step(STEP);
+    }
+    expect(hero.position.y).toBeCloseTo(3, 4);
+    expect(hero.grounded).toBe(false);
+
+    hero.setCollisionFilter({ mask: 0xFFFF });
+    steps(w, 120);
+    expect(hero.grounded).toBe(true);
+  });
+
   it('reports no grounded answer for anything that is not a character', () => {
     const w = makeWorld();
     const box = w.add(w.createBox({ x: 0, y: 0, z: 0, width: 0.1, height: 0.1, depth: 0.1 }));

@@ -3,8 +3,8 @@ import { WebGLRenderer } from './webglRenderer.js';
 import { identityViewport } from '../viewport.js';
 import { webgpuDevice } from './webgpu/device.js';
 import {
-  SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER,
-  FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES, MAX_SPOT_SHADOWS
+  SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER, CULL_SHADER,
+  FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES, MAX_SPOT_SHADOWS, MAX_CULL_PASSES
 } from './webgpu/shaders.js';
 import { TextureCache3D } from './webgpu/textures.js';
 import { Environment } from './webgpu/environment.js';
@@ -31,13 +31,16 @@ import * as mat4 from './geometry/mat4.js';
  *
  *   0. the environment, when the sky changed: the sky baked to a cubemap,
  *      prefiltered for reflections and convolved for diffuse (environment.js);
+ *   0b. the cull: one compute pass tests every instance's bounding sphere
+ *      against the planes of every pass below and writes each pass's
+ *      indirect draw arguments and the list of instances it draws;
  *   1. shadow maps: the sun's cascades, each an orthographic box fitted
  *      to a slice of the view frustum and snapped to its own texels so the
  *      shadows hold still as the camera moves, then a perspective map for
  *      each of the nearest shadowed spot lights; every caster, depth only;
  *   2. the sky: one full-screen triangle, gradient and sun disc;
- *   3. the meshes: one instanced, indexed draw per geometry and material,
- *      shaded with a metallic-roughness model under the sun, the point
+ *   3. the meshes: one indirect instanced, indexed draw per geometry and
+ *      material, over the instances the cull kept, shaded with a metallic-roughness model under the sun, the point
  *      and spot lights and the environment, with the shadow maps, into
  *      four targets: direct light, indirect light, normal and depth, and
  *      velocity;
@@ -47,10 +50,17 @@ import * as mat4 from './geometry/mat4.js';
  *
  * Passes 2 and 3 render in high range at 4x MSAA, with a sub-pixel jitter
  * for the anti-aliasing, and resolve into the post pass's targets. The
- * `effects` flags, set by the `r_*` cvars, say which post stages run. Geometry, images and materials are uploaded once each and
- * cached by identity; instance and light data are storage buffers
- * rewritten per frame, the frame's culled main-pass instances first and
- * its shadow casters after.
+ * `effects` flags, set by the `r_*` cvars, say which post stages run.
+ * Geometry, images and materials are uploaded once each and cached by
+ * identity. The instance buffer is laid out per frame, one contiguous
+ * range per group: a group's per-frame records are written from the CPU
+ * and its resident `StaticBatch` records are copied GPU-to-GPU from a
+ * buffer uploaded once, so a level's props cost the CPU nothing a frame.
+ *
+ * **Statistics.** How many instances each pass drew is decided on the GPU,
+ * so `stats.drawn`, `casters` and `triangles` come back a frame late
+ * through a staging buffer, and `gpuMs` — the cull pass to the composite —
+ * where the adapter has `timestamp-query`.
  *
  * **The HUD.** A canvas holds one context, so the UI pass cannot share this
  * renderer's canvas. The renderer makes a second canvas, laid exactly over
@@ -146,6 +156,30 @@ export class WebGPURenderer extends BaseRenderer {
     this.instanceBuffer = null;
     this.instanceCapacity = 0;
     this.instanceData = new Float32Array(0);
+    /** @type {WeakMap<object, {buffer: GPUBuffer, version: number, capacity: number}>} StaticBatch -> its resident copy */
+    this.batchCache = new WeakMap();
+    /** The cull pass: its pipeline, parameters and outputs. */
+    this.cullPipeline = null;
+    this.cullSceneLayout = null;
+    this.cullSceneBindGroup = null;
+    this.cullBindGroupLayout = null;
+    this.cullBindGroup = null;
+    this.cullParams = null;
+    this.cullData = new Float32Array(4 + MAX_CULL_PASSES * 6 * 4);
+    this.groupStartsBuffer = null;
+    this.groupStartsCapacity = 0;
+    /** Indirect draw arguments, one record per pass and group; the cull writes the instance counts. */
+    this.argsBuffer = null;
+    this.argsCapacity = 0;
+    /** The cull's output: instance indices per pass, in the groups' slots. */
+    this.remapBuffer = null;
+    this.remapCapacity = 0;
+    /** Staging buffers the statistics read back through; a few, so a frame never waits on a map. */
+    this.staging = [];
+    this.querySet = null;
+    this.timeBuffer = null;
+    this.hasTimestamps = false;
+    Object.assign(this.stats, { instances: 0, drawn: 0, casters: 0, triangles: 0, gpuMs: 0 });
     /** @type {WeakMap<object, {positions: GPUBuffer, normals: GPUBuffer, uvs: GPUBuffer, index: GPUBuffer, count: number, format: GPUIndexFormat}>} */
     this.geometryCache = new WeakMap();
 
@@ -233,9 +267,49 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         { binding: 1, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
         { binding: 2, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
-        { binding: 3, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }
+        { binding: 3, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+        { binding: 4, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }
       ]
     });
+    // The cull reads the instances through a group of its own: the scene
+    // group also holds the remap list, which the cull writes, and one pass
+    // may not bind a buffer both ways.
+    this.cullSceneLayout = device.createBindGroupLayout({
+      label: 'cull scene',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }
+      ]
+    });
+    this.cullBindGroupLayout = device.createBindGroupLayout({
+      label: 'cull',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }
+      ]
+    });
+    this.cullParams = device.createBuffer({
+      label: 'cull params', size: this.cullData.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.cullPipeline = device.createComputePipeline({
+      label: 'cull',
+      layout: device.createPipelineLayout({ bindGroupLayouts: [this.cullSceneLayout, this.cullBindGroupLayout] }),
+      compute: { module: device.createShaderModule({ code: CULL_SHADER, label: 'cull' }), entryPoint: 'main' }
+    });
+    if (!device.features.has('indirect-first-instance')) {
+      throw new Error('M2D: the WebGPU adapter lacks indirect-first-instance, which the 3D renderer draws with');
+    }
+    this.hasTimestamps = device.features.has('timestamp-query');
+    if (this.hasTimestamps) {
+      this.querySet = device.createQuerySet({ label: 'frame time', type: 'timestamp', count: 2 });
+      this.timeBuffer = device.createBuffer({
+        label: 'frame time', size: 16, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC
+      });
+    }
+    this.#ensureRemapBuffer(256);
+    this.#ensureGroupBuffers(1, 16);
     this.#ensureJointBuffer(64);
     this.lightingBindGroupLayout = device.createBindGroupLayout({
       label: 'lighting',
@@ -436,6 +510,14 @@ export class WebGPURenderer extends BaseRenderer {
     this.jointBuffer?.destroy();
     this.jointBuffer = null;
     this.jointCapacity = 0;
+    for (const buffer of [this.cullParams, this.groupStartsBuffer, this.argsBuffer, this.remapBuffer, this.timeBuffer]) buffer?.destroy();
+    for (const slot of this.staging) slot.buffer.destroy();
+    this.staging = [];
+    this.querySet?.destroy();
+    this.querySet = this.timeBuffer = null;
+    this.cullParams = this.groupStartsBuffer = this.argsBuffer = this.remapBuffer = this.cullBindGroup = null;
+    this.groupStartsCapacity = this.argsCapacity = this.remapCapacity = 0;
+    this.batchCache = new WeakMap();
     this.context?.unconfigure();
     this.uiBackend = null;
     this.overlayCanvas = null;
@@ -475,14 +557,31 @@ export class WebGPURenderer extends BaseRenderer {
     const device = this.device;
     this.#jitter(frame);
     const shadows = this.#planShadows(frame);
-    frame.resolveShadows(shadows.volumes);
     this.#writeFrameUniform(frame, shadows);
     this.#uploadLights(frame);
     this.#uploadJoints(frame);
-    const groups = this.#uploadInstances(frame);
+    const layout = this.#assemble(frame, 1 + shadows.passes.length);
+    this.#writeCullParams(frame, shadows, layout);
+    this.stats.instances = layout.total;
 
     const encoder = device.createCommandEncoder({ label: 'frame' });
+    // Resident batches into this frame's instance buffer, GPU to GPU. The
+    // per-frame records were written to the queue above, so they land first.
+    for (const copy of layout.copies) {
+      encoder.copyBufferToBuffer(copy.buffer, 0, this.instanceBuffer, copy.offset * INSTANCE_BYTES, copy.count * INSTANCE_BYTES);
+    }
     if (this.environment.update(encoder, frame, this.sceneBindGroup)) this.stats.stateChanges++;
+
+    const stamps = this.hasTimestamps;
+    const cull = encoder.beginComputePass({
+      label: 'cull',
+      ...(stamps && { timestampWrites: { querySet: this.querySet, beginningOfPassWriteIndex: 0 } })
+    });
+    cull.setPipeline(this.cullPipeline);
+    cull.setBindGroup(0, this.cullSceneBindGroup);
+    cull.setBindGroup(1, this.cullBindGroup);
+    cull.dispatchWorkgroups(Math.ceil(layout.total / 64));
+    cull.end();
 
     for (let i = 0; i < shadows.passes.length; i++) {
       const { view, matrix } = shadows.passes[i];
@@ -494,7 +593,7 @@ export class WebGPURenderer extends BaseRenderer {
       });
       pass.setBindGroup(0, this.sceneBindGroup);
       pass.setBindGroup(1, this.shadowPassGroups[i]);
-      this.#drawGroups(pass, groups, 'shadow');
+      this.#drawGroups(pass, layout, 'shadow', 1 + i);
       pass.end();
     }
 
@@ -522,7 +621,7 @@ export class WebGPURenderer extends BaseRenderer {
 
     pass.setBindGroup(1, this.lightingBindGroup);
     this.stats.stateChanges += 2;
-    this.#drawGroups(pass, groups, 'main');
+    this.#drawGroups(pass, layout, 'main', 0);
     pass.end();
 
     this.currentTexture = this.context.getCurrentTexture();
@@ -540,13 +639,179 @@ export class WebGPURenderer extends BaseRenderer {
       },
       lut: post.grade?.lut ?? null,
       filter: this.worldFilter,
-      rect: [contentX, contentY, contentWidth, contentHeight]
+      rect: [contentX, contentY, contentWidth, contentHeight],
+      timestampWrites: stamps ? { querySet: this.querySet, endOfPassWriteIndex: 1 } : undefined
     });
 
+    const slot = this.#stageStats(encoder, layout);
     device.queue.submit([encoder.finish()]);
+    if (slot) this.#readStats(slot);
+    // What the cull decided last frame is the best answer this frame has.
+    this.stats.primitives = this.stats.drawn;
     // This frame's unjittered camera is next frame's previous.
     if (frame.camera.viewProjection) this.previousViewProjection.set(frame.camera.viewProjection);
     this.frameCounter++;
+  }
+
+  /**
+   * Lay the frame's groups out in the instance buffer — each group one
+   * contiguous range, its per-frame records first and its resident batches
+   * after — and prepare what the cull and the draws need: group starts,
+   * indirect argument templates and the remap list's size. Per-frame
+   * records are written here; batches are copied in `render`.
+   * @returns {{groups: object[], total: number, copies: object[], passCount: number}}
+   */
+  #assemble(frame, passCount) {
+    const entries = [...frame.entries()];
+    let total = 0;
+    for (const entry of entries) {
+      total += entry.instances.length;
+      for (const batch of entry.batches) total += batch.count;
+    }
+    this.#ensureInstanceBuffer(total);
+    this.#ensureRemapBuffer(Math.max(1, total * passCount));
+    this.#ensureGroupBuffers(entries.length, Math.max(1, entries.length * passCount));
+
+    const data = this.instanceData;
+    const groups = [];
+    const copies = [];
+    const starts = new Uint32Array(entries.length + 1);
+    let first = 0;
+    entries.forEach((entry, g) => {
+      const start = first;
+      starts[g] = start;
+      for (const record of entry.instances) {
+        data.set(record, first * INSTANCE_FLOATS);
+        first++;
+      }
+      if (first > start) {
+        this.device.queue.writeBuffer(this.instanceBuffer, start * INSTANCE_BYTES, data, start * INSTANCE_FLOATS, (first - start) * INSTANCE_FLOATS);
+      }
+      for (const batch of entry.batches) {
+        copies.push({ buffer: this.#batchBuffer(batch), offset: first, count: batch.count });
+        first += batch.count;
+      }
+      groups.push({
+        gpu: this.#geometry(entry.geometry),
+        material: this.#material(entry.material),
+        start,
+        count: first - start
+      });
+    });
+    starts[entries.length] = total;
+    this.device.queue.writeBuffer(this.groupStartsBuffer, 0, starts);
+
+    // Indirect arguments: index count and where in the remap list the
+    // pass's slots for this group begin; the cull fills the instance counts.
+    const args = this.argsTemplate;
+    const count = passCount * groups.length;
+    for (let p = 0; p < passCount; p++) {
+      for (let g = 0; g < groups.length; g++) {
+        const o = (p * groups.length + g) * 5;
+        args[o] = groups[g].gpu.count;
+        args[o + 1] = 0;
+        args[o + 2] = 0;
+        args[o + 3] = 0;
+        args[o + 4] = p * total + groups[g].start;
+      }
+    }
+    if (count) this.device.queue.writeBuffer(this.argsBuffer, 0, args, 0, count * 5);
+    return { groups, total, copies, passCount };
+  }
+
+  /** The cull's planes: the camera's frustum for pass 0, each shadow map's after it. */
+  #writeCullParams(frame, shadows, layout) {
+    const data = this.cullData;
+    const counts = new Uint32Array(data.buffer, 0, 4);
+    counts[0] = layout.passCount; counts[1] = layout.total; counts[2] = layout.groups.length; counts[3] = 0;
+    mat4.frustumPlanes(frame.camera.viewProjection ?? IDENTITY, data.subarray(4, 28));
+    shadows.passes.forEach((pass, i) => {
+      mat4.frustumPlanes(pass.matrix, data.subarray(4 + (i + 1) * 24, 4 + (i + 2) * 24));
+    });
+    this.device.queue.writeBuffer(this.cullParams, 0, data);
+  }
+
+  /** A resident batch's GPU copy, uploaded on first sight and again when it has grown. */
+  #batchBuffer(batch) {
+    let gpu = this.batchCache.get(batch);
+    if (gpu && gpu.version === batch.version) return gpu.buffer;
+    const records = batch.records;
+    if (!gpu || gpu.capacity < records.length) {
+      gpu?.buffer.destroy();
+      const buffer = this.device.createBuffer({
+        label: 'static batch', size: Math.max(records.byteLength, 4), usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+      });
+      gpu = { buffer, version: -1, capacity: records.length };
+      this.batchCache.set(batch, gpu);
+    }
+    this.device.queue.writeBuffer(gpu.buffer, 0, records);
+    gpu.version = batch.version;
+    return gpu.buffer;
+  }
+
+  /**
+   * Queue the frame's indirect arguments (and timestamps) into a free
+   * staging buffer, to be read once the GPU is done with them.
+   */
+  #stageStats(encoder, layout) {
+    const argsBytes = layout.passCount * layout.groups.length * ARGS_BYTES;
+    const size = Math.max(4, argsBytes) + 16;
+    let slot = this.staging.find((s) => !s.pending && s.size >= size);
+    if (!slot) {
+      if (this.staging.filter((s) => !s.pending).length >= 3) return null;
+      slot = { buffer: null, size: 0, pending: false };
+      this.staging.push(slot);
+    }
+    if (slot.size < size) {
+      slot.buffer?.destroy();
+      slot.buffer = this.device.createBuffer({ label: 'stats staging', size, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+      slot.size = size;
+    }
+    if (argsBytes) encoder.copyBufferToBuffer(this.argsBuffer, 0, slot.buffer, 0, argsBytes);
+    if (this.hasTimestamps) {
+      encoder.resolveQuerySet(this.querySet, 0, 2, this.timeBuffer, 0);
+      encoder.copyBufferToBuffer(this.timeBuffer, 0, slot.buffer, Math.max(4, argsBytes), 16);
+    }
+    slot.pending = true;
+    slot.layout = { passCount: layout.passCount, indexCounts: layout.groups.map((g) => g.gpu.count), argsBytes };
+    return slot;
+  }
+
+  /** Read a staged frame's statistics when the GPU has finished with them. */
+  #readStats(slot) {
+    const { passCount, indexCounts, argsBytes } = slot.layout;
+    const buffer = slot.buffer;
+    const promise = buffer.mapAsync(GPUMapMode.READ).then(() => {
+      // The renderer may have been destroyed while the map was pending.
+      if (!this.device || buffer !== slot.buffer) return;
+      const view = new DataView(buffer.getMappedRange());
+      let drawn = 0, casters = 0, triangles = 0;
+      const groups = indexCounts.length;
+      for (let p = 0; p < passCount; p++) {
+        for (let g = 0; g < groups; g++) {
+          const count = view.getUint32((p * groups + g) * ARGS_BYTES + 4, true);
+          if (p === 0) { drawn += count; triangles += count * indexCounts[g] / 3; }
+          else casters += count;
+        }
+      }
+      if (this.hasTimestamps) {
+        const o = Math.max(4, argsBytes);
+        const t0 = view.getBigUint64(o, true);
+        const t1 = view.getBigUint64(o + 8, true);
+        if (t1 > t0) this.stats.gpuMs = Number(t1 - t0) / 1e6;
+      }
+      buffer.unmap();
+      this.stats.drawn = drawn;
+      this.stats.casters = casters;
+      this.stats.triangles = Math.round(triangles);
+    }).catch(() => {}).finally(() => { slot.pending = false; });
+    this.statsPending = promise;
+  }
+
+  /** Resolves when the statistics of the frame most recently drawn have been read. For tests. */
+  async flushStats() {
+    await this.device?.queue.onSubmittedWorkDone();
+    await this.statsPending;
   }
 
   /**
@@ -599,9 +864,68 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 0, resource: { buffer: this.frameUniform } },
         { binding: 1, resource: { buffer: this.instanceBuffer } },
         { binding: 2, resource: { buffer: this.lightBuffer } },
-        { binding: 3, resource: { buffer: this.jointBuffer } }
+        { binding: 3, resource: { buffer: this.jointBuffer } },
+        { binding: 4, resource: { buffer: this.remapBuffer } }
       ]
     });
+    this.cullSceneBindGroup = this.device.createBindGroup({
+      layout: this.cullSceneLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.frameUniform } },
+        { binding: 1, resource: { buffer: this.instanceBuffer } }
+      ]
+    });
+  }
+
+  #cullBindGroup() {
+    this.cullBindGroup = this.device.createBindGroup({
+      layout: this.cullBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.cullParams } },
+        { binding: 1, resource: { buffer: this.groupStartsBuffer } },
+        { binding: 2, resource: { buffer: this.argsBuffer } },
+        { binding: 3, resource: { buffer: this.remapBuffer } }
+      ]
+    });
+  }
+
+  /** Room in the remap list for `count` slots (instances times passes). */
+  #ensureRemapBuffer(count) {
+    if (this.remapBuffer && this.remapCapacity >= count) return;
+    const capacity = Math.max(count, 256, this.remapCapacity * 2);
+    this.remapBuffer?.destroy();
+    this.remapBuffer = this.device.createBuffer({
+      label: 'remap', size: capacity * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    this.remapCapacity = capacity;
+    if (this.instanceBuffer) this.#sceneBindGroup();
+    if (this.argsBuffer) this.#cullBindGroup();
+  }
+
+  /** Room for `groups` group starts and `args` indirect records. */
+  #ensureGroupBuffers(groups, args) {
+    let changed = false;
+    if (!this.groupStartsBuffer || this.groupStartsCapacity < groups + 1) {
+      const capacity = Math.max(groups + 1, 16, this.groupStartsCapacity * 2);
+      this.groupStartsBuffer?.destroy();
+      this.groupStartsBuffer = this.device.createBuffer({
+        label: 'group starts', size: capacity * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+      });
+      this.groupStartsCapacity = capacity;
+      changed = true;
+    }
+    if (!this.argsBuffer || this.argsCapacity < args) {
+      const capacity = Math.max(args, 16, this.argsCapacity * 2);
+      this.argsBuffer?.destroy();
+      this.argsBuffer = this.device.createBuffer({
+        label: 'indirect args', size: capacity * ARGS_BYTES,
+        usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+      });
+      this.argsCapacity = capacity;
+      this.argsTemplate = new Uint32Array(capacity * 5);
+      changed = true;
+    }
+    if (changed) this.#cullBindGroup();
   }
 
   /** The frame's lights into the light buffer; the count rides in the frame uniform. */
@@ -614,16 +938,18 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /**
-   * One instanced, indexed draw per group, over the group's range in the
-   * instance buffer for the given pass. The shadow pass binds no material
-   * and reads no texture coordinates.
+   * One indirect instanced, indexed draw per group for the given pass: the
+   * arguments the cull wrote hold how many of the group's instances that
+   * pass sees. A group the pass sees nothing of still costs the call, and
+   * nothing else. The shadow pass binds no material and reads no texture
+   * coordinates.
    */
-  #drawGroups(pass, groups, which) {
+  #drawGroups(pass, layout, which, passIndex) {
+    const { groups } = layout;
     let boundMaterial = null;
     let skinned = null;
-    for (const group of groups) {
-      const range = group[which];
-      if (!range.count) continue;
+    for (let g = 0; g < groups.length; g++) {
+      const group = groups[g];
       const gpu = group.gpu;
       // Skinned geometry takes the skinning pipeline; switch only on change.
       if (gpu.skinned !== skinned) {
@@ -648,42 +974,9 @@ export class WebGPURenderer extends BaseRenderer {
         }
       }
       pass.setIndexBuffer(gpu.index, gpu.format);
-      pass.drawIndexed(gpu.count, range.count, 0, 0, range.first);
+      pass.drawIndexedIndirect(this.argsBuffer, (passIndex * groups.length + g) * ARGS_BYTES);
       this.stats.drawCalls++;
-      this.stats.primitives += range.count;
     }
-  }
-
-  /**
-   * Pack the frame's instances into the instance buffer — every group's
-   * main-pass instances, then every group's shadow casters — and return
-   * the draw list with each group's two ranges. The write is queued ahead
-   * of the submit, so the passes read this frame's data.
-   */
-  #uploadInstances(frame) {
-    const total = frame.drawn + frame.casting;
-    this.#ensureInstanceBuffer(total);
-    const data = this.instanceData;
-    const groups = [];
-    let first = 0;
-    const pack = (list) => {
-      const start = first;
-      for (let i = 0; i < list.length; i++) data.set(list[i], (first + i) * INSTANCE_FLOATS);
-      first += list.length;
-      return { first: start, count: list.length };
-    };
-    for (const entry of frame.entries()) {
-      groups.push({
-        gpu: this.#geometry(entry.geometry),
-        material: this.#material(entry.material),
-        main: pack(entry.main),
-        shadow: null,
-        entry
-      });
-    }
-    for (const group of groups) group.shadow = pack(group.entry.shadow);
-    if (total) this.device.queue.writeBuffer(this.instanceBuffer, 0, data, 0, total * INSTANCE_FLOATS);
-    return groups;
   }
 
   /** The bind group for a glTF material, or the default for none, made on first sight. */
@@ -858,17 +1151,16 @@ export class WebGPURenderer extends BaseRenderer {
   /**
    * Fit the frame's shadow maps: the sun's cascades over slices of the view
    * frustum out to `shadow.distance`, and a perspective map for each of the
-   * nearest shadowed spot lights. Returns the matrices, the passes to draw,
-   * and the volumes a caster must touch to be worth drawing.
+   * nearest shadowed spot lights. Returns the matrices and the passes to
+   * draw; the cull pass decides each pass's casters against its planes.
    */
   #planShadows(frame) {
-    const none = { cascades: [], spots: [], passes: [], volumes: [] };
+    const none = { cascades: [], spots: [], passes: [] };
     const q = SHADOW_QUALITY[this.shadowQuality];
     const camera = frame.camera;
     if (frame.shadow.enabled === false || !camera.view || (!q.cascades && !q.spots)) return none;
 
     const cascades = [];
-    const volumes = [];
     const passes = [];
     if (q.cascades) {
       const near = camera.near;
@@ -909,8 +1201,6 @@ export class WebGPURenderer extends BaseRenderer {
         const matrix = mat4.multiply(projection, view);
         cascades.push({ matrix, split: end, radius });
         passes.push({ view: this.sunShadowLayers[i], matrix });
-        // Casters anywhere along the light's path through the box count.
-        volumes.push({ x: snapped.x - dir[0] * radius, y: snapped.y - dir[1] * radius, z: snapped.z - dir[2] * radius, radius: radius * 1.8 });
         start = end;
       }
     }
@@ -940,10 +1230,9 @@ export class WebGPURenderer extends BaseRenderer {
         spots.push({ matrix, index });
         frame.lights[index][14] = layer + 1;
         passes.push({ view: this.spotShadowLayers[layer], matrix });
-        volumes.push({ x: p.x, y: p.y, z: p.z, radius: range });
       }
     }
-    return { cascades, spots, passes, volumes };
+    return { cascades, spots, passes };
   }
 
   /**
@@ -1016,6 +1305,9 @@ function halton(i, base) {
 }
 
 const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+const INSTANCE_BYTES = INSTANCE_FLOATS * 4;
+/** One `drawIndexedIndirect` record: five 32-bit values. */
+const ARGS_BYTES = 20;
 const ZERO = { x: 0, y: 0, z: 0 };
 const WHITE = [1, 1, 1];
 

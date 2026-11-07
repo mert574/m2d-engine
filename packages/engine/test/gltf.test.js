@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initPhysics } from '../src/core/physics/index.js';
 import { parseGLB, DEFAULT_MATERIAL } from '../src/core/gltf.js';
-import { Frame3D } from '../src/core/renderers/frame3d.js';
+import { Frame3D, StaticBatch, INSTANCE_FLOATS } from '../src/core/renderers/frame3d.js';
 import { Camera3D } from '../src/core/camera3d.js';
 import { box, boundingSphere } from '../src/core/renderers/geometry/primitives.js';
 import { M2D } from '../src/core/m2d.js';
@@ -177,9 +177,101 @@ describe('a rigged model', () => {
     expect(frame.jointCount).toBe(4);
     expect(frame.skins).toHaveLength(2);
     const [entry] = frame.entries();
-    expect(entry.main[0][INSTANCE_FLOATS - 4]).toBe(0);
-    expect(entry.main[1][INSTANCE_FLOATS - 4]).toBe(2);
-    expect(entry.main[1][INSTANCE_FLOATS - 3]).toBe(1);
+    expect(entry.instances[0][52]).toBe(0);
+    expect(entry.instances[1][52]).toBe(2);
+    expect(entry.instances[1][53]).toBe(1);
+  });
+});
+
+describe('props', () => {
+  beforeAll(() => initPhysics({ dimensions: 3 }));
+  class Ground extends Entity { name = 'Ground'; }
+  const level = (fields) => ({
+    version: SCENE_VERSION, type: 'level', name: 'lot', world: { dimensions: 3 }, ...fields
+  });
+  const loader = () => {
+    const g = new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 1 });
+    g.registerActor('Ground', Ground);
+    return new SceneLoader(g);
+  };
+
+  it('validates: a prefab with a mesh, unique ids, 3D only', () => {
+    const ok = loader().load(level({
+      prefabs: { tree: { actor: 'Ground', mesh: { color: '#3f6b2f', shape: 'sphere' } } },
+      layers: [{ name: 'main', objects: [], props: [{ id: 'trees', prefab: 'tree', width: 3, height: 3, instances: [[1, 2, 3, 0, 1], [4, 2, 6, 1.5, 1.3]] }] }]
+    }));
+    expect(ok.layers[0].props[0].instances).toHaveLength(2);
+    expect(ok.layers[0].props[0].castShadow).toBe(true);
+
+    expect(() => loader().load(level({
+      prefabs: { tree: { actor: 'Ground' } },
+      layers: [{ name: 'main', objects: [], props: [{ id: 'trees', prefab: 'tree', instances: [[0, 0, 0, 0, 1]] }] }]
+    }))).toThrow(/props\[0\].prefab: prefab 'tree' has no mesh/);
+
+    expect(() => loader().load(level({
+      prefabs: { tree: { actor: 'Ground', mesh: {} } },
+      layers: [{ name: 'main', objects: [], props: [{ id: 'trees', prefab: 'tree', instances: [[0, 0, 0, 0]] }] }]
+    }))).toThrow(/instances\[0\].*\[x, y, z, yaw, scale\]/);
+
+    expect(() => loader().load(level({
+      prefabs: { tree: { actor: 'Ground', mesh: {} } },
+      layers: [{ name: 'main', objects: [{ id: 'trees', prefab: 'tree', x: 0, y: 0 }], props: [{ id: 'trees', prefab: 'tree', instances: [] }] }]
+    }))).toThrow(/duplicate id 'trees'/);
+
+    expect(() => loader().load({
+      version: SCENE_VERSION, type: 'level', name: 'flat',
+      prefabs: { tree: { actor: 'Ground' } },
+      layers: [{ name: 'main', objects: [], props: [] }]
+    })).toThrow(/layers\[0\].props: props are drawn by the 3D renderer, and this level is 2D/);
+  });
+
+  it('builds one resident batch per geometry and material, shapes and model parts alike', async () => {
+    const truck = await parseGLB(fixture('BoxTextured'), { decodeImage: fakeDecode });
+    const config = loader().load(level({
+      assets: { models: { truck: { url: 'models/truck.glb' } } },
+      prefabs: {
+        tree: { actor: 'Ground', mesh: { color: '#3f6b2f', shape: 'sphere' } },
+        crate: { actor: 'Ground', mesh: { color: '#b86a2a' } },
+        truck: { actor: 'Ground', mesh: { model: 'truck', scale: 2, offset: { x: 0, y: -1, z: 0 } } }
+      },
+      layers: [{
+        name: 'main', objects: [],
+        props: [
+          { id: 'trees', prefab: 'tree', width: 3, height: 3, instances: [[1, 2, 3, 0, 1], [4, 2, 6, 1.5, 1.3]] },
+          { id: 'more-trees', prefab: 'tree', width: 3, height: 3, instances: [[9, 2, 3, 0, 0.5]] },
+          { id: 'crates', prefab: 'crate', width: 1, height: 1, depth: 1, castShadow: false, instances: [[0, 0.5, 0, 0.3, 1]] },
+          { id: 'trucks', prefab: 'truck', instances: [[10, 1, 10, Math.PI / 2, 1]] }
+        ]
+      }]
+    }));
+    // The scene as it stands after load, minus what headless skips.
+    const scene = {
+      config, models: new Map([['truck', truck]]),
+      game: { headless: false, physics: { dimensions: 3 } }
+    };
+    const { Scene } = await import('../src/core/scene.js');
+    Scene.prototype.setupProps.call(scene);
+    // Spheres (both tree props), boxes, and the truck's one textured part.
+    expect(scene.batches).toHaveLength(3);
+    const spheres = scene.batches.find((b) => b.material === null && b.count === 3);
+    expect(spheres).toBeTruthy();
+    // The second tree: at (4, 2, 6), 3 m wide times 1.3, so a sphere of radius 1.95 around it.
+    const second = spheres.records.subarray(INSTANCE_FLOATS, 2 * INSTANCE_FLOATS);
+    expect([second[56], second[57], second[58]]).toEqual([4, 2, 6]);
+    expect(second[59]).toBeCloseTo(1.95, 5);
+    // The crate's colour went to linear light, and it casts no shadow.
+    const crates = scene.batches.find((b) => b.material === null && b.count === 1);
+    expect(crates.records[28]).toBeCloseTo(0.479, 2);
+    expect(crates.records[55]).toBe(0);
+    // The truck's part carries the file's material and the mesh block's scale and offset.
+    const trucks = scene.batches.find((b) => b.material !== null);
+    expect(trucks.material).toBe(truck.parts[0].material);
+    expect(trucks.count).toBe(1);
+    // y: the instance's 1 plus the offset's -1; the offset is in the body's
+    // frame, before the model's scale, as an entity's model is placed.
+    expect(trucks.records[13]).toBeCloseTo(0, 5);
+    expect(trucks.records[0]).toBeCloseTo(0, 5);   // turned a quarter: x axis maps to z
+    expect(trucks.records[2]).toBeCloseTo(-2, 5);  // at scale 2
   });
 });
 
@@ -231,40 +323,62 @@ describe('lights', () => {
   });
 });
 
-describe('the frame culls', () => {
+describe('the frame records what the GPU cull needs', () => {
   const camera = () => {
     const c = new Camera3D(16, 9, { mode: 'free', position: { x: 0, y: 2, z: 10 }, lookAt: { x: 0, y: 0, z: 0 } });
     c.update(0);
     return c;
   };
 
-  it('keeps what the camera sees and drops what it does not', () => {
+  it('keeps every instance, with its world bounding sphere in the record', () => {
     const frame = new Frame3D();
     frame.setCamera(camera());
-    frame.add(box(), { position: { x: 0, y: 0, z: 0 } });
-    frame.add(box(), { position: { x: 0, y: 0, z: 30 } });   // behind the camera
-    frame.add(box(), { position: { x: 200, y: 0, z: 0 } });  // far to the side
+    const g = box();
+    frame.add(g, { position: { x: 0, y: 0, z: 0 } });
+    frame.add(g, { position: { x: 0, y: 0, z: 30 } });   // behind the camera: culled on the GPU, not here
+    frame.add(g, { position: { x: 200, y: 0, z: 0 } });
     expect(frame.added).toBe(3);
-    expect(frame.drawn).toBe(1);
-    // Shadow casting is decided once the renderer knows the shadow volumes:
-    // inside this one, only the box at the origin.
-    frame.resolveShadows([{ x: 0, y: 0, z: 0, radius: 5 }]);
-    expect(frame.casting).toBe(1);
-    frame.resolveShadows([]);
-    expect(frame.casting).toBe(0);
+    const [entry] = frame.entries();
+    expect(entry.instances).toHaveLength(3);
+    const far = entry.instances[2];
+    expect([far[56], far[57], far[58]]).toEqual([200, 0, 0]);
+    expect(far[59]).toBeCloseTo(Math.sqrt(0.75), 6);
+    // Every instance casts unless told not to.
+    expect(far[55]).toBe(1);
   });
 
-  it('keeps an unseen caster inside a shadow volume for the shadow pass alone', () => {
+  it('marks an instance that casts no shadow, so the cull skips it for the shadow passes', () => {
     const frame = new Frame3D();
-    frame.setCamera(camera());
-    // Behind the camera but within the shadow map's reach.
-    frame.add(box(), { position: { x: 0, y: 0, z: 14 } });
-    frame.resolveShadows([{ x: 0, y: 0, z: 0, radius: 15 }]);
-    expect(frame.drawn).toBe(0);
-    expect(frame.casting).toBe(1);
+    frame.add(box(), { position: { x: 0, y: 0, z: 0 }, castShadow: false });
     const [entry] = frame.entries();
-    expect(entry.main).toHaveLength(0);
-    expect(entry.shadow).toHaveLength(1);
+    expect(entry.instances[0][55]).toBe(0);
+  });
+
+  it('carries a static batch by reference and counts its instances', () => {
+    const frame = new Frame3D();
+    const g = box();
+    const batch = new StaticBatch(g);
+    batch.push({ position: { x: 1, y: 0, z: 0 } });
+    batch.push({ position: { x: 2, y: 0, z: 0 }, scale: 3 });
+    expect(batch.count).toBe(2);
+    expect(batch.records).toHaveLength(2 * INSTANCE_FLOATS);
+    // The second record's sphere: centred at its position, scaled by 3.
+    expect(batch.records[INSTANCE_FLOATS + 56]).toBe(2);
+    expect(batch.records[INSTANCE_FLOATS + 59]).toBeCloseTo(3 * Math.sqrt(0.75), 6);
+    frame.addBatch(batch);
+    frame.add(g, { position: { x: 0, y: 0, z: 0 } });
+    expect(frame.added).toBe(3);
+    const [entry] = frame.entries();
+    expect(entry.batches).toEqual([batch]);
+    expect(entry.instances).toHaveLength(1);
+  });
+
+  it('grows a static batch past its first capacity', () => {
+    const batch = new StaticBatch(box(), null, 2);
+    for (let i = 0; i < 5; i++) batch.push({ position: { x: i, y: 0, z: 0 } });
+    expect(batch.count).toBe(5);
+    expect(batch.records[4 * INSTANCE_FLOATS + 56]).toBe(4);
+    expect(batch.version).toBe(5);
   });
 
   it('groups by geometry and then material', () => {
@@ -277,16 +391,15 @@ describe('the frame culls', () => {
     const entries = [...frame.entries()];
     expect(entries).toHaveLength(2);
     expect(entries[0].material).toBeNull();
-    expect(entries[0].main).toHaveLength(2);
+    expect(entries[0].instances).toHaveLength(2);
     expect(entries[1].material).toBe(red);
   });
 
   it('scales the bounding sphere by the largest axis of the model matrix', () => {
     const frame = new Frame3D();
-    frame.setCamera(camera());
-    // A box stretched to 100 m along x, centred far to the side, still reaches the view.
     frame.add(box(), { position: { x: 60, y: 0, z: 0 }, scale: { x: 100, y: 1, z: 1 } });
-    expect(frame.drawn).toBe(1);
+    const [entry] = frame.entries();
+    expect(entry.instances[0][59]).toBeCloseTo(100 * Math.sqrt(0.75), 4);
     expect(boundingSphere(box()).radius).toBeCloseTo(Math.sqrt(0.75), 6);
   });
 });

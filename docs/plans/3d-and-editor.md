@@ -307,6 +307,135 @@ After R6 the engine is at the Three.js/Babylon tier the goal section
 describes. Everything below it is the next distance toward the reference
 titles, listed so nothing is forgotten, with no claim about order.
 
+### Before R6: the bugs the yard showed
+
+Reported by the owner on 7 Nov 2026 from a desktop run of the yard on a
+fast GPU (about 360 fps, 2.8 ms a frame). Fixed the same day from the
+code and **confirmed fixed by the owner on the desktop** that afternoon. Three
+of the four had one root: the HDR targets are `rgba16float`, whose
+ceiling is 65504, and a mirror's sun glint or a grazing GGX lobe passes
+it and becomes an infinity in the texel. Every write to an HDR target is
+now clamped to 16384 (`clampHDR` in `shaders.js`), and the passes that
+average texels clamp what they read as well.
+
+| Bug | What was seen | Cause and fix |
+| --- | --- | --- |
+| TAA fills the sky black | With every other effect and shadows off and only `r_taa` on, the sky fills with black and the black spreads until it covers the screen | An infinite texel in the 3x3 neighbourhood makes the variance `inf - inf = NaN`, the clip box is NaN, and the history comes out NaN. A NaN history texel survives the clip (every comparison with it is false) and the bilinear history sample hands it to its neighbours, so the stain grows by a pixel a frame: fast at 360 fps, which is why the frame rate seemed to matter. Fixed by the clamp at the source and on the TAA's own reads |
+| Bloom flickers | Occasional frames of very high brightness; the screen looks flickery | The prefilter's Karis weight is `1 / (1 + luminance)`, and for an infinite texel `inf * 0 = NaN`; eight downsamples spread one NaN over the whole level and the upsample adds it to the screen. Glints come and go with the camera, so it was single frames. Same fix |
+| DoF speckles in shadow | At some camera angles, faint dots appear in shadowed areas | Fireflies: the far field gathers forty-eight taps over a disc of a few hundred half-resolution texels, and the one tap that lands on a hot texel comes back as a dot wherever the surroundings are dark. The half-resolution downsample is now Karis-weighted like bloom's, and both gathers weight bright taps down (`tapWeight`) |
+| Noclip still sinks | With the console's `noclip` on, the hero slowly drifts downward | The character step integrated gravity every tick and the controller moved the body by `g * dt²`, about 16 cm/s at 60 Hz, with no floor to absorb it. Both backends now skip gravity for a character whose mask is 0, which is what noclip sets; `physics.test.js` and `physics3d.test.js` pin it |
+
+Infrastructure for this round: `npm run dev:lan` serves the examples over
+HTTPS on every interface so the desktop can run them (WebGPU needs a secure
+context); the laptop that holds the source is too slow to show the
+frame-rate-dependent ones. Still open from the same session: whether the
+variance clip should also reject a history sample that is not finite, which
+WGSL cannot test for reliably (implementations may assume no NaN), so the
+answer is to never write one.
+
+**Depth of field, same day.** The owner found the yard read as uniformly
+soft with the "Unity look", and asked for the quality of the reference
+titles. Two things changed. The DoF passes were rebuilt on the Jimenez
+(Call of Duty: Advanced Warfare) design that Frostbite and Unreal's
+Diaphragm DoF follow: an 8x8 tile pass of the widest near and far
+circle, dilated by a tile, drives the near gather so it touches nothing
+where nothing near can reach; both gathers tap three concentric rings
+(8, 16, 24) for round bokeh instead of a noisy spiral; in-focus pixels are
+the sharp frame bit-exact, the far field entering only past a full pixel
+of circle. And the yard's lens went from f/4 to f/6 — depth of field
+scales about linearly with the f-number, so this is the "50% wider band"
+the owner asked to try — with the focus distance computed as the actual
+eye-to-hero distance each frame, so zoom, noclip flight and follow
+smoothing never take the playable character off the focal plane. (It was
+already `camera.distance`, which in orbit mode is the same thing; the
+explicit form also holds in a free camera.)
+
+*Decision, 7 Nov 2026:* turning `r_dof` off did not remove the softness,
+so DoF was not the root of it. The owner's view, which this plan adopts:
+with a handful of low-poly primitives every lost pixel of detail is
+conspicuous, and the picture may well be the right one once a real level
+with AAA-grade models and foliage is on screen. **The softness question
+is parked until R6 has a proper map and models to judge it against.**
+The remaining suspects, in order, are the half-resolution 3D world
+surface and the TAA blend; FSR-style upscaling under "Beyond R6" is the
+proper answer to the first.
+
+### R6 as planned against the code, 7 Nov 2026
+
+Written when the phase started, against what R0–R5 left. The table row
+above is the deliverable; this is how it is cut, in slices that each show
+on screen, in order.
+
+**What the code already does.** `Frame3D.add` groups instances by
+geometry and material and the renderer issues one instanced draw per
+group, so "GPU instancing by mesh + material" is the R1 design and needs
+nothing. What it does *not* do is the thing a real level needs: every
+instance is a JavaScript entity re-packed into the instance buffer every
+frame, and culled on the CPU one sphere at a time. Ten thousand trees
+would cost ten thousand entities, ten thousand bodies and a per-frame
+loop before the GPU saw any of them.
+
+**Slice 1 — resident instances, GPU culling, the readout.** *Landed 7 Nov
+2026, awaiting the owner's desktop run.* Learned on the way: a compute
+pass may not bind one buffer read-only through one group and read-write
+through another, so the cull has a two-binding scene group of its own;
+and `indirect-first-instance` is required for a per-pass `firstInstance`
+in the arguments, which Dawn on SwiftShader has, so the harness proves it.
+The yard's statistics are now a frame late and say so in the docs. The
+lot: 224 lots, about 6,100 prop instances in 11 props, 160 KB of JSON.
+
+- *Props.* A scene layer gains `props`: a prefab with a `mesh`, placed
+  many times by `[x, y, z, yaw, scale]` tuples. A prop is presentation
+  only — no entity, no body, no light; the prefab's `physics` and `light`
+  are not read for it. The scene builds one static batch per geometry and
+  material at load (`StaticBatch`: a `Float32Array` of instance records),
+  the renderer uploads each batch once and copies it GPU-to-GPU into the
+  frame's instance buffer, and `Frame3D.addBatch` costs one reference a
+  frame. Collision for props, and a quaternion form of the tuple, wait
+  for the demo that needs them (the B1/B6 rule). A skinned model cannot
+  be a prop: it has no joints to pose.
+- *GPU frustum culling with indirect draws.* Each instance record carries
+  its world bounding sphere and a cast-shadow flag. One compute pass per
+  frame tests every instance against the planes of every pass — the
+  camera's and each shadow map's, up to nine — and appends the survivors
+  to a per-pass, per-group remap list with an atomic counter that is the
+  pass's indirect `instanceCount`. The vertex shaders read
+  `instances[remap[instance_index]]`. The CPU cull in `Frame3D.add` and
+  the sphere-volume shadow test in `resolveShadows` go; the shadow passes
+  cull against their own frustum planes, which is tighter than the
+  volumes were. The group of an instance is found by binary search over
+  the group starts, so a static batch's records never need rewriting.
+- *The readout.* Instance counts are now on the GPU, so the statistics
+  come back a frame late through a staging buffer: instances submitted,
+  drawn, shadow casters, triangles, and — where the adapter has
+  `timestamp-query` — GPU milliseconds from the cull pass to the composite.
+  The debug overlay shows them in a 3D game.
+- *The lot.* A second scene in the yard example, generated by
+  `examples/scripts/buildLotScene.mjs`: the yard at the centre of a grid
+  of lots with thousands of props (trucks, crates, lamp posts and
+  primitive trees) around it. `?scene=lot`. It is the scale testbed, not
+  the "proper map"; see the asset question below.
+
+**Slice 2 — LODs.** Discrete levels from glTF (`MSFT_lod`, or a
+`_LOD1`/`_LOD2` node-name convention), chosen per instance in the cull
+shader by projected size, so a level is one more group an instance can
+land in. Models without levels get them generated at load by vertex
+clustering, which is crude up close and right at the distance it is used.
+
+**Slice 3 — textures and streaming.** KTX2/Basis Universal through a
+transcoder to whatever compressed format the adapter has (`texture-
+compression-bc`, `-etc2`, `-astc`), and mesh and texture loading by
+distance from the camera, with a budget. Clustered light culling lifts
+`MAX_LIGHTS`.
+
+**The asset question.** The owner wants to judge the picture against a
+proper map with AAA-grade models and foliage, not primitives. Candidates,
+all free: Poly Haven (CC0, photoscanned, 1k–4k textures, tens of
+megabytes a model — the look, and heavy enough to need every part of R6),
+Kenney's nature kits (CC0, low poly, tiny — scale without the look), and
+the Khronos sample assets already in use. The size of what goes in the
+repository is the owner's call; raised at the slice 1 checkpoint.
+
 ### Beyond R6: the realism roadmap
 
 Each item here was validated against a working WebGPU implementation

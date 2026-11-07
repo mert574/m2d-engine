@@ -20,6 +20,7 @@ npm run dev              # example games on http://localhost:3000
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Serve the example games |
+| `npm run dev:lan` | Serve them over HTTPS on every interface, so a browser on another machine can run the 3D demos |
 | `npm test` | Engine suites in Node and headless Chromium, plus example scene validation |
 | `npx playwright install chromium` | Once, for the headless-Chromium renderer suite |
 | `npm run docs:dev` | Serve the documentation site |

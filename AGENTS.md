@@ -59,6 +59,7 @@ it.
 ```bash
 npm install
 npm run dev            # examples on port 3000
+npm run dev:lan        # HTTPS on 0.0.0.0, for a browser on another machine (PORT=... picks the port)
 npm run docs:dev       # documentation site
 npm test               # node + browser engine suites, example scene validation
 npm run test:node      # fast engine suite

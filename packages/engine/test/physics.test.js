@@ -574,6 +574,27 @@ describe('physics world', () => {
         (a === coin && b === hero) || (a === hero && b === coin))).toBe(true);
     });
 
+    it('floats when its mask is empty: noclip is not under gravity', () => {
+      // The console's noclip clears the mask. With nothing to stand on,
+      // gravity would otherwise sink the hero through the level a few
+      // sub-pixels a step; a noclip character holds its height instead.
+      const world = createWorld({ gravity: { x: 0, y: 1000 } });
+      const hero = world.createCapsule({
+        x: 0, y: 100, width: 32, height: 48, bodyType: 'character', frictionAir: 0
+      });
+      world.add(hero);
+      hero.setCollisionFilter({ mask: 0 });
+      for (let i = 0; i < 60; i++) {
+        hero.setVelocity({ x: 0, y: 0 });
+        world.step(FIXED);
+      }
+      expect(hero.position.y).toBeCloseTo(100, 3);
+
+      hero.setCollisionFilter({ mask: 0xFFFF });
+      simulate(world, 0.5);
+      expect(hero.position.y).toBeGreaterThan(110);
+    });
+
     it('responds to applyImpulse by impulse / mass', () => {
       const world = createWorld({ gravity: { x: 0, y: 0 } });
       const hero = world.createBox({

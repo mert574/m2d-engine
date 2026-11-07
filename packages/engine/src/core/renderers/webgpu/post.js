@@ -1,5 +1,6 @@
 import {
-  AO_SHADER, AO_BLUR_SHADER, RESOLVE_SHADER, TAA_SHADER, DOF_DOWN_SHADER, DOF_FAR_SHADER, DOF_NEAR_SHADER,
+  AO_SHADER, AO_BLUR_SHADER, RESOLVE_SHADER, TAA_SHADER, DOF_DOWN_SHADER, DOF_TILE_SHADER, DOF_DILATE_SHADER,
+  DOF_FAR_SHADER, DOF_NEAR_SHADER,
   DOF_COMBINE_SHADER, MOTION_BLUR_SHADER,
   LUMINANCE_SHADER, ADAPT_SHADER, BLOOM_PREFILTER_SHADER, BLOOM_DOWNSAMPLE_SHADER, BLOOM_UPSAMPLE_SHADER,
   COMPOSITE_SHADER
@@ -14,7 +15,8 @@ import {
  *   1. ambient occlusion at half resolution, blurred within the surface;
  *   2. resolve: direct + indirect * occlusion, then fog by depth — the lit frame;
  *   3. temporal anti-aliasing against the reprojected history;
- *   4. depth of field, a disc gather over a half-resolution copy;
+ *   4. depth of field: tiles of the widest circle, then ring gathers of
+ *      the near and far fields over a half-resolution copy;
  *   5. per-object motion blur along the velocity;
  *   6. auto exposure: the average log luminance, eased over frames;
  *   7. bloom: a threshold at half resolution, a mip chain down and back up;
@@ -76,8 +78,10 @@ export class PostPass {
       resolve: pipeline(RESOLVE_SHADER, 'resolve', 4, HDR_FORMAT),
       taa: pipeline(TAA_SHADER, 'taa', 3, HDR_FORMAT),
       dofDown: pipeline(DOF_DOWN_SHADER, 'dof down', 2, HDR_FORMAT),
+      dofTile: pipeline(DOF_TILE_SHADER, 'dof tile', 1, 'rg16float'),
+      dofDilate: pipeline(DOF_DILATE_SHADER, 'dof dilate', 1, 'rg16float'),
       dofFar: pipeline(DOF_FAR_SHADER, 'dof far', 1, HDR_FORMAT),
-      dofNear: pipeline(DOF_NEAR_SHADER, 'dof near', 1, HDR_FORMAT),
+      dofNear: pipeline(DOF_NEAR_SHADER, 'dof near', 2, HDR_FORMAT),
       dofCombine: pipeline(DOF_COMBINE_SHADER, 'dof combine', 4, HDR_FORMAT),
       motionBlur: pipeline(MOTION_BLUR_SHADER, 'motion blur', 2, HDR_FORMAT),
       luminance: pipeline(LUMINANCE_SHADER, 'luminance', 1, HDR_FORMAT),
@@ -182,6 +186,10 @@ export class PostPass {
       historyA: make('history a', width, height),
       historyB: make('history b', width, height),
       dofHalf: make('dof half', hw, hh),
+      // The widest circle of confusion per 8x8 half-resolution tile, and
+      // the same dilated by one tile.
+      dofTiles: make('dof tiles', Math.ceil(hw / 8), Math.ceil(hh / 8), 'rg16float'),
+      dofTilesDilated: make('dof tiles dilated', Math.ceil(hw / 8), Math.ceil(hh / 8), 'rg16float'),
       dofFar: make('dof far', hw, hh),
       dofNear: make('dof near', hw, hh),
       dof: make('dof', width, height),
@@ -224,9 +232,10 @@ export class PostPass {
     return group;
   }
 
-  #draw(encoder, pipeline, target, sceneBindGroup, group, { loadOp = 'clear', rect = null } = {}) {
+  #draw(encoder, pipeline, target, sceneBindGroup, group, { loadOp = 'clear', rect = null, timestampWrites = undefined } = {}) {
     const pass = encoder.beginRenderPass({
-      colorAttachments: [{ view: target, loadOp, storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 1 } }]
+      colorAttachments: [{ view: target, loadOp, storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 1 } }],
+      ...(timestampWrites && { timestampWrites })
     });
     // The content rectangle: the rest of the canvas stays the clear's black,
     // which is the letterbox.
@@ -245,9 +254,10 @@ export class PostPass {
    * @param {object|null} [options.lut] - A grading LUT image, or null
    * @param {'linear'|'nearest'} [options.filter] - How the world is upscaled to the canvas
    * @param {number[]|null} [options.rect] - The content rectangle in canvas pixels
+   * @param {GPURenderPassTimestampWrites} [options.timestampWrites] - Stamps for the last pass, the composite
    * @returns {number} Draw calls issued
    */
-  run(encoder, sceneBindGroup, target, { effects, lut = null, filter = 'linear', rect = null }) {
+  run(encoder, sceneBindGroup, target, { effects, lut = null, filter = 'linear', rect = null, timestampWrites = undefined }) {
     const p = this.pipelines;
     const v = this.views;
     let draws = 0;
@@ -273,8 +283,10 @@ export class PostPass {
     }
     if (effects.dof) {
       draw(p.dofDown, v.dofHalf, [current, v.normalDepth]);
+      draw(p.dofTile, v.dofTiles, [v.dofHalf]);
+      draw(p.dofDilate, v.dofTilesDilated, [v.dofTiles]);
       draw(p.dofFar, v.dofFar, [v.dofHalf]);
-      draw(p.dofNear, v.dofNear, [v.dofHalf]);
+      draw(p.dofNear, v.dofNear, [v.dofHalf, v.dofTilesDilated]);
       draw(p.dofCombine, v.dof, [current, v.normalDepth, v.dofFar, v.dofNear]);
       current = v.dof;
     }
@@ -303,7 +315,7 @@ export class PostPass {
 
     const sampler = filter === 'nearest' ? this.nearestSampler : this.sampler;
     this.#draw(encoder, p.composite, target, sceneBindGroup,
-      this.#group([current, exposureView, bloomView, this.#lut(lut)], sampler), { rect });
+      this.#group([current, exposureView, bloomView, this.#lut(lut)], sampler), { rect, timestampWrites });
     draws++;
     this.frameIndex++;
     return draws;

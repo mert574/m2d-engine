@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:lan": "M2D_HOST=0.0.0.0 M2D_HTTPS=1 vite",
+    "dev:cert": "node scripts/devCert.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "generate-sprites": "node scripts/generateSprites.js",

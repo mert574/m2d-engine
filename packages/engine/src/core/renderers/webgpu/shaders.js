@@ -92,8 +92,10 @@ struct Instance {
   params: vec4f,
   // Last frame's model matrix, for motion vectors.
   previousModel: mat4x4f,
-  // x first joint matrix in the joints array, y 1 when skinned.
+  // x first joint matrix in the joints array, y 1 when skinned, w 1 when it casts a shadow.
   skin: vec4f,
+  // World bounding sphere: xyz centre, w radius. The cull pass tests it.
+  bounds: vec4f,
 };
 
 struct Light {
@@ -111,6 +113,9 @@ struct Light {
 @group(0) @binding(1) var<storage, read> instances: array<Instance>;
 @group(0) @binding(2) var<storage, read> lights: array<Light>;
 @group(0) @binding(3) var<storage, read> joints: array<mat4x4f>;
+// The cull pass's output: for each pass and group, the indices of the
+// instances that survived, in the slots the indirect draw walks.
+@group(0) @binding(4) var<storage, read> remap: array<u32>;
 
 // The blend of the four joint matrices a skinned vertex follows.
 fn skinMatrix(inst: Instance, j: vec4u, w: vec4f) -> mat4x4f {
@@ -119,6 +124,18 @@ fn skinMatrix(inst: Instance, j: vec4u, w: vec4f) -> mat4x4f {
 }
 
 const PI = 3.14159265;
+
+// The brightest value a pass may write. The targets are 16-bit float, whose
+// ceiling is 65504; a mirror's sun glint or a grazing GGX lobe can pass
+// it, and once a texel holds an infinity every pass that averages it
+// (the multisample resolve, the TAA neighbourhood, bloom's weighted mean)
+// turns it into NaN and spreads it. Well under the ceiling, so a sum of a
+// few clamped texels is still finite, and far above anything exposure
+// can show.
+const HDR_MAX = 16384.0;
+fn clampHDR(c: vec3f) -> vec3f {
+  return clamp(c, vec3f(0.0), vec3f(HDR_MAX));
+}
 
 // The sky in a direction, in linear light: horizon in the fog colour,
 // zenith in the sky colour, haze darkening below the horizon, and the
@@ -179,7 +196,7 @@ fn fs(in: SkyOut) -> SkyFragment {
   let near = frame.inverseViewProjection * vec4f(ndc, 0.0, 1.0);
   let dir = normalize(far.xyz / far.w - near.xyz / near.w);
   var out: SkyFragment;
-  out.direct = vec4f(skyColor(dir, true), 1.0);
+  out.direct = vec4f(clampHDR(skyColor(dir, true)), 1.0);
   out.indirect = vec4f(0.0);
   // No geometry: depth 0 tells the post passes to leave the sky alone.
   out.normalDepth = vec4f(0.0, 1.0, 0.0, 0.0);
@@ -212,7 +229,8 @@ fn vs(
   @location(3) jointIndices: vec4u,
   @location(4) jointWeights: vec4f` : ''}
 ) -> VertexOut {
-  let inst = instances[instanceIndex];
+  let index = remap[instanceIndex];
+  let inst = instances[index];
   ${skinned ? `
   let skin = skinMatrix(inst, jointIndices, jointWeights);
   let local = skin * vec4f(position, 1.0);
@@ -226,7 +244,7 @@ fn vs(
   out.worldPosition = world.xyz;
   out.normal = inst.normal * localNormal;
   out.uv = uv;
-  out.instance = instanceIndex;
+  out.instance = index;
   out.clipNow = vec4f(clip.xy - frame.jitter.xy * clip.w, clip.zw);
   out.clipPrev = frame.previousViewProjection * inst.previousModel * local;
   return out;
@@ -247,7 +265,7 @@ fn vs(
   @location(3) jointIndices: vec4u,
   @location(4) jointWeights: vec4f` : ''}
 ) -> @builtin(position) vec4f {
-  let inst = instances[instanceIndex];
+  let inst = instances[remap[instanceIndex]];
   ${skinned ? 'let local = skinMatrix(inst, jointIndices, jointWeights) * vec4f(position, 1.0);' : 'let local = vec4f(position, 1.0);'}
   return lightViewProjection * inst.model * local;
 }
@@ -255,6 +273,71 @@ fn vs(
 
 export const SHADOW_SHADER = shadowShader(false);
 export const SHADOW_SKINNED_SHADER = shadowShader(true);
+
+/** Passes the cull shader can test at once: the camera and every shadow map. */
+export const MAX_CULL_PASSES = 1 + MAX_CASCADES + MAX_SPOT_SHADOWS;
+
+/**
+ * Frustum culling on the GPU, for every pass at once. One invocation per
+ * instance: find its group (binary search over the group starts), then
+ * for each pass whose six planes it is inside — the camera's for pass 0,
+ * a shadow map's after — take a slot from that pass and group's indirect
+ * instance count and write the instance's index into the remap list
+ * there. The draws read the counts; the vertex shaders read the remap. A
+ * non-caster skips the shadow passes.
+ */
+export const CULL_SHADER = /* wgsl */ `
+${COMMON}
+
+struct CullParams {
+  // x pass count, y instance count, z group count.
+  counts: vec4u,
+  planes: array<vec4f, ${MAX_CULL_PASSES * 6}>,
+};
+
+struct DrawArgs {
+  indexCount: u32,
+  instanceCount: atomic<u32>,
+  firstIndex: u32,
+  baseVertex: i32,
+  firstInstance: u32,
+};
+
+@group(1) @binding(0) var<uniform> cull: CullParams;
+@group(1) @binding(1) var<storage, read> groupStarts: array<u32>;
+@group(1) @binding(2) var<storage, read_write> args: array<DrawArgs>;
+@group(1) @binding(3) var<storage, read_write> remapOut: array<u32>;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id: vec3u) {
+  let i = id.x;
+  let total = cull.counts.y;
+  if (i >= total) { return; }
+  let inst = instances[i];
+  let b = inst.bounds;
+  // The group whose range holds i: groupStarts is ascending, with a
+  // sentinel equal to total after the last group.
+  var lo = 0u;
+  var hi = cull.counts.z;
+  while (hi - lo > 1u) {
+    let mid = (lo + hi) / 2u;
+    if (groupStarts[mid] <= i) { lo = mid; } else { hi = mid; }
+  }
+  let g = lo;
+  let passes = cull.counts.x;
+  for (var p = 0u; p < passes; p++) {
+    if (p > 0u && inst.skin.w < 0.5) { continue; }
+    var inside = true;
+    for (var k = 0u; k < 6u; k++) {
+      let plane = cull.planes[p * 6u + k];
+      if (dot(plane.xyz, b.xyz) + plane.w < -b.w) { inside = false; break; }
+    }
+    if (!inside) { continue; }
+    let slot = atomicAdd(&args[p * cull.counts.z + g].instanceCount, 1u);
+    remapOut[p * total + groupStarts[g] + slot] = i;
+  }
+}
+`;
 
 const meshShader = (skinned) => /* wgsl */ `
 ${COMMON}
@@ -459,8 +542,8 @@ fn fs(in: VertexOut) -> MeshFragment {
   color += base * inst.params.z + material.emissive.rgb * emissiveSample.rgb;
 
   var out: MeshFragment;
-  out.direct = vec4f(color, 1.0);
-  out.indirect = vec4f(indirect, 1.0);
+  out.direct = vec4f(clampHDR(color), 1.0);
+  out.indirect = vec4f(clampHDR(indirect), 1.0);
   let viewDepth = -(frame.view * vec4f(in.worldPosition, 1.0)).z;
   out.normalDepth = vec4f(n, viewDepth);
   let now = in.clipNow.xy / in.clipNow.w;
@@ -709,7 +792,7 @@ fn fs(in: PostOut) -> @location(0) vec4f {
   var weight = 0.0;
   for (var y = -1; y <= 1; y += 2) {
     for (var x = -1; x <= 1; x += 2) {
-      let c = textureSampleLevel(source, sourceSampler, in.uv + vec2f(f32(x), f32(y)) * texel * 0.5, 0.0).rgb * e;
+      let c = clampHDR(textureSampleLevel(source, sourceSampler, in.uv + vec2f(f32(x), f32(y)) * texel * 0.5, 0.0).rgb) * e;
       let w = 1.0 / (1.0 + luminance(c));
       sum += c * w;
       weight += w;
@@ -858,7 +941,7 @@ ${POST_COMMON}
 @fragment
 fn fs(in: PostOut) -> @location(0) vec4f {
   let texel = 1.0 / frame.jitter.zw;
-  let current = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb;
+  let current = clampHDR(textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb);
   let v = textureSampleLevel(velocity, sourceSampler, in.uv, 0.0).xy;
   let prevUV = in.uv - v;
   if (frame.post[0].x >= 1.0 || any(prevUV < vec2f(0.0)) || any(prevUV > vec2f(1.0))) {
@@ -868,7 +951,7 @@ fn fs(in: PostOut) -> @location(0) vec4f {
   var sq = vec3f(0.0);
   for (var y = -1; y <= 1; y++) {
     for (var x = -1; x <= 1; x++) {
-      let c = textureSampleLevel(source, sourceSampler, in.uv + vec2f(f32(x), f32(y)) * texel, 0.0).rgb;
+      let c = clampHDR(textureSampleLevel(source, sourceSampler, in.uv + vec2f(f32(x), f32(y)) * texel, 0.0).rgb);
       mean += c;
       sq += c * c;
     }
@@ -877,7 +960,10 @@ fn fs(in: PostOut) -> @location(0) vec4f {
   let sigma = sqrt(max(sq / 9.0 - mean * mean, vec3f(0.0)));
   let lo = mean - sigma * 1.25;
   let hi = mean + sigma * 1.25;
-  var hist = textureSampleLevel(history, sourceSampler, prevUV, 0.0).rgb;
+  // Clamped as well: a history texel that is not finite would otherwise
+  // survive the clip below (every comparison with it is false) and leak
+  // into its neighbours each frame.
+  var hist = clampHDR(textureSampleLevel(history, sourceSampler, prevUV, 0.0).rgb);
   // Clip the history toward the current mean, keeping it inside the box.
   let centre = (lo + hi) * 0.5;
   let extent = (hi - lo) * 0.5 + 1e-4;
@@ -911,7 +997,10 @@ fn circleOfConfusion(depth: f32) -> f32 {
  * Depth of field, first step: the frame at half resolution with each
  * pixel's signed circle of confusion in alpha. The circle of the four
  * full-resolution pixels is the nearest one, so a thin in-focus edge is
- * not smeared by its blurred surroundings.
+ * not smeared by its blurred surroundings. The colour is a brightness-
+ * weighted mean (Karis), as bloom's is: a single sun glint averaged
+ * plainly would be gathered by the sparse spiral below as a ring of dots
+ * around it, visible wherever the surroundings are dark.
  */
 export const DOF_DOWN_SHADER = /* wgsl */ `
 ${COMMON}
@@ -923,28 +1012,93 @@ ${DOF_COC}
 fn fs(in: PostOut) -> @location(0) vec4f {
   let texel = 1.0 / frame.jitter.zw;
   var color = vec3f(0.0);
+  var weight = 0.0;
   var coc = 1e9;
   for (var y = -1; y <= 1; y += 2) {
     for (var x = -1; x <= 1; x += 2) {
       let uv = in.uv + vec2f(f32(x), f32(y)) * texel * 0.5;
-      color += textureSampleLevel(source, sourceSampler, uv, 0.0).rgb;
+      let sample = clampHDR(textureSampleLevel(source, sourceSampler, uv, 0.0).rgb);
+      let w = 1.0 / (1.0 + luminance(sample));
+      color += sample * w;
+      weight += w;
       let c = circleOfConfusion(textureSampleLevel(normalDepth, sourceSampler, uv, 0.0).w);
       if (abs(c) < abs(coc)) { coc = c; }
     }
   }
-  return vec4f(color * 0.25, coc);
+  return vec4f(color / weight, coc);
 }
 `;
 
 const DOF_GATHER = /* wgsl */ `
+// Forty-eight taps on three concentric rings (8, 16 and 24), so a point
+// light out of focus becomes a clean disc, as it does through a lens, and
+// not the grain a scattered spiral leaves. Offsets in half-resolution
+// pixels; the inner ring sits at a third of the radius.
 const TAPS = 48u;
-
-// Taps on a golden-angle spiral over the disc, in half-resolution pixels.
 fn tap(i: u32, radius: f32) -> vec2f {
-  let t = (f32(i) + 0.5) / f32(TAPS);
-  let angle = f32(i) * 2.39996;
-  let r = sqrt(t) * radius;
-  return vec2f(cos(angle), sin(angle)) * r;
+  var ring = 3.0;
+  var index = f32(i) - 24.0;
+  var count = 24.0;
+  if (i < 8u) { ring = 1.0; index = f32(i); count = 8.0; }
+  else if (i < 24u) { ring = 2.0; index = f32(i) - 8.0; count = 16.0; }
+  // Each ring turned by a different fraction so the taps do not line up.
+  let angle = (index + ring * 0.37) / count * 2.0 * PI;
+  return vec2f(cos(angle), sin(angle)) * (radius * ring / 3.0);
+}
+
+// How much a tap's colour counts, beyond its geometric reach: bright taps
+// count for less, so a tap that lands on a highlight does not come back
+// as a dot where the surroundings are dark.
+fn tapWeight(c: vec3f) -> f32 {
+  return 1.0 / (1.0 + luminance(c) * 0.25);
+}
+`;
+
+/**
+ * The widest circles in each 8x8 tile of the half-resolution frame: far in
+ * red, near in green, in half-resolution pixels. The near gather reads
+ * them so it only spreads where something in front of the focus can
+ * reach, and stays out of a sharp pixel entirely otherwise.
+ */
+export const DOF_TILE_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let size = textureDimensions(source);
+  let origin = vec2u(in.position.xy) * 8u;
+  var far = 0.0;
+  var near = 0.0;
+  for (var y = 0u; y < 8u; y++) {
+    for (var x = 0u; x < 8u; x++) {
+      let p = min(origin + vec2u(x, y), size - vec2u(1u));
+      let coc = textureLoad(source, p, 0).a * 0.5;
+      far = max(far, coc);
+      near = max(near, -coc);
+    }
+  }
+  return vec4f(far, near, 0.0, 1.0);
+}
+`;
+
+/** Each tile takes the widest circle of its neighbours too, so a blur reaches across a tile edge. */
+export const DOF_DILATE_SHADER = /* wgsl */ `
+${COMMON}
+${POST_COMMON}
+
+@fragment
+fn fs(in: PostOut) -> @location(0) vec4f {
+  let size = vec2i(textureDimensions(source));
+  let centre = vec2i(in.position.xy);
+  var widest = vec2f(0.0);
+  for (var y = -1; y <= 1; y++) {
+    for (var x = -1; x <= 1; x++) {
+      let p = clamp(centre + vec2i(x, y), vec2i(0), size - vec2i(1));
+      widest = max(widest, textureLoad(source, p, 0).rg);
+    }
+  }
+  return vec4f(widest, 0.0, 1.0);
 }
 `;
 
@@ -952,6 +1106,8 @@ fn tap(i: u32, radius: f32) -> vec2f {
  * The far field: taps behind the focus gather onto a pixel when their own
  * circle reaches it, but never with a circle wider than the pixel's own,
  * so a blurred background does not bleed over a sharp edge in front of it.
+ * A pixel whose own circle is under a full-resolution pixel is left
+ * alone, in alpha 0, and the combine keeps the sharp frame there.
  */
 export const DOF_FAR_SHADER = /* wgsl */ `
 ${COMMON}
@@ -964,14 +1120,15 @@ fn fs(in: PostOut) -> @location(0) vec4f {
   let centre = textureSampleLevel(source, sourceSampler, in.uv, 0.0);
   let own = max(centre.a, 0.0) * 0.5;
   if (own < 0.5) { return vec4f(centre.rgb, 0.0); }
-  var sum = centre.rgb;
-  var weight = 1.0;
+  let centreWeight = tapWeight(centre.rgb);
+  var sum = centre.rgb * centreWeight;
+  var weight = centreWeight;
   for (var i = 0u; i < TAPS; i++) {
     let offset = tap(i, own);
     let dist = length(offset);
     let s = textureSampleLevel(source, sourceSampler, in.uv + offset * texel, 0.0);
     let reach = min(max(s.a, 0.0) * 0.5, own);
-    let w = clamp(reach - dist + 1.0, 0.0, 1.0);
+    let w = clamp(reach - dist + 1.0, 0.0, 1.0) * tapWeight(s.rgb);
     sum += s.rgb * w;
     weight += w;
   }
@@ -982,17 +1139,23 @@ fn fs(in: PostOut) -> @location(0) vec4f {
 /**
  * The near field: taps in front of the focus spread over whatever is
  * behind them, including a sharp subject, which is how a foreground blur
- * looks through a real lens. Alpha is how much of the pixel they cover.
+ * looks through a real lens. The gather radius is the widest near circle
+ * in the pixel's dilated tile, so a tile with nothing near in it costs
+ * one texture read and changes nothing. Alpha is the share of the disc
+ * whose taps reach the pixel: 1 inside a near object, falling across its
+ * blurred edge, 0 where nothing near can reach.
  */
 export const DOF_NEAR_SHADER = /* wgsl */ `
 ${COMMON}
 ${POST_COMMON}
 ${DOF_GATHER}
+@group(1) @binding(2) var tiles: texture_2d<f32>;
 
 @fragment
 fn fs(in: PostOut) -> @location(0) vec4f {
+  let radius = textureSampleLevel(tiles, sourceSampler, in.uv, 0.0).g;
+  if (radius < 0.5) { return vec4f(0.0); }
   let texel = 1.0 / vec2f(textureDimensions(source));
-  let radius = frame.post[1].z * 0.5;
   var sum = vec3f(0.0);
   var weight = 0.0;
   var coverage = 0.0;
@@ -1001,20 +1164,25 @@ fn fs(in: PostOut) -> @location(0) vec4f {
     let dist = length(offset);
     let s = textureSampleLevel(source, sourceSampler, in.uv + offset * texel, 0.0);
     let near = max(-s.a, 0.0) * 0.5;
-    let w = clamp(near - dist + 1.0, 0.0, 1.0);
+    // A tap reaches this pixel when its own circle is at least a full
+    // pixel wide and spans the distance; anything less is in focus.
+    let cover = clamp(near - dist + 0.5, 0.0, 1.0) * step(0.5, near);
+    let w = cover * tapWeight(s.rgb);
     sum += s.rgb * w;
     weight += w;
-    coverage += w;
+    coverage += cover;
   }
-  let centre = textureSampleLevel(source, sourceSampler, in.uv, 0.0);
-  let ownNear = clamp(max(-centre.a, 0.0) * 0.5, 0.0, 1.0);
-  let alpha = clamp(max(coverage / (f32(TAPS) * 0.35), ownNear), 0.0, 1.0);
   if (weight <= 0.0) { return vec4f(0.0); }
-  return vec4f(sum / weight, alpha);
+  return vec4f(sum / weight, clamp(coverage / f32(TAPS), 0.0, 1.0));
 }
 `;
 
-/** The frame in focus, the far field behind it and the near field over it. */
+/**
+ * The frame in focus, the far field behind it and the near field over it.
+ * In-focus pixels are the sharp frame, untouched: the far field enters
+ * only past a full pixel of circle, fully by three, and the near field
+ * only where its coverage says something in front reaches.
+ */
 export const DOF_COMBINE_SHADER = /* wgsl */ `
 ${COMMON}
 ${POST_COMMON}
@@ -1029,8 +1197,7 @@ fn fs(in: PostOut) -> @location(0) vec4f {
   let coc = circleOfConfusion(textureSampleLevel(normalDepth, sourceSampler, in.uv, 0.0).w);
   let far = textureSampleLevel(farField, sourceSampler, in.uv, 0.0);
   let near = textureSampleLevel(nearField, sourceSampler, in.uv, 0.0);
-  // Into the far field as the circle grows past a pixel, fully by two.
-  let farAmount = smoothstep(0.5, 2.0, max(coc, 0.0)) * far.a;
+  let farAmount = smoothstep(1.0, 3.0, max(coc, 0.0)) * far.a;
   var color = mix(sharp, far.rgb, farAmount);
   color = mix(color, near.rgb, near.a);
   return vec4f(color, 1.0);
@@ -1073,7 +1240,7 @@ fn fs(in: PostOut) -> @location(0) vec4f {
   for (var y = 0u; y < 24u; y++) {
     for (var x = 0u; x < 24u; x++) {
       let uv = (vec2f(f32(x), f32(y)) + 0.5) / 24.0;
-      sum += log(max(luminance(textureSampleLevel(source, sourceSampler, uv, 0.0).rgb), 1e-4));
+      sum += log(max(luminance(clampHDR(textureSampleLevel(source, sourceSampler, uv, 0.0).rgb)), 1e-4));
     }
   }
   return vec4f(exp(sum / 576.0), 0.0, 0.0, 1.0);

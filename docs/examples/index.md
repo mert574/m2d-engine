@@ -121,7 +121,7 @@ Pointer lock is enabled only in the physics playground. The other examples leave
 
 ### The Yard
 
-The engine's first 3D scene, on the WebGPU renderer. The yard is primitive shapes from the scene file's `mesh` blocks, plus one glTF model, the Cesium milk truck. Needs a Chromium browser.
+The engine's first 3D scene, on the WebGPU renderer. The yard is primitive shapes from the scene file's `mesh` blocks, plus one glTF model, the Cesium milk truck. Needs a Chromium browser. Add `?scene=lot` for the lot: the yard at the centre of a grid of lots with thousands of props around it, drawn as resident instances the GPU culls, with F3 showing what the frame draws.
 
 | Input | Action |
 | --- | --- |

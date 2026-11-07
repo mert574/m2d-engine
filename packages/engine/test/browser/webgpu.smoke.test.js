@@ -5,6 +5,7 @@ import { createRenderer, WebGPURenderer, WebGLRenderer } from '../../src/core/re
 import { initWebGPU, webgpuSupported } from '../../src/core/renderers/webgpu/device.js';
 import { Camera3D } from '../../src/core/camera3d.js';
 import { box, plane, sphere, geometryFor } from '../../src/core/renderers/geometry/primitives.js';
+import { StaticBatch } from '../../src/core/renderers/frame3d.js';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
 import { createCanvasElement } from '../helpers/environment.js';
 
@@ -123,6 +124,49 @@ describe('the 3D renderer', () => {
     // Two instanced draws (floor, box) in each of three cascades and the
     // main pass, the sky, the resolve and the composite.
     expect(renderer.getStats().drawCalls).toBe(2 * 4 + 1 + 2);
+  });
+
+  it('culls on the GPU: what the camera cannot see is not drawn, and the statistics say so', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H);
+    const frame = yardFrame(renderer, camera, { shadows: false });
+    const g = box();
+    frame.add(g, { position: { x: 0, y: 0, z: 30 } });    // behind the camera
+    frame.add(g, { position: { x: 300, y: 0, z: 0 } });   // far to the side
+    const batch = new StaticBatch(g);
+    for (let i = 0; i < 50; i++) batch.push({ position: { x: 2 + (i % 5) * 0.3, y: 0.5 + Math.floor(i / 5) * 0.3, z: 0 }, scale: 0.25 });
+    for (let i = 0; i < 50; i++) batch.push({ position: { x: -500, y: 0, z: i } });  // all unseen
+    frame.addBatch(batch);
+    renderer.render(frame);
+    // The picture still has the red box in it, through the indirect draw.
+    // (Pixels must be read in the task that drew them; the statistics can wait.)
+    const pixels = await readPixels(renderer);
+    const centre = camera.worldToScreen(0, 0.5, 0.5);
+    const px = pixels.at(Math.round(centre.x), Math.round(centre.y));
+    expect(px[0], `red where the box is: ${px}`).toBeGreaterThan(px[1] + 40);
+    await renderer.flushStats();
+    const stats = renderer.getStats();
+    expect(stats.instances).toBe(2 + 2 + 100);
+    // The floor, the red box and the fifty small cubes; nothing else.
+    expect(stats.drawn).toBe(52);
+    expect(stats.casters).toBe(0);
+    expect(stats.triangles).toBe(2 + 51 * 12);
+  });
+
+  it('counts shadow casters per cascade, and leaves out what casts none', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H);
+    const frame = yardFrame(renderer, camera);
+    frame.add(box(), { position: { x: 2, y: 0.5, z: 0 }, castShadow: false });
+    renderer.render(frame);
+    await renderer.flushStats();
+    const stats = renderer.getStats();
+    expect(stats.drawn).toBe(3);
+    // Three cascades at medium quality, each seeing the floor and the red
+    // box; the non-caster is in none of them.
+    expect(stats.casters).toBe(3 * 2);
   });
 
   it('draws a red box where the camera projects it, lit on the side facing the sun', async () => {

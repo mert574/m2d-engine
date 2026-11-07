@@ -18,6 +18,11 @@ import { Vec3 } from 'm2d-engine/core/math.js';
  * Drag to orbit, scroll to zoom. WASD walks relative to the camera, Space
  * jumps, T turns the afternoon to dusk and back, O opens settings, F3
  * shows the frame statistics.
+ *
+ * `?scene=lot` opens the lot instead: the yard at the centre of a grid of
+ * lots with thousands of props around it, laid out by
+ * `scripts/buildLotScene.mjs` and drawn as resident instances the GPU
+ * culls. The scale testbed for the renderer; F3 shows what it draws.
  */
 
 const canvas = document.getElementById('screen');
@@ -88,13 +93,16 @@ class Hero extends Entity {
 class Ground extends Entity { name = 'Ground'; }
 class Crate extends Entity { name = 'Crate'; }
 
+/** Which scene to open: the yard, or the lot around it (`?scene=lot`). */
+const SCENE = new URLSearchParams(location.search).get('scene') === 'lot' ? 'lot' : 'yard';
+
 const game = new M2D(canvas, {
   dimensions: 3,
   width: 1280,
   height: 720,
   worldWidth: 40,
   worldHeight: 40,
-  initialScene: 'yard',
+  initialScene: SCENE,
   basePath: import.meta.env.BASE_URL + 'yard/'
 });
 
@@ -110,7 +118,7 @@ let duskTarget = 0;
 const lerp = (a, b, t) => a + (b - a) * t;
 const mix = (a, b, t) => a.map((v, i) => lerp(v, b[i], t));
 
-game.sceneManager.addScene('yard', {
+const yardScene = {
   fetch: async () => (await import('./scenes/yard.json')).default,
 
   onEnter() {
@@ -181,14 +189,24 @@ game.sceneManager.addScene('yard', {
     // The post stack: a touch of focus on the hero, a little grain and
     // vignette, and the exposure adapting as dusk falls.
     const camera = game.camera;
-    // A 35 mm lens at f/4 on the hero: the yard stays readable, the far wall softens.
-    frame.post.dof = { focus: camera.distance, focalLength: 35, fStop: 4, maxBlur: 14 };
+    // The lens focuses on the fox itself — the eye-to-hero distance, not
+    // the orbit radius — so zooming, flying in noclip or the camera's own
+    // follow smoothing never pull the playable character off the focal
+    // plane. A 35 mm lens at f/6: wide depth of field, so the yard reads
+    // sharp and only the genuinely far or near softens.
+    const eye = camera.position;
+    const heroAt = game.player?.body?.renderPosition ?? camera.lookAt;
+    const focus = Math.hypot(heroAt.x - eye.x, heroAt.y - eye.y, heroAt.z - eye.z);
+    frame.post.dof = { focus, focalLength: 35, fStop: 6, maxBlur: 12 };
     frame.post.autoExposure = { enabled: true, key: lerp(0.2, 0.12, t), min: 0.5, max: 3, speed: 1.2 };
     frame.post.vignette = 0.3;
     frame.post.grain = 0.025;
     frame.post.grade = { saturation: lerp(1.05, 1.15, t), contrast: 1.03, temperature: lerp(0.05, -0.1, t), lut: null };
   }
-});
+};
+
+game.sceneManager.addScene('yard', yardScene);
+game.sceneManager.addScene('lot', { ...yardScene, fetch: async () => (await import('./scenes/lot.json')).default });
 
 new SettingsMenu(game);
 game.start();

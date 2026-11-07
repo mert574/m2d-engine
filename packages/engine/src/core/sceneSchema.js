@@ -357,10 +357,33 @@ const OBJECT = s.object({
   properties: actorProperties
 });
 
+/**
+ * A prefab placed many times as scenery, in a 3D level. A prop is
+ * presentation only: no entity, no body, no light — the prefab's `mesh`
+ * draws it, resident on the GPU, and its `physics` and `light` are not
+ * read. Each instance is `[x, y, z, yaw, scale]`: position in metres, a
+ * turn about the up axis in radians, and a multiplier on the size.
+ */
+const PROP_INSTANCE = s.tuple(
+  [s.number(), s.number(), s.number(), s.number(), s.number({ positive: true })],
+  { message: 'must be an [x, y, z, yaw, scale] tuple of numbers' }
+);
+
+const PROP = s.object({
+  id: identity('Id'),
+  prefab: s.ref('prefab', { required: true }),
+  width: s.number({ positive: true, unit: 'm', default: DEFAULT_OBJECT_SIZE }),
+  height: s.number({ positive: true, unit: 'm', default: DEFAULT_OBJECT_SIZE }),
+  depth: s.number({ positive: true, unit: 'm' }),
+  castShadow: s.boolean({ default: true }),
+  instances: s.array(PROP_INSTANCE, { required: true, message: 'must be an array of [x, y, z, yaw, scale] tuples' })
+});
+
 const LAYER = s.object({
   name: s.string(),
   type: s.string(),
-  objects: s.array(OBJECT, { required: true })
+  objects: s.array(OBJECT, { required: true }),
+  props: s.array(PROP, { description: 'Three-dimensional levels only' })
 });
 
 // === Tile layers ===
@@ -547,6 +570,10 @@ function checkDimension(level, fail) {
       '(set world.dimensions to 3)');
   }
   (level.layers ?? []).forEach((layer, li) => {
+    if (layer.props) {
+      fail(`layers[${li}].props`, 'props are drawn by the 3D renderer, and this level is 2D ' +
+        '(set world.dimensions to 3)');
+    }
     layer.objects.forEach((object, oi) => {
       for (const key of ['z', 'depth']) {
         if (object[key] !== undefined) {
@@ -576,9 +603,23 @@ export const LEVEL_SCHEMA = s.object({
     // Ids are unique across the scene, not per layer: an object keeps its
     // identity when an editor moves it from one layer to another.
     checkUniqueIds(
-      (level.layers ?? []).flatMap((layer, li) =>
-        layer.objects.map((object, oi) => ({ id: object.id, path: `layers[${li}].objects[${oi}].id` }))),
+      (level.layers ?? []).flatMap((layer, li) => [
+        ...layer.objects.map((object, oi) => ({ id: object.id, path: `layers[${li}].objects[${oi}].id` })),
+        ...(layer.props ?? []).map((prop, pi) => ({ id: prop.id, path: `layers[${li}].props[${pi}].id` }))
+      ]),
       fail);
+
+    // A prop is drawn by its prefab's mesh and nothing else, so a prefab
+    // without one has nothing to show for a thousand placements.
+    (level.layers ?? []).forEach((layer, li) => {
+      (layer.props ?? []).forEach((prop, pi) => {
+        const prefab = level.prefabs?.[prop.prefab];
+        if (prefab && !prefab.mesh) {
+          fail(`layers[${li}].props[${pi}].prefab`,
+            `prefab '${prop.prefab}' has no mesh, and a prop is drawn by its mesh alone`);
+        }
+      });
+    });
 
     // A tile layer is addressed by name, so two with the same one means the
     // second silently replaces the first.
