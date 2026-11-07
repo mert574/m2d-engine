@@ -154,6 +154,63 @@ describe('the 3D renderer', () => {
     expect(stats.triangles).toBe(2 + 51 * 12);
   });
 
+  it('draws each instance at one level of detail: groups whose coverage ranges tile do not double it', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H);
+    const frame = yardFrame(renderer, camera, { shadows: false });
+    // The same twenty cubes in a near level and a far level; eight metres
+    // out, a 0.3 m cube covers about 3% of the view, so the far one draws.
+    const near = new StaticBatch(box(), null, 64, [0.1, Infinity]);
+    const far = new StaticBatch(sphere(), null, 64, [0, 0.1]);
+    for (let i = 0; i < 20; i++) {
+      const at = { position: { x: -3 + i * 0.3, y: 0.5, z: -2 }, scale: 0.3 };
+      near.push(at);
+      far.push(at);
+    }
+    frame.addBatch(near);
+    frame.addBatch(far);
+    renderer.render(frame);
+    await renderer.flushStats();
+    const stats = renderer.getStats();
+    expect(stats.instances).toBe(2 + 40);
+    expect(stats.drawn).toBe(2 + 20);
+  });
+
+  it('cuts an alpha-masked material out where its texture is transparent', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H);
+    // A texture whose left half is opaque red and right half clear.
+    const sheet = new OffscreenCanvas(64, 64);
+    const ctx = sheet.getContext('2d');
+    ctx.fillStyle = 'rgb(255, 0, 0)';
+    ctx.fillRect(0, 0, 32, 64);
+    const image = await createImageBitmap(sheet, { premultiplyAlpha: 'none' });
+    const material = {
+      name: 'cutout', baseColor: [1, 1, 1, 1], metallic: 0, roughness: 1, emissive: [0, 0, 0],
+      baseColorTexture: image, metallicRoughnessTexture: null, emissiveTexture: null,
+      normalTexture: null, normalScale: 1, occlusionTexture: null, occlusionStrength: 1,
+      alphaMode: 'mask', alphaCutoff: 0.5, doubleSided: true, uvTransform: null
+    };
+    const frame = renderer.createFrame();
+    frame.setCamera(camera);
+    frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+    frame.fog.density = 0;
+    frame.bloom.intensity = 0;
+    frame.shadow.enabled = false;
+    frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.5, 0.5, 0.5], roughness: 0.9 });
+    // The plane's u runs along +x, so the red half lies at negative x.
+    frame.add(plane(), { position: { x: 0, y: 0.02, z: 0 }, scale: { x: 6, y: 1, z: 6 }, material, color: [1, 1, 1] });
+    renderer.render(frame);
+    const pixels = await readPixels(renderer);
+    const under = (x, z) => { const p = camera.worldToScreen(x, 0.02, z); return pixels.at(Math.round(p.x), Math.round(p.y)); };
+    const red = under(-1.5, 0);
+    const cut = under(1.5, 0);
+    expect(red[0], `red where the texture is opaque: ${red}`).toBeGreaterThan(red[1] + 60);
+    expect(Math.max(...cut.slice(0, 3)) - Math.min(...cut.slice(0, 3)), `grey floor through the cut-out: ${cut}`).toBeLessThan(30);
+  });
+
   it('counts shadow casters per cascade, and leaves out what casts none', async () => {
     const W = 96, H = 72;
     const renderer = make(W, H);

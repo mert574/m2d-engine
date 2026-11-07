@@ -369,6 +369,21 @@ const PROP_INSTANCE = s.tuple(
   { message: 'must be an [x, y, z, yaw, scale] tuple of numbers' }
 );
 
+/**
+ * What a prop's instances collide as, if anything: nothing by default (a
+ * tuft of grass), the model's bounding box, or a shape standing on the
+ * instance's origin — a tree wants a trunk-sized cylinder, not its canopy.
+ */
+const PROP_COLLIDER = s.union([
+  s.enumOf(['none', 'bounds'], { match: value => typeof value === 'string' }),
+  s.object({
+    shape: s.enumOf(['box', 'cylinder', 'sphere'], { required: true }),
+    width: s.number({ positive: true, unit: 'm', required: true }),
+    height: s.number({ positive: true, unit: 'm', required: true }),
+    depth: s.number({ positive: true, unit: 'm' })
+  }, { match: value => typeof value === 'object' && value !== null })
+], { message: 'must be "none", "bounds" or { "shape", "width", "height", "depth" }' });
+
 const PROP = s.object({
   id: identity('Id'),
   prefab: s.ref('prefab', { required: true }),
@@ -376,6 +391,7 @@ const PROP = s.object({
   height: s.number({ positive: true, unit: 'm', default: DEFAULT_OBJECT_SIZE }),
   depth: s.number({ positive: true, unit: 'm' }),
   castShadow: s.boolean({ default: true }),
+  collider: PROP_COLLIDER,
   instances: s.array(PROP_INSTANCE, { required: true, message: 'must be an array of [x, y, z, yaw, scale] tuples' })
 });
 

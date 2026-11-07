@@ -28,6 +28,11 @@ dist/
 # Self-signed certificate for the HTTPS dev server (per machine; `npm run dev:lan`)
 /examples/.certs/
 
+# Models fetched from Poly Haven and compiled into levels of detail: both are built, not committed
+# (`npm run dev` builds what is missing; see examples/scripts/buildModels.mjs)
+/examples/assets-src/
+/examples/src/yard/models/ph/
+
 # Logs
 *.log
 npm-debug.log*

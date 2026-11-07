@@ -120,7 +120,8 @@ export class WebGPURenderer extends BaseRenderer {
     this.defaultMaterial = null;
     this.skyPipeline = null;
     this.shadowPipeline = null;
-    this.meshPipeline = null;
+    /** Mesh pipelines by [skinned][doubleSided]. */
+    this.meshPipelines = null;
     /** The same two, reading joints and weights and skinning on the GPU. */
     this.shadowSkinnedPipeline = null;
     this.meshSkinnedPipeline = null;
@@ -167,6 +168,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.cullParams = null;
     this.cullData = new Float32Array(4 + MAX_CULL_PASSES * 6 * 4);
     this.groupStartsBuffer = null;
+    this.groupLodBuffer = null;
     this.groupStartsCapacity = 0;
     /** Indirect draw arguments, one record per pass and group; the cull writes the instance counts. */
     this.argsBuffer = null;
@@ -287,7 +289,8 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
         { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
-        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }
       ]
     });
     this.cullParams = device.createBuffer({
@@ -345,7 +348,9 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
         { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
         { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-        { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } }
+        { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+        { binding: 5, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+        { binding: 6, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } }
       ]
     });
     this.textures = new TextureCache3D(device);
@@ -353,17 +358,23 @@ export class WebGPURenderer extends BaseRenderer {
 
     this.#createShadowMaps();
 
+    // Positions, normals, texture coordinates, tangents; a skinned mesh
+    // adds joints and weights. The shadow pass reads no tangents, so its
+    // skin buffers sit one slot earlier.
     const vertexBuffers = [
       { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] },
       { arrayStride: 12, attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x3' }] },
-      { arrayStride: 8, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x2' }] }
+      { arrayStride: 8, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x2' }] },
+      { arrayStride: 16, attributes: [{ shaderLocation: 3, offset: 0, format: 'float32x4' }] }
     ];
-    const skinBuffers = [
-      { arrayStride: 8, attributes: [{ shaderLocation: 3, offset: 0, format: 'uint16x4' }] },
-      { arrayStride: 16, attributes: [{ shaderLocation: 4, offset: 0, format: 'float32x4' }] }
+    const skinBuffers = (first) => [
+      { arrayStride: 8, attributes: [{ shaderLocation: first, offset: 0, format: 'uint16x4' }] },
+      { arrayStride: 16, attributes: [{ shaderLocation: first + 1, offset: 0, format: 'float32x4' }] }
     ];
     const sceneLayout = device.createPipelineLayout({ bindGroupLayouts: [this.sceneBindGroupLayout] });
-    const shadowLayout = device.createPipelineLayout({ bindGroupLayouts: [this.sceneBindGroupLayout, this.shadowPassLayout] });
+    const shadowLayout = device.createPipelineLayout({
+      bindGroupLayouts: [this.sceneBindGroupLayout, this.shadowPassLayout, this.materialBindGroupLayout]
+    });
 
     const sky = device.createShaderModule({ code: SKY_SHADER, label: 'sky' });
     this.skyPipeline = device.createRenderPipeline({
@@ -376,36 +387,44 @@ export class WebGPURenderer extends BaseRenderer {
       depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' }
     });
 
-    const shadowPipeline = (code, label, buffers) => device.createRenderPipeline({
-      label,
-      layout: shadowLayout,
-      vertex: { module: device.createShaderModule({ code, label }), entryPoint: 'vs', buffers },
-      primitive: { topology: 'triangle-list', cullMode: 'none' },
-      depthStencil: {
-        format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less',
-        depthBias: 2, depthBiasSlopeScale: 2
-      }
-    });
-    this.shadowPipeline = shadowPipeline(SHADOW_SHADER, 'shadow', vertexBuffers.slice(0, 2));
-    this.shadowSkinnedPipeline = shadowPipeline(SHADOW_SKINNED_SHADER, 'shadow skinned', [...vertexBuffers.slice(0, 2), ...skinBuffers]);
+    const shadowPipeline = (code, label, buffers) => {
+      const module = device.createShaderModule({ code, label });
+      return device.createRenderPipeline({
+        label,
+        layout: shadowLayout,
+        vertex: { module, entryPoint: 'vs', buffers },
+        fragment: { module, entryPoint: 'fs', targets: [] },
+        primitive: { topology: 'triangle-list', cullMode: 'none' },
+        depthStencil: {
+          format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less',
+          depthBias: 2, depthBiasSlopeScale: 2
+        }
+      });
+    };
+    this.shadowPipeline = shadowPipeline(SHADOW_SHADER, 'shadow', vertexBuffers.slice(0, 3));
+    this.shadowSkinnedPipeline = shadowPipeline(SHADOW_SKINNED_SHADER, 'shadow skinned', [...vertexBuffers.slice(0, 3), ...skinBuffers(3)]);
 
     const meshLayout = device.createPipelineLayout({
       bindGroupLayouts: [this.sceneBindGroupLayout, lightingBindGroupLayout, this.materialBindGroupLayout]
     });
-    const meshPipeline = (code, label, buffers) => {
+    const meshPipeline = (code, label, buffers, cullMode) => {
       const module = device.createShaderModule({ code, label });
       return device.createRenderPipeline({
         label,
         layout: meshLayout,
         vertex: { module, entryPoint: 'vs', buffers },
         fragment: { module, entryPoint: 'fs', targets: MAIN_TARGETS.map(({ format }) => ({ format })) },
-        primitive: { topology: 'triangle-list', cullMode: 'back' },
+        primitive: { topology: 'triangle-list', cullMode },
         multisample: { count: SAMPLES },
         depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' }
       });
     };
-    this.meshPipeline = meshPipeline(MESH_SHADER, 'mesh', vertexBuffers);
-    this.meshSkinnedPipeline = meshPipeline(MESH_SKINNED_SHADER, 'mesh skinned', [...vertexBuffers, ...skinBuffers]);
+    // Indexed by skinned (0/1) then double-sided (0/1).
+    this.meshPipelines = [
+      [meshPipeline(MESH_SHADER, 'mesh', vertexBuffers, 'back'), meshPipeline(MESH_SHADER, 'mesh two-sided', vertexBuffers, 'none')],
+      [meshPipeline(MESH_SKINNED_SHADER, 'mesh skinned', [...vertexBuffers, ...skinBuffers(4)], 'back'),
+        meshPipeline(MESH_SKINNED_SHADER, 'mesh skinned two-sided', [...vertexBuffers, ...skinBuffers(4)], 'none')]
+    ];
 
     this.#ensureInstanceBuffer(256);
   }
@@ -510,12 +529,12 @@ export class WebGPURenderer extends BaseRenderer {
     this.jointBuffer?.destroy();
     this.jointBuffer = null;
     this.jointCapacity = 0;
-    for (const buffer of [this.cullParams, this.groupStartsBuffer, this.argsBuffer, this.remapBuffer, this.timeBuffer]) buffer?.destroy();
+    for (const buffer of [this.cullParams, this.groupStartsBuffer, this.groupLodBuffer, this.argsBuffer, this.remapBuffer, this.timeBuffer]) buffer?.destroy();
     for (const slot of this.staging) slot.buffer.destroy();
     this.staging = [];
     this.querySet?.destroy();
     this.querySet = this.timeBuffer = null;
-    this.cullParams = this.groupStartsBuffer = this.argsBuffer = this.remapBuffer = this.cullBindGroup = null;
+    this.cullParams = this.groupStartsBuffer = this.groupLodBuffer = this.argsBuffer = this.remapBuffer = this.cullBindGroup = null;
     this.groupStartsCapacity = this.argsCapacity = this.remapCapacity = 0;
     this.batchCache = new WeakMap();
     this.context?.unconfigure();
@@ -525,7 +544,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.depthTexture = this.sunShadowTexture = this.spotShadowTexture = this.lightingBindGroup = null;
     this.frameUniform = this.instanceBuffer = null;
     this.instanceCapacity = 0;
-    this.skyPipeline = this.shadowPipeline = this.meshPipeline = null;
+    this.skyPipeline = this.shadowPipeline = this.meshPipelines = null;
     this.geometryCache = new WeakMap();
     this.context = null;
     this.device = null;
@@ -676,6 +695,7 @@ export class WebGPURenderer extends BaseRenderer {
     const groups = [];
     const copies = [];
     const starts = new Uint32Array(entries.length + 1);
+    const lodRanges = new Float32Array(Math.max(1, entries.length) * 2);
     let first = 0;
     entries.forEach((entry, g) => {
       const start = first;
@@ -694,12 +714,16 @@ export class WebGPURenderer extends BaseRenderer {
       groups.push({
         gpu: this.#geometry(entry.geometry),
         material: this.#material(entry.material),
+        doubleSided: !!entry.material?.doubleSided,
         start,
         count: first - start
       });
+      lodRanges[g * 2] = entry.lod[0];
+      lodRanges[g * 2 + 1] = Number.isFinite(entry.lod[1]) ? entry.lod[1] : 3.4e38;
     });
     starts[entries.length] = total;
     this.device.queue.writeBuffer(this.groupStartsBuffer, 0, starts);
+    this.device.queue.writeBuffer(this.groupLodBuffer, 0, lodRanges);
 
     // Indirect arguments: index count and where in the remap list the
     // pass's slots for this group begin; the cull fills the instance counts.
@@ -884,7 +908,8 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 0, resource: { buffer: this.cullParams } },
         { binding: 1, resource: { buffer: this.groupStartsBuffer } },
         { binding: 2, resource: { buffer: this.argsBuffer } },
-        { binding: 3, resource: { buffer: this.remapBuffer } }
+        { binding: 3, resource: { buffer: this.remapBuffer } },
+        { binding: 4, resource: { buffer: this.groupLodBuffer } }
       ]
     });
   }
@@ -910,6 +935,10 @@ export class WebGPURenderer extends BaseRenderer {
       this.groupStartsBuffer?.destroy();
       this.groupStartsBuffer = this.device.createBuffer({
         label: 'group starts', size: capacity * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+      });
+      this.groupLodBuffer?.destroy();
+      this.groupLodBuffer = this.device.createBuffer({
+        label: 'group lod ranges', size: capacity * 8, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
       });
       this.groupStartsCapacity = capacity;
       changed = true;
@@ -947,31 +976,32 @@ export class WebGPURenderer extends BaseRenderer {
   #drawGroups(pass, layout, which, passIndex) {
     const { groups } = layout;
     let boundMaterial = null;
-    let skinned = null;
+    let boundPipeline = null;
     for (let g = 0; g < groups.length; g++) {
       const group = groups[g];
       const gpu = group.gpu;
-      // Skinned geometry takes the skinning pipeline; switch only on change.
-      if (gpu.skinned !== skinned) {
-        skinned = gpu.skinned;
-        pass.setPipeline(which === 'main'
-          ? (skinned ? this.meshSkinnedPipeline : this.meshPipeline)
-          : (skinned ? this.shadowSkinnedPipeline : this.shadowPipeline));
+      // Skinned geometry takes the skinning pipeline and a two-sided
+      // material the uncull one; switch only on change.
+      const pipeline = which === 'main'
+        ? this.meshPipelines[gpu.skinned ? 1 : 0][group.doubleSided ? 1 : 0]
+        : (gpu.skinned ? this.shadowSkinnedPipeline : this.shadowPipeline);
+      if (pipeline !== boundPipeline) {
+        pass.setPipeline(pipeline);
+        boundPipeline = pipeline;
         this.stats.stateChanges++;
       }
       pass.setVertexBuffer(0, gpu.positions);
       pass.setVertexBuffer(1, gpu.normals);
+      pass.setVertexBuffer(2, gpu.uvs);
+      if (which === 'main') pass.setVertexBuffer(3, gpu.tangents);
       if (gpu.skinned) {
-        pass.setVertexBuffer(which === 'main' ? 3 : 2, gpu.joints);
-        pass.setVertexBuffer(which === 'main' ? 4 : 3, gpu.weights);
+        pass.setVertexBuffer(which === 'main' ? 4 : 3, gpu.joints);
+        pass.setVertexBuffer(which === 'main' ? 5 : 4, gpu.weights);
       }
-      if (which === 'main') {
-        pass.setVertexBuffer(2, gpu.uvs);
-        if (group.material !== boundMaterial) {
-          pass.setBindGroup(2, group.material);
-          boundMaterial = group.material;
-          this.stats.stateChanges++;
-        }
+      if (group.material !== boundMaterial) {
+        pass.setBindGroup(2, group.material);
+        boundMaterial = group.material;
+        this.stats.stateChanges++;
       }
       pass.setIndexBuffer(gpu.index, gpu.format);
       pass.drawIndexedIndirect(this.argsBuffer, (passIndex * groups.length + g) * ARGS_BYTES);
@@ -995,8 +1025,18 @@ export class WebGPURenderer extends BaseRenderer {
     data.set(base, 0);
     data[4] = material?.metallic ?? 1;
     data[5] = material?.roughness ?? 1;
+    data[6] = material?.normalScale ?? 1;
+    data[7] = material?.alphaCutoff ?? 0.5;
     const emissive = material?.emissive ?? [0, 0, 0];
-    data[8] = emissive[0]; data[9] = emissive[1]; data[10] = emissive[2]; data[11] = 0;
+    data[8] = emissive[0]; data[9] = emissive[1]; data[10] = emissive[2];
+    data[11] = material?.occlusionTexture ? (material.occlusionStrength ?? 1) : 0;
+    const uv = material?.uvTransform;
+    data[12] = uv?.scale[0] ?? 1; data[13] = uv?.scale[1] ?? 1; data[14] = uv?.offset[0] ?? 0; data[15] = uv?.offset[1] ?? 0;
+    data[16] = uv?.rotation ?? 0;
+    data[17] = material?.alphaMode === 'mask' ? 1 : material?.alphaMode === 'blend' ? 2 : 0;
+    data[18] = material?.normalTexture ? 1 : 0;
+    data[19] = material?.doubleSided ? 1 : 0;
+    data[20] = material?.specularF0 ?? 0.04;
     const uniform = device.createBuffer({
       label: `material ${material?.name ?? 'default'}`,
       size: data.byteLength,
@@ -1012,7 +1052,9 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 1, resource: textures.sampler },
         { binding: 2, resource: texture(material?.baseColorTexture, textures.whiteSRGB, true) },
         { binding: 3, resource: texture(material?.metallicRoughnessTexture, textures.white, false) },
-        { binding: 4, resource: texture(material?.emissiveTexture, textures.black, true) }
+        { binding: 4, resource: texture(material?.emissiveTexture, textures.black, true) },
+        { binding: 5, resource: texture(material?.normalTexture, textures.flatNormal, false) },
+        { binding: 6, resource: texture(material?.occlusionTexture, textures.white, false) }
       ]
     });
   }
@@ -1048,6 +1090,9 @@ export class WebGPURenderer extends BaseRenderer {
       positions: upload(geometry.positions, GPUBufferUsage.VERTEX, 'positions'),
       normals: upload(geometry.normals, GPUBufferUsage.VERTEX, 'normals'),
       uvs: upload(geometry.uvs ?? new Float32Array((geometry.positions.length / 3) * 2), GPUBufferUsage.VERTEX, 'uvs'),
+      // A geometry without tangents (a primitive) gets zeros; its material
+      // has no normal map, so the shader never reads them.
+      tangents: upload(geometry.tangents ?? new Float32Array((geometry.positions.length / 3) * 4), GPUBufferUsage.VERTEX, 'tangents'),
       skinned: !!geometry.skinned,
       joints: geometry.skinned ? upload(geometry.joints, GPUBufferUsage.VERTEX, 'joints') : null,
       weights: geometry.skinned ? upload(geometry.weights, GPUBufferUsage.VERTEX, 'weights') : null,
@@ -1106,7 +1151,9 @@ export class WebGPURenderer extends BaseRenderer {
     data[o + 38] = 1 / q.spotSize;
     data[o + 39] = frame.shadow.normalOffset ?? 1.5;
     data[o + 44] = frame.shadow.bias ?? 0.03;
-    data[o + 45] = data[o + 46] = data[o + 47] = 0;
+    // y: how far the cascades reach back toward the sun, for the depth bias.
+    data[o + 45] = Math.min(camera.far ?? 500, frame.shadow.distance);
+    data[o + 46] = data[o + 47] = 0;
 
     const post = frame.post ?? {};
     const p = FRAME_OFFSETS.post;
@@ -1195,9 +1242,13 @@ export class WebGPURenderer extends BaseRenderer {
         ls.x = Math.round(ls.x / texel) * texel;
         ls.y = Math.round(ls.y / texel) * texel;
         const snapped = mat4.transformPoint(mat4.invert(basis), ls);
-        const eye = { x: snapped.x - dir[0] * radius * 2, y: snapped.y - dir[1] * radius * 2, z: snapped.z - dir[2] * radius * 2 };
+        // The box reaches back toward the sun by the shadow distance, not
+        // by its own radius: the nearest cascade is a metre or two across,
+        // and a tree twenty metres up-sun still casts into it.
+        const back = Math.max(radius * 2, far);
+        const eye = { x: snapped.x - dir[0] * back, y: snapped.y - dir[1] * back, z: snapped.z - dir[2] * back };
         const view = mat4.lookAt(eye, snapped, up);
-        const projection = mat4.orthographic(-radius, radius, -radius, radius, 0.01, radius * 4);
+        const projection = mat4.orthographic(-radius, radius, -radius, radius, 0.01, back + radius * 2);
         const matrix = mat4.multiply(projection, view);
         cascades.push({ matrix, split: end, radius });
         passes.push({ view: this.sunShadowLayers[i], matrix });

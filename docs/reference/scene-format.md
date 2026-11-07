@@ -92,7 +92,7 @@ How a prefab is drawn in a 3D level, where there are no sprites. Without a `mesh
 
 | Key | Values | Default |
 | --- | --- | --- |
-| `model` | A key in `assets.models`. Drawn instead of a shape, with the file's own materials; `color`, `metallic`, `roughness` and `checker` are then ignored and `emissive` adds a glow | none |
+| `model` | A key in `assets.models`. Drawn instead of a shape, with the file's own materials (textures, normal and occlusion maps, alpha cut-outs, two-sided surfaces) and at the level of detail its distance asks for, when the file carries levels; `color`, `metallic`, `roughness` and `checker` are then ignored and `emissive` adds a glow | none |
 | `scale` | number, multiplies the model's own size | `1` |
 | `offset` | `{ "x", "y", "z" }` in metres, moving the model against the body; a model whose origin is at its feet wants `y` of minus half the body's height | `0` |
 | `animation` | `{ "clip", "loop", "speed" }`: the clip a skinned model plays when it appears. Game code changes it through `entity.animator` | the model's first clip |
@@ -152,7 +152,7 @@ An array of layers.
 
 ### `layers[].props[]`
 
-A prefab placed many times as scenery, in a 3D level. A prop is presentation only: it has no entity, no body and no light, so the prefab's `physics` and `light` are not read, and game code cannot find it. What it has is the prefab's `mesh`, which is required, drawn from instance records the scene builds once at load and the renderer keeps on the GPU. Ten thousand trees cost the CPU nothing per frame. A `mesh.model` that is skinned cannot be a prop; it has no joints to pose.
+A prefab placed many times as scenery, in a 3D level. A prop is presentation and, if it asks, a static collider: it has no entity and no light, so the prefab's `physics` and `light` are not read, and game code cannot find it. What it has is the prefab's `mesh`, which is required, drawn from instance records the scene builds once at load and the renderer keeps on the GPU. Ten thousand trees cost the CPU nothing per frame. A `mesh.model` that is skinned cannot be a prop; it has no joints to pose.
 
 | Key | Required | Default | Meaning |
 | --- | --- | --- | --- |
@@ -160,6 +160,7 @@ A prefab placed many times as scenery, in a 3D level. A prop is presentation onl
 | `prefab` | yes | | A key in `prefabs`; the prefab must have a `mesh` |
 | `width`, `height`, `depth` | no | `32`, `32`, the width | Size in metres of a shape prop, before each instance's scale. A model keeps the file's size times `mesh.scale` |
 | `castShadow` | no | `true` | Whether the instances cast shadows |
+| `collider` | no | `"none"` | What the instances collide as: `"none"` (grass), `"bounds"` (a static body the size of the drawn thing, placed and turned with it), or `{ "shape", "width", "height", "depth" }`, a `box`, `cylinder` or `sphere` standing on the instance's origin, in metres before the instance's scale: a tree wants a trunk, not its canopy. No entity is made; the body only stops things |
 | `instances` | yes | | An array of `[x, y, z, yaw, scale]` tuples: position in metres, a turn about the up axis in radians, and a multiplier on the size |
 
 ```json

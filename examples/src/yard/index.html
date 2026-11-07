@@ -44,6 +44,50 @@
       height: 100%;
     }
 
+    /* The loading plate: shown until the scene's models have arrived. */
+    #loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: #e6e1d6;
+      font-size: 15px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: radial-gradient(ellipse at center, #1a2230 0%, #0d1117 70%);
+      transition: opacity 0.6s ease;
+      pointer-events: none;
+    }
+
+    #loading.done {
+      opacity: 0;
+    }
+
+    #loading .bar {
+      width: 240px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+    }
+
+    #loading .bar span {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: #ffd58a;
+      transition: width 0.25s ease;
+    }
+
+    #loading small {
+      color: rgba(230, 225, 214, 0.55);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+
     #unsupported {
       display: none;
       position: absolute;
@@ -61,6 +105,11 @@
 <body>
   <div class="stage">
     <canvas id="screen" width="1280" height="720"></canvas>
+    <div id="loading">
+      <div>The Yard</div>
+      <div class="bar"><span></span></div>
+      <small>Loading…</small>
+    </div>
     <div id="unsupported"></div>
   </div>
   <script type="module" src="./main.js"></script>

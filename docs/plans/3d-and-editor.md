@@ -416,25 +416,72 @@ lot: 224 lots, about 6,100 prop instances in 11 props, 160 KB of JSON.
   primitive trees) around it. `?scene=lot`. It is the scale testbed, not
   the "proper map"; see the asset question below.
 
-**Slice 2 — LODs.** Discrete levels from glTF (`MSFT_lod`, or a
-`_LOD1`/`_LOD2` node-name convention), chosen per instance in the cull
-shader by projected size, so a level is one more group an instance can
-land in. Models without levels get them generated at load by vertex
-clustering, which is crude up close and right at the distance it is used.
+**Slice 2 — real assets and LODs.** *Landed 7 Nov 2026, awaiting the
+owner's desktop run.* The owner chose Poly Haven ("pick the highest
+quality ones; games take hundreds of gigabytes") and said storage is a
+later problem, so compiled models are committed to git for now. What
+the choice turned up: Poly Haven's models are offline-render photoscans
+— the jacaranda is 3.9 million triangles and 280 MB at 4k, the pine 17
+million — so nothing draws them without a build-time compiler, and the
+"proper map" runs through it. `examples/scripts/fetchPolyHaven.mjs`
+pulls the set from the API with checksums into a gitignored source
+directory (1.5 GB for 33 assets); `examples/scripts/compileModel.mjs`
+(gltf-transform + meshoptimizer + sharp) welds, decimates to a budget
+per kind (300k for a tree, 80k for a prop) and to 30%, 8% and 2% of that
+for three more levels, folds the levels into one `.glb` under root nodes
+`LOD0`..`LOD3` with the coverage thresholds in `asset.extras.m2d`, and
+re-encodes textures as WebP at a 2k cap. The engine reads the level roots
+into `model.lods`, picks the level in the cull shader by the sphere's
+screen coverage (a group now carries a coverage range; a prop is in
+every level's group and the cull keeps it in one), and for an entity's
+model on the CPU by the same measure. Along the way the glTF reader
+gained what the scans need and R2 had left: normal maps (tangents from
+the file or made at load), occlusion, `alphaMode` with alpha-tested
+shadows, `doubleSided` pipelines, `KHR_texture_transform` and
+`EXT_texture_webp`. *Decided late, as planned:* a naming convention
+rather than `MSFT_lod`, since the compiler writes the file and a node
+name needs no extension machinery; and `BLEND` drawn as a mask at the
+cutoff until transparency is its own phase. The lot is rebuilt from the
+scans: 7,400 instances across 35 props.
 
 **Slice 3 — textures and streaming.** KTX2/Basis Universal through a
 transcoder to whatever compressed format the adapter has (`texture-
-compression-bc`, `-etc2`, `-astc`), and mesh and texture loading by
-distance from the camera, with a budget. Clustered light culling lifts
-`MAX_LIGHTS`.
+compression-bc`, `-etc2`, `-astc`); this is what lifts the 2k texture cap
+to the 4k and 8k Poly Haven ships, since a 4k RGBA8 texture with mips is
+85 MB of GPU memory and BC7 is a quarter of that. Mesh and texture
+loading by distance from the camera, with a budget. Clustered light
+culling lifts `MAX_LIGHTS`. A proper transparency pass for `BLEND`.
 
-**The asset question.** The owner wants to judge the picture against a
-proper map with AAA-grade models and foliage, not primitives. Candidates,
-all free: Poly Haven (CC0, photoscanned, 1k–4k textures, tens of
-megabytes a model — the look, and heavy enough to need every part of R6),
-Kenney's nature kits (CC0, low poly, tiny — scale without the look), and
-the Khronos sample assets already in use. The size of what goes in the
-repository is the owner's call; raised at the slice 1 checkpoint.
+**Storage, decided.** The owner, seeing the fetcher, chose it over
+committing anything heavy: *"we don't have to commit any big
+mesh/texture; follow this approach for any 3D stuff in the repo."*
+So neither the sources nor the compiled models are in git; the dev
+server runs `scripts/buildModels.mjs --missing` at start, which fetches
+and compiles what is absent (1.5 GB and a few minutes, once per
+checkout). The rule from here: a 3D asset enters the repository as a
+fetch-and-compile recipe, never as bytes. The Khronos truck and fox,
+half a megabyte between them, predate the rule and stay.
+
+**The lot's first desktop run, 7 Nov 2026.** The owner's notes and
+what followed: the slabs under each lot read as "an extra ground layer"
+and the walls floated on them — slabs removed, everything on the yard's
+floor; nothing collided — props gained a `collider` (`bounds`, a shape,
+or none), trees as trunks; trees looked shiny — Poly Haven's
+`KHR_materials_specular` factor of 0.6 and `ior` 1.45 were being
+ignored, so leaves had glTF's default 4% reflectance instead of 2.2%,
+now read; fences had no transparency — Poly Haven's glTF textures are
+JPEGs, which carry no alpha, so every `BLEND`/`MASK` material was opaque
+whatever the renderer did; the fetcher now takes the separate `_alpha`
+PNG maps the API publishes and the compiler folds them into the colour
+(a true `BLEND` material with no mask, the street lamp's glass, still
+draws opaque until the transparency pass);
+`r_shadows high` cut off the nearest shadows — the smallest cascade's
+orthographic box only reached back twice its own radius, so anything
+taller up-sun fell outside it, and it now reaches back by the shadow
+distance; a blank page while 250 MB loaded — a loading plate driven by
+a new `onLoadProgress` scene hook; and sound — a synthesized wind loop
+and footsteps in `yard/ambience.js`, quiet, following the circuit's
+precedent for generated audio.
 
 ### Beyond R6: the realism roadmap
 

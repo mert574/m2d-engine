@@ -21,6 +21,7 @@ npm run dev              # example games on http://localhost:3000
 | --- | --- |
 | `npm run dev` | Serve the example games |
 | `npm run dev:lan` | Serve them over HTTPS on every interface, so a browser on another machine can run the 3D demos |
+| `npm run build-models` | Fetch the yard's photoscanned models from Poly Haven and compile them into levels of detail. The dev server builds whatever is missing on start, so a fresh checkout takes a few minutes the first time |
 | `npm test` | Engine suites in Node and headless Chromium, plus example scene validation |
 | `npx playwright install chromium` | Once, for the headless-Chromium renderer suite |
 | `npm run docs:dev` | Serve the documentation site |

@@ -25,7 +25,7 @@ export const FRAME_OFFSETS = Object.freeze({
 });
 
 /** Floats in a material's uniform, in the order `Material` declares them. */
-export const MATERIAL_UNIFORM_FLOATS = 4 * 3;
+export const MATERIAL_UNIFORM_FLOATS = 4 * 6;
 
 const COMMON = /* wgsl */ `
 struct Frame {
@@ -55,7 +55,7 @@ struct Frame {
   shadowParams: vec4f,
   // Half-extent of each cascade's orthographic box, in metres.
   cascadeRadii: vec4f,
-  // x bias in metres.
+  // x bias in metres, y the cascades' reach back toward the sun in metres.
   shadowBias: vec4f,
   // Post-process settings; see Frame3D.post and the pass that reads each.
   // post[0]: x taa blend, y ao radius (m), z ao intensity, w ao on.
@@ -208,6 +208,49 @@ fn fs(in: SkyOut) -> SkyFragment {
 }
 `;
 
+// A glTF metallic-roughness material: factors multiplied into the
+// instance's, and textures that are 1x1 white (or flat blue for the
+// normal map) where the material has none. Group 2 of the mesh and
+// shadow pipelines.
+const MATERIAL = /* wgsl */ `
+struct Material {
+  baseColor: vec4f,
+  // x metallic, y roughness, z normal scale, w alpha cutoff.
+  factors: vec4f,
+  // rgb emissive, w occlusion strength.
+  emissive: vec4f,
+  // Texture coordinate transform: xy scale, zw offset.
+  uvScaleOffset: vec4f,
+  // x rotation (radians), y alpha mode (0 opaque, 1 mask, 2 blend), z 1 when the material has a normal map, w 1 when double sided.
+  flags: vec4f,
+  // x dielectric reflectance at normal incidence (0.04 for glTF's default ior 1.5, times KHR_materials_specular's factor).
+  specular: vec4f,
+};
+@group(2) @binding(0) var<uniform> material: Material;
+@group(2) @binding(1) var materialSampler: sampler;
+@group(2) @binding(2) var baseColorTexture: texture_2d<f32>;
+@group(2) @binding(3) var metallicRoughnessTexture: texture_2d<f32>;
+@group(2) @binding(4) var emissiveTexture: texture_2d<f32>;
+@group(2) @binding(5) var normalTexture: texture_2d<f32>;
+@group(2) @binding(6) var occlusionTexture: texture_2d<f32>;
+
+// KHR_texture_transform: scale, then rotate, then offset.
+fn materialUV(uv: vec2f) -> vec2f {
+  let r = material.flags.x;
+  let c = cos(r);
+  let s = sin(r);
+  let scaled = uv * material.uvScaleOffset.xy;
+  return vec2f(c * scaled.x + s * scaled.y, -s * scaled.x + c * scaled.y) + material.uvScaleOffset.zw;
+}
+
+// Alpha-tested materials drop the fragment below the cutoff. A blended
+// material is treated as a mask at its cutoff for now: foliage reads
+// right, glass does not, and proper transparency is its own phase.
+fn alphaTest(alpha: f32) {
+  if (material.flags.y > 0.5 && alpha < material.factors.w) { discard; }
+}
+`;
+
 const meshVertex = (skinned) => /* wgsl */ `
 struct VertexOut {
   @builtin(position) position: vec4f,
@@ -218,6 +261,8 @@ struct VertexOut {
   // This frame's and last frame's clip positions, unjittered, for velocity.
   @location(4) clipNow: vec4f,
   @location(5) clipPrev: vec4f,
+  // World-space tangent, handedness in w.
+  @location(6) tangent: vec4f,
 };
 
 @vertex
@@ -225,24 +270,28 @@ fn vs(
   @builtin(instance_index) instanceIndex: u32,
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
-  @location(2) uv: vec2f${skinned ? `,
-  @location(3) jointIndices: vec4u,
-  @location(4) jointWeights: vec4f` : ''}
+  @location(2) uv: vec2f,
+  @location(3) tangent: vec4f${skinned ? `,
+  @location(4) jointIndices: vec4u,
+  @location(5) jointWeights: vec4f` : ''}
 ) -> VertexOut {
   let index = remap[instanceIndex];
   let inst = instances[index];
   ${skinned ? `
   let skin = skinMatrix(inst, jointIndices, jointWeights);
   let local = skin * vec4f(position, 1.0);
-  let localNormal = (skin * vec4f(normal, 0.0)).xyz;` : `
+  let localNormal = (skin * vec4f(normal, 0.0)).xyz;
+  let localTangent = (skin * vec4f(tangent.xyz, 0.0)).xyz;` : `
   let local = vec4f(position, 1.0);
-  let localNormal = normal;`}
+  let localNormal = normal;
+  let localTangent = tangent.xyz;`}
   let world = inst.model * local;
   var out: VertexOut;
   let clip = frame.viewProjection * world;
   out.position = clip;
   out.worldPosition = world.xyz;
   out.normal = inst.normal * localNormal;
+  out.tangent = vec4f(inst.normal * localTangent, tangent.w);
   out.uv = uv;
   out.instance = index;
   out.clipNow = vec4f(clip.xy - frame.jitter.xy * clip.w, clip.zw);
@@ -253,21 +302,39 @@ fn vs(
 
 const shadowShader = (skinned) => /* wgsl */ `
 ${COMMON}
+${MATERIAL}
 
 // The light's view-projection for this pass: one cascade or one spot.
 @group(1) @binding(0) var<uniform> lightViewProjection: mat4x4f;
+
+struct ShadowOut {
+  @builtin(position) position: vec4f,
+  @location(0) uv: vec2f,
+};
 
 @vertex
 fn vs(
   @builtin(instance_index) instanceIndex: u32,
   @location(0) position: vec3f,
-  @location(1) normal: vec3f${skinned ? `,
+  @location(1) normal: vec3f,
+  @location(2) uv: vec2f${skinned ? `,
   @location(3) jointIndices: vec4u,
   @location(4) jointWeights: vec4f` : ''}
-) -> @builtin(position) vec4f {
+) -> ShadowOut {
   let inst = instances[remap[instanceIndex]];
   ${skinned ? 'let local = skinMatrix(inst, jointIndices, jointWeights) * vec4f(position, 1.0);' : 'let local = vec4f(position, 1.0);'}
-  return lightViewProjection * inst.model * local;
+  var out: ShadowOut;
+  out.position = lightViewProjection * inst.model * local;
+  out.uv = uv;
+  return out;
+}
+
+// Depth only; a leaf's cut-out edge casts a cut-out shadow.
+@fragment
+fn fs(in: ShadowOut) {
+  if (material.flags.y > 0.5) {
+    alphaTest(textureSample(baseColorTexture, materialSampler, materialUV(in.uv)).a * material.baseColor.a);
+  }
 }
 `;
 
@@ -307,6 +374,9 @@ struct DrawArgs {
 @group(1) @binding(1) var<storage, read> groupStarts: array<u32>;
 @group(1) @binding(2) var<storage, read_write> args: array<DrawArgs>;
 @group(1) @binding(3) var<storage, read_write> remapOut: array<u32>;
+// Per group: the screen coverage (fraction of the view's height) an
+// instance must be within [x, y) of to be drawn at this level of detail.
+@group(1) @binding(4) var<storage, read> groupLod: array<vec2f>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) id: vec3u) {
@@ -324,6 +394,12 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
     if (groupStarts[mid] <= i) { lo = mid; } else { hi = mid; }
   }
   let g = lo;
+  // Level of detail: how much of the screen's height the sphere covers,
+  // from the camera, for every pass alike so a shadow matches its caster.
+  let range = groupLod[g];
+  let distance = max(length(b.xyz - frame.camera.xyz), 1e-3);
+  let coverage = b.w / (distance * frame.lens.y);
+  if (coverage < range.x || coverage >= range.y) { return; }
   let passes = cull.counts.x;
   for (var p = 0u; p < passes; p++) {
     if (p > 0u && inst.skin.w < 0.5) { continue; }
@@ -351,19 +427,7 @@ ${meshVertex(skinned)}
 @group(1) @binding(5) var environmentSampler: sampler;
 @group(1) @binding(6) var spotShadowMaps: texture_depth_2d_array;
 
-// A glTF metallic-roughness material: factors multiplied into the
-// instance's, and textures that are 1x1 white where the material has none.
-struct Material {
-  baseColor: vec4f,
-  // x metallic, y roughness, z unused, w unused.
-  factors: vec4f,
-  emissive: vec4f,
-};
-@group(2) @binding(0) var<uniform> material: Material;
-@group(2) @binding(1) var materialSampler: sampler;
-@group(2) @binding(2) var baseColorTexture: texture_2d<f32>;
-@group(2) @binding(3) var metallicRoughnessTexture: texture_2d<f32>;
-@group(2) @binding(4) var emissiveTexture: texture_2d<f32>;
+${MATERIAL}
 
 fn distributionGGX(nDotH: f32, roughness: f32) -> f32 {
   let a = roughness * roughness;
@@ -422,8 +486,10 @@ fn sunVisibility(worldPosition: vec3f, normal: vec3f, nDotL: f32) -> f32 {
   let texelWorld = radius * 2.0 * frame.shadowParams.y;
   let offset = normal * texelWorld * frame.shadowParams.w * (1.0 + 2.0 * (1.0 - nDotL));
   let lightSpace = frame.cascades[cascade] * vec4f(worldPosition + offset, 1.0);
-  // The orthographic depth range is four radii; the bias is metres over that.
-  let depthBias = frame.shadowBias.x * (1.0 + 2.0 * (1.0 - nDotL)) / (radius * 4.0);
+  // The orthographic depth range is the reach back plus two radii; the
+  // bias is metres over that.
+  let range = max(radius * 2.0, frame.shadowBias.y) + radius * 2.0;
+  let depthBias = frame.shadowBias.x * (1.0 + 2.0 * (1.0 - nDotL)) / range;
   return shadowLookup(sunShadowMaps, cascade, lightSpace, frame.shadowParams.y, depthBias);
 }
 
@@ -467,14 +533,28 @@ struct MeshFragment {
 };
 
 @fragment
-fn fs(in: VertexOut) -> MeshFragment {
+fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
   let inst = instances[in.instance];
-  let n = normalize(in.normal);
+  let uv = materialUV(in.uv);
+  let baseSample = textureSample(baseColorTexture, materialSampler, uv);
+  alphaTest(baseSample.a * material.baseColor.a);
   let v = normalize(frame.camera.xyz - in.worldPosition);
+  // A double-sided surface faces the viewer from either side.
+  var geometricNormal = normalize(in.normal);
+  if (material.flags.w > 0.5 && !frontFacing) { geometricNormal = -geometricNormal; }
+  var n = geometricNormal;
+  if (material.flags.z > 0.5) {
+    // Tangent-space normal map, scaled in xy and rebuilt in the vertex frame.
+    let t = normalize(in.tangent.xyz - geometricNormal * dot(geometricNormal, in.tangent.xyz));
+    let b = cross(geometricNormal, t) * in.tangent.w;
+    var mapped = textureSample(normalTexture, materialSampler, uv).xyz * 2.0 - 1.0;
+    mapped = vec3f(mapped.xy * material.factors.z, mapped.z);
+    n = normalize(t * mapped.x + b * mapped.y + geometricNormal * mapped.z);
+  }
 
-  let baseSample = textureSample(baseColorTexture, materialSampler, in.uv);
-  let mrSample = textureSample(metallicRoughnessTexture, materialSampler, in.uv);
-  let emissiveSample = textureSample(emissiveTexture, materialSampler, in.uv);
+  let mrSample = textureSample(metallicRoughnessTexture, materialSampler, uv);
+  let emissiveSample = textureSample(emissiveTexture, materialSampler, uv);
+  let occlusion = mix(1.0, textureSample(occlusionTexture, materialSampler, uv).r, material.emissive.w);
   var base = inst.color.rgb * material.baseColor.rgb * baseSample.rgb;
   let checker = inst.params.w;
   if (checker > 0.0) {
@@ -495,7 +575,7 @@ fn fs(in: VertexOut) -> MeshFragment {
   let kernel = min(2.0 * variance, 0.18);
   roughness = sqrt(clamp(roughness * roughness + kernel, 0.0, 1.0));
 
-  let f0 = mix(vec3f(0.04), base, metallic);
+  let f0 = mix(vec3f(material.specular.x), base, metallic);
   let nDotV = max(dot(n, v), 1e-4);
 
   // The sun, shadowed.
@@ -536,8 +616,9 @@ fn fs(in: VertexOut) -> MeshFragment {
   let lut = textureSample(brdfLut, environmentSampler, vec2f(nDotV, roughness)).rg;
   let specular = prefiltered * (fr * lut.x + lut.y);
   // Indirect light goes out on its own so ambient occlusion can scale it
-  // and nothing else; fog is applied over both in the resolve pass.
-  let indirect = (diffuse + specular) * ambient;
+  // and nothing else; fog is applied over both in the resolve pass. The
+  // material's own baked occlusion applies here too.
+  let indirect = (diffuse + specular) * ambient * occlusion;
 
   color += base * inst.params.z + material.emissive.rgb * emissiveSample.rgb;
 

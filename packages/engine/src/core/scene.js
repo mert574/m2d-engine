@@ -5,7 +5,7 @@ import { Projection } from './projection.js';
 import { geometryFor } from './renderers/geometry/primitives.js';
 import { StaticBatch } from './renderers/frame3d.js';
 import { meshFor } from './presentation3d.js';
-import { loadGLB } from './gltf.js';
+import { loadGLB, lodFor } from './gltf.js';
 import { Animator3D } from './animator3d.js';
 import { Quat } from './math.js';
 import * as mat4 from './renderers/geometry/mat4.js';
@@ -33,6 +33,8 @@ export class Scene {
     this.models = new Map();
     /** The level's props as resident instance batches, built at load; see `setupProps`. @type {StaticBatch[]} */
     this.batches = [];
+    /** The props' static bodies, removed with the scene. */
+    this.propBodies = [];
     /**
      * Entities placed by the scene file, by their object `id`. Lets one
      * placed object refer to another — the gate a lever opens, the point a
@@ -90,11 +92,21 @@ export class Scene {
     await Promise.all([this.#loadSpriteSheets(), this.#loadModels()]);
   }
 
+  /**
+   * The scene's models, in parallel. `onLoadProgress({ loaded, total,
+   * name })` on the config hears each arrive, for a loading screen; a
+   * level with hundreds of megabytes of scans takes a while.
+   */
   async #loadModels() {
     const models = this.config.assets?.models;
     if (!models) return;
-    await Promise.all(Object.entries(models).map(async ([key, model]) => {
+    const entries = Object.entries(models);
+    let loaded = 0;
+    this.config.onLoadProgress?.({ loaded, total: entries.length, name: null });
+    await Promise.all(entries.map(async ([key, model]) => {
       this.models.set(key, await loadGLB(this.game.options.basePath + model.url));
+      loaded++;
+      this.config.onLoadProgress?.({ loaded, total: entries.length, name: key });
     }));
   }
 
@@ -238,7 +250,7 @@ export class Scene {
       return
     }
 
-    if (!this.game.headless && this.game.physics.dimensions === 3) this.setupProps();
+    if (this.game.physics.dimensions === 3) this.setupProps();
 
     this.config.layers.forEach(layer => {
       layer.objects.forEach(object => {
@@ -309,12 +321,13 @@ export class Scene {
    * `frame3D` hands the batches to every frame.
    */
   setupProps() {
+    const headless = this.game.headless;
     const batches = new Map();
-    const batchFor = (geometry, material) => {
+    const batchFor = (geometry, material, lod = null) => {
       let byMaterial = batches.get(geometry);
       if (!byMaterial) batches.set(geometry, byMaterial = new Map());
       let batch = byMaterial.get(material);
-      if (!batch) byMaterial.set(material, batch = new StaticBatch(geometry, material));
+      if (!batch) byMaterial.set(material, batch = new StaticBatch(geometry, material, 64, lod));
       return batch;
     };
     for (const layer of this.config.layers) {
@@ -326,23 +339,34 @@ export class Scene {
         const size = { x: prop.width ?? 1, y: prop.height ?? 1, z: prop.depth ?? prop.width ?? 1 };
         if (mesh.model) {
           const model = this.models.get(mesh.model);
-          if (!model) continue;
+          // Colliders stand whether or not the model is here to draw: a
+          // headless game loads no models and still needs the walls.
+          this.#propColliders(prop, model ? modelBounds(model, mesh) : null, mesh.offset ?? ZERO);
+          if (!model || headless) continue;
           if (model.skinned) throw new Error(`M2D: prop '${prop.id}' uses skinned model '${mesh.model}'; a prop has no joints to pose`);
           const s = mesh.scale ?? 1;
           const local = mat4.fromTRS(mesh.offset ?? ZERO, IDENTITY_Q, { x: s, y: s, z: s });
+          // Every level of detail gets every instance; the cull draws one
+          // level per instance from the ranges the levels tile.
+          const ranges = lodRanges(model);
           for (const [x, y, z, yaw, scale] of prop.instances) {
             const base = mat4.fromTRS({ x, y, z }, Quat.fromAxisAngle(UP, yaw), { x: scale, y: scale, z: scale });
             mat4.multiply(base, local, base);
-            for (const part of model.parts) {
-              batchFor(part.geometry, part.material).push({
-                model: mat4.multiply(base, part.matrix), material: part.material,
-                color: WHITE, metallic: 1, roughness: 1, emissive: mesh.emissive ?? 0, castShadow
-              });
-            }
+            model.lods.forEach((level, i) => {
+              for (const part of level.parts) {
+                batchFor(part.geometry, part.material, ranges[i]).push({
+                  model: mat4.multiply(base, part.matrix), material: part.material,
+                  color: WHITE, metallic: 1, roughness: 1, emissive: mesh.emissive ?? 0, castShadow
+                });
+              }
+            });
           }
           continue;
         }
-        const { geometry, scale: shapeScale } = geometryFor(mesh.shape ?? prefab.physics?.shape ?? 'box', size);
+        const shape = mesh.shape ?? prefab.physics?.shape ?? 'box';
+        this.#propColliders(prop, { min: { x: -size.x / 2, y: -size.y / 2, z: -size.z / 2 }, max: { x: size.x / 2, y: size.y / 2, z: size.z / 2 } }, ZERO, shape);
+        if (headless) continue;
+        const { geometry, scale: shapeScale } = geometryFor(shape, size);
         const batch = batchFor(geometry, null);
         for (const [x, y, z, yaw, scale] of prop.instances) {
           batch.push({
@@ -355,6 +379,53 @@ export class Scene {
       }
     }
     this.batches = [...batches.values()].flatMap((byMaterial) => [...byMaterial.values()]);
+  }
+
+  /**
+   * Static bodies for a prop's instances, as its `collider` asks: the
+   * model's bounds (scaled, turned and placed like the instance), or a
+   * shape standing on the instance's origin. No entity: nothing can find
+   * or move these, they only stop things.
+   * @param {object} prop
+   * @param {{min, max}|null} bounds - The drawn thing's bounds about the instance origin, before scale
+   * @param {{x,y,z}} offset - The mesh block's offset, part of the bounds' placement
+   * @param {string} [boundsShape='box'] - The collider shape for `bounds` on a primitive prop
+   */
+  #propColliders(prop, bounds, offset, boundsShape = 'box') {
+    const collider = prop.collider ?? 'none';
+    if (collider === 'none') return;
+    if (collider === 'bounds' && !bounds) return;
+    const physics = this.game.physics;
+    for (const [x, y, z, yaw, scale] of prop.instances) {
+      const rotation = Quat.fromAxisAngle(UP, yaw);
+      let shape, width, height, depth, centre;
+      if (collider === 'bounds') {
+        shape = boundsShape;
+        width = (bounds.max.x - bounds.min.x) * scale;
+        height = (bounds.max.y - bounds.min.y) * scale;
+        depth = (bounds.max.z - bounds.min.z) * scale;
+        // The bounds' centre in the instance's frame, turned with it.
+        const cx = ((bounds.min.x + bounds.max.x) / 2 + offset.x) * scale;
+        const cy = ((bounds.min.y + bounds.max.y) / 2 + offset.y) * scale;
+        const cz = ((bounds.min.z + bounds.max.z) / 2 + offset.z) * scale;
+        const c = Math.cos(yaw), sn = Math.sin(yaw);
+        centre = { x: x + c * cx + sn * cz, y: y + cy, z: z - sn * cx + c * cz };
+      } else {
+        shape = collider.shape;
+        width = collider.width * scale;
+        height = collider.height * scale;
+        depth = (collider.depth ?? collider.width) * scale;
+        centre = { x, y: y + height / 2, z };
+      }
+      const spec = { ...centre, bodyType: 'static', rotation };
+      const body = shape === 'sphere'
+        ? physics.createSphere({ ...spec, radius: Math.max(width, height, depth) / 2 })
+        : shape === 'cylinder'
+          ? physics.createCylinder({ ...spec, radius: Math.max(width, depth) / 2, height })
+          : physics.createBox({ ...spec, width, height, depth });
+      physics.add(body);
+      this.propBodies.push(body);
+    }
   }
 
   /**
@@ -546,6 +617,7 @@ export class Scene {
     // can still look one up.
     this.entitiesById.clear();
     this.batches = [];
+    this.propBodies = [];
 
     // Headless there is no camera, UI or cursor to reset, only the scene's
     // timers (see the end of this method).
@@ -772,9 +844,20 @@ export class Scene {
     }
     animator?.update(deltaTime);
 
+    // An entity picks its level here, by the same coverage the cull uses
+    // for props: there are few entities and this keeps one record each.
+    let parts = model.parts;
+    if (model.lods.length > 1 && !animator) {
+      const camera = frame.camera;
+      const p = body.renderPosition;
+      const distance = Math.hypot(p.x - camera.position.x, p.y - camera.position.y, p.z - camera.position.z);
+      const b = model.bounds;
+      const radius = Math.hypot(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z) * 0.5 * s;
+      parts = model.lods[lodFor(model, radius / (Math.max(distance, 1e-3) * Math.tan(camera.fov / 2)))].parts;
+    }
     const previous = entity?.lastModels ?? [];
     const current = [];
-    model.parts.forEach((part, i) => {
+    parts.forEach((part, i) => {
       // A skinned part is placed by its joints, in model space; a rigid part
       // rides its node, animated or at its bind pose.
       const skinned = part.skin !== null && animator;
@@ -793,4 +876,19 @@ export class Scene {
 
   #scratchBase = new Float32Array(16);
   #scratchLocal = new Float32Array(16);
+}
+
+/** A model's bounds in the mesh block's frame: the file's, times the block's scale. */
+function modelBounds(model, mesh) {
+  const s = mesh.scale ?? 1;
+  const b = model.bounds;
+  return {
+    min: { x: b.min.x * s, y: b.min.y * s, z: b.min.z * s },
+    max: { x: b.max.x * s, y: b.max.y * s, z: b.max.z * s }
+  };
+}
+
+/** The coverage ranges a model's levels tile, finest first: [threshold, previous threshold). */
+function lodRanges(model) {
+  return model.lods.map((level, i) => [level.coverage, i === 0 ? Infinity : model.lods[i - 1].coverage]);
 }

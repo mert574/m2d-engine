@@ -11,6 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "generate-sprites": "node scripts/generateSprites.js",
+    "build-models": "node scripts/buildModels.mjs",
     "test": "vitest run"
   },
   "author": "Mert Yildiz",
@@ -20,7 +21,12 @@
     "m2d-server": "*"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
     "@napi-rs/canvas": "^1.1.0",
+    "meshoptimizer": "^1.3.0",
+    "sharp": "^0.35.5",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
   }

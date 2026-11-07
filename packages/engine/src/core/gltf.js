@@ -9,26 +9,42 @@ import * as mat4 from './renderers/geometry/mat4.js';
  * `Model`:
  *
  *   { parts: [{ geometry, material, matrix, node, skin }],
- *     nodes, skins, animations, skinned, bounds: { min, max } }
+ *     lods: [{ parts, coverage }], nodes, skins, animations, skinned,
+ *     bounds: { min, max } }
  *
  * One part per mesh primitive per node that uses it, with the node's
  * bind-pose world matrix baked in; `geometry` is the `primitives.js` shape
- * with `uvs` added, and `joints` and `weights` when the mesh is skinned;
- * `material` is a metallic-roughness material with its textures as decoded
- * images. The renderer uploads geometry and images once each, by identity.
+ * with `uvs` and `tangents` added, and `joints` and `weights` when the
+ * mesh is skinned; `material` is a metallic-roughness material with its
+ * textures as decoded images. The renderer uploads geometry and images
+ * once each, by identity.
+ *
+ * **Levels of detail.** A root node named `LOD0`, `LOD1`, ... (or ending
+ * `_LOD<n>`) holds one level; `lods[n].parts` are that level's parts and
+ * `parts` is the finest level's. Each level's `coverage` is the fraction
+ * of the screen's height the model must cover to be drawn at it: level
+ * n is drawn while coverage is at least `lods[n].coverage` and below
+ * `lods[n - 1].coverage`. The thresholds come from
+ * `asset.extras.m2d.lods[n].coverage`, which the asset compiler writes,
+ * or default to a geometric series. A model without LOD roots has one
+ * level, covering everything.
  *
  * `nodes` is the node tree as plain data (parent index and local TRS),
  * `skins` the joint lists with inverse bind matrices, and `animations`
  * the clips as sampled channels, for `Animator3D` to play. A model with
  * no skin or clip is drawn from `parts` alone.
  *
- * Read so far: positions, normals (flat ones made when absent), one set
- * of texture coordinates, joints and weights, indices, node transforms,
- * skins, animations (linear and step; cubic splines keep their key values
- * and interpolate linearly), and the core metallic-roughness material
- * with base colour, metallic-roughness and emissive textures. Not yet:
- * vertex colours, normal and occlusion maps, morph targets, material
- * extensions, `.gltf` with external files.
+ * Read so far: positions, normals (flat ones made when absent), tangents
+ * (made from the texture coordinates when absent), one set of texture
+ * coordinates, joints and weights, indices, node transforms, skins,
+ * animations (linear and step; cubic splines keep their key values and
+ * interpolate linearly), and the metallic-roughness material with base
+ * colour, metallic-roughness, normal, occlusion and emissive textures,
+ * `alphaMode` with its cutoff, `doubleSided`, `KHR_texture_transform` on
+ * the base colour (applied to every texture of the material),
+ * `KHR_materials_ior` and `KHR_materials_specular` (as one reflectance at
+ * normal incidence) and `EXT_texture_webp`. Not yet: vertex colours, morph targets, the other
+ * material extensions, `.gltf` with external files.
  */
 
 const MAGIC = 0x46546C67;
@@ -147,12 +163,21 @@ async function buildModel(json, bin, { decodeImage, name }) {
   const textureImage = (ref) => {
     if (!ref) return null;
     const texture = json.textures?.[ref.index];
-    return texture?.source === undefined ? null : images[texture.source];
+    if (!texture) return null;
+    // A WebP source stands in for the fallback; the browser decodes both.
+    const source = texture.extensions?.EXT_texture_webp?.source ?? texture.source;
+    return source === undefined ? null : images[source];
   };
 
   const materials = (json.materials ?? []).map((m) => {
     const pbr = m.pbrMetallicRoughness ?? {};
+    const transform = pbr.baseColorTexture?.extensions?.KHR_texture_transform;
+    // Dielectric reflectance from the index of refraction, scaled by the
+    // specular factor; photoscanned foliage ships at 0.6 of glTF's 0.04.
+    const ior = m.extensions?.KHR_materials_ior?.ior ?? 1.5;
+    const specularFactor = m.extensions?.KHR_materials_specular?.specularFactor ?? 1;
     return {
+      specularF0: Math.pow((ior - 1) / (ior + 1), 2) * specularFactor,
       name: m.name,
       baseColor: pbr.baseColorFactor ?? [1, 1, 1, 1],
       metallic: pbr.metallicFactor ?? 1,
@@ -161,7 +186,18 @@ async function buildModel(json, bin, { decodeImage, name }) {
       baseColorTexture: textureImage(pbr.baseColorTexture),
       metallicRoughnessTexture: textureImage(pbr.metallicRoughnessTexture),
       emissiveTexture: textureImage(m.emissiveTexture),
-      doubleSided: m.doubleSided ?? false
+      normalTexture: textureImage(m.normalTexture),
+      normalScale: m.normalTexture?.scale ?? 1,
+      occlusionTexture: textureImage(m.occlusionTexture),
+      occlusionStrength: m.occlusionTexture?.strength ?? 1,
+      /** `opaque`, `mask` (cut at `alphaCutoff`) or `blend`. */
+      alphaMode: (m.alphaMode ?? 'OPAQUE').toLowerCase(),
+      alphaCutoff: m.alphaCutoff ?? 0.5,
+      doubleSided: m.doubleSided ?? false,
+      /** Texture coordinates go through scale, rotation and offset, in that order. */
+      uvTransform: transform
+        ? { offset: transform.offset ?? [0, 0], scale: transform.scale ?? [1, 1], rotation: transform.rotation ?? 0 }
+        : null
     };
   });
 
@@ -186,7 +222,12 @@ async function buildModel(json, bin, { decodeImage, name }) {
     const uvs = prim.attributes.TEXCOORD_0 !== undefined
       ? read(prim.attributes.TEXCOORD_0, { asFloat: true })
       : new Float32Array(vertexCount * 2);
-    const geometry = { positions, normals, uvs, indices };
+    // Tangents for normal mapping: the file's, or made from the texture
+    // coordinates; a primitive with no coordinates has nothing to map.
+    const tangents = prim.attributes.TANGENT !== undefined
+      ? read(prim.attributes.TANGENT, { asFloat: true })
+      : (prim.attributes.TEXCOORD_0 !== undefined ? makeTangents(positions, normals, uvs, indices) : null);
+    const geometry = { positions, normals, uvs, indices, tangents };
     if (prim.attributes.JOINTS_0 !== undefined && prim.attributes.WEIGHTS_0 !== undefined) {
       const joints = read(prim.attributes.JOINTS_0);
       geometry.joints = joints instanceof Uint16Array ? joints : Uint16Array.from(joints);
@@ -245,7 +286,7 @@ async function buildModel(json, bin, { decodeImage, name }) {
 
   const parts = [];
   const bounds = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
-  const visit = (nodeIndex, parent) => {
+  const visit = (nodeIndex, parent, into = parts) => {
     const node = json.nodes[nodeIndex];
     const local = node.matrix
       ? new Float32Array(node.matrix)
@@ -258,22 +299,45 @@ async function buildModel(json, bin, { decodeImage, name }) {
         if (!geometry) return;
         const material = prim.material !== undefined ? materials[prim.material] : DEFAULT_MATERIAL;
         const skin = node.skin !== undefined && geometry.skinned ? node.skin : null;
-        parts.push({ geometry, material, matrix: world, node: nodeIndex, skin });
+        into.push({ geometry, material, matrix: world, node: nodeIndex, skin });
         // A skinned mesh is placed by its joints, not its node; its bind
-        // pose is still the right thing to measure.
-        growBounds(bounds, geometry.positions, skin === null ? world : mat4.create());
+        // pose is still the right thing to measure. Only the finest level
+        // measures: the others are the same shape, coarser.
+        if (into === parts) growBounds(bounds, geometry.positions, skin === null ? world : mat4.create());
       });
     }
-    for (const child of node.children ?? []) visit(child, world);
+    for (const child of node.children ?? []) visit(child, world, into);
   };
   const scene = json.scenes?.[json.scene ?? 0];
   const roots = scene?.nodes ?? (json.nodes ?? []).map((_, i) => i);
-  for (const root of roots) visit(root, mat4.create());
-
+  // Root nodes named for a level of detail hold that level; anything else
+  // at the root belongs to level 0.
+  const levelParts = [];
+  for (const root of roots) {
+    const level = lodIndex(json.nodes[root].name);
+    if (level === null || level === 0) {
+      visit(root, mat4.create(), parts);
+    } else {
+      visit(root, mat4.create(), levelParts[level] ??= []);
+    }
+  }
   if (!parts.length) throw new Error(`M2D: ${name} has no triangle meshes`);
+  const declared = json.asset?.extras?.m2d?.lods;
+  const lods = [{ parts, coverage: 0 }];
+  for (let level = 1; level < levelParts.length; level++) {
+    if (!levelParts[level]) throw new Error(`M2D: ${name} has LOD${levelParts.length - 1} but no LOD${level}`);
+    lods.push({ parts: levelParts[level], coverage: 0 });
+  }
+  // Level n is drawn while the model covers at least this much of the
+  // screen's height; level 0 always covers the top. Declared by the
+  // compiler, or each level at a third of the one before, from a quarter.
+  for (let level = 1; level < lods.length; level++) {
+    lods[level - 1].coverage = declared?.[level]?.coverage ?? 0.25 / Math.pow(3, level - 1);
+  }
   return {
     name: json.asset?.extras?.title ?? name,
     parts,
+    lods,
     nodes,
     roots,
     skins,
@@ -292,8 +356,25 @@ function identityMatrices(count) {
 /** The material a primitive without one gets: glTF's defaults, which are white, fully metallic, rough. */
 export const DEFAULT_MATERIAL = Object.freeze({
   name: 'default', baseColor: [1, 1, 1, 1], metallic: 1, roughness: 1, emissive: [0, 0, 0],
-  baseColorTexture: null, metallicRoughnessTexture: null, emissiveTexture: null, doubleSided: false
+  baseColorTexture: null, metallicRoughnessTexture: null, emissiveTexture: null,
+  normalTexture: null, normalScale: 1, occlusionTexture: null, occlusionStrength: 1,
+  alphaMode: 'opaque', alphaCutoff: 0.5, doubleSided: false, uvTransform: null, specularF0: 0.04
 });
+
+/**
+ * The level of detail to draw a model at, from how much of the screen's
+ * height it covers: `radius / (distance * tan(fov / 2))` is the sphere's
+ * diameter as a fraction of the view's height at that distance.
+ * @param {Model} model
+ * @param {number} coverage
+ * @returns {number} The level's index into `model.lods`
+ */
+export function lodFor(model, coverage) {
+  const lods = model.lods;
+  let level = 0;
+  while (level < lods.length - 1 && coverage < lods[level].coverage) level++;
+  return level;
+}
 
 const vec = (v, fallback) => (v ? { x: v[0], y: v[1], z: v[2] } : { x: fallback[0], y: fallback[1], z: fallback[2] });
 const quat = (q) => (q ? { x: q[0], y: q[1], z: q[2], w: q[3] } : { x: 0, y: 0, z: 0, w: 1 });
@@ -319,6 +400,62 @@ function flatNormals(positions, indices) {
     normals[i] /= len; normals[i + 1] /= len; normals[i + 2] /= len;
   }
   return normals;
+}
+
+/** The level a root node's name declares (`LOD2`, `tree_LOD2`), or null. */
+function lodIndex(nodeName) {
+  const match = /(?:^|_)LOD(\d+)$/i.exec(nodeName ?? '');
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Per-vertex tangents from the texture coordinates (Lengyel), with the
+ * handedness in w, for a mesh whose normal map needs a frame to live in.
+ * Mirrored islands come out right-handed or left as the coordinates say.
+ */
+function makeTangents(positions, normals, uvs, indices) {
+  const count = positions.length / 3;
+  const tan = new Float32Array(count * 3);
+  const bitan = new Float32Array(count * 3);
+  for (let i = 0; i < indices.length; i += 3) {
+    const a = indices[i], b = indices[i + 1], c = indices[i + 2];
+    const ax = positions[a * 3], ay = positions[a * 3 + 1], az = positions[a * 3 + 2];
+    const e1x = positions[b * 3] - ax, e1y = positions[b * 3 + 1] - ay, e1z = positions[b * 3 + 2] - az;
+    const e2x = positions[c * 3] - ax, e2y = positions[c * 3 + 1] - ay, e2z = positions[c * 3 + 2] - az;
+    const du1 = uvs[b * 2] - uvs[a * 2], dv1 = uvs[b * 2 + 1] - uvs[a * 2 + 1];
+    const du2 = uvs[c * 2] - uvs[a * 2], dv2 = uvs[c * 2 + 1] - uvs[a * 2 + 1];
+    const det = du1 * dv2 - du2 * dv1;
+    if (Math.abs(det) < 1e-12) continue;
+    const r = 1 / det;
+    const tx = (e1x * dv2 - e2x * dv1) * r, ty = (e1y * dv2 - e2y * dv1) * r, tz = (e1z * dv2 - e2z * dv1) * r;
+    const bx = (e2x * du1 - e1x * du2) * r, by = (e2y * du1 - e1y * du2) * r, bz = (e2z * du1 - e1z * du2) * r;
+    for (const v of [a, b, c]) {
+      tan[v * 3] += tx; tan[v * 3 + 1] += ty; tan[v * 3 + 2] += tz;
+      bitan[v * 3] += bx; bitan[v * 3 + 1] += by; bitan[v * 3 + 2] += bz;
+    }
+  }
+  const out = new Float32Array(count * 4);
+  for (let v = 0; v < count; v++) {
+    const nx = normals[v * 3], ny = normals[v * 3 + 1], nz = normals[v * 3 + 2];
+    let tx = tan[v * 3], ty = tan[v * 3 + 1], tz = tan[v * 3 + 2];
+    // Gram-Schmidt against the normal.
+    const d = nx * tx + ny * ty + nz * tz;
+    tx -= nx * d; ty -= ny * d; tz -= nz * d;
+    let len = Math.hypot(tx, ty, tz);
+    if (len < 1e-8) {
+      // No usable coordinates: any perpendicular will do.
+      if (Math.abs(nx) < 0.9) { tx = 0; ty = -nz; tz = ny; } else { tx = nz; ty = 0; tz = -nx; }
+      len = Math.hypot(tx, ty, tz) || 1;
+    }
+    out[v * 4] = tx / len; out[v * 4 + 1] = ty / len; out[v * 4 + 2] = tz / len;
+    // Handedness. glTF's v runs down the image, so the accumulated dP/dv
+    // points the opposite way from the map's +Y; the frame is right-handed
+    // (w = 1) when n x t points against it, which is what an exporter's
+    // TANGENT says for an ordinary upright quad.
+    const cx = ny * tz - nz * ty, cy = nz * tx - nx * tz, cz = nx * ty - ny * tx;
+    out[v * 4 + 3] = (cx * bitan[v * 3] + cy * bitan[v * 3 + 1] + cz * bitan[v * 3 + 2]) > 0 ? -1 : 1;
+  }
+  return out;
 }
 
 function growBounds(bounds, positions, matrix) {

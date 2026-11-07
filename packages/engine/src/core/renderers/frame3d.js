@@ -24,6 +24,12 @@ import { boundingSphere } from './geometry/primitives.js';
  * which the renderer keeps resident on the GPU and copies into the frame
  * without the CPU touching a record again.
  *
+ * Levels of detail are groups with a `lod` range: the coverage (the
+ * fraction of the view's height the instance's sphere spans) at which the
+ * cull draws the group's instances. A model with three levels is three
+ * groups holding the same instances with ranges that tile 0..infinity,
+ * and the cull picks one per instance per frame.
+ *
  * Units are the world's: metres, y up. Colours are linear 0..1.
  */
 export class Frame3D {
@@ -116,6 +122,7 @@ export class Frame3D {
    * @param {boolean} [instance.castShadow=true]
    * @param {Float32Array} [instance.previousModel] - Last frame's model matrix, for motion vectors; this one if omitted
    * @param {Float32Array} [instance.skin] - Joint matrices (16 floats each, model space) for a skinned geometry
+   * @param {[number, number]} [instance.lod] - The coverage range this geometry is drawn within; everything if omitted
    * @returns {Float32Array} The model matrix used, to hand back as next frame's `previousModel`
    */
   add(geometry, instance = {}) {
@@ -128,7 +135,7 @@ export class Frame3D {
       this.skins.push(instance.skin);
       this.jointCount += instance.skin.length / 16;
     }
-    this.#entry(geometry, instance.material ?? null).instances.push(data);
+    this.#entry(geometry, instance.material ?? null, instance.lod).instances.push(data);
     return model;
   }
 
@@ -140,14 +147,14 @@ export class Frame3D {
   addBatch(batch) {
     if (!batch.count) return;
     this.added += batch.count;
-    this.#entry(batch.geometry, batch.material).batches.push(batch);
+    this.#entry(batch.geometry, batch.material, batch.lod).batches.push(batch);
   }
 
-  #entry(geometry, material) {
+  #entry(geometry, material, lod) {
     let group = this.groups.get(geometry);
     if (!group) this.groups.set(geometry, group = new Map());
     let entry = group.get(material);
-    if (!entry) group.set(material, entry = { geometry, material, instances: [], batches: [] });
+    if (!entry) group.set(material, entry = { geometry, material, lod: lod ?? ALL_COVERAGE, instances: [], batches: [] });
     return entry;
   }
 
@@ -200,10 +207,12 @@ export class StaticBatch {
    * @param {object} geometry
    * @param {object|null} material
    * @param {number} [capacity=64] - Grows as needed
+   * @param {[number, number]} [lod] - The coverage range the batch is drawn within
    */
-  constructor(geometry, material = null, capacity = 64) {
+  constructor(geometry, material = null, capacity = 64, lod = null) {
     this.geometry = geometry;
     this.material = material;
+    this.lod = lod ?? ALL_COVERAGE;
     this.data = new Float32Array(capacity * INSTANCE_FLOATS);
     this.count = 0;
     /** Bumped by `push`; the renderer re-uploads a batch whose version it has not seen. */
@@ -268,8 +277,11 @@ export function writeInstance(data, offset, geometry, instance) {
 }
 
 /**
- * @typedef {{geometry: object, material: object|null, instances: Float32Array[], batches: StaticBatch[]}} Group
+ * @typedef {{geometry: object, material: object|null, lod: number[], instances: Float32Array[], batches: StaticBatch[]}} Group
  */
+
+/** The coverage range of a group drawn at every distance. */
+export const ALL_COVERAGE = Object.freeze([0, Infinity]);
 
 /**
  * Floats per instance in the GPU buffer: mat4 model, mat3 normal (padded),

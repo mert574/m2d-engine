@@ -39,6 +39,8 @@ export class TextureCache3D {
     this.whiteSRGB = this.#solid([255, 255, 255, 255], 'rgba8unorm-srgb', 'white (srgb)');
     /** 1x1 black, for the emissive slot. */
     this.black = this.#solid([0, 0, 0, 255], 'rgba8unorm-srgb', 'black (srgb)');
+    /** 1x1 straight-up tangent-space normal, for the normal slot. */
+    this.flatNormal = this.#solid([128, 128, 255, 255], 'rgba8unorm', 'flat normal');
     this.sampler = device.createSampler({
       label: 'material',
       minFilter: 'linear', magFilter: 'linear', mipmapFilter: 'linear',
@@ -118,7 +120,7 @@ export class TextureCache3D {
   }
 
   destroy() {
-    for (const t of [this.white, this.whiteSRGB, this.black]) t.destroy();
+    for (const t of [this.white, this.whiteSRGB, this.black, this.flatNormal]) t.destroy();
     this.textures = new WeakMap();
   }
 }

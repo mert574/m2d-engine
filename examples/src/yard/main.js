@@ -5,6 +5,8 @@ import { initWebGPU, webgpuSupported } from 'm2d-engine/core/renderers/index.js'
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
 import { UIText } from 'm2d-engine/core/ui/text.js';
 import { Vec3 } from 'm2d-engine/core/math.js';
+import { audioOption } from '../shared/audio.js';
+import { loadAmbience, Footsteps } from './ambience.js';
 
 /**
  * The yard: the engine's first three-dimensional scene.
@@ -51,11 +53,13 @@ const FLY_SPEED = 10;
 class Hero extends Entity {
   name = 'Hero';
   heading = 0;
+  footsteps = null;
 
   update(deltaTime) {
     super.update(deltaTime);
     const v = this.body.velocity;
     const speed = Math.hypot(v.x, v.z);
+    this.footsteps?.update(deltaTime, speed, this.isOnGround() && !this.noclip);
     if (speed > 0.2) {
       // The fox's nose points down +z in its file; turn it to the velocity.
       const target = Math.atan2(v.x, v.z);
@@ -121,10 +125,20 @@ const mix = (a, b, t) => a.map((v, i) => lerp(v, b[i], t));
 const yardScene = {
   fetch: async () => (await import('./scenes/yard.json')).default,
 
+  // The loading plate, while the scene's models arrive.
+  onLoadProgress({ loaded, total, name }) {
+    const plate = document.getElementById('loading');
+    plate.querySelector('.bar span').style.width = `${total ? (loaded / total) * 100 : 0}%`;
+    plate.querySelector('small').textContent = loaded < total
+      ? `Loading ${name ? name.replaceAll('_', ' ') : 'models'}… ${loaded} / ${total}`
+      : 'Building the scene…';
+  },
+
   onEnter() {
     const scene = game.sceneManager.getCurrentScene();
     const hero = scene.entitiesById.get('hero');
     game.player = hero;
+    hero.footsteps = new Footsteps(game.soundManager);
     Object.assign(game.camera, {
       mode: 'orbit', distance: 8, yaw: 0.6, pitch: 0.36, minDistance: 3, maxDistance: 30,
       targetOffset: { x: 0, y: 0.4, z: 0 }, fov: Math.PI / 3.4
@@ -133,6 +147,12 @@ const yardScene = {
   },
 
   onShow() {
+    document.getElementById('loading').classList.add('done');
+    // A breath of wind under everything, faded in so the page does not open on a gust.
+    const wind = game.soundManager.loop('wind', { volume: 0 });
+    let level = 0;
+    const fade = setInterval(() => { level = Math.min(1, level + 0.05); wind.setVolume(level); if (level >= 1) clearInterval(fade); }, 100);
+    unsubscribe.push(() => { clearInterval(fade); wind.stop(); });
     unsubscribe.push(game.input.on('drag', (event) => {
       game.camera.orbit(-event.delta.ui.x * 0.005, event.delta.ui.y * 0.004);
       event.consume();
@@ -208,5 +228,6 @@ const yardScene = {
 game.sceneManager.addScene('yard', yardScene);
 game.sceneManager.addScene('lot', { ...yardScene, fetch: async () => (await import('./scenes/lot.json')).default });
 
-new SettingsMenu(game);
+loadAmbience(game.soundManager);
+new SettingsMenu(game).addOption(audioOption(game));
 game.start();
