@@ -119,6 +119,8 @@ Top-left anchored rectangle.
 
 Filling a partial arc fills the circular segment between the arc and its chord. For a pie slice, draw a closed path through the centre.
 
+Canvas 2D draws a true curve; the WebGL backend approximates one with line segments, and picks how many from the radius *as drawn* — the camera's zoom included — so a curve stays smooth when zoomed into rather than turning into the polygon beneath it. The count is capped, so a deep zoom costs a bounded number of vertices. The same applies to a `cornerRadius` on `drawRect` and `pushClip`.
+
 ### drawPath
 
 `{ points, closed, fillStyle, strokeStyle, lineWidth }`. `points` is an array of `{ x, y }`.

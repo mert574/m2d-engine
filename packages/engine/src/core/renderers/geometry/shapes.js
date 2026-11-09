@@ -10,7 +10,7 @@ const TWO_PI = Math.PI * 2;
  * (clockwise in screen space, i.e. increasing angle with y down).
  * @returns {{points: number[], full: boolean}} `full` when it is a whole circle
  */
-export function arcPoints(x, y, radius, startAngle = 0, endAngle = TWO_PI) {
+export function arcPoints(x, y, radius, startAngle = 0, endAngle = TWO_PI, pixelScale = 1) {
   let sweep = endAngle - startAngle;
   let full = false;
   if (sweep >= TWO_PI) {
@@ -20,7 +20,7 @@ export function arcPoints(x, y, radius, startAngle = 0, endAngle = TWO_PI) {
     sweep = (sweep % TWO_PI + TWO_PI) % TWO_PI;
   }
 
-  const segments = arcSegments(radius, sweep);
+  const segments = arcSegments(radius * pixelScale, sweep);
   const points = [];
   // For a full circle the last point would coincide with the first.
   const count = full ? segments : segments + 1;
@@ -31,6 +31,15 @@ export function arcPoints(x, y, radius, startAngle = 0, endAngle = TWO_PI) {
   return { points, full };
 }
 
+/**
+ * Segments for an arc of `radius` *drawn pixels*, so the chords stay well
+ * under one. The callers above take a `pixelScale` — what the transform
+ * in force turns one of their units into on screen — and multiply it in,
+ * because a curve tessellated for its authored size is a visible polygon
+ * once the camera zooms into it. The rule has enough margin that this
+ * only shows past about sixteen times, which is editor territory rather
+ * than gameplay; the cap keeps a deep zoom bounded.
+ */
 export function arcSegments(radius, sweep) {
   const perRadian = Math.max(2, Math.ceil(Math.sqrt(Math.max(radius, 1)) * 2.5));
   return Math.min(256, Math.max(8, Math.ceil(Math.abs(sweep) * perRadian)));
@@ -41,7 +50,7 @@ export function arcSegments(radius, sweep) {
  * following Canvas 2D `roundRect` radius semantics.
  * @param {number|number[]} radius - Scalar or [tl, tr, br, bl]
  */
-export function roundRectPoints(x, y, width, height, radius = 0) {
+export function roundRectPoints(x, y, width, height, radius = 0, pixelScale = 1) {
   let [tl, tr, br, bl] = normalizeRadii(radius);
   const limit = Math.min(width, height) / 2;
   tl = Math.min(tl, limit); tr = Math.min(tr, limit);
@@ -52,19 +61,19 @@ export function roundRectPoints(x, y, width, height, radius = 0) {
   }
 
   const points = [];
-  corner(points, x + width - tr, y + tr, tr, -Math.PI / 2, 0);
-  corner(points, x + width - br, y + height - br, br, 0, Math.PI / 2);
-  corner(points, x + bl, y + height - bl, bl, Math.PI / 2, Math.PI);
-  corner(points, x + tl, y + tl, tl, Math.PI, Math.PI * 1.5);
+  corner(points, x + width - tr, y + tr, tr, -Math.PI / 2, 0, pixelScale);
+  corner(points, x + width - br, y + height - br, br, 0, Math.PI / 2, pixelScale);
+  corner(points, x + bl, y + height - bl, bl, Math.PI / 2, Math.PI, pixelScale);
+  corner(points, x + tl, y + tl, tl, Math.PI, Math.PI * 1.5, pixelScale);
   return points;
 }
 
-function corner(points, cx, cy, r, from, to) {
+function corner(points, cx, cy, r, from, to, pixelScale = 1) {
   if (r <= 0) {
     points.push(cx, cy);
     return;
   }
-  const segments = Math.max(4, Math.ceil(arcSegments(r, to - from)));
+  const segments = Math.max(4, Math.ceil(arcSegments(r * pixelScale, to - from)));
   for (let i = 0; i <= segments; i++) {
     const a = from + ((to - from) * i) / segments;
     points.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r);

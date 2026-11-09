@@ -413,6 +413,16 @@ export class WebGLRenderer extends BaseRenderer {
     this.batch.push(positions, uvs, color, indices);
   }
 
+  /**
+   * What the pass's transform turns one of its units into on screen, for
+   * deciding how finely to tessellate a curve. The camera's zoom is the
+   * whole of it: the render resolution is deliberately not folded in,
+   * since it varies by code path and `arcSegments` has margin for it.
+   */
+  #pixelScale(options) {
+    return mat.maxScale(this.#matrixFor(options)) || 1;
+  }
+
   #fillAndStroke(options, outline, closed, { fill, stroke, lineWidth, fillIndices }) {
     if (fill) {
       const indices = fillIndices || fanIndices(outline.length / 2);
@@ -796,7 +806,7 @@ export class WebGLRenderer extends BaseRenderer {
     this.trackPrimitive('shape');
 
     const { x, y, width, height, cornerRadius } = options;
-    const outline = roundRectPoints(x, y, width, height, cornerRadius || 0);
+    const outline = roundRectPoints(x, y, width, height, cornerRadius || 0, this.#pixelScale(options));
     this.#withShadow(options, (opts) => this.#fillAndStroke(opts, outline, true, {
       fill: options.fill !== false ? options.fillStyle : null,
       stroke: options.strokeStyle,
@@ -819,7 +829,8 @@ export class WebGLRenderer extends BaseRenderer {
     this.trackPrimitive('shape');
 
     const { points, full } = arcPoints(
-      options.x, options.y, options.radius, options.startAngle ?? 0, options.endAngle ?? Math.PI * 2
+      options.x, options.y, options.radius, options.startAngle ?? 0, options.endAngle ?? Math.PI * 2,
+      this.#pixelScale(options)
     );
     // A chord-closed circular segment is always convex, so a fan is exact.
     this.#withShadow(options, (opts) => this.#fillAndStroke(opts, points, full, {
@@ -887,7 +898,7 @@ export class WebGLRenderer extends BaseRenderer {
 
   pushClip(rect) {
     if (!this.#ready) return;
-    const outline = roundRectPoints(rect.x, rect.y, rect.width, rect.height, rect.cornerRadius || 0);
+    const outline = roundRectPoints(rect.x, rect.y, rect.width, rect.height, rect.cornerRadius || 0, this.#pixelScale(rect));
     const positions = mat.applyToPositions(this.#matrixFor(rect), outline);
     const indices = fanIndices(outline.length / 2);
     const entry = { kind: 'clip', screen: !!rect.isScreenSpace, positions, indices };
