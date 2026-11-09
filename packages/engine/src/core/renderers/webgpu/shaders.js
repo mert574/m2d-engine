@@ -170,6 +170,13 @@ fn skinMatrix(inst: Instance, j: vec4u, w: vec4f) -> mat4x4f {
   return joints[base + j.x] * w.x + joints[base + j.y] * w.y + joints[base + j.z] * w.z + joints[base + j.w] * w.w;
 }
 
+// The same from last frame's pose, which sits beside this one in the
+// buffer. A limb's own motion lives in the difference between the two.
+fn previousSkinMatrix(inst: Instance, j: vec4u, w: vec4f) -> mat4x4f {
+  let base = u32(inst.skin.z);
+  return joints[base + j.x] * w.x + joints[base + j.y] * w.y + joints[base + j.z] * w.z + joints[base + j.w] * w.w;
+}
+
 const PI = 3.14159265;
 
 // The brightest value a pass may write. The targets are 16-bit float, whose
@@ -331,10 +338,12 @@ fn vs(
   let skin = skinMatrix(inst, jointIndices, jointWeights);
   let local = skin * vec4f(position, 1.0);
   let localNormal = (skin * vec4f(normal, 0.0)).xyz;
-  let localTangent = (skin * vec4f(tangent.xyz, 0.0)).xyz;` : `
+  let localTangent = (skin * vec4f(tangent.xyz, 0.0)).xyz;
+  let previousLocal = previousSkinMatrix(inst, jointIndices, jointWeights) * vec4f(position, 1.0);` : `
   let local = vec4f(position, 1.0);
   let localNormal = normal;
-  let localTangent = tangent.xyz;`}
+  let localTangent = tangent.xyz;
+  let previousLocal = local;`}
   let world = inst.model * local;
   var out: VertexOut;
   let clip = frame.viewProjection * world;
@@ -345,7 +354,7 @@ fn vs(
   out.uv = uv;
   out.instance = index;
   out.clipNow = vec4f(clip.xy - frame.jitter.xy * clip.w, clip.zw);
-  out.clipPrev = frame.previousViewProjection * inst.previousModel * local;
+  out.clipPrev = frame.previousViewProjection * inst.previousModel * previousLocal;
   return out;
 }
 `;

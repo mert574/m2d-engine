@@ -27,6 +27,15 @@ export class Animator3D {
     this.world = new Float32Array(n * 16);
     /** @type {Float32Array[]} Joint matrices per skin, in model space. */
     this.joints = model.skins.map((skin) => new Float32Array(skin.joints.length * 16));
+    /**
+     * Last frame's joint matrices, kept so a skinned mesh can report the
+     * motion of its own limbs and not just of the body carrying them.
+     * The renderer reads these for the previous clip position, which is
+     * what motion blur and the temporal filter reproject along.
+     * @type {Float32Array[]}
+     */
+    this.previousJoints = model.skins.map((skin) => new Float32Array(skin.joints.length * 16));
+    this.posed = false;
     /** @type {Array<{clip: object, time: number, weight: number, target: number, rate: number, speed: number, loop: boolean}>} */
     this.layers = [];
     // Order nodes parents-first once, so a flat loop computes the world
@@ -78,6 +87,11 @@ export class Animator3D {
     const rate = fade > 0 ? 1 / fade : Infinity;
     for (const layer of this.layers) { layer.target = 0; layer.rate = rate; }
     this.layers.push({ clip, time: 0, weight: fade > 0 ? 0 : 1, target: 1, rate, speed, loop });
+    // A snap is a discontinuity, not motion: the pose it lands on was
+    // never on screen to move from, so the next one is its own previous
+    // and the frame reports no velocity. A crossfade is real movement
+    // and keeps its.
+    if (fade <= 0) this.posed = false;
     return true;
   }
 
@@ -85,6 +99,8 @@ export class Animator3D {
   stop() {
     this.layers = [];
     this.#reset();
+    // As with a snap: the bind pose is a jump, not movement.
+    this.posed = false;
     this.#pose();
   }
 
@@ -193,6 +209,8 @@ export class Animator3D {
       if (node.parent < 0) world.set(local);
       else mat4.multiply(this.world.subarray(node.parent * 16, node.parent * 16 + 16), local, world);
     }
+    // This pose becomes last frame's before the new one overwrites it.
+    for (let k = 0; k < this.joints.length; k++) this.previousJoints[k].set(this.joints[k]);
     this.model.skins.forEach((skin, k) => {
       const out = this.joints[k];
       skin.joints.forEach((jointNode, j) => {
@@ -202,11 +220,23 @@ export class Animator3D {
           out.subarray(j * 16, j * 16 + 16));
       });
     });
+    // The first pose is its own previous. Before it there is no pose,
+    // only the zeroed array, and reprojecting a limb from that would
+    // smear the whole model across the screen on its opening frame.
+    if (!this.posed) {
+      for (let k = 0; k < this.joints.length; k++) this.previousJoints[k].set(this.joints[k]);
+      this.posed = true;
+    }
   }
 
   /** The joint matrices of a skin, model space, for the renderer. */
   jointMatrices(skin) {
     return this.joints[skin];
+  }
+
+  /** The same from last frame's pose, for motion vectors. */
+  previousJointMatrices(skin) {
+    return this.previousJoints[skin];
   }
 
   /** A node's world matrix in model space, for a part that rides a bone. */

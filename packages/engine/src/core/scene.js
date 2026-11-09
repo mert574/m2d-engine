@@ -872,7 +872,8 @@ export class Scene {
         color: WHITE, metallic: 1, roughness: 1,
         emissive: mesh.emissive ?? 0,
         previousModel: previous[i],
-        skin: skinned ? animator.jointMatrices(part.skin) : undefined
+        skin: skinned ? animator.jointMatrices(part.skin) : undefined,
+        previousSkin: skinned ? animator.previousJointMatrices(part.skin) : undefined
       });
     });
     if (entity) entity.lastModels = current;

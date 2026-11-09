@@ -122,6 +122,7 @@ export class Frame3D {
    * @param {boolean} [instance.castShadow=true]
    * @param {Float32Array} [instance.previousModel] - Last frame's model matrix, for motion vectors; this one if omitted
    * @param {Float32Array} [instance.skin] - Joint matrices (16 floats each, model space) for a skinned geometry
+   * @param {Float32Array} [instance.previousSkin] - Last frame's joint matrices, so limbs carry their own motion; `skin` stands in without it
    * @param {[number, number]} [instance.lod] - The coverage range this geometry is drawn within; everything if omitted
    * @returns {Float32Array} The model matrix used, to hand back as next frame's `previousModel`
    */
@@ -133,6 +134,14 @@ export class Frame3D {
       data[52] = this.jointCount;
       data[53] = 1;
       this.skins.push(instance.skin);
+      this.jointCount += instance.skin.length / 16;
+      // Last frame's pose goes in beside this one, and the instance
+      // keeps where it starts, so the vertex shader can place a vertex
+      // where its own limb was rather than only where the body was.
+      // Without one, the current pose stands in and the limb reports
+      // no motion of its own — which is what it did before.
+      data[54] = this.jointCount;
+      this.skins.push(instance.previousSkin ?? instance.skin);
       this.jointCount += instance.skin.length / 16;
     }
     this.#entry(geometry, instance.material ?? null, instance.lod).instances.push(data);
@@ -257,7 +266,8 @@ export function writeInstance(data, offset, geometry, instance) {
   data[offset + 34] = instance.emissive ?? 0;
   data[offset + 35] = instance.checker ?? 0;
   data.set(instance.previousModel ?? model, offset + 36);
-  // skin: x first joint, y skinned, z unused, w casts a shadow.
+  // skin: x first joint, y skinned, z first joint of last frame's pose,
+  // w casts a shadow.
   // A BLEND surface does not: the shadow pass has no blending, so glass
   // would cast the opaque shadow of its whole pane. A MASK surface still
   // casts, cut out at its cutoff — that is what foliage wants.

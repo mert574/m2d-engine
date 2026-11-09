@@ -978,6 +978,65 @@ describe('a skinned model', () => {
     const centre = before.at(W / 2, H / 2);
     expect(centre[0]).toBeGreaterThan(centre[2]);
   });
+
+  it('a bent limb smears under motion blur, with the body standing still', async () => {
+    const { parseGLB } = await import('../../src/core/gltf.js');
+    const { Animator3D } = await import('../../src/core/animator3d.js');
+    const response = await fetch(new URL('../fixtures/models/RiggedSimple.glb', import.meta.url));
+    const model = await parseGLB(await response.arrayBuffer(), { name: 'RiggedSimple' });
+
+    const W = 96, H = 72;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(W, H, { x: 0, y: 3, z: 12 });
+    // The model never moves: its matrix is the identity both frames, so
+    // every motion vector here comes from the joints alone.
+    const identity = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+
+    // `carry` false repeats the current pose as the previous one, which
+    // is what the renderer did before it kept last frame's joints.
+    const draw = (animator, carry) => {
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [-0.5, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      frame.post.motionBlur = { strength: 1 };
+      const [part] = model.parts;
+      frame.add(part.geometry, {
+        model: identity(), previousModel: identity(), material: part.material,
+        color: [0.9, 0.3, 0.3], metallic: 0, roughness: 0.6,
+        skin: animator.jointMatrices(0),
+        previousSkin: carry ? animator.previousJointMatrices(0) : animator.jointMatrices(0)
+      });
+      renderer.render(frame);
+      return readPixels(renderer);
+    };
+
+    renderer.effects.motionBlur = true;
+    const animator = new Animator3D(model);
+    animator.play('clip 0', { fade: 0 });
+    // The snap's own pose is its previous, so settle it first; the
+    // second step is the one with motion behind it, far enough that the
+    // limb sweeps a visible distance.
+    animator.update(0.01);
+    animator.update(0.6);
+    const smeared = await draw(animator, true);
+    const sharp = await draw(animator, false);
+
+    // The two differ only in whether the limb's own motion was reported,
+    // so any difference at all is the joints reaching the velocity
+    // buffer — which before this they never did.
+    let moved = 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (Math.abs(luma(smeared.at(x, y)) - luma(sharp.at(x, y))) > 6) moved++;
+      }
+    }
+    expect(moved, `${moved} pixels differ between a limb that carries its motion and one that does not`).toBeGreaterThan(20);
+  });
 });
 
 describe('primitive geometry', () => {

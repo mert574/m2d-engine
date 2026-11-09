@@ -332,12 +332,49 @@ describe('a rigged model', () => {
     const [part] = model.parts;
     frame.add(part.geometry, { skin: joints });
     frame.add(part.geometry, { skin: joints });
-    expect(frame.jointCount).toBe(4);
-    expect(frame.skins).toHaveLength(2);
+    // Each skinned instance files two poses, this frame's and last
+    // frame's, so a limb's own motion reaches the velocity buffer.
+    expect(frame.jointCount).toBe(8);
+    expect(frame.skins).toHaveLength(4);
     const [entry] = frame.entries();
     expect(entry.instances[0][52]).toBe(0);
-    expect(entry.instances[1][52]).toBe(2);
+    expect(entry.instances[0][54]).toBe(2);
+    expect(entry.instances[1][52]).toBe(4);
+    expect(entry.instances[1][54]).toBe(6);
     expect(entry.instances[1][53]).toBe(1);
+  });
+
+  it('stands the current pose in for the previous one when none is given', async () => {
+    const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
+    const frame = new Frame3D();
+    const joints = new Float32Array(32).fill(1);
+    const previous = new Float32Array(32).fill(2);
+    const [part] = model.parts;
+    frame.add(part.geometry, { skin: joints });
+    frame.add(part.geometry, { skin: joints, previousSkin: previous });
+    // Without a previous pose the current one is both, so nothing moves.
+    expect(frame.skins[0]).toBe(joints);
+    expect(frame.skins[1]).toBe(joints);
+    // With one, the second slot is last frame's.
+    expect(frame.skins[2]).toBe(joints);
+    expect(frame.skins[3]).toBe(previous);
+  });
+
+  it('keeps last frame\'s pose on the animator, and starts with it equal to the first', async () => {
+    const { Animator3D } = await import('../src/core/animator3d.js');
+    const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
+    const animator = new Animator3D(model);
+    animator.play('clip 0', { fade: 0 });
+    animator.update(0);
+    // The pose a snap lands on is its own previous: it was never on
+    // screen to move from, so the opening frame reports no velocity
+    // rather than smearing the model in from the bind pose.
+    expect(Array.from(animator.previousJointMatrices(0))).toEqual(Array.from(animator.jointMatrices(0)));
+    const first = Float32Array.from(animator.jointMatrices(0));
+    animator.update(0.5);
+    // After a step, the previous is the pose before it, not the new one.
+    expect(Array.from(animator.previousJointMatrices(0))).toEqual(Array.from(first));
+    expect(Array.from(animator.jointMatrices(0))).not.toEqual(Array.from(first));
   });
 });
 
