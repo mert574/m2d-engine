@@ -53,7 +53,22 @@ const prefabs = {
   ...yard.prefabs,
   // The lots' walls stay the yard's shape. One prefab per model, drawn
   // with the file's own materials.
-  ...Object.fromEntries(MODELS.map((id) => [id, { actor: 'Ground', physics: { bodyType: 'static' }, mesh: { model: id } }]))
+  ...Object.fromEntries(MODELS.map((id) => [id, { actor: 'Ground', physics: { bodyType: 'static' }, mesh: { model: id } }])),
+  // A warm glow inside each street lamp's glass head. The visible shell
+  // must not cast, or it would shadow its own light into darkness.
+  lantern: {
+    actor: 'Ground',
+    mesh: { shape: 'sphere', color: '#ffd9a0', emissive: 7, roughness: 1, castShadow: false },
+    light: { type: 'point', color: '#ffc473', intensity: 30, range: 14 }
+  }
+};
+
+// The lamps light from their heads, not from floating balls: the glass
+// centre of street_lamp_01 sits 3.32 m up its (armless) pole.
+const LAMP_HEAD = 3.32;
+const lamp = (x, z, yaw) => {
+  model('street_lamp_01', x, 0, z, yaw);
+  place('lantern', 'lantern', { width: 0.22, height: 0.22, depth: 0.22 }, x, LAMP_HEAD, z);
 };
 
 /** What each model collides as: its bounds, a trunk, or nothing for what a fox walks through. */
@@ -65,6 +80,7 @@ const COLLIDERS = {
   grass_medium_01: 'none', fern_02: 'none', shrub_02: 'none', nettle_plant: 'none', dandelion_01: 'none',
   boulder_01: 'bounds', rock_moss_set_01: 'none', namaqualand_boulder_02: 'bounds',
   street_lamp_01: { shape: 'cylinder', width: 0.3, height: 3.9 }, modular_electricity_poles: { shape: 'cylinder', width: 0.4, height: 7 },
+  lantern: 'none',
   modular_fort_01: 'bounds', wall: 'bounds'
 };
 
@@ -87,7 +103,14 @@ for (let row = 0; row < SIDE; row++) {
     const cx = -HALF + LOT / 2 + col * LOT;
     const cz = -HALF + LOT / 2 + row * LOT;
     const centre = row === (SIDE - 1) / 2 && col === (SIDE - 1) / 2;
-    if (centre) continue;
+    if (centre) {
+      // The yard sits here and keeps its own objects, but its floating
+      // lamp balls are filtered out below, so it gets street lamps too.
+      for (const [sx, sz] of [[-1, -1], [1, 1]]) {
+        lamp(cx + sx * (LOT / 2 - 3), cz + sz * (LOT / 2 - 3), range(0, TURN));
+      }
+      continue;
+    }
     const top = 0;
 
     // Walls on the north and west so lots read as a grid of yards; the
@@ -97,7 +120,7 @@ for (let row = 0; row < SIDE; row++) {
 
     // Street lamps at two corners, a utility box or a hydrant by the wall.
     for (const [sx, sz] of [[-1, -1], [1, 1]]) {
-      model('street_lamp_01', cx + sx * (LOT / 2 - 3), top, cz + sz * (LOT / 2 - 3), range(0, TURN));
+      lamp(cx + sx * (LOT / 2 - 3), cz + sz * (LOT / 2 - 3), range(0, TURN));
     }
     if (chance(0.5)) model(pick(['utility_box_01', 'fire_hydrant']), cx - LOT / 2 + 2.2, top, cz + range(-6, 6), Math.PI / 2);
 
@@ -158,10 +181,14 @@ const scene = {
   layers: [{
     name: 'main',
     objects: [
-      // The yard's ground stretched under the whole lot; the rest of the yard as it is.
-      ...yard.layers[0].objects.map((o) => (o.id === 'floor'
-        ? { ...o, width: SIDE * LOT + 60, depth: SIDE * LOT + 60 }
-        : o))
+      // The yard's ground stretched under the whole lot; the rest of the
+      // yard as it is, minus its floating lamp balls — the lot lights
+      // from its street lamps' heads instead.
+      ...yard.layers[0].objects
+        .filter((o) => o.prefab !== 'lamp')
+        .map((o) => (o.id === 'floor'
+          ? { ...o, width: SIDE * LOT + 60, depth: SIDE * LOT + 60 }
+          : o))
     ],
     props: [...props.values()]
   }]

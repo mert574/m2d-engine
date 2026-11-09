@@ -140,6 +140,8 @@ export class WebGPURenderer extends BaseRenderer {
     this.spotShadowTexture = null;
     this.pointShadowTexture = null;
     this.pointShadowFaces = [];
+    /** Per cube slot, what it holds: the light's key and its casters' hash. */
+    this.pointShadowCache = [];
     this.sunShadowLayers = [];
     this.spotShadowLayers = [];
     /** One 64-byte uniform and bind group per shadow pass, holding its light matrix. */
@@ -525,6 +527,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.sunShadowLayers = layers(this.sunShadowTexture, MAX_CASCADES);
     this.spotShadowLayers = layers(this.spotShadowTexture, MAX_SPOT_SHADOWS);
     this.pointShadowFaces = layers(this.pointShadowTexture, MAX_POINT_SHADOWS * 6);
+    this.pointShadowCache = [];
     this.lightingBindGroup = device.createBindGroup({
       layout: this.lightingBindGroupLayout,
       entries: [
@@ -1471,6 +1474,16 @@ export class WebGPURenderer extends BaseRenderer {
     // Point lights, six faces each. The shader needs no matrices back:
     // every face shares this frustum, so it rebuilds the depth a face
     // wrote from the distance along the direction's dominant axis.
+    //
+    // Two things keep the cost down. The slots are *sticky*: an orbit
+    // camera swings the eye around, which flips the distance ranking of
+    // similar lamps every few frames, and naively re-ranking would hand
+    // the cubes back and forth — each handover a redraw, and each one
+    // visible. An incumbent keeps its cube until a challenger is clearly
+    // closer. And a cube is only *redrawn* when what casts into it could
+    // have changed: the light moved, a casting instance within range
+    // moved, or something skinned is in range. A yard of static lamps
+    // over static crates costs its six passes once, not per frame.
     const points = [];
     if (q.points) {
       const eye = camera.position;
@@ -1480,22 +1493,53 @@ export class WebGPURenderer extends BaseRenderer {
         const p = light.position;
         const d = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z);
         if (d > (light.range ?? 10) + frame.shadow.distance) return;
-        candidates.push({ light, index, d });
+        candidates.push({ light, index, d, key: lightKey(light) });
       });
       candidates.sort((a, b) => a.d - b.d);
-      for (const { light, index } of candidates.slice(0, q.points)) {
-        const cube = points.length;
+
+      // Incumbents first, then the nearest challengers into free slots;
+      // a challenger evicts only when it is at most 0.75x the distance.
+      const slots = new Array(q.points).fill(null);
+      const taken = new Set();
+      this.pointShadowCache.forEach((cached, slot) => {
+        if (slot >= q.points || !cached) return;
+        const incumbent = candidates.find((c) => c.key === cached.key);
+        if (incumbent) { slots[slot] = incumbent; taken.add(incumbent); }
+      });
+      for (const challenger of candidates) {
+        if (taken.has(challenger)) continue;
+        const free = slots.indexOf(null);
+        if (free >= 0) { slots[free] = challenger; taken.add(challenger); continue; }
+        let worst = -1;
+        for (let i = 0; i < slots.length; i++) {
+          if (worst < 0 || slots[i].d > slots[worst].d) worst = i;
+        }
+        if (challenger.d < slots[worst].d * 0.75) {
+          slots[worst] = challenger;
+          taken.add(challenger);
+        }
+      }
+
+      slots.forEach((candidate, cube) => {
+        if (!candidate) return;
+        const { light, index, key } = candidate;
         const p = light.position;
         const range = light.range ?? 10;
-        const projection = mat4.perspective(Math.PI / 2, 1, POINT_SHADOW_NEAR, range);
+        const casters = castersNear(frame, p, range);
+        const cached = this.pointShadowCache[cube]?.key === key ? this.pointShadowCache[cube] : null;
+        let projection = null;
         CUBE_FACES.forEach((face, i) => {
+          const stale = !cached || cached.hashes[i] !== casters.hashes[i] || (casters.dirty & (1 << i));
+          if (!stale) return;
+          projection ??= mat4.perspective(Math.PI / 2, 1, POINT_SHADOW_NEAR, range);
           const view = mat4.lookAt(p, { x: p.x + face.dir[0], y: p.y + face.dir[1], z: p.z + face.dir[2] },
             { x: face.up[0], y: face.up[1], z: face.up[2] });
           passes.push({ view: this.pointShadowFaces[cube * 6 + i], matrix: mat4.multiply(projection, view) });
         });
+        this.pointShadowCache[cube] = { key, hashes: casters.hashes };
         points.push({ index, range });
         frame.lights[index][15] = cube + 1;
-      }
+      });
     }
     return { cascades, spots, points, passes };
   }
@@ -1576,6 +1620,86 @@ const CUBE_FACES = Object.freeze([
   { dir: [0, 0, 1], up: [0, 1, 0] },
   { dir: [0, 0, -1], up: [0, 1, 0] }
 ]);
+
+/** What identifies a light for the shadow-cube cache: where it is and how far it reaches. */
+const lightKey = (light) => {
+  const p = light.position;
+  return `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)},${(light.range ?? 10).toFixed(2)}`;
+};
+
+/** Stable small ids for static batches, so the cache hash can name them. */
+const batchIds = new WeakMap();
+let nextBatchId = 1;
+const batchId = (batch) => {
+  let id = batchIds.get(batch);
+  if (!id) batchIds.set(batch, id = nextBatchId++);
+  return id;
+};
+
+/**
+ * The faces of a light's cube a caster sphere could show in, by testing
+ * it against each face's four diagonal frustum planes (all six faces
+ * share the light as their apex). Conservative: touching counts.
+ * @param {number} x,y,z - Sphere centre relative to the light
+ * @param {number} slack - Sphere radius times sqrt(2), the plane distance scale
+ * @returns {number} A six-bit mask, bit i for `CUBE_FACES[i]`
+ */
+function facesTouched(x, y, z, slack) {
+  let mask = 0;
+  const towards = (a, u, v) => a - u > -slack && a + u > -slack && a - v > -slack && a + v > -slack;
+  if (towards(x, y, z)) mask |= 1;
+  if (towards(-x, y, z)) mask |= 2;
+  if (towards(y, x, z)) mask |= 4;
+  if (towards(-y, x, z)) mask |= 8;
+  if (towards(z, x, y)) mask |= 16;
+  if (towards(-z, x, y)) mask |= 32;
+  return mask;
+}
+
+/**
+ * A fingerprint, per cube face, of everything that could cast into it
+ * and change between frames: every shadow-casting per-frame instance
+ * whose sphere reaches the light (its whole record — a crate that
+ * settles or a door that swings changes its matrix), folded into the
+ * faces that see it. A skinned instance marks its faces dirty outright:
+ * the pose lives in the joint buffer, where no record shows it moving.
+ * Resident batches fold into every face by identity and version — they
+ * are the scenery, and a different scene must not reuse a stale cube.
+ *
+ * @returns {{hashes: Int32Array, dirty: number}} Six hashes and a dirty-face mask
+ */
+function castersNear(frame, position, range) {
+  const hashes = new Int32Array(6);
+  let dirty = 0;
+  const mix = (face, value) => { hashes[face] = Math.imul(hashes[face] ^ value, 2654435761) | 0; };
+  for (const entry of frame.entries()) {
+    if (entry.material?.alphaMode === 'blend') continue;
+    for (const record of entry.instances) {
+      if (record[55] < 0.5) continue;
+      const dx = record[56] - position.x;
+      const dy = record[57] - position.y;
+      const dz = record[58] - position.z;
+      const radius = record[59];
+      const reach = radius + range;
+      if (dx * dx + dy * dy + dz * dz > reach * reach) continue;
+      const mask = facesTouched(dx, dy, dz, radius * Math.SQRT2);
+      if (record[53] > 0.5) dirty |= mask;
+      const bits = new Uint32Array(record.buffer, record.byteOffset, 60);
+      for (let face = 0; face < 6; face++) {
+        if (!(mask & (1 << face))) continue;
+        for (let i = 0; i < 16; i++) mix(face, bits[i]);
+        for (let i = 56; i < 60; i++) mix(face, bits[i]);
+      }
+    }
+    for (const batch of entry.batches) {
+      for (let face = 0; face < 6; face++) {
+        mix(face, batchId(batch));
+        mix(face, batch.version);
+      }
+    }
+  }
+  return { hashes, dirty };
+}
 
 /** Straight (non-premultiplied) alpha over what is already there. */
 const ALPHA_BLEND = Object.freeze({

@@ -457,6 +457,39 @@ describe('props', () => {
     }))).toThrow(/collider/);
   });
 
+  it('carries a prop prefab\'s light at every instance, turned and scaled with it', async () => {
+    const game = new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 1 });
+    game.registerActor('Ground', Ground);
+    const config = new SceneLoader(game).load(level({
+      prefabs: {
+        lantern: {
+          actor: 'Ground',
+          mesh: { color: '#ffd9a0', shape: 'sphere', emissive: 7, castShadow: false },
+          light: { type: 'point', color: '#ffc473', intensity: 30, range: 14, offset: { x: 2, y: 3, z: 0 } }
+        }
+      },
+      layers: [{
+        name: 'main', objects: [],
+        props: [{
+          id: 'lanterns', prefab: 'lantern', width: 0.2, height: 0.2, collider: 'none',
+          instances: [[10, 0, -4, 0, 1], [0, 0, 0, Math.PI / 2, 2]]
+        }]
+      }]
+    }));
+    const { Scene } = await import('../src/core/scene.js');
+    const scene = new Scene(game, config);
+    scene.setupProps();
+    expect(scene.propLights).toHaveLength(2);
+    const [plain, turned] = scene.propLights;
+    expect(plain.intensity).toBe(30);
+    expect(plain.position).toEqual({ x: 12, y: 3, z: -4 });
+    // A quarter turn about y carries the x offset onto -z, and the
+    // double scale doubles the arm.
+    expect(turned.position.x).toBeCloseTo(0, 6);
+    expect(turned.position.y).toBeCloseTo(6, 6);
+    expect(turned.position.z).toBeCloseTo(-4, 6);
+  });
+
   it('builds one resident batch per geometry and material, shapes and model parts alike', async () => {
     const truck = await parseGLB(fixture('BoxTextured'), { decodeImage: fakeDecode });
     const config = loader().load(level({

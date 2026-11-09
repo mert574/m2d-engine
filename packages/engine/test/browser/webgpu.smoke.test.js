@@ -603,6 +603,41 @@ describe('lighting', () => {
     }
   });
 
+  it('keeps a still cube: the six faces draw once, not per frame', async () => {
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    renderer.setShadowQuality('high');
+    const camera = cameraAt(W, H, { x: 0, y: 7, z: 7 });
+    const build = (boxX) => scene(renderer, camera, (f) => {
+      f.shadow.enabled = true;
+      f.add(box(), { position: { x: boxX, y: 0.5, z: 0 }, color: [0.7, 0.7, 0.7] });
+      f.addLight({ position: { x: 0, y: 2, z: 0 }, color: [1, 1, 1], intensity: 40, range: 12 });
+    });
+    renderer.render(build(2));
+    const first = renderer.getStats().drawCalls;
+    renderer.render(build(2));
+    const still = renderer.getStats().drawCalls;
+    // Nothing moved, so no cube face redraws: two groups gone per face,
+    // six faces — and the cascades still redraw, which is the baseline.
+    expect(still, `second frame (${still}) cheaper than the first (${first})`).toBe(first - 6 * 2);
+    renderer.render(build(3));
+    const moved = renderer.getStats().drawCalls;
+    // The box moved: the faces that see it redraw, the others stay.
+    expect(moved, `a moved caster redraws some faces (${moved} vs still ${still})`).toBeGreaterThan(still);
+    expect(moved, 'but not all of them').toBeLessThan(first);
+    // And the cached cube still shadows: the picture equals a fresh one.
+    renderer.render(build(2));
+    renderer.render(build(2));
+    const cachedShot = await readPixels(renderer);
+    renderer.setShadowQuality('medium');
+    renderer.setShadowQuality('high');
+    renderer.render(build(2));
+    const freshShot = await readPixels(renderer);
+    const p = camera.worldToScreen(4.2, 0, 0);
+    expect(cachedShot.at(Math.round(p.x), Math.round(p.y)), 'cached and fresh cubes agree')
+      .toEqual(freshShot.at(Math.round(p.x), Math.round(p.y)));
+  });
+
   it('a shadowed spot light leaves the floor dark behind a box', async () => {
     const W = 96, H = 72;
     const renderer = make(W, H);

@@ -58,7 +58,7 @@
     "lamp": {
       "actor": "Ground",
       "physics": { "bodyType": "static", "shape": "sphere", "isSensor": true },
-      "mesh": { "color": "#ffd58a", "emissive": 6, "roughness": 1 },
+      "mesh": { "color": "#ffd58a", "emissive": 6, "roughness": 1, "castShadow": false },
       "light": { "type": "point", "color": "#ffc473", "intensity": 40, "range": 16 }
     },
     "floodlight": {

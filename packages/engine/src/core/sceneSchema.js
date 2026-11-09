@@ -279,6 +279,7 @@ const MESH = s.object({
   roughness: s.number({ min: 0, max: 1 }),
   emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour' }),
   checker: s.number({ min: 0, unit: 'm', description: 'A two-tone checker of this cell size; 0 for none' }),
+  castShadow: s.boolean({ default: true, description: 'Off for a glowing shell around a light, which would otherwise shadow its own lamp' }),
   animation: s.object({
     clip: s.string({ required: true, description: 'A clip in the model' }),
     loop: s.boolean(),

@@ -38,6 +38,8 @@ export class Scene {
     this.batches = [];
     /** The props' static bodies, removed with the scene. */
     this.propBodies = [];
+    /** Lights the level's props carry, fixed at load; `frame3D` adds them each frame. */
+    this.propLights = [];
     /**
      * Entities placed by the scene file, by their object `id`. Lets one
      * placed object refer to another — the gate a lever opens, the point a
@@ -351,6 +353,23 @@ export class Scene {
     for (const layer of this.config.layers) {
       for (const prop of layer.props ?? []) {
         const prefab = this.config.prefabs[prop.prefab];
+        // A prop may carry a light — a lantern head, a window glow — at
+        // each instance, turned with its yaw and scaled with its size.
+        if (prefab?.light) {
+          const o = prefab.light.offset ?? ZERO;
+          for (const [x, y, z, yaw = 0, scale = 1] of prop.instances) {
+            const cos = Math.cos(yaw);
+            const sin = Math.sin(yaw);
+            this.propLights.push({
+              ...prefab.light,
+              position: {
+                x: x + (o.x * cos + o.z * sin) * scale,
+                y: y + o.y * scale,
+                z: z + (o.z * cos - o.x * sin) * scale
+              }
+            });
+          }
+        }
         if (!prefab?.mesh) continue;
         const mesh = meshFor(prefab.mesh);
         const castShadow = prop.castShadow !== false;
@@ -798,6 +817,7 @@ export class Scene {
 
     if (this.config.type === 'level') {
       for (const batch of this.batches) frame.addBatch(batch);
+      for (const light of this.propLights) frame.addLight(light);
       for (const entity of game.entities) {
         const mesh = entity.mesh;
         if (!mesh || mesh.visible === false || !entity.visible || entity.dead) continue;
@@ -823,6 +843,7 @@ export class Scene {
           roughness: mesh.roughness,
           emissive: mesh.emissive,
           checker: mesh.checker,
+          castShadow: mesh.castShadow,
           previousModel: entity.lastModel ?? undefined
         });
       }
@@ -886,6 +907,7 @@ export class Scene {
         color: WHITE, metallic: 1, roughness: 1,
         emissive: mesh.emissive ?? 0,
         previousModel: previous[i],
+        castShadow: mesh.castShadow,
         skin: skinned ? animator.jointMatrices(part.skin) : undefined,
         previousSkin: skinned ? animator.previousJointMatrices(part.skin) : undefined
       });
