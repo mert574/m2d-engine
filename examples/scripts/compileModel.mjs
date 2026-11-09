@@ -82,7 +82,7 @@ const TEXTURE_CAP = 4096;
  * Bumped when what this script writes changes shape (texture format, LOD
  * layout); `buildModels.mjs` rebuilds every model whose stamp disagrees.
  */
-export const FORMAT = 2;
+export const FORMAT = 3;
 
 /** What kind of thing each source is, which sets its triangle budget. */
 export const KINDS = {
@@ -95,11 +95,40 @@ export const KINDS = {
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 
 /**
+ * What an alpha map actually is, from its own histogram.
+ *
+ * Poly Haven marks every material that has an alpha map `BLEND`,
+ * whether it is a leaf card or a pane of glass. The difference matters
+ * to the renderer: a cut-out wants masking, which is cheap, ordered and
+ * casts a cut-out shadow, while blending a canopy of overlapping leaf
+ * cards accumulates them into a bright haze and casts no shadow at all.
+ * The map says which it is. A cut-out is largely *fully* transparent —
+ * the card around the leaf — where translucency is graded everywhere
+ * and nowhere empty.
+ *
+ * @returns {'OPAQUE'|'MASK'|'BLEND'}
+ */
+function classifyAlpha(data) {
+  let transparent = 0;
+  let opaque = 0;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] < 16) transparent++;
+    else if (data[i] > 239) opaque++;
+  }
+  // Nothing is even partly transparent: the map says nothing at all.
+  if (opaque === data.length) return 'OPAQUE';
+  // A fifth of a leaf card is the leaf; the rest is hole.
+  if (transparent / data.length >= 0.05) return 'MASK';
+  return 'BLEND';
+}
+
+/**
  * Poly Haven's glTF textures are JPEGs, so a masked or blended material
  * arrives with an opaque colour map; its cut-out lives in a separate
  * `*_alpha` (or `*_opacity`) PNG the fetcher puts beside the textures.
  * Fold that into the colour's alpha channel, as PNG, for the encoder to
- * carry into WebP.
+ * carry into KTX2 — and set the alpha mode the map's own histogram
+ * calls for, since the source marks cut-outs and glass alike.
  */
 async function foldAlpha(doc, dir) {
   for (const material of doc.getRoot().listMaterials()) {
@@ -122,6 +151,15 @@ async function foldAlpha(doc, dir) {
     if (colour.info.channels !== 3 || alpha.info.channels !== 1) {
       throw new Error(`${uri}: expected RGB colour and a grey mask, got ${colour.info.channels} and ${alpha.info.channels} channels`);
     }
+    // What the map is, not what the source claimed.
+    const mode = classifyAlpha(alpha.data);
+    if (mode !== material.getAlphaMode()) {
+      console.log(`${material.getName()}: ${material.getAlphaMode()} -> ${mode} (from its alpha map)`);
+      material.setAlphaMode(mode);
+    }
+    if (mode === 'MASK') material.setAlphaCutoff(0.5);
+    // An opaque map carries nothing worth a fourth channel.
+    if (mode === 'OPAQUE') continue;
     const rgba = Buffer.alloc(width * height * 4);
     for (let i = 0, c = 0, a = 0; i < rgba.length; i += 4, c += 3, a++) {
       rgba[i] = colour.data[c]; rgba[i + 1] = colour.data[c + 1]; rgba[i + 2] = colour.data[c + 2]; rgba[i + 3] = alpha.data[a];
