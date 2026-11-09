@@ -61,6 +61,8 @@ export class Frame3D {
      * shadow off.
      */
     this.shadow = { distance: 60, normalOffset: 1.5, bias: 0.03, enabled: true };
+    /** Metres from the camera past which a light is faded out and dropped; see `addLight`. */
+    this.lightDistance = 120;
     /**
      * Post-processing, as the scene wants it. The player's `r_*` settings
      * decide which stages run at all; these are the strengths. `dof` is a
@@ -192,6 +194,14 @@ export class Frame3D {
 
   /**
    * A point or spot light.
+   *
+   * Lights fade with distance from the camera and are dropped beyond
+   * `frame.lightDistance`: four hundred street lamps cannot all shade
+   * every pixel, and the far clusters — whose boxes stand over dozens of
+   * them at once — would overflow and drop lamps arbitrarily instead.
+   * The fade starts at 80% of the distance, so a lamp dims out rather
+   * than popping off; its emissive glow stays visible past it.
+   *
    * @param {object} light
    * @param {'point'|'spot'} [light.type='point']
    * @param {{x,y,z}} light.position
@@ -205,11 +215,19 @@ export class Frame3D {
    */
   addLight(light) {
     if (this.lights.length >= MAX_LIGHTS) return;
-    const data = new Float32Array(LIGHT_FLOATS);
     const p = light.position;
+    let fade = 1;
+    const eye = this.camera.position;
+    if (eye) {
+      const d = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z) - (light.range ?? 10);
+      const limit = this.lightDistance;
+      if (d >= limit) return;
+      if (d > limit * 0.8) fade = 1 - (d - limit * 0.8) / (limit * 0.2);
+    }
+    const data = new Float32Array(LIGHT_FLOATS);
     data[0] = p.x; data[1] = p.y; data[2] = p.z; data[3] = light.range ?? 10;
     const c = light.color ?? WHITE;
-    data[4] = c[0]; data[5] = c[1]; data[6] = c[2]; data[7] = light.intensity ?? 10;
+    data[4] = c[0]; data[5] = c[1]; data[6] = c[2]; data[7] = (light.intensity ?? 10) * fade;
     const spot = light.type === 'spot';
     const d = light.direction ?? DOWN;
     const len = Math.hypot(d.x, d.y, d.z) || 1;

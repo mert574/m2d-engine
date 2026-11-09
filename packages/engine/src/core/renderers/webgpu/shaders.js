@@ -46,11 +46,13 @@ export const CLUSTER_Z = 24;
 export const CLUSTER_COUNT = CLUSTER_X * CLUSTER_Y * CLUSTER_Z;
 
 /**
- * Lights one cluster may hold. Past this the cluster keeps the first it
- * found and drops the rest — a cluster lit by more than 32 lights at
- * once is a scene problem, not a renderer one.
+ * Lights one cluster may hold; past it the cluster keeps the first it
+ * found and drops the rest. The far depth slices are large — at 100 m a
+ * cluster's box, inflated by every light's range, can stand over dozens
+ * of the lot's lamps — so this is sized for them, and `Frame3D`'s light
+ * distance fade is what keeps the count under it.
  */
-export const CLUSTER_CAPACITY = 32;
+export const CLUSTER_CAPACITY = 64;
 
 /** Floats in the frame uniform, in the order `Frame` declares them. */
 export const FRAME_UNIFORM_FLOATS = 16 * 3 + 16 * MAX_CASCADES + 16 * MAX_SPOT_SHADOWS + 4 * 12 + 4 * 8 + 4 * 2 + 16;

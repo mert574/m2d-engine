@@ -617,8 +617,27 @@ describe('lights', () => {
     expect([...spot.slice(8, 12)]).toEqual([0, -1, 0, 1]);
     expect(spot[12]).toBeCloseTo(Math.cos(0.2), 6);
     expect(spot[13]).toBeCloseTo(Math.cos(0.4), 6);
-    for (let i = 0; i < MAX_LIGHTS + 5; i++) frame.addLight({ position: { x: i, y: 0, z: 0 } });
+    for (let i = 0; i < MAX_LIGHTS + 5; i++) frame.addLight({ position: { x: (i % 50) - 25, y: 0, z: 0 } });
     expect(frame.lights).toHaveLength(MAX_LIGHTS);
+  });
+
+  it('fades a light out with distance and drops it past the limit', () => {
+    const frame = new Frame3D();
+    // The default camera sits at the origin; lightDistance is 120 m.
+    const near = frame.lights.length;
+    frame.addLight({ position: { x: 50, y: 0, z: 0 }, intensity: 10, range: 10 });
+    expect(frame.lights[near][7]).toBe(10);
+    // Inside the fade band (effective distance 106 of 120): dimmed.
+    frame.addLight({ position: { x: 116, y: 0, z: 0 }, intensity: 10, range: 10 });
+    const faded = frame.lights[near + 1][7];
+    expect(faded).toBeGreaterThan(0);
+    expect(faded).toBeLessThan(10);
+    // Past the limit: dropped entirely, before the buffer ever sees it.
+    frame.addLight({ position: { x: 200, y: 0, z: 0 }, intensity: 10, range: 10 });
+    expect(frame.lights).toHaveLength(near + 2);
+    // The range counts toward reach: a big light stays from further away.
+    frame.addLight({ position: { x: 200, y: 0, z: 0 }, intensity: 10, range: 90 });
+    expect(frame.lights).toHaveLength(near + 3);
   });
 
   it('a prefab\'s light block reaches the entity in linear light and follows its body into the frame', async () => {

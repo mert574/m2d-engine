@@ -81,8 +81,11 @@ const HDR_FORMAT = 'rgba16float';
  */
 export const SHADOW_QUALITY = Object.freeze({
   off: { cascades: 0, sunSize: 1, spots: 0, spotSize: 1, points: 0, pointSize: 1 },
-  low: { cascades: 2, sunSize: 1024, spots: 1, spotSize: 512, points: 0, pointSize: 256 },
-  medium: { cascades: 3, sunSize: 2048, spots: 2, spotSize: 1024, points: 1, pointSize: 512 },
+  low: { cascades: 2, sunSize: 1024, spots: 1, spotSize: 512, points: 0, pointSize: 128 },
+  // A shadow cube's faces track the spot maps at half their size on
+  // high and a quarter below, as the owner asked: six faces a light is
+  // where the memory and the fill go.
+  medium: { cascades: 3, sunSize: 2048, spots: 2, spotSize: 1024, points: 1, pointSize: 256 },
   high: { cascades: 4, sunSize: 2048, spots: 4, spotSize: 1024, points: 2, pointSize: 512 }
 });
 
@@ -1633,9 +1636,7 @@ export class WebGPURenderer extends BaseRenderer {
           const stale = !cached || cached.hashes[i] !== casters.hashes[i] || (casters.dirty & (1 << i));
           if (!stale) return;
           projection ??= mat4.perspective(Math.PI / 2, 1, POINT_SHADOW_NEAR, range);
-          const view = mat4.lookAt(p, { x: p.x + face.dir[0], y: p.y + face.dir[1], z: p.z + face.dir[2] },
-            { x: face.up[0], y: face.up[1], z: face.up[2] });
-          passes.push({ view: this.pointShadowFaces[cube * 6 + i], matrix: mat4.multiply(projection, view) });
+          passes.push({ view: this.pointShadowFaces[cube * 6 + i], matrix: mat4.multiply(projection, cubeFaceView(face, p)) });
         });
         this.pointShadowCache[cube] = { key, hashes: casters.hashes };
         points.push({ index, range });
@@ -1703,24 +1704,42 @@ const MAIN_TARGETS = Object.freeze([
 ]);
 
 /**
- * The six faces of a shadow cube, in the order a cube texture's layers
- * take them: +x, -x, +y, -y, +z, -z.
+ * The six faces of a shadow cube, in layer order: +x, -x, +y, -y, +z,
+ * -z, each as the full view basis (right, up, forward) the sampler
+ * demands — derived from the cube-map sampling equations with WebGPU's
+ * top-left framebuffer origin, not taken from a table written for
+ * OpenGL's bottom-left one.
  *
- * The up vectors are the usual cube-map ones with their sign flipped.
- * The textbook set is written for OpenGL, whose framebuffer origin is
- * at the bottom; WebGPU's is at the top, so a face drawn with the
- * textbook up lands mirrored vertically against the direction the
- * hardware samples it by — and reads as no shadow at all, since the
- * half of the face the lookup lands in is the empty half.
+ * Every one of these bases is LEFT-handed (right x up = +forward): a
+ * cube map is sampled from inside looking out, so a face rendered with
+ * an ordinary right-handed lookAt comes out mirrored in exactly one
+ * axis. Which axis depends on the up chosen, which is why a wrong set
+ * can pass a test that only probes along the face's own axes — a
+ * left-right mirror maps an on-axis shadow onto itself and shows up
+ * only off-axis, as a shadow on the wrong side of the lamp. The view
+ * matrices are built from these bases directly; `mat4.lookAt` cannot
+ * produce them, and the winding flip they cause is harmless because the
+ * shadow pipeline culls nothing.
  */
 const CUBE_FACES = Object.freeze([
-  { dir: [1, 0, 0], up: [0, 1, 0] },
-  { dir: [-1, 0, 0], up: [0, 1, 0] },
-  { dir: [0, 1, 0], up: [0, 0, -1] },
-  { dir: [0, -1, 0], up: [0, 0, 1] },
-  { dir: [0, 0, 1], up: [0, 1, 0] },
-  { dir: [0, 0, -1], up: [0, 1, 0] }
+  { f: [1, 0, 0], r: [0, 0, -1], u: [0, 1, 0] },
+  { f: [-1, 0, 0], r: [0, 0, 1], u: [0, 1, 0] },
+  { f: [0, 1, 0], r: [1, 0, 0], u: [0, 0, -1] },
+  { f: [0, -1, 0], r: [1, 0, 0], u: [0, 0, 1] },
+  { f: [0, 0, 1], r: [1, 0, 0], u: [0, 1, 0] },
+  { f: [0, 0, -1], r: [-1, 0, 0], u: [0, 1, 0] }
 ]);
+
+/** The world-to-view matrix for a cube face at `eye`, from its basis. */
+function cubeFaceView({ f, r, u }, eye) {
+  const dot = (a) => a[0] * eye.x + a[1] * eye.y + a[2] * eye.z;
+  return new Float32Array([
+    r[0], u[0], -f[0], 0,
+    r[1], u[1], -f[1], 0,
+    r[2], u[2], -f[2], 0,
+    -dot(r), -dot(u), dot(f), 1
+  ]);
+}
 
 /** What identifies a light for the shadow-cube cache: where it is and how far it reaches. */
 const lightKey = (light) => {

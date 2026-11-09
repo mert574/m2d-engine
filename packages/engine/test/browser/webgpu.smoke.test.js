@@ -578,11 +578,15 @@ describe('lighting', () => {
       const p = camera.worldToScreen(x, y, z);
       return pixels.at(Math.round(p.x), Math.round(p.y));
     };
+    // Each box sits OFF the face's own axis: a face mirrored left-right
+    // maps an on-axis shadow onto itself and passes, but it throws an
+    // off-axis one to the other side of the lamp — which is also the
+    // check that it does not: the mirror spot must stay lit.
     const sides = [
-      { name: '+x', box: { x: 2, z: 0 }, shadow: { x: 4.2, z: 0 } },
-      { name: '-x', box: { x: -2, z: 0 }, shadow: { x: -4.2, z: 0 } },
-      { name: '+z', box: { x: 0, z: 2 }, shadow: { x: 0, z: 4.2 } },
-      { name: '-z', box: { x: 0, z: -2 }, shadow: { x: 0, z: -4.2 } }
+      { name: '+x', box: { x: 2, z: 0.9 }, shadow: { x: 4.2, z: 1.9 }, mirror: { x: 4.2, z: -1.9 } },
+      { name: '-x', box: { x: -2, z: 0.9 }, shadow: { x: -4.2, z: 1.9 }, mirror: { x: -4.2, z: -1.9 } },
+      { name: '+z', box: { x: 0.9, z: 2 }, shadow: { x: 1.9, z: 4.2 }, mirror: { x: -1.9, z: 4.2 } },
+      { name: '-z', box: { x: 0.9, z: -2 }, shadow: { x: 1.9, z: -4.2 }, mirror: { x: -1.9, z: -4.2 } }
     ];
     for (const side of sides) {
       const build = (shadow) => (f) => {
@@ -593,14 +597,36 @@ describe('lighting', () => {
       renderer.render(scene(renderer, camera, build(true)));
       const withShadow = await readPixels(renderer);
       const shadowed = at(withShadow, side.shadow.x, 0, side.shadow.z);
+      const mirrored = at(withShadow, side.mirror.x, 0, side.mirror.z);
       renderer.render(scene(renderer, camera, build(false)));
-      const lit = at(await readPixels(renderer), side.shadow.x, 0, side.shadow.z);
+      const unshadowed = await readPixels(renderer);
+      const lit = at(unshadowed, side.shadow.x, 0, side.shadow.z);
+      const mirrorLit = at(unshadowed, side.mirror.x, 0, side.mirror.z);
       expect(luma(shadowed), `${side.name}: floor beyond the box is shadowed (${shadowed}) vs unshadowed (${lit})`)
         .toBeLessThan(luma(lit) * 0.8);
+      expect(luma(mirrored), `${side.name}: the mirror spot stays lit (${mirrored} vs ${mirrorLit})`)
+        .toBeGreaterThan(luma(mirrorLit) * 0.85);
       // And the floor between the lamp and the box still catches light.
       const near = at(withShadow, side.box.x * 0.3, 0, side.box.z * 0.3);
       expect(luma(near), `${side.name}: between lamp and box stays lit (${near})`).toBeGreaterThan(luma(shadowed));
     }
+    // A box below the lamp's height but off to a side, seen by the down
+    // face: its shadow lands outward past it, not reflected through the
+    // lamp — the same mirror check for the vertical faces.
+    const build = (shadow) => (f) => {
+      f.shadow.enabled = true;
+      f.add(box(), { position: { x: 1.2, y: 0.35, z: 0 }, scale: 0.7, color: [0.7, 0.7, 0.7] });
+      f.addLight({ position: { x: 0, y: 2.4, z: 0 }, color: [1, 1, 1], intensity: 60, range: 14, shadow });
+    };
+    renderer.render(scene(renderer, camera, build(true)));
+    const below = await readPixels(renderer);
+    renderer.render(scene(renderer, camera, build(false)));
+    const bare = await readPixels(renderer);
+    const out = [at(below, 2.1, 0, 0), at(bare, 2.1, 0, 0)];
+    const reflected = [at(below, -2.1, 0, 0), at(bare, -2.1, 0, 0)];
+    expect(luma(out[0]), `-y face: shadow falls outward (${out[0]} vs ${out[1]})`).toBeLessThan(luma(out[1]) * 0.8);
+    expect(luma(reflected[0]), `-y face: not reflected across the lamp (${reflected[0]} vs ${reflected[1]})`)
+      .toBeGreaterThan(luma(reflected[1]) * 0.85);
   });
 
   it('keeps a still cube: the six faces draw once, not per frame', async () => {

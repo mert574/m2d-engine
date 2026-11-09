@@ -59,7 +59,9 @@ const prefabs = {
   lantern: {
     actor: 'Ground',
     mesh: { shape: 'sphere', color: '#ffd9a0', emissive: 7, roughness: 1, castShadow: false },
-    light: { type: 'point', color: '#ffc473', intensity: 30, range: 14 }
+    // Sized to the lot: 26 m across, so a corner lamp's light still
+    // reads at its middle and the two together carry the whole yard.
+    light: { type: 'point', color: '#ffc473', intensity: 70, range: 24 }
   }
 };
 
