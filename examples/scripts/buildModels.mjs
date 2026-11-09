@@ -30,7 +30,8 @@ const args = process.argv.slice(2);
 const missingOnly = args.includes('--missing');
 const downloadOnly = args.includes('--download-only');
 const jobsArg = args.indexOf('--jobs');
-const ids = args.filter((a, i) => !a.startsWith('--') && i !== jobsArg + 1);
+// The value after `--jobs` is a number, not an id; without `--jobs` there is no such value.
+const ids = args.filter((a, i) => !a.startsWith('--') && (jobsArg < 0 || i !== jobsArg + 1));
 
 /** Downloads in flight at once: the CDN is the limit, two saturates it. */
 const DOWNLOADS = 2;

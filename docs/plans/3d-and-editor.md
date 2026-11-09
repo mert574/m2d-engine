@@ -239,8 +239,12 @@ was `UP` in `rapier3dBackend.js`, its ground-normal checks, and the 3D
 tests; plus one shared place, `Entity.groundBody`, which now asks
 `world.up` instead of assuming an axis. **Landed in B8.**
 
-**3. Length unit: metres in 3D now, and 2D migrates to metres too.**
-Decided Nov 2026: the owner wants one unit across both dimensions if
+**3. Length unit: metres in 3D; 2D stays in pixels.** *Reversed 9 Nov
+2026, after trying it — see "U1, attempted and dropped" below. The
+original reasoning is kept as written, because it was sound and only
+the cost estimate was wrong.*
+
+~~Decided Nov 2026:~~ the owner wants one unit across both dimensions if
 possible, and it is. The 2D engine is *already* metres inside the solver
 — `LENGTH_UNIT = 100` in `rapierShared.js` means 100 px = 1 m, and every
 tuning constant is written in px and divided down. What the author sees
@@ -263,6 +267,13 @@ U1, sequenced after R1** so that 3D's metre handling exists as the
 second consumer before the shared pieces (schema units, constraint
 params, replication rounding) are generalised — the B1/B6 rule again. 3D
 is metres from B8 regardless.
+
+**What holds instead.** 3D is metres, 2D is pixels, and the one place
+that knows both exist is documentation — the same split this section
+settled for the up axis, for the same reason. `LENGTH_UNIT = 100` in
+`rapierShared.js` stays: the 2D solver is told its unit is a hundredth
+of a metre, so its tolerances are right while authors keep writing
+pixels.
 
 ### How the 3D renderer differs from the 2D contract
 
@@ -294,7 +305,7 @@ decided when the phase starts, against the code that exists then.
 | --- | --- | --- |
 | **B8** — Axis and units | 3D is y-up, metre-scale | **Done, Nov 2026.** `rapier3dBackend.js` is +y up with its own metre-scale tuning (`LENGTH_UNIT` 1, density 1000 kg/m³, 1 cm character offset, 2 cm contact pad, 10 cm snap) and Earth gravity by default. Both worlds expose `up`, and `Entity.groundBody` asks it instead of assuming an axis — the one piece of shared code that cared. 52 3D tests in metres, including a jump test that pins the y-up grounded check. The docs' units tables say which unit belongs to which dimension. Found along the way: a contact pad equal to the character offset leaves a resting character's floor outside the pad by a float32 rounding, so the pad is twice the offset, as it already was in 2D |
 | **N1** — Replicate a 3D transform | `net/replication.js` packs `[x, y, z, qx, qy, qz, qw, vx, vy, vz]` with metre-tuned rounding | **Done, Nov 2026.** The packer and the apply path follow `game.physics.dimensions`; spawns carry `z` and `d`. The server worker loads the solver the match's `game.dimensions` asks for. `test/replication3d.test.js` (in-memory) and `packages/server/test/server3d.test.js` (a real worker and two real sockets) have replicas agree with the server on position, quaternion and velocity. Two questions answered: the wire format needs **no version field**, since both ends agree on the dimension before any state flows; and the rounding constants depend on the **unit, not the dimension** — 3D rounds to the same 0.1 mm and 1 mm/s that 2D's 1/100 px and 1/10 px/s are. One wrinkle: `-0` is folded to `0` in the packer so a server value and its replica compare equal |
-| **U1** — One unit | 2D authors work in metres too | **Engine done, demos open** — see R6 slice 4, and the `wip/u1-metres` branch. `pixelsPerUnit` on sprite sheets (default 100); scene schema units say `m`; the 2D camera and the perspective-kit projections convert px↔m in one place; constraint `static params` carry `m`/`m/s`; replication rounding is metre-based for both dimensions; every demo scene and its gameplay constants are converted; the physics and scene docs say metres everywhere. The determinism test still passes bit-for-bit after conversion of its scenes. **After R1, before the editor** — independent of the renderer phases |
+| **U1** — One unit | 2D authors work in metres too | **Dropped, 9 Nov 2026**, by the owner, after it was attempted and measured — see "U1, attempted and dropped". What it would have been: `pixelsPerUnit` on sprite sheets (default 100); scene schema units say `m`; the 2D camera and the perspective-kit projections convert px↔m in one place; constraint `static params` carry `m`/`m/s`; replication rounding is metre-based for both dimensions; every demo scene and its gameplay constants are converted; the physics and scene docs say metres everywhere. The determinism test still passes bit-for-bit after conversion of its scenes. The engine half of all that was built and green; the demos were what stopped it |
 | **R0** — First light | WebGPU proven in the engine and the test harness | **Done, Nov 2026.** `renderers/webgpuRenderer.js` (retained; `render(frame)`; `dimensions = 3`), `webgpu/device.js` (`initWebGPU()` awaited before `M2D`, like `initPhysics`), `webgpu/shaders.js` (one vertex-coloured mesh pipeline under a directional light, depth-tested). `M2D` defaults a 3D game to `webgpu`, refuses a renderer whose dimension disagrees with the physics, and in 3D calls `renderer.render(scene.frame3D())` instead of the 2D world pass; a scene fills the frame in `onRender(frame, dt)`. The HUD draws through a WebGL2 backend on an overlay canvas the renderer owns, so `game.uiRenderer` and the UI layer are unchanged. `test/browser/webgpu.smoke.test.js`: device, lit triangle, shading by the light, overlay, the engine loop, the dimension checks. **The WebGL2 fallback is not needed.** Two harness findings worth keeping: with only the ANGLE/SwiftShader flags the WebGPU instance is torn down on first use, and `--enable-features=Vulkan --use-vulkan=swiftshader` fixes it with WebGL2 intact; and a 2D-canvas snapshot of a WebGPU canvas reads back empty on SwiftShader, so the renderer has a GPU-side `readPixels()` for tests, same-task as the draw |
 | **R1** — Meshes on screen | A 3D level you can walk around in | **Done, Nov 2026.** glTF 2.0 `.glb` reading (`core/gltf.js`: meshes, node transforms, metallic-roughness materials, base/MR/emissive textures) with a `model` asset type in the manifest and `assets.models` in a scene; a prefab's `mesh.model` with `scale` and `offset`; GPU textures with generated mipmaps, sRGB where the data is colour; one material bind group per glTF material; frustum culling by bounding sphere, separately for the main and shadow passes. The yard has the Cesium milk truck. *Earlier, the primitive half:* `Camera3D` (`orbit`/`free`, `screenToRay`, `screenToWorld`, `worldToScreen`) is `game.camera` in 3D; `Frame3D` groups instances by geometry and the renderer draws one instanced indexed draw per geometry from a cached upload; `geometry/primitives.js` builds box, sphere, cylinder, capsule and plane; a prefab's `mesh` block (shape, CSS colour to linear, metallic, roughness, emissive, checker) reaches the entity and the frame; a 2048 shadow map with 3x3 PCF, hemisphere ambient, Cook-Torrance GGX, fog, ACES, 4x MSAA and a procedural sky. **The demo exists**: `examples/src/yard`, orbit camera, WASD hero. Learned: the entity's presentation half fit as one `entity.mesh` record read by `Scene.frame3D`, no subclass needed; and the first shaded picture wanted the sky, fog and tonemapping *before* it wanted models, so R2's "HDR and tonemapper" is already here and R2 is materials and lights |
 | **R2** — PBR and lights | Materials look like materials | **Mostly done, Nov 2026.** Image-based lighting from the renderer's own sky, baked to a cubemap when the sky changes, GGX-prefiltered into six roughness mips and cosine-convolved for diffuse, with a split-sum BRDF LUT (`webgpu/environment.js`); point and spot lights with inverse-square falloff windowed to a range, up to 256 a frame in a storage buffer, looped in the fragment shader; a prefab `light` block that follows its body; an HDR `rgba16float` pipeline with bloom (threshold, 13-tap down, tent up) and an ACES composite (`webgpu/post.js`); sRGB-correct textures since R1. The yard has lamps, a floodlight, a mirror sphere and a dusk toggle. *R2's leftovers are closed:* normal and occlusion maps landed in R6 slice 2, clustered light culling and the HDR environment asset on 9 Nov 2026. The environment is `core/hdr.js` — a Radiance RGBE decoder to half floats, clamped to the same 16384 every HDR pass is, since one infinity in a panorama spreads through every prefiltered mip — an `environments` block in a scene's assets, and `frame.environment`. It needed no new bake: `skyColor` is the one function the background and the cube bake share, so sampling the panorama there makes the camera and the lighting agree by construction, and the bake passes its cube mip down as a panorama LOD so the small mips do not alias. Checked against three.js's RGBELoader on a real 1024x512 Poly Haven sky: 1.57M samples, mean relative difference 1.6e-3, the only disagreement past 2.5% being the twelve sun-disc samples this clamps on purpose. The 0.4% that remains is Radiance's own `colr_color` convention — a byte names a bucket and the value is its centre — which three approximates differently. *Not wired into a demo:* the yard's whole look is the afternoon-to-dusk procedural sky, which a fixed panorama cannot move, so lighting it with one is the owner's call and not a default. `scripts/buildModels.mjs <hdri-id>` fetches one when wanted. *Not planned:* a Khronos-viewer pixel match; the reference viewer's own look is a target, not a test |
@@ -655,28 +666,62 @@ survived this check. `presentation3d.placeLight` is the one place a
 light block is placed in the world, used by both the entity path and the
 prop path, so the next thing a prop forgets cannot be the offset maths.
 
-**Open, and sized. U1 (one unit) is not done.** The engine half is
-written and green — physics in metres (`LENGTH_UNIT` 1, the tuning
-constants converted, density scaled so masses are unchanged), one
-`pixelsPerMetre` on the camera inside `matrix.viewMatrix` as the single
-world-to-screen conversion, schema units in metres, `pixelsPerUnit` on
-sprite sheets, metre-based replication rounding for both dimensions, and
-the whole engine suite converted and passing. The demo half is not, and
-it is bigger than the plan's one line ("every demo scene is divided by
-100") suggests. The scene *files* convert mechanically and verifiably —
-each generated scene was regenerated from its converted build script and
-diffed against the old output scaled, and matched. The demos' *drawing
-code* does not: 1,011 lines across 40 files of hand-drawn vector art
-(`streetScenery.js` alone has 103) where each literal has to be judged a
-length or not, and where a mechanical pass provably goes wrong — it
-converts `height: 26` and leaves the `y: top - 26` beside it, mixing
-scales inside one expression. It also cannot be checked by the suite:
-the example tests pass with the demos half-converted. This is a
-playtest-gated pass, and it is atomic with the engine half, because a
-pixel-scale world no longer simulates correctly against a metre solver
-(Rapier clamps a 1000 m/s² gravity to about 400). The work is preserved
-on the `wip/u1-metres` branch — engine, tests and scene files complete —
-so finishing it is the demo pass and a run through all twelve games.
+**U1, attempted and dropped. 9 Nov 2026.** The owner called it off after
+seeing what it cost: *"it's quite clear that the conversion idea was
+stupid."* Reverted whole — the engine is pixels again and 3D is
+unaffected. Recorded here because the next person will have the same
+good idea.
+
+*What was built, and worked.* The engine half is mechanical and it
+passed: physics in metres (`LENGTH_UNIT` 1, the tuning constants
+divided, density scaled so every mass stayed the number it was), one
+`pixelsPerMetre` inside `matrix.viewMatrix` as the single world-to-screen
+conversion, schema units, `pixelsPerUnit` on sprite sheets, metre-based
+replication rounding for both dimensions, and the whole engine suite
+converted and green. The demo *scene files* converted verifiably: each
+generated scene was rebuilt from its converted build script and diffed
+against the old output scaled by a hundredth, and matched exactly.
+
+*What killed it.* Three things, in order of discovery.
+
+1. The demos' **drawing code** is not data. 1,011 lines across 40 files
+   of hand-authored vector art (`streetScenery.js` alone has 103), where
+   every literal is a judgement — a length, or a count, or an alpha. A
+   mechanical pass provably half-converts: it rewrites `height: 26` and
+   leaves the `y: top - 26` beside it, mixing scales inside one
+   expression. Nothing in the suite catches it; the example tests pass
+   with a demo half-converted.
+2. It is **atomic**. A pixel-scale world does not simulate correctly
+   against a metre solver — Rapier clamps a 1000 m/s² gravity to about
+   400 — so engine and demos cannot land separately, and there is no
+   half-way state to ship.
+3. Worst, and unforeseen: the conversion flushed out **engine paths that
+   silently assumed one world unit was one texture pixel and one device
+   pixel**. Tile layers sized tiles by the frame's pixel width; a tiled
+   sprite did the same; a stroke given no width got `1`, a whole metre of
+   paint; arcs chose their segment count from the world radius, so a
+   0.4 m circle came out a nineteen-gon. Each needed its own fix, and
+   each fix changes what every existing 2D game draws. Finding them took
+   a baseline dev server and per-demo screenshot comparison, because no
+   test could see them — and two demos in, more were still appearing.
+
+*The lesson, which is not "units are hard".* The cost was never the
+arithmetic; it was that the scale lived in **two places the plan did not
+count**: hand-authored drawing code, and engine defaults written when
+one unit was one pixel. The plan's line — "every demo scene is divided
+by 100, mechanical, large" — was true of the scenes and false of
+everything around them. Before any change that redefines a unit the
+whole codebase is written in, the question to answer first is not "how
+many files" but "how many places assume the old unit without saying
+so", and the way to find out is to convert one demo end to end and look
+at it, which is an afternoon rather than a week.
+
+*What survives.* Nothing in the tree. The work is on the
+`wip/u1-metres` branch if the record is ever wanted. The four engine
+pixel-assumptions above are real latent bugs under camera zoom, and
+could be fixed on their own terms — a stroke width and an arc
+tessellation that follow the camera's scale — but they are not worth
+touching without a reason, and they are not U1.
 
 ### Beyond R6: the realism roadmap
 
