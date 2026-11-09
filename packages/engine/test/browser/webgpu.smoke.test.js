@@ -440,6 +440,73 @@ describe('lighting', () => {
     expect(nearLit[0]).toBeGreaterThan(nearLit[2]);
   });
 
+  it('a BLEND pane shows what is behind it, and does not cast its shadow', async () => {
+    const W = 128, H = 96;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 1.2, z: 6 });
+    // A green pane standing between the camera and a red cube at the
+    // origin; the pane at z 2.5, square on to the eye.
+    const pane = (alpha) => (f) => {
+      f.add(box(), { position: { x: 0, y: 0.5, z: 0 }, color: [0.9, 0.05, 0.05], roughness: 0.5 });
+      if (alpha === null) return;
+      f.add(box(), {
+        position: { x: 0, y: 1, z: 2.5 },
+        scale: { x: 2.4, y: 2, z: 0.05 },
+        color: [0.1, 0.9, 0.1],
+        roughness: 0.4,
+        material: { alphaMode: 'blend', baseColor: [1, 1, 1, alpha], doubleSided: true }
+      });
+    };
+    const through = camera.worldToScreen(0, 0.5, 0);
+    const px = Math.round(through.x);
+    const py = Math.round(through.y);
+
+    renderer.render(scene(renderer, camera, pane(0.35)));
+    const glassy = (await readPixels(renderer)).at(px, py);
+    renderer.render(scene(renderer, camera, pane(1)));
+    const solid = (await readPixels(renderer)).at(px, py);
+    renderer.render(scene(renderer, camera, pane(null)));
+    const bare = (await readPixels(renderer)).at(px, py);
+
+    expect(bare[0], `the bare cube is red: ${bare}`).toBeGreaterThan(bare[1] + 25);
+    // The whole of transparency, in three comparisons. Red the opaque
+    // pane blocks comes through the thin one...
+    expect(glassy[0], `red through the glass ${glassy} vs the opaque pane ${solid}`).toBeGreaterThan(solid[0] + 15);
+    // ...the pane tints what is behind it toward its own green...
+    expect(glassy[1], `green tint over the cube: ${glassy} vs bare ${bare}`).toBeGreaterThan(bare[1] + 15);
+    // ...and it dims the red it covers rather than leaving it untouched.
+    expect(glassy[0], `the glass dims the cube: ${glassy} vs ${bare}`).toBeLessThan(bare[0]);
+  });
+
+  it('a BLEND pane leaves no shadow, where a MASK one still cuts its own', async () => {
+    const W = 128, H = 96;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 8, z: 5 });
+    // A pane flat above the floor, lit from almost overhead, so whatever
+    // shadow it casts lands on the floor just beside the origin.
+    const slab = (alphaMode) => (f) => {
+      f.sun = { direction: [0.05, -1, 0.05], color: [1, 1, 1], intensity: 3 };
+      f.shadow.enabled = true;
+      f.shadow.distance = 30;
+      f.add(box(), {
+        position: { x: 3, y: 2, z: 0 },
+        scale: { x: 2, y: 0.05, z: 2 },
+        color: [0.8, 0.8, 0.8],
+        material: { alphaMode, baseColor: [1, 1, 1, 0.4], doubleSided: true }
+      });
+    };
+    const under = camera.worldToScreen(3.3, 0, 0.3);
+    const ux = Math.round(under.x);
+    const uy = Math.round(under.y);
+    renderer.render(scene(renderer, camera, slab('blend')));
+    const blended = (await readPixels(renderer)).at(ux, uy);
+    renderer.render(scene(renderer, camera, slab('opaque')));
+    const opaque = (await readPixels(renderer)).at(ux, uy);
+    // The opaque slab darkens the floor under it; the blended one does
+    // not, because glass casting its whole pane as shadow is the bug.
+    expect(luma(opaque), `opaque slab shadows the floor: ${opaque}`).toBeLessThan(luma(blended) * 0.85);
+  });
+
   it('clusters lights by tile and by depth: each one lights its own patch', async () => {
     // Three short-range lights far apart along x, in primary colours. A
     // fragment shades from its own cluster's list, so getting the tile

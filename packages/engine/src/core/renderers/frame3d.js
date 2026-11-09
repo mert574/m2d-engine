@@ -258,8 +258,12 @@ export function writeInstance(data, offset, geometry, instance) {
   data[offset + 35] = instance.checker ?? 0;
   data.set(instance.previousModel ?? model, offset + 36);
   // skin: x first joint, y skinned, z unused, w casts a shadow.
+  // A BLEND surface does not: the shadow pass has no blending, so glass
+  // would cast the opaque shadow of its whole pane. A MASK surface still
+  // casts, cut out at its cutoff — that is what foliage wants.
   data[offset + 52] = 0; data[offset + 53] = 0; data[offset + 54] = 0;
-  data[offset + 55] = instance.castShadow === false ? 0 : 1;
+  const blended = instance.material?.alphaMode === 'blend';
+  data[offset + 55] = (instance.castShadow === false || blended) ? 0 : 1;
 
   // The geometry's bounding sphere carried through the model matrix.
   // A skinned mesh moves well outside its bind pose; give the sphere room.

@@ -473,7 +473,28 @@ nothing) to the best of ASTC/BC7/ETC2/RGBA8 the device granted;
 registry the renderer fills — headless stays decoder-free and skips
 images as before. A `.format` stamp in the models directory makes
 `buildModels.mjs --missing` rebuild the WebP-era set once. *Still open
-in this slice:* streaming by distance and the transparency pass.
+in this slice:* streaming by distance.
+
+*The transparency pass landed 9 Nov 2026.* A BLEND material no longer
+alpha-tests at its cutoff; it draws in a second walk of the camera's
+groups at the end of the main pass, alpha-blended, depth-tested but not
+depth-written. It rides inside the main pass rather than after the
+resolve, because the main pass is MSAA and discards its depth: a
+post-resolve pass would need a resolved depth buffer that does not
+exist. The two light targets blend and the normal-depth and velocity
+are write-masked off, which keeps the resolve exact through the blend —
+the occlusion is one value at the pixel and multiplies out of both
+sides — at the cost of the geometry buffers describing the surface
+*behind* the glass, so AO, depth of field and motion blur read through
+it and the fog is the background's. A blended instance also stops
+casting a shadow (the flag `writeInstance` already had), since the
+shadow pass has no blending and glass would cast its whole pane; MASK
+still casts its cut-out, which is what foliage wants. *Known limit,
+recorded rather than fixed:* groups sort back to front, instances
+within a group do not — the cull appends them atomically and no CPU
+pass can see that order. Right for separate lamps and windows, wrong
+for two overlapping panes of one material; a GPU sort of the remap list
+is the fix when a scene needs it.
 
 *Clustered lights landed 9 Nov 2026.* The view frustum is divided into a
 16x9x24 grid — tiles across the screen, 24 depth slices spaced

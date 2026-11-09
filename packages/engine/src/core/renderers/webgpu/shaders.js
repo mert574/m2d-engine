@@ -293,8 +293,11 @@ fn materialUV(uv: vec2f) -> vec2f {
 // Alpha-tested materials drop the fragment below the cutoff. A blended
 // material is treated as a mask at its cutoff for now: foliage reads
 // right, glass does not, and proper transparency is its own phase.
+// Only a MASK material (flags.y 1) cuts at its cutoff. A BLEND one
+// (flags.y 2) is drawn in the transparent pass and keeps its soft edge,
+// so testing it here would throw away the very pixels it is for.
 fn alphaTest(alpha: f32) {
-  if (material.flags.y > 0.5 && alpha < material.factors.w) { discard; }
+  if (material.flags.y > 0.5 && material.flags.y < 1.5 && alpha < material.factors.w) { discard; }
 }
 `;
 
@@ -741,8 +744,15 @@ fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
   color += base * inst.params.z + material.emissive.rgb * emissiveSample.rgb;
 
   var out: MeshFragment;
-  out.direct = vec4f(clampHDR(color), 1.0);
-  out.indirect = vec4f(clampHDR(indirect), 1.0);
+  // A BLEND material carries its coverage out as alpha; the transparent
+  // pipeline blends both light targets by it and writes neither the
+  // normal-depth nor the velocity, so the resolve's "direct plus
+  // indirect times occlusion" stays exact through the blend: the
+  // occlusion is one value at this pixel and multiplies out of both
+  // sides. The opaque pipelines do not blend, so alpha is ignored there.
+  let coverage = select(1.0, baseSample.a * material.baseColor.a, material.flags.y > 1.5);
+  out.direct = vec4f(clampHDR(color), coverage);
+  out.indirect = vec4f(clampHDR(indirect), coverage);
   let viewDepth = -(frame.view * vec4f(in.worldPosition, 1.0)).z;
   out.normalDepth = vec4f(n, viewDepth);
   let now = in.clipNow.xy / in.clipNow.w;

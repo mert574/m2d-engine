@@ -457,24 +457,34 @@ export class WebGPURenderer extends BaseRenderer {
     const meshLayout = device.createPipelineLayout({
       bindGroupLayouts: [this.sceneBindGroupLayout, lightingBindGroupLayout, this.materialBindGroupLayout]
     });
-    const meshPipeline = (code, label, buffers, cullMode) => {
+    const meshPipeline = (code, label, buffers, cullMode, transparent = false) => {
       const module = device.createShaderModule({ code, label });
       return device.createRenderPipeline({
         label,
         layout: meshLayout,
         vertex: { module, entryPoint: 'vs', buffers },
-        fragment: { module, entryPoint: 'fs', targets: MAIN_TARGETS.map(({ format }) => ({ format })) },
+        fragment: {
+          module,
+          entryPoint: 'fs',
+          targets: transparent ? TRANSPARENT_TARGETS : MAIN_TARGETS.map(({ format }) => ({ format }))
+        },
         primitive: { topology: 'triangle-list', cullMode },
         multisample: { count: SAMPLES },
-        depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' }
+        // A transparent surface tests against the opaque depth but does
+        // not write it: two panes must both show, and whichever draws
+        // second must not be rejected by the first.
+        depthStencil: { format: 'depth24plus', depthWriteEnabled: !transparent, depthCompare: 'less' }
       });
     };
     // Indexed by skinned (0/1) then double-sided (0/1).
-    this.meshPipelines = [
-      [meshPipeline(MESH_SHADER, 'mesh', vertexBuffers, 'back'), meshPipeline(MESH_SHADER, 'mesh two-sided', vertexBuffers, 'none')],
-      [meshPipeline(MESH_SKINNED_SHADER, 'mesh skinned', [...vertexBuffers, ...skinBuffers(4)], 'back'),
-        meshPipeline(MESH_SKINNED_SHADER, 'mesh skinned two-sided', [...vertexBuffers, ...skinBuffers(4)], 'none')]
+    const meshSet = (transparent) => [
+      [meshPipeline(MESH_SHADER, `mesh${transparent ? ' blend' : ''}`, vertexBuffers, 'back', transparent),
+        meshPipeline(MESH_SHADER, `mesh two-sided${transparent ? ' blend' : ''}`, vertexBuffers, 'none', transparent)],
+      [meshPipeline(MESH_SKINNED_SHADER, `mesh skinned${transparent ? ' blend' : ''}`, [...vertexBuffers, ...skinBuffers(4)], 'back', transparent),
+        meshPipeline(MESH_SKINNED_SHADER, `mesh skinned two-sided${transparent ? ' blend' : ''}`, [...vertexBuffers, ...skinBuffers(4)], 'none', transparent)]
     ];
+    this.meshPipelines = meshSet(false);
+    this.transparentPipelines = meshSet(true);
 
     this.#ensureInstanceBuffer(256);
   }
@@ -702,6 +712,11 @@ export class WebGPURenderer extends BaseRenderer {
     pass.setBindGroup(1, this.lightingBindGroup);
     this.stats.stateChanges += 2;
     this.#drawGroups(pass, layout, 'main', 0);
+    // Blended surfaces last, over the finished opaque depth, farthest
+    // first. They share the camera's cull and its indirect arguments —
+    // pass 0 — so all this costs is a second walk of its groups.
+    const transparent = this.#transparentOrder(layout, frame);
+    if (transparent.length) this.#drawGroups(pass, layout, 'transparent', 0, transparent);
     pass.end();
 
     this.currentTexture = this.context.getCurrentTexture();
@@ -772,10 +787,15 @@ export class WebGPURenderer extends BaseRenderer {
         copies.push({ buffer: this.#batchBuffer(batch), offset: first, count: batch.count });
         first += batch.count;
       }
+      const transparent = entry.material?.alphaMode === 'blend';
       groups.push({
         gpu: this.#geometry(entry.geometry),
         material: this.#material(entry.material),
         doubleSided: !!entry.material?.doubleSided,
+        transparent,
+        // Only a transparent group needs a place in space: the pass
+        // draws them back to front and nothing else sorts.
+        centroid: transparent ? groupCentroid(entry) : null,
         start,
         count: first - start
       });
@@ -1050,18 +1070,61 @@ export class WebGPURenderer extends BaseRenderer {
    * nothing else. The shadow pass binds no material and reads no texture
    * coordinates.
    */
-  #drawGroups(pass, layout, which, passIndex) {
+  /**
+   * The blended groups, farthest from the eye first.
+   *
+   * Sorting is per group, not per instance: the instances inside one
+   * are drawn in the order the cull's atomic appends happened to
+   * produce, which no CPU-side pass can see. That is right when a
+   * material's instances do not overlap each other — separate lamps,
+   * separate windows — and wrong when they do, where it shows as the
+   * two surfaces blending in an arbitrary order. The fix is a GPU sort
+   * of the remap list, which waits for a scene that needs it.
+   *
+   * @returns {number[]} Indices into `layout.groups`
+   */
+  #transparentOrder(layout, frame) {
+    const order = [];
+    for (let g = 0; g < layout.groups.length; g++) {
+      if (layout.groups[g].transparent) order.push(g);
+    }
+    if (order.length < 2) return order;
+    const eye = frame.camera?.position ?? ZERO;
+    const depth = new Map();
+    for (const g of order) {
+      const c = layout.groups[g].centroid;
+      const dx = c[0] - eye.x, dy = c[1] - eye.y, dz = c[2] - eye.z;
+      depth.set(g, dx * dx + dy * dy + dz * dz);
+    }
+    order.sort((a, b) => depth.get(b) - depth.get(a));
+    return order;
+  }
+
+  /**
+   * Issue one indirect draw per group for a pass.
+   *
+   * `which` picks both the pipeline and which groups take part: 'main'
+   * is the opaque half, 'transparent' the blended half in the order
+   * `order` gives (back to front), and 'shadow' everything that casts.
+   *
+   * @param {number[]} [order] - Group indices to draw, in order; all of them by default
+   */
+  #drawGroups(pass, layout, which, passIndex, order = null) {
     const { groups } = layout;
     let boundMaterial = null;
     let boundPipeline = null;
-    for (let g = 0; g < groups.length; g++) {
+    const indices = order ?? groups.keys();
+    for (const g of indices) {
       const group = groups[g];
+      // The opaque pass skips blended groups; the transparent pass is
+      // given exactly its own, so it never has to check.
+      if (which === 'main' && group.transparent) continue;
       const gpu = group.gpu;
       // Skinned geometry takes the skinning pipeline and a two-sided
       // material the uncull one; switch only on change.
-      const pipeline = which === 'main'
-        ? this.meshPipelines[gpu.skinned ? 1 : 0][group.doubleSided ? 1 : 0]
-        : (gpu.skinned ? this.shadowSkinnedPipeline : this.shadowPipeline);
+      const pipeline = which === 'shadow'
+        ? (gpu.skinned ? this.shadowSkinnedPipeline : this.shadowPipeline)
+        : (which === 'transparent' ? this.transparentPipelines : this.meshPipelines)[gpu.skinned ? 1 : 0][group.doubleSided ? 1 : 0];
       if (pipeline !== boundPipeline) {
         pass.setPipeline(pipeline);
         boundPipeline = pipeline;
@@ -1070,10 +1133,14 @@ export class WebGPURenderer extends BaseRenderer {
       pass.setVertexBuffer(0, gpu.positions);
       pass.setVertexBuffer(1, gpu.normals);
       pass.setVertexBuffer(2, gpu.uvs);
-      if (which === 'main') pass.setVertexBuffer(3, gpu.tangents);
+      // The shadow pass reads no tangents, so its skin buffers sit one
+      // slot earlier; the transparent pass runs the mesh shader and
+      // takes the mesh layout.
+      const mesh = which !== 'shadow';
+      if (mesh) pass.setVertexBuffer(3, gpu.tangents);
       if (gpu.skinned) {
-        pass.setVertexBuffer(which === 'main' ? 4 : 3, gpu.joints);
-        pass.setVertexBuffer(which === 'main' ? 5 : 4, gpu.weights);
+        pass.setVertexBuffer(mesh ? 4 : 3, gpu.joints);
+        pass.setVertexBuffer(mesh ? 5 : 4, gpu.weights);
       }
       if (group.material !== boundMaterial) {
         pass.setBindGroup(2, group.material);
@@ -1422,6 +1489,60 @@ const MAIN_TARGETS = Object.freeze([
   { label: 'normal depth', format: HDR_FORMAT },
   { label: 'velocity', format: 'rg16float' }
 ]);
+
+/** Straight (non-premultiplied) alpha over what is already there. */
+const ALPHA_BLEND = Object.freeze({
+  color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+});
+
+/**
+ * The same four attachments for a transparent draw: the two light
+ * targets blend, and the normal-depth and velocity are left alone so
+ * the geometry buffers keep describing the opaque surface behind the
+ * glass. Ambient occlusion, depth of field and motion blur therefore
+ * read the background through it, which is what makes the blend in the
+ * resolve come out right.
+ */
+const TRANSPARENT_TARGETS = Object.freeze([
+  { format: HDR_FORMAT, blend: ALPHA_BLEND },
+  { format: HDR_FORMAT, blend: ALPHA_BLEND },
+  { format: HDR_FORMAT, writeMask: 0 },
+  { format: 'rg16float', writeMask: 0 }
+]);
+
+/**
+ * The mean of a group's instance bounding-sphere centres, for the
+ * back-to-front order of the transparent pass. A static batch's centre
+ * is computed once and kept on the batch, since its records never move.
+ * @param {{instances: Float32Array[], batches: object[]}} entry
+ * @returns {number[]} `[x, y, z]`
+ */
+function groupCentroid(entry) {
+  let x = 0, y = 0, z = 0, n = 0;
+  for (const record of entry.instances) {
+    x += record[56]; y += record[57]; z += record[58];
+    n++;
+  }
+  for (const batch of entry.batches) {
+    if (batch.centroidVersion !== batch.version) {
+      let bx = 0, by = 0, bz = 0;
+      for (let i = 0; i < batch.count; i++) {
+        const o = i * INSTANCE_FLOATS;
+        bx += batch.data[o + 56]; by += batch.data[o + 57]; bz += batch.data[o + 58];
+      }
+      const c = Math.max(1, batch.count);
+      batch.centroid = [bx / c, by / c, bz / c];
+      batch.centroidVersion = batch.version;
+    }
+    x += batch.centroid[0] * batch.count;
+    y += batch.centroid[1] * batch.count;
+    z += batch.centroid[2] * batch.count;
+    n += batch.count;
+  }
+  if (!n) return [0, 0, 0];
+  return [x / n, y / n, z / n];
+}
 
 /** The i-th point of the Halton sequence in `base`, in [0, 1). */
 function halton(i, base) {
