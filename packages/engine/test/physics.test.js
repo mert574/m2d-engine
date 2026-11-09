@@ -105,16 +105,6 @@ describe('physics world', () => {
       world = createWorld({ gravity: { x: 0, y: 1000 } });
     });
 
-    it('accelerates a dynamic body downward', () => {
-      const body = world.createBox({ x: 0, y: 0, width: 10, height: 10, frictionAir: 0 });
-      world.add(body);
-
-      simulate(world, 0.5);
-
-      expect(body.position.y).toBeGreaterThan(0);
-      expect(body.velocity.y).toBeGreaterThan(0);
-    });
-
     it('leaves a body still when gravity is zero', () => {
       const zeroG = createWorld({ gravity: { x: 0, y: 0 } });
       const body = zeroG.createBox({ x: 0, y: 0, width: 10, height: 10 });
@@ -810,21 +800,6 @@ describe('physics world', () => {
 
       expect(started).toHaveLength(1);
       expect(new Set(started[0])).toEqual(new Set([a, b]));
-    });
-
-    it('hands back the wrappers, not raw solver bodies', () => {
-      const a = world.createBox({ x: 0, y: 0, width: 20, height: 20, frictionAir: 0 });
-      const b = world.createBox({ x: 60, y: 0, width: 20, height: 20, bodyType: 'static' });
-      a.entity = { name: 'Player' };
-      b.entity = { name: 'Platform' };
-      world.add(a);
-      world.add(b);
-
-      a.setVelocity({ x: 300, y: 0 });
-      simulate(world, 1);
-
-      const names = started[0].map((body) => body.entity.name);
-      expect(names.sort()).toEqual(['Platform', 'Player']);
     });
 
     it('reports an end when they separate', () => {

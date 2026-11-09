@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { createCanvasElement, installWindowStub } from './helpers/environment.js';
+import { createCanvasElement, installWindowStub, displayCanvas, setDisplaySize, stubDocumentListeners } from './helpers/environment.js';
 import { M2D } from '../src/core/m2d.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
 import { pointerAtClient } from './helpers/input.js';
@@ -14,27 +14,12 @@ import { pointerAtClient } from './helpers/input.js';
  */
 
 /** A canvas whose CSS size can be set, so resizes can be simulated. */
-function displayCanvas(cssWidth, cssHeight) {
-  const canvas = createCanvasElement(cssWidth, cssHeight);
-  setDisplaySize(canvas, cssWidth, cssHeight);
-  return canvas;
-}
-
-function setDisplaySize(canvas, width, height) {
-  Object.defineProperty(canvas, 'clientWidth', { value: width, configurable: true });
-  Object.defineProperty(canvas, 'clientHeight', { value: height, configurable: true });
-  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width, height, right: width, bottom: height });
-}
-
 function makeGame(canvas, options = {}) {
   return new M2D(canvas, { width: 1280, height: 720, renderer: 'canvas', ...options });
 }
 
 describe('resize lifecycle', () => {
-  beforeAll(() => {
-    globalThis.document.addEventListener ??= () => {};
-    globalThis.document.removeEventListener ??= () => {};
-  });
+  beforeAll(stubDocumentListeners);
 
   beforeEach(() => {
     installWindowStub();

@@ -5,6 +5,7 @@
  */
 
 import { Player } from '../../src/actors/player.js';
+import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
 import { Bee } from '../../src/actors/bee.js';
 import { Turret } from '../../src/actors/turret.js';
 import { Platform } from '../../src/actors/platform.js';
@@ -35,7 +36,7 @@ import { InputSnapshot } from '../../src/core/input/snapshot.js';
 export const ARENA_ACTORS = [Player, Bee, Turret, Platform, MovingPlatform];
 
 export const SCENE = {
-  version: 2, type: 'level', name: 'arena',
+  version: SCENE_VERSION, type: 'level', name: 'arena',
   world: { gravity: { x: 0, y: 900 } },
   prefabs: {
     floor: { actor: 'Platform', physics: { bodyType: 'static', friction: 0.6 } },
@@ -56,7 +57,7 @@ export const SCENE = {
   ] }]
 };
 
-export const OTHER = { version: 2, type: 'level', name: 'other', layers: [{ name: 'main', objects: [] }] };
+export const OTHER = { version: SCENE_VERSION, type: 'level', name: 'other', layers: [{ name: 'main', objects: [] }] };
 
 /** Everything the simulation is made of, as plain numbers, in a stable order. */
 export function fingerprint(game) {
@@ -141,7 +142,7 @@ const box = (prefab, x, y, width, height, properties) => {
 };
 
 export const GROVE = {
-  version: 2, type: 'level', name: 'grove',
+  version: SCENE_VERSION, type: 'level', name: 'grove',
   world: { gravity: { x: 0, y: 0 } },
   prefabs: {
     wall: { actor: 'Platform', physics: { bodyType: 'static' } },
@@ -169,7 +170,7 @@ export const GROVE = {
 };
 
 export const KEEP = {
-  version: 2, type: 'level', name: 'keep',
+  version: SCENE_VERSION, type: 'level', name: 'keep',
   world: { gravity: { x: 0, y: 0 }, projection: 'isometric' },
   prefabs: {
     wall: { actor: 'Platform', physics: { bodyType: 'static' } },

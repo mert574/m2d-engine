@@ -12,7 +12,7 @@ The engine's tests are two Vitest projects declared in `packages/engine/vitest.c
 | Project | Files | Runs in | Why |
 | --- | --- | --- | --- |
 | `node` | everything outside `test/browser/` | Node, with `@napi-rs/canvas` as the rasterizer | Fast. Pixel assertions work without a browser |
-| `browser` | `test/browser/**` | Headless Chromium through Playwright | Node has no WebGL2 |
+| `browser` | `test/browser/**` | Headless Chromium through Playwright | Node has no WebGL2 or WebGPU. The `webgpu.*.test.js` suites cover the 3D renderer: lighting, shadows, props, streaming, the loader and pixel-level smoke scenes |
 
 Both load `test/helpers/setupPhysics.js`, which awaits `initPhysics()` once per worker so every suite can construct a game synchronously.
 

@@ -128,7 +128,7 @@ An element is a hit target only when it has a positive `width` and `height`.
 | `letterSpacing` | `'$font.tracking.wide'` | |
 | `color`, `selectedColor`, `barColor` | theme | |
 
-`isSelected` is true when hovered **or** focused — the pointer and the d-pad light up the same line the same way. `selectedAmount` eases between 0 and 1 and drives the bar, the brightening and the step.
+`isSelected` is true when hovered **or** focused: the pointer and the d-pad light up the same line the same way. `selectedAmount` eases between 0 and 1 and drives the bar, the brightening and the step.
 
 ## UIText
 
@@ -178,7 +178,7 @@ An element is a hit target only when it has a positive `width` and `height`.
 
 ## Stack
 
-`new Stack(options)` from `layout/stack.js`. Lays children out in a row or a column, writing their offsets and pinning their `anchor` and `pivot` to `top-left` — so setting a child's `x` inside a stack has no effect.
+`new Stack(options)` from `layout/stack.js`. Lays children out in a row or a column, writing their offsets and pinning their `anchor` and `pivot` to `top-left`, so setting a child's `x` inside a stack has no effect.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -249,7 +249,7 @@ An element is a hit target only when it has a positive `width` and `height`.
 | `clear()` | Pop everything |
 | `top`, `screens` | The topmost screen; the array, bottom first |
 | `has(name)`, `get(name)` | |
-| `capturesInput` | Whether any screen blocks input — what "a menu is open" means |
+| `capturesInput` | Whether any screen blocks input, which is what "a menu is open" means |
 | `debug` | A `UIElement` layer above every screen, outside the scene's container. The frame-rate readout lives here |
 | `isEmpty` | Whether there is anything to draw |
 | `update(dt)`, `draw(dt)` | Called by the engine loop |
@@ -281,7 +281,7 @@ An element takes part only with `focusable: true`, and only while visible and en
 | Method | Meaning |
 | --- | --- |
 | `to(target, props, options)` | Animate numeric properties to new values. Returns a `Tween` |
-| `from(target, props, options)` | Animate *from* given values to wherever the target already is — the usual shape of an entrance, since the resting layout stays the truth |
+| `from(target, props, options)` | Animate *from* given values to wherever the target already is: the usual shape of an entrance, since the resting layout stays the truth |
 | `fromTo(target, from, to, options)` | Both ends explicit |
 | `stagger(targets, props, options)` | The same animation across many targets, each delayed a little more. `stagger` is the per-target delay, `order: 'reverse'` flips it |
 | `cancel(target, properties?)` | Stop tweens on a target, or just those writing the named properties |
@@ -300,7 +300,7 @@ Starting a tween on a property that is already animating cancels the earlier one
 
 A `Tween` has `cancel()`, `finish()`, `whenComplete(fn)` (synchronous, unlike `then`) and `done`. It is thenable, so transitions can be awaited; it resolves with nothing, because resolving with the tween itself would make the promise adopt its own `then` and never settle. Cancelling resolves it too, so a waiter is never stranded.
 
-A layout owns its children's offsets and overwrites them every frame, so animate `opacity`, `scale` and `rotation` on anything inside a `Stack` or `Grid` — not `offsetX`/`offsetY`. To move a laid-out group, animate the container.
+A layout owns its children's offsets and overwrites them every frame, so animate `opacity`, `scale` and `rotation` on anything inside a `Stack` or `Grid`, never `offsetX`/`offsetY`. To move a laid-out group, animate the container.
 
 ## Screen transitions
 
@@ -315,11 +315,11 @@ A screen's `transition` names how it arrives and leaves. From `transitions.js`:
 
 A custom `{enter, exit}` pair is accepted too; each takes `(screen, motion, timing)` and returns a tween or `null`. `TRANSITIONS` and `resolveTransition` are exported.
 
-Entrances decelerate and exits accelerate, and exits are shorter — arriving things settle, leaving things get out of the way, and waiting for a menu you have already dismissed feels broken. Both read their timing from `$motion.duration.*` and `$motion.easing.*`.
+Entrances decelerate and exits accelerate, and exits are shorter: arriving things settle, leaving things get out of the way, and waiting for a menu you have already dismissed feels broken. Both read their timing from `$motion.duration.*` and `$motion.easing.*`.
 
 Transitions only touch `opacity`, the offsets and `scale`, all of which `drawTree` applies to the whole subtree, so a screen moves as one piece and its contents keep the arrangement the author gave them. The resting values are the truth: an entrance animates *from* an offset back to the layout, so adding a transition can never change where a screen ends up.
 
-A screen on its way out stays in `stack.exiting` — it still draws, beneath the live screens, but takes no input and is no longer `top`. `stack.isTransitioning` reports whether anything is still moving. Pushing a screen that is still leaving cancels its exit and brings it back.
+A screen on its way out stays in `stack.exiting`: it still draws, beneath the live screens, but takes no input and is no longer `top`. `stack.isTransitioning` reports whether anything is still moving. Pushing a screen that is still leaving cancels its exit and brings it back.
 
 ## UIBackdrop
 
@@ -344,7 +344,7 @@ A screen on its way out stays in `stack.exiting` — it still draws, beneath the
 
 `blurBehind` on a `UIScreen` defocuses the game beneath it. The world's post-effect pass runs between the world and screen passes, so the UI drawn over it stays sharp.
 
-It needs the `postEffects` capability. WebGL2 has it; the Canvas backend does not and the screen's `scrim` carries the separation alone — a deliberate degradation, not an error. When screens stack, the strongest `blurBehind` wins, and other post effects already set (bloom, vignette) are left untouched.
+It needs the `postEffects` capability. WebGL2 has it; the Canvas backend does not, and the screen's `scrim` carries the separation alone, a deliberate degradation. When screens stack, the strongest `blurBehind` wins, and other post effects already set (bloom, vignette) are left untouched.
 
 ## UIOptionRow
 
@@ -393,13 +393,13 @@ A steppable row keeps faint chevrons either side of its value; they brighten wit
 
 ## Container
 
-`scene.ui` from `container.js`. A `UIElement` whose box is the whole of UI space, and the root of a scene's tree. Everything it does beyond that is inherited — `add`, `hitTest`, `drawTree` and the rest are all `UIElement`'s. It is never itself a hit target.
+`scene.ui` from `container.js`. A `UIElement` whose box is the whole of UI space, and the root of a scene's tree. Everything it does beyond that is inherited: `add`, `hitTest`, `drawTree` and the rest are all `UIElement`'s. It is never itself a hit target.
 
 ## Theme tokens
 
 `createTheme(overrides)` from `theme.js` builds the token tree. `game.theme` holds the game's; elements reach it by walking to the root, so replacing it restyles everything on the next frame.
 
-Any string beginning with `$` is a dotted path into the tree, resolved wherever a colour, size, family, weight, radius, border width or shadow is accepted — including inside gradient stops. Anything else passes through, so a literal always works.
+Any string beginning with `$` is a dotted path into the tree, resolved wherever a colour, size, family, weight, radius, border width or shadow is accepted, including inside gradient stops. Anything else passes through, so a literal always works.
 
 ```javascript
 new UIPanel({ background: '$color.surface.raised', cornerRadius: '$radius.lg' })

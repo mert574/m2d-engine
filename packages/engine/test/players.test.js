@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { M2D } from '../src/core/m2d.js';
 import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.js';
 import { defineIntents, reject, slot, entity } from '../src/net/intents.js';
@@ -16,7 +17,7 @@ const SIZE = 4;
 
 /** Two players' avatars, two lanterns and a vendor, on a floor. */
 const SCENE = {
-  version: 2, type: 'level', name: 'market',
+  version: SCENE_VERSION, type: 'level', name: 'market',
   world: { gravity: { x: 0, y: 0 } },
   prefabs: {
     floor: { actor: 'Platform', physics: { bodyType: 'static' } },
@@ -246,7 +247,8 @@ describe('intents through players', () => {
     const firsts = new Set();
     for (let tick = 1; tick <= 3; tick++) firsts.add(game.players.turnOrder(tick)[0].id);
     expect([...firsts].sort()).toEqual(['a', 'b', 'local']);
-    expect(game.players.turnOrder(7).map((p) => p.id)).toEqual(game.players.turnOrder(7).map((p) => p.id));
+    // The rotation's period is the player count, so tick 4 repeats tick 1.
+    expect(game.players.turnOrder(4).map((p) => p.id)).toEqual(game.players.turnOrder(1).map((p) => p.id));
     game.destroy();
   });
 

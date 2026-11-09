@@ -54,7 +54,9 @@ function poolFor(target) {
   if (pool) return pool;
   pool = { workers: [], busy: [], pending: new Map() };
   for (let i = 0; i < POOL_SIZE; i++) {
-    const worker = new Worker(new URL('./gltfWorker.js', import.meta.url), { type: 'module', name: `m2d model loader ${i}` });
+    // The options stay static literals: Vite bundles the worker only
+    // when it can read them at build time.
+    const worker = new Worker(new URL('./gltfWorker.js', import.meta.url), { type: 'module', name: 'm2d model loader' });
     worker.onmessage = ({ data }) => {
       const job = pool.pending.get(data.id);
       if (!job) return;

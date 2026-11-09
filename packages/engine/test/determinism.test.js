@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { createCanvasElement, installWindowStub } from './helpers/environment.js';
+import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { holdKeys, releaseKeys } from './helpers/input.js';
 import { M2D } from '../src/core/m2d.js';
@@ -20,15 +20,6 @@ import {
  * Turret (cooldowns, raycasts, spawning rockets mid-run), a MovingPlatform
  * on PathFollow (kinematic velocity, waits) and a scene timer.
  */
-
-function displayCanvas(cssWidth, cssHeight) {
-  const canvas = createCanvasElement(cssWidth, cssHeight);
-  Object.defineProperty(canvas, 'clientWidth', { value: cssWidth, configurable: true });
-  Object.defineProperty(canvas, 'clientHeight', { value: cssHeight, configurable: true });
-  canvas.getBoundingClientRect = () =>
-    ({ left: 0, top: 0, width: cssWidth, height: cssHeight, right: cssWidth, bottom: cssHeight });
-  return canvas;
-}
 
 async function makeGame(seed = 7, hooks = {}) {
   const game = new M2D(displayCanvas(1280, 720), {
@@ -60,8 +51,7 @@ function run(game, frameMs, seconds) {
 }
 
 beforeAll(() => {
-  globalThis.document.addEventListener ??= () => {};
-  globalThis.document.removeEventListener ??= () => {};
+  stubDocumentListeners();
   globalThis.requestAnimationFrame = () => 1;
   globalThis.cancelAnimationFrame = () => {};
   installWindowStub();

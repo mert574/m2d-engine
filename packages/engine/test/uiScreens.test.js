@@ -421,15 +421,19 @@ describe('screens', () => {
 
     it('activates as a real press and release, so pressed state behaves', () => {
       const screen = new UIScreen({ name: 'a' });
+      const seen = [];
       const button = screen.add(new UIButton({
         anchor: 'center', width: 100, height: 40, text: 'Go'
       }));
+      button.onPointerDown = () => seen.push('down');
+      button.onPointerUp = () => seen.push('up');
       ui.push(screen);
       frame();
 
       keydown('Enter');
 
-      // Pressed and released within the activation, not left stuck down.
+      // A real press and release happened, and nothing is left stuck down.
+      expect(seen).toEqual(['down', 'up']);
       expect(button.isPressed).toBe(false);
     });
 
@@ -461,10 +465,11 @@ describe('screens', () => {
       const over = ui.push(menuScreen('over'));
       frame();
 
-      for (let i = 0; i < 6; i++) keydown('Tab');
-
-      expect(over.focus.candidates()).toHaveLength(3);
-      expect(over.focus.candidates()).not.toContain(under.items[0]);
+      for (let i = 0; i < 6; i++) {
+        keydown('Tab');
+        expect(over.items).toContain(over.focus.focused);
+        expect(under.items).not.toContain(over.focus.focused);
+      }
     });
 
     it('drops focus when the focused control goes away', () => {

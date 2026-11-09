@@ -84,9 +84,13 @@ export const SHADOW_QUALITY = Object.freeze({
   low: { cascades: 2, sunSize: 1024, spots: 1, spotSize: 512, points: 0, pointSize: 128 },
   // A shadow cube's faces track the spot maps at half their size on
   // high and a quarter below, as the owner asked: six faces a light is
-  // where the memory and the fill go.
-  medium: { cascades: 3, sunSize: 2048, spots: 2, spotSize: 1024, points: 1, pointSize: 256 },
-  high: { cascades: 4, sunSize: 2048, spots: 4, spotSize: 1024, points: 2, pointSize: 512 }
+  // where the memory and the fill go — but the fill is paid only when a
+  // cube's casters change (see #planShadows), so the *count* can afford
+  // several. One cube in a yard of lamps meant only the single nearest
+  // lamp ever cast, popping from lamp to lamp as the camera moved; a lot
+  // lit on an 18 m lamp grid has half a dozen lamps in any view.
+  medium: { cascades: 3, sunSize: 2048, spots: 2, spotSize: 1024, points: 3, pointSize: 256 },
+  high: { cascades: 4, sunSize: 2048, spots: 4, spotSize: 1024, points: 6, pointSize: 512 }
 });
 
 /** Where the cascade splits fall between linear and logarithmic spacing. */
@@ -806,6 +810,7 @@ export class WebGPURenderer extends BaseRenderer {
         bloom: e.bloom && (frame.bloom?.intensity ?? 0) > 0
       },
       lut: post.grade?.lut ?? null,
+      bloomScatter: frame.bloom?.scatter ?? 0.75,
       filter: this.worldFilter,
       rect: [contentX, contentY, contentWidth, contentHeight],
       timestampWrites: stamps ? { querySet: this.querySet, endOfPassWriteIndex: 1 } : undefined
@@ -1515,7 +1520,10 @@ export class WebGPURenderer extends BaseRenderer {
     data[o + 27] = 0;
     data[o + 28] = Math.min(frame.lights?.length ?? 0, MAX_LIGHTS);
     data[o + 29] = frame.bloom?.threshold ?? 1;
-    data[o + 30] = frame.bloom?.intensity ?? 0;
+    // Zero when the stage is off: the composite mixes toward its bloom
+    // texture by this share, and with the passes skipped that texture is
+    // the black stand-in — a share of black would dim the frame.
+    data[o + 30] = this.effects.bloom ? (frame.bloom?.intensity ?? 0) : 0;
     data[o + 31] = this.environment.prefilteredMips - 1;
     const q = SHADOW_QUALITY[this.shadowQuality];
     for (let i = 0; i < 4; i++) {
@@ -1531,8 +1539,9 @@ export class WebGPURenderer extends BaseRenderer {
     data[o + 45] = Math.min(camera.far ?? 500, frame.shadow.distance);
     // The point-cube depth bias scales with the texel: a quarter-size
     // map on medium needs twice the slack of high's half-size one.
-    data[o + 46] = 0.0015 * (512 / SHADOW_QUALITY[this.shadowQuality].pointSize);
-    data[o + 47] = 0;
+    data[o + 46] = 0.0015 * (512 / q.pointSize);
+    // One texel of a cube face, for the cube lookup's filter taps.
+    data[o + 47] = 1 / q.pointSize;
 
     const post = frame.post ?? {};
     const p = FRAME_OFFSETS.post;
@@ -1638,18 +1647,30 @@ export class WebGPURenderer extends BaseRenderer {
       }
     }
 
+    // Shadowed lights rank by how much light they put on the camera —
+    // intensity through the inverse-square falloff, the falloff the shader
+    // applies — never by distance alone. Distance to the light's centre
+    // handed the maps to whichever pole stood nearest, and distance to its
+    // sphere of influence tied every lamp the camera stood inside at zero,
+    // so in a yard of overlapping lamps the maps went to arbitrary ones
+    // and stayed there. This never ties, and grows as a lamp is walked
+    // toward, which is when its shadows fill the view.
+    const eye = camera.position;
+    const distance = (light) => Math.hypot(light.position.x - eye.x, light.position.y - eye.y, light.position.z - eye.z);
+    const importance = (light, d) => (light.intensity ?? 10) / Math.max(d * d, 1);
+    // A light whose range ends more than the shadow distance away is out
+    // of the running altogether.
+    const tooFar = (light, d) => d - (light.range ?? 10) > frame.shadow.distance;
     const spots = [];
     if (q.spots) {
-      const eye = camera.position;
       const candidates = [];
       frame.lightInfo.forEach((light, index) => {
         if (light.type !== 'spot' || light.shadow === false) return;
-        const p = light.position;
-        const d = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z);
-        if (d > (light.range ?? 10) + frame.shadow.distance) return;
-        candidates.push({ light, index, d });
+        const d = distance(light);
+        if (tooFar(light, d)) return;
+        candidates.push({ light, index, w: importance(light, d) });
       });
-      candidates.sort((a, b) => a.d - b.d);
+      candidates.sort((a, b) => b.w - a.w);
       for (const { light, index } of candidates.slice(0, q.spots)) {
         const p = light.position;
         const dir = normalized([light.direction?.x ?? 0, light.direction?.y ?? -1, light.direction?.z ?? 0]);
@@ -1681,19 +1702,19 @@ export class WebGPURenderer extends BaseRenderer {
     // over static crates costs its six passes once, not per frame.
     const points = [];
     if (q.points) {
-      const eye = camera.position;
       const candidates = [];
       frame.lightInfo.forEach((light, index) => {
         if ((light.type ?? 'point') !== 'point' || light.shadow === false) return;
-        const p = light.position;
-        const d = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z);
-        if (d > (light.range ?? 10) + frame.shadow.distance) return;
-        candidates.push({ light, index, d, key: lightKey(light) });
+        const d = distance(light);
+        if (tooFar(light, d)) return;
+        candidates.push({ light, index, w: importance(light, d), key: lightKey(light) });
       });
-      candidates.sort((a, b) => a.d - b.d);
+      candidates.sort((a, b) => b.w - a.w);
 
-      // Incumbents first, then the nearest challengers into free slots;
-      // a challenger evicts only when it is at most 0.75x the distance.
+      // Incumbents first, then the strongest challengers into free slots;
+      // a challenger evicts only when it is clearly stronger — half again
+      // the weakest incumbent — so an orbiting camera does not trade
+      // cubes between near-equal lamps every few frames.
       const slots = new Array(q.points).fill(null);
       const taken = new Set();
       this.pointShadowCache.forEach((cached, slot) => {
@@ -1707,21 +1728,34 @@ export class WebGPURenderer extends BaseRenderer {
         if (free >= 0) { slots[free] = challenger; taken.add(challenger); continue; }
         let worst = -1;
         for (let i = 0; i < slots.length; i++) {
-          if (worst < 0 || slots[i].d > slots[worst].d) worst = i;
+          if (worst < 0 || slots[i].w < slots[worst].w) worst = i;
         }
-        if (challenger.d < slots[worst].d * 0.75) {
+        if (challenger.w > slots[worst].w * 1.5) {
           slots[worst] = challenger;
           taken.add(challenger);
         }
       }
 
+      // This frame's wall-clock step, for the fade below; `lastFrameTime`
+      // is updated later, by the frame uniform write.
+      const now = (typeof performance !== 'undefined' ? performance.now() : 0) - this.startTime;
+      const dt = this.lastFrameTime ? Math.min(0.1, (now - this.lastFrameTime) / 1000) : 1 / 60;
+      const candidateKeys = new Set(candidates.map((c) => c.key));
       slots.forEach((candidate, cube) => {
         if (!candidate) return;
         const { light, index, key } = candidate;
         const p = light.position;
         const range = light.range ?? 10;
         const casters = castersNear(frame, p, range);
-        const cached = this.pointShadowCache[cube]?.key === key ? this.pointShadowCache[cube] : null;
+        const previous = this.pointShadowCache[cube];
+        const cached = previous?.key === key ? previous : null;
+        // A cube evicted from a lamp that is still here fades in for its
+        // new one over a quarter second, so the swap does not pop. A slot
+        // that held nothing, or whose old lamp is gone, starts at full
+        // strength: there is no visible shadow being traded away.
+        const evicted = !cached && previous && candidateKeys.has(previous.key);
+        const strength = cached ? Math.min(1, (cached.strength ?? 1) + dt / 0.25)
+          : evicted ? Math.min(1, dt / 0.25) : 1;
         let projection = null;
         CUBE_FACES.forEach((face, i) => {
           const stale = !cached || cached.hashes[i] !== casters.hashes[i] || (casters.dirty & (1 << i));
@@ -1729,9 +1763,11 @@ export class WebGPURenderer extends BaseRenderer {
           projection ??= mat4.perspective(Math.PI / 2, 1, POINT_SHADOW_NEAR, range);
           passes.push({ view: this.pointShadowFaces[cube * 6 + i], matrix: mat4.multiply(projection, cubeFaceView(face, p)) });
         });
-        this.pointShadowCache[cube] = { key, hashes: casters.hashes };
+        this.pointShadowCache[cube] = { key, hashes: casters.hashes, strength };
         points.push({ index, range });
-        frame.lights[index][15] = cube + 1;
+        // The integer names the cube; the fraction carries the strength
+        // (times a half, so a full-strength cube still truncates to it).
+        frame.lights[index][15] = cube + 1 + strength * 0.5;
       });
     }
     return { cascades, spots, points, passes };

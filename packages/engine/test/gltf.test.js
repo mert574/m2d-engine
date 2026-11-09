@@ -2,7 +2,11 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initPhysics } from '../src/core/physics/index.js';
 import { parseGLB, setKTX2Decoder, DEFAULT_MATERIAL, lodFor } from '../src/core/gltf.js';
-import { Frame3D, StaticBatch, INSTANCE_FLOATS } from '../src/core/renderers/frame3d.js';
+import { Frame3D, StaticBatch, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from '../src/core/renderers/frame3d.js';
+import { Animator3D } from '../src/core/animator3d.js';
+import { Scene } from '../src/core/scene.js';
+import { lightFor, placeLight } from '../src/core/presentation3d.js';
+import { transferablesOf, workersAvailable } from '../src/core/modelLoader.js';
 import { Camera3D } from '../src/core/camera3d.js';
 import { box, boundingSphere } from '../src/core/renderers/geometry/primitives.js';
 import { M2D } from '../src/core/m2d.js';
@@ -108,7 +112,6 @@ describe('reading a .glb', () => {
   });
 
   it('drives morph weights through the animator, with last frame\'s kept beside them', async () => {
-    const { Animator3D } = await import('../src/core/animator3d.js');
     const model = await parseGLB(fixture('MorphBox'), { decodeImage: fakeDecode });
     const animator = new Animator3D(model);
     const node = model.parts[0].node;
@@ -133,9 +136,19 @@ describe('reading a .glb', () => {
     expect(frame.morphWeights.map((w) => w[0])).toEqual([animator.morphWeights(node)[0], 1]);
   });
 
-  it('gives a primitive without a material glTF\'s default', () => {
+  it('gives a primitive without a material glTF\'s default', async () => {
+    const quad = quadBin();
+    const model = await parseGLB(makeGLB({
+      asset: { version: '2.0' },
+      ...quad,
+      meshes: [{ primitives: [{ attributes: { POSITION: 0, NORMAL: 1, TEXCOORD_0: 2 }, indices: 3 }] }],
+      nodes: [{ mesh: 0 }],
+      scenes: [{ nodes: [0] }]
+    }, quad.bin));
+    expect(model.parts[0].material).toBe(DEFAULT_MATERIAL);
     expect(DEFAULT_MATERIAL.baseColor).toEqual([1, 1, 1, 1]);
     expect(DEFAULT_MATERIAL.metallic).toBe(1);
+    expect(DEFAULT_MATERIAL.alphaMode).toBe('opaque');
   });
 });
 
@@ -143,6 +156,11 @@ describe('reading a .glb', () => {
  * A .glb built in the test from a JSON document and one binary chunk, so
  * a feature can be exercised without a fixture file for it.
  */
+/** A headless 3D game, for tests that build scenes around a parsed model. */
+function game3D(options = {}) {
+  return new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 1, ...options });
+}
+
 function makeGLB(json, bin) {
   const text = new TextEncoder().encode(JSON.stringify(json));
   const pad = (n) => (4 - (n % 4)) % 4;
@@ -219,7 +237,6 @@ describe('materials and levels of detail', () => {
     expect(m.alphaCutoff).toBe(0.4);
     expect(m.doubleSided).toBe(true);
     expect(m.uvTransform).toEqual({ scale: [2, 2], offset: [0.1, 0.2], rotation: 0.5 });
-    expect(DEFAULT_MATERIAL.alphaMode).toBe('opaque');
   });
 
   it('makes tangents from the texture coordinates when the file has none', async () => {
@@ -284,7 +301,7 @@ describe('a model as an asset', () => {
   beforeAll(() => initPhysics({ dimensions: 3 }));
   class Truck extends Entity { name = 'Truck'; }
   const game = () => {
-    const g = new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 1 });
+    const g = game3D();
     g.registerActor('Truck', Truck);
     return g;
   };
@@ -353,7 +370,6 @@ describe('a rigged model', () => {
   });
 
   it('the animator poses the joints and moves them as a clip plays', async () => {
-    const { Animator3D } = await import('../src/core/animator3d.js');
     const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
     const animator = new Animator3D(model);
     const rest = Float32Array.from(animator.jointMatrices(0));
@@ -373,7 +389,6 @@ describe('a rigged model', () => {
   });
 
   it('crossfades: the old clip fades out as the new one fades in, then is dropped', async () => {
-    const { Animator3D } = await import('../src/core/animator3d.js');
     const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
     const animator = new Animator3D(model);
     animator.play('clip 0', { fade: 0 });
@@ -391,7 +406,6 @@ describe('a rigged model', () => {
 
   it('a skinned instance carries its joints into the frame', async () => {
     const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
-    const { INSTANCE_FLOATS } = await import('../src/core/renderers/frame3d.js');
     const frame = new Frame3D();
     const joints = new Float32Array(32);
     const [part] = model.parts;
@@ -426,7 +440,6 @@ describe('a rigged model', () => {
   });
 
   it('keeps last frame\'s pose on the animator, and starts with it equal to the first', async () => {
-    const { Animator3D } = await import('../src/core/animator3d.js');
     const model = await parseGLB(fixture('RiggedSimple'), { decodeImage: fakeDecode });
     const animator = new Animator3D(model);
     animator.play('clip 0', { fade: 0 });
@@ -450,7 +463,7 @@ describe('props', () => {
     version: SCENE_VERSION, type: 'level', name: 'lot', world: { dimensions: 3 }, ...fields
   });
   const loader = () => {
-    const g = new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 1 });
+    const g = game3D();
     g.registerActor('Ground', Ground);
     return new SceneLoader(g);
   };
@@ -486,7 +499,7 @@ describe('props', () => {
   });
 
   it('stands static bodies for props that ask, and none for grass', async () => {
-    const game = new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 1 });
+    const game = game3D();
     game.registerActor('Ground', Ground);
     const config = new SceneLoader(game).load(level({
       prefabs: {
@@ -503,7 +516,6 @@ describe('props', () => {
         ]
       }]
     }));
-    const { Scene } = await import('../src/core/scene.js');
     const scene = new Scene(game, config);
     scene.setupProps();
     expect(scene.propBodies).toHaveLength(3);
@@ -523,7 +535,7 @@ describe('props', () => {
   });
 
   it('carries a prop prefab\'s light at every instance, turned and scaled with it', async () => {
-    const game = new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 1 });
+    const game = game3D();
     game.registerActor('Ground', Ground);
     const config = new SceneLoader(game).load(level({
       prefabs: {
@@ -541,7 +553,6 @@ describe('props', () => {
         }]
       }]
     }));
-    const { Scene } = await import('../src/core/scene.js');
     const scene = new Scene(game, config);
     scene.setupProps();
     expect(scene.propLights).toHaveLength(2);
@@ -579,7 +590,6 @@ describe('props', () => {
         ]
       }]
     }));
-    const { Scene } = await import('../src/core/scene.js');
     const released = [];
     const scene = new Scene({
       headless: false, physics: { dimensions: 3 },
@@ -645,7 +655,6 @@ describe('props', () => {
       }]
     }));
     // A displayed game's scene, with the model already loaded.
-    const { Scene } = await import('../src/core/scene.js');
     const scene = new Scene({ headless: false, physics: { dimensions: 3 } }, config);
     scene.models.set('truck', truck);
     scene.setupProps();
@@ -685,7 +694,6 @@ describe('props', () => {
 
 describe('the model loader, where there is no worker', () => {
   it('finds every buffer a model holds, once, for the transfer list', async () => {
-    const { transferablesOf, workersAvailable } = await import('../src/core/modelLoader.js');
     const model = await parseGLB(fixture('BoxTextured'), { decodeImage: fakeDecode });
     const buffers = transferablesOf(model);
     const part = model.parts[0];
@@ -705,7 +713,6 @@ describe('the model loader, where there is no worker', () => {
 
 describe('lights', () => {
   it('packs point and spot lights for the GPU, up to the limit', async () => {
-    const { LIGHT_FLOATS, MAX_LIGHTS } = await import('../src/core/renderers/frame3d.js');
     const frame = new Frame3D();
     frame.addLight({ position: { x: 1, y: 2, z: 3 }, color: [1, 0.5, 0.25], intensity: 7, range: 9 });
     frame.addLight({ type: 'spot', position: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: -2, z: 0 }, innerCone: 0.2, outerCone: 0.4 });
@@ -740,7 +747,6 @@ describe('lights', () => {
   });
 
   it('places an offset light the same way for an entity and for a prop instance', async () => {
-    const { lightFor, placeLight } = await import('../src/core/presentation3d.js');
     const light = lightFor({ type: 'point', color: '#ffc473', intensity: 30, offset: { x: 2, y: 3, z: 0 } });
     // An entity: the offset is in the world's frame, unturned.
     expect(placeLight(light, { x: 10, y: 0, z: -4 }).position).toEqual({ x: 12, y: 3, z: -4 });
@@ -777,7 +783,7 @@ describe('lights', () => {
   it('a prefab\'s light block reaches the entity in linear light and follows its body into the frame', async () => {
     await initPhysics({ dimensions: 3 });
     class Lamp extends Entity { name = 'Lamp'; }
-    const game = new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 1 });
+    const game = game3D();
     game.registerActor('Lamp', Lamp);
     game.sceneManager.addScene('yard', { fetch: async () => ({
       version: SCENE_VERSION, type: 'level', name: 'yard', world: { dimensions: 3 },

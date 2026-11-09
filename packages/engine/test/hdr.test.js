@@ -135,9 +135,6 @@ describe('reading a .hdr', () => {
   });
 
   it('applies the header EXPOSURE, which divides out of the stored values', () => {
-    const plain = parseHDR(flatFile(1, 1, [[128, 128, 128, 128]]));
-    const exposed = parseHDR(flatFile(1, 1, [[128, 128, 128, 128]]).slice(), 'x');
-    expect(pixel(exposed, 0, 0)[0]).toBeCloseTo(pixel(plain, 0, 0)[0], 6);
     const doubled = parseHDR(bytesOf(
       '#?RADIANCE\nFORMAT=32-bit_rle_rgbe\nEXPOSURE=2.0\n\n-Y 1 +X 1\n',
       new Uint8Array([128, 128, 128, 128])

@@ -720,11 +720,15 @@ describe('lighting', () => {
     const without = (await readPixels(renderer)).at(Math.round(beside.x), Math.round(beside.y));
     renderer.render(scene(renderer, camera, build, { bloom: 0.5 }));
     const withBloom = (await readPixels(renderer)).at(Math.round(beside.x), Math.round(beside.y));
-    // Bloom is energy-conserving — a share of the light scattered, not
-    // light added — so the sky pixel beside the warm lamp takes on its
-    // colour rather than simply getting brighter.
+    // The chain is a weighted mean of its levels, so the glow laid over
+    // the sky beside the warm lamp is the lamp's own colour spread, not
+    // a multiplied copy of it: the pixel turns warmer and brighter. The
+    // probe sits in the halo's tail against a bright sky, which the
+    // tonemapper compresses, so the margins are modest.
     const warmth = (px) => px[0] - px[2];
-    expect(warmth(withBloom), `lamp colour spreads: ${withBloom} vs none ${without}`).toBeGreaterThan(warmth(without) + 10);
+    expect(warmth(withBloom), `lamp colour spreads: ${withBloom} vs none ${without}`).toBeGreaterThan(warmth(without) + 4);
+    expect(luma(withBloom), `the glow lightens the sky beside the lamp: ${withBloom} vs ${without}`)
+      .toBeGreaterThan(luma(without) + 3);
   });
 });
 

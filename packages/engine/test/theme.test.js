@@ -131,10 +131,14 @@ describe('Theme', () => {
     });
 
     it('never leaks state keys into the flattened result', () => {
-      for (const state of ['normal', 'hovered', 'pressed', 'focused', 'disabled']) {
-        const flat = resolveStateStyle(style, state);
-        expect(Object.keys(flat)).not.toContain('hovered');
-        expect(Object.keys(flat)).not.toContain('disabled');
+      // `focused` is not a state any more (focus renders as hover), but a
+      // declaration that still carries a focused: block must be stripped too.
+      const declared = { ...style, focused: { background: 'glow' } };
+      for (const state of ['normal', 'hovered', 'pressed', 'disabled']) {
+        const keys = Object.keys(resolveStateStyle(declared, state));
+        for (const name of ['normal', 'hovered', 'pressed', 'focused', 'disabled']) {
+          expect(keys, `${state} leaks ${name}`).not.toContain(name);
+        }
       }
     });
   });

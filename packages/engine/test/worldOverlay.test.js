@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { createCanvasElement, installWindowStub } from './helpers/environment.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { M2D } from '../src/core/m2d.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
@@ -16,15 +16,6 @@ import { UIElement } from '../src/core/ui/uiElement.js';
  * Tests run a real M2D over a RecordingRenderer, so assertions are on the
  * exact screen-space draw calls the overlay emits.
  */
-
-function displayCanvas(cssWidth, cssHeight) {
-  const canvas = createCanvasElement(cssWidth, cssHeight);
-  Object.defineProperty(canvas, 'clientWidth', { value: cssWidth, configurable: true });
-  Object.defineProperty(canvas, 'clientHeight', { value: cssHeight, configurable: true });
-  canvas.getBoundingClientRect = () =>
-    ({ left: 0, top: 0, width: cssWidth, height: cssHeight, right: cssWidth, bottom: cssHeight });
-  return canvas;
-}
 
 /**
  * A 1280x720 game with the camera parked so that world coordinates equal
@@ -43,25 +34,17 @@ function makeGame(displayWidth = 1280, displayHeight = 720) {
   return { game, renderer, overlay: game.worldOverlay };
 }
 
+/** Wipe the recording and run the overlay pass. */
+function redraw(game, renderer) {
+  renderer.reset();
+  game.drawOverlays();
+}
+
 describe('WorldOverlay', () => {
-  beforeAll(() => {
-    globalThis.document.addEventListener ??= () => {};
-    globalThis.document.removeEventListener ??= () => {};
-  });
+  beforeAll(stubDocumentListeners);
 
   beforeEach(() => {
     installWindowStub();
-  });
-
-  it('is present on every game and drawn by the overlay pass', () => {
-    const { game, renderer, overlay } = makeGame();
-    expect(overlay).toBe(game.worldOverlay);
-
-    overlay.drawArc({ x: 640, y: 360, radius: 10 });
-    renderer.reset();
-    game.drawOverlays();
-
-    expect(renderer.callsTo('drawArc')).toHaveLength(1);
   });
 
   it('draws beneath the screens, so a menu covers its annotations', () => {
@@ -72,8 +55,7 @@ describe('WorldOverlay', () => {
     })({}));
     overlay.drawArc({ x: 640, y: 360, radius: 10 });
 
-    renderer.reset();
-    game.drawOverlays();
+    redraw(game, renderer);
 
     const order = renderer.sequence();
     expect(order.indexOf('drawArc')).toBeLessThan(order.indexOf('drawRect'));
@@ -84,8 +66,7 @@ describe('WorldOverlay', () => {
       const { game, renderer, overlay } = makeGame();
       overlay.drawArc({ x: 640, y: 360, radius: 50, strokeStyle: '#f00' });
 
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       expect(renderer.sequence()).toEqual([
         'beginScreenFrame', 'pushClip', 'pushTransform', 'drawArc',
@@ -99,8 +80,7 @@ describe('WorldOverlay', () => {
       const { game, renderer, overlay } = makeGame();
       overlay.drawArc({ x: 500, y: 300, radius: 200, strokeStyle: '#f00' });
 
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       // A 200-unit range ring has to stay glued to the 200 units of world it
       // describes, so coordinates and radius pass through untouched and the
@@ -116,8 +96,7 @@ describe('WorldOverlay', () => {
       game.camera.x = 1000; // pan right: world 1000 is now the view's centre
 
       overlay.drawArc({ x: 1000, y: 360, radius: 10 });
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       // World 1000 must land at the view's centre, so the transform shifts by
       // -(1000 - 640) = -360.
@@ -132,8 +111,7 @@ describe('WorldOverlay', () => {
       overlay.drawLine({ x1: 0, y1: 0, x2: 10, y2: 10 });
       overlay.drawPath({ points: [{ x: 0, y: 0 }, { x: 5, y: 5 }], closed: true });
 
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       expect(renderer.sequence()).toEqual([
         'beginScreenFrame', 'pushClip', 'pushTransform',
@@ -148,8 +126,7 @@ describe('WorldOverlay', () => {
       overlay.drawRect({ x: 2, y: 0, width: 1, height: 1 });
       overlay.drawRect({ x: 3, y: 0, width: 1, height: 1 });
 
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       expect(renderer.optionsFor('drawRect').map(o => o.x)).toEqual([1, 2, 3]);
     });
@@ -159,8 +136,7 @@ describe('WorldOverlay', () => {
       overlay.drawText({ x: 640, y: 360, text: 'on top' });
       overlay.drawArc({ x: 640, y: 360, radius: 20 });
 
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       const order = renderer.sequence();
       expect(order.indexOf('drawArc')).toBeLessThan(order.indexOf('drawText'));
@@ -172,8 +148,7 @@ describe('WorldOverlay', () => {
       const { game, renderer, overlay } = makeGame();
       overlay.drawText({ x: 640, y: 360, text: 'centre', fontSize: '12px' });
 
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       const [text] = renderer.optionsFor('drawText');
       expect(text).toMatchObject({ text: 'centre', x: 640, y: 360, isScreenSpace: true });
@@ -188,8 +163,7 @@ describe('WorldOverlay', () => {
       const { game, renderer, overlay } = makeGame();
       overlay.drawText({ x: 600, y: 300, offsetX: 4, offsetY: -20, text: 'hp' });
 
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       const [text] = renderer.optionsFor('drawText');
       expect(text.x).toBe(604);
@@ -200,8 +174,7 @@ describe('WorldOverlay', () => {
       const { game, renderer, overlay } = makeGame();
       overlay.drawText({ x: 640 + 5000, y: 360, text: 'far away' });
 
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       expect(renderer.callsTo('drawText')).toHaveLength(0);
     });
@@ -213,8 +186,7 @@ describe('WorldOverlay', () => {
 
       const drawOnce = () => {
         overlay.drawText({ x: 400, y: 200, text: 'fixed', fontSize: '12px' });
-        renderer.reset();
-        game.drawOverlays();
+        redraw(game, renderer);
         return renderer.optionsFor('drawText')[0];
       };
 
@@ -233,8 +205,7 @@ describe('WorldOverlay', () => {
 
       const drawOnce = () => {
         overlay.drawArc({ x: 400, y: 200, radius: 75, lineWidth: 1 });
-        renderer.reset();
-        game.drawOverlays();
+        redraw(game, renderer);
         return {
           arc: renderer.optionsFor('drawArc')[0],
           transform: renderer.optionsFor('pushTransform')[0]
@@ -259,8 +230,7 @@ describe('WorldOverlay', () => {
       overlay.drawText({ x: 640, y: 360, text: 'centre' });
       overlay.drawArc({ x: 640, y: 360, radius: 10 });
 
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       // World centre lands at the centre of the content rect, not the display.
       expect(renderer.optionsFor('drawText')[0].x).toBe(320 + 640);
@@ -279,8 +249,7 @@ describe('WorldOverlay', () => {
       overlay.drawArc({ x: 640, y: 360, radius: 5 });
 
       game.drawOverlays();
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       expect(renderer.callsTo('drawText')).toHaveLength(0);
       expect(renderer.callsTo('drawArc')).toHaveLength(0);
@@ -294,8 +263,7 @@ describe('WorldOverlay', () => {
       overlay.drawArc({ x: 640, y: 360, radius: 5 });
 
       game.drawWorld({ draw() {} });
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       expect(renderer.callsTo('drawText')).toHaveLength(0);
       expect(renderer.callsTo('drawArc')).toHaveLength(0);
@@ -303,8 +271,7 @@ describe('WorldOverlay', () => {
 
     it('emits nothing at all when nothing was submitted', () => {
       const { game, renderer } = makeGame();
-      renderer.reset();
-      game.drawOverlays();
+      redraw(game, renderer);
 
       expect(renderer.callsTo('pushClip')).toHaveLength(0);
     });

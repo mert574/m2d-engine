@@ -115,7 +115,7 @@ describe('Health raises what a hit looks like', () => {
     expect(game.events.pending).toBe(0);
     health.heal(5);
     expect(game.events.take()).toEqual([['heal', { amount: 5, id: 3, at: { x: 0, y: 0 } }]]);
-    health.heal(500); // already full after the first heal? no: capped at max
+    health.heal(500); // only the 5 still missing: the amount is capped at max health
     expect(game.events.take()).toEqual([['heal', { amount: 5, id: 3, at: { x: 0, y: 0 } }]]);
     health.heal(5); // full now, nothing to say
     expect(game.events.pending).toBe(0);

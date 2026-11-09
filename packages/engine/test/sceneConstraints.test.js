@@ -112,18 +112,9 @@ describe('constraints declared in a scene', () => {
     const chase = entity.getConstraint('chase');
     expect(chase.speed).toBe(200);
     expect(chase.detectionRange).toBe(400);
-    game.destroy();
-  });
-
-  it('recomputes a derived param when the one it follows changes', async () => {
-    // Chase's idle speed trails its pursuit speed. Plain assignment would
-    // leave it at the old value, which is why `configure` is overridable.
-    const { game, entity } = await build(level({
-      actor: 'Guard',
-      objectConstraints: { chase: { params: { speed: 200 } } }
-    }));
-
-    expect(entity.getConstraint('chase').idleSpeed).toBeCloseTo(120);
+    // The derived idle speed follows: it trails the pursuit speed, which is
+    // why `configure` is overridable instead of params being plain writes.
+    expect(chase.idleSpeed).toBeCloseTo(120);
     game.destroy();
   });
 
@@ -242,7 +233,6 @@ describe('a constraint as an editor sees it', () => {
   });
 
   it('leaves callbacks out, since they cannot come from a file', () => {
-    expect(Object.keys(Chase.params)).not.toContain('onDeath');
     for (const ConstraintClass of [Chase, Hover, KeyboardControl]) {
       const callbacks = Object.keys(ConstraintClass.params).filter(k => k.startsWith('on'));
       expect(callbacks).toEqual([]);

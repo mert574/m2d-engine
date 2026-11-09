@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { CVarRegistry } from '../src/core/console/cvars.js';
 import { CommandRegistry, tokenize } from '../src/core/console/commands.js';
 import { M2D } from '../src/core/m2d.js';
-import { createCanvasElement, installWindowStub } from './helpers/environment.js';
+import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
 import { keyDown, keyUp } from './helpers/input.js';
 import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
 
@@ -275,23 +275,11 @@ describe('CommandRegistry', () => {
 });
 
 describe('DevConsole', () => {
-  beforeAll(() => {
-    globalThis.document.addEventListener ??= () => {};
-    globalThis.document.removeEventListener ??= () => {};
-  });
+  beforeAll(stubDocumentListeners);
 
   beforeEach(() => {
     installWindowStub();
   });
-
-  function displayCanvas(cssWidth, cssHeight) {
-    const canvas = createCanvasElement(cssWidth, cssHeight);
-    Object.defineProperty(canvas, 'clientWidth', { value: cssWidth, configurable: true });
-    Object.defineProperty(canvas, 'clientHeight', { value: cssHeight, configurable: true });
-    canvas.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, width: cssWidth, height: cssHeight, right: cssWidth, bottom: cssHeight });
-    return canvas;
-  }
 
   function makeGame(options = {}) {
     const game = new M2D(displayCanvas(1280, 720), {
@@ -387,7 +375,7 @@ describe('DevConsole', () => {
     expect(game.paused).toBe(true);
 
     game.console.execute('g_timescale 0.5');
-    expect(game.physics.timeScale).toBe(0.5);
+    expect(game.time.scale).toBe(0.5);
   });
 
   it('walks history with the arrows, keeping the line being typed', () => {

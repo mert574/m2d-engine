@@ -143,7 +143,7 @@ describe('snapshot and restore', () => {
         if (this.game.time.steps % 10 === 0) this.effects.marks.push(this.game.time.steps);
       }
     }
-    const game = await arena({ actors: [Holder], objects: [{ id: 'floor-2', prefab: 'floor', x: 50, y: 50, width: 10, height: 10 }] });
+    const game = await arena({ actors: [Holder] });
     const holder = game.createEntity({ type: 'Holder', x: 900, y: 100, width: 10, height: 10, physics: { bodyType: 'static' } });
     game.entities.add(holder);
     game.physics.add(holder.body);
@@ -200,7 +200,7 @@ describe('snapshot and restore', () => {
     game.destroy();
   });
 
-  it('restores player state and undoes what intents did after the snapshot', async () => {
+  it('restores player state in place, bag and all', async () => {
     const game = await arena();
     const local = game.players.local;
     local.state = { gold: 10, bag: ['rope'] };

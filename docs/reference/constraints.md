@@ -27,9 +27,9 @@ game.registerConstraint('Chase', Chase);
 }
 ```
 
-What a scene may set is the class's `static params` — the constraint's data. Callbacks are code and are not in `params`, so an actor still wires those up. See [Scene format](./scene-format#constraints) for the block, and [Entities](../guide/entities#declaring-constraints-in-a-scene) for overriding and retuning.
+What a scene may set is the class's `static params`, the constraint's data. Callbacks are code and are not in `params`, so an actor still wires those up. See [Scene format](./scene-format#constraints) for the block, and [Entities](../guide/entities#declaring-constraints-in-a-scene) for overriding and retuning.
 
-Writing a constraint of your own? Give it a `static params` of schema descriptors, one per tunable, named after the field it sets. A tunable missing from `params` cannot be set from a scene, and tooling cannot see it. Record a default as `initial`, never as a schema `default`: an override that filled in defaults would reset every param the author did not mention. Override `configure(params)` when a value is not simply stored — when another field is derived from it, or a map should merge rather than replace.
+Writing a constraint of your own? Give it a `static params` of schema descriptors, one per tunable, named after the field it sets. A tunable missing from `params` cannot be set from a scene, and tooling cannot see it. Record a default as `initial`, never as a schema `default`: an override that filled in defaults would reset every param the author did not mention. Override `configure(params)` when a value is not stored as given: when another field is derived from it, or a map should merge instead of replace.
 
 ## Health
 
@@ -53,7 +53,7 @@ Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `
 
 `targetCategory` chooses the collision category a swing hits (default enemies); an enemy striking the player passes `CollisionCategories.player`, which is how Ash Row's thugs telegraph and land their blows.
 
-`combo` makes the attack a chain: an array of steps (`{ damage, knockback, arc }`, each overriding the base), advanced when a swing starts within `comboWindow` seconds (default 0.8) of the last one ending, and reset otherwise. The cooldown still gates every swing. `onStart(step)` fires per swing and `onHit(entity, step)` per target a swing lands on — a finisher that launches pops the target's `elevation` there. Ash Row's three-punch chain and its sweep kick (a second `Attack` under its own constraint name) are the worked example.
+`combo` makes the attack a chain: an array of steps (`{ damage, knockback, arc }`, each overriding the base), advanced when a swing starts within `comboWindow` seconds (default 0.8) of the last one ending, and reset otherwise. The cooldown still gates every swing. `onStart(step)` fires per swing and `onHit(entity, step)` per target a swing lands on; a finisher that launches pops the target's `elevation` there. Ash Row's three-punch chain and its sweep kick (a second `Attack` under its own constraint name) are the worked example.
 
 `constraints/attack.js`. A melee attack that damages enemies within a half circle in the facing direction and knocks them back.
 
@@ -123,7 +123,7 @@ With `verticalMovement` on, `maxSpeed` caps the whole velocity vector, so a diag
 
 ## GlideControl
 
-`constraints/glideControl.js`. One-press gliding on a corridor grid: tap a direction and the body keeps going until a wall, a new direction, or the same key again — Pac-Man's movement, for cosy mazes. A turn pressed early is buffered and taken at the next opening; one pressed a beat late snaps back to the junction just passed and takes it anyway. Openness is asked of the physics world (`physics.overlaps` one cell over, sensors ignored), so the constraint needs no map, only the grid the corridors are built on. The body parks on the centre of the last open cell at a wall, and is held to the corridor's centre line while gliding. Runs in `fixedUpdate` on `game.input.snapshot`.
+`constraints/glideControl.js`. One-press gliding on a corridor grid: tap a direction and the body keeps going until a wall, a new direction or the same key again: Pac-Man's movement, for cosy mazes. A turn pressed early is buffered and taken at the next opening; one pressed a beat late snaps back to the junction just passed and takes it anyway. Openness is asked of the physics world (`physics.overlaps` one cell over, sensors ignored), so the constraint needs no map, only the grid the corridors are built on. The body parks on the centre of the last open cell at a wall, and is held to the corridor's centre line while gliding. Runs in `fixedUpdate` on `game.input.snapshot`.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -140,7 +140,7 @@ Hedgerow Court is the worked example.
 
 ## CarControl
 
-`constraints/carControl.js`. Arcade top-down car handling on a dynamic body. Each tick the body's velocity splits along its heading: throttle and brakes act on the forward part, grip decays the lateral part, and the handbrake swaps in a much lower grip so the car slides while the nose turns — a drift. Steering drives angular velocity and scales with speed, so the car cannot pivot in place. Runs in `fixedUpdate` on `game.input.snapshot`, so the same inputs always drive the same path.
+`constraints/carControl.js`. Arcade top-down car handling on a dynamic body. Each tick the body's velocity splits along its heading: throttle and brakes act on the forward part, grip decays the lateral part, and the handbrake swaps in a much lower grip so the car slides while the nose turns, a drift. Steering drives angular velocity and scales with speed, so the car cannot pivot in place. Runs in `fixedUpdate` on `game.input.snapshot`, so the same inputs always drive the same path.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -161,7 +161,7 @@ Hedgerow Court is the worked example.
 | `onDrift(active)` | | Drift started or ended |
 | `onNitro()` | | Nitro ignited |
 
-Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lower on oil or grass — it scales grip, steering and drive together), `drifting`, `forwardSpeed`, `lateralSpeed`, `speed`, `boostLeft`, `nitroReady`, `igniteNitro()`, `applyBoost(speed)` (a shove along the heading up to `speed`, what a boost pad does), `setControls(controls)`.
+Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lower on oil or grass; it scales grip, steering and drive together), `drifting`, `forwardSpeed`, `lateralSpeed`, `speed`, `boostLeft`, `nitroReady`, `igniteNitro()`, `applyBoost(speed)` (a shove along the heading up to `speed`, what a boost pad does), `setControls(controls)`.
 
 ## Interactive
 

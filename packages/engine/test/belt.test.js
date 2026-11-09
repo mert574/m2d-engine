@@ -4,7 +4,7 @@ import { Projection } from '../src/core/projection.js';
 import { Camera } from '../src/core/camera.js';
 import { LayerManager } from '../src/core/layerManager.js';
 import { SpriteSheet } from '../src/core/spriteSheet.js';
-import { SceneLoader } from '../src/core/sceneLoader.js';
+import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 
 /**
  * The belt scroller and the small camera modes: a depth lane compressed on
@@ -132,7 +132,7 @@ describe('stretched projected tiles', () => {
 
   it('is validated by the loader', () => {
     const loader = new SceneLoader(null);
-    const base = { version: 2, type: 'level', name: 't', assets: { spritesheets: { p: { url: 'p.jpg', frameWidth: 512, frameHeight: 512 } } } };
+    const base = { version: SCENE_VERSION, type: 'level', name: 't', assets: { spritesheets: { p: { url: 'p.jpg', frameWidth: 512, frameHeight: 512 } } } };
     expect(() => loader.load({ ...base, world: { projection: 'belt' }, tileLayers: [{ name: 's', spritesheet: 'p', tileSize: 200, stretch: true }] })).not.toThrow();
     expect(() => loader.load({ ...base, tileLayers: [{ name: 's', spritesheet: 'p', stretch: 'yes' }] })).toThrow(/stretch/);
   });

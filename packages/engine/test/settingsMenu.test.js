@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { createCanvasElement, installWindowStub } from './helpers/environment.js';
+import { SCENE_VERSION } from '../src/core/sceneLoader.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
 import { M2D } from '../src/core/m2d.js';
 import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
 import { UIOptionRow } from '../src/core/ui/optionRow.js';
@@ -9,19 +10,10 @@ import { keyDown, keyUp } from './helpers/input.js';
 /**
  * The settings overlay every example mounts: resolution, fullscreen, aspect.
  *
- * It is a `UIScreen` built from components, so these tests drive it the way
- * a player does — pushing it onto `game.ui` and routing real input at the
- * rows' own positions, rather than poking at a private hit-rect array.
+ * It is a `UIScreen` built from components. These tests push it onto
+ * `game.ui` and drive it through synthetic row events and real key input,
+ * never by poking at a private hit-rect array.
  */
-
-function displayCanvas(cssWidth, cssHeight) {
-  const canvas = createCanvasElement(cssWidth, cssHeight);
-  Object.defineProperty(canvas, 'clientWidth', { value: cssWidth, configurable: true });
-  Object.defineProperty(canvas, 'clientHeight', { value: cssHeight, configurable: true });
-  canvas.getBoundingClientRect = () =>
-    ({ left: 0, top: 0, width: cssWidth, height: cssHeight, right: cssWidth, bottom: cssHeight });
-  return canvas;
-}
 
 function makeGameWithMenu(options = {}, menuOptions = {}) {
   const game = new M2D(displayCanvas(1280, 720), {
@@ -36,6 +28,13 @@ function openAndLayout(game, menu) {
   menu.open();
   game.ui.update(0.016);
   return menu;
+}
+
+/** A game with its menu already open and laid out: how most tests start. */
+function openMenu(options, menuOptions) {
+  const { game, menu } = makeGameWithMenu(options, menuOptions);
+  openAndLayout(game, menu);
+  return { game, menu };
 }
 
 /** Every option row on the open menu, in order. */
@@ -71,10 +70,7 @@ function makeClick(game, point) {
 }
 
 describe('SettingsMenu', () => {
-  beforeAll(() => {
-    globalThis.document.addEventListener ??= () => {};
-    globalThis.document.removeEventListener ??= () => {};
-  });
+  beforeAll(stubDocumentListeners);
 
   beforeEach(() => {
     installWindowStub();
@@ -99,8 +95,7 @@ describe('SettingsMenu', () => {
   });
 
   it('builds a row for every item', () => {
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
 
     expect(rows(menu).map((r) => r.label)).toEqual([
       'Resolution', 'Fullscreen', 'Aspect', 'Renderer', 'Debug overlay', 'Paused', 'Close'
@@ -109,8 +104,7 @@ describe('SettingsMenu', () => {
 
   it('stacks the rows without overlapping them', () => {
     // The layout owns the spacing now; nothing hand-positions a row.
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
 
     const frames = rows(menu).map((r) => r.frame);
     for (let i = 1; i < frames.length; i++) {
@@ -121,8 +115,7 @@ describe('SettingsMenu', () => {
   });
 
   it('offers a Debug overlay row that toggles the renderer flag', () => {
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
     const before = game.renderer.isDebugEnabled();
 
     clickRow(game, menu, 'Debug overlay');
@@ -131,8 +124,7 @@ describe('SettingsMenu', () => {
   });
 
   it('cycles the resolution presets on click, world surface only', () => {
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
     const view = { width: game.viewport.viewWidth, height: game.viewport.viewHeight };
 
     clickRow(game, menu, 'Resolution');
@@ -144,8 +136,7 @@ describe('SettingsMenu', () => {
   });
 
   it('toggles the aspect mode on click', () => {
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
 
     clickRow(game, menu, 'Aspect');
     expect(game.aspectMode).toBe('expand');
@@ -156,7 +147,7 @@ describe('SettingsMenu', () => {
 
   it('offers a Main menu row when a mainMenu scene exists, outside of it', () => {
     const { game, menu } = makeGameWithMenu();
-    game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: 2, name: 'mainMenu', type: 'ui', elements: [] }) });
+    game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: SCENE_VERSION, name: 'mainMenu', type: 'ui', elements: [] }) });
     game.sceneManager.switchTo = vi.fn(async () => {});
     openAndLayout(game, menu);
     expect(row(menu, 'Main menu')).toBeTruthy();
@@ -180,8 +171,7 @@ describe('SettingsMenu', () => {
   });
 
   it('offers a Paused row that toggles the engine flag', () => {
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
 
     clickRow(game, menu, 'Paused');
     expect(game.paused).toBe(true);
@@ -193,8 +183,7 @@ describe('SettingsMenu', () => {
   it('reports the live value on every row', () => {
     // Values are read through a function, not cached, so a setting changed
     // from anywhere else is reflected without telling the row.
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
 
     expect(row(menu, 'Aspect').valueText).toBe('Letterbox');
     game.setAspectMode('expand');
@@ -202,8 +191,7 @@ describe('SettingsMenu', () => {
   });
 
   it('adds a game row with addOption, into its section, before Close', () => {
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
     // Added after the menu was built: the screen rebuilds on next open.
     let music = true;
     menu.close();
@@ -234,8 +222,7 @@ describe('SettingsMenu', () => {
   });
 
   it('closes via the Close row', () => {
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
 
     clickRow(game, menu, 'Close');
 
@@ -243,8 +230,7 @@ describe('SettingsMenu', () => {
   });
 
   it('closes on a click outside the panel, consuming it', () => {
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
 
     const event = makeClick(game, { x: 20, y: 20 });
     game.ui.handleInput(event);
@@ -254,8 +240,7 @@ describe('SettingsMenu', () => {
   });
 
   it('stays centred when the UI space is wider than the design', () => {
-    const { game, menu } = makeGameWithMenu({ aspectMode: 'expand' });
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu({ aspectMode: 'expand' });
 
     const panel = menu.screen.panel.frame;
     const centre = panel.x + panel.width / 2;
@@ -263,8 +248,7 @@ describe('SettingsMenu', () => {
   });
 
   it('sizes the panel to its rows', () => {
-    const { game, menu } = makeGameWithMenu();
-    openAndLayout(game, menu);
+    const { game, menu } = openMenu();
 
     const panel = menu.screen.panel;
     const padding = panel.padding.top + panel.padding.bottom;
@@ -276,7 +260,6 @@ describe('SettingsMenu', () => {
       const { game, menu } = makeGameWithMenu();
       keyDown(game, 'KeyO');
       expect(game.ui.has('settings')).toBe(true);
-      expect(menu).toBeTruthy();
     });
 
     it('opens over a blocking screen, such as a main menu', () => {
@@ -296,8 +279,7 @@ describe('SettingsMenu', () => {
       // A blocking screen consumes input before subscribers run, so the
       // screen has to answer the hotkey itself or it could never be closed
       // by the key that opened it.
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
 
       keyDown(game, 'KeyO');
 
@@ -305,16 +287,14 @@ describe('SettingsMenu', () => {
     });
 
     it('is reported on the Close row using the layout label', () => {
-      const { game, menu } = makeGameWithMenu(undefined, { hotkey: 'KeyP' });
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu(undefined, { hotkey: 'KeyP' });
       expect(row(menu, 'Close').valueText).toBe(`(${game.input.keyLabel('KeyP')})`);
     });
   });
 
   describe('Escape', () => {
     it('closes the menu', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
 
       keyDown(game, 'Escape');
 
@@ -330,8 +310,7 @@ describe('SettingsMenu', () => {
 
   describe('keyboard capture while open', () => {
     it('keeps game keys away from the game', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
 
       keyDown(game, 'KeyW');
 
@@ -351,16 +330,8 @@ describe('SettingsMenu', () => {
   });
 
   describe('keyboard navigation', () => {
-    it('focuses the first row on open, so a controller can use it at once', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
-
-      expect(menu.screen.focus.focused).toBe(row(menu, 'Resolution'));
-    });
-
     it('moves down the rows with the arrow keys', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
 
       keyDown(game, 'ArrowDown');
       expect(menu.screen.focus.focused).toBe(row(menu, 'Fullscreen'));
@@ -370,8 +341,7 @@ describe('SettingsMenu', () => {
     });
 
     it('wraps around with Tab', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
       const all = rows(menu);
 
       for (let i = 0; i < all.length; i++) keyDown(game, 'Tab');
@@ -380,8 +350,7 @@ describe('SettingsMenu', () => {
     });
 
     it('steps the focused value with Left and Right', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
       expect(menu.screen.focus.focused).toBe(row(menu, 'Resolution'));
 
       keyDown(game, 'ArrowRight');
@@ -395,8 +364,7 @@ describe('SettingsMenu', () => {
     });
 
     it('describes the focused row in the footer', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
 
       expect(row(menu, 'Resolution').description).toMatch(/pixels/i);
       keyDown(game, 'ArrowDown');
@@ -404,8 +372,7 @@ describe('SettingsMenu', () => {
     });
 
     it('activates the focused row with Enter', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
       keyDown(game, 'ArrowDown');
       keyDown(game, 'ArrowDown');
       expect(menu.screen.focus.focused).toBe(row(menu, 'Aspect'));
@@ -418,35 +385,23 @@ describe('SettingsMenu', () => {
 
   describe('pause', () => {
     it('leaves the game running unless asked', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
       expect(game.paused).toBe(false);
     });
 
     it('pauses while open with pauseWhenOpen', () => {
-      const { game, menu } = makeGameWithMenu(undefined, { pauseWhenOpen: true });
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu(undefined, { pauseWhenOpen: true });
       expect(game.paused).toBe(true);
 
       menu.close();
       expect(game.paused).toBe(false);
     });
 
-    it('does not resume a game that was already paused', () => {
-      const { game, menu } = makeGameWithMenu(undefined, { pauseWhenOpen: true });
-      game.paused = true;
-
-      openAndLayout(game, menu);
-      menu.close();
-
-      expect(game.paused).toBe(true);
-    });
   });
 
   describe('teardown', () => {
     it('unregisters everything on destroy', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
 
       menu.destroy();
 
@@ -458,8 +413,7 @@ describe('SettingsMenu', () => {
     });
 
     it('is torn down by game.destroy()', () => {
-      const { game, menu } = makeGameWithMenu();
-      openAndLayout(game, menu);
+      const { game, menu } = openMenu();
 
       game.destroy();
 

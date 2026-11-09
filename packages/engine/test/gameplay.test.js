@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { makeTestGame, makeBody } from './helpers/testGame.js';
 import { Entity } from '../src/core/entity.js';
 import { SpriteSheet } from '../src/core/spriteSheet.js';
-import { SceneLoader } from '../src/core/sceneLoader.js';
+import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { SoundManager } from '../src/core/soundManager.js';
 import { Quest } from '../src/core/quest.js';
 import { Angle, DIRECTIONS_8 } from '../src/core/math.js';
@@ -113,7 +113,7 @@ describe('Entity animation', () => {
 describe('scene loader animation rates', () => {
   const loader = new SceneLoader(null);
   const scene = (anim) => ({
-    version: 2, type: 'level', name: 't',
+    version: SCENE_VERSION, type: 'level', name: 't',
     assets: { spritesheets: { s: { url: 's.png', frameWidth: 16, frameHeight: 16, animations: { run: anim } } } }
   });
 

@@ -75,6 +75,24 @@ export const HDRIS = {
 export const HDRI_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'environments');
 
 /**
+ * Textures the examples map onto primitive shapes (the lot's roads, kerbs
+ * and plinths), by id and resolution. Like a panorama, a texture needs no
+ * compile step. Only the colour map is fetched: a shape's `mesh.texture`
+ * reads nothing else yet, and a fresh checkout should not pay for maps
+ * nothing draws.
+ */
+export const TEXTURES = {
+  asphalt_03: '1k',
+  concrete_floor_02: '1k'
+};
+
+/** Where a fetched texture lands, beside the generated dev textures. */
+export const TEXTURE_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'textures');
+
+/** The file a texture's colour map is saved as, which a scene's `url` names. */
+export const texturePath = (id, resolution) => resolve(TEXTURE_DIR, `${id}_diff_${resolution}.jpg`);
+
+/**
  * One HDR panorama into `HDRI_DIR`. These are small next to a scan — a
  * 2k sky is about 5 MB — and need no compile step.
  */
@@ -86,6 +104,16 @@ export async function fetchHDRI(id, resolution) {
   const fetched = await download(entry.url, to, entry.md5) ? 1 : 0;
   const info = await api(`/info/${id}`);
   return { fetched, bytes: entry.size, to, name: info.name, authors: Object.keys(info.authors ?? {}) };
+}
+
+/** One texture's colour map into `TEXTURE_DIR`, about a megabyte at 1k. */
+export async function fetchTexture(id, resolution) {
+  const files = await api(`/files/${id}`);
+  const entry = files.Diffuse?.[resolution]?.jpg;
+  if (!entry) throw new Error(`${id}: no diffuse JPEG at ${resolution} (have ${Object.keys(files.Diffuse ?? {}).join(', ')})`);
+  const fetched = await download(entry.url, texturePath(id, resolution), entry.md5) ? 1 : 0;
+  const info = await api(`/info/${id}`);
+  return { fetched, bytes: entry.size, name: info.name, authors: Object.keys(info.authors ?? {}) };
 }
 
 export async function fetchAsset(id, resolution) {

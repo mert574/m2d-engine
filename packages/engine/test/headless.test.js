@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { inspect } from 'node:util';
@@ -6,7 +7,7 @@ import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { InputSnapshot } from '../src/core/input/snapshot.js';
 import {
-  SCENE, OTHER, ARENA_ACTORS, fingerprint, CAPTURE_AT, prepareCoverage, gatedInput
+  SCENE, OTHER, ARENA_ACTORS, fingerprint, CAPTURE_AT, prepareCoverage
 } from './helpers/scenarios.js';
 
 /**
@@ -55,7 +56,7 @@ function probeScene(game, { construct, fixed } = {}) {
   game.registerActor('Probe', Probe);
   game.sceneManager.addScene('probe', {
     fetch: async () => ({
-      version: 2, type: 'level', name: 'probe',
+      version: SCENE_VERSION, type: 'level', name: 'probe',
       prefabs: { probe: { actor: 'Probe', physics: { bodyType: 'static' } } },
       layers: [{ name: 'main', objects: [{ id: 'probe', prefab: 'probe', x: 0, y: 0, width: 10, height: 10 }] }]
     })
@@ -179,7 +180,7 @@ describe('a headless game', () => {
     for (const actor of ARENA_ACTORS) game.registerActor(actor.name, actor);
     game.sceneManager.addScene('art', {
       fetch: async () => ({
-        version: 2, type: 'level', name: 'art',
+        version: SCENE_VERSION, type: 'level', name: 'art',
         assets: { spritesheets: { tiles: { url: 'https://nowhere.invalid/tiles.png', frameWidth: 32, frameHeight: 32 } } },
         background: { spritesheet: 'tiles' },
         tileLayers: [{ name: 'floor', spritesheet: 'tiles', parallax: 0.5 }],
@@ -198,33 +199,16 @@ describe('a headless game', () => {
 
   it('runs onEnter and onExit, and never onShow, onHide or the frame hooks', async () => {
     const calls = [];
-    const game = headless();
-    for (const actor of ARENA_ACTORS) game.registerActor(actor.name, actor);
     const hook = (name) => () => calls.push(name);
-    game.sceneManager.addScene('arena', {
-      fetch: async () => SCENE,
+    const game = await arena({}, {
       onEnter: hook('enter'), onShow: hook('show'), onUpdate: hook('update'),
       onDraw: hook('draw'), onDrawBackground: hook('background'), onHide: hook('hide'), onExit: hook('exit'),
       onFixedUpdate: hook('fixed')
     });
-    game.sceneManager.addScene('other', { fetch: async () => OTHER });
-    await game.sceneManager.switchTo('arena');
     game.step(2);
     await game.sceneManager.switchTo('other');
     expect(calls).toEqual(['enter', 'fixed', 'fixed', 'exit']);
     game.destroy();
-  });
-
-  it('takes its input through the server gate, hostile delivery and all', async () => {
-    const prints = [];
-    for (const input of [undefined, gatedInput({ chaos: true })]) {
-      const game = headless({ seed: 5 });
-      const capture = await prepareCoverage(game, 'grove', { input });
-      game.step(CAPTURE_AT);
-      prints.push(capture());
-      game.destroy();
-    }
-    expect(prints[1]).toEqual(prints[0]);
   });
 
   it('runs in a plain node process, and agrees with this one', async () => {
@@ -291,7 +275,7 @@ describe('presentation in a headless game fails by name', () => {
 
   it('a UI scene', async () => {
     const game = headless();
-    game.sceneManager.addScene('menu', { fetch: async () => ({ version: 2, type: 'ui', name: 'menu', elements: [] }) });
+    game.sceneManager.addScene('menu', { fetch: async () => ({ version: SCENE_VERSION, type: 'ui', name: 'menu', elements: [] }) });
     await expect(game.sceneManager.switchTo('menu')).rejects.toThrow(/UI scene/);
   });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { createCanvasElement, installWindowStub } from './helpers/environment.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { makeTestGame, makeBody } from './helpers/testGame.js';
 import { M2D } from '../src/core/m2d.js';
@@ -7,7 +7,7 @@ import { Scene } from '../src/core/scene.js';
 import { Camera } from '../src/core/camera.js';
 import { Entity } from '../src/core/entity.js';
 import { SpriteSheet } from '../src/core/spriteSheet.js';
-import { SceneLoader } from '../src/core/sceneLoader.js';
+import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import * as mat from '../src/core/renderers/geometry/matrix.js';
 
 /**
@@ -17,15 +17,6 @@ import * as mat from '../src/core/renderers/geometry/matrix.js';
  * footprint that splits a collider from its drawn frame. See the
  * Perspectives section of the roadmap.
  */
-
-function displayCanvas(cssWidth, cssHeight) {
-  const canvas = createCanvasElement(cssWidth, cssHeight);
-  Object.defineProperty(canvas, 'clientWidth', { value: cssWidth, configurable: true });
-  Object.defineProperty(canvas, 'clientHeight', { value: cssHeight, configurable: true });
-  canvas.getBoundingClientRect = () =>
-    ({ left: 0, top: 0, width: cssWidth, height: cssHeight, right: cssWidth, bottom: cssHeight });
-  return canvas;
-}
 
 describe('camera transform', () => {
   it('is translate-only by default and matches the renderer matrix', () => {
@@ -161,10 +152,7 @@ describe('entity depth, elevation and frame', () => {
 describe('scene draw order and tile layers', () => {
   let game;
 
-  beforeAll(() => {
-    globalThis.document.addEventListener ??= () => {};
-    globalThis.document.removeEventListener ??= () => {};
-  });
+  beforeAll(stubDocumentListeners);
 
   beforeEach(() => {
     installWindowStub();
@@ -181,7 +169,7 @@ describe('scene draw order and tile layers', () => {
   }
 
   function levelScene(config = {}) {
-    return new Scene(game, { type: 'level', version: 2, layers: [], prefabs: {}, ...config });
+    return new Scene(game, { type: 'level', version: SCENE_VERSION, layers: [], prefabs: {}, ...config });
   }
 
   /** Draw the scene and return the drawn rect y positions, in call order. */
@@ -284,7 +272,7 @@ describe('scene draw order and tile layers', () => {
 
   it('applies object zIndex and tileLayers from scene JSON', async () => {
     const config = new SceneLoader(game).load({
-      version: 2, type: 'level', name: 't',
+      version: SCENE_VERSION, type: 'level', name: 't',
       assets: { spritesheets: { g: { url: 'g.png', frameWidth: 64, frameHeight: 64 } } },
       prefabs: { thing: { actor: 'Thing' } },
       layers: [{ objects: [{ id: 'thing', prefab: 'thing', x: 10, y: 10, zIndex: 7 }] }],
@@ -305,7 +293,7 @@ describe('scene draw order and tile layers', () => {
 describe('scene loader perspective fields', () => {
   const loader = new SceneLoader(null);
   const base = {
-    version: 2, type: 'level', name: 't',
+    version: SCENE_VERSION, type: 'level', name: 't',
     assets: { spritesheets: { g: { url: 'g.png', frameWidth: 64, frameHeight: 64 } } },
     prefabs: { thing: { actor: 'Thing', physics: {} } }
   };

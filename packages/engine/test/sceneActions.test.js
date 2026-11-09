@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { createCanvasElement, installWindowStub } from './helpers/environment.js';
+import { SCENE_VERSION } from '../src/core/sceneLoader.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { M2D } from '../src/core/m2d.js';
 import { Scene } from '../src/core/scene.js';
@@ -17,15 +18,6 @@ import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
  * and a bad scene switch logs instead of exploding silently.
  */
 
-function displayCanvas(cssWidth, cssHeight) {
-  const canvas = createCanvasElement(cssWidth, cssHeight);
-  Object.defineProperty(canvas, 'clientWidth', { value: cssWidth, configurable: true });
-  Object.defineProperty(canvas, 'clientHeight', { value: cssHeight, configurable: true });
-  canvas.getBoundingClientRect = () =>
-    ({ left: 0, top: 0, width: cssWidth, height: cssHeight, right: cssWidth, bottom: cssHeight });
-  return canvas;
-}
-
 /** A UI scene holding one button with the given properties, set up for clicking. */
 async function sceneWithButton(game, properties, config = {}) {
   const scene = new Scene(game, {
@@ -41,10 +33,7 @@ async function sceneWithButton(game, properties, config = {}) {
 describe('scene button actions', () => {
   let game;
 
-  beforeAll(() => {
-    globalThis.document.addEventListener ??= () => {};
-    globalThis.document.removeEventListener ??= () => {};
-  });
+  beforeAll(stubDocumentListeners);
 
   beforeEach(() => {
     installWindowStub();
@@ -150,7 +139,7 @@ describe('scene switching', () => {
     const game = new M2D(displayCanvas(640, 360), { width: 640, height: 360, renderer: new RecordingRenderer() });
     let sawLoadingDuringSetup = null;
     game.sceneManager.addScene('a', {
-      fetch: async () => ({ version: 2, name: 'a', type: 'level', world: { projection: 'isometric' }, prefabs: {}, layers: [] }),
+      fetch: async () => ({ version: SCENE_VERSION, name: 'a', type: 'level', world: { projection: 'isometric' }, prefabs: {}, layers: [] }),
       onEnter() { sawLoadingDuringSetup = game.sceneManager.loading; }
     });
     const pending = game.sceneManager.switchTo('a');

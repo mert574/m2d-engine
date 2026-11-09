@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { fakeSocket } from './helpers/net.js';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { initPhysics } from '../src/core/physics/index.js';
@@ -57,16 +58,6 @@ function build() {
   for (const actor of [Ground, Crate, Hero]) game.registerActor(actor.name, actor);
   game.sceneManager.addScene('yard', { fetch: async () => YARD });
   return game;
-}
-
-function fakeSocket() {
-  return {
-    readyState: 1,
-    outbox: [],
-    send(data) { this.outbox.push(JSON.parse(data)); },
-    close(code, reason) { this.readyState = 3; this.onclose?.({ code, reason }); },
-    deliver(message) { this.onmessage?.({ data: JSON.stringify(message) }); }
-  };
 }
 
 async function pair() {

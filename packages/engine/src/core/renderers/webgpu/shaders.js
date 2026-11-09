@@ -21,7 +21,7 @@ export const MAX_SPOT_SHADOWS = 4;
  * passes — one per face — so this stays small and the quality setting
  * decides how many of them a frame actually draws.
  */
-export const MAX_POINT_SHADOWS = 2;
+export const MAX_POINT_SHADOWS = 6;
 
 /**
  * The near plane every shadow cube face is drawn with. Both halves of
@@ -95,7 +95,8 @@ struct Frame {
   cascadeRadii: vec4f,
   // x bias in metres, y the cascades' reach back toward the sun in
   // metres, z the point-cube depth bias, scaled by the renderer to the
-  // cube's texel size so the quality setting carries it.
+  // cube's texel size so the quality setting carries it, w one texel of
+  // a cube face (1/size).
   shadowBias: vec4f,
   // Post-process settings; see Frame3D.post and the pass that reads each.
   // post[0]: x taa blend, y ao radius (m), z ao intensity, w ao on.
@@ -146,7 +147,9 @@ struct Light {
   // xyz the direction a spot points; w 0 point, 1 spot.
   direction: vec4f,
   // x cos inner cone, y cos outer cone, z spot shadow layer + 1 (0:
-  // none), w point shadow cube + 1 (0: none).
+  // none), w point shadow cube + 1 (0: none) with the shadow's strength
+  // packed in the fraction (fract * 2), so a cube handed from one lamp
+  // to another fades in instead of popping.
   cone: vec4f,
 };
 
@@ -750,7 +753,24 @@ fn pointVisibility(cube: u32, worldPosition: vec3f, lightPosition: vec3f, range:
   let near = POINT_SHADOW_NEAR;
   let depth = range * (axis - near) / (axis * (range - near));
   let bias = frame.shadowBias.z * (1.0 + 2.0 * (1.0 - nDotL));
-  return textureSampleCompareLevel(pointShadowMaps, shadowSampler, toFragment, cube, depth - bias);
+  // The same 3x3 percentage-closer filter the flat maps get, in the
+  // plane perpendicular to the lookup direction: one face texel at this
+  // distance is axis * 2 / size across (the face spans two units of
+  // tangent per unit of depth). Without it a cube's edge is one hard
+  // bilinear step, which at these face sizes reads as broken.
+  var up = vec3f(0.0, 1.0, 0.0);
+  if (abs(toFragment.y) > abs(toFragment.x) && abs(toFragment.y) > abs(toFragment.z)) { up = vec3f(1.0, 0.0, 0.0); }
+  let t = normalize(cross(up, toFragment));
+  let b = normalize(cross(toFragment, t));
+  let spread = axis * 2.0 * frame.shadowBias.w;
+  var lit = 0.0;
+  for (var y = -1; y <= 1; y++) {
+    for (var x = -1; x <= 1; x++) {
+      let dir = toFragment + (t * f32(x) + b * f32(y)) * spread;
+      lit += textureSampleCompareLevel(pointShadowMaps, shadowSampler, dir, cube, depth - bias);
+    }
+  }
+  return lit / 9.0;
 }
 
 // Cook-Torrance for one light arriving along l with the given radiance.
@@ -866,7 +886,11 @@ fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
       attenuation *= spotVisibility(u32(light.cone.z) - 1u, in.worldPosition, n, max(dot(n, dir), 0.0));
       if (attenuation <= 0.0) { continue; }
     } else if (light.cone.w > 0.5) {
-      attenuation *= pointVisibility(u32(light.cone.w) - 1u, in.worldPosition, light.position.xyz, light.position.w, n, max(dot(n, dir), 0.0));
+      // The integer part names the cube, the fraction its strength: a
+      // cube newly handed to this lamp blends its shadow in.
+      let strength = fract(light.cone.w) * 2.0;
+      let seen = pointVisibility(u32(light.cone.w) - 1u, in.worldPosition, light.position.xyz, light.position.w, n, max(dot(n, dir), 0.0));
+      attenuation *= mix(1.0, seen, strength);
       if (attenuation <= 0.0) { continue; }
     }
     color += shade(n, v, dir, light.color.rgb * light.color.w * attenuation, base, f0, metallic, roughness);
@@ -1132,6 +1156,24 @@ fn exposure() -> f32 {
 `;
 
 /**
+ * The share of a colour that scatters into bloom: all of it, or with a
+ * threshold only what is brighter, rolled on over a soft knee so a
+ * surface just at the line does not flicker in and out.
+ */
+const BLOOM_KNEE = /* wgsl */ `
+fn scatterPart(color: vec3f) -> vec3f {
+  let threshold = frame.params2.y;
+  if (threshold <= 0.0) { return color; }
+  let knee = threshold * 0.5;
+  let brightness = max(color.r, max(color.g, color.b));
+  var soft = brightness - threshold + knee;
+  soft = clamp(soft, 0.0, 2.0 * knee);
+  soft = soft * soft / (4.0 * knee + 1e-4);
+  return color * max(soft, brightness - threshold) / max(brightness, 1e-4);
+}
+`;
+
+/**
  * Bloom's first step: keep what is brighter than the threshold, softly, at
  * half resolution. A smooth knee so a surface just over the threshold does
  * not flicker in and out.
@@ -1140,36 +1182,30 @@ export const BLOOM_PREFILTER_SHADER = /* wgsl */ `
 ${COMMON}
 ${POST_COMMON}
 ${EXPOSURE}
+${BLOOM_KNEE}
 
-// A 2x2 box of the source, each tap weighted down by its brightness
-// (Karis) so one hot pixel cannot become a flickering square of bloom.
+// A 2x2 box of the source, each tap capped. The cap is the firefly
+// guard: one glint cannot become a flickering square of bloom. It is a
+// cap and not a brightness weight (Karis) because a weight of 1/(1+L)
+// cut a lamp's head to a fifth before the chain began — a street lamp
+// or a neon tube is a few bright pixels among dark ones, and those are
+// the very pixels bloom is for; the temporal filter upstream already
+// steadies them.
+const BLOOM_CAP = 32.0;
 @fragment
 fn fs(in: PostOut) -> @location(0) vec4f {
   let texel = 1.0 / vec2f(textureDimensions(source));
   let e = exposure();
   var sum = vec3f(0.0);
-  var weight = 0.0;
   for (var y = -1; y <= 1; y += 2) {
     for (var x = -1; x <= 1; x += 2) {
       let c = clampHDR(textureSampleLevel(source, sourceSampler, in.uv + vec2f(f32(x), f32(y)) * texel * 0.5, 0.0).rgb) * e;
-      let w = 1.0 / (1.0 + luminance(c));
-      sum += c * w;
-      weight += w;
+      sum += min(c, vec3f(BLOOM_CAP));
     }
   }
-  var color = sum / weight;
-  // An optional threshold with a soft knee; 0 lets everything scatter a
-  // little, which is what a lens does.
-  let threshold = frame.params2.y;
-  if (threshold > 0.0) {
-    let knee = threshold * 0.5;
-    let brightness = max(color.r, max(color.g, color.b));
-    var soft = brightness - threshold + knee;
-    soft = clamp(soft, 0.0, 2.0 * knee);
-    soft = soft * soft / (4.0 * knee + 1e-4);
-    color *= max(soft, brightness - threshold) / max(brightness, 1e-4);
-  }
-  return vec4f(color, 1.0);
+  // The optional threshold with its soft knee; 0 lets everything scatter
+  // a little, which is what a lens does.
+  return vec4f(scatterPart(sum * 0.25), 1.0);
 }
 `;
 
@@ -1689,10 +1725,11 @@ fn hash(p: vec2f) -> f32 {
 fn fs(in: PostOut) -> @location(0) vec4f {
   let e = exposure();
   var color = textureSampleLevel(source, sourceSampler, in.uv, 0.0).rgb * e;
-  // Bloom replaces a share of the light rather than adding to it, so a
-  // bright frame does not get brighter still; the chain is normalised, so
-  // the share is the intensity.
-  color = mix(color, textureSampleLevel(bloom, sourceSampler, in.uv, 0.0).rgb, frame.params2.z);
+  // The glow over the frame, by the scene's intensity. The chain is a
+  // weighted mean of its levels, so a glow is the lamp's own light spread
+  // by the scatter, not a multiplied copy of it; what the threshold kept
+  // out contributes nothing, and the tonemapper holds the rest.
+  color += textureSampleLevel(bloom, sourceSampler, in.uv, 0.0).rgb * frame.params2.z;
   // Temperature before tonemapping: warm pushes red up and blue down.
   let temperature = frame.post[4].z;
   color *= vec3f(1.0 + temperature * 0.2, 1.0, 1.0 - temperature * 0.2);
@@ -1743,7 +1780,15 @@ fn fs(in: PostOut) -> @location(0) vec4f {
 }
 `;
 
-/** A 9-tap tent upsample, added onto the level above with additive blending. */
+/**
+ * A 9-tap tent upsample, blended over the level above by the scatter
+ * constant: out = scatter * tent(lower) + (1 - scatter) * upper. Each
+ * level therefore holds a weighted mean, not a sum — the chain stays at
+ * the scene's energy whatever its depth, the composite's share stays a
+ * share, and the glow falls off geometrically (a tight core with a long
+ * soft tail) instead of every radius weighing the same, which read as a
+ * flat milky veil.
+ */
 export const BLOOM_UPSAMPLE_SHADER = /* wgsl */ `
 ${COMMON}
 ${POST_COMMON}

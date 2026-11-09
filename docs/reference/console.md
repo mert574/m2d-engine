@@ -11,9 +11,9 @@ A Source-style drop-down console over two registries: **cvars** (named, typed en
 
 The grammar is Quake's: a known command runs; a bare cvar prints its value; a cvar followed by a value sets it.
 
-## CVars — `game.cvars`
+## CVars: `game.cvars`
 
-From `core/console/cvars.js`. A cvar is a name, a type, a way to read, a way to write and a description — the wiring every settings surface needs, done once. The settings menu is a view onto this registry.
+From `core/console/cvars.js`. A cvar is a name, a type, a way to read, a way to write and a description: the wiring every settings surface needs, done once. The settings menu is a view onto this registry.
 
 ```javascript
 game.cvars.register('g_difficulty', {
@@ -65,8 +65,11 @@ Prefixes follow the Quake convention the completion is built around: `r_` render
 | `g_timescale` | number 0–10 | | `game.time.scale`. `0.5` is slow motion |
 | `cl_showfps` | boolean | yes | The frame-rate readout |
 | `cl_statsexpanded` | boolean | yes | The readout's full counter list (F3) |
+| `net_log` | number 0–2 | | Net logging: 0 silent, 1 the connection's life, 2 leads, corrections and rates |
+| `net_predict` | boolean | | Run the local avatar's movement early instead of waiting for the server |
+| `net_interp` | number | | Extra ticks to draw remote entities behind the server, on top of the usual delay |
 
-## Commands — `game.commands`
+## Commands: `game.commands`
 
 From `core/console/commands.js`.
 
@@ -85,13 +88,15 @@ game.commands.register('give', {
 
 `io` has `print`, `warn`, `error` and `clear`, so a command's output lands in the scrollback it was typed into. A command that throws is reported as an error line, not a crash. Arguments are split on whitespace with double quotes honoured (`echo "two words"`).
 
-Built-ins: `help [name]`, `find <text>`, `cvars [filter]`, `set`, `toggle`, `reset`, `echo`, `clear`, `scene <name>`, `scenes`, `entities`, `noclip`.
+Built-ins: `help [name]`, `find <text>`, `cvars [filter]`, `set`, `toggle`, `reset`, `echo`, `clear`, `scene <name>`, `scenes`, `entities`, `noclip`, `net`.
+
+`net` prints the connection: who, how fast, how far behind and how often corrected.
 
 `noclip` toggles the player's collision mask to nothing, so `game.player` walks through everything, and sets `entity.noclip` for the game to read: a character that checks it can fly, as the yard's hero does. A character body with an empty mask is also out from under gravity, since there is no floor left to absorb it. The mask is restored when toggled off.
 
 `execute(line, io)` runs one line; `complete(line)` returns completions for the first token across commands and cvars together, or a string cvar's `choices` for its value.
 
-## The console itself — `game.console`
+## The console: `game.console`
 
 From `core/console/devConsole.js`. Mounted unless the `devConsole` engine option is `false`; the registries exist either way.
 
@@ -105,9 +110,9 @@ From `core/console/devConsole.js`. Mounted unless the `devConsole` engine option
 | PageUp / PageDown, wheel | Scroll the scrollback |
 | Escape | Close |
 
-While open it captures **every key** — it sits in `game.ui.debug` with `captureAll`, routed before any screen — but it is not modal: pointer input outside its panel falls through, so the game and its menus stay clickable underneath. Key releases still reach the game, so a key held when it opened does not stick. Because the engine suppresses the browser default of any key it consumes, typing in the console cannot scroll the page or trigger find-in-page.
+While open it captures **every key** (it sits in `game.ui.debug` with `captureAll`, routed before any screen) but it is not modal: pointer input outside its panel falls through, so the game and its menus stay clickable underneath. Key releases still reach the game, so a key held when it opened does not stick. Because the engine suppresses the browser default of any key it consumes, typing in the console cannot scroll the page or trigger find-in-page.
 
-Typing reads `event.key` — the character the player's layout produced — which is the engine's one sanctioned use of layout-dependent input; game bindings stay on physical `event.code`.
+Typing reads `event.key`, the character the player's layout produced, which is the engine's one sanctioned use of layout-dependent input; game bindings stay on physical `event.code`.
 
 `game.console.execute('...')` scripts it; `append(text, kind)` writes a line (`kinds: 'print' | 'warn' | 'error' | 'debug' | 'input'`).
 

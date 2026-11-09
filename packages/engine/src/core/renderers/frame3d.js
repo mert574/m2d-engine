@@ -48,11 +48,14 @@ export class Frame3D {
     /** Exposure applied before tonemapping. */
     this.exposure = 1;
     /**
-     * Bloom: a share `intensity` of the light scatters into a wide glow;
-     * `threshold` (after exposure) keeps only what is brighter, or 0 lets
-     * everything scatter a little, as a lens does. `intensity` 0 skips it.
+     * Bloom: light brighter than `threshold` (after exposure; 0 lets
+     * everything glow a little) scatters into a glow laid over the frame
+     * at `intensity`. `scatter` is how far it reaches — each upsample's
+     * blend toward the wider level, so low values keep a tight core and
+     * high ones a long soft tail — and the glow carries the light's own
+     * energy whatever it is set to. `intensity` 0 skips the passes.
      */
-    this.bloom = { threshold: 0, intensity: 0.05 };
+    this.bloom = { threshold: 1, intensity: 0.8, scatter: 0.75 };
     /**
      * Shadows. The sun's cascades cover the view out to `distance` metres;
      * `normalOffset` is how far, in shadow texels, a surface is pushed along

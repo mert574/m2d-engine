@@ -6,7 +6,7 @@ import { defineConfig } from 'vitepress';
 
 export default defineConfig({
   title: 'M2D Engine',
-  description: 'A 2D game engine for the browser with Rapier physics and WebGL2 rendering',
+  description: 'A 2D and 3D game engine for the browser with Rapier physics and WebGL2 and WebGPU rendering',
   base: '/m2d-engine/',
   outDir: 'dist',
   cleanUrls: true,
@@ -14,6 +14,9 @@ export default defineConfig({
   // `plans/**` holds working plans for large in-flight work. They are
   // tracked with the docs but are not published to the site.
   srcExclude: ['README.md', 'demos/**', 'plans/**'],
+  // The engine's model-loader worker imports shared modules, which only an
+  // ES-format worker bundle can hold.
+  vite: { worker: { format: 'es' } },
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },

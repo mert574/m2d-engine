@@ -148,7 +148,7 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 describe('client prediction', () => {
   it('moves the local avatar on the tick the key goes down, before the server has heard', async () => {
-    const { client, clientAvatar, held, advance, net } = await pair();
+    const { client, clientAvatar, held, net } = await pair();
     const mine = clientAvatar();
     const start = { ...mine.position };
     expect(net.predictor.entity).toBe(mine);
@@ -159,7 +159,6 @@ describe('client prediction', () => {
     client.step(1);
     expect(mine.position.x).toBeGreaterThan(start.x);
     expect(net.predictor.history.size).toBeGreaterThan(0);
-    void advance;
   });
 
   it('agrees with the server across a 150 ms round trip', async () => {
@@ -205,7 +204,7 @@ describe('client prediction', () => {
   });
 
   it('takes the server\'s word on a disagreement and replays the input sent since', async () => {
-    const { server, avatar, clientAvatar, held, advance, net } = await pair({ delay: 9 });
+    const { avatar, clientAvatar, held, advance, net } = await pair({ delay: 9 });
     const mine = clientAvatar();
     held.codes = ['ArrowRight'];
     advance(30);
@@ -226,8 +225,6 @@ describe('client prediction', () => {
     // and it is still ahead along the walk rather than back at the shove.
     expect(net.predictor.lastError).toBeLessThan(2);
     expect(mine.position.x).toBeGreaterThanOrEqual(avatar.position.x - 1);
-    void server;
-    void distance;
   });
 
   it('gives a correction up gradually, so it is not seen as a jump', async () => {
@@ -339,7 +336,6 @@ describe('client prediction', () => {
       const quiet = lines.length;
       advance(60);
       expect(lines.length).toBe(quiet);
-      void net;
     } finally {
       console.info = info;
       console.debug = debug;

@@ -22,9 +22,11 @@ import { loadAmbience, Footsteps } from './ambience.js';
  * shows the frame statistics.
  *
  * `?scene=lot` opens the lot instead: the yard at the centre of a grid of
- * lots with thousands of props around it, laid out by
- * `scripts/buildLotScene.mjs` and drawn as resident instances the GPU
- * culls. The scale testbed for the renderer; F3 shows what it draws.
+ * lots laid out as a tech demo by `scripts/buildLotScene.mjs` — a
+ * lighting lab, an orchard, a rock garden, a depot, a material gallery
+ * along a boulevard, a lamp-lined avenue, and districts of forest,
+ * orchards, industry and meadow beyond, thousands of props drawn as
+ * resident instances the GPU culls. F3 shows what the frame draws.
  */
 
 const canvas = document.getElementById('screen');
@@ -167,7 +169,7 @@ const yardScene = {
 
     const ui = game.sceneManager.getCurrentScene().ui;
     ui.add(new UIText({
-      x: 20, y: 16, anchor: 'top-left', text: 'THE YARD', fontSize: '15px', letterSpacing: 2,
+      x: 20, y: 16, anchor: 'top-left', text: SCENE === 'lot' ? 'THE LOT' : 'THE YARD', fontSize: '15px', letterSpacing: 2,
       color: 'rgba(255, 248, 236, 0.9)', outlineColor: 'rgba(0, 0, 0, 0.35)', outlineWidth: 2
     }));
     ui.add(new UIText({
@@ -204,7 +206,9 @@ const yardScene = {
     };
     frame.fog = { color: mix([0.66, 0.74, 0.86], [0.3, 0.18, 0.3], t), density: lerp(0.006, 0.009, t) };
     frame.exposure = lerp(0.95, 1.4, t);
-    frame.bloom = { threshold: 0, intensity: lerp(0.04, 0.09, t) };
+    // Only what is brighter than the tonemapper's shoulder glows — the
+    // sun, the lamps' heads, the neon — and more of it as dusk falls.
+    frame.bloom = { threshold: lerp(1.1, 0.8, t), intensity: lerp(0.7, 1.1, t), scatter: 0.75 };
     frame.shadow.distance = 70;
     // The post stack: a touch of focus on the hero, a little grain and
     // vignette, and the exposure adapting as dusk falls.

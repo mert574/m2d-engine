@@ -122,11 +122,11 @@ Each tick the client encodes its input snapshot for the server tick it will arri
 
 How far ahead to send is measured, not guessed. The server's input gate reports how many ticks early a client's input arrived, and the client steers a `lead` to keep a small margin: enough to absorb jitter, no more, since every extra tick of lead is input the server holds before using. A connection that improves gives the margin back.
 
-`NetClient.connect` takes any object shaped like a `WebSocket` — `send`, `close`, `onmessage`, `onclose`, `readyState` — so a different transport is an adapter, not a change to the client.
+`NetClient.connect` takes any object shaped like a `WebSocket` (`send`, `close`, `onmessage`, `onclose`, `readyState`), so a different transport is an adapter, not a change to the client.
 
 ## Prediction
 
-The client runs its own avatar's movement as it sends the input, instead of waiting a round trip to see it. When the server's own answer for that tick arrives the two are compared: they normally agree exactly, because the client advanced the same body with the same velocity against the same static colliders. When they do not, the server wins — the body is put where the server says it was and every input sent since is replayed on top, so a correction does not discard the keys pressed while the news was travelling. The *drawn* position keeps the old offset and gives it up over about a tenth of a second, so a small disagreement is never seen and a large one reads as a settle rather than a jump.
+The client runs its own avatar's movement as it sends the input, instead of waiting a round trip to see it. When the server's own answer for that tick arrives the two are compared: they normally agree exactly, because the client advanced the same body with the same velocity against the same static colliders. When they do not, the server wins: the body is put where the server says it was and every input sent since is replayed on top, so a correction does not discard the keys pressed while the news was travelling. The *drawn* position keeps the old offset and gives it up over about a tenth of a second, so a small disagreement is never seen and a large one reads as a settle rather than a jump.
 
 An actor says what may run early. Running a whole avatar's `fixedUpdate` on a client would run its attacks, abilities and damage, which are the server's to decide:
 
@@ -144,7 +144,7 @@ class Knight extends ObliquePlayer {
 
 Both join along the class chain, like `static replicated`. `TopDownPlayer` declares `control`, so every player actor built on it is predicted without saying anything.
 
-In a 2D game, an avatar on a **character body** is predicted: its motion comes from its own controller resolving its own velocity against the colliders around it, so it can be advanced without running the solver over a world the server owns. An avatar on a dynamic body — carried by gravity and contacts — is drawn from the server's states instead. Pass `predict: false` to `NetClient.connect` to turn prediction off.
+In a 2D game, an avatar on a **character body** is predicted: its motion comes from its own controller resolving its own velocity against the colliders around it, so it can be advanced without running the solver over a world the server owns. An avatar on a dynamic body, carried by gravity and contacts, is drawn from the server's states instead. Pass `predict: false` to `NetClient.connect` to turn prediction off.
 
 ## Interpolation
 
@@ -154,7 +154,7 @@ Remote entities are drawn a little behind the newest server state, blending betw
 
 ## Interest
 
-A match with `interest: { radius }` sends each client only what its player is near. Scenery is always sent — anything on a static or kinematic body, which is sent once and never again — as is the player's own avatar and anything a class declares `static alwaysRelevant = true`. Everything else is sent while it is within `radius` of the avatar.
+A match with `interest: { radius }` sends each client only what its player is near. Scenery is always sent (anything on a static or kinematic body, sent once and never again), as is the player's own avatar and anything a class declares `static alwaysRelevant = true`. Everything else is sent while it is within `radius` of the avatar.
 
 An entity that leaves is not removed: the client keeps it and stops drawing it, and coming back into range re-sends the whole of it rather than a diff against a stale memory. The boundary has hysteresis, so something walking along it does not flicker. World events are filtered the same way, by where they happened.
 
@@ -166,13 +166,13 @@ A client builds the scene itself, so the server sends only changes:
 
 - An entity spawned at runtime with `game.spawn({ type, x, y, width, height, sprite, animation, options, physics, playerId })` (plus `z` and `depth` in a 3D game), which records how it was made. An entity made with `new` is not sent. Spawn `options` must be plain data.
 - An entity removed from `game.entities`.
-- In a 2D game, an entity's position, angle and velocity, each when that part changed. They are diffed apart because most things never rotate and much of what moves needs no velocity sent at all — a creature crossing a flat floor sends two numbers, not five. Positions carry a tenth of a pixel, angles a thousandth of a radian, speeds whole pixels per second, and a velocity under 1 px/s is sent as a standstill.
+- In a 2D game, an entity's position, angle and velocity, each when that part changed. They are diffed apart because most things never rotate and much of what moves needs no velocity sent at all: a creature crossing a flat floor sends two numbers, not five. Positions carry a tenth of a pixel, angles a thousandth of a radian, speeds whole pixels per second, and a velocity under 1 px/s is sent as a standstill.
 - In a 3D game, the transform carries position, rotation quaternion and velocity together. A 3D match sets `dimensions: 3` in its `game` options and the worker loads the 3D solver.
 - The receiving player's own avatar's position, every message whether it changed or not. A client is predicting that one, and a prediction needs something to check against: if the server's avatar has not moved because the input never arrived, saying nothing would leave the client walking on uncorrected.
 - Declared fields, when their value changed. A class lists them in `static replicated = ['field']`; the lists of every class in the chain are joined. `Entity` sends `elevation`, `visible` and `dead`. Constraints declare theirs the same way: `Health` sends `currentHealth`, `Attack` sends its swing state. Values must be plain data. A class with `replicaState()` sends what it returns instead, and `replicaUpdated(changed)` runs on the client after its fields arrive.
 - The receiving player's `state`, to that player alone.
 - Events the simulation raised for the player with `player.notify(name, data)`, to that player alone. `game.players.local.on(name, handler)` hears them, alone and online alike.
-- World events the simulation raised with `game.events.emit(name, data)` — a hit, a death, a footstep — to every client that can see where they happened. See [World events](./headless#world-events).
+- World events the simulation raised with `game.events.emit(name, data)`, such as a hit, a death or a footstep, to every client that can see where they happened. See [World events](./headless#world-events).
 - An entity that has left the player's interest, as `hide`.
 - Intent results.
 

@@ -117,3 +117,26 @@ export function readWebGLPixels(target) {
 }
 
 export { createCanvasElement, hasDOM };
+
+/**
+ * A canvas with the display-side geometry the engine reads: a client size
+ * and a bounding rect, as a browser layout would give it.
+ */
+export function displayCanvas(cssWidth, cssHeight) {
+  const canvas = createCanvasElement(cssWidth, cssHeight);
+  setDisplaySize(canvas, cssWidth, cssHeight);
+  return canvas;
+}
+
+/** Re-declare a canvas's displayed size, for resize tests. */
+export function setDisplaySize(canvas, width, height) {
+  Object.defineProperty(canvas, 'clientWidth', { value: width, configurable: true });
+  Object.defineProperty(canvas, 'clientHeight', { value: height, configurable: true });
+  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width, height, right: width, bottom: height });
+}
+
+/** The document listener stubs the window stub does not cover; for a beforeAll. */
+export function stubDocumentListeners() {
+  globalThis.document.addEventListener ??= () => {};
+  globalThis.document.removeEventListener ??= () => {};
+}

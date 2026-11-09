@@ -10,7 +10,7 @@ The engine keeps three sizes separate.
 
 Lowering the render resolution makes the world coarser. It does not show more or less of the world, and it does not affect the UI.
 
-A number is a **fraction of native**, the way a game's resolution-scale slider reads: `0.5` is half the linear resolution this display would show, so it means 1920x1080 on a 4K panel and 640x360 on a 720p one. A `{ width, height }` preset is absolute — it names the surface, which is what pixel art wants. `1` and `'native'` are the same thing.
+A number is a **fraction of native**, the way a game's resolution-scale slider reads: `0.5` is half the linear resolution this display would show, so it means 1920x1080 on a 4K panel and 640x360 on a 720p one. A `{ width, height }` preset is absolute: it names the surface, which is what pixel art wants. `1` and `'native'` are the same thing.
 
 <Demo name="display">
 The world starts at a quarter of the display resolution. The left drawing goes through the world renderer and is blurred with it. The right drawing goes through the world overlay and the HUD at the bottom-left is UI, both at display resolution. Click to cycle the world resolution. Right-click or long-press to switch between linear and nearest filtering.
@@ -116,9 +116,9 @@ The engine's debug drawing uses the overlay. An actor's own appearance stays in 
 
 ## The settings menu
 
-`SettingsMenu` is a [screen](./ui#screens) with rows for resolution presets, fullscreen, aspect mode, the renderer backend, the debug overlay and pause, grouped under Display, Rendering and Game. When a scene named `mainMenu` is registered, a Main menu row returns to it from anywhere else. It opens with O by default and closes with O, Escape, its Close row or a click outside the panel. Up, Down and Tab move between rows; Left and Right step the focused row's value; Enter or a click steps it forward. Each row draws a tick track showing where its value sits in its cycle, and the footer describes the focused row and lists the keys.
+`SettingsMenu` is a [screen](./ui#screens) with rows for resolution presets, fullscreen, aspect mode, the renderer backend, the debug overlay and pause, grouped under Display, Rendering and Game. A 3D game also gets a Shadows row and an Effects section with one switch per post-process stage. When a scene named `mainMenu` is registered, a Main menu row returns to it from anywhere else. It opens with O by default and closes with O, Escape, its Close row or a click outside the panel. Up, Down and Tab move between rows; Left and Right step the focused row's value; Enter or a click steps it forward. Each row draws a tick track showing where its value sits in its cycle, and the footer describes the focused row and lists the keys.
 
-A mounted menu consumes the hotkey on `keydown` whatever is on screen — it listens in the debug layer, ahead of every screen, so it opens from a main menu as well as mid-game — and Escape while it is open.
+A mounted menu consumes the hotkey on `keydown` whatever is on screen (it listens in the debug layer, ahead of every screen, so it opens from a main menu as well as mid-game) and Escape while it is open.
 
 ```javascript
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
@@ -135,7 +135,7 @@ new SettingsMenu(game, { hotkey: 'KeyP', resolutions: ['native', 0.5], pauseWhen
 
 While open, the menu receives every input event before the scene's UI and the world. It consumes what it receives. Key releases pass through so a key held when the menu opened still releases in the game.
 
-A game adds its own rows with `addOption` — the panel is extensible, not a take-it-or-leave-it dialog:
+A game adds its own rows with `addOption`:
 
 ```javascript
 new SettingsMenu(game).addOption({
@@ -148,11 +148,11 @@ new SettingsMenu(game).addOption({
 });
 ```
 
-`value` reads live state, `step(±1)` changes it (Left, Right, click and Enter all step), `choices` feeds the row's tick track, and `description` shows in the footer while the row is focused. Rows join a built-in section by name (`Display`, `Rendering`, `Game`) or group under their own caption; an action row passes `activate` instead of `step`. Every demo adds a shared Audio row this way.
+`value` reads live state, `step(±1)` changes it (Left, Right, click and Enter all step), `choices` feeds the row's tick track, and `description` shows in the footer while the row is focused. Rows join a built-in section by name (`Display`, `Rendering`, `Effects`, `Game`) or group under their own caption; an action row passes `activate` instead of `step`. Every demo adds a shared Audio row this way.
 
 The mounted menu is `game.settings`. A scene button with `"action": "settings"` opens it. Choosing the renderer backend reloads the page with `?renderer=canvas` or `?renderer=webgl`.
 
-The menu is pushed onto `game.ui`, so it sits over a live, loaded game rather than replacing it, and closing pops back to whatever was below. Every row is a view onto a [cvar](../reference/console) — the same `r_aspect` the developer console sets — so resolution, aspect and the world filter persist across sessions, and a change made in either place shows up in the other. It draws through `game.drawOverlays()`, which the engine loop calls at the end of every frame; a game with its own loop must call that, and `game.ui.update(deltaTime)` before it.
+The menu is pushed onto `game.ui`, so it sits over a live, loaded game, and closing pops back to whatever was below. Every row is a view onto a [cvar](../reference/console), the same `r_aspect` the developer console sets, so resolution, aspect and the world filter persist across sessions, and a change made in either place shows up in the other. It draws through `game.drawOverlays()`, which the engine loop calls at the end of every frame; a game with its own loop must call that, and `game.ui.update(deltaTime)` before it.
 
 ## Demo source
 

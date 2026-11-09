@@ -121,7 +121,7 @@ Pointer lock is enabled only in the physics playground. The other examples leave
 
 ### The Yard
 
-The engine's first 3D scene, on the WebGPU renderer. The yard is primitive shapes from the scene file's `mesh` blocks, plus one glTF model, the Cesium milk truck. Needs a Chromium browser. Add `?scene=lot` for the lot: the yard at the centre of a grid of lots with thousands of props around it, drawn as resident instances the GPU culls, with F3 showing what the frame draws.
+The engine's first 3D scene, on the WebGPU renderer. The yard is primitive shapes from the scene file's `mesh` blocks, plus one glTF model, the Cesium milk truck. Needs a Chromium browser. Add `?scene=lot` for the lot, the renderer's tech demo: the yard at the centre of a grid of lots, each district showing one thing. Around the yard sit a lighting lab of pillars under coloured lamps and floodlights, an orchard of every tree species at three sizes, a rock garden of photoscans up close, a depot of stacked crates and barrel blocks, a material gallery along a boulevard (vertex colours, morph targets, a metallic-roughness sphere matrix, mirror spheres, neon) and a lamp-lined avenue into the fog, with forest, orchard, industrial and meadow districts beyond. Thousands of props draw as resident instances the GPU culls; F3 shows what the frame draws.
 
 | Input | Action |
 | --- | --- |
@@ -154,7 +154,7 @@ The scene is deterministic. Layers are built from a seeded random generator and 
 
 [Play](https://mert574.github.io/m2d-engine/examples/platformer/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/platformer)
 
-A side-scrolling level with a dynamic-body player, moving platforms, a chasing enemy, coins and a level-complete trigger, set in the same dusk valley its menu shows: a parallax skyline behind the level, drawn terrain, lights and bloom over it. The built-in `Player`, `Bee`, `Platform`, `MovingPlatform`, `Coin` and `Trigger` actors are subclassed for the look only — scene JSON files, sprite sheets and the music that changes between the menu and the level work as stock.
+A side-scrolling level with a dynamic-body player, moving platforms, a chasing enemy, coins and a level-complete trigger, set in the dusk valley its menu shows: a parallax skyline behind the level, drawn terrain, lights and bloom over it. The built-in `Player`, `Bee`, `Platform`, `MovingPlatform`, `Coin` and `Trigger` actors are subclassed for the look only; scene JSON files, sprite sheets and the music that changes between the menu and the level work as stock.
 
 | Key | Action |
 | --- | --- |
@@ -166,7 +166,7 @@ A side-scrolling level with a dynamic-body player, moving platforms, a chasing e
 
 [Play](https://mert574.github.io/m2d-engine/examples/maze/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/maze)
 
-The single-screen, room-based perspective: a hedge-maze garden in three maps, each a grid of walled courts, and each court exactly one screen. The camera's `rooms` mode holds the court the gardener stands in and glides through the hedge when they take a gate, the classic room transition. Movement is the engine's `GlideControl`: tap a direction and the gardener keeps walking, the same key stops them, and a turn pressed a beat early or late is buffered and taken at the junction. Every court is its own seeded maze, connected along a spanning tree with a loop or two, and a test pins that every map stays solvable. Dead ends are flower beds to tend — walk through one and its buds open, counted on the HUD — daisies bloom along the walked path, butterflies work the beds, cloud shadows cross the lawn, and the travertine fountain at the far end opens the next map. The scene is built in code; the lawn, hedge and fountain stone are CC0 materials from ambientCG.
+The single-screen, room-based perspective: a hedge-maze garden in three maps, each a grid of walled courts, and each court exactly one screen. The camera's `rooms` mode holds the court the gardener stands in and glides through the hedge when they take a gate, the classic room transition. Movement is the engine's `GlideControl`: tap a direction and the gardener keeps walking, the same key stops them, and a turn pressed a beat early or late is buffered and taken at the junction. Every court is its own seeded maze, connected along a spanning tree with a loop or two, and a test pins that every map stays solvable. Dead ends are flower beds to tend: walk through one and its buds open, counted on the HUD. Daisies bloom along the walked path, butterflies work the beds, cloud shadows cross the lawn and the travertine fountain at the far end opens the next map. The scene is built in code; the lawn, hedge and fountain stone are CC0 materials from ambientCG.
 
 | Key | Action |
 | --- | --- |
@@ -176,12 +176,12 @@ The single-screen, room-based perspective: a hedge-maze garden in three maps, ea
 
 [Play](https://mert574.github.io/m2d-engine/examples/scroller/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/scroller)
 
-The auto-scroller: the camera runs in `scroll` mode down a meadow verge while the sun sets over the length of the lane — the sky, the sun, the clouds, the ambient light and the post grade all keep the run's time, from god rays at the gate to fireflies at the hive. The run is paced in five acts: open meadow, a thistle slalom, wasp beats that telegraph with a mark and then dart, a hollow strung with backlit orb webs that hold the bee until a dash tears it free, and a dusk glide home. Pollen chains into a combo that multiplies the score; a sting costs one of three wing hearts and scatters what the bee carries; the hive hands out a rank. The simulation never reads the camera — a `ScrollFront` entity advances at the same speed per fixed tick and enforces the window, the worked example of the [determinism contract](../contributing/determinism). The meadow is six parallax planes of Kenney foliage silhouettes under aerial haze, pre-tinted to the palette at asset time, and a test pins every grain inside the flight band, every web passable, and each hazard to its act.
+The auto-scroller: the camera runs in `scroll` mode down a meadow verge while the sun sets over the length of the lane. The sky, the clouds, the ambient light and the post grade all keep the run's time, from god rays at the gate to fireflies at the hive. The run is paced in five acts: open meadow, a thistle slalom, wasp beats that telegraph with a mark and then dart, a hollow strung with backlit orb webs that hold the bee until a dash tears it free, and a dusk glide home. Pollen chains into a combo that multiplies the score; a sting costs one of three wing hearts and scatters what the bee carries; the hive hands out a rank. The simulation never reads the camera: a `ScrollFront` entity advances at the same speed per fixed tick and enforces the window, the worked example of the [determinism contract](../contributing/determinism). The meadow is six parallax planes of Kenney foliage silhouettes under aerial haze, pre-tinted to the palette at asset time, and a test pins every grain inside the flight band, every web passable and each hazard to its act.
 
 | Key | Action |
 | --- | --- |
 | Arrow keys | Fly |
-| `Space` / `X` | Dash — a burst with a moment of grace; it tears webs |
+| `Space` / `X` | Dash: a burst with a moment of grace; it tears webs |
 
 ### Physics playground
 
@@ -201,7 +201,7 @@ A sandbox with a funnel, a splitter and a peg field made of rotated static boxes
 
 [Play](https://mert574.github.io/m2d-engine/examples/topdown/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/topdown)
 
-Eight-directional movement with zero gravity, ghosts that chase, turrets that check line of sight before firing, pickups and an exit trigger, staged as the dark facility the menu's motion tracker is scanning: concrete and steel under failing ceiling lamps, a hand lamp and a sonar ping on the player, drawn apparitions for ghosts, and each turret showing its scan cone — pale while patrolling, red and narrow when it has line of sight. Taking a hit tears the picture for a moment.
+Eight-directional movement with zero gravity, ghosts that chase, turrets that check line of sight before firing, pickups and an exit trigger, staged as the dark facility the menu's motion tracker is scanning: concrete and steel under failing ceiling lamps, a hand lamp and a sonar ping on the player, drawn apparitions for ghosts, and each turret showing its scan cone, pale while patrolling, red and narrow when it has line of sight. Taking a hit tears the picture for a moment.
 
 | Key | Action |
 | --- | --- |
@@ -230,7 +230,7 @@ Maren the herbalist sends you east past the pond to Oswin the lamplighter, who t
 
 [Play](https://mert574.github.io/m2d-engine/examples/iso/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/iso)
 
-The engine's isometric perspective. The scene declares `world.projection`, and every position is drawn through it while physics, movement and the depth sort stay on the flat ground plane. The floor is a diamond tile layer over only the carved cells, the walls are block sprites on tile footprints that fade when the knight passes behind them and cast torchlight shadows from their projected diamonds, and the knight and the keep's dead are Flare's eight-facing isometric figures. Click the floor to walk there, or use the arrows along the screen's axes; either way the pace is steady on screen rather than on the ground. Three abilities: a cleave all around, a dash along the heading and a shield of circling embers. Gather the embers to open the stair past the keep's dead.
+The engine's isometric perspective. The scene declares `world.projection`, and every position is drawn through it while physics, movement and the depth sort stay on the flat ground plane. The floor is a diamond tile layer over only the carved cells, the walls are block sprites on tile footprints that fade when the knight passes behind them and cast torchlight shadows from their projected diamonds, and the knight and the keep's dead are Flare's eight-facing isometric figures. Click the floor to walk there, or use the arrows along the screen's axes; either way the pace is steady on screen. Three abilities: a cleave all around, a dash along the heading and a shield of circling embers. Gather the embers to open the stair past the keep's dead.
 
 | Key | Action |
 | --- | --- |
@@ -245,7 +245,7 @@ The engine's isometric perspective. The scene declares `world.projection`, and e
 
 [Play](https://mert574.github.io/m2d-engine/examples/belt/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/belt)
 
-The engine's belt scroller and its 2.5D street, at noon. Five planes give the row depth: a hazy skyline at a tenth of the camera's travel, taller blocks behind the row at half, the shopfronts and their kerb props on the play plane, the road below the gutter, and bollards in front that outrun the pavement. The scene declares a `belt` projection, so the street's depth lane is compressed on screen while movement, chasing and the depth sort run on the flat ground. Space jumps through `elevation`, with the engine's ground shadow staying on the paving as the rogue rises. X chains a three-punch combo whose finisher launches whoever it lands on, C sweeps the whole crowd back on its own cooldown, and a strike in the air is a heavy drop kick — all on the engine's `Attack` combo support. The camera follows only along the street and locks at each section until its wave of Flare's zombies, goblins and skeletons is down; then the GO sign flashes and the lock lifts. The paving and brick are ambientCG materials under a blue sky.
+The engine's belt scroller and its 2.5D street, at noon. Five planes give the row depth: a hazy skyline at a tenth of the camera's travel, taller blocks behind the row at half, the shopfronts and their kerb props on the play plane, the road below the gutter, and bollards in front that outrun the pavement. The scene declares a `belt` projection, so the street's depth lane is compressed on screen while movement, chasing and the depth sort run on the flat ground. Space jumps through `elevation`, with the engine's ground shadow staying on the paving as the rogue rises. X chains a three-punch combo whose finisher launches whoever it lands on, C sweeps the whole crowd back on its own cooldown and a strike in the air is a heavy drop kick, all on the engine's `Attack` combo support. The camera follows only along the street and locks at each section until its wave of Flare's zombies, goblins and skeletons is down; then the GO sign flashes and the lock lifts. The paving and brick are ambientCG materials under a blue sky.
 
 | Key | Action |
 | --- | --- |
@@ -275,13 +275,13 @@ The rotating top-down perspective. The camera's `followRotation` keeps the ship'
 
 [Play](https://mert574.github.io/m2d-engine/examples/circuit/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/circuit)
 
-Arcade time trials at night on five circuits of rising difficulty: wider or narrower roads, sliding gates, patrolling traffic, cone rows and oil barrels that spill onto the racing line when hit — and the spill stays for every following round of the session, where the hit's angle put it. Laps are timed in simulation ticks. The best lap of each circuit is stored as its input recording: Enter replays it through the engine's input seam and reports whether the re-simulation matched the recording (it always does — that is the point). The best lap also runs alongside as a ghost. Headlights and street lamps are spot lights with shadow casting, so barriers, barrels and trees throw moving shadows as you pass; on the Canvas backend the same game runs in daylight.
+Arcade time trials at night on five circuits of rising difficulty: wider or narrower roads, sliding gates, patrolling traffic, cone rows and oil barrels that spill onto the racing line when hit. The spill stays for every following round of the session, where the hit's angle put it. Laps are timed in simulation ticks. The best lap of each circuit is stored as its input recording: Enter replays it through the engine's input seam and reports whether the re-simulation matched the recording; it always does, which is the point. The best lap also runs alongside as a ghost. Headlights and street lamps are spot lights with shadow casting, so barriers, barrels and trees throw moving shadows as you pass; on the Canvas backend the same game runs in daylight.
 
 | Key | Action |
 | --- | --- |
 | Arrow keys | Throttle, brake and steer |
-| `Space` | Handbrake — hold to drift |
+| `Space` | Handbrake; hold to drift |
 | `X` | Nitro |
 | `R` | Restart the round (fresh props, the session's oil stays) |
 | `Enter` | Replay the best lap, or the round so far |
-| `Esc` | Back to the menu |
+| `Escape` | Back to the menu |

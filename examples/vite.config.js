@@ -97,6 +97,9 @@ export default defineConfig(({ command }) => ({
     }
   },
   server: devServer(),
+  // The engine's model-loader worker imports shared modules, which only an
+  // ES-format worker bundle can hold.
+  worker: { format: 'es' },
   plugins: [assetsPlugin],
   publicDir: false
 }));

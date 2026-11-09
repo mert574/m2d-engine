@@ -23,7 +23,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { availableParallelism, totalmem } from 'node:os';
-import { ASSETS, HDRIS, fetchAsset, fetchHDRI, HDRI_DIR } from './fetchPolyHaven.mjs';
+import { ASSETS, HDRIS, TEXTURES, fetchAsset, fetchHDRI, fetchTexture, texturePath, HDRI_DIR } from './fetchPolyHaven.mjs';
 import { OUT_DIR, FORMAT } from './compileModel.mjs';
 
 const args = process.argv.slice(2);
@@ -46,7 +46,7 @@ const JOBS = Math.max(1, Number(
 // exists but is stale; the stamp makes --missing rebuild the lot once.
 const stampPath = resolve(OUT_DIR, '.format');
 const stale = !existsSync(stampPath) || readFileSync(stampPath, 'utf8').trim() !== String(FORMAT);
-const wanted = (ids.length ? ids.filter((id) => !(id in HDRIS)) : Object.keys(ASSETS))
+const wanted = (ids.length ? ids.filter((id) => !(id in HDRIS) && !(id in TEXTURES)) : Object.keys(ASSETS))
   .filter((id) => !missingOnly || stale || !existsSync(resolve(OUT_DIR, `${id}.glb`)));
 
 // HDR panoramas: fetched, never compiled, so they are their own step
@@ -89,8 +89,17 @@ function compile(id) {
   });
 }
 
+// Textures the lot maps onto its roads and plinths: a megabyte each,
+// never compiled, and fetched with --missing because a scene names them.
+const textures = (ids.length ? ids.filter((id) => id in TEXTURES) : Object.keys(TEXTURES))
+  .filter((id) => !missingOnly || !existsSync(texturePath(id, TEXTURES[id])));
+for (const id of textures) {
+  const { bytes, name, authors } = await fetchTexture(id, TEXTURES[id]);
+  console.log(`${id} (${name}, by ${authors.join(', ')}) at ${TEXTURES[id]}: ${(bytes / 1e6).toFixed(1)} MB`);
+}
+
 if (!wanted.length) {
-  if (!hdris.length) console.log('Models are up to date');
+  if (!hdris.length && !textures.length) console.log('Models are up to date');
 } else {
   const started = Date.now();
   console.log(`Building ${wanted.length} model${wanted.length === 1 ? '' : 's'}: downloading ${DOWNLOADS} at a time, compiling ${JOBS} at a time (${availableParallelism()} cores, ${(totalmem() / 1e9).toFixed(0)} GB).`);

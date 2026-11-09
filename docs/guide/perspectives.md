@@ -104,11 +104,11 @@ The [Salvage Run](../examples/#salvage-run) example is this.
 
 ## 2.5D: parallax planes
 
-Depth in a side view comes from planes that slide at a fraction of the camera's travel: a skyline at a tenth, buildings at half, the play plane at one, and something in front at more than one. Tile layers give this for free through `parallax` (see [Tile layers](#tile-layers)); a plane that is not a repeating tile — a row of varied buildings, props along a kerb — is an entity at the right `zIndex` that draws each element at `q + camera · (1 - parallax)` and culls against `camera.getVisibleArea()`. Ash Row's `Street` and `Foreground` entities are the worked example: five planes from a hazy skyline to the bollards in front of the pavement, all from ambientCG materials.
+Depth in a side view comes from planes that slide at a fraction of the camera's travel: a skyline at a tenth, buildings at half, the play plane at one, and something in front at more than one. Tile layers give this for free through `parallax` (see [Tile layers](#tile-layers)); a plane that is not a repeating tile (a row of varied buildings, props along a kerb) is an entity at the right `zIndex` that draws each element at `q + camera · (1 - parallax)` and culls against `camera.getVisibleArea()`. Ash Row's `Street` and `Foreground` entities are the worked example: five planes from a hazy skyline to the bollards in front of the pavement, all from ambientCG materials.
 
 ## Camera modes
 
-`camera.mode` picks how the camera moves: `'follow'` eases toward the target, `'scroll'` moves at `scrollVelocity` regardless of the target (an auto-scroller: the game's spawn and despawn rules track a simulation-side scroll front at the same velocity, never the camera — see [Determinism](../contributing/determinism#the-worked-example-an-auto-scroller)), and `'rooms'` snaps to the room of `roomSize` the target stands in, easing between rooms (a single-screen game with transitions). `followAxes` locks an axis of the follow. A rotating top-down game sets `camera.rotation` from the heading each frame. See [Camera](./camera#modes).
+`camera.mode` picks how the camera moves: `'follow'` eases toward the target, `'scroll'` moves at `scrollVelocity` regardless of the target (an auto-scroller: the game's spawn and despawn rules track a simulation-side scroll front at the same velocity, never the camera; see [Determinism](../contributing/determinism#the-worked-example-an-auto-scroller)), and `'rooms'` snaps to the room of `roomSize` the target stands in, easing between rooms (a single-screen game with transitions). `followAxes` locks an axis of the follow. A rotating top-down game sets `camera.rotation` from the heading each frame. See [Camera](./camera#modes).
 
 ## Camera zoom and rotation
 

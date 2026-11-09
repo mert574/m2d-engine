@@ -32,8 +32,8 @@ describe('Vec3', () => {
   });
 
   it('takes a dot product, which is how a ground normal is told from a wall', () => {
-    const up = { x: 0, y: -1, z: 0 };
-    expect(Vec3.dot(up, { x: 0, y: -1, z: 0 })).toBe(1);
+    const up = { x: 0, y: 1, z: 0 };
+    expect(Vec3.dot(up, { x: 0, y: 1, z: 0 })).toBe(1);
     expect(Vec3.dot(up, { x: 1, y: 0, z: 0 })).toBe(0);
   });
 

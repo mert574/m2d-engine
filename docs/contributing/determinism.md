@@ -6,7 +6,7 @@ This is not pedantry. It is what makes Night Circuit's replay and ghost a few ki
 
 ## The contract
 
-Simulation code — `fixedUpdate(dt)` on entities and constraints, `onFixedUpdate(dt)` on scenes, `game.time` timers, collision handlers — may read:
+Simulation code (`fixedUpdate(dt)` on entities and constraints, `onFixedUpdate(dt)` on scenes, `game.time` timers, collision handlers) may read:
 
 - `game.input.snapshot`: the tick's input, captured once per tick.
 - `game.rng`: the seeded generator, reseeded on every load and reset.
@@ -15,15 +15,15 @@ Simulation code — `fixedUpdate(dt)` on entities and constraints, `onFixedUpdat
 
 It may never read:
 
-- **The camera.** `camera.x`, `getVisibleArea()`, `isVisible()`, zoom, rotation — all of it moves per frame, on wall time, and differs between a 30 Hz and a 144 Hz run of the same ticks.
-- **Render state.** `renderPosition`, `renderAnchor`, `renderAngle`, `elevation`'s blended counterpart `renderElevation` — these are interpolated for the frame being drawn. Draw with them; decide with `position` and `angle`.
+- **The camera.** `camera.x`, `getVisibleArea()`, `isVisible()`, zoom and rotation all move per frame, on wall time, and differ between a 30 Hz and a 144 Hz run of the same ticks.
+- **Render state.** `renderPosition`, `renderAnchor`, `renderAngle` and `elevation`'s blended counterpart `renderElevation` are interpolated for the frame being drawn. Draw with them; decide with `position` and `angle`.
 - **Wall time.** `performance.now()`, `Date.now()`, `setTimeout`, `requestAnimationFrame`, `game.time`'s wall clock.
 - **`Math.random()`**, for anything the simulation sees.
 - **Frame events.** Anything computed in `update(deltaTime)`, `onUpdate`, `draw` or a UI handler. Those run per frame and are presentation only; a frame hook that wants to change the world sets a flag the next `fixedUpdate` acts on, or routes through input.
 
 The inverse also holds: presentation never writes simulation state. `update(deltaTime)` may spin a sprite's visual flourish, not nudge a body.
 
-Simulation code that wants something *shown* — a hit flash, a footstep, a spark — raises a [world event](../guide/headless#world-events) rather than drawing or playing it. Events are queued during the tick and delivered after it, so the tick stays a function of its inputs, and the same code works on a server with nothing to draw with.
+Simulation code that wants something *shown* (a hit flash, a footstep, a spark) raises a [world event](../guide/headless#world-events) instead of drawing or playing it. Events are queued during the tick and delivered after it, so the tick stays a function of its inputs, and the same code works on a server with nothing to draw with.
 
 Pointer events and UI handlers count as presentation. A handler that wants to change the world queues the change for the next tick, as the physics playground does with its spawns, flings and gravity. A UI component whose state decides what the simulation does takes a game-time clock: `UIDialogue` with `clock: () => game.time.elapsed` types on game time, so whether a press finishes a line or closes the conversation does not depend on the frame rate.
 
@@ -31,7 +31,7 @@ The engine gives every scene load a fresh physics world, and a scene switch requ
 
 ## The worked example: an auto-scroller
 
-`camera.mode = 'scroll'` moves the camera at `scrollVelocity` per frame, on wall time. An auto-scroller's rules — spawn ahead of the view, despawn behind it, push the player along, crush them against the trailing edge — are simulation, so they cannot ask the camera where the view is: at 144 fps the camera has moved through slightly different positions than at 30 fps whenever either clock stutters, and the moment a spawn depends on it, the runs diverge.
+`camera.mode = 'scroll'` moves the camera at `scrollVelocity` per frame, on wall time. An auto-scroller's rules (spawn ahead of the view, despawn behind it, push the player along, crush them against the trailing edge) are simulation, so they cannot ask the camera where the view is: at 144 fps the camera has moved through slightly different positions than at 30 fps whenever either clock stutters, and the moment a spawn depends on it, the runs diverge.
 
 The pattern is a **scroll front**: a simulation-side marker advanced by the same velocity in `fixedUpdate`.
 
@@ -44,14 +44,14 @@ class ScrollFront extends Entity {
 }
 ```
 
-Every rule reads `front.edge` (plus or minus half the view width, a constant): activation, despawn, the crush. The camera runs in `'scroll'` mode at the same `scrollVelocity` from the same start, so the view and the front stay aligned at any frame rate — the camera is a presentation of the front, not the authority. Two consequences:
+Every rule reads `front.edge` (plus or minus half the view width, a constant): activation, despawn, the crush. The camera runs in `'scroll'` mode at the same `scrollVelocity` from the same start, so the view and the front stay aligned at any frame rate; the camera is a presentation of the front, not the authority. Two consequences:
 
 - Do not scale time in such a scene. The camera deliberately ignores `timeScale` (slow motion should not slow the view), so under it the front and the camera part ways.
-- Lay the level out ahead of time — objects placed in the scene, woken as the front reaches them — rather than rolling spawns per frame. The build scripts under `examples/scripts/` are this.
+- Lay the level out ahead of time, as objects placed in the scene and woken as the front reaches them, instead of rolling spawns per frame. The build scripts under `examples/scripts/` are this.
 
 ## When adding engine features
 
-A feature that lives on the presentation side but that gameplay will predictably want to ask about — a camera mode, a transition, an effect's progress — ships with either a simulation-side counterpart (as `elevation` is to `renderElevation`) or a documented pattern for one (as the scroll front is to scroll mode). If the honest answer is "games will read this from `fixedUpdate`", the feature is not done until they can do so deterministically.
+A feature that lives on the presentation side but that gameplay will predictably want to ask about (a camera mode, a transition, an effect's progress) ships with either a simulation-side counterpart (as `elevation` is to `renderElevation`) or a documented pattern for one (as the scroll front is to scroll mode). If the honest answer is "games will read this from `fixedUpdate`", the feature is not done until they can do so deterministically.
 
 A quick review checklist for any change touching gameplay or the engine:
 

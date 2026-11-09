@@ -287,7 +287,7 @@ describe('UIElement', () => {
       expect(root.hitTest(400, 300)).toBe(null);
     });
 
-    it('skips an invisible subtree', () => {
+    it('hit-tests past an invisible subtree', () => {
       const panel = root.add(new UIPanel({ x: 100, y: 100, width: 200, height: 200 }));
       const child = panel.add(box({ x: 0, y: 0, anchor: 'center', pivot: 'center' }));
 

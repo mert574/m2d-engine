@@ -319,3 +319,12 @@ The lot's trees, ground cover, rocks and props are photoscanned and modelled ass
 | [utility_box_01](https://polyhaven.com/a/utility_box_01) | Utility Box 01 | James Ray Cock |
 | [wooden_crate_01](https://polyhaven.com/a/wooden_crate_01) | Wooden Crate 01 | James Ray Cock |
 | [wooden_picnic_table](https://polyhaven.com/a/wooden_picnic_table) | Wooden Picnic Table | Ulan Cabanilla |
+
+## Poly Haven textures (CC0)
+
+The lot's roads, kerbs and plinths are primitive shapes mapped with textures from [Poly Haven](https://polyhaven.com), [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Fetched by `examples/scripts/buildModels.mjs` into `examples/src/yard/textures/` as their 1k colour maps; not committed.
+
+| Asset | Name | Authors |
+| --- | --- | --- |
+| [asphalt_03](https://polyhaven.com/a/asphalt_03) | Asphalt 03 | Dario Barresi, Charlotte Baglioni |
+| [concrete_floor_02](https://polyhaven.com/a/concrete_floor_02) | Concrete Floor 02 | Rob Tuytel |

@@ -33,7 +33,7 @@ On that screen R restarts the current scene and M switches to the scene named `m
 
 ## Resetting
 
-`game.reset()` destroys each entity's constraints and clears the entities, the physics world and the background layers. It sets `game.player` to `null`, resets the camera entirely — position, target, mode, bounds, zoom, every tunable, through `camera.resetConfig()` — and stops the music. It also resets the loop clock and `game.time` (clocks, counters, accumulator and timers; the time scale is kept), reseeds `game.rng` and reinstalls the engine's collision handlers. The game-over screen calls it before `sceneManager.reload()`, whose `onEnter` sets the camera up again.
+`game.reset()` destroys each entity's constraints and clears the entities, the physics world and the background layers. It sets `game.player` to `null`, resets the camera entirely: position, target, mode, bounds, zoom, every tunable, through `camera.resetConfig()`, and stops the music. It also resets the loop clock and `game.time` (clocks, counters, accumulator and timers; the time scale is kept), reseeds `game.rng` and reinstalls the engine's collision handlers. The game-over screen calls it before `sceneManager.reload()`, whose `onEnter` sets the camera up again.
 
 ## Destroying
 

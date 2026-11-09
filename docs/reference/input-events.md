@@ -7,7 +7,7 @@
 | Method | Meaning |
 | --- | --- |
 | `on(type, handler, { band })` | Subscribe. Returns an unsubscribe function. `band` is `'overlay'`, `'ui'` or `'world'` and defaults to `'world'` |
-| `makeSyntheticEvent(type, extra)` | Build an event that did not come from a device, carrying the cursor's current position. Keyboard and gamepad activation of a focused control uses it, so a control behaves the same however it was triggered. Built, not dispatched — the caller delivers it to the target it already resolved |
+| `makeSyntheticEvent(type, extra)` | Build an event that did not come from a device, carrying the cursor's current position. Keyboard and gamepad activation of a focused control uses it, so a control behaves the same however it was triggered. Built, not dispatched: the caller delivers it to the target it already resolved |
 | `isDown(code)` | Whether a key is held |
 | `justPressed(code)` | Whether a key went down this frame |
 | `justReleased(code)` | Whether a key went up this frame |
@@ -99,7 +99,7 @@ The canvas claims its surface. It sets `touch-action: none`, contains overscroll
 
 Two rules decide whether a keypress also reaches the browser:
 
-- Keys a game **polls** — `Space`, `Tab`, `Enter`, the arrows, `PageUp`, `PageDown`, `Home`, `End`, `Backspace` — are suppressed because nothing consumes them, so there is no other signal that they were wanted. Replace the list with the `preventDefaultKeys` engine option.
+- Keys a game **polls** (`Space`, `Tab`, `Enter`, the arrows, `PageUp`, `PageDown`, `Home`, `End`, `Backspace`) are suppressed because nothing consumes them, so there is no other signal that they were wanted. Replace the list with the `preventDefaultKeys` engine option.
 - Any other key is suppressed exactly when something **consumed** it. That is what keeps F3 from opening the find bar while it toggles the readout, and the settings hotkey from reaching the page, without a second list to maintain. It resolves synchronously inside the DOM handler, because key records drain immediately rather than waiting for a frame.
 
 Either way a held `Ctrl`, `Alt` or `Meta` cancels the suppression: that is the player reaching for a browser shortcut rather than for the game. A consumed press is also never recorded as held, so the game does not see the key down.

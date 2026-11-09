@@ -113,9 +113,9 @@ Returned objects such as `position` and `collisionFilter` are snapshots. Mutatin
 
 ## Three dimensions
 
-`initPhysics({ dimensions: 3 })` and `createPhysicsWorld({ dimensions: 3 })` build a world on Rapier 3D. It keeps the contract above — the same body types, the same material keys, the same queries, the same fixed step — and differs in the four places a dimension shows.
+`initPhysics({ dimensions: 3 })` and `createPhysicsWorld({ dimensions: 3 })` build a world on Rapier 3D. It keeps the contract above (the same body types, the same material keys, the same queries, the same fixed step) and differs in the four places a dimension shows.
 
-**Up is +y and a unit is a metre.** Both are the opposite of the 2D world, and both are deliberate: every piece of 3D content — glTF, the tools that export it, HDR environments, Rapier's own documentation — is y-up and metre-scale, so nothing is converted on the way in. The two worlds never meet, so no code has to handle both; shared code that needs to tell a floor from a wall asks `game.physics.up`, which is `{ x: 0, y: -1 }` in 2D and `{ x: 0, y: 1, z: 0 }` in 3D. Default gravity is Earth's, `{ x: 0, y: -9.81, z: 0 }`. Masses are kilograms at the density of water unless `density` or `setMass` says otherwise, so a 0.4 m crate weighs 64 kg.
+**Up is +y and a unit is a metre.** Both are the opposite of the 2D world, and both are deliberate: every piece of 3D content (glTF, the tools that export it, HDR environments, Rapier's own documentation) is y-up and metre-scale, so nothing is converted on the way in. The two worlds never meet, so no code has to handle both; shared code that needs to tell a floor from a wall asks `game.physics.up`, which is `{ x: 0, y: -1 }` in 2D and `{ x: 0, y: 1, z: 0 }` in 3D. Default gravity is Earth's, `{ x: 0, y: -9.81, z: 0 }`. Masses are kilograms at the density of water unless `density` or `setMass` says otherwise, so a 0.4 m crate weighs 64 kg.
 
 | Quantity | 2D | 3D |
 | --- | --- | --- |
@@ -134,7 +134,7 @@ Returned objects such as `position` and `collisionFilter` are snapshots. Mutatin
 | `createCapsule` | `x`, `y`, `z`, `radius`, `height` tip to tip, standing on the up axis |
 | `createCylinder` | `x`, `y`, `z`, `radius`, `height` |
 
-**Rotation is a quaternion**, `{ x, y, z, w }` — the form Rapier reads and writes, so nothing converts at the boundary. The scalar `angle` has no meaning in three dimensions and is replaced:
+**Rotation is a quaternion**, `{ x, y, z, w }`, the form Rapier reads and writes, so nothing converts at the boundary. The scalar `angle` has no meaning in three dimensions and is replaced:
 
 | 2D | 3D |
 | --- | --- |

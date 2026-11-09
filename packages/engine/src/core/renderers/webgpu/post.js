@@ -19,7 +19,9 @@ import {
  *      the near and far fields over a half-resolution copy;
  *   5. per-object motion blur along the velocity;
  *   6. auto exposure: the average log luminance, eased over frames;
- *   7. bloom: a threshold at half resolution, a mip chain down and back up;
+ *   7. bloom: a threshold at half resolution, a mip chain down, then back
+ *      up blending each level over the next by the scatter constant, so
+ *      the result stays at the scene's energy;
  *   8. composite: exposure, bloom, tonemapping, grading, vignette, grain,
  *      into the canvas's content rectangle.
  *
@@ -68,9 +70,12 @@ export class PostPass {
         primitive: { topology: 'triangle-list' }
       });
     };
-    const additive = {
-      color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' },
-      alpha: { srcFactor: 'one', dstFactor: 'one', operation: 'add' }
+    // The bloom upsample blends by the scatter constant — out = scatter *
+    // tent(lower) + (1 - scatter) * own — so the chain is a weighted mean
+    // of its levels, not their sum; see BLOOM_UPSAMPLE_SHADER.
+    const scatterBlend = {
+      color: { srcFactor: 'constant', dstFactor: 'one-minus-constant', operation: 'add' },
+      alpha: { srcFactor: 'constant', dstFactor: 'one-minus-constant', operation: 'add' }
     };
     this.pipelines = {
       ao: pipeline(AO_SHADER, 'ao', 1, 'r8unorm'),
@@ -88,7 +93,7 @@ export class PostPass {
       adapt: pipeline(ADAPT_SHADER, 'adapt', 2, HDR_FORMAT),
       prefilter: pipeline(BLOOM_PREFILTER_SHADER, 'bloom prefilter', 2, HDR_FORMAT),
       downsample: pipeline(BLOOM_DOWNSAMPLE_SHADER, 'bloom downsample', 1, HDR_FORMAT),
-      upsample: pipeline(BLOOM_UPSAMPLE_SHADER, 'bloom upsample', 1, HDR_FORMAT, additive),
+      upsample: pipeline(BLOOM_UPSAMPLE_SHADER, 'bloom upsample', 1, HDR_FORMAT, scatterBlend),
       composite: pipeline(COMPOSITE_SHADER, 'composite', 4, canvasFormat)
     };
 
@@ -232,7 +237,7 @@ export class PostPass {
     return group;
   }
 
-  #draw(encoder, pipeline, target, sceneBindGroup, group, { loadOp = 'clear', rect = null, timestampWrites = undefined } = {}) {
+  #draw(encoder, pipeline, target, sceneBindGroup, group, { loadOp = 'clear', rect = null, blendConstant = null, timestampWrites = undefined } = {}) {
     const pass = encoder.beginRenderPass({
       colorAttachments: [{ view: target, loadOp, storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 1 } }],
       ...(timestampWrites && { timestampWrites })
@@ -240,6 +245,7 @@ export class PostPass {
     // The content rectangle: the rest of the canvas stays the clear's black,
     // which is the letterbox.
     if (rect) pass.setViewport(rect[0], rect[1], rect[2], rect[3], 0, 1);
+    if (blendConstant != null) pass.setBlendConstant({ r: blendConstant, g: blendConstant, b: blendConstant, a: blendConstant });
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, sceneBindGroup);
     pass.setBindGroup(1, group);
@@ -252,12 +258,13 @@ export class PostPass {
    * @param {object} options
    * @param {object} options.effects - Which stages run: `ao`, `taa`, `dof`, `motionBlur`, `autoExposure`, `bloom`
    * @param {object|null} [options.lut] - A grading LUT image, or null
+   * @param {number} [options.bloomScatter] - How far bloom spreads: each upsample's blend toward the wider level
    * @param {'linear'|'nearest'} [options.filter] - How the world is upscaled to the canvas
    * @param {number[]|null} [options.rect] - The content rectangle in canvas pixels
    * @param {GPURenderPassTimestampWrites} [options.timestampWrites] - Stamps for the last pass, the composite
    * @returns {number} Draw calls issued
    */
-  run(encoder, sceneBindGroup, target, { effects, lut = null, filter = 'linear', rect = null, timestampWrites = undefined }) {
+  run(encoder, sceneBindGroup, target, { effects, lut = null, bloomScatter = 0.75, filter = 'linear', rect = null, timestampWrites = undefined }) {
     const p = this.pipelines;
     const v = this.views;
     let draws = 0;
@@ -307,9 +314,12 @@ export class PostPass {
     const levels = this.levels;
     let bloomView = this.blackView;
     if (effects.bloom && levels.length) {
+      const scatter = Math.min(0.95, Math.max(0.05, bloomScatter));
       draw(p.prefilter, levels[0].view, [current, exposureView]);
       for (let i = 1; i < levels.length; i++) draw(p.downsample, levels[i].view, [levels[i - 1].view]);
-      for (let i = levels.length - 1; i > 0; i--) draw(p.upsample, levels[i - 1].view, [levels[i].view], { loadOp: 'load' });
+      for (let i = levels.length - 1; i > 0; i--) {
+        draw(p.upsample, levels[i - 1].view, [levels[i].view], { loadOp: 'load', blendConstant: scatter });
+      }
       bloomView = levels[0].view;
     }
 

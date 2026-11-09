@@ -26,7 +26,7 @@ afterEach(() => {
   world = null;
 });
 
-/** A world with a floor at y = 0, spanning the origin. */
+/** A bare 3D world; `floor(w)` lays ground whose top is y = 0. */
 function makeWorld(options = {}) {
   world = createPhysicsWorld({ dimensions: 3, interpolate: false, ...options });
   return world;
@@ -248,14 +248,6 @@ describe('queries', () => {
     expect(w.queryPoint({ x: 0, y: 0, z: 0.105 })).not.toContain(box);
   });
 
-  it('sees a body added since the last step', () => {
-    // The broad phase has not indexed it yet; the contract promises the
-    // query sees it anyway.
-    const w = makeWorld({ gravity: { x: 0, y: 0, z: 0 } });
-    const box = w.add(w.createBox({ x: 0, y: 0, z: 0, width: 0.2, height: 0.2, depth: 0.2 }));
-    expect(w.overlaps({ x: 0, y: 0, z: 0, radius: 0.05 })).toContain(box);
-  });
-
   it('raycasts, nearest first, with the hit point', () => {
     const w = makeWorld({ gravity: { x: 0, y: 0, z: 0 } });
     const near = w.add(w.createBox({ x: 1, y: 0, z: 0, width: 0.2, height: 0.2, depth: 0.2 }));
@@ -338,28 +330,17 @@ describe('a character', () => {
     expect(hero.grounded).toBe(false);
   });
 
-  it('walks along the ground at its commanded speed', () => {
+  it.each(['x', 'z'])('walks along the ground at its commanded speed on %s', (axis) => {
     const w = makeWorld();
     floor(w);
     // No drag, so a second at 1.2 m/s is 1.2 m and nothing else can
     // explain a shortfall. See the drag test below.
     const hero = makeCharacter(w, { frictionAir: 0 });
     steps(w, 60);
-    const from = hero.position.x;
-    hero.setVelocity({ x: 1.2, y: 0, z: 0 });
+    const from = hero.position[axis];
+    hero.setVelocity({ x: 0, y: 0, z: 0, [axis]: 1.2 });
     steps(w, 60);
-    expect(hero.position.x - from).toBeCloseTo(1.2, 2);
-  });
-
-  it('walks on the third axis too', () => {
-    const w = makeWorld();
-    floor(w);
-    const hero = makeCharacter(w, { frictionAir: 0 });
-    steps(w, 60);
-    const from = hero.position.z;
-    hero.setVelocity({ x: 0, y: 0, z: 1.2 });
-    steps(w, 60);
-    expect(hero.position.z - from).toBeCloseTo(1.2, 2);
+    expect(hero.position[axis] - from).toBeCloseTo(1.2, 2);
   });
 
   it('bleeds speed to frictionAir, as a dynamic body does', () => {

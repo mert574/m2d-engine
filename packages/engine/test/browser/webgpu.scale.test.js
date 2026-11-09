@@ -44,7 +44,7 @@ describe('a lot-sized frame', () => {
         : { sky: [0.36, 0.46, 0.68], ground: [0.22, 0.17, 0.12], intensity: 0.55 };
       f.fog = { color: dusk ? [0.3, 0.18, 0.3] : [0.66, 0.74, 0.86], density: dusk ? 0.009 : 0.006 };
       f.exposure = dusk ? 1.4 : 0.95;
-      f.bloom = { threshold: 0, intensity: dusk ? 0.09 : 0.04 };
+      f.bloom = { threshold: dusk ? 0.8 : 1.1, intensity: dusk ? 1.1 : 0.7, scatter: 0.75 };
       f.shadow.distance = 70;
       f.shadow.enabled = true;
       f.post.autoExposure = { enabled: true, key: dusk ? 0.12 : 0.2, min: 0.5, max: 3, speed: 1e6 };

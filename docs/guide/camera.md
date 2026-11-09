@@ -44,11 +44,11 @@ game.camera.mode = 'scroll';
 game.camera.scrollVelocity = { x: 90, y: 0 };
 ```
 
-The camera moves per frame, on wall time: it is presentation, and simulation code never reads it. An auto-scroller's rules — spawning ahead of the view, despawning behind it, crushing a straggler — track a simulation-side scroll front advanced in `fixedUpdate` at the same velocity, not `getVisibleArea()`. See [Determinism](../contributing/determinism#the-worked-example-an-auto-scroller).
+The camera moves per frame, on wall time: it is presentation, and simulation code never reads it. An auto-scroller's rules (spawning ahead of the view, despawning behind it, crushing a straggler) track a simulation-side scroll front advanced in `fixedUpdate` at the same velocity, not `getVisibleArea()`. See [Determinism](../contributing/determinism#the-worked-example-an-auto-scroller).
 
 `followRotation` turns the camera with the target: `rotation` eases toward the target body's angle plus `rotationOffset` (default `-π/2`, a +x nose up the screen) at `rotationLerp` (default `0.04`, like `lerp`), along the shorter arc, never faster than `rotationMaxRate` (default 1.2 rad/s; a whole screen turning is the strongest motion a camera makes) and not at all for turns under `rotationDeadband` (0.03 rad).
 
-Camera setup is scene state. When a scene unloads — and when the engine resets the world — `camera.resetConfig()` restores the position and every tunable above to its default: mode, `scrollVelocity`, `roomSize`, the axes, the rotation follow, `lerp`, `bounds`, zoom and rotation. A scene configures the camera it wants in its `onEnter` and cleans up nothing.
+Camera setup is scene state. When a scene unloads, and when the engine resets the world, `camera.resetConfig()` restores the position and every tunable above to its default: mode, `scrollVelocity`, `roomSize`, the axes, the rotation follow, `lerp`, `bounds`, zoom and rotation. A scene configures the camera it wants in its `onEnter` and cleans up nothing.
 
 ## Zoom and rotation
 

@@ -20,6 +20,14 @@ function track(tickRate = 60) {
   return t;
 }
 
+/** Feed states for ticks 10..10+to in steps of two, each a send interval apart. */
+function feed(v, entity, clock, to, extra) {
+  for (let i = 0; i <= to; i += 2) {
+    clock.ms += (2 / 60) * 1000;
+    state(v, entity, 10 + i, 100 + i * 10, 0, extra);
+  }
+}
+
 describe('Track', () => {
   it('blends between the two states bracketing a fractional tick', () => {
     const t = track();
@@ -154,11 +162,8 @@ describe('ReplicaView', () => {
   it('draws behind the newest state by the delay, blending between states', () => {
     const { v, clock, byId } = view([1]);
     const entity = byId.get(1);
-    // Five states, two ticks apart, arriving a send interval apart.
-    for (let i = 0; i <= 10; i += 2) {
-      clock.ms += (2 / 60) * 1000;
-      state(v, entity, 10 + i, 100 + i * 10);
-    }
+    // Six states, two ticks apart, arriving a send interval apart.
+    feed(v, entity, clock, 10);
     v.update();
     // delay is 2*2+1 = 5 ticks behind the newest (20), so about tick 15.
     expect(v.renderTick).toBeCloseTo(15, 1);
@@ -168,10 +173,7 @@ describe('ReplicaView', () => {
   it('advances smoothly between messages instead of stepping on each one', () => {
     const { v, clock, byId } = view([1]);
     const entity = byId.get(1);
-    for (let i = 0; i <= 20; i += 2) {
-      clock.ms += (2 / 60) * 1000;
-      state(v, entity, 10 + i, 100 + i * 10);
-    }
+    feed(v, entity, clock, 20);
     v.update();
     const positions = [];
     // Four display frames inside one 2-tick server interval.
@@ -190,10 +192,7 @@ describe('ReplicaView', () => {
   it('rides out a dropped message without stopping', () => {
     const { v, clock, byId } = view([1]);
     const entity = byId.get(1);
-    for (let i = 0; i <= 20; i += 2) {
-      clock.ms += (2 / 60) * 1000;
-      state(v, entity, 10 + i, 100 + i * 10, 0, { vx: 300 });
-    }
+    feed(v, entity, clock, 20, { vx: 300 });
     v.update();
     const before = entity.body.renderOverride.x;
     // Nothing arrives for two intervals; the clock keeps moving.

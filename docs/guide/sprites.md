@@ -96,7 +96,7 @@ Set `worldFilter: 'nearest'` so the world stays blocky when the render resolutio
 
 ## Where the demos' art comes from
 
-The example games ship committed textures and sprites — free, open packs (CC0 and CC BY), credited in the repository's `THIRD_PARTY_NOTICES.md` — with living characters and effects drawn in code through the renderer. Only the renderer showcase generates images, for its batching stress test, via `examples/scripts/generateSprites.js` (the dev server runs it for anything missing). See [Adding a demo](../contributing/adding-a-demo#assets).
+The example games ship committed textures and sprites, free open packs (CC0 and CC BY) credited in the repository's `THIRD_PARTY_NOTICES.md`, with living characters and effects drawn in code through the renderer. Only the renderer showcase generates images, for its batching stress test, via `examples/scripts/generateSprites.js` (the dev server runs it for anything missing). See [Adding a demo](../contributing/adding-a-demo#assets).
 
 ## Demo sources
 

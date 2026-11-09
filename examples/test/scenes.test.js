@@ -52,15 +52,6 @@ describe('shipped example scenes', () => {
   const constraints = {
     platformer: ['Chase']
   };
-  const scenes = {
-    platformer: ['mainMenu', 'level1'],
-    topdown: ['mainMenu', 'level1'],
-    oblique: ['mainMenu', 'grove'],
-    iso: ['mainMenu', 'keep'],
-    belt: ['mainMenu', 'row'],
-    drift: ['mainMenu', 'field'],
-    yard: ['yard']
-  };
 
   const files = readdirSync(examples)
     .flatMap(example => {
@@ -75,7 +66,6 @@ describe('shipped example scenes', () => {
   const docsDemo = join(import.meta.dirname, '..', '..', 'docs', 'demos', 'first-game');
   if (existsSync(docsDemo)) {
     actors['first-game'] = ['Hero', 'Platform'];
-    scenes['first-game'] = ['level1'];
     files.push(...readdirSync(docsDemo)
       .filter(f => f.endsWith('.json'))
       .map(f => ({ example: 'first-game', name: `docs/demos/first-game/${f}`, path: join(docsDemo, f) })));
@@ -87,7 +77,7 @@ describe('shipped example scenes', () => {
 
   it.each(files)('$name validates', ({ example, path }) => {
     const game = makeGame({
-      actors: actors[example], scenes: scenes[example], constraints: constraints[example],
+      actors: actors[example], constraints: constraints[example],
       manifest: manifestFor(example)
     });
     const data = JSON.parse(readFileSync(path, 'utf8'));

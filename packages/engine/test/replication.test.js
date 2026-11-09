@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { fakeSocket } from './helpers/net.js';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.js';
@@ -45,18 +46,6 @@ function build() {
   game.sceneManager.addScene('arena', { fetch: async () => SCENE });
   game.registerIntents(intents);
   return game;
-}
-
-/** A socket pair: what the client sends lands in `outbox`; `deliver` feeds it. */
-function fakeSocket() {
-  const socket = {
-    readyState: 1,
-    outbox: [],
-    send(data) { this.outbox.push(JSON.parse(data)); },
-    close(code, reason) { this.readyState = 3; this.onclose?.({ code, reason }); },
-    deliver(message) { this.onmessage?.({ data: JSON.stringify(message) }); }
-  };
-  return socket;
 }
 
 /** A server with one player, a replica connected to it, and a pump between them. */

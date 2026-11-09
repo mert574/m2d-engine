@@ -25,7 +25,7 @@ Key events are also available as `keydown` and `keyup` through `game.input.on`.
 
 Listeners sit on the canvas, which the engine makes focusable and focuses on construction and on every press.
 
-Keys whose browser default interferes with a game, such as Space, Tab, the arrows and Backspace, have that default suppressed. That list covers keys a game *polls*; the `preventDefaultKeys` [engine option](../reference/engine-options) replaces it. Any other key is suppressed exactly when something consumed the press — which is how F3 toggles the frame-rate readout without also opening the browser's find bar, and how a menu hotkey stays out of the page. Either way a held Ctrl, Alt or Meta cancels the suppression, so the player can still reach browser shortcuts. See [Browser defaults](../reference/input-events#browser-defaults).
+Keys whose browser default interferes with a game, such as Space, Tab, the arrows and Backspace, have that default suppressed. That list covers keys a game *polls*; the `preventDefaultKeys` [engine option](../reference/engine-options) replaces it. Any other key is suppressed exactly when something consumed the press, which is how F3 toggles the frame-rate readout without also opening the browser's find bar, and how a menu hotkey stays out of the page. Either way a held Ctrl, Alt or Meta cancels the suppression, so the player can still reach browser shortcuts. See [Browser defaults](../reference/input-events#browser-defaults).
 
 ## Pointer
 
@@ -59,7 +59,7 @@ Event types are `pointerdown`, `pointermove`, `pointerup`, `click`, `doubleclick
 
 ## Where events go
 
-Each event is offered to three bands in order: the engine's own UI (`game.ui` — the debug layer, then screens from the top down), the current scene's UI elements, then the world. The topmost hit in the highest band that has one becomes the target. Any handler may call `event.consume()` to stop the event from descending further, which is how a blocking screen keeps input away from the game.
+Each event is offered to three bands in order: the engine's own UI (`game.ui`: the debug layer, then screens from the top down), the current scene's UI elements, then the world. The topmost hit in the highest band that has one becomes the target. Any handler may call `event.consume()` to stop the event from descending further, which is how a blocking screen keeps input away from the game.
 
 UI elements receive events through their `on*` methods and consume what they handle by default. See [UI](./ui).
 

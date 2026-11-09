@@ -108,7 +108,7 @@ describe('what a joining client is sent', () => {
 
 describe('what the transform costs', () => {
   it('diffs position, angle and velocity apart', async () => {
-    const { server, replicator, creatures } = await pair({ interest: null });
+    const { replicator, creatures } = await pair({ interest: null });
     replicator.full();
     const walker = creatures[0];
     // A creature crossing a flat floor: it moves and never rotates. Set
@@ -129,7 +129,7 @@ describe('what the transform costs', () => {
   });
 
   it('rounds a position to a tenth of a pixel and a speed to whole units', async () => {
-    const { server, replicator, creatures } = await pair({ interest: null });
+    const { replicator, creatures } = await pair({ interest: null });
     replicator.full();
     const walker = creatures[0];
     walker.body.setPosition({ x: 123.456789, y: 456.123456 });
@@ -140,7 +140,7 @@ describe('what the transform costs', () => {
   });
 
   it('calls a crawl a standstill, so a settled entity stops sending velocity', async () => {
-    const { server, replicator, creatures } = await pair({ interest: null });
+    const { replicator, creatures } = await pair({ interest: null });
     replicator.full();
     const walker = creatures[0];
     walker.body.setVelocity({ x: 0.4, y: -0.3 });

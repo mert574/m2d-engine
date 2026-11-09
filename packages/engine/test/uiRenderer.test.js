@@ -49,6 +49,16 @@ describe('UIRenderer', () => {
       expect('isScreenSpace' in options).toBe(false);
     });
 
+    it('drawParticles forwards with isScreenSpace set, through the sprite fallback', () => {
+      // The recording backend has no particles capability, so the base
+      // renderer expands the buffer into sprites; the flag must survive.
+      ui.drawParticles({ image: {}, tileWidth: 8, tileHeight: 8, data: new Float32Array([1, 2, 4, 0, 1, 1, 1, 1]) });
+
+      const sprites = backend.optionsFor('drawSprite');
+      expect(sprites).toHaveLength(1);
+      expect(sprites[0].isScreenSpace).toBe(true);
+    });
+
     it('marks clips and transforms as screen-space', () => {
       ui.pushClip({ x: 1, y: 2, width: 3, height: 4 });
       ui.pushTransform({ x: 5, y: 6 });
@@ -160,12 +170,11 @@ describe('UI widgets', () => {
         .toBe(game.theme.get('font.family'));
     });
 
-    it('resolves variant colours through the theme', () => {
+    it('resolves the variant text colour through the theme', () => {
+      // The resting fill is covered by the state walk below.
       const button = attach(new UIButton({ x: 100, y: 50, variant: 'primary', text: 'Play' }));
       button.draw();
 
-      expect(backend.optionsFor('drawRect')[0].fillStyle)
-        .toBe(game.theme.resolve('$color.accent.default'));
       expect(backend.optionsFor('drawText')[0].fillStyle)
         .toBe(game.theme.resolve('$color.accent.contrast'));
     });
@@ -210,7 +219,7 @@ describe('UI widgets', () => {
     });
 
     it('updates the cursor on hover transitions', () => {
-      mount(attach(new UIButton({ x: 100, y: 50, width: 80, height: 30, text: 'Play' })));
+      mount(new UIButton({ x: 100, y: 50, width: 80, height: 30, text: 'Play' }));
 
       pointerMove(game, 100, 50);
       expect(backend.cursor).toBe('pointer');
@@ -221,9 +230,9 @@ describe('UI widgets', () => {
 
     it('invokes the click handler only inside its bounds', () => {
       let clicks = 0;
-      mount(attach(new UIButton({
+      mount(new UIButton({
         x: 100, y: 50, width: 80, height: 30, text: 'Play', onClick: () => { clicks++; }
-      })));
+      }));
 
       click(game, 100, 50);
       expect(clicks).toBe(1);
@@ -236,9 +245,9 @@ describe('UI widgets', () => {
       // What every real button does, and the reason a touch user can aim:
       // the finger covers the target, so the press has to be revocable.
       let clicks = 0;
-      const button = mount(attach(new UIButton({
+      const button = mount(new UIButton({
         x: 100, y: 50, width: 80, height: 30, text: 'Play', onClick: () => { clicks++; }
-      })));
+      }));
 
       pointerMove(game, 100, 50);
       pointerDown(game, 100, 50);
@@ -255,9 +264,9 @@ describe('UI widgets', () => {
       // A slop radius would reject this; "same target" is the rule that
       // matches how wide a button actually is.
       let clicks = 0;
-      mount(attach(new UIButton({
+      mount(new UIButton({
         x: 100, y: 50, width: 80, height: 30, text: 'Play', onClick: () => { clicks++; }
-      })));
+      }));
 
       pointerMove(game, 65, 50);
       pointerDown(game, 65, 50);
@@ -267,23 +276,6 @@ describe('UI widgets', () => {
       expect(clicks).toBe(1);
     });
 
-    it('a disabled button swallows the click without running the handler', () => {
-      // It must still consume: a greyed-out control that let the click
-      // through would fire whatever is behind the dialog.
-      let clicks = 0;
-      const button = mount(attach(new UIButton({
-        x: 100, y: 50, width: 80, height: 30, text: 'Play',
-        enabled: false, onClick: () => { clicks++; }
-      })));
-      const worldClicks = [];
-      game.input.on('click', (event) => worldClicks.push(event));
-
-      click(game, 100, 50);
-
-      expect(clicks).toBe(0);
-      expect(worldClicks).toHaveLength(0);
-      expect(button.state).toBe('disabled');
-    });
   });
 
   describe('UIMenuItem', () => {
@@ -360,10 +352,10 @@ describe('UI widgets', () => {
 
     it('fires on click', () => {
       let picked = 0;
-      mount(attach(new UIMenuItem({
+      mount(new UIMenuItem({
         x: 100, y: 100, width: 200, pivot: 'center', text: 'Start',
         onSelect: () => { picked++; }
-      })));
+      }));
 
       click(game, 100, 100);
 

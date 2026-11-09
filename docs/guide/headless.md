@@ -117,7 +117,7 @@ Simulation code never reads `game.player` to find "the player". On a server it i
 
 ## World events
 
-Simulation decides that something happened; presentation decides what it looks and sounds like. On a server those are different processes: a flash or a sound written in `fixedUpdate` would be lost, and the clients that never ran the tick would have no way to know. Replicated state does not cover it either — two hits in one send interval look like one change to `currentHealth`, and a blocked hit or a footstep changes no state at all.
+Simulation decides that something happened; presentation decides what it looks and sounds like. On a server those are different processes: a flash or a sound written in `fixedUpdate` would be lost, and the clients that never ran the tick would have no way to know. Replicated state does not cover it either: two hits in one send interval look like one change to `currentHealth`, and a blocked hit or a footstep changes no state at all.
 
 So simulation raises them and presentation hears them:
 
@@ -136,7 +136,7 @@ game.events.on('damage', ({ id, amount }) => { /* a HUD, a camera shake */ });
 | `events.take()` | The events raised since the last take. The frame loop and the match host call it |
 | `events.dispatch(events)` | Deliver them. Called with the frame's own on a game alone, and with the server's on a client |
 
-An event that names an entity reaches that entity's `onWorldEvent(name, data)`, which offers it to each of its constraints — the path `onCollisionStart` takes. That is how `DamageFlash` flashes and `Footsteps` makes its sound without subscribing to anything, and it costs one lookup per event rather than a call to every entity in the world.
+An event that names an entity reaches that entity's `onWorldEvent(name, data)`, which offers it to each of its constraints, the path `onCollisionStart` takes. That is how `DamageFlash` flashes and `Footsteps` makes its sound without subscribing to anything, and it costs one lookup per event rather than a call to every entity in the world.
 
 Delivery is always **after** the tick that raised it, never inside it, so presentation cannot feed back into the simulation it is reacting to and a game behaves the same way alone and online. `Health` raises `damage`, `death` and `heal`; `Footsteps` raises `step` with the sound to play.
 

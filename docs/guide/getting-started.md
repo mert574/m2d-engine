@@ -1,6 +1,6 @@
 # Getting started
 
-M2D is a 2D game engine for the browser. It simulates physics with Rapier 2D, draws with WebGL2 or Canvas 2D, loads levels and menus from JSON and reads keyboard, mouse, touch and pen through one input API.
+M2D is a 2D and 3D game engine for the browser. It simulates physics with Rapier, draws with WebGL2 or Canvas 2D (WebGPU in 3D), loads levels and menus from JSON and reads keyboard, mouse, touch and pen through one input API. This guide builds a 2D game; the 3D renderer is in [Renderer](../reference/renderer#three-dimensions).
 
 ## Install
 

@@ -33,7 +33,7 @@ The container is cleared when the scene unloads.
 
 ## Positions
 
-An element stores an offset from its **anchor** — a named point in its parent's content box — and its **pivot** decides which point of the element lands there.
+An element stores an offset from its **anchor**, a named point in its parent's content box, and its **pivot** decides which point of the element lands there.
 
 ```javascript
 // 20 units in from the real bottom-right corner, at any aspect ratio.
@@ -58,7 +58,7 @@ card.add(new UIText({ anchor: 'top-left', text: 'Paused', fontSize: '$font.size.
 card.add(new UIButton({ anchor: 'bottom', pivot: 'bottom', width: 200, text: 'Resume' }));
 ```
 
-Later children draw on top of earlier ones and are hit-tested first. `opacity` compounds down the tree, and `scale`, `rotation` and `clipChildren` apply to the whole subtree — so a component that knows nothing about animation can still be faded, scaled and clipped by its parent.
+Later children draw on top of earlier ones and are hit-tested first. `opacity` compounds down the tree, and `scale`, `rotation` and `clipChildren` apply to the whole subtree, so a component that knows nothing about animation can still be faded, scaled and clipped by its parent.
 
 ## Layout
 
@@ -80,7 +80,7 @@ Each axis is sized independently: the stack above has a fixed width, so `align: 
 
 `Grid` does the same on a fixed column count with uniform cells, for inventories and level-select pages. `Spacer` is blank space.
 
-A layout owns its children's placement — it writes their offsets and pins their `anchor` and `pivot` — so setting a child's `x` inside one has no effect. Use the stack's `padding`, the `gap`, or a `Spacer`.
+A layout owns its children's placement: it writes their offsets and pins their `anchor` and `pivot`, so setting a child's `x` inside one has no effect. Use the stack's `padding`, the `gap` or a `Spacer`.
 
 Layout runs after the children have updated, so a label that measures itself has already done so, and nested layouts resolve innermost-first.
 
@@ -94,7 +94,7 @@ new UIPanel({ background: '$color.surface.raised', cornerRadius: '$radius.lg' })
 
 Any string beginning with `$` is a dotted path into the theme, resolved wherever a colour, size, family, weight, radius or shadow is accepted. Literals pass through, so `'#102030'` is always allowed.
 
-Restyling a whole game — every button, panel, dialog and the debug readout — is one option:
+Restyling a whole game (every button, panel, dialog and the debug readout) is one option:
 
 ```javascript
 import { createTheme } from 'm2d-engine/core/ui/theme.js';
@@ -116,13 +116,13 @@ new UIText({ text: 'a whisper', fontStyle: 'italic', color: '$color.text.muted' 
 new UIText({ text: 'NEW GAME', letterSpacing: '$font.tracking.widest' })
 ```
 
-Tracked-out uppercase is half of why game UI reads as game UI rather than as a web page — the `$font.tracking.*` tokens cover it, and large display type takes `tight` rather than `wide`. Tracking is counted in the measured width, so a layout built on it is correct. Where a browser lacks `ctx.letterSpacing` the text draws untracked.
+Tracked-out uppercase is half of why game UI reads as game UI instead of a web page. The `$font.tracking.*` tokens cover it, and large display type takes `tight`. Tracking is counted in the measured width, so a layout built on it is correct. Where a browser lacks `ctx.letterSpacing` the text draws untracked.
 
 `M2D.start()` waits for the font before the first frame. The WebGL backend caches each rasterized label as a texture, so a label drawn before the font arrived would stay in the fallback face.
 
 ## Screens
 
-A menu is not a scene. `sceneManager.switchTo` *unloads* the current scene — entities, bodies and sprite sheets all gone — and keeps no history, so a pause menu over a live level is impossible that way.
+A menu is not a scene. `sceneManager.switchTo` *unloads* the current scene, entities, bodies and sprite sheets all gone, and keeps no history, so a pause menu over a live level is impossible that way.
 
 Screens are pushed onto `game.ui` over whatever is already running:
 
@@ -141,7 +141,7 @@ class PauseScreen extends UIScreen {
 game.ui.push(new PauseScreen());
 ```
 
-The game stays loaded and visible underneath. `pop()` goes back, and Escape does it for you — so pause → settings → Escape → Escape walks back out to the game, one step at a time.
+The game stays loaded and visible underneath. `pop()` goes back, and Escape does it for you: pause, settings, Escape, Escape walks back out to the game, one step at a time.
 
 | Option | Effect |
 | --- | --- |
@@ -155,7 +155,7 @@ Tabs belong *inside* one screen, not on the stack: a tab bar swapping a content 
 
 ## Keyboard and controller navigation
 
-Every screen owns a `FocusManager` scoped to itself, so Tab cannot walk out of a dialog into the game behind it. Mark a control `focusable: true` — `UIButton` and `UIOptionRow` already are — and the screen handles the rest:
+Every screen owns a `FocusManager` scoped to itself, so Tab cannot walk out of a dialog into the game behind it. Mark a control `focusable: true` (`UIButton` and `UIOptionRow` already are) and the screen handles the rest:
 
 | Key | Effect |
 | --- | --- |
@@ -180,15 +180,15 @@ game.motion.stagger(items, { opacity: 1 }, { from: { opacity: 0 }, stagger: 0.06
 
 Durations and easings come from the theme, so changing the feel of every transition is one override. Starting a tween on a property that is already animating cancels the earlier one for that property only, so a fade and a slide do not fight.
 
-**A layout owns its children's offsets** and rewrites them every frame. Inside a `Stack` or `Grid`, animate `opacity`, `scale` or `rotation` — never `offsetX`/`offsetY`. To move a laid-out group, animate the container, which is what the examples' main menu does: the column rises as one piece while the items fade in one after another.
+**A layout owns its children's offsets** and rewrites them every frame. Inside a `Stack` or `Grid`, animate `opacity`, `scale` or `rotation`, never `offsetX`/`offsetY`. To move a laid-out group, animate the container, which is what the examples' main menu does: the column rises as one piece while the items fade in one after another.
 
 The settings menu scrolls when its rows would not fit the screen: the wheel scrolls it, and keyboard navigation keeps the focused row in view.
 
 ## Screen transitions and backdrops
 
-A screen arrives and leaves with its `transition` — `'fade'` (the default), `'slide-up'`, `'slide-down'`, `'scale'`, or `null` for instant. Transitions only touch the screen's own opacity, offset and scale, so it moves as one piece and the resting layout stays the truth: adding one can never change where a screen ends up.
+A screen arrives and leaves with its `transition`: `'fade'` (the default), `'slide-up'`, `'slide-down'`, `'scale'` or `null` for instant. Transitions only touch the screen's own opacity, offset and scale, so it moves as one piece and the resting layout stays the truth: adding one can never change where a screen ends up.
 
-A screen on its way out keeps drawing, beneath the live ones, until its exit finishes — and pushing it again mid-exit brings it back rather than letting it finish leaving.
+A screen on its way out keeps drawing, beneath the live ones, until its exit finishes. Pushing it again mid-exit brings it back.
 
 `UIBackdrop` is the layered background a menu sits on: a graded wash, an optional drifting still, slow motes, scanlines and a vignette. A flat fill behind the type is the single thing that made the old demo menus read as a web page rather than a game.
 
@@ -223,14 +223,14 @@ screen.add(new UIBackdrop({ gradient: null, layers: [horizon], vignette: 0.5 }))
 new UIScreen({ name: 'pause', scrim: true, blurBehind: 10 })
 ```
 
-It needs the `postEffects` capability. On the Canvas backend there is no blur and the `scrim` carries the separation alone — the usual [capability degradation](../reference/renderer), not an error.
+It needs the `postEffects` capability. On the Canvas backend there is no blur and the `scrim` carries the separation alone, the usual [capability degradation](../reference/renderer).
 
 ## Built-in components
 
 | Component | Purpose |
 | --- | --- |
 | `UIPanel` | A themed surface with border, radius and elevation. The box other chrome sits on |
-| `UIButton` | A clickable button. Picks a `variant` — `primary`, `secondary`, `ghost`, `danger` — rather than colours |
+| `UIButton` | A clickable button. Picks a `variant` (`primary`, `secondary`, `ghost`, `danger`) instead of colours |
 | `UIText` | A line of text. Measures itself, so it has a real box |
 | `UIImage` | An image, optionally scaled and tinted |
 | `UIRectangle` | A flat rectangle. `fill: true` covers the whole screen |
@@ -300,7 +300,7 @@ draw() {
 }
 ```
 
-A disabled element still consumes input — a greyed-out control that let the click through would fire whatever is behind it — but runs no handlers and tracks no hover or press state.
+A disabled element still consumes input but runs no handlers and tracks no hover or press state; a greyed-out control that let the click through would fire whatever is behind it.
 
 ## A game built on the UI layer
 

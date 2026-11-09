@@ -234,7 +234,7 @@ describe('motion', () => {
   });
 
   describe('screen transitions', () => {
-    /** Push and let the entrance settle. */
+    /** Let whatever is animating settle. */
     function settle(seconds = 1) {
       motion.update(seconds);
     }

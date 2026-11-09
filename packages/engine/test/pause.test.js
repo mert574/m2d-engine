@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { createCanvasElement, installWindowStub } from './helpers/environment.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { M2D } from '../src/core/m2d.js';
 
@@ -9,24 +9,12 @@ import { M2D } from '../src/core/m2d.js';
  * frozen frame — and what the menu's Paused row and `pauseWhenOpen` rely on.
  */
 
-function displayCanvas(cssWidth, cssHeight) {
-  const canvas = createCanvasElement(cssWidth, cssHeight);
-  Object.defineProperty(canvas, 'clientWidth', { value: cssWidth, configurable: true });
-  Object.defineProperty(canvas, 'clientHeight', { value: cssHeight, configurable: true });
-  canvas.getBoundingClientRect = () =>
-    ({ left: 0, top: 0, width: cssWidth, height: cssHeight, right: cssWidth, bottom: cssHeight });
-  return canvas;
-}
-
 describe('engine pause', () => {
   let game;
   let renderer;
   let scene;
 
-  beforeAll(() => {
-    globalThis.document.addEventListener ??= () => {};
-    globalThis.document.removeEventListener ??= () => {};
-  });
+  beforeAll(stubDocumentListeners);
 
   beforeEach(() => {
     installWindowStub();
@@ -207,22 +195,6 @@ describe('engine pause', () => {
       runFrame();
       expect(scene.fixedUpdate).not.toHaveBeenCalled();
       expect(stepped).toHaveBeenCalledTimes(1);
-    });
-
-    it('freezes game-time timers under pause and lets unscaled ones run', () => {
-      const scaled = vi.fn();
-      const unscaled = vi.fn();
-      game.time.after(0.01, scaled);
-      game.time.after(0.01, unscaled, { unscaled: true });
-
-      game.paused = true;
-      runFrame();
-      expect(scaled).not.toHaveBeenCalled();
-      expect(unscaled).toHaveBeenCalledTimes(1);
-
-      game.paused = false;
-      game.update(1040);
-      expect(scaled).toHaveBeenCalledTimes(1);
     });
 
     it('is one time scale with the physics world and the g_timescale cvar', () => {

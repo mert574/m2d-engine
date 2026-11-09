@@ -99,9 +99,11 @@ The `physics` block of a prefab configures the body the scene creates.
 
 A circle takes its diameter from the object's width. A capsule is the object's box with semicircular ends, which lets a character cross the seams between floor tiles without catching. [Physics](./physics) explains the body types.
 
+A 3D level (`world.dimensions: 3`) adds three blocks this guide does not cover: a prefab's [`mesh`](../reference/scene-format#mesh) says how it is drawn, its [`light`](../reference/scene-format#light) is a lamp it carries and a layer's [`props`](../reference/scene-format#layers-props) places scenery by the thousand. The [scene format](../reference/scene-format) has them all.
+
 ## Sharing assets between scenes
 
-A scene that declares its sprite sheets and prefabs inline owns them: nothing else can use them, and a change has to be made in every scene that copied it. Once an asset is shared — one prefab placed by four levels, one texture drawn by all of them — put it in an [asset manifest](../reference/asset-manifest) instead.
+A scene that declares its sprite sheets and prefabs inline owns them: nothing else can use them, and a change has to be made in every scene that copied it. Once an asset is shared (one prefab placed by four levels, one texture drawn by all of them) put it in an [asset manifest](../reference/asset-manifest) instead.
 
 ```javascript
 import manifest from './assets.json';
@@ -188,7 +190,7 @@ A switch requested inside a tick (from a collision handler, a game-time timer or
 
 `sceneManager.reload()` runs the current scene's load again under the same loading state as a switch. The game-over screen's R key calls it after `game.reset()`.
 
-Unloading also resets the camera — position, mode, bounds, zoom, every tunable — so one scene's camera setup never leaks into the next. A scene configures the camera it wants in `onEnter` and cleans up nothing. See [Camera](./camera#modes).
+Unloading also resets the camera (position, mode, bounds, zoom, every tunable) so one scene's camera setup never leaks into the next. A scene configures the camera it wants in `onEnter` and cleans up nothing. See [Camera](./camera#modes).
 
 The name `mainMenu` is special in two places. The game-over screen's M key switches to it, and the built-in `Trigger` actor switches to it when the player enters.
 

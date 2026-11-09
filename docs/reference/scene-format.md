@@ -24,7 +24,7 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 
 | Key | Meaning |
 | --- | --- |
-| `dimensions` | `2` (default) or `3`. How many axes the simulation has. A 3D level needs a game built for it: `initPhysics({ dimensions: 3 })` and `new M2D(canvas, { dimensions: 3 })`. A 3D level is in metres with up along `+y`, so positions and sizes are metre-scale and the default object size of 32 is far too big — give every 3D object a `width` and `height`. See [Three dimensions](./physics#three-dimensions) |
+| `dimensions` | `2` (default) or `3`. How many axes the simulation has. A 3D level needs a game built for it: `initPhysics({ dimensions: 3 })` and `new M2D(canvas, { dimensions: 3 })`. A 3D level is in metres with up along `+y`, so positions and sizes are metre-scale and the default object size of 32 is far too big; give every 3D object a `width` and `height`. See [Three dimensions](./physics#three-dimensions) |
 | `width`, `height` | Size of the playable area in world units. The engine does not read these; a game does, from `scene.config.world`, to set camera bounds or lay out a level |
 | `gravity` | `{ "x", "y" }` in px/s² with down along `+y`; in a 3D level `{ "x", "y", "z" }` in m/s² with down along `-y`, so Earth is `{ "x": 0, "y": -9.81, "z": 0 }`. Applied to the physics world when the scene loads |
 | `projection` | How the ground plane is seen: `"isometric"` or `"belt"`, or `{ "type", "ratio" }`. Isometric draws a ground square as a `2:ratio·2` diamond; belt keeps x and compresses y by `ratio`. Positions are drawn through it; physics stays flat. See [Perspectives](../guide/perspectives#isometric-a-projection-on-positions) |
@@ -45,7 +45,7 @@ A map from sheet name to sheet. The checks below run for level scenes. A UI scen
 
 ## `assets.models`
 
-A map from model name to model, for a 3D level. A model is a glTF 2.0 `.glb` file, in metres with y up — the 3D world's own conventions, so nothing is converted. Its meshes, node transforms, metallic-roughness materials, base colour, metallic-roughness and emissive textures, skins and animation clips are read. An entity whose model has a skin or a clip gets an `entity.animator`; see [Animation](./renderer#animation).
+A map from model name to model, for a 3D level. A model is a glTF 2.0 `.glb` file, in metres with y up, the 3D world's own conventions, so nothing is converted. Its meshes, node transforms, metallic-roughness materials, base colour, metallic-roughness and emissive textures, skins and animation clips are read. An entity whose model has a skin or a clip gets an `entity.animator`; see [Animation](./renderer#animation).
 
 | Key | Required | Meaning |
 | --- | --- | --- |
@@ -55,7 +55,7 @@ A prefab draws a model by naming it in its [`mesh`](#mesh) block.
 
 ## `assets.environments`
 
-A map from name to HDR environment, for a 3D level. An environment is a Radiance `.hdr` equirectangular panorama — the format Poly Haven and every HDRI library ship — whose pixels carry real radiance rather than 8-bit colour.
+A map from name to HDR environment, for a 3D level. An environment is a Radiance `.hdr` equirectangular panorama, the format Poly Haven and every HDRI library ship, whose pixels carry real radiance instead of 8-bit colour.
 
 | Key | Required | Meaning |
 | --- | --- | --- |
@@ -70,7 +70,7 @@ onRender(frame) {
 }
 ```
 
-It then *is* the sky: the camera sees the panorama, and the same image is baked into the cubemap that lights every surface, so a reflection and the background agree. The procedural sky's `sun` still lights and casts shadows — the panorama's own sun is in its pixels, where the image-based lighting finds it, but a shadow needs a direction — while `ambient.sky` and `ambient.ground` no longer shape anything. Point the frame's `environment` back at `null` for the built-in sky.
+It then *is* the sky: the camera sees the panorama, and the same image is baked into the cubemap that lights every surface, so a reflection and the background agree. The procedural sky's `sun` still lights and casts shadows (the panorama's own sun is in its pixels, where the image-based lighting finds it, but a shadow needs a direction), while `ambient.sky` and `ambient.ground` no longer shape anything. Point the frame's `environment` back at `null` for the built-in sky.
 
 Panoramas are oriented as three.js and Blender orient them: the centre of the image faces `+x`, so an HDRI's sun lands where its author put it.
 
@@ -123,6 +123,7 @@ How a prefab is drawn in a 3D level, where there are no sprites. Without a `mesh
 | `roughness` | `0` to `1` | `0.6` |
 | `emissive` | number, self-illumination as a multiple of the colour | `0` |
 | `checker` | number, metres: a two-tone checker of that cell size on the surface, or `0` | `0` |
+| `texture` | `{ "url", "size" }`: an image mapped planar from the world position along the surface's dominant axis, `size` metres per tile, so a floor and a wall take the same density whatever the shape's own coordinates say. A shape only; a model brings its own | none |
 | `visible` | boolean | `true` |
 
 A shape is sized by the object's `width`, `height` and `depth`, like the collider; a model keeps the file's size times `scale`, and the collider is whatever the object says, so a truck's box can be simpler than its body. An object's `overrides.mesh` merges over the prefab's, so one red crate among brown ones needs no prefab of its own. See the [renderer](./renderer#three-dimensions) for what the renderer makes of it.
@@ -197,7 +198,7 @@ In a 2D level `props` is an error. The yard example's lot (`?scene=lot`) is laid
 
 ## `overrides`
 
-What one placed object changes about its prefab, so a heavier crate or a recoloured guard needs no prefab of its own. Placement — `x`, `width`, `angle`, `zIndex` — is the object's own and sits at the top level; this is the prefab's definition.
+What one placed object changes about its prefab, so a heavier crate or a recoloured guard needs no prefab of its own. Placement (`x`, `width`, `angle`, `zIndex`) is the object's own and sits at the top level; this is the prefab's definition.
 
 | Key | Meaning |
 | --- | --- |
@@ -216,14 +217,14 @@ What one placed object changes about its prefab, so a heavier crate or a recolou
 
 ## `constraints`
 
-A map from **slot name** — the name `entity.getConstraint` uses — to an entry. A prefab's constraints apply to every instance; an object's apply to that one, merged over the prefab's.
+A map from **slot name** (the name `entity.getConstraint` uses) to an entry. A prefab's constraints apply to every instance; an object's apply to that one, merged over the prefab's.
 
 | Key | Required | Meaning |
 | --- | --- | --- |
 | `type` | see below | A name passed to `game.registerConstraint` |
 | `params` | no | The constraint's tunables, validated against its `static params` |
 
-`type` may be omitted when the entry only retunes a constraint that is already there — one the actor attached in its constructor, or one the prefab declared. An entry for an empty slot with no `type` is an error when the scene builds.
+`type` may be omitted when the entry only retunes a constraint that is already there: one the actor attached in its constructor, or one the prefab declared. An entry for an empty slot with no `type` is an error when the scene builds.
 
 ```json
 "prefabs": {
@@ -242,7 +243,7 @@ A map from **slot name** — the name `entity.getConstraint` uses — to an entr
 }]
 ```
 
-An entry merges rather than replaces: `guard-2` chases faster and keeps every other param the prefab set. Params are checked against the constraint class wherever this document names it — on the prefab, or on an object whose prefab declared the same slot. An override of a constraint an *actor* attached names no type anywhere in the file, so its params are checked when the scene builds instead, with the same messages.
+An entry merges instead of replacing: `guard-2` chases faster and keeps every other param the prefab set. Params are checked against the constraint class wherever this document names it, on the prefab or on an object whose prefab declared the same slot. An override of a constraint an *actor* attached names no type anywhere in the file, so its params are checked when the scene builds instead, with the same messages.
 
 Only a constraint's data can be declared. Its callbacks are code and stay in the actor. See [Built-in constraints](./constraints).
 
@@ -284,7 +285,7 @@ An array of UI elements. Every element accepts these keys.
 | `anchor` | no | One of `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right`. Default `top-left` |
 | `properties` | no | Type-specific, below |
 
-Every colour and size accepts a [theme token](./ui#theme-tokens) — `"$color.text.accent"`, `"$font.size.heading"` — as readily as a literal, so a scene authored against the theme follows a retheme.
+Every colour and size accepts a [theme token](./ui#theme-tokens) such as `"$color.text.accent"` or `"$font.size.heading"` as readily as a literal, so a scene authored against the theme follows a retheme.
 
 ### `button`
 
@@ -379,4 +380,4 @@ A scene declares the format version it was written for, and the loader accepts e
 Scene 'level1' at version: scene format 3 is newer than this engine understands (2); upgrade m2d-engine
 ```
 
-There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and rewriting the scenes — which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.
+There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and rewriting the scenes, which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.

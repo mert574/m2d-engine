@@ -1,6 +1,6 @@
 # Asset manifest
 
-A scene can declare everything it needs inside itself — its sprite sheets, its prefabs — and for a small game written by hand that is the simplest thing that works. A manifest is the other way: assets live outside any one scene, each with a stable identity, and scenes reach for them by that identity.
+A scene can declare everything it needs inside itself (its sprite sheets, its prefabs), and for a small game written by hand that is the easiest thing that works. A manifest is the other way: assets live outside any one scene, each with a stable identity, and scenes reach for them by that identity.
 
 Use one when an asset is shared, or when something other than a text editor will be managing it. Both styles work, and a scene can mix them.
 
@@ -13,7 +13,7 @@ game.loadAssets(manifest);
 
 ## The uid
 
-Every asset has a **uid**: an identity that is neither its name nor its path. That is the whole point. A texture renamed, a file moved into a different folder, a prefab relabelled — none of it touches the scenes that use the asset, because none of them referred to the thing that changed. The `name` is a label for an editor and for error messages. The `source` is where the bytes happen to live today.
+Every asset has a **uid**: an identity that is neither its name nor its path. That is the whole point. A texture renamed, a file moved into a different folder, a prefab relabelled: none of it touches the scenes that use the asset, because none of them referred to the thing that changed. The `name` is a label for an editor and for error messages. The `source` is where the bytes happen to live today.
 
 A uid is spelled like a scene object's id: letters, digits, `-`, `_` and `.`, starting with a letter or a digit. An editor generates them; a person writing a manifest by hand can use `hero-sheet`.
 
@@ -109,7 +109,7 @@ A scene binds the uids it wants to short local names in its `uses` block, and re
 }
 ```
 
-This keeps scene files legible and reviewable — the body says `"prefab": "zombie"`, not a uid — while identity rests on something a rename cannot break. Godot's `ext_resource` block works the same way.
+This keeps scene files legible and reviewable (the body says `"prefab": "zombie"`, not a uid) while identity rests on something a rename cannot break. Godot's `ext_resource` block works the same way.
 
 A used sprite sheet joins `assets.spritesheets` under its local name; a used prefab joins `prefabs`. By the time anything builds from the scene there is one kind of sprite sheet and one kind of prefab, whichever way they arrived.
 

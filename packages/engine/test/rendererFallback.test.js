@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
-import { createCanvasElement } from './helpers/environment.js';
+import { createCanvasElement, stubDocumentListeners } from './helpers/environment.js';
 import { M2D } from '../src/core/m2d.js';
 import { CanvasRenderer } from '../src/core/renderers/canvasRenderer.js';
 
@@ -9,11 +9,7 @@ import { CanvasRenderer } from '../src/core/renderers/canvasRenderer.js';
  * situation the fallback exists for.
  */
 describe('M2D renderer selection', () => {
-  beforeAll(() => {
-    // The engine registers input/sound listeners; the headless shim only
-    // provides document.createElement.
-    globalThis.document.addEventListener ??= () => {};
-  });
+  beforeAll(stubDocumentListeners);
 
   afterEach(() => {
     vi.restoreAllMocks();
