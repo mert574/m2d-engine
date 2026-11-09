@@ -91,6 +91,9 @@ export class Frame3D {
     /** Joint matrix arrays of the skinned instances this frame, in order; the renderer packs them. @type {Float32Array[]} */
     this.skins = [];
     this.jointCount = 0;
+    /** Morph weight arrays of the morphed instances this frame, in order. @type {Float32Array[]} */
+    this.morphWeights = [];
+    this.morphCount = 0;
     /** Point and spot lights, as packed records; see `addLight`. @type {Float32Array[]} */
     this.lights = [];
     /** The same lights as given, for the renderer to pick shadow casters from. */
@@ -132,6 +135,8 @@ export class Frame3D {
    * @param {Float32Array} [instance.previousModel] - Last frame's model matrix, for motion vectors; this one if omitted
    * @param {Float32Array} [instance.skin] - Joint matrices (16 floats each, model space) for a skinned geometry
    * @param {Float32Array} [instance.previousSkin] - Last frame's joint matrices, so limbs carry their own motion; `skin` stands in without it
+   * @param {Float32Array} [instance.morphWeights] - Morph target weights for a geometry that has targets; an unskinned mesh only
+   * @param {Float32Array} [instance.previousMorphWeights] - Last frame's, for motion vectors; `morphWeights` stands in without it
    * @param {[number, number]} [instance.lod] - The coverage range this geometry is drawn within; everything if omitted
    * @returns {Float32Array} The model matrix used, to hand back as next frame's `previousModel`
    */
@@ -152,6 +157,15 @@ export class Frame3D {
       data[54] = this.jointCount;
       this.skins.push(instance.previousSkin ?? instance.skin);
       this.jointCount += instance.skin.length / 16;
+    } else if (instance.morphWeights && geometry.morphs) {
+      // An unskinned mesh spends the skin slots on its morph bases
+      // instead, one past them so zero still means none.
+      data[52] = this.morphCount + 1;
+      this.morphWeights.push(instance.morphWeights);
+      this.morphCount += instance.morphWeights.length;
+      data[54] = this.morphCount + 1;
+      this.morphWeights.push(instance.previousMorphWeights ?? instance.morphWeights);
+      this.morphCount += instance.morphWeights.length;
     }
     this.#entry(geometry, instance.material ?? null, instance.lod).instances.push(data);
     return model;
@@ -276,7 +290,8 @@ export function writeInstance(data, offset, geometry, instance) {
   data[offset + 35] = instance.checker ?? 0;
   data.set(instance.previousModel ?? model, offset + 36);
   // skin: x first joint, y skinned, z first joint of last frame's pose,
-  // w casts a shadow.
+  // w casts a shadow. An unskinned, morphed instance reuses x and z for
+  // its weight bases plus one; `Frame3D.add` writes those.
   // A BLEND surface does not: the shadow pass has no blending, so glass
   // would cast the opaque shadow of its whole pane. A MASK surface still
   // casts, cut out at its cutoff — that is what foliage wants.
@@ -287,7 +302,7 @@ export function writeInstance(data, offset, geometry, instance) {
   // The geometry's bounding sphere carried through the model matrix.
   // A skinned mesh moves well outside its bind pose; give the sphere room.
   const sphere = boundingSphere(geometry);
-  const slack = geometry.skinned ? 1.5 : 1;
+  const slack = geometry.skinned || (geometry.morphs && instance.morphWeights) ? 1.5 : 1;
   data[offset + 56] = model[0] * sphere.x + model[4] * sphere.y + model[8] * sphere.z + model[12];
   data[offset + 57] = model[1] * sphere.x + model[5] * sphere.y + model[9] * sphere.z + model[13];
   data[offset + 58] = model[2] * sphere.x + model[6] * sphere.y + model[10] * sphere.z + model[14];

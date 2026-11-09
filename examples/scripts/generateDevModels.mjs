@@ -53,8 +53,60 @@ function vertexBox(doc) {
   return doc.createNode('vertexBox').setMesh(mesh);
 }
 
+/**
+ * A half-metre cube that breathes: one morph target inflates every
+ * vertex outward along its own position, and a two-second 'pulse' clip
+ * drives the weight 0 to 1 and back. The silhouette changing is the
+ * point — no rigid transform could do it, so if it moves, morphs work.
+ */
+function morphBox(doc) {
+  const faces = [
+    { n: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0] },
+    { n: [0, 0, -1], u: [-1, 0, 0], v: [0, 1, 0] },
+    { n: [1, 0, 0], u: [0, 0, -1], v: [0, 1, 0] },
+    { n: [-1, 0, 0], u: [0, 0, 1], v: [0, 1, 0] },
+    { n: [0, 1, 0], u: [1, 0, 0], v: [0, 0, -1] },
+    { n: [0, -1, 0], u: [1, 0, 0], v: [0, 0, 1] }
+  ];
+  const positions = [];
+  const normals = [];
+  const bulge = [];
+  const indices = [];
+  faces.forEach(({ n, u, v }, f) => {
+    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const p = [0, 1, 2].map((c) => (n[c] + su * u[c] + sv * v[c]) * 0.25);
+      const length = Math.hypot(...p);
+      positions.push(...p);
+      normals.push(...n);
+      bulge.push(...p.map((x) => (x / length) * 0.2));
+    }
+    indices.push(f * 4, f * 4 + 1, f * 4 + 2, f * 4, f * 4 + 2, f * 4 + 3);
+  });
+  const buffer = doc.createBuffer();
+  const accessor = (type, array) => doc.createAccessor().setType(type).setArray(array).setBuffer(buffer);
+  const material = doc.createMaterial('shell')
+    .setBaseColorFactor([0.85, 0.45, 0.75, 1]).setRoughnessFactor(0.45).setMetallicFactor(0);
+  const target = doc.createPrimitiveTarget('bulge')
+    .setAttribute('POSITION', accessor('VEC3', new Float32Array(bulge)));
+  const prim = doc.createPrimitive()
+    .setIndices(accessor('SCALAR', new Uint16Array(indices)))
+    .setAttribute('POSITION', accessor('VEC3', new Float32Array(positions)))
+    .setAttribute('NORMAL', accessor('VEC3', new Float32Array(normals)))
+    .addTarget(target)
+    .setMaterial(material);
+  const mesh = doc.createMesh('morphBox').addPrimitive(prim).setWeights([0]);
+  const node = doc.createNode('morphBox').setMesh(mesh);
+  const times = accessor('SCALAR', new Float32Array([0, 1, 2]));
+  const weights = accessor('SCALAR', new Float32Array([0, 1, 0]));
+  const sampler = doc.createAnimationSampler().setInput(times).setOutput(weights).setInterpolation('LINEAR');
+  const channel = doc.createAnimationChannel().setTargetNode(node).setTargetPath('weights').setSampler(sampler);
+  doc.createAnimation('pulse').addSampler(sampler).addChannel(channel);
+  return node;
+}
+
 const MODELS = {
-  'vertexBox.glb': vertexBox
+  'vertexBox.glb': vertexBox,
+  'morphBox.glb': morphBox
 };
 
 export async function generateDevModels({ missingOnly = false } = {}) {

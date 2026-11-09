@@ -949,7 +949,11 @@ export class Scene {
         previousModel: previous[i],
         castShadow: mesh.castShadow,
         skin: skinned ? animator.jointMatrices(part.skin) : undefined,
-        previousSkin: skinned ? animator.previousJointMatrices(part.skin) : undefined
+        previousSkin: skinned ? animator.previousJointMatrices(part.skin) : undefined,
+        // Morph weights: the animator's when one drives them, else the
+        // file's own resting weights.
+        morphWeights: part.geometry.morphs ? (animator?.morphWeights(part.node) ?? part.weights) : undefined,
+        previousMorphWeights: part.geometry.morphs ? (animator?.previousMorphWeights(part.node) ?? undefined) : undefined
       });
     });
     if (entity) entity.lastModels = current;

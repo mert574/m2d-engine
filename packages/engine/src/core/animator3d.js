@@ -1,5 +1,8 @@
 import * as mat4 from './renderers/geometry/mat4.js';
 
+/** Where each channel kind lives in the per-node blend bookkeeping. */
+const CHANNEL_SLOT = { translation: 0, rotation: 1, scale: 2, weights: 3 };
+
 /**
  * Plays a model's animation clips and poses its skeleton.
  *
@@ -22,6 +25,21 @@ export class Animator3D {
     this.translation = new Float32Array(n * 3);
     this.rotation = new Float32Array(n * 4);
     this.scale = new Float32Array(n * 3);
+    /**
+     * Morph weights per node whose mesh has targets, with last frame's
+     * beside them for motion vectors, exactly as the joints keep theirs.
+     * @type {Map<number, {current: Float32Array, previous: Float32Array, defaults: Float32Array}>}
+     */
+    this.morphs = new Map();
+    for (const part of model.parts) {
+      if (!part.geometry.morphs || this.morphs.has(part.node)) continue;
+      const defaults = part.weights ?? new Float32Array(part.geometry.morphs.count);
+      this.morphs.set(part.node, {
+        current: Float32Array.from(defaults),
+        previous: Float32Array.from(defaults),
+        defaults
+      });
+    }
     this.#reset();
     this.local = new Float32Array(n * 16);
     this.world = new Float32Array(n * 16);
@@ -52,6 +70,7 @@ export class Animator3D {
       this.rotation.set(node.rotation, i * 4);
       this.scale.set(node.scale, i * 3);
     });
+    for (const morph of this.morphs.values()) morph.current.set(morph.defaults);
   }
 
   /** The clip names this model offers. */
@@ -125,6 +144,9 @@ export class Animator3D {
 
   /** Blend every layer's sampled channels into the node transforms. */
   #blend() {
+    // The morph weights are written here, not in the pose walk, so last
+    // frame's are kept here too — before the reset wipes them.
+    for (const morph of this.morphs.values()) morph.previous.set(morph.current);
     this.#reset();
     const total = this.layers.reduce((sum, layer) => sum + layer.weight, 0);
     if (total <= 0) return;
@@ -134,7 +156,7 @@ export class Animator3D {
     const touched = new Map();
     for (const layer of this.layers) {
       for (const channel of layer.clip.channels) {
-        const key = channel.node * 4 + (channel.path === 'translation' ? 0 : channel.path === 'rotation' ? 1 : 2);
+        const key = channel.node * 4 + CHANNEL_SLOT[channel.path];
         touched.set(key, (touched.get(key) ?? 0) + layer.weight);
       }
     }
@@ -142,7 +164,7 @@ export class Animator3D {
     for (const layer of this.layers) {
       if (layer.weight <= 0) continue;
       for (const channel of layer.clip.channels) {
-        const key = channel.node * 4 + (channel.path === 'translation' ? 0 : channel.path === 'rotation' ? 1 : 2);
+        const key = channel.node * 4 + CHANNEL_SLOT[channel.path];
         const w = layer.weight / touched.get(key);
         const first = !written.has(key);
         written.add(key);
@@ -177,6 +199,16 @@ export class Animator3D {
         dot = r[o] * x + r[o + 1] * y + r[o + 2] * z + r[o + 3] * qw;
         const s = dot < 0 ? -w : w;
         r[o] += x * s; r[o + 1] += y * s; r[o + 2] += z * s; r[o + 3] += qw * s;
+      }
+      return;
+    }
+    if (channel.path === 'weights') {
+      const morph = this.morphs.get(node);
+      if (!morph) return;
+      const current = morph.current;
+      for (let c = 0; c < Math.min(stride, current.length); c++) {
+        const v = values[a + c] + (values[b + c] - values[a + c]) * t;
+        current[c] = first ? v * w : current[c] + v * w;
       }
       return;
     }
@@ -225,6 +257,7 @@ export class Animator3D {
     // smear the whole model across the screen on its opening frame.
     if (!this.posed) {
       for (let k = 0; k < this.joints.length; k++) this.previousJoints[k].set(this.joints[k]);
+      for (const morph of this.morphs.values()) morph.previous.set(morph.current);
       this.posed = true;
     }
   }
@@ -237,6 +270,16 @@ export class Animator3D {
   /** The same from last frame's pose, for motion vectors. */
   previousJointMatrices(skin) {
     return this.previousJoints[skin];
+  }
+
+  /** A node's morph weights, for the renderer; null when its mesh has no targets. */
+  morphWeights(node) {
+    return this.morphs.get(node)?.current ?? null;
+  }
+
+  /** The same from last frame's pose, for motion vectors. */
+  previousMorphWeights(node) {
+    return this.morphs.get(node)?.previous ?? null;
   }
 
   /** A node's world matrix in model space, for a part that rides a bone. */

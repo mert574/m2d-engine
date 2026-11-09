@@ -300,7 +300,17 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 5, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
         { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
         { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
-        { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+        { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 9, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }
+      ]
+    });
+    // Morph deltas bind per geometry (group 3 on the mesh and shadow
+    // pipelines); a geometry without targets binds the empty group.
+    this.morphBindGroupLayout = device.createBindGroupLayout({
+      label: 'morph',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+        { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } }
       ]
     });
     // The clustering writes what the scene group holds read-only, so like
@@ -365,6 +375,16 @@ export class WebGPURenderer extends BaseRenderer {
     this.#ensureRemapBuffer(256);
     this.#ensureGroupBuffers(1, 16);
     this.#ensureJointBuffer(64);
+    this.#ensureMorphBuffer(16);
+    const emptyDeltas = device.createBuffer({ label: 'no morphs', size: 16, usage: GPUBufferUsage.STORAGE });
+    const emptyInfo = device.createBuffer({ label: 'no morph info', size: 16, usage: GPUBufferUsage.UNIFORM });
+    this.emptyMorphGroup = device.createBindGroup({
+      layout: this.morphBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: emptyDeltas } },
+        { binding: 1, resource: { buffer: emptyInfo } }
+      ]
+    });
     this.lightingBindGroupLayout = device.createBindGroupLayout({
       label: 'lighting',
       entries: [
@@ -433,7 +453,7 @@ export class WebGPURenderer extends BaseRenderer {
     ];
     const sceneLayout = device.createPipelineLayout({ bindGroupLayouts: [this.sceneBindGroupLayout] });
     const shadowLayout = device.createPipelineLayout({
-      bindGroupLayouts: [this.sceneBindGroupLayout, this.shadowPassLayout, this.materialBindGroupLayout]
+      bindGroupLayouts: [this.sceneBindGroupLayout, this.shadowPassLayout, this.materialBindGroupLayout, this.morphBindGroupLayout]
     });
 
     const sky = device.createShaderModule({ code: SKY_SHADER, label: 'sky' });
@@ -465,7 +485,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.shadowSkinnedPipeline = shadowPipeline(SHADOW_SKINNED_SHADER, 'shadow skinned', [...vertexBuffers.slice(0, 3), ...skinBuffers(3)]);
 
     const meshLayout = device.createPipelineLayout({
-      bindGroupLayouts: [this.sceneBindGroupLayout, lightingBindGroupLayout, this.materialBindGroupLayout]
+      bindGroupLayouts: [this.sceneBindGroupLayout, lightingBindGroupLayout, this.materialBindGroupLayout, this.morphBindGroupLayout]
     });
     const meshPipeline = (code, label, buffers, cullMode, transparent = false) => {
       const module = device.createShaderModule({ code, label });
@@ -634,6 +654,10 @@ export class WebGPURenderer extends BaseRenderer {
     this.whiteColorBuffer?.destroy();
     this.whiteColorBuffer = null;
     this.whiteColorCapacity = 0;
+    this.morphBuffer?.destroy();
+    this.morphBuffer = null;
+    this.morphCapacity = 0;
+    this.emptyMorphGroup = null;
     this.instanceCapacity = 0;
     this.skyPipeline = this.shadowPipeline = this.meshPipelines = null;
     this.geometryCache = new WeakMap();
@@ -671,6 +695,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.#writeFrameUniform(frame, shadows);
     this.#uploadLights(frame);
     this.#uploadJoints(frame);
+    this.#uploadMorphs(frame);
     const layout = this.#assemble(frame, 1 + shadows.passes.length);
     this.#writeCullParams(frame, shadows, layout);
     this.stats.instances = layout.total;
@@ -965,6 +990,31 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** Every skinned instance's joint matrices, back to back, as the instances' offsets expect. */
+  /** Room for `count` morph weights; grows like the joint buffer. */
+  #ensureMorphBuffer(count) {
+    if (this.morphBuffer && this.morphCapacity >= count) return;
+    const capacity = Math.max(count, 16, (this.morphCapacity ?? 0) * 2);
+    this.morphBuffer?.destroy();
+    this.morphBuffer = this.device.createBuffer({
+      label: 'morph weights', size: capacity * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    this.morphCapacity = capacity;
+    this.morphData = new Float32Array(capacity);
+    if (this.instanceBuffer) this.#sceneBindGroup();
+  }
+
+  #uploadMorphs(frame) {
+    const count = frame.morphCount ?? 0;
+    if (!count) return;
+    this.#ensureMorphBuffer(count);
+    let offset = 0;
+    for (const weights of frame.morphWeights) {
+      this.morphData.set(weights, offset);
+      offset += weights.length;
+    }
+    this.device.queue.writeBuffer(this.morphBuffer, 0, this.morphData, 0, count);
+  }
+
   #uploadJoints(frame) {
     const count = frame.jointCount ?? 0;
     if (!count) return;
@@ -1016,7 +1066,8 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 5, resource: { buffer: this.clusterCountBuffer } },
         { binding: 6, resource: { buffer: this.clusterIndexBuffer } },
         { binding: 7, resource: (this.environmentTexture ?? this.textures.blackHDR).createView() },
-        { binding: 8, resource: this.textures.sampler }
+        { binding: 8, resource: this.textures.sampler },
+        { binding: 9, resource: { buffer: this.morphBuffer } }
       ]
     });
     this.cullSceneBindGroup = this.device.createBindGroup({
@@ -1194,6 +1245,7 @@ export class WebGPURenderer extends BaseRenderer {
         boundMaterial = group.material;
         this.stats.stateChanges++;
       }
+      pass.setBindGroup(3, gpu.morphGroup ?? this.emptyMorphGroup);
       pass.setIndexBuffer(gpu.index, gpu.format);
       pass.drawIndexedIndirect(this.argsBuffer, (passIndex * groups.length + g) * ARGS_BYTES);
       this.stats.drawCalls++;
@@ -1287,6 +1339,22 @@ export class WebGPURenderer extends BaseRenderer {
     return this.whiteColorBuffer;
   }
 
+  /** A geometry's morph deltas and their shape, bound as group 3. */
+  #morphGroup(morphs, upload) {
+    const deltas = upload(morphs.deltas, GPUBufferUsage.STORAGE, 'morph deltas');
+    const info = this.device.createBuffer({
+      label: 'morph info', size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.device.queue.writeBuffer(info, 0, new Uint32Array([morphs.count, morphs.vertices, 0, 0]));
+    return this.device.createBindGroup({
+      layout: this.morphBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: deltas } },
+        { binding: 1, resource: { buffer: info } }
+      ]
+    });
+  }
+
   #geometry(geometry) {
     let gpu = this.geometryCache.get(geometry);
     if (gpu) return gpu;
@@ -1306,6 +1374,7 @@ export class WebGPURenderer extends BaseRenderer {
       // has no normal map, so the shader never reads them.
       tangents: upload(geometry.tangents ?? new Float32Array((geometry.positions.length / 3) * 4), GPUBufferUsage.VERTEX, 'tangents'),
       colors: geometry.colors ? upload(geometry.colors, GPUBufferUsage.VERTEX, 'vertex colors') : null,
+      morphGroup: geometry.morphs ? this.#morphGroup(geometry.morphs, upload) : null,
       vertices: geometry.positions.length / 3,
       skinned: !!geometry.skinned,
       joints: geometry.skinned ? upload(geometry.joints, GPUBufferUsage.VERTEX, 'joints') : null,

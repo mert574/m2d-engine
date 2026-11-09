@@ -44,7 +44,8 @@ import * as mat4 from './renderers/geometry/mat4.js';
  * the base colour (applied to every texture of the material),
  * `KHR_materials_ior` and `KHR_materials_specular` (as one reflectance at
  * normal incidence), `EXT_texture_webp` and `KHR_texture_basisu` (KTX2
- * textures, decoded through `setKTX2Decoder`). Not yet: vertex colours, morph targets, the other
+ * textures, decoded through `setKTX2Decoder`). Morph targets morph position and
+ * normal, driven by weights channels, on unskinned meshes. Not yet: morphs on a skinned mesh, the other
  * material extensions, `.gltf` with external files.
  */
 
@@ -268,6 +269,29 @@ async function buildModel(json, bin, { decodeImage, name }) {
       geometry.weights = read(prim.attributes.WEIGHTS_0, { asFloat: true });
       geometry.skinned = true;
     }
+    // Morph targets: position and normal deltas per target, packed as six
+    // floats a vertex for the vertex shader to walk. The instance record
+    // spends the skin slots on the weight bases, so a mesh cannot be
+    // skinned and morphed at once; a face on a rigged character is real
+    // content, but none the engine ships, so it waits for its consumer.
+    if (prim.targets?.length) {
+      if (geometry.skinned) {
+        console.warn(`M2D: ${name}: a skinned mesh with morph targets; the morphs are ignored`);
+      } else {
+        const count = prim.targets.length;
+        const deltas = new Float32Array(count * vertexCount * 6);
+        prim.targets.forEach((target, t) => {
+          const dp = target.POSITION !== undefined ? read(target.POSITION, { asFloat: true }) : null;
+          const dn = target.NORMAL !== undefined ? read(target.NORMAL, { asFloat: true }) : null;
+          for (let v = 0; v < vertexCount; v++) {
+            const o = (t * vertexCount + v) * 6;
+            if (dp) { deltas[o] = dp[v * 3]; deltas[o + 1] = dp[v * 3 + 1]; deltas[o + 2] = dp[v * 3 + 2]; }
+            if (dn) { deltas[o + 3] = dn[v * 3]; deltas[o + 4] = dn[v * 3 + 1]; deltas[o + 5] = dn[v * 3 + 2]; }
+          }
+        });
+        geometry.morphs = { count, vertices: vertexCount, deltas };
+      }
+    }
     geometryCache.set(key, geometry);
     return geometry;
   };
@@ -314,7 +338,7 @@ async function buildModel(json, bin, { decodeImage, name }) {
       }
       duration = Math.max(duration, times[times.length - 1] ?? 0);
       return { node: channel.target.node, path, times, values, stride, step: interpolation === 'STEP' };
-    }).filter((c) => c.node !== undefined && c.path !== 'weights');
+    }).filter((c) => c.node !== undefined);
     return { index, name: animation.name ?? `clip ${index}`, duration, channels };
   });
 
@@ -333,7 +357,10 @@ async function buildModel(json, bin, { decodeImage, name }) {
         if (!geometry) return;
         const material = prim.material !== undefined ? materials[prim.material] : DEFAULT_MATERIAL;
         const skin = node.skin !== undefined && geometry.skinned ? node.skin : null;
-        into.push({ geometry, material, matrix: world, node: nodeIndex, skin });
+        const weights = geometry.morphs
+          ? Float32Array.from(node.weights ?? json.meshes[node.mesh].weights ?? new Array(geometry.morphs.count).fill(0))
+          : null;
+        into.push({ geometry, material, matrix: world, node: nodeIndex, skin, weights });
         // A skinned mesh is placed by its joints, not its node; its bind
         // pose is still the right thing to measure. Only the finest level
         // measures: the others are the same shape, coarser.

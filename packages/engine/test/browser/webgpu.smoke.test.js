@@ -1207,6 +1207,60 @@ describe('vertex colours', () => {
   });
 });
 
+describe('a morphing model', () => {
+  beforeAll(() => initWebGPU());
+
+  it('changes shape with its weights, shadow included', async () => {
+    const { parseGLB } = await import('../../src/core/gltf.js');
+    const response = await fetch(new URL('../fixtures/models/MorphBox.glb', import.meta.url));
+    const model = await parseGLB(await response.arrayBuffer(), { name: 'MorphBox' });
+
+    const W = 128, H = 96;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(W, H, { x: 0, y: 1.2, z: 2.2 });
+
+    const draw = async (weight) => {
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [-0.3, -1, -0.2], color: [1, 1, 1], intensity: 3 };
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      frame.shadow.enabled = true;
+      frame.add(plane(), { position: { x: 0, y: -0.3, z: 0 }, scale: { x: 10, y: 1, z: 10 }, color: [0.6, 0.6, 0.6], roughness: 0.9 });
+      const [part] = model.parts;
+      frame.add(part.geometry, {
+        model: part.matrix, material: part.material, color: [1, 1, 1], metallic: 1, roughness: 1,
+        morphWeights: new Float32Array([weight])
+      });
+      renderer.render(frame);
+      return readPixels(renderer);
+    };
+
+    const resting = await draw(0);
+    const bulged = await draw(1);
+    // Just outside the resting cube's corner: empty at weight 0, covered
+    // by the inflated shell at weight 1. The bulge is 0.2 m along the
+    // corner diagonal, so 0.3 m out along x at mid-height is inside it.
+    const p = camera.worldToScreen(0.3, 0.1, 0.25);
+    const outside = resting.at(Math.round(p.x), Math.round(p.y));
+    const covered = bulged.at(Math.round(p.x), Math.round(p.y));
+    const differs = outside.slice(0, 3).some((v, i) => Math.abs(v - covered[i]) > 25);
+    expect(differs, `the silhouette grew: ${outside} -> ${covered}`).toBe(true);
+    // And the shadow grew with it: a floor point just beyond the resting
+    // shadow's edge darkens when the shape inflates.
+    let shadowChanged = 0;
+    for (let y = 0; y < H; y += 2) {
+      for (let x = 0; x < W; x += 2) {
+        if (Math.abs(luma(resting.at(x, y)) - luma(bulged.at(x, y))) > 20) shadowChanged++;
+      }
+    }
+    expect(shadowChanged, `${shadowChanged} sample points changed between weights`).toBeGreaterThan(30);
+  });
+});
+
 describe('a skinned model', () => {
   beforeAll(() => initWebGPU());
 

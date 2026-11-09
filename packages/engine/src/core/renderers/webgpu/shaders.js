@@ -161,6 +161,9 @@ struct Light {
 // one; a 1x1 black stands in otherwise and frame.params.y says which.
 @group(0) @binding(7) var environmentMap: texture_2d<f32>;
 @group(0) @binding(8) var environmentMapSampler: sampler;
+// Every morphed instance's target weights this frame, then last frame's;
+// the instance record carries the bases plus one in its skin slots.
+@group(0) @binding(9) var<storage, read> morphWeights: array<f32>;
 
 const CLUSTER_X = ${CLUSTER_X}u;
 const CLUSTER_Y = ${CLUSTER_Y}u;
@@ -359,7 +362,35 @@ fn alphaTest(alpha: f32) {
 }
 `;
 
+/**
+ * Morph targets, group 3: position and normal deltas packed six floats a
+ * vertex per target, and how many of each there are. An unskinned,
+ * morphed instance stores its weight bases (plus one) in the skin slots
+ * the joints would have used; a geometry without targets binds an empty
+ * group and a zero target count, so the loop never runs.
+ */
+const MORPH = /* wgsl */ `
+struct MorphInfo { targets: u32, vertices: u32 };
+@group(3) @binding(0) var<storage, read> morphDeltas: array<f32>;
+@group(3) @binding(1) var<uniform> morphInfo: MorphInfo;
+
+fn morphed(position: vec3f, normal: vec3f, base: f32, vertex: u32) -> array<vec3f, 2> {
+  var out = array<vec3f, 2>(position, normal);
+  if (base < 0.5) { return out; }
+  let first = u32(base) - 1u;
+  for (var t = 0u; t < morphInfo.targets; t++) {
+    let w = morphWeights[first + t];
+    if (abs(w) < 1e-5) { continue; }
+    let o = (t * morphInfo.vertices + vertex) * 6u;
+    out[0] += w * vec3f(morphDeltas[o], morphDeltas[o + 1u], morphDeltas[o + 2u]);
+    out[1] += w * vec3f(morphDeltas[o + 3u], morphDeltas[o + 4u], morphDeltas[o + 5u]);
+  }
+  return out;
+}
+`;
+
 const meshVertex = (skinned) => /* wgsl */ `
+${MORPH}
 struct VertexOut {
   @builtin(position) position: vec4f,
   @location(0) worldPosition: vec3f,
@@ -377,6 +408,7 @@ struct VertexOut {
 @vertex
 fn vs(
   @builtin(instance_index) instanceIndex: u32,
+  @builtin(vertex_index) vertexIndex: u32,
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
   @location(2) uv: vec2f,
@@ -393,10 +425,11 @@ fn vs(
   let localNormal = (skin * vec4f(normal, 0.0)).xyz;
   let localTangent = (skin * vec4f(tangent.xyz, 0.0)).xyz;
   let previousLocal = previousSkinMatrix(inst, jointIndices, jointWeights) * vec4f(position, 1.0);` : `
-  let local = vec4f(position, 1.0);
-  let localNormal = normal;
+  let now = morphed(position, normal, inst.skin.x, vertexIndex);
+  let local = vec4f(now[0], 1.0);
+  let localNormal = now[1];
   let localTangent = tangent.xyz;
-  let previousLocal = local;`}
+  let previousLocal = vec4f(morphed(position, normal, inst.skin.z, vertexIndex)[0], 1.0);`}
   let world = inst.model * local;
   var out: VertexOut;
   let clip = frame.viewProjection * world;
@@ -416,6 +449,7 @@ fn vs(
 const shadowShader = (skinned) => /* wgsl */ `
 ${COMMON}
 ${MATERIAL}
+${MORPH}
 
 // The light's view-projection for this pass: one cascade or one spot.
 @group(1) @binding(0) var<uniform> lightViewProjection: mat4x4f;
@@ -428,6 +462,7 @@ struct ShadowOut {
 @vertex
 fn vs(
   @builtin(instance_index) instanceIndex: u32,
+  @builtin(vertex_index) vertexIndex: u32,
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
   @location(2) uv: vec2f${skinned ? `,
@@ -435,7 +470,10 @@ fn vs(
   @location(4) jointWeights: vec4f` : ''}
 ) -> ShadowOut {
   let inst = instances[remap[instanceIndex]];
-  ${skinned ? 'let local = skinMatrix(inst, jointIndices, jointWeights) * vec4f(position, 1.0);' : 'let local = vec4f(position, 1.0);'}
+  ${skinned
+    ? 'let local = skinMatrix(inst, jointIndices, jointWeights) * vec4f(position, 1.0);'
+    // Morphed in the shadow too, or the shape would cast its unmorphed self.
+    : 'let local = vec4f(morphed(position, normal, inst.skin.x, vertexIndex)[0], 1.0);'}
   var out: ShadowOut;
   out.position = lightViewProjection * inst.model * local;
   out.uv = uv;

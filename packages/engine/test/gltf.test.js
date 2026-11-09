@@ -90,6 +90,49 @@ describe('reading a .glb', () => {
     expect(plain.parts[0].geometry.colors).toBeUndefined();
   });
 
+  it('reads morph targets, their resting weights and the clip that drives them', async () => {
+    const model = await parseGLB(fixture('MorphBox'), { decodeImage: fakeDecode });
+    const part = model.parts[0];
+    const vertices = part.geometry.positions.length / 3;
+    expect(part.geometry.morphs.count).toBe(1);
+    expect(part.geometry.morphs.vertices).toBe(vertices);
+    expect(part.geometry.morphs.deltas.length).toBe(vertices * 6);
+    // The bulge moves positions outward; the normal deltas were not given
+    // and come back zero.
+    expect(Math.max(...part.geometry.morphs.deltas)).toBeGreaterThan(0.1);
+    expect(part.geometry.morphs.deltas[3]).toBe(0);
+    expect(Array.from(part.weights)).toEqual([0]);
+    // The weights channel reaches the clip instead of being filtered out.
+    const clip = model.animations.find((a) => a.name === 'pulse');
+    expect(clip.channels.some((c) => c.path === 'weights')).toBe(true);
+  });
+
+  it('drives morph weights through the animator, with last frame\'s kept beside them', async () => {
+    const { Animator3D } = await import('../src/core/animator3d.js');
+    const model = await parseGLB(fixture('MorphBox'), { decodeImage: fakeDecode });
+    const animator = new Animator3D(model);
+    const node = model.parts[0].node;
+    expect(Array.from(animator.morphWeights(node))).toEqual([0]);
+    animator.play('pulse', { fade: 0 });
+    animator.update(1);
+    expect(animator.morphWeights(node)[0]).toBeCloseTo(1, 5);
+    animator.update(0.5);
+    expect(animator.morphWeights(node)[0]).toBeCloseTo(0.5, 5);
+    // The previous pose trails by one step, for motion vectors.
+    expect(animator.previousMorphWeights(node)[0]).toBeCloseTo(1, 5);
+    // And a frame carries both poses' weights, bases one apart.
+    const frame = new Frame3D();
+    frame.add(model.parts[0].geometry, {
+      morphWeights: animator.morphWeights(node),
+      previousMorphWeights: animator.previousMorphWeights(node)
+    });
+    const [entry] = frame.entries();
+    expect(entry.instances[0][52]).toBe(1);
+    expect(entry.instances[0][54]).toBe(2);
+    expect(entry.instances[0][53]).toBe(0);
+    expect(frame.morphWeights.map((w) => w[0])).toEqual([animator.morphWeights(node)[0], 1]);
+  });
+
   it('gives a primitive without a material glTF\'s default', () => {
     expect(DEFAULT_MATERIAL.baseColor).toEqual([1, 1, 1, 1]);
     expect(DEFAULT_MATERIAL.metallic).toBe(1);

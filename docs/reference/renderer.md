@@ -304,6 +304,7 @@ A model with a skin or a clip animates. The scene gives its entity an `Animator3
 | `stop()` | Back to the bind pose |
 | `current`, `clipNames` | What is playing and what could |
 | `jointMatrices(skin)`, `nodeMatrix(node)` | The pose, for code that attaches things to bones |
+| `morphWeights(node)`, `previousMorphWeights(node)` | A node's morph target weights, driven by `weights` channels; the scene hands them to the frame so the mesh and its shadow deform together. Unskinned meshes only |
 | `previousJointMatrices(skin)` | Last frame's pose. Hand it to `frame.add` as `previousSkin` so a limb's own motion reaches the velocity buffer and motion blur; without it the current pose stands in and only the body moves. A snap (`fade: 0`) and `stop()` make the pose they land on its own previous, so a jump reports no velocity |
 
 Skinning happens on the GPU: the joint matrices of every skinned instance go into one storage buffer a frame, and skinned geometry takes a pipeline that blends four joints per vertex, in the shadow passes too. A character that does not tumble steers its model with `entity.heading`, a yaw in radians the scene applies over the body's rotation; the yard's fox turns to where it runs.
