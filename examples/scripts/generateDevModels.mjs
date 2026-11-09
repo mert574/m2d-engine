@@ -1,10 +1,12 @@
 /**
- * Small hand-built glTF models the yard displays engine features with:
+ * Small hand-built glTF models that show off engine features in the
+ * yard and the lot's showcase corner:
  * `node scripts/generateDevModels.mjs [--missing]`.
  *
  * Generated, not committed, like the dev textures and the showcase
  * sprites. Each one exists to exercise a reader or renderer path real
- * scans do not: vertex colours today, whatever needs a witness next.
+ * scans do not: vertex colours and morph targets today, whatever the
+ * engine grows next.
  */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -12,8 +14,8 @@ import { Document, NodeIO } from '@gltf-transform/core';
 
 export const OUT_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'models', 'dev');
 
-// The two cubes below are no longer placed in the yard — the sphere
-// witnesses replaced them — but they are the source of the committed
+// The two cubes below are no longer placed in the yard — the spheres
+// replaced them — but they are the source of the committed
 // test fixtures (packages/engine/test/fixtures/models/VertexBox.glb and
 // MorphBox.glb), which want the smallest geometry that exercises the
 // path, not the prettiest.

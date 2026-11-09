@@ -93,7 +93,9 @@ struct Frame {
   shadowParams: vec4f,
   // Half-extent of each cascade's orthographic box, in metres.
   cascadeRadii: vec4f,
-  // x bias in metres, y the cascades' reach back toward the sun in metres.
+  // x bias in metres, y the cascades' reach back toward the sun in
+  // metres, z the point-cube depth bias, scaled by the renderer to the
+  // cube's texel size so the quality setting carries it.
   shadowBias: vec4f,
   // Post-process settings; see Frame3D.post and the pass that reads each.
   // post[0]: x taa blend, y ao radius (m), z ao intensity, w ao on.
@@ -747,7 +749,7 @@ fn pointVisibility(cube: u32, worldPosition: vec3f, lightPosition: vec3f, range:
   // which is zero-to-one and right-handed: far * (d - near) / (d * (far - near)).
   let near = POINT_SHADOW_NEAR;
   let depth = range * (axis - near) / (axis * (range - near));
-  let bias = 0.0015 * (1.0 + 2.0 * (1.0 - nDotL));
+  let bias = frame.shadowBias.z * (1.0 + 2.0 * (1.0 - nDotL));
   return textureSampleCompareLevel(pointShadowMaps, shadowSampler, toFragment, cube, depth - bias);
 }
 

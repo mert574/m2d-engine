@@ -703,6 +703,12 @@ export class WebGPURenderer extends BaseRenderer {
     this.#writeCullParams(frame, shadows, layout);
     this.stats.instances = layout.total;
 
+    // The whole frame under a validation scope: a submit that fails is
+    // *discarded*, and if it carried once-only work — the environment
+    // bake, the BRDF LUT, a shadow cube — the flags saying that work is
+    // done survive while the textures stay black. One bad frame must
+    // heal, not poison everything keyed off it.
+    device.pushErrorScope('validation');
     const encoder = device.createCommandEncoder({ label: 'frame' });
     // Resident batches into this frame's instance buffer, GPU to GPU. The
     // per-frame records were written to the queue above, so they land first.
@@ -796,6 +802,13 @@ export class WebGPURenderer extends BaseRenderer {
 
     const slot = this.#stageStats(encoder, layout);
     device.queue.submit([encoder.finish()]);
+    device.popErrorScope().then((error) => {
+      if (!error || this.device !== device) return;
+      console.error(`M2D: a frame was discarded (${error.message}); re-baking what it carried`);
+      this.environment?.invalidate();
+      this.pointShadowCache = [];
+      this.post.historyValid = false;
+    });
     if (slot) this.#readStats(slot);
     // What the cull decided last frame is the best answer this frame has.
     this.stats.primitives = this.stats.drawn;
@@ -844,8 +857,12 @@ export class WebGPURenderer extends BaseRenderer {
         first += batch.count;
       }
       const transparent = entry.material?.alphaMode === 'blend';
+      const gpu = this.#geometry(entry.geometry);
+      // The shared white colour buffer must already fit the largest
+      // colourless geometry before the encoder exists; see #ensureWhiteColors.
+      if (!gpu.colors) this.#ensureWhiteColors(gpu.vertices);
       groups.push({
-        gpu: this.#geometry(entry.geometry),
+        gpu,
         material: this.#material(entry.material),
         doubleSided: !!entry.material?.doubleSided,
         transparent,
@@ -1237,7 +1254,7 @@ export class WebGPURenderer extends BaseRenderer {
       const mesh = which !== 'shadow';
       if (mesh) {
         pass.setVertexBuffer(3, gpu.tangents);
-        pass.setVertexBuffer(4, gpu.colors ?? this.#whiteColors(gpu.vertices));
+        pass.setVertexBuffer(4, gpu.colors ?? this.whiteColorBuffer);
       }
       if (gpu.skinned) {
         pass.setVertexBuffer(mesh ? 5 : 3, gpu.joints);
@@ -1327,19 +1344,23 @@ export class WebGPURenderer extends BaseRenderer {
    * One shared all-white colour buffer, grown to the largest vertex
    * count that asks, bound wherever a geometry carries no colours of
    * its own — four bytes a vertex once, instead of a pipeline variant.
+   *
+   * Grown only here, from `#assemble`, before the frame's command
+   * encoder exists. Growing it mid-encode destroyed a buffer the
+   * encoder had already recorded, and one destroyed binding fails the
+   * whole submit — the frame is simply discarded, which on a level with
+   * a wide spread of geometry sizes reads as the screen going black.
    */
-  #whiteColors(vertices) {
-    if (!this.whiteColorBuffer || this.whiteColorCapacity < vertices) {
-      const capacity = Math.max(vertices, 4096, (this.whiteColorCapacity ?? 0) * 2);
-      this.whiteColorBuffer?.destroy();
-      this.whiteColorBuffer = this.device.createBuffer({
-        label: 'white vertex colors', size: capacity * 4, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true
-      });
-      new Uint8Array(this.whiteColorBuffer.getMappedRange()).fill(255);
-      this.whiteColorBuffer.unmap();
-      this.whiteColorCapacity = capacity;
-    }
-    return this.whiteColorBuffer;
+  #ensureWhiteColors(vertices) {
+    if (this.whiteColorBuffer && this.whiteColorCapacity >= vertices) return;
+    const capacity = Math.max(vertices, 4096, (this.whiteColorCapacity ?? 0) * 2);
+    this.whiteColorBuffer?.destroy();
+    this.whiteColorBuffer = this.device.createBuffer({
+      label: 'white vertex colors', size: capacity * 4, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true
+    });
+    new Uint8Array(this.whiteColorBuffer.getMappedRange()).fill(255);
+    this.whiteColorBuffer.unmap();
+    this.whiteColorCapacity = capacity;
   }
 
   /** A geometry's morph deltas and their shape, bound as group 3. */
@@ -1441,7 +1462,10 @@ export class WebGPURenderer extends BaseRenderer {
     data[o + 44] = frame.shadow.bias ?? 0.03;
     // y: how far the cascades reach back toward the sun, for the depth bias.
     data[o + 45] = Math.min(camera.far ?? 500, frame.shadow.distance);
-    data[o + 46] = data[o + 47] = 0;
+    // The point-cube depth bias scales with the texel: a quarter-size
+    // map on medium needs twice the slack of high's half-size one.
+    data[o + 46] = 0.0015 * (512 / SHADOW_QUALITY[this.shadowQuality].pointSize);
+    data[o + 47] = 0;
 
     const post = frame.post ?? {};
     const p = FRAME_OFFSETS.post;

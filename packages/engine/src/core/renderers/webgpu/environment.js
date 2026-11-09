@@ -179,6 +179,17 @@ export class Environment {
     return true;
   }
 
+  /**
+   * Forget everything baked. For the renderer's submit-failure recovery:
+   * a discarded submit throws away whatever bake it carried, while the
+   * key and the LUT flag say the work is done — and nothing would ever
+   * re-bake a black environment.
+   */
+  invalidate() {
+    this.key = null;
+    this.lutPending = true;
+  }
+
   destroy() {
     for (const buffer of this.bakeUniforms) buffer.destroy();
     for (const texture of [this.sky, this.prefiltered, this.irradiance, this.lut, this.dummy]) texture.destroy();

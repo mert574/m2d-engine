@@ -86,6 +86,9 @@ const COLLIDERS = {
   modular_fort_01: 'bounds', wall: 'bounds'
 };
 
+/** Placed objects the showcase lot adds beside the yard's own. */
+const showcaseObjects = [];
+
 /** The props: one entry per prefab (and size, for shapes), accumulating instances. */
 const props = new Map();
 const place = (key, prefab, size, x, y, z, yaw = 0, scale = 1) => {
@@ -105,6 +108,35 @@ for (let row = 0; row < SIDE; row++) {
     const cx = -HALF + LOT / 2 + col * LOT;
     const cz = -HALF + LOT / 2 + row * LOT;
     const centre = row === (SIDE - 1) / 2 && col === (SIDE - 1) / 2;
+    const showcase = row === (SIDE - 1) / 2 && col === (SIDE + 1) / 2;
+    if (showcase) {
+      // Walls first, like every lot, so the grid keeps its edges.
+      place('wall', 'wall', { width: LOT - 2, height: 2.5, depth: 0.6 }, cx, 1.25, cz - LOT / 2 + 1);
+      place('wall', 'wall', { width: LOT - 2, height: 2.5, depth: 0.6 }, cx - LOT / 2 + 1, 1.25, cz, Math.PI / 2);
+      // The lot east of the yard shows the hand-built feature models
+      // large: vertex colours across the spheres, morph targets in the
+      // blobs, each row at rising scale, lit by neon tubes overhead.
+      for (const [sx, sz] of [[-1, -1], [1, 1]]) {
+        lamp(cx + sx * (LOT / 2 - 3), cz + sz * (LOT / 2 - 3), range(0, TURN));
+      }
+      [1, 2, 3].forEach((scale, i) => {
+        const x = cx - 7 + i * 7;
+        showcaseObjects.push(
+          { id: `show-wheel-${i}`, prefab: 'wheel', x: r(x), y: r(0.55 * scale + 0.1), z: r(cz - 4),
+            width: r(0.9 * scale), height: r(0.9 * scale), depth: r(0.9 * scale),
+            overrides: { mesh: { scale } } },
+          { id: `show-breather-${i}`, prefab: 'breather', x: r(x), y: r(0.45 * scale + 0.1), z: r(cz + 4),
+            width: r(0.7 * scale), height: r(0.7 * scale), depth: r(0.7 * scale),
+            overrides: { mesh: { scale } } }
+        );
+      });
+      showcaseObjects.push(
+        { id: 'show-neon-a', prefab: 'neon', x: r(cx), y: 7, z: r(cz - 4), width: 16, height: 0.16, depth: 0.16 },
+        { id: 'show-neon-b', prefab: 'neon', x: r(cx), y: 7, z: r(cz + 4), width: 16, height: 0.16, depth: 0.16,
+          overrides: { mesh: { color: '#2dd4ff' }, light: { color: '#2dd4ff' } } }
+      );
+      continue;
+    }
     if (centre) {
       // The yard sits here and keeps its own objects, but its floating
       // lamp balls are filtered out below, so it gets street lamps too.
@@ -190,7 +222,8 @@ const scene = {
         .filter((o) => o.prefab !== 'lamp')
         .map((o) => (o.id === 'floor'
           ? { ...o, width: SIDE * LOT + 60, depth: SIDE * LOT + 60 }
-          : o))
+          : o)),
+      ...showcaseObjects
     ],
     props: [...props.values()]
   }]

@@ -63,21 +63,21 @@
       "mesh": { "color": "#ffd58a", "emissive": 6, "roughness": 1, "castShadow": false },
       "light": { "type": "point", "color": "#ffc473", "intensity": 40, "range": 16 }
     },
-    "floodlight": {
+    "neon": {
       "actor": "Ground",
       "physics": { "bodyType": "static", "shape": "box", "isSensor": true },
-      "mesh": { "color": "#e8eef5", "emissive": 4, "roughness": 1 },
-      "light": { "type": "spot", "color": "#dfe9ff", "intensity": 120, "range": 26, "direction": { "x": 0.35, "y": -1, "z": -0.25 }, "innerCone": 0.4, "outerCone": 0.65 }
+      "mesh": { "color": "#ff2d95", "emissive": 9, "roughness": 0.4, "castShadow": false },
+      "light": { "type": "spot", "color": "#ff2d95", "intensity": 110, "range": 26, "direction": { "x": 0.2, "y": -1, "z": -0.15 }, "innerCone": 0.55, "outerCone": 0.95 }
     },
     "wheel": {
       "actor": "Ground",
       "physics": { "bodyType": "static", "isSensor": true },
-      "mesh": { "model": "colorSphere" }
+      "mesh": { "model": "colorSphere", "scale": 2 }
     },
     "breather": {
       "actor": "Ground",
       "physics": { "bodyType": "static", "isSensor": true },
-      "mesh": { "model": "morphBlob", "animation": { "clip": "pulse" } }
+      "mesh": { "model": "morphBlob", "scale": 2, "animation": { "clip": "pulse" } }
     },
     "mirror": {
       "actor": "Crate",
@@ -128,9 +128,9 @@
       { "id": "lamp-1", "prefab": "lamp", "x": -8, "y": 5.6, "z": -8, "width": 0.5, "height": 0.5 },
       { "id": "lamp-2", "prefab": "lamp", "x": 4, "y": 5.6, "z": -8, "width": 0.5, "height": 0.5 },
       { "id": "lamp-3", "prefab": "lamp", "x": -11.5, "y": 2.9, "z": 4, "width": 0.4, "height": 0.4 },
-      { "id": "flood-1", "prefab": "floodlight", "x": -2, "y": 6.2, "z": 8, "width": 0.6, "height": 0.3, "depth": 0.6 },
-      { "id": "wheel-1", "prefab": "wheel", "x": -4.6, "y": 0.75, "z": 8.6, "width": 0.9, "height": 0.9, "depth": 0.9 },
-      { "id": "breather-1", "prefab": "breather", "x": -3, "y": 0.7, "z": 8.6, "width": 0.7, "height": 0.7, "depth": 0.7 },
+      { "id": "neon-1", "prefab": "neon", "x": -2, "y": 6.2, "z": 8, "width": 5, "height": 0.16, "depth": 0.16 },
+      { "id": "wheel-1", "prefab": "wheel", "x": -5, "y": 1.1, "z": 8.6, "width": 1.8, "height": 1.8, "depth": 1.8 },
+      { "id": "breather-1", "prefab": "breather", "x": -2.4, "y": 1, "z": 8.6, "width": 1.4, "height": 1.4, "depth": 1.4 },
       { "id": "mirror-1", "prefab": "mirror", "x": 5.5, "y": 0.9, "z": -1, "width": 1.8, "height": 1.8 },
 
       { "id": "hero", "prefab": "hero", "x": 0, "y": 1, "z": 6, "width": 0.5, "height": 1.0 }

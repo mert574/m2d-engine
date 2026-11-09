@@ -960,6 +960,67 @@ describe('a textured primitive', () => {
   });
 });
 
+describe('one frame, many geometry sizes', () => {
+  beforeAll(() => initWebGPU());
+
+  it('survives a small colourless geometry followed by a huge one, with no discarded submit', async () => {
+    // The shared white colour buffer must reach its final size before
+    // the encoder exists. Growing it mid-encode destroyed a buffer the
+    // encoder had recorded, one destroyed binding fails the whole
+    // submit, and the frame is silently discarded — on the lot, with
+    // its spread of geometry sizes, the screen simply went black.
+    const W = 64, H = 48;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const device = renderer.device;
+    const camera = cameraAt(W, H, { x: 0, y: 3, z: 8 });
+
+    const frame = renderer.createFrame();
+    frame.setCamera(camera);
+    frame.sun = { direction: [-0.5, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+    frame.fog.density = 0;
+    frame.bloom.intensity = 0;
+    frame.add(box(), { position: { x: -1, y: 0.5, z: 0 }, color: [0.8, 0.2, 0.2] });
+    // A sphere with far more vertices than the box, in the same frame.
+    frame.add(sphere(48), { position: { x: 1, y: 0.5, z: 0 }, color: [0.2, 0.8, 0.2] });
+
+    device.pushErrorScope('validation');
+    renderer.render(frame);
+    const error = await device.popErrorScope();
+    expect(error?.message ?? null).toBe(null);
+  });
+
+  it('re-bakes the environment after a frame is lost, instead of keeping black flags', async () => {
+    const { Environment } = await import('../../src/core/renderers/webgpu/environment.js');
+    const W = 64, H = 48;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(W, H, { x: 0, y: 3, z: 8 });
+    const draw = () => {
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [-0.5, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+      frame.add(box(), { position: { x: 0, y: 0.5, z: 0 }, color: [0.8, 0.2, 0.2] });
+      renderer.render(frame);
+    };
+    draw();
+    expect(renderer.environment).toBeInstanceOf(Environment);
+    expect(renderer.environment.key).not.toBe(null);
+    // What the recovery path does when a submit comes back failed.
+    renderer.environment.invalidate();
+    expect(renderer.environment.key).toBe(null);
+    expect(renderer.environment.lutPending).toBe(true);
+    // The very next frame re-bakes rather than trusting the old flags.
+    draw();
+    expect(renderer.environment.key).not.toBe(null);
+    expect(renderer.environment.lutPending).toBe(false);
+  });
+});
+
 describe('a textured model', () => {
   beforeAll(() => initWebGPU());
 
