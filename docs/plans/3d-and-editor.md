@@ -351,14 +351,21 @@ already `camera.distance`, which in orbit mode is the same thing; the
 explicit form also holds in a free camera.)
 
 *Decision, 7 Nov 2026:* turning `r_dof` off did not remove the softness,
-so DoF was not the root of it. The owner's view, which this plan adopts:
-with a handful of low-poly primitives every lost pixel of detail is
-conspicuous, and the picture may well be the right one once a real level
-with AAA-grade models and foliage is on screen. **The softness question
-is parked until R6 has a proper map and models to judge it against.**
-The remaining suspects, in order, are the half-resolution 3D world
-surface and the TAA blend; FSR-style upscaling under "Beyond R6" is the
-proper answer to the first.
+so DoF was not the root of it. The remaining suspects were the
+half-resolution 3D world surface and the TAA blend.
+
+*Resolved, 9 Nov 2026:* the owner isolated it to the TAA — turning
+`r_taa` off made the picture crisp. Two standard pieces of TAA hygiene
+were missing and are now in: the history is resampled on a Catmull-Rom
+spline (five bilinear taps) instead of plain bilinear, whose kernel
+compounds into a blur as the history is re-filtered every frame; and
+material texture lookups take a -0.5 mip bias while TAA jitters
+(`post[6].y`), restoring the texture detail the temporal filter averages
+away. An FSR-style temporal upscaler (Beyond R6) remains the fuller
+answer — Lanczos accumulation plus RCAS sharpening, and the performance
+headroom of rendering under output resolution — but it is an upscaling
+deliverable, not the fix for this. If residual softness still shows on
+the desktop, the next lever is a CAS-style sharpen in the composite.
 
 ### R6 as planned against the code, 7 Nov 2026
 

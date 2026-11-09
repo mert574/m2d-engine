@@ -1169,6 +1169,9 @@ export class WebGPURenderer extends BaseRenderer {
     data[p + 6] = post.dof?.maxBlur ?? 16;
     data[p + 7] = post.dof?.focus != null ? 1 : 0;
     data[p + 24] = post.dof?.fStop ?? 2.8;
+    // Half a mip sharper on material lookups while TAA jitters; the
+    // temporal filter averages the detail back to par instead of blurring.
+    data[p + 25] = this.effects.taa ? -0.5 : 0;
     data[p + 8] = post.motionBlur?.strength ?? 0;
     data[p + 9] = this.effects.film ? (post.vignette ?? 0) : 0;
     data[p + 10] = this.effects.film ? (post.grain ?? 0) : 0;

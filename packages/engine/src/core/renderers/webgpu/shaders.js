@@ -64,7 +64,7 @@ struct Frame {
   // post[3]: x auto exposure on, y key, z min exposure, w max exposure.
   // post[4]: x saturation, y contrast, z temperature, w lut on.
   // post[5]: x adaptation speed, y frame delta (s), z taa on, w motion blur on.
-  // post[6]: x dof f-stop. post[7]: unused.
+  // post[6]: x dof f-stop, y texture mip bias (negative while TAA jitters). post[7]: unused.
   post: array<vec4f, 8>,
   // x tan(fov/2) * aspect, y tan(fov/2), z near, w far.
   lens: vec4f,
@@ -536,7 +536,11 @@ struct MeshFragment {
 fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
   let inst = instances[in.instance];
   let uv = materialUV(in.uv);
-  let baseSample = textureSample(baseColorTexture, materialSampler, uv);
+  // Material lookups take the frame's mip bias: with TAA jittering the
+  // sample positions, half a level sharper restores the detail the
+  // temporal filter averages away, as every TAA renderer does.
+  let mipBias = frame.post[6].y;
+  let baseSample = textureSampleBias(baseColorTexture, materialSampler, uv, mipBias);
   alphaTest(baseSample.a * material.baseColor.a);
   let v = normalize(frame.camera.xyz - in.worldPosition);
   // A double-sided surface faces the viewer from either side.
@@ -547,14 +551,14 @@ fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
     // Tangent-space normal map, scaled in xy and rebuilt in the vertex frame.
     let t = normalize(in.tangent.xyz - geometricNormal * dot(geometricNormal, in.tangent.xyz));
     let b = cross(geometricNormal, t) * in.tangent.w;
-    var mapped = textureSample(normalTexture, materialSampler, uv).xyz * 2.0 - 1.0;
+    var mapped = textureSampleBias(normalTexture, materialSampler, uv, mipBias).xyz * 2.0 - 1.0;
     mapped = vec3f(mapped.xy * material.factors.z, mapped.z);
     n = normalize(t * mapped.x + b * mapped.y + geometricNormal * mapped.z);
   }
 
-  let mrSample = textureSample(metallicRoughnessTexture, materialSampler, uv);
-  let emissiveSample = textureSample(emissiveTexture, materialSampler, uv);
-  let occlusion = mix(1.0, textureSample(occlusionTexture, materialSampler, uv).r, material.emissive.w);
+  let mrSample = textureSampleBias(metallicRoughnessTexture, materialSampler, uv, mipBias);
+  let emissiveSample = textureSampleBias(emissiveTexture, materialSampler, uv, mipBias);
+  let occlusion = mix(1.0, textureSampleBias(occlusionTexture, materialSampler, uv, mipBias).r, material.emissive.w);
   var base = inst.color.rgb * material.baseColor.rgb * baseSample.rgb;
   let checker = inst.params.w;
   if (checker > 0.0) {
@@ -1019,6 +1023,34 @@ ${POST_COMMON}
 @group(1) @binding(2) var history: texture_2d<f32>;
 @group(1) @binding(3) var velocity: texture_2d<f32>;
 
+// The history resampled on a Catmull-Rom spline (the 5-bilinear-tap
+// form), not plain bilinear: the history is re-filtered every frame, and
+// a bilinear kernel compounds into a visible blur within a few frames
+// while Catmull-Rom's negative lobes keep edges where they were. Its
+// ringing can undershoot, so the result is floored at zero; the clip box
+// below bounds the overshoot.
+fn sampleHistoryCatmullRom(uv: vec2f, size: vec2f) -> vec3f {
+  let samplePos = uv * size;
+  let texPos1 = floor(samplePos - 0.5) + 0.5;
+  let f = samplePos - texPos1;
+  let w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+  let w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+  let w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+  let w3 = f * f * (-0.5 + 0.5 * f);
+  let w12 = w1 + w2;
+  let texel = 1.0 / size;
+  let pos0 = (texPos1 - 1.0) * texel;
+  let pos3 = (texPos1 + 2.0) * texel;
+  let pos12 = (texPos1 + w2 / w12) * texel;
+  var sum = textureSampleLevel(history, sourceSampler, vec2f(pos12.x, pos0.y), 0.0).rgb * w12.x * w0.y;
+  sum += textureSampleLevel(history, sourceSampler, vec2f(pos0.x, pos12.y), 0.0).rgb * w0.x * w12.y;
+  sum += textureSampleLevel(history, sourceSampler, pos12, 0.0).rgb * w12.x * w12.y;
+  sum += textureSampleLevel(history, sourceSampler, vec2f(pos3.x, pos12.y), 0.0).rgb * w3.x * w12.y;
+  sum += textureSampleLevel(history, sourceSampler, vec2f(pos12.x, pos3.y), 0.0).rgb * w12.x * w3.y;
+  let weight = w12.x * w0.y + w0.x * w12.y + w12.x * w12.y + w3.x * w12.y + w12.x * w3.y;
+  return max(sum / weight, vec3f(0.0));
+}
+
 @fragment
 fn fs(in: PostOut) -> @location(0) vec4f {
   let texel = 1.0 / frame.jitter.zw;
@@ -1044,7 +1076,7 @@ fn fs(in: PostOut) -> @location(0) vec4f {
   // Clamped as well: a history texel that is not finite would otherwise
   // survive the clip below (every comparison with it is false) and leak
   // into its neighbours each frame.
-  var hist = clampHDR(textureSampleLevel(history, sourceSampler, prevUV, 0.0).rgb);
+  var hist = clampHDR(sampleHistoryCatmullRom(prevUV, frame.jitter.zw));
   // Clip the history toward the current mean, keeping it inside the box.
   let centre = (lo + hi) * 0.5;
   let extent = (hi - lo) * 0.5 + 1e-4;
