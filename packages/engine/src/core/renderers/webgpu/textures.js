@@ -102,6 +102,13 @@ export class TextureCache3D {
    * A transcoded KTX2 record: a block-compressed (or RGBA8) payload with
    * its own mip chain, written level by level. The three block formats
    * all use 4x4 blocks of 16 bytes.
+   *
+   * The copy extent is the level's *physical* size — its logical size
+   * rounded up to whole blocks — not its logical one. The last mips of
+   * any chain are smaller than a block (a 2048 texture ends 2x2, 1x1),
+   * and WebGPU rejects a copy width that is not a multiple of the block
+   * width. The transcoder pads those levels to a full block already, so
+   * the bytes for a 4x4 copy are there.
    */
   #uploadCompressed(image, srgb) {
     const base = COMPRESSED_FORMATS[image.base];
@@ -114,17 +121,15 @@ export class TextureCache3D {
       mipLevelCount: image.mips.length,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
     });
+    const block = base.block;
     for (let level = 0; level < image.mips.length; level++) {
-      const width = Math.max(1, image.width >> level);
-      const height = Math.max(1, image.height >> level);
-      const block = base.block;
-      const bytesPerRow = Math.ceil(width / block) * base.blockBytes;
-      const rowsPerImage = Math.ceil(height / block);
+      const blocksWide = Math.ceil(Math.max(1, image.width >> level) / block);
+      const blocksHigh = Math.ceil(Math.max(1, image.height >> level) / block);
       this.device.queue.writeTexture(
         { texture, mipLevel: level },
         image.mips[level],
-        { bytesPerRow, rowsPerImage },
-        { width, height }
+        { bytesPerRow: blocksWide * base.blockBytes, rowsPerImage: blocksHigh },
+        { width: blocksWide * block, height: blocksHigh * block }
       );
     }
     return texture;

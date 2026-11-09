@@ -58,9 +58,11 @@ const defaultOptions = {
   aspectMode: 'letterbox',
   /**
    * World render resolution — a fidelity/performance setting, like a game's
-   * resolution menu. 'native' matches the display. A `{width, height}` or a
-   * scale factor renders the world coarser or finer *without* changing how
-   * much world is visible. See `setResolution`.
+   * resolution menu. 'native' matches the display. A number is a fraction
+   * of native (0.5 is half the linear resolution this display would show);
+   * a `{width, height}` names an absolute surface. Either renders the world
+   * coarser or finer *without* changing how much world is visible. See
+   * `setResolution`.
    */
   resolution: 'native',
   /** 'nearest' keeps pixel art crisp when the world is upscaled. */
@@ -195,7 +197,7 @@ export class M2D {
     // A `?renderer=<name>` query parameter overrides the option so any
     // example can be viewed with another backend without code changes.
     this.canvas = canvas;
-    // A 3D frame is many passes over many pixels; half resolution is the
+    // A 3D frame is many passes over many pixels; half of native is the
     // sane default and the menu is right there for more. 2D keeps native.
     if (!('resolution' in options) && (this.options.dimensions ?? 2) === 3) this.options.resolution = 0.5;
     this.resolution = this.options.resolution;
@@ -546,7 +548,7 @@ export class M2D {
       type: 'string',
       default: serializeResolution(this.options.resolution),
       persist: true,
-      description: 'World render resolution: native, a scale (0.5), or WxH (960x540)',
+      description: 'World render resolution: native, a fraction of native (0.5), or WxH (960x540)',
       get: () => serializeResolution(this.resolution),
       set: (value) => this.setResolution(parseResolution(value))
     });
@@ -816,8 +818,9 @@ export class M2D {
    * never wider. The UI is unaffected and stays at display resolution.
    *
    * @param {'native'|number|{width?: number, height: number}} resolution -
-   *   'native' to match the display, a `{width, height}` preset, or a scale
-   *   factor (0.5 renders at half linear resolution).
+   *   'native' to match the display, a `{width, height}` preset for an
+   *   absolute surface, or a scale factor as a fraction of native (0.5
+   *   renders at half the linear resolution this display would show).
    */
   setResolution(resolution) {
     this.resolution = resolution;

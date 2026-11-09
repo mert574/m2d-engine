@@ -44,6 +44,41 @@ describe('viewport', () => {
       expect(v.viewWidth).toBe(1280);
     });
 
+    it('reads a scale as a fraction of native, not of the design size', () => {
+      // The same 0.5 on three displays. Half of what the display would
+      // show natively, every time — on a 4K panel that is 1920x1080, not
+      // the 640x360 a scale of the design size would give.
+      const cases = [
+        { displayWidth: 1280, displayHeight: 720, pixelRatio: 1, native: [1280, 720] },
+        { displayWidth: 3840, displayHeight: 2160, pixelRatio: 1, native: [3840, 2160] },
+        { displayWidth: 1280, displayHeight: 720, pixelRatio: 2, native: [2560, 1440] }
+      ];
+      for (const { native, ...params } of cases) {
+        const full = computeViewport({ ...design, ...params, resolution: 'native' });
+        expect([full.worldWidth, full.worldHeight]).toEqual(native);
+        const half = computeViewport({ ...design, ...params, resolution: 0.5 });
+        expect([half.worldWidth, half.worldHeight]).toEqual([native[0] / 2, native[1] / 2]);
+        // And it is still a fidelity knob, not a zoom.
+        expect(half.viewWidth).toBe(full.viewWidth);
+      }
+    });
+
+    it('makes a scale of 1 exactly native, whatever the display', () => {
+      const params = { ...design, displayWidth: 3840, displayHeight: 2160, pixelRatio: 1.5 };
+      const native = computeViewport({ ...params, resolution: 'native' });
+      const one = computeViewport({ ...params, resolution: 1 });
+      expect(one.worldWidth).toBe(native.worldWidth);
+      expect(one.worldHeight).toBe(native.worldHeight);
+    });
+
+    it('keeps a {width, height} preset absolute, since it names a surface', () => {
+      // Unlike a scale: the same preset on two displays gives one surface.
+      const small = computeViewport({ ...design, displayWidth: 1280, displayHeight: 720, resolution: { width: 640, height: 360 } });
+      const large = computeViewport({ ...design, displayWidth: 3840, displayHeight: 2160, resolution: { width: 640, height: 360 } });
+      expect(small.worldHeight).toBe(360);
+      expect(large.worldHeight).toBe(360);
+    });
+
     it("renders one world pixel per presented pixel at 'native'", () => {
       const v = computeViewport({
         ...design, displayWidth: 1280, displayHeight: 720, pixelRatio: 2, resolution: 'native'

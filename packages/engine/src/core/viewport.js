@@ -63,10 +63,19 @@ export const MAX_PIXEL_RATIO = 3;
  * @property {number} uiWidth - UI coordinate-space width in UI units
  * @property {number} uiHeight - UI coordinate-space height in UI units
  * @property {number} uiScale - Backing pixels per UI unit
+ * @property {number} nativeScale - World surface pixels per world unit at 'native'; what a scale factor is a fraction of
  */
 
 /**
  * Resolve the resolution setting into world-surface pixels per world unit.
+ *
+ * A number is a **fraction of native**, the way a game's resolution-scale
+ * slider reads: 0.5 is half the linear resolution the display would show,
+ * whatever that display is. It cannot be an absolute scale, because then
+ * one setting would mean a different fraction on every monitor — 0.5 is
+ * a quarter of native on a 4K panel and no reduction at all on a small
+ * one. A `{width, height}` preset stays absolute: it names the surface
+ * the author wants, and is for pixel art rather than a fidelity knob.
  *
  * @param {'native'|number|{width?: number, height: number}} resolution
  * @param {number} designHeight - Reference height in world units
@@ -75,7 +84,7 @@ export const MAX_PIXEL_RATIO = 3;
  */
 function resolveWorldScale(resolution, designHeight, nativeScale) {
   if (resolution === 'native' || resolution == null) return nativeScale;
-  if (typeof resolution === 'number') return resolution;
+  if (typeof resolution === 'number') return resolution * nativeScale;
   if (typeof resolution === 'object' && resolution.height > 0) {
     return resolution.height / designHeight;
   }
@@ -144,6 +153,7 @@ export function computeViewport({
     worldWidth: Math.max(1, Math.round(viewWidth * worldScale)),
     worldHeight: Math.max(1, Math.round(viewHeight * worldScale)),
     worldScale,
+    nativeScale,
     contentX,
     contentY,
     contentWidth,
@@ -196,6 +206,7 @@ export function identityViewport(width, height) {
     worldWidth: width,
     worldHeight: height,
     worldScale: 1,
+    nativeScale: 1,
     contentX: 0,
     contentY: 0,
     contentWidth: width,

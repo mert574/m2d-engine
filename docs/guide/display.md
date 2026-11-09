@@ -10,6 +10,8 @@ The engine keeps three sizes separate.
 
 Lowering the render resolution makes the world coarser. It does not show more or less of the world, and it does not affect the UI.
 
+A number is a **fraction of native**, the way a game's resolution-scale slider reads: `0.5` is half the linear resolution this display would show, so it means 1920x1080 on a 4K panel and 640x360 on a 720p one. A `{ width, height }` preset is absolute — it names the surface, which is what pixel art wants. `1` and `'native'` are the same thing.
+
 <Demo name="display">
 The world starts at a quarter of the display resolution. The left drawing goes through the world renderer and is blurred with it. The right drawing goes through the world overlay and the HUD at the bottom-left is UI, both at display resolution. Click to cycle the world resolution. Right-click or long-press to switch between linear and nearest filtering.
 </Demo>
@@ -18,11 +20,11 @@ The world starts at a quarter of the display resolution. The left drawing goes t
 const game = new M2D(canvas, {
   width: 1280, height: 720,   // the view, in world units
   aspectMode: 'letterbox',    // or 'expand'
-  resolution: 'native',       // or 0.5, or { width: 640, height: 360 }
+  resolution: 'native',       // or 0.5 (half of native), or { width: 640, height: 360 }
   worldFilter: 'linear'       // or 'nearest' for pixel art
 });
 
-game.setResolution(0.5);                        // half linear resolution
+game.setResolution(0.5);                        // half the linear resolution of native
 game.setResolution({ width: 1280, height: 720 });   // only height sets the scale. width is a label
 game.setResolution('native');
 game.setWorldFilter('nearest');
@@ -128,7 +130,7 @@ new SettingsMenu(game, { hotkey: 'KeyP', resolutions: ['native', 0.5], pauseWhen
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `hotkey` | `'KeyO'` | Physical key code that toggles the menu |
-| `resolutions` | `['native', 1, 0.75, 0.5, 0.25]` | Choices offered. `'native'`, scale factors of the design size, or `{ width, height }` presets |
+| `resolutions` | `['native', 0.75, 0.5, 0.25]` | Choices offered. `'native'`, fractions of native (shown as a percentage and the surface they produce), or `{ width, height }` presets |
 | `pauseWhenOpen` | `false` | Pause the game while the menu is open and restore the previous state on close |
 
 While open, the menu receives every input event before the scene's UI and the world. It consumes what it receives. Key releases pass through so a key held when the menu opened still releases in the game.

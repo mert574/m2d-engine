@@ -755,6 +755,27 @@ describe('KTX2 textures', () => {
     for (const mip of image.mips) expect(mip.length).toBeGreaterThan(0);
   });
 
+  it('uploads every mip, including the ones smaller than a block, with no validation error', async () => {
+    const { initBasis, bestTranscodeTarget, transcodeKTX2 } = await import('../../src/core/renderers/webgpu/basis.js');
+    const { webgpuDevice } = await import('../../src/core/renderers/webgpu/device.js');
+    const { TextureCache3D } = await import('../../src/core/renderers/webgpu/textures.js');
+    const device = webgpuDevice();
+    const response = await fetch(new URL('../fixtures/textures/blue.ktx2', import.meta.url));
+    const image = transcodeKTX2(await initBasis(), new Uint8Array(await response.arrayBuffer()), bestTranscodeTarget(device));
+    // 16x16 ends 2x2 then 1x1, both under the 4x4 block the compressed
+    // formats copy in; the extent has to be the padded one or WebGPU
+    // rejects the write.
+    expect(image.mips).toHaveLength(5);
+
+    const cache = new TextureCache3D(device);
+    cleanup.push(() => cache.destroy());
+    device.pushErrorScope('validation');
+    const texture = cache.get(image, { srgb: true });
+    const error = await device.popErrorScope();
+    expect(error?.message ?? null).toBe(null);
+    expect(texture.mipLevelCount).toBe(5);
+  });
+
   it('draws a box whose texture is KTX2 (KHR_texture_basisu)', async () => {
     const W = 96, H = 72;
     const canvas = canvasInDocument(W, H);

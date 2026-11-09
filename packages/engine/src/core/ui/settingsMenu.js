@@ -7,8 +7,11 @@ import { UIOptionRow } from './optionRow.js';
 import { Stack, Spacer } from './layout/stack.js';
 import { UIRectangle } from './Rectangle.js';
 
-/** Scale presets offered as resolutions, besides 'native'. */
-const DEFAULT_SCALES = [1, 0.75, 0.5, 0.25];
+/**
+ * Scale presets offered as resolutions, besides 'native'. A scale is a
+ * fraction of native, so 1 is not listed: it *is* 'native'.
+ */
+const DEFAULT_SCALES = [0.75, 0.5, 0.25];
 
 /**
  * The plate the settings sit on.
@@ -692,6 +695,13 @@ export class SettingsMenu {
 
   /**
    * Human label for a resolution choice, in world-surface pixels.
+   *
+   * A scale is shown as the percentage it is and the surface it would
+   * actually produce on this display — which is the native surface times
+   * the scale, not the design size times it. The viewport reports
+   * `nativeScale` so a choice that is not the active one can still be
+   * labelled correctly.
+   *
    * @param {'native'|number|{width?: number, height: number}} resolution
    * @returns {string}
    */
@@ -703,7 +713,9 @@ export class SettingsMenu {
     if (typeof resolution === 'object') {
       return `${resolution.width ?? Math.round(resolution.height * (this.game.options.width / this.game.options.height))}x${resolution.height}`;
     }
-    return `${Math.round(this.game.options.width * resolution)}x${Math.round(this.game.options.height * resolution)}`;
+    const width = Math.max(1, Math.round(v.viewWidth * v.nativeScale * resolution));
+    const height = Math.max(1, Math.round(v.viewHeight * v.nativeScale * resolution));
+    return `${Math.round(resolution * 100)}% (${width}x${height})`;
   }
 
   /**
