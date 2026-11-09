@@ -102,11 +102,11 @@ non-determinism.
 | Layer | Seam | Status |
 | --- | --- | --- |
 | Physics solver | **Split** — `rapier2d` / `rapier3d` behind one contract | Done; 3D is +y up in metres |
-| Renderer backend | **Split** — a 3D renderer with its own contract beside the 2D one; see "The renderer" | R0 done: `WebGPURenderer`, retained, HUD on an overlay canvas |
+| Renderer backend | **Split** — a 3D renderer with its own contract beside the 2D one; see "The renderer" | Done through R6: `WebGPURenderer`, retained, HUD on an overlay canvas |
 | Fixed-step clock, `Time`, determinism contract | **Shared** | Unchanged, needed no work |
 | Scene format, loader, `SceneManager`, assets | **Shared**, with a dimension discriminant | Done |
 | Input, audio, UI, screens, console, quest | **Shared, untouched** | Unchanged |
-| `Entity`, actors, constraints | Shared base, dimensional presentation | Not started; shaped by R1 |
+| `Entity`, actors, constraints | Shared base, dimensional presentation | Done in R1: one `entity.mesh` record (and `entity.light`) read by `Scene.frame3D`, no subclass |
 
 ### The dimension is per scene, checked against the game
 
@@ -128,7 +128,8 @@ database were both load-bearing for the 3D work that followed.
 
 ## Where we are
 
-Verified against the code on 6 Nov 2026 (65 3D tests green), not recalled.
+Verified against the code on 9 Nov 2026, not recalled: 1,346 node tests
+and 357 browser tests green, the 3D ones among them.
 
 **Done.**
 
@@ -164,8 +165,7 @@ things that serialize presentation:
 | Gap | Detail | Closed by |
 | --- | --- | --- |
 | ~~Bump and morph~~ | ~~Vertex colours, normal and occlusion maps, morph targets and material extensions are skipped by `gltf.js`.~~ | **Closed**: maps in R6 slice 2, vertex colours and morph targets on 9 Nov 2026, shown by generated models in the yard and the lot's showcase corner. Material extensions (transmission, clearcoat, sheen) stay under Beyond R6 |
-| Bump | No normal or occlusion maps; glTF files that carry them are drawn smooth. | R2 |
-| ~~Light a city~~ | ~~Every fragment loops over every light; past a few hundred lights that needs clustering.~~ | **Closed** by R6 slice 3: clustered, 1024 lights a frame |
+| ~~Light a city~~ | ~~Every fragment loops over every light; past a few hundred lights that needs clustering.~~ | **Closed** by R6 slice 3: clustered, 1024 lights a frame, 64 to a cluster |
 | Use 3D constraints | Units are px/s on a ground plane; `PathFollow.points` is a list of `{x, y}`. | When the demo needs one |
 
 ## The renderer
@@ -294,14 +294,14 @@ decided when the phase starts, against the code that exists then.
 | --- | --- | --- |
 | **B8** — Axis and units | 3D is y-up, metre-scale | **Done, Nov 2026.** `rapier3dBackend.js` is +y up with its own metre-scale tuning (`LENGTH_UNIT` 1, density 1000 kg/m³, 1 cm character offset, 2 cm contact pad, 10 cm snap) and Earth gravity by default. Both worlds expose `up`, and `Entity.groundBody` asks it instead of assuming an axis — the one piece of shared code that cared. 52 3D tests in metres, including a jump test that pins the y-up grounded check. The docs' units tables say which unit belongs to which dimension. Found along the way: a contact pad equal to the character offset leaves a resting character's floor outside the pad by a float32 rounding, so the pad is twice the offset, as it already was in 2D |
 | **N1** — Replicate a 3D transform | `net/replication.js` packs `[x, y, z, qx, qy, qz, qw, vx, vy, vz]` with metre-tuned rounding | **Done, Nov 2026.** The packer and the apply path follow `game.physics.dimensions`; spawns carry `z` and `d`. The server worker loads the solver the match's `game.dimensions` asks for. `test/replication3d.test.js` (in-memory) and `packages/server/test/server3d.test.js` (a real worker and two real sockets) have replicas agree with the server on position, quaternion and velocity. Two questions answered: the wire format needs **no version field**, since both ends agree on the dimension before any state flows; and the rounding constants depend on the **unit, not the dimension** — 3D rounds to the same 0.1 mm and 1 mm/s that 2D's 1/100 px and 1/10 px/s are. One wrinkle: `-0` is folded to `0` in the packer so a server value and its replica compare equal |
-| **U1** — One unit | 2D authors work in metres too | `pixelsPerUnit` on sprite sheets (default 100); scene schema units say `m`; the 2D camera and the perspective-kit projections convert px↔m in one place; constraint `static params` carry `m`/`m/s`; replication rounding is metre-based for both dimensions; every demo scene and its gameplay constants are converted; the physics and scene docs say metres everywhere. The determinism test still passes bit-for-bit after conversion of its scenes. **After R1, before the editor** — independent of the renderer phases |
+| **U1** — One unit | 2D authors work in metres too | **Engine done, demos open** — see R6 slice 4, and the `wip/u1-metres` branch. `pixelsPerUnit` on sprite sheets (default 100); scene schema units say `m`; the 2D camera and the perspective-kit projections convert px↔m in one place; constraint `static params` carry `m`/`m/s`; replication rounding is metre-based for both dimensions; every demo scene and its gameplay constants are converted; the physics and scene docs say metres everywhere. The determinism test still passes bit-for-bit after conversion of its scenes. **After R1, before the editor** — independent of the renderer phases |
 | **R0** — First light | WebGPU proven in the engine and the test harness | **Done, Nov 2026.** `renderers/webgpuRenderer.js` (retained; `render(frame)`; `dimensions = 3`), `webgpu/device.js` (`initWebGPU()` awaited before `M2D`, like `initPhysics`), `webgpu/shaders.js` (one vertex-coloured mesh pipeline under a directional light, depth-tested). `M2D` defaults a 3D game to `webgpu`, refuses a renderer whose dimension disagrees with the physics, and in 3D calls `renderer.render(scene.frame3D())` instead of the 2D world pass; a scene fills the frame in `onRender(frame, dt)`. The HUD draws through a WebGL2 backend on an overlay canvas the renderer owns, so `game.uiRenderer` and the UI layer are unchanged. `test/browser/webgpu.smoke.test.js`: device, lit triangle, shading by the light, overlay, the engine loop, the dimension checks. **The WebGL2 fallback is not needed.** Two harness findings worth keeping: with only the ANGLE/SwiftShader flags the WebGPU instance is torn down on first use, and `--enable-features=Vulkan --use-vulkan=swiftshader` fixes it with WebGL2 intact; and a 2D-canvas snapshot of a WebGPU canvas reads back empty on SwiftShader, so the renderer has a GPU-side `readPixels()` for tests, same-task as the draw |
 | **R1** — Meshes on screen | A 3D level you can walk around in | **Done, Nov 2026.** glTF 2.0 `.glb` reading (`core/gltf.js`: meshes, node transforms, metallic-roughness materials, base/MR/emissive textures) with a `model` asset type in the manifest and `assets.models` in a scene; a prefab's `mesh.model` with `scale` and `offset`; GPU textures with generated mipmaps, sRGB where the data is colour; one material bind group per glTF material; frustum culling by bounding sphere, separately for the main and shadow passes. The yard has the Cesium milk truck. *Earlier, the primitive half:* `Camera3D` (`orbit`/`free`, `screenToRay`, `screenToWorld`, `worldToScreen`) is `game.camera` in 3D; `Frame3D` groups instances by geometry and the renderer draws one instanced indexed draw per geometry from a cached upload; `geometry/primitives.js` builds box, sphere, cylinder, capsule and plane; a prefab's `mesh` block (shape, CSS colour to linear, metallic, roughness, emissive, checker) reaches the entity and the frame; a 2048 shadow map with 3x3 PCF, hemisphere ambient, Cook-Torrance GGX, fog, ACES, 4x MSAA and a procedural sky. **The demo exists**: `examples/src/yard`, orbit camera, WASD hero. Learned: the entity's presentation half fit as one `entity.mesh` record read by `Scene.frame3D`, no subclass needed; and the first shaded picture wanted the sky, fog and tonemapping *before* it wanted models, so R2's "HDR and tonemapper" is already here and R2 is materials and lights |
 | **R2** — PBR and lights | Materials look like materials | **Mostly done, Nov 2026.** Image-based lighting from the renderer's own sky, baked to a cubemap when the sky changes, GGX-prefiltered into six roughness mips and cosine-convolved for diffuse, with a split-sum BRDF LUT (`webgpu/environment.js`); point and spot lights with inverse-square falloff windowed to a range, up to 256 a frame in a storage buffer, looped in the fragment shader; a prefab `light` block that follows its body; an HDR `rgba16float` pipeline with bloom (threshold, 13-tap down, tent up) and an ACES composite (`webgpu/post.js`); sRGB-correct textures since R1. The yard has lamps, a floodlight, a mirror sphere and a dusk toggle. *R2's leftovers are closed:* normal and occlusion maps landed in R6 slice 2, clustered light culling and the HDR environment asset on 9 Nov 2026. The environment is `core/hdr.js` — a Radiance RGBE decoder to half floats, clamped to the same 16384 every HDR pass is, since one infinity in a panorama spreads through every prefiltered mip — an `environments` block in a scene's assets, and `frame.environment`. It needed no new bake: `skyColor` is the one function the background and the cube bake share, so sampling the panorama there makes the camera and the lighting agree by construction, and the bake passes its cube mip down as a panorama LOD so the small mips do not alias. Checked against three.js's RGBELoader on a real 1024x512 Poly Haven sky: 1.57M samples, mean relative difference 1.6e-3, the only disagreement past 2.5% being the twelve sun-disc samples this clamps on purpose. The 0.4% that remains is Radiance's own `colr_color` convention — a byte names a bucket and the value is its centre — which three approximates differently. *Not wired into a demo:* the yard's whole look is the afternoon-to-dusk procedural sky, which a fixed panorama cannot move, so lighting it with one is the owner's call and not a default. `scripts/buildModels.mjs <hdri-id>` fetches one when wanted. *Not planned:* a Khronos-viewer pixel match; the reference viewer's own look is a target, not a test |
 | **R3** — Shadows | Things sit on the ground | **Done, Nov 2026.** Up to four sun cascades in a depth array, each fitted to a slice of the view frustum (splits blended between linear and logarithmic) and snapped to its texel grid so edges hold still; perspective shadow maps for the nearest shadowed spots in a second array; 3x3 PCF on both; a frame-wide `normalOffset` (in texels) and `bias` (in metres), and `shadow: false` per light; `r_shadows` (`off`/`low`/`medium`/`high`) with a settings row. Casters are culled per frame against the cascade boxes and spot ranges, decided after the volumes are known. *Closed 9 Nov 2026:* point-light cube shadows. A `depth32float` cube array holds one cube per shadowed point light, six faces drawn per light, and the lookup needs no matrices back — every face shares a 90 degree frustum, so the shader rebuilds the depth a face wrote from the distance along the direction's dominant axis and compares. `r_shadows` decides how many cast: none below medium, one at medium, two at high, nearest first. The yard's three lamps carry it at dusk and now cast. Learned the hard way, in two rounds, and worth its length here. A cube map is sampled from inside looking out, so the view basis each face must be rendered with is *left-handed* — no right-handed `lookAt`, with any up vector, can produce it; the bases have to be derived from the sampling equations (under WebGPU's top-left framebuffer origin, not OpenGL's bottom-left) and the view matrices built from them directly. The first attempt flipped up vectors until a test passed, which fixed the vertical mirror and left a horizontal one — and the test could not see it, because its boxes sat on the faces' own axes, which a left-right mirror maps onto themselves. The owner saw it from the first off-axis lamp: a shadow on the wrong side. The lesson for any orientation fix: the test must probe *off* every symmetry axis and assert both where the effect is and where it is not. Also: the cubes were silently empty at first because every lookup landed in a face's unwritten half, which reads as no shadow rather than a wrong one, so only a depth readback showed the geometry was there all along; and a layered texture has to declare `textureBindingViewDimension: 'cube-array'` or the cube view does not line up with the binding |
 | **R4** — Post stack | It looks like a current game | **Done, Nov 2026.** The main pass splits into direct, indirect, normal-depth and velocity targets (per-instance previous model matrices ride in the instance buffer; the sky reprojects by camera). Over them: hemisphere ambient occlusion at half resolution with a depth-aware blur, applied to indirect light only; temporal anti-aliasing with Halton jitter, velocity reprojection and variance clipping; disc-gather depth of field at half resolution; per-object motion blur; auto exposure from the average log luminance eased over frames; the bloom from R2; a composite with ACES, parametric grade (saturation, contrast, temperature) and an optional 256x16 LUT strip, vignette and grain. One cvar and settings row per stage (`r_taa`, `r_ao`, `r_dof`, `r_motionblur`, `r_autoexposure`, `r_bloom`, `r_film`); strengths in `frame.post`. *Judgement calls:* the AO is a hemisphere kernel rather than GTAO (far simpler, good enough at this scale; GTAO is a drop-in later); the TAA is the engine's own rather than an FSR port — FSR stays the route to resolution upscaling, under Beyond R6; the LUT is an image the scene hands over rather than an asset type until the asset database has a texture type to put it in |
 | **R5** — Animation | Characters move | **Done, Nov 2026.** `gltf.js` reads skins, joints and weights, the node tree and clips (linear, step; cubic keys linearised); `Animator3D` blends layers by weight with crossfades, walks the tree and builds joint matrices per skin; skinned instances carry their joints into one storage buffer a frame and take skinned mesh and shadow pipelines; a `mesh.animation` block picks the opening clip; `entity.heading` steers a model's yaw. The yard's hero is the Khronos fox, surveying, walking or running by its speed and turning to face where it goes. *Closed 9 Nov 2026:* morph targets — position and normal deltas in a per-geometry storage buffer (group 3; an empty group where there are none), weights blended by `Animator3D` with last frame's kept for motion vectors, driven by `weights` channels, and morphed in the shadow pass too so the shape does not cast its unmorphed self. An unskinned, morphed instance spends the skin slots on its weight bases, so a mesh cannot be skinned and morphed at once; a face on a rigged character waits for its consumer. The yard shows it with a generated breathing blob on a looping `pulse` clip. Also closed that day: velocity from joint motion. `Animator3D` keeps last frame's joint matrices beside this frame's, a skinned instance files both poses (the previous one's base in `skin.z`, which was spare), and the vertex shader places the previous clip position with the previous pose instead of the current one — so a limb carries its own motion into the velocity buffer and not just the body's. A snap (`fade: 0`) and `stop()` make the pose they land on its own previous, since a jump the viewer never saw is a discontinuity rather than movement, and reprojecting from the bind pose would smear the model across its opening frame |
-| **R6** — Scale | A real level fits | GPU instancing by mesh + material; GPU frustum culling with indirect draws; discrete LODs from glTF (`MSFT_lod` or a naming convention); KTX2/Basis Universal compressed textures; mesh and texture streaming by distance; a render-statistics readout in the debug overlay. The demo grows to a level big enough to need all of it and holds its frame rate |
+| **R6** — Scale | A real level fits | **Done, Nov 2026.** GPU instancing by mesh and material; GPU frustum culling with indirect draws; discrete LODs from glTF under an `LOD0..3` naming convention; KTX2/Basis Universal compressed textures; streaming by distance with a budget; a render-statistics readout in the debug overlay. The lot is the level that needs all of it. The four slices below say how each landed, and what each cost |
 
 After R6 the engine is at the Three.js/Babylon tier the goal section
 describes. Everything below it is the next distance toward the reference
@@ -500,11 +500,12 @@ is the fix when a scene needs it.
 16x9x24 grid — tiles across the screen, 24 depth slices spaced
 exponentially so the near ones are thin — and a compute pass, dispatched
 beside the instance cull in the same encoder pass, builds each cluster's
-view-space box and keeps every light whose sphere reaches it, up to 32.
+view-space box and keeps every light whose sphere reaches it, up to 64
+(32 until the lot overflowed its far clusters).
 The mesh fragment finds its cluster from its framebuffer position and
 view depth and loops over that list instead of the whole frame's.
 `MAX_LIGHTS` is 1024, up from 256: the cap now bounds the clustering
-pass and the buffer rather than the cost of a pixel, which is the 32 a
+pass and the buffer rather than the cost of a pixel, which is the 64 a
 cluster holds. The grid is rebuilt every frame rather than cached
 against the projection — one dispatch over 3,456 invocations is cheaper
 than tracking every change to the lens, the surface size and the light
@@ -544,6 +545,138 @@ distance; a blank page while 250 MB loaded — a loading plate driven by
 a new `onLoadProgress` scene hook; and sound — a synthesized wind loop
 and footsteps in `yard/ambience.js`, quiet, following the circuit's
 precedent for generated audio.
+
+**The lot's lamps, 9 Nov 2026.** The owner reported the lot's lighting
+and shadows broken after the black-lot fix. Two bugs in `setupProps`,
+neither visible in a frame built by hand, and neither in the yard, whose
+lamps are entities. First, a prop's light block went to the frame raw —
+`{ ...prefab.light }` — while an entity's goes through `lightFor`, so the
+lantern's CSS colour string reached `Frame3D.addLight` and packed into
+the light buffer as NaN. A NaN light poisons `color` for every fragment
+its cluster reaches — `clampHDR` then yields zero (seen on SwiftShader,
+where even the lantern's own emissive glow went black) — and with 450
+lamps of range 24 m on a 13 m grid no point of the lot is out of reach
+of one: *all* direct light went — sun, shadows, lamps and glows alike —
+leaving the flat, ambient-only picture that read as "lighting and
+shadows broken". Second, `castShadow` was read from the prop only,
+never from the prefab's `mesh`, so each lantern's glowing shell (which
+the prefab says casts nothing) cast into its own light's shadow cube
+from 11 cm away, putting everything the two nearest lamps reached in
+shadow once the first bug was gone. Both now follow the entity path.
+`gltf.test.js` pins the records and the colour;
+`browser/webgpu.props.test.js` builds a lantern prop through `Scene`
+and reads the floor under it. Lesson: a prop is a second path to the
+renderer for everything a prefab carries, and every conversion the
+entity path makes is one the prop path must make too. Harness note: the
+full lot cannot render under SwiftShader — the device is lost while the
+photoscans upload — so the reproduction used the lot with its model
+props stripped.
+
+**Slice 4 — streaming, and the KTX2 cap that was not. 9 Nov 2026.**
+
+*The cap.* Slice 3 said the texture cap had lifted to 4096. It had not.
+Basis Universal 2.5 refuses an encode over 12,582,912 source texels — a
+guard against OOM in its 32-bit wasm — and a 4096 square is 16,777,216.
+The `ktx2()` gltf-transform plugin catches its own failures, logs a
+warning and leaves the source image on the texture, so the build
+reported success while shipping exactly what KTX2 was meant to replace:
+21 of 32 models kept 4k PNGs, 2.8 of the 2.9 GB on disk, and a tree
+carried nine textures that each cost ~85 MB of GPU memory as RGBA8 with
+mips. The cap is 3072 now — 9,437,184 texels, the largest whole-block
+size under the ceiling — and `assertEncoded` refuses to write a model
+with any texture the encoder did not take, so the class of bug cannot
+come back silently. `FORMAT` is 4, which rebuilds the set once.
+Measured: street_lamp_01 went from 59 MB to 20 MB. *The lesson:* a
+compiler stage that can fail softly must be asserted on, not trusted —
+and a cap chosen without checking the encoder's own limit is a guess.
+
+*Streaming.* A model only `props` use is streamable: the scene indexes
+where every instance of it stands (`indexProps`), loads it when the
+camera comes within `streamIn` of the nearest, and releases it past
+`streamOut`. The two radii differ so a camera on the line does not
+thrash, `streamBudget` caps the fetches in the air, and the first load
+waits only for what is near the player's start plus every model an
+entity wears — those never stream, since the simulation owns the entity
+wherever the camera is. Releasing is real: `renderer.unloadModel`
+destroys the geometry buffers, the material uniforms and bind groups and
+the textures, and `textureBytes` falls. Two things had to change to make
+that possible: a bind group cannot be asked what is inside it, so the
+material uniform and the morph buffers are noted in side maps as they
+are made; and all of a model's prop batches are now built in one place
+and stamped with the model key, since `setupProps` built untagged
+batches that a drop could not find. Colliders deliberately do not
+stream — a prop's body is built at load and stays, so what a wall blocks
+does not depend on where the camera looks. Along the way this closed the
+leak the audit found: a scene now hands back every model's GPU memory
+when it unloads, where before a level's worth stayed until the device
+died.
+
+*What the rebuild cost, and why.* The owner found the regenerated set
+"10x slower" and asked whether the compiler change had done it. Measured
+on one 3072 normal map: UASTC at the encoder's default effort level
+takes 46.5 s; level 1 takes 13.1 s and level 0 takes 3.0 s for the same
+bytes out; at 2048 the default takes 20.8 s; ETC1S at 3072 takes 9.9 s.
+The old build had been fast for a bad reason: 21 of the 32 models never
+encoded at all (the 4k ceiling failure above, instant), and the 11 that
+did carried 2k textures. The new build encoded every texture of every
+model at 3072 and default effort, so a 10k-triangle picnic table spent
+344 s — seven textures at 46 s each — and the jacaranda's 516 s was
+some 400 s of textures around a minute of decimation. Normals now encode
+at level 1 and roughness and occlusion at level 0, and `buildModels.mjs`
+is two overlapped stages: downloads two at a time (the CDN is the limit),
+each model handed to a compile pool the moment its files land, the pool
+sized to the machine (a job per core, bounded by memory at 4.5 GB a job,
+since a scan being cut holds that much; `--jobs` overrides). A file whose
+md5 matches is never fetched again and nothing deletes a source. The
+quality change is tuning, not a format change, so `FORMAT` stays at 4
+and a set already built is valid.
+
+*Streaming stalled the frame it streamed into.* Parsing a scan and
+transcoding nine 3072 UASTC textures to BC7 in wasm is tens of
+milliseconds a texture, on the main thread, mid-game. `core/modelLoader.js`
+does it in a pool of module workers (`gltfWorker.js`), keyed by transcode
+target since a worker's KTX2 decoder is set once, and the finished model
+crosses back by structured clone with every `ArrayBuffer` and
+`ImageBitmap` transferred — `transferablesOf` walks the model for them,
+deduplicating views that share a buffer, since transferring one twice
+throws. A model is plain data throughout (typed arrays, objects,
+bitmaps, transcoded mip records), which is what made this a loader change
+rather than a model change. With no `Worker` the call falls through to
+`loadGLB`, so headless and the node suite are untouched; a worker that
+fails to start marks the pool broken and the main thread takes over for
+good. The GPU upload that follows is still main-thread work, as it must
+be, but it is a queue write, not a decode.
+
+**The audit's other findings, 9 Nov 2026.** `Frame3D.addLight` now
+refuses a light whose colour is not three finite numbers or whose
+position is not finite, naming `lightFor` as the conversion that was
+skipped — the NaN-light failure mode cost a day and could not have
+survived this check. `presentation3d.placeLight` is the one place a
+light block is placed in the world, used by both the entity path and the
+prop path, so the next thing a prop forgets cannot be the offset maths.
+
+**Open, and sized. U1 (one unit) is not done.** The engine half is
+written and green — physics in metres (`LENGTH_UNIT` 1, the tuning
+constants converted, density scaled so masses are unchanged), one
+`pixelsPerMetre` on the camera inside `matrix.viewMatrix` as the single
+world-to-screen conversion, schema units in metres, `pixelsPerUnit` on
+sprite sheets, metre-based replication rounding for both dimensions, and
+the whole engine suite converted and passing. The demo half is not, and
+it is bigger than the plan's one line ("every demo scene is divided by
+100") suggests. The scene *files* convert mechanically and verifiably —
+each generated scene was regenerated from its converted build script and
+diffed against the old output scaled, and matched. The demos' *drawing
+code* does not: 1,011 lines across 40 files of hand-drawn vector art
+(`streetScenery.js` alone has 103) where each literal has to be judged a
+length or not, and where a mechanical pass provably goes wrong — it
+converts `height: 26` and leaves the `y: top - 26` beside it, mixing
+scales inside one expression. It also cannot be checked by the suite:
+the example tests pass with the demos half-converted. This is a
+playtest-gated pass, and it is atomic with the engine half, because a
+pixel-scale world no longer simulates correctly against a metre solver
+(Rapier clamps a 1000 m/s² gravity to about 400). The work is preserved
+on the `wip/u1-metres` branch — engine, tests and scene files complete —
+so finishing it is the demo pass and a run through all twelve games.
 
 ### Beyond R6: the realism roadmap
 
@@ -625,10 +758,16 @@ measurable.
 - **CPU in Node.** glTF parsing, matrix and quaternion maths, frustum and
   cluster assignment, cascade splits, animation sampling and blending,
   asset-schema validation. Fast, deterministic, the bulk of the tests.
-- **GPU in headless Chromium.** A small 3D conformance suite in
-  `test/browser/` with golden images at a tolerance, one scene per phase
-  (lit cube, PBR sphere grid, shadowed plane, post toggles, skinned
-  cylinder). SwiftShader is slow, so these stay few and small.
+- **GPU in headless Chromium.** A small 3D suite in `test/browser/`,
+  one or two scenes per phase (lit cube, PBR sphere grid, shadowed
+  plane, post toggles, skinned cylinder, a lot-sized frame, a prop
+  lantern). *Decided against golden images:* they would have to be
+  regenerated for every legitimate change and SwiftShader's output is
+  not stable enough to diff. The tests sample pixels at named world
+  positions and assert relations — lit brighter than shadowed, warm
+  rather than cold — which survives a renderer change that alters the
+  picture without breaking it. SwiftShader is slow, so these stay few
+  and small.
 - **The demo.** The final check for every phase, and the thing that will
   find mis-tuned constants the way the 3D character controller did.
 

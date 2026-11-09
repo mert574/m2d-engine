@@ -216,6 +216,7 @@ export class Frame3D {
   addLight(light) {
     if (this.lights.length >= MAX_LIGHTS) return;
     const p = light.position;
+    checkLight(light, p);
     let fade = 1;
     const eye = this.camera.position;
     if (eye) {
@@ -246,6 +247,35 @@ export class Frame3D {
 }
 
 /**
+ * Refuse a light that would pack as NaN.
+ *
+ * Every number here is written straight into a `Float32Array` the GPU
+ * reads, and `Number()` of anything unsuitable is NaN. One NaN light
+ * poisons the colour of every fragment in its cluster, which the HDR
+ * clamp then flattens to black — so a scene lit by many lamps goes dark
+ * everywhere rather than showing one bad lamp. The cause has always
+ * been a CSS colour string arriving where linear floats belong, from a
+ * path that skipped `presentation3d.js`'s `lightFor`. One comparison a
+ * light a frame is worth never debugging that again.
+ */
+function checkLight(light, p) {
+  const bad = (what) => {
+    throw new Error(
+      `M2D: light ${what}. A light reaches the frame as numbers: ` +
+      'linear `color` as [r, g, b], a `position` in metres, numeric `intensity` and `range`. ' +
+      'A scene\'s light block goes through `lightFor` (and `placeLight`) first, which is where a CSS colour becomes linear.');
+  };
+  if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) bad('has no finite position');
+  const c = light.color;
+  if (c !== undefined && (!Array.isArray(c) || c.length < 3 || !c.every(Number.isFinite))) {
+    bad(`colour is ${typeof c === 'string' ? `the string ${JSON.stringify(c)}` : 'not three finite numbers'}`);
+  }
+  for (const key of ['intensity', 'range', 'innerCone', 'outerCone']) {
+    if (light[key] !== undefined && !Number.isFinite(light[key])) bad(`${key} is not a number`);
+  }
+}
+
+/**
  * Instances of one geometry and material that never move, as records the
  * renderer uploads once. A scene builds these at load for its props;
  * `push` one instance at a time, then hand the batch to every frame with
@@ -267,6 +297,13 @@ export class StaticBatch {
     this.count = 0;
     /** Bumped by `push`; the renderer re-uploads a batch whose version it has not seen. */
     this.version = 0;
+    /**
+     * The model key a level's prop batch came from, set by `Scene`, so
+     * streaming can take the batch away again when the model goes. Null
+     * for a batch of primitive shapes, which never stream.
+     * @type {string|null}
+     */
+    this.modelKey = null;
   }
 
   /** One more instance; the same options as `Frame3D.add` minus `skin` and `previousModel`. */

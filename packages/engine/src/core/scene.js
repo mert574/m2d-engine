@@ -4,8 +4,9 @@ import { constraintParamsSchema } from './sceneSchema.js';
 import { Projection } from './projection.js';
 import { geometryFor } from './renderers/geometry/primitives.js';
 import { StaticBatch } from './renderers/frame3d.js';
-import { meshFor } from './presentation3d.js';
-import { loadGLB, lodFor } from './gltf.js';
+import { meshFor, lightFor, placeLight } from './presentation3d.js';
+import { lodFor } from './gltf.js';
+import { loadModel } from './modelLoader.js';
 import { loadHDR } from './hdr.js';
 import { Animator3D } from './animator3d.js';
 import { Quat } from './math.js';
@@ -19,12 +20,22 @@ import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
 
 const ZERO = { x: 0, y: 0, z: 0 };
+
+/** Frames between streaming sweeps; see `frame3D`. */
+const STREAM_EVERY = 10;
 const UP = { x: 0, y: 1, z: 0 };
 const UNIT = { x: 1, y: 1, z: 1 };
 const IDENTITY_Q = { x: 0, y: 0, z: 0, w: 1 };
 const WHITE = [1, 1, 1];
 
 export class Scene {
+  /** @type {Set<string>} */ #streamable;
+  /** @type {Set<string>} */ #wanted;
+  /** @type {Map<string, Promise>} */ #loading;
+  /** @type {Map<string, number[]>} */ #propSpots;
+  /** Set once `setupProps` has run; before it there is nothing to add batches to. */ #propsReady = false;
+  /** Set by `unload`, so a load still in the air knows not to land. */ #gone = false;
+
   constructor(game, config) {
     this.game = game;
     this.config = config;
@@ -38,6 +49,24 @@ export class Scene {
     this.meshMaterials = new Map();
     /** The level's props as resident instance batches, built at load; see `setupProps`. @type {StaticBatch[]} */
     this.batches = [];
+    /**
+     * Streaming: metres from the camera at which a model's props pull it
+     * in, and the longer reach at which they let it go. The gap is
+     * hysteresis — equal radii would load and unload a model every frame
+     * for a camera sitting on the line. `streamBudget` caps the fetches
+     * in the air at once.
+     */
+    this.streamIn = 120;
+    this.streamOut = 180;
+    this.streamBudget = 4;
+    /** Model keys only props use, which may come and go; see `streamModels`. @type {Set<string>} */
+    this.#streamable = new Set();
+    /** Of those, the ones the camera currently wants. @type {Set<string>} */
+    this.#wanted = new Set();
+    /** In-flight loads by key, so two asks share one fetch. @type {Map<string, Promise>} */
+    this.#loading = new Map();
+    /** Every prop instance position per model key, as flat xyz, for the distance test. @type {Map<string, number[]>} */
+    this.#propSpots = new Map();
     /** The props' static bodies, removed with the scene. */
     this.propBodies = [];
     /** Lights the level's props carry, fixed at load; `frame3D` adds them each frame. */
@@ -96,6 +125,8 @@ export class Scene {
   }
 
   async loadAssets() {
+    // Before anything is fetched: what may stream, and where it stands.
+    this.indexProps();
     await Promise.all([this.#loadSpriteSheets(), this.#loadModels(), this.#loadEnvironments(), this.#loadMeshTextures()]);
   }
 
@@ -156,13 +187,114 @@ export class Scene {
     const models = this.config.assets?.models;
     if (!models) return;
     const entries = Object.entries(models);
+    // What the first frame cannot do without: every model an entity wears,
+    // and every model whose nearest prop stands inside the stream radius of
+    // where the camera starts. The rest arrive while the level is played.
+    const required = entries.filter(([key]) => !this.#streamable.has(key) || this.#near(key, this.#startPoint()));
     let loaded = 0;
-    this.config.onLoadProgress?.({ loaded, total: entries.length, name: null });
-    await Promise.all(entries.map(async ([key, model]) => {
-      this.models.set(key, await loadGLB(this.game.options.basePath + model.url));
+    this.config.onLoadProgress?.({ loaded, total: required.length, name: null });
+    await Promise.all(required.map(async ([key]) => {
+      await this.#loadModel(key);
       loaded++;
-      this.config.onLoadProgress?.({ loaded, total: entries.length, name: key });
+      this.config.onLoadProgress?.({ loaded, total: required.length, name: key });
     }));
+  }
+
+  /**
+   * One model in, with its prop batches built if it has any.
+   *
+   * Loads of the same key share a promise, so the streamer asking twice
+   * while the bytes are in flight costs one fetch; a key that finished
+   * resolves at once.
+   */
+  #loadModel(key) {
+    if (this.models.has(key)) return Promise.resolve(this.models.get(key));
+    let pending = this.#loading.get(key);
+    if (pending) return pending;
+    const url = this.config.assets.models[key].url;
+    // Off the main thread where there is a worker: parsing and transcoding
+    // a scan is a dropped frame otherwise, and streaming does it mid-game.
+    pending = loadModel(this.game.options.basePath + url, { transcodeTarget: this.game.renderer?.transcodeTarget }).then((model) => {
+      this.#loading.delete(key);
+      // The scene may have unloaded, or the streamer changed its mind,
+      // while this was in the air; dropping it here is cheaper than
+      // uploading a model nothing will draw.
+      if (this.#gone || !this.#wanted.has(key)) return null;
+      this.models.set(key, model);
+      this.#addModelBatches(key);
+      return model;
+    }, (error) => {
+      this.#loading.delete(key);
+      throw error;
+    });
+    this.#loading.set(key, pending);
+    return pending;
+  }
+
+  /** Where the level is seen from before a camera exists: the player's start, else the origin. */
+  #startPoint() {
+    for (const layer of this.config.layers ?? []) {
+      for (const object of layer.objects ?? []) {
+        if (this.config.prefabs?.[object.prefab]?.actor === 'Hero' || object.id === 'player' || object.id === 'hero') {
+          return { x: object.x, y: object.y, z: object.z ?? 0 };
+        }
+      }
+    }
+    return { x: 0, y: 0, z: 0 };
+  }
+
+  /** Whether any instance of `key`'s props stands within the load radius of `eye`. */
+  #near(key, eye, radius = this.streamIn) {
+    const spots = this.#propSpots.get(key);
+    if (!spots) return true;
+    for (let i = 0; i < spots.length; i += 3) {
+      const dx = spots[i] - eye.x, dy = spots[i + 1] - eye.y, dz = spots[i + 2] - eye.z;
+      if (dx * dx + dy * dy + dz * dz <= radius * radius) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Bring the level's models in and out as the camera moves.
+   *
+   * A model whose nearest prop is inside `streamIn` metres is fetched;
+   * one whose nearest prop has fallen outside `streamOut` is let go —
+   * its batches dropped, its GPU memory released. The two radii differ so
+   * a camera sitting on the boundary does not load and unload every
+   * frame. At most `streamBudget` fetches are in the air at once, so a
+   * sweep of the view does not open two hundred connections.
+   *
+   * Only models used by props stream: an entity's model is worn by
+   * something the simulation owns and has to be there whatever the
+   * camera does.
+   *
+   * @param {{x: number, y: number, z: number}} eye - Usually the camera
+   */
+  streamModels(eye) {
+    if (this.game.headless || !this.#streamable.size) return;
+    for (const key of this.#streamable) {
+      const near = this.#near(key, eye);
+      if (near) this.#wanted.add(key);
+      else if (!this.#near(key, eye, this.streamOut)) this.#wanted.delete(key);
+    }
+    for (const key of this.#streamable) {
+      if (this.#wanted.has(key)) {
+        if (!this.models.has(key) && !this.#loading.has(key) && this.#loading.size < this.streamBudget) {
+          this.#loadModel(key).catch((error) => console.warn(`M2D: streaming '${key}' failed: ${error.message}`));
+        }
+      } else if (this.models.has(key)) {
+        this.#dropModel(key);
+      }
+    }
+  }
+
+  /** Let go of a streamed model: its batches, its bodies stay, its GPU memory goes. */
+  #dropModel(key) {
+    const model = this.models.get(key);
+    if (!model) return;
+    this.models.delete(key);
+    this.batches = this.batches.filter((batch) => batch.modelKey !== key);
+    this.game.renderer?.unloadModel?.(model);
   }
 
   async #loadSpriteSheets() {
@@ -395,48 +527,33 @@ export class Scene {
         // A prop may carry a light — a lantern head, a window glow — at
         // each instance, turned with its yaw and scaled with its size.
         if (prefab?.light) {
-          const o = prefab.light.offset ?? ZERO;
+          // Through `lightFor` and `placeLight`, exactly as an entity's
+          // light goes: the block's CSS colour becomes linear light and
+          // the offset is turned and scaled with the instance. Spread
+          // raw, the colour string would reach the light buffer as NaN.
+          const light = lightFor(prefab.light);
           for (const [x, y, z, yaw = 0, scale = 1] of prop.instances) {
-            const cos = Math.cos(yaw);
-            const sin = Math.sin(yaw);
-            this.propLights.push({
-              ...prefab.light,
-              position: {
-                x: x + (o.x * cos + o.z * sin) * scale,
-                y: y + o.y * scale,
-                z: z + (o.z * cos - o.x * sin) * scale
-              }
-            });
+            this.propLights.push(placeLight(light, { x, y, z }, yaw, scale));
           }
         }
         if (!prefab?.mesh) continue;
         const mesh = meshFor(prefab.mesh);
-        const castShadow = prop.castShadow !== false;
+        // Either side can turn casting off: the prop, or the prefab's mesh
+        // as an entity's would. A lantern's glowing shell is the case that
+        // matters — drawn into its own light's shadow cube it would put
+        // everything the lamp reaches in shadow.
+        const castShadow = prop.castShadow !== false && mesh.castShadow !== false;
         const size = { x: prop.width ?? 1, y: prop.height ?? 1, z: prop.depth ?? prop.width ?? 1 };
         if (mesh.model) {
           const model = this.models.get(mesh.model);
           // Colliders stand whether or not the model is here to draw: a
-          // headless game loads no models and still needs the walls.
+          // headless game loads no models and still needs the walls, and
+          // a streamed-out model's props must not become walkable.
           this.#propColliders(prop, model ? modelBounds(model, mesh) : null, mesh.offset ?? ZERO);
-          if (!model || headless) continue;
-          if (model.skinned) throw new Error(`M2D: prop '${prop.id}' uses skinned model '${mesh.model}'; a prop has no joints to pose`);
-          const s = mesh.scale ?? 1;
-          const local = mat4.fromTRS(mesh.offset ?? ZERO, IDENTITY_Q, { x: s, y: s, z: s });
-          // Every level of detail gets every instance; the cull draws one
-          // level per instance from the ranges the levels tile.
-          const ranges = lodRanges(model);
-          for (const [x, y, z, yaw, scale] of prop.instances) {
-            const base = mat4.fromTRS({ x, y, z }, Quat.fromAxisAngle(UP, yaw), { x: scale, y: scale, z: scale });
-            mat4.multiply(base, local, base);
-            model.lods.forEach((level, i) => {
-              for (const part of level.parts) {
-                batchFor(part.geometry, part.material, ranges[i]).push({
-                  model: mat4.multiply(base, part.matrix), material: part.material,
-                  color: WHITE, metallic: 1, roughness: 1, emissive: mesh.emissive ?? 0, castShadow
-                });
-              }
-            });
-          }
+          // The drawing is `#addModelBatches`'s, below, so that a model's
+          // batches are built in one place and stamped with its key
+          // whether it arrived with the scene or streamed in later —
+          // `#dropModel` has to be able to find them again.
           continue;
         }
         const shape = mesh.shape ?? prefab.physics?.shape ?? 'box';
@@ -455,6 +572,101 @@ export class Scene {
       }
     }
     this.batches = [...batches.values()].flatMap((byMaterial) => [...byMaterial.values()]);
+    this.#propsReady = true;
+    for (const key of this.models.keys()) this.#addModelBatches(key);
+  }
+
+  /** One model prop's instances into batches, at every level of detail. */
+  #pushModelProp(prop, mesh, model, castShadow, batchFor) {
+    if (model.skinned) throw new Error(`M2D: prop '${prop.id}' uses skinned model '${mesh.model}'; a prop has no joints to pose`);
+    const s = mesh.scale ?? 1;
+    const local = mat4.fromTRS(mesh.offset ?? ZERO, IDENTITY_Q, { x: s, y: s, z: s });
+    // Every level of detail gets every instance; the cull draws one
+    // level per instance from the ranges the levels tile.
+    const ranges = lodRanges(model);
+    for (const [x, y, z, yaw, scale] of prop.instances) {
+      const base = mat4.fromTRS({ x, y, z }, Quat.fromAxisAngle(UP, yaw), { x: scale, y: scale, z: scale });
+      mat4.multiply(base, local, base);
+      model.lods.forEach((level, i) => {
+        for (const part of level.parts) {
+          batchFor(part.geometry, part.material, ranges[i]).push({
+            model: mat4.multiply(base, part.matrix), material: part.material,
+            color: WHITE, metallic: 1, roughness: 1, emissive: mesh.emissive ?? 0, castShadow
+          });
+        }
+      });
+    }
+  }
+
+  /**
+   * The batches for one model key, built when a streamed model lands and
+   * appended to the level's. Each is stamped with the key so `#dropModel`
+   * knows which to take away again.
+   */
+  #addModelBatches(key) {
+    if (this.game.headless || !this.#propsReady) return;
+    const model = this.models.get(key);
+    if (!model) return;
+    const batches = new Map();
+    const batchFor = (geometry, material, lod = null) => {
+      let byMaterial = batches.get(geometry);
+      if (!byMaterial) batches.set(geometry, byMaterial = new Map());
+      let batch = byMaterial.get(material);
+      if (!batch) byMaterial.set(material, batch = new StaticBatch(geometry, material, 64, lod));
+      return batch;
+    };
+    let any = false;
+    for (const layer of this.config.layers) {
+      for (const prop of layer.props ?? []) {
+        const prefab = this.config.prefabs[prop.prefab];
+        const mesh = prefab?.mesh && meshFor(prefab.mesh);
+        if (mesh?.model !== key) continue;
+        const castShadow = prop.castShadow !== false && mesh.castShadow !== false;
+        this.#pushModelProp(prop, mesh, model, castShadow, batchFor);
+        any = true;
+      }
+    }
+    if (!any) return;
+    for (const byMaterial of batches.values()) {
+      for (const batch of byMaterial.values()) {
+        batch.modelKey = key;
+        this.batches.push(batch);
+      }
+    }
+  }
+
+  /**
+   * Which models only props use, and where those props stand.
+   *
+   * Called by `loadAssets` before anything is fetched: `#loadModels` needs to know what may
+   * wait, and `streamModels` needs the positions to measure against. A
+   * model any entity wears is not streamable — the simulation owns that
+   * entity wherever the camera goes.
+   */
+  indexProps() {
+    const models = this.config.assets?.models;
+    if (!models || this.game.headless) return;
+    const worn = new Set();
+    for (const layer of this.config.layers ?? []) {
+      for (const object of layer.objects ?? []) {
+        const mesh = { ...this.config.prefabs?.[object.prefab]?.mesh, ...object.overrides?.mesh };
+        if (mesh?.model) worn.add(mesh.model);
+      }
+      for (const prop of layer.props ?? []) {
+        const key = this.config.prefabs?.[prop.prefab]?.mesh?.model;
+        if (!key) continue;
+        let spots = this.#propSpots.get(key);
+        if (!spots) this.#propSpots.set(key, spots = []);
+        for (const [x, y, z] of prop.instances) spots.push(x, y, z ?? 0);
+      }
+    }
+    for (const key of Object.keys(models)) {
+      if (this.#propSpots.has(key) && !worn.has(key)) this.#streamable.add(key);
+      else this.#wanted.add(key);
+    }
+    for (const key of this.#streamable) {
+      if (this.#near(key, this.#startPoint())) this.#wanted.add(key);
+    }
   }
 
   /**
@@ -682,6 +894,20 @@ export class Scene {
     return this.game.replica && this.config.type === 'level';
   }
 
+  /**
+   * What the streamer is doing, for the debug readout and for a test:
+   * which model keys may come and go, which the camera wants, which are
+   * in the air, and which are resident.
+   */
+  get streaming() {
+    return {
+      streamable: [...this.#streamable],
+      wanted: [...this.#wanted].filter((key) => this.#streamable.has(key)),
+      loading: [...this.#loading.keys()],
+      resident: [...this.models.keys()]
+    };
+  }
+
   /** `onHide` (with a display), then `onExit`, then tear down. */
   unload() {
     const headless = this.game.headless;
@@ -692,6 +918,14 @@ export class Scene {
     // every body of every scene ever loaded alive. onExit runs first so it
     // can still look one up.
     this.entitiesById.clear();
+    // A load still in the air must not land in a scene that has gone, and
+    // every model this scene brought in gives its GPU memory back — which
+    // is what used to leak a level's worth on each scene change.
+    this.#gone = true;
+    this.#propsReady = false;
+    this.#wanted.clear();
+    for (const model of this.models.values()) this.game.renderer?.unloadModel?.(model);
+    this.models.clear();
     this.batches = [];
     this.propBodies = [];
 
@@ -851,6 +1085,11 @@ export class Scene {
    */
   frame3D(deltaTime) {
     const game = this.game;
+    // Models in and out with the camera, before the frame is filled, so
+    // what arrived this frame is drawn this frame. Every few frames is
+    // often enough: the radii have tens of metres of slack in them and
+    // the test walks every prop position.
+    if ((game.time?.frame ?? 0) % STREAM_EVERY === 0) this.streamModels(game.camera.position ?? game.camera);
     const frame = game.renderer.createFrame();
     frame.setCamera(game.camera);
 
@@ -861,11 +1100,7 @@ export class Scene {
         const mesh = entity.mesh;
         if (!mesh || mesh.visible === false || !entity.visible || entity.dead) continue;
         const body = entity.body;
-        if (entity.light) {
-          const p = body.renderPosition;
-          const o = entity.light.offset ?? ZERO;
-          frame.addLight({ ...entity.light, position: { x: p.x + o.x, y: p.y + o.y, z: p.z + o.z } });
-        }
+        if (entity.light) frame.addLight(placeLight(entity.light, body.renderPosition));
         if (mesh.model) {
           this.#addModel(frame, mesh, body, deltaTime);
           continue;

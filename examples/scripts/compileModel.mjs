@@ -18,13 +18,25 @@
  * Textures are KTX2 (Basis Universal, `KHR_texture_basisu`), which the
  * engine transcodes at load to whatever block-compressed format the GPU
  * has — a quarter of RGBA8's memory, with the mip chain in the file — so
- * the cap is 4096 where WebP had to stop at 2048. Normal maps are UASTC
- * with the encoder's normal-map tuning, metallic-roughness and occlusion
- * UASTC too (ETC1S's shared codebook smears correlated channels), and
- * colour maps ETC1S, which reads fine for albedo at a fraction of the
- * bytes. Block formats need dimensions in whole 4px blocks at level 0,
- * which the cap preserves for the power-of-two sources Poly Haven ships
- * and `roundToBlock` guards for anything else.
+ * the cap is 3072 where WebP had to stop at 2048; see `TEXTURE_CAP` for
+ * why not 4096. Normal maps are UASTC with the encoder's normal-map
+ * tuning, metallic-roughness and occlusion UASTC too (ETC1S's shared
+ * codebook smears correlated channels), and colour maps ETC1S, which
+ * reads fine for albedo at a fraction of the bytes. Block formats need
+ * dimensions in whole 4px blocks at level 0, which the cap preserves for
+ * the power-of-two sources Poly Haven ships and `roundToBlock` guards
+ * for anything else.
+ *
+ * A build is encoder time. The decimation of even a four-million-triangle
+ * scan is a minute; every 3072 UASTC texture at the encoder's default
+ * effort is three quarters of one, and a tree carries nine. The levels
+ * chosen below bring a texture to 3–13 s; `buildModels.mjs` runs several
+ * models at once on top of that.
+ *
+ * An encode that fails is an error, not a warning. The encoder plugin
+ * catches its own failures and leaves the source image in place, which
+ * is how a whole build once shipped 4k PNGs while every status said
+ * KTX2; `assertEncoded` refuses to write such a file.
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -59,6 +71,28 @@ function roundToBlock() {
   };
 }
 
+/**
+ * Refuse to write a model whose textures did not survive the encoder.
+ *
+ * `ktx2()` catches its own failures and logs a warning, leaving the
+ * source image on the texture — so a build can report success and ship
+ * exactly what KTX2 was meant to replace. This turns that into the
+ * error it is, naming what was left behind.
+ */
+function assertEncoded(document, id) {
+  const left = document.getRoot().listTextures()
+    .filter((texture) => texture.getMimeType() !== 'image/ktx2')
+    .map((texture) => {
+      const size = texture.getSize();
+      return `${texture.getName() || texture.getURI() || 'unnamed'} (${texture.getMimeType()}, ${size ? size.join('x') : '?'})`;
+    });
+  if (!left.length) return;
+  throw new Error(
+    `${id}: ${left.length} texture(s) were not encoded as KTX2 and would ship uncompressed:\n  ${left.join('\n  ')}\n` +
+    'The encoder plugin logs its failures as warnings above. A texture over ' +
+    `${TEXTURE_CAP}px, or over Basis 2.5's 12,582,912-texel ceiling, is the usual cause.`);
+}
+
 export const OUT_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'models', 'ph');
 
 /** Triangles level 0 may keep, by what the model is; the levels after are fractions of it. */
@@ -76,13 +110,23 @@ const LEVELS = [
   { ratio: 0.08, coverage: 0.12, error: 0.08 },
   { ratio: 0.02, coverage: 0.04, error: 0.2 }
 ];
-const TEXTURE_CAP = 4096;
+/**
+ * The largest texture written, in pixels a side.
+ *
+ * Not 4096: Basis Universal 2.5 refuses more than 12,582,912 source
+ * texels in one encode — a guard against OOM in its 32-bit wasm — and a
+ * 4096 square is 16,777,216. The plugin catches that refusal and leaves
+ * the image as it found it, so a 4k cap silently wrote PNGs. 3072 is
+ * 9,437,184 texels, the largest whole-block size under the ceiling, and
+ * three quarters of the source's side rather than half.
+ */
+const TEXTURE_CAP = 3072;
 
 /**
  * Bumped when what this script writes changes shape (texture format, LOD
  * layout); `buildModels.mjs` rebuilds every model whose stamp disagrees.
  */
-export const FORMAT = 3;
+export const FORMAT = 4;
 
 /** What kind of thing each source is, which sets its triangle budget. */
 export const KINDS = {
@@ -222,13 +266,20 @@ export async function compileModel(id) {
     dedup(),
     textureCompress({ encoder: sharp, targetFormat: 'png', resize: [TEXTURE_CAP, TEXTURE_CAP] }),
     roundToBlock(),
-    ktx2({ slots: /normalTexture/, imageDecoder, generateMipmap: true, isUASTC: true, needSupercompression: true, isNormalMap: true, isPerceptual: false, isSetKTX2SRGBTransferFunc: false }),
-    ktx2({ slots: /metallicRoughnessTexture|occlusionTexture/, imageDecoder, generateMipmap: true, isUASTC: true, needSupercompression: true, isPerceptual: false, isSetKTX2SRGBTransferFunc: false }),
+    // UASTC's quality level is its encoder effort, and it is the whole
+    // cost of a build: on a 3072 normal map the default (2) takes 46 s,
+    // level 1 takes 13 s and level 0 takes 3 s, for the same bytes out
+    // and a difference in error well under what a block format already
+    // costs. Normals get level 1, since a normal map shows banding first;
+    // roughness and occlusion, which the eye never sees directly, level 0.
+    ktx2({ slots: /normalTexture/, imageDecoder, generateMipmap: true, isUASTC: true, uastcLDRQualityLevel: 1, needSupercompression: true, isNormalMap: true, isPerceptual: false, isSetKTX2SRGBTransferFunc: false }),
+    ktx2({ slots: /metallicRoughnessTexture|occlusionTexture/, imageDecoder, generateMipmap: true, isUASTC: true, uastcLDRQualityLevel: 0, needSupercompression: true, isPerceptual: false, isSetKTX2SRGBTransferFunc: false }),
     ktx2({ slots: /baseColorTexture|emissiveTexture/, imageDecoder, generateMipmap: true, isUASTC: false, qualityLevel: 192, isPerceptual: true, isSetKTX2SRGBTransferFunc: true }),
     prune(),
     // The merged levels each brought a buffer; a .glb holds one.
     unpartition()
   );
+  assertEncoded(out, id);
   const info = JSON.parse(readFileSync(resolve(SOURCE_DIR, id, 'info.json'), 'utf8'));
   out.getRoot().getAsset().extras = {
     ...out.getRoot().getAsset().extras,

@@ -140,7 +140,7 @@ A light the prefab carries, following its body. In a 2D level a `light` is an er
 | `offset` | `{ "x", "y", "z" }` in metres from the body's centre | `0` |
 | `direction` | `{ "x", "y", "z" }`, where a spot points | straight down |
 | `innerCone`, `outerCone` | radians; full brightness inside the inner cone, dark outside the outer | `0.4`, `0.6` |
-| `shadow` | boolean; whether a spot casts a shadow map. The nearest few spots do, as the `r_shadows` setting allows | `true` |
+| `shadow` | boolean; whether the light casts. The nearest few of each kind do, as the `r_shadows` setting allows: a perspective map for a spot, a six-face cube for a point | `true` |
 
 The sun is the scene's, set in `onRender`, not a prefab's. See the [renderer](./renderer#three-dimensions).
 
@@ -173,14 +173,14 @@ An array of layers.
 
 ### `layers[].props[]`
 
-A prefab placed many times as scenery, in a 3D level. A prop is presentation and, if it asks, a static collider: it has no entity and no light, so the prefab's `physics` and `light` are not read, and game code cannot find it. What it has is the prefab's `mesh`, which is required, drawn from instance records the scene builds once at load and the renderer keeps on the GPU. Ten thousand trees cost the CPU nothing per frame. A `mesh.model` that is skinned cannot be a prop; it has no joints to pose.
+A prefab placed many times as scenery, in a 3D level. A prop is presentation and, if it asks, a static collider: it has no entity, so the prefab's `physics` is not read and game code cannot find it. What it has is the prefab's `mesh`, which is required, drawn from instance records the scene builds once at load and the renderer keeps on the GPU, and the prefab's `light` if it carries one, placed at every instance with its `offset` turned and scaled along. Ten thousand trees cost the CPU nothing per frame. A `mesh.model` that is skinned cannot be a prop; it has no joints to pose.
 
 | Key | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `id` | yes | | Identity, unique within the scene like an object's |
 | `prefab` | yes | | A key in `prefabs`; the prefab must have a `mesh` |
 | `width`, `height`, `depth` | no | `32`, `32`, the width | Size in metres of a shape prop, before each instance's scale. A model keeps the file's size times `mesh.scale` |
-| `castShadow` | no | `true` | Whether the instances cast shadows |
+| `castShadow` | no | `true` | Whether the instances cast shadows. The prefab's `mesh.castShadow` applies too; either being `false` turns casting off, as a lantern's glowing shell needs |
 | `collider` | no | `"none"` | What the instances collide as: `"none"` (grass), `"bounds"` (a static body the size of the drawn thing, placed and turned with it), or `{ "shape", "width", "height", "depth" }`, a `box`, `cylinder` or `sphere` standing on the instance's origin, in metres before the instance's scale: a tree wants a trunk, not its canopy. No entity is made; the body only stops things |
 | `instances` | yes | | An array of `[x, y, z, yaw, scale]` tuples: position in metres, a turn about the up axis in radians, and a multiplier on the size |
 
@@ -190,6 +190,8 @@ A prefab placed many times as scenery, in a 3D level. A prop is presentation and
   "instances": [[12, 1.5, -4, 0, 1], [15.5, 1.8, -3, 1.2, 1.2]]
 }]
 ```
+
+Props stream. A model that only props use is loaded when the camera comes near one of its instances and released when it goes away again; see [streaming](./renderer#three-dimensions). The instances' colliders are built once at load and stay, so what a prop blocks does not depend on where the camera is.
 
 In a 2D level `props` is an error. The yard example's lot (`?scene=lot`) is laid out this way by `examples/scripts/buildLotScene.mjs`.
 

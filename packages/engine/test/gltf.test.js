@@ -548,11 +548,72 @@ describe('props', () => {
     const [plain, turned] = scene.propLights;
     expect(plain.intensity).toBe(30);
     expect(plain.position).toEqual({ x: 12, y: 3, z: -4 });
+    // The colour is linear light, as an entity's light carries it; the
+    // CSS string would pack into the light buffer as NaN.
+    expect(plain.color[0]).toBeCloseTo(1, 5);
+    expect(plain.color[1]).toBeCloseTo(0.552, 2);
+    expect(plain.color[2]).toBeCloseTo(0.171, 2);
     // A quarter turn about y carries the x offset onto -z, and the
     // double scale doubles the arm.
     expect(turned.position.x).toBeCloseTo(0, 6);
     expect(turned.position.y).toBeCloseTo(6, 6);
     expect(turned.position.z).toBeCloseTo(-4, 6);
+  });
+
+  it('streams a prop model out when the camera leaves, and keeps its colliders', async () => {
+    const box = await parseGLB(fixture('BoxTextured'), { decodeImage: fakeDecode });
+    const config = loader().load(level({
+      assets: { models: { near: { url: 'models/near.glb' }, far: { url: 'models/far.glb' }, worn: { url: 'models/worn.glb' } } },
+      prefabs: {
+        near: { actor: 'Ground', mesh: { model: 'near' } },
+        far: { actor: 'Ground', mesh: { model: 'far' } },
+        hero: { actor: 'Ground', mesh: { model: 'worn' } }
+      },
+      layers: [{
+        name: 'main',
+        // An entity wears `worn`, so that model never streams.
+        objects: [{ id: 'hero', prefab: 'hero', x: 0, y: 0, z: 0 }],
+        props: [
+          { id: 'close', prefab: 'near', collider: 'none', instances: [[0, 0, 0, 0, 1]] },
+          { id: 'distant', prefab: 'far', collider: 'none', instances: [[1000, 0, 0, 0, 1]] }
+        ]
+      }]
+    }));
+    const { Scene } = await import('../src/core/scene.js');
+    const released = [];
+    const scene = new Scene({
+      headless: false, physics: { dimensions: 3 },
+      renderer: { unloadModel: (model) => released.push(model) }
+    }, config);
+
+    scene.indexProps();
+    // Only the prop-only models may come and go; the hero's does not.
+    expect(scene.streaming.streamable.sort()).toEqual(['far', 'near']);
+    // From the origin, the near one is wanted and the one a kilometre
+    // away is not — that is what keeps it out of the first load.
+    expect(scene.streaming.wanted).toEqual(['near']);
+
+    // Both happen to be resident; the props build their batches.
+    scene.models.set('near', box);
+    scene.models.set('far', box);
+    scene.setupProps();
+    expect(scene.batches.length).toBeGreaterThan(0);
+    const drawnNear = scene.batches.length;
+
+    // Walk to the far prop: the near one falls outside the release radius
+    // and is handed back, GPU memory and all.
+    scene.streamModels({ x: 1000, y: 0, z: 0 });
+    expect(scene.streaming.resident).toEqual(['far']);
+    expect(released).toEqual([box]);
+    // Only the near model's batches went; the far one still draws.
+    expect(scene.batches.length).toBeLessThan(drawnNear);
+    expect(scene.batches.length).toBeGreaterThan(0);
+
+    // Between the two radii nothing changes hands, which is what the gap
+    // between them is for.
+    const steady = scene.streaming.resident.join();
+    scene.streamModels({ x: 1000 - scene.streamOut + 1, y: 0, z: 0 });
+    expect(scene.streaming.resident.join()).toBe(steady);
   });
 
   it('builds one resident batch per geometry and material, shapes and model parts alike', async () => {
@@ -562,7 +623,14 @@ describe('props', () => {
       prefabs: {
         tree: { actor: 'Ground', mesh: { color: '#3f6b2f', shape: 'sphere' } },
         crate: { actor: 'Ground', mesh: { color: '#b86a2a' } },
-        truck: { actor: 'Ground', mesh: { model: 'truck', scale: 2, offset: { x: 0, y: -1, z: 0 } } }
+        truck: { actor: 'Ground', mesh: { model: 'truck', scale: 2, offset: { x: 0, y: -1, z: 0 } } },
+        // A glowing shell around a light: the prefab says it casts nothing.
+        lantern: {
+          actor: 'Ground', mesh: { color: '#ffd9a0', shape: 'sphere', emissive: 7, castShadow: false },
+          light: { type: 'point', intensity: 30, range: 14 }
+        },
+        // The same model as the truck, but the prefab's mesh does not cast.
+        ghost: { actor: 'Ground', mesh: { model: 'truck', castShadow: false } }
       },
       layers: [{
         name: 'main', objects: [],
@@ -570,7 +638,9 @@ describe('props', () => {
           { id: 'trees', prefab: 'tree', width: 3, height: 3, instances: [[1, 2, 3, 0, 1], [4, 2, 6, 1.5, 1.3]] },
           { id: 'more-trees', prefab: 'tree', width: 3, height: 3, instances: [[9, 2, 3, 0, 0.5]] },
           { id: 'crates', prefab: 'crate', width: 1, height: 1, depth: 1, castShadow: false, instances: [[0, 0.5, 0, 0.3, 1]] },
-          { id: 'trucks', prefab: 'truck', instances: [[10, 1, 10, Math.PI / 2, 1]] }
+          { id: 'trucks', prefab: 'truck', instances: [[10, 1, 10, Math.PI / 2, 1]] },
+          { id: 'lanterns', prefab: 'lantern', width: 0.2, height: 0.2, instances: [[6, 3, 6, 0, 1]] },
+          { id: 'ghosts', prefab: 'ghost', instances: [[20, 1, 10, 0, 1]] }
         ]
       }]
     }));
@@ -579,9 +649,10 @@ describe('props', () => {
     const scene = new Scene({ headless: false, physics: { dimensions: 3 } }, config);
     scene.models.set('truck', truck);
     scene.setupProps();
-    // Spheres (both tree props), boxes, and the truck's one textured part.
+    // Spheres (the tree props and the lantern share a geometry), boxes,
+    // and the truck's one textured part, which both model props draw.
     expect(scene.batches).toHaveLength(3);
-    const spheres = scene.batches.find((b) => b.material === null && b.count === 3);
+    const spheres = scene.batches.find((b) => b.material === null && b.count === 4);
     expect(spheres).toBeTruthy();
     // The second tree: at (4, 2, 6), 3 m wide times 1.3, so a sphere of radius 1.95 around it.
     const second = spheres.records.subarray(INSTANCE_FLOATS, 2 * INSTANCE_FLOATS);
@@ -591,15 +662,44 @@ describe('props', () => {
     const crates = scene.batches.find((b) => b.material === null && b.count === 1);
     expect(crates.records[28]).toBeCloseTo(0.479, 2);
     expect(crates.records[55]).toBe(0);
+    // The prefab's own `castShadow: false` holds for a prop too, shape and
+    // model alike: a lantern's shell that cast would shadow its own light
+    // into darkness. The trees, with neither flag, cast.
+    const lantern = spheres.records.subarray(3 * INSTANCE_FLOATS, 4 * INSTANCE_FLOATS);
+    expect([lantern[56], lantern[57], lantern[58]]).toEqual([6, 3, 6]);
+    expect(lantern[55]).toBe(0);
+    expect(second[55]).toBe(1);
     // The truck's part carries the file's material and the mesh block's scale and offset.
     const trucks = scene.batches.find((b) => b.material !== null);
     expect(trucks.material).toBe(truck.parts[0].material);
-    expect(trucks.count).toBe(1);
+    expect(trucks.count).toBe(2);
+    expect(trucks.records[55]).toBe(1);
+    expect(trucks.records[INSTANCE_FLOATS + 55]).toBe(0);
     // y: the instance's 1 plus the offset's -1; the offset is in the body's
     // frame, before the model's scale, as an entity's model is placed.
     expect(trucks.records[13]).toBeCloseTo(0, 5);
     expect(trucks.records[0]).toBeCloseTo(0, 5);   // turned a quarter: x axis maps to z
     expect(trucks.records[2]).toBeCloseTo(-2, 5);  // at scale 2
+  });
+});
+
+describe('the model loader, where there is no worker', () => {
+  it('finds every buffer a model holds, once, for the transfer list', async () => {
+    const { transferablesOf, workersAvailable } = await import('../src/core/modelLoader.js');
+    const model = await parseGLB(fixture('BoxTextured'), { decodeImage: fakeDecode });
+    const buffers = transferablesOf(model);
+    const part = model.parts[0];
+    for (const array of [part.geometry.positions, part.geometry.normals, part.geometry.uvs, part.geometry.indices, part.matrix]) {
+      expect(buffers.has(array.buffer)).toBe(true);
+    }
+    // Two views on one buffer are one transfer, or postMessage would throw.
+    const shared = new Float32Array(8);
+    const twice = transferablesOf({ a: shared, b: shared.subarray(2, 4), c: [shared] });
+    expect(twice.size).toBe(1);
+    // Nothing that is not a buffer or a bitmap sneaks in.
+    for (const item of buffers) expect(item).toBeInstanceOf(ArrayBuffer);
+    // Node has no `Worker`, so loads here go straight to the main thread.
+    expect(workersAvailable()).toBe(false);
   });
 });
 
@@ -619,6 +719,40 @@ describe('lights', () => {
     expect(spot[13]).toBeCloseTo(Math.cos(0.4), 6);
     for (let i = 0; i < MAX_LIGHTS + 5; i++) frame.addLight({ position: { x: (i % 50) - 25, y: 0, z: 0 } });
     expect(frame.lights).toHaveLength(MAX_LIGHTS);
+  });
+
+  it('refuses a light whose numbers are not numbers, naming the conversion that was skipped', () => {
+    const frame = new Frame3D();
+    const at = { x: 0, y: 1, z: 0 };
+    // The bug this exists for: a scene's light block spread straight into
+    // the frame, its CSS colour still a string. It packed as NaN and took
+    // every fragment in the light's cluster to black with it.
+    expect(() => frame.addLight({ position: at, color: '#ffc473', intensity: 70, range: 24 }))
+      .toThrow(/colour is the string "#ffc473"[\s\S]*lightFor/);
+    expect(() => frame.addLight({ position: at, color: [1, 0.5] })).toThrow(/three finite numbers/);
+    expect(() => frame.addLight({ position: at, color: [1, 0.5, NaN] })).toThrow(/three finite numbers/);
+    expect(() => frame.addLight({ position: { x: 0, y: NaN, z: 0 } })).toThrow(/finite position/);
+    expect(() => frame.addLight({ color: [1, 1, 1] })).toThrow(/finite position/);
+    expect(() => frame.addLight({ position: at, intensity: '70' })).toThrow(/intensity is not a number/);
+    expect(() => frame.addLight({ position: at, range: undefined })).not.toThrow();
+    // Nothing bad reached the buffer.
+    expect(frame.lights).toHaveLength(1);
+  });
+
+  it('places an offset light the same way for an entity and for a prop instance', async () => {
+    const { lightFor, placeLight } = await import('../src/core/presentation3d.js');
+    const light = lightFor({ type: 'point', color: '#ffc473', intensity: 30, offset: { x: 2, y: 3, z: 0 } });
+    // An entity: the offset is in the world's frame, unturned.
+    expect(placeLight(light, { x: 10, y: 0, z: -4 }).position).toEqual({ x: 12, y: 3, z: -4 });
+    // A prop instance: turned by its yaw and scaled by its size, so a
+    // quarter turn carries the x arm onto -z and double scale doubles it.
+    const turned = placeLight(light, { x: 0, y: 0, z: 0 }, Math.PI / 2, 2).position;
+    expect(turned.x).toBeCloseTo(0, 6);
+    expect(turned.y).toBeCloseTo(6, 6);
+    expect(turned.z).toBeCloseTo(-4, 6);
+    // And what it hands over is what the frame accepts.
+    const frame = new Frame3D();
+    expect(() => frame.addLight(placeLight(light, { x: 0, y: 0, z: 0 }))).not.toThrow();
   });
 
   it('fades a light out with distance and drops it past the limit', () => {

@@ -40,6 +40,14 @@ export class TextureCache3D {
     this.device = device;
     /** @type {WeakMap<object, GPUTexture>} */
     this.textures = new WeakMap();
+    /**
+     * Bytes of GPU memory the uploaded images hold, so a streaming
+     * budget has a number to weigh. Mip chains included: a full chain
+     * is a third again the base level.
+     */
+    this.bytes = 0;
+    /** @type {WeakMap<object, number>} Bytes per uploaded image, for `release`. */
+    this.sizes = new WeakMap();
     this.blitPipelines = new Map();
     this.blitSampler = device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
     this.blitModule = device.createShaderModule({ code: BLIT_SHADER, label: 'mip blit' });
@@ -138,7 +146,32 @@ export class TextureCache3D {
     this.device.queue.copyExternalImageToTexture({ source: image }, { texture }, { width, height });
     if (mipLevelCount > 1) this.#generateMips(texture, format, mipLevelCount);
     this.textures.set(image, texture);
+    this.#count(image, width * height * 4 * (mipLevelCount > 1 ? 4 / 3 : 1));
     return texture;
+  }
+
+  /** Record what an upload costs, for `bytes` and `release`. */
+  #count(image, bytes) {
+    const size = Math.round(bytes);
+    this.sizes.set(image, size);
+    this.bytes += size;
+  }
+
+  /**
+   * Drop an uploaded image: its texture is destroyed and the bytes come
+   * off the total. The next `get` for the same image uploads it again,
+   * so this is safe to call on anything — it costs a re-upload, not
+   * correctness. Streaming uses it to let go of what is far away.
+   * @returns {boolean} Whether there was anything to release
+   */
+  release(image) {
+    const texture = this.textures.get(image);
+    if (!texture) return false;
+    texture.destroy();
+    this.textures.delete(image);
+    this.bytes -= this.sizes.get(image) ?? 0;
+    this.sizes.delete(image);
+    return true;
   }
 
   /**
@@ -175,6 +208,7 @@ export class TextureCache3D {
         { width: blocksWide * block, height: blocksHigh * block }
       );
     }
+    this.#count(image, image.mips.reduce((total, level) => total + level.byteLength, 0));
     return texture;
   }
 

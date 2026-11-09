@@ -202,6 +202,15 @@ export class WebGPURenderer extends BaseRenderer {
     Object.assign(this.stats, { instances: 0, drawn: 0, casters: 0, triangles: 0, gpuMs: 0 });
     /** @type {WeakMap<object, {positions: GPUBuffer, normals: GPUBuffer, uvs: GPUBuffer, index: GPUBuffer, count: number, format: GPUIndexFormat}>} */
     this.geometryCache = new WeakMap();
+    /**
+     * The buffers a bind group holds but does not expose. A bind group
+     * cannot be asked what is inside it, and `unloadModel` has to destroy
+     * them, so they are noted here as they are made.
+     * @type {WeakMap<object, GPUBuffer>} material -> its uniform
+     */
+    this.materialUniforms = new WeakMap();
+    /** @type {WeakMap<object, GPUBuffer[]>} geometry -> its morph buffers */
+    this.morphBuffers = new WeakMap();
 
     /** The canvas texture of the frame being drawn; valid until the task ends. */
     this.currentTexture = null;
@@ -433,8 +442,10 @@ export class WebGPURenderer extends BaseRenderer {
 
     // KTX2 textures in a model transcode to the best compressed format
     // this device has; the transcoder wasm loads on the first one seen.
+    /** The block format KTX2 textures transcode to on this GPU; `modelLoader` hands it to its workers. */
+    this.transcodeTarget = bestTranscodeTarget(device);
     setKTX2Decoder(async (bytes) =>
-      transcodeKTX2(await initBasis(), bytes, bestTranscodeTarget(device)));
+      transcodeKTX2(await initBasis(), bytes, this.transcodeTarget));
 
     this.#createShadowMaps();
 
@@ -808,6 +819,9 @@ export class WebGPURenderer extends BaseRenderer {
       this.environment?.invalidate();
       this.pointShadowCache = [];
       this.post.historyValid = false;
+    }, () => {
+      // The scope's promise rejects once the device is lost; `device.lost`
+      // reports that, and a rejection a frame would only add noise.
     });
     if (slot) this.#readStats(slot);
     // What the cull decided last frame is the best answer this frame has.
@@ -1272,6 +1286,57 @@ export class WebGPURenderer extends BaseRenderer {
     }
   }
 
+  /**
+   * Let go of everything a model holds on the GPU: its parts' vertex and
+   * index buffers, its materials' bind groups and uniforms, and the
+   * textures those name. The caches are keyed on the model's own CPU
+   * objects, so a later draw of the same model simply uploads it again —
+   * this trades memory for an upload, never for correctness.
+   *
+   * Streaming calls it for a model that has gone far away; a scene calls
+   * it for every model it owns when it unloads, which is what used to
+   * leak a level's worth of GPU memory on every scene change.
+   * @param {object} model - A `gltf.js` model
+   * @returns {number} Bytes of texture memory released
+   */
+  unloadModel(model) {
+    if (!model || !this.device) return 0;
+    const before = this.textures?.bytes ?? 0;
+    const seen = new Set();
+    const levels = model.lods?.length ? model.lods : [{ parts: model.parts ?? [] }];
+    for (const level of levels) {
+      for (const part of level.parts ?? []) {
+        const gpu = part.geometry && this.geometryCache.get(part.geometry);
+        if (gpu) {
+          for (const buffer of [gpu.positions, gpu.normals, gpu.uvs, gpu.tangents, gpu.colors,
+            gpu.joints, gpu.weights, gpu.index]) buffer?.destroy();
+          for (const buffer of this.morphBuffers.get(part.geometry) ?? []) buffer.destroy();
+          this.morphBuffers.delete(part.geometry);
+          this.geometryCache.delete(part.geometry);
+        }
+        const material = part.material;
+        if (!material || seen.has(material)) continue;
+        seen.add(material);
+        this.materialUniforms.get(material)?.destroy();
+        this.materialUniforms.delete(material);
+        this.materialCache.delete(material);
+        for (const slot of ['baseColorTexture', 'metallicRoughnessTexture', 'normalTexture',
+          'occlusionTexture', 'emissiveTexture']) {
+          // `gltf.js` puts the decoded image straight on the slot; it is
+          // what `TextureCache3D` is keyed by.
+          const image = material[slot];
+          if (image) this.textures?.release(image);
+        }
+      }
+    }
+    return before - (this.textures?.bytes ?? 0);
+  }
+
+  /** Bytes of GPU texture memory the loaded models currently hold. */
+  get textureBytes() {
+    return this.textures?.bytes ?? 0;
+  }
+
   /** The bind group for a glTF material, or the default for none, made on first sight. */
   #material(material) {
     if (!material) return this.defaultMaterial;
@@ -1308,6 +1373,7 @@ export class WebGPURenderer extends BaseRenderer {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
     device.queue.writeBuffer(uniform, 0, data);
+    if (material) this.materialUniforms.set(material, uniform);
     const texture = (image, fallback, srgb) => (image ? textures.get(image, { srgb }) : fallback).createView();
     return device.createBindGroup({
       label: `material ${material?.name ?? 'default'}`,
@@ -1364,12 +1430,13 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** A geometry's morph deltas and their shape, bound as group 3. */
-  #morphGroup(morphs, upload) {
+  #morphGroup(morphs, upload, geometry) {
     const deltas = upload(morphs.deltas, GPUBufferUsage.STORAGE, 'morph deltas');
     const info = this.device.createBuffer({
       label: 'morph info', size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
     this.device.queue.writeBuffer(info, 0, new Uint32Array([morphs.count, morphs.vertices, 0, 0]));
+    if (geometry) this.morphBuffers.set(geometry, [deltas, info]);
     return this.device.createBindGroup({
       layout: this.morphBindGroupLayout,
       entries: [
@@ -1398,7 +1465,7 @@ export class WebGPURenderer extends BaseRenderer {
       // has no normal map, so the shader never reads them.
       tangents: upload(geometry.tangents ?? new Float32Array((geometry.positions.length / 3) * 4), GPUBufferUsage.VERTEX, 'tangents'),
       colors: geometry.colors ? upload(geometry.colors, GPUBufferUsage.VERTEX, 'vertex colors') : null,
-      morphGroup: geometry.morphs ? this.#morphGroup(geometry.morphs, upload) : null,
+      morphGroup: geometry.morphs ? this.#morphGroup(geometry.morphs, upload, geometry) : null,
       vertices: geometry.positions.length / 3,
       skinned: !!geometry.skinned,
       joints: geometry.skinned ? upload(geometry.joints, GPUBufferUsage.VERTEX, 'joints') : null,
