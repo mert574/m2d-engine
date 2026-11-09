@@ -16,6 +16,27 @@ export const MAX_CASCADES = 4;
 /** Spot lights that may cast a shadow map at once. */
 export const MAX_SPOT_SHADOWS = 4;
 
+/**
+ * The light cluster grid: tiles across the screen and slices into depth.
+ * A fragment shades with the lights of its own cluster instead of every
+ * light in the frame, which is what lets a level carry hundreds.
+ * 16x9x24 is 3,456 clusters, and the slices are spaced exponentially so
+ * the near ones are thin.
+ */
+export const CLUSTER_X = 16;
+export const CLUSTER_Y = 9;
+export const CLUSTER_Z = 24;
+
+/** Clusters in the grid. */
+export const CLUSTER_COUNT = CLUSTER_X * CLUSTER_Y * CLUSTER_Z;
+
+/**
+ * Lights one cluster may hold. Past this the cluster keeps the first it
+ * found and drops the rest — a cluster lit by more than 32 lights at
+ * once is a scene problem, not a renderer one.
+ */
+export const CLUSTER_CAPACITY = 32;
+
 /** Floats in the frame uniform, in the order `Frame` declares them. */
 export const FRAME_UNIFORM_FLOATS = 16 * 3 + 16 * MAX_CASCADES + 16 * MAX_SPOT_SHADOWS + 4 * 12 + 4 * 8 + 4 * 2 + 16;
 
@@ -116,6 +137,32 @@ struct Light {
 // The cull pass's output: for each pass and group, the indices of the
 // instances that survived, in the slots the indirect draw walks.
 @group(0) @binding(4) var<storage, read> remap: array<u32>;
+// The light cluster pass's output: how many lights reach each cluster,
+// and their indices, ${CLUSTER_CAPACITY} slots per cluster.
+@group(0) @binding(5) var<storage, read> clusterCounts: array<u32>;
+@group(0) @binding(6) var<storage, read> clusterIndices: array<u32>;
+
+const CLUSTER_X = ${CLUSTER_X}u;
+const CLUSTER_Y = ${CLUSTER_Y}u;
+const CLUSTER_Z = ${CLUSTER_Z}u;
+const CLUSTER_CAPACITY = ${CLUSTER_CAPACITY}u;
+
+/**
+ * The cluster a fragment belongs to: its tile across the screen, and the
+ * depth slice its view depth falls in. The slices are spaced
+ * exponentially, so the near ones — where a cluster covers little world
+ * and lights overlap most — are thin.
+ */
+fn clusterOf(fragCoord: vec2f, viewDepth: f32) -> u32 {
+  let surface = max(frame.jitter.zw, vec2f(1.0));
+  let tx = min(u32(max(fragCoord.x, 0.0) / surface.x * f32(CLUSTER_X)), CLUSTER_X - 1u);
+  let ty = min(u32(max(fragCoord.y, 0.0) / surface.y * f32(CLUSTER_Y)), CLUSTER_Y - 1u);
+  let near = max(frame.lens.z, 1e-4);
+  let far = max(frame.lens.w, near * 1.001);
+  let slice = log(max(viewDepth, near) / near) / log(far / near) * f32(CLUSTER_Z);
+  let tz = min(u32(max(slice, 0.0)), CLUSTER_Z - 1u);
+  return (tz * CLUSTER_Y + ty) * CLUSTER_X + tx;
+}
 
 // The blend of the four joint matrices a skinned vertex follows.
 fn skinMatrix(inst: Instance, j: vec4u, w: vec4f) -> mat4x4f {
@@ -340,6 +387,69 @@ fn fs(in: ShadowOut) {
 
 export const SHADOW_SHADER = shadowShader(false);
 export const SHADOW_SKINNED_SHADER = shadowShader(true);
+
+/**
+ * Light clustering. One invocation per cluster: build the cluster's
+ * view-space bounding box, then keep every light whose sphere reaches
+ * it. The fragment shader reads the list back through `clusterOf`.
+ *
+ * The grid is rebuilt every frame rather than cached against the
+ * projection, because it costs one dispatch over 3,456 invocations and
+ * caching it would mean tracking every change to the lens, the surface
+ * size and the light set.
+ */
+export const LIGHT_CLUSTER_SHADER = /* wgsl */ `
+${COMMON}
+
+@group(1) @binding(0) var<storage, read_write> countsOut: array<u32>;
+@group(1) @binding(1) var<storage, read_write> indicesOut: array<u32>;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id: vec3u) {
+  let cluster = id.x;
+  if (cluster >= CLUSTER_X * CLUSTER_Y * CLUSTER_Z) { return; }
+  let tx = cluster % CLUSTER_X;
+  let ty = (cluster / CLUSTER_X) % CLUSTER_Y;
+  let tz = cluster / (CLUSTER_X * CLUSTER_Y);
+
+  // The slice's depth range, exponential between the near and far planes.
+  let near = max(frame.lens.z, 1e-4);
+  let far = max(frame.lens.w, near * 1.001);
+  let ratio = far / near;
+  let zNear = near * pow(ratio, f32(tz) / f32(CLUSTER_Z));
+  let zFar = near * pow(ratio, f32(tz + 1u) / f32(CLUSTER_Z));
+
+  // The tile's edges in NDC. Rows run down the screen, to match the
+  // fragment's framebuffer coordinates in clusterOf.
+  let xLo = f32(tx) / f32(CLUSTER_X) * 2.0 - 1.0;
+  let xHi = f32(tx + 1u) / f32(CLUSTER_X) * 2.0 - 1.0;
+  let yHi = 1.0 - f32(ty) / f32(CLUSTER_Y) * 2.0;
+  let yLo = 1.0 - f32(ty + 1u) / f32(CLUSTER_Y) * 2.0;
+
+  // View space: x = ndc.x * lens.x * depth, as viewPosition builds it.
+  // The box spans both depths, since the tile widens with distance.
+  let xs = vec4f(xLo * frame.lens.x * zNear, xLo * frame.lens.x * zFar, xHi * frame.lens.x * zNear, xHi * frame.lens.x * zFar);
+  let ys = vec4f(yLo * frame.lens.y * zNear, yLo * frame.lens.y * zFar, yHi * frame.lens.y * zNear, yHi * frame.lens.y * zFar);
+  let lo = vec3f(min(min(xs.x, xs.y), min(xs.z, xs.w)), min(min(ys.x, ys.y), min(ys.z, ys.w)), zNear);
+  let hi = vec3f(max(max(xs.x, xs.y), max(xs.z, xs.w)), max(max(ys.x, ys.y), max(ys.z, ys.w)), zFar);
+
+  let count = u32(frame.params2.x);
+  var kept = 0u;
+  for (var i = 0u; i < count; i++) {
+    if (kept >= CLUSTER_CAPACITY) { break; }
+    let light = lights[i];
+    let view = frame.view * vec4f(light.position.xyz, 1.0);
+    // Depth positive along the view direction, as the box is built.
+    let centre = vec3f(view.x, view.y, -view.z);
+    let delta = centre - clamp(centre, lo, hi);
+    let range = light.position.w;
+    if (dot(delta, delta) > range * range) { continue; }
+    indicesOut[cluster * CLUSTER_CAPACITY + kept] = i;
+    kept += 1u;
+  }
+  countsOut[cluster] = kept;
+}
+`;
 
 /** Passes the cull shader can test at once: the camera and every shadow map. */
 export const MAX_CULL_PASSES = 1 + MAX_CASCADES + MAX_SPOT_SHADOWS;
@@ -588,9 +698,13 @@ fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
   let visibility = sunVisibility(in.worldPosition, n, max(dot(n, l), 0.0));
   var color = shade(n, v, l, sun * visibility, base, f0, metallic, roughness);
 
-  // Point and spot lights.
-  let lightCount = u32(frame.params2.x);
-  for (var i = 0u; i < lightCount; i++) {
+  // Point and spot lights, from this fragment's cluster rather than the
+  // whole frame: a fragment shades with the few lights that reach it.
+  let viewDepthHere = -(frame.view * vec4f(in.worldPosition, 1.0)).z;
+  let cluster = clusterOf(in.position.xy, viewDepthHere);
+  let lightCount = clusterCounts[cluster];
+  for (var slot = 0u; slot < lightCount; slot++) {
+    let i = clusterIndices[cluster * CLUSTER_CAPACITY + slot];
     let light = lights[i];
     let toLight = light.position.xyz - in.worldPosition;
     let distance = length(toLight);

@@ -4,7 +4,8 @@ import { identityViewport } from '../viewport.js';
 import { webgpuDevice } from './webgpu/device.js';
 import {
   SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER, CULL_SHADER,
-  FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES, MAX_SPOT_SHADOWS, MAX_CULL_PASSES
+  LIGHT_CLUSTER_SHADER, FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES,
+  MAX_SPOT_SHADOWS, MAX_CULL_PASSES, CLUSTER_COUNT, CLUSTER_CAPACITY
 } from './webgpu/shaders.js';
 import { TextureCache3D } from './webgpu/textures.js';
 import { initBasis, bestTranscodeTarget, transcodeKTX2 } from './webgpu/basis.js';
@@ -169,6 +170,14 @@ export class WebGPURenderer extends BaseRenderer {
     this.cullBindGroup = null;
     this.cullParams = null;
     this.cullData = new Float32Array(4 + MAX_CULL_PASSES * 6 * 4);
+    /** The light cluster pass: its pipeline and the grid it fills. */
+    this.clusterPipeline = null;
+    this.clusterSceneLayout = null;
+    this.clusterSceneBindGroup = null;
+    this.clusterBindGroupLayout = null;
+    this.clusterBindGroup = null;
+    this.clusterCountBuffer = null;
+    this.clusterIndexBuffer = null;
     this.groupStartsBuffer = null;
     this.groupLodBuffer = null;
     this.groupStartsCapacity = 0;
@@ -265,6 +274,17 @@ export class WebGPURenderer extends BaseRenderer {
       size: MAX_LIGHTS * LIGHT_FLOATS * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
     });
+    // One u32 per cluster, and CLUSTER_CAPACITY light indices per cluster.
+    this.clusterCountBuffer = device.createBuffer({
+      label: 'cluster counts',
+      size: CLUSTER_COUNT * 4,
+      usage: GPUBufferUsage.STORAGE
+    });
+    this.clusterIndexBuffer = device.createBuffer({
+      label: 'cluster light indices',
+      size: CLUSTER_COUNT * CLUSTER_CAPACITY * 4,
+      usage: GPUBufferUsage.STORAGE
+    });
     this.sceneBindGroupLayout = device.createBindGroupLayout({
       label: 'scene',
       entries: [
@@ -272,8 +292,31 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 1, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
         { binding: 2, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
         { binding: 3, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
-        { binding: 4, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } }
+        { binding: 4, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+        { binding: 5, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
+        { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }
       ]
+    });
+    // The clustering writes what the scene group holds read-only, so like
+    // the cull it reads the frame and the lights through a group of its own.
+    this.clusterSceneLayout = device.createBindGroupLayout({
+      label: 'cluster scene',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }
+      ]
+    });
+    this.clusterBindGroupLayout = device.createBindGroupLayout({
+      label: 'cluster',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }
+      ]
+    });
+    this.clusterPipeline = device.createComputePipeline({
+      label: 'light clusters',
+      layout: device.createPipelineLayout({ bindGroupLayouts: [this.clusterSceneLayout, this.clusterBindGroupLayout] }),
+      compute: { module: device.createShaderModule({ code: LIGHT_CLUSTER_SHADER, label: 'light clusters' }), entryPoint: 'main' }
     });
     // The cull reads the instances through a group of its own: the scene
     // group also holds the remap list, which the cull writes, and one pass
@@ -528,7 +571,11 @@ export class WebGPURenderer extends BaseRenderer {
     this.environment?.destroy();
     this.post?.destroy();
     this.lightBuffer?.destroy();
+    this.clusterCountBuffer?.destroy();
+    this.clusterIndexBuffer?.destroy();
     this.environment = this.post = this.lightBuffer = null;
+    this.clusterCountBuffer = this.clusterIndexBuffer = null;
+    this.clusterSceneBindGroup = this.clusterBindGroup = null;
     this.materialCache = new WeakMap();
     this.defaultMaterial = null;
     this.frameUniform?.destroy();
@@ -607,6 +654,13 @@ export class WebGPURenderer extends BaseRenderer {
     cull.setBindGroup(0, this.cullSceneBindGroup);
     cull.setBindGroup(1, this.cullBindGroup);
     cull.dispatchWorkgroups(Math.ceil(layout.total / 64));
+    // Lights into clusters, in the same pass: it reads the frame uniform
+    // and the light buffer, which the cull does not touch. Every cluster
+    // writes its own count, so there is nothing to clear first.
+    cull.setPipeline(this.clusterPipeline);
+    cull.setBindGroup(0, this.clusterSceneBindGroup);
+    cull.setBindGroup(1, this.clusterBindGroup);
+    cull.dispatchWorkgroups(Math.ceil(CLUSTER_COUNT / 64));
     cull.end();
 
     for (let i = 0; i < shadows.passes.length; i++) {
@@ -896,7 +950,9 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 1, resource: { buffer: this.instanceBuffer } },
         { binding: 2, resource: { buffer: this.lightBuffer } },
         { binding: 3, resource: { buffer: this.jointBuffer } },
-        { binding: 4, resource: { buffer: this.remapBuffer } }
+        { binding: 4, resource: { buffer: this.remapBuffer } },
+        { binding: 5, resource: { buffer: this.clusterCountBuffer } },
+        { binding: 6, resource: { buffer: this.clusterIndexBuffer } }
       ]
     });
     this.cullSceneBindGroup = this.device.createBindGroup({
@@ -904,6 +960,20 @@ export class WebGPURenderer extends BaseRenderer {
       entries: [
         { binding: 0, resource: { buffer: this.frameUniform } },
         { binding: 1, resource: { buffer: this.instanceBuffer } }
+      ]
+    });
+    this.clusterSceneBindGroup ??= this.device.createBindGroup({
+      layout: this.clusterSceneLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.frameUniform } },
+        { binding: 2, resource: { buffer: this.lightBuffer } }
+      ]
+    });
+    this.clusterBindGroup ??= this.device.createBindGroup({
+      layout: this.clusterBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.clusterCountBuffer } },
+        { binding: 1, resource: { buffer: this.clusterIndexBuffer } }
       ]
     });
   }

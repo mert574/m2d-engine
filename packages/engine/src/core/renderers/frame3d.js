@@ -293,8 +293,16 @@ export const INSTANCE_FLOATS = 16 + 12 + 4 + 4 + 16 + 4 + 4;
 /** Floats per light in the GPU buffer: position+range, colour+intensity, direction+type, cone+shadow. */
 export const LIGHT_FLOATS = 16;
 
-/** Lights a frame may hold; beyond it, `addLight` drops the rest. Clustering (R6) lifts this. */
-export const MAX_LIGHTS = 256;
+/**
+ * Lights a frame may hold; beyond it, `addLight` drops the rest.
+ *
+ * A fragment shades with its own cluster's lights, never the whole set
+ * (see `LIGHT_CLUSTER_SHADER`), so this bounds the clustering pass and
+ * the buffer rather than the cost of a pixel — which is why it is 1024
+ * and not the 256 a per-fragment loop over every light could afford.
+ * What a pixel pays is `CLUSTER_CAPACITY`.
+ */
+export const MAX_LIGHTS = 1024;
 
 const ZERO = { x: 0, y: 0, z: 0 };
 const IDENTITY_Q = { x: 0, y: 0, z: 0, w: 1 };

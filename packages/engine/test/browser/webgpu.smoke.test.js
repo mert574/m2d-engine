@@ -440,6 +440,63 @@ describe('lighting', () => {
     expect(nearLit[0]).toBeGreaterThan(nearLit[2]);
   });
 
+  it('clusters lights by tile and by depth: each one lights its own patch', async () => {
+    // Three short-range lights far apart along x, in primary colours. A
+    // fragment shades from its own cluster's list, so getting the tile
+    // or the depth slice wrong shows up as the wrong colour — or none.
+    const W = 160, H = 96;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 7, z: 7 });
+    const spots = [
+      { x: -5, color: [1, 0, 0], channel: 0 },
+      { x: 0, color: [0, 1, 0], channel: 1 },
+      { x: 5, color: [0, 0, 1], channel: 2 }
+    ];
+    renderer.render(scene(renderer, camera, (f) => {
+      for (const s of spots) {
+        f.addLight({ position: { x: s.x, y: 1.2, z: 0 }, color: s.color, intensity: 25, range: 3.2 });
+      }
+    }));
+    const pixels = await readPixels(renderer);
+    for (const s of spots) {
+      const p = camera.worldToScreen(s.x, 0, 0);
+      const px = pixels.at(Math.round(p.x), Math.round(p.y));
+      // Its own colour dominates: the light reached this cluster...
+      for (let c = 0; c < 3; c++) {
+        if (c === s.channel) continue;
+        expect(px[s.channel], `light at x=${s.x} shows channel ${s.channel} in ${px}`).toBeGreaterThan(px[c] + 12);
+      }
+      // ...and the other two did not leak into it, which a cluster index
+      // that ignored the tile would have let happen.
+      const other = spots.find((o) => o !== s);
+      const q = camera.worldToScreen((s.x + other.x) / 2, 0, 0);
+      const mid = pixels.at(Math.round(q.x), Math.round(q.y));
+      expect(mid[s.channel], `between the lights it is dark: ${mid}`).toBeLessThan(px[s.channel]);
+    }
+  });
+
+  it('lights past the old 256 cap still shade, now that a fragment reads its cluster', async () => {
+    const { MAX_LIGHTS } = await import('../../src/core/renderers/frame3d.js');
+    expect(MAX_LIGHTS).toBeGreaterThan(256);
+    const W = 96, H = 72;
+    const renderer = make(W, H);
+    const camera = cameraAt(W, H, { x: 0, y: 6, z: 6 });
+    const point = camera.worldToScreen(0, 0, 0.5);
+    // 300 dim lights parked far behind the camera's view, then the one
+    // that matters. Before clustering the 300 would have filled the frame
+    // and the last would have been dropped by addLight.
+    renderer.render(scene(renderer, camera, (f) => {
+      for (let i = 0; i < 300; i++) {
+        f.addLight({ position: { x: -400 - i, y: 1, z: -400 }, color: [1, 1, 1], intensity: 1, range: 0.5 });
+      }
+      f.addLight({ position: { x: 0, y: 1.5, z: 0 }, color: [1, 0.8, 0.5], intensity: 20, range: 6 });
+    }));
+    const lit = (await readPixels(renderer)).at(Math.round(point.x), Math.round(point.y));
+    renderer.render(scene(renderer, camera, () => {}));
+    const dark = (await readPixels(renderer)).at(Math.round(point.x), Math.round(point.y));
+    expect(luma(lit), `the 301st light still lights ${lit} vs ${dark}`).toBeGreaterThan(luma(dark) * 1.8);
+  });
+
   it('a shadowed spot light leaves the floor dark behind a box', async () => {
     const W = 96, H = 72;
     const renderer = make(W, H);

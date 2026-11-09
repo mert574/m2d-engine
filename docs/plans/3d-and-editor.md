@@ -165,7 +165,7 @@ things that serialize presentation:
 | --- | --- | --- |
 | Bump and morph | Vertex colours, normal and occlusion maps, morph targets and material extensions are skipped by `gltf.js`. | R2, later |
 | Bump | No normal or occlusion maps; glTF files that carry them are drawn smooth. | R2 |
-| Light a city | Every fragment loops over every light; past a few hundred lights that needs clustering. | R6 |
+| ~~Light a city~~ | ~~Every fragment loops over every light; past a few hundred lights that needs clustering.~~ | **Closed** by R6 slice 3: clustered, 1024 lights a frame |
 | Use 3D constraints | Units are px/s on a ground plane; `PathFollow.points` is a list of `{x, y}`. | When the demo needs one |
 
 ## The renderer
@@ -473,8 +473,25 @@ nothing) to the best of ASTC/BC7/ETC2/RGBA8 the device granted;
 registry the renderer fills — headless stays decoder-free and skips
 images as before. A `.format` stamp in the models directory makes
 `buildModels.mjs --missing` rebuild the WebP-era set once. *Still open
-in this slice:* streaming by distance, clustered lights, the
-transparency pass.
+in this slice:* streaming by distance and the transparency pass.
+
+*Clustered lights landed 9 Nov 2026.* The view frustum is divided into a
+16x9x24 grid — tiles across the screen, 24 depth slices spaced
+exponentially so the near ones are thin — and a compute pass, dispatched
+beside the instance cull in the same encoder pass, builds each cluster's
+view-space box and keeps every light whose sphere reaches it, up to 32.
+The mesh fragment finds its cluster from its framebuffer position and
+view depth and loops over that list instead of the whole frame's.
+`MAX_LIGHTS` is 1024, up from 256: the cap now bounds the clustering
+pass and the buffer rather than the cost of a pixel, which is the 32 a
+cluster holds. The grid is rebuilt every frame rather than cached
+against the projection — one dispatch over 3,456 invocations is cheaper
+than tracking every change to the lens, the surface size and the light
+set. Learned: the clustering writes two buffers the scene bind group
+holds read-only, so like the cull it needs its own two-group binding;
+and a cluster test has to be written against *gross* errors, since a
+one-tile shift is invisible by construction — lights are spatially
+coherent, so a neighbouring cluster holds the same ones.
 
 **Storage, decided.** The owner, seeing the fetcher, chose it over
 committing anything heavy: *"we don't have to commit any big
