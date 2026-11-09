@@ -68,6 +68,28 @@ describe('reading a .glb', () => {
     expect(model.parts[0].material.baseColorTexture).toBeNull();
   });
 
+  it('reads vertex colours into bytes the renderer binds directly', async () => {
+    const model = await parseGLB(fixture('VertexBox'), { decodeImage: fakeDecode });
+    const { geometry } = model.parts[0];
+    expect(geometry.colors).toBeInstanceOf(Uint8Array);
+    expect(geometry.colors.length).toBe((geometry.positions.length / 3) * 4);
+    // The box's corners carry their own position as colour: somewhere red
+    // leads, somewhere blue does, and every alpha is opaque.
+    let maxR = 0;
+    let maxB = 0;
+    for (let v = 0; v < geometry.colors.length; v += 4) {
+      maxR = Math.max(maxR, geometry.colors[v]);
+      maxB = Math.max(maxB, geometry.colors[v + 2]);
+      expect(geometry.colors[v + 3]).toBe(255);
+    }
+    expect(maxR).toBe(255);
+    expect(maxB).toBe(255);
+    // A model without the attribute carries none, and the renderer binds
+    // its shared white buffer instead.
+    const plain = await parseGLB(fixture('BoxTextured'), { decodeImage: fakeDecode });
+    expect(plain.parts[0].geometry.colors).toBeUndefined();
+  });
+
   it('gives a primitive without a material glTF\'s default', () => {
     expect(DEFAULT_MATERIAL.baseColor).toEqual([1, 1, 1, 1]);
     expect(DEFAULT_MATERIAL.metallic).toBe(1);

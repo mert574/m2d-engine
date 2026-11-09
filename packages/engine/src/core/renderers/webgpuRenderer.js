@@ -422,7 +422,10 @@ export class WebGPURenderer extends BaseRenderer {
       { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] },
       { arrayStride: 12, attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x3' }] },
       { arrayStride: 8, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x2' }] },
-      { arrayStride: 16, attributes: [{ shaderLocation: 3, offset: 0, format: 'float32x4' }] }
+      { arrayStride: 16, attributes: [{ shaderLocation: 3, offset: 0, format: 'float32x4' }] },
+      // Vertex colours as bytes; a geometry without any binds a shared
+      // white buffer, so there is no colourless pipeline variant.
+      { arrayStride: 4, attributes: [{ shaderLocation: 6, offset: 0, format: 'unorm8x4' }] }
     ];
     const skinBuffers = (first) => [
       { arrayStride: 8, attributes: [{ shaderLocation: first, offset: 0, format: 'uint16x4' }] },
@@ -628,6 +631,9 @@ export class WebGPURenderer extends BaseRenderer {
     this.pointShadowTexture = null;
     this.pointShadowFaces = [];
     this.frameUniform = this.instanceBuffer = null;
+    this.whiteColorBuffer?.destroy();
+    this.whiteColorBuffer = null;
+    this.whiteColorCapacity = 0;
     this.instanceCapacity = 0;
     this.skyPipeline = this.shadowPipeline = this.meshPipelines = null;
     this.geometryCache = new WeakMap();
@@ -1171,14 +1177,17 @@ export class WebGPURenderer extends BaseRenderer {
       pass.setVertexBuffer(0, gpu.positions);
       pass.setVertexBuffer(1, gpu.normals);
       pass.setVertexBuffer(2, gpu.uvs);
-      // The shadow pass reads no tangents, so its skin buffers sit one
-      // slot earlier; the transparent pass runs the mesh shader and
-      // takes the mesh layout.
+      // The shadow pass reads no tangents or colours, so its skin
+      // buffers sit earlier; the transparent pass runs the mesh shader
+      // and takes the mesh layout.
       const mesh = which !== 'shadow';
-      if (mesh) pass.setVertexBuffer(3, gpu.tangents);
+      if (mesh) {
+        pass.setVertexBuffer(3, gpu.tangents);
+        pass.setVertexBuffer(4, gpu.colors ?? this.#whiteColors(gpu.vertices));
+      }
       if (gpu.skinned) {
-        pass.setVertexBuffer(mesh ? 4 : 3, gpu.joints);
-        pass.setVertexBuffer(mesh ? 5 : 4, gpu.weights);
+        pass.setVertexBuffer(mesh ? 5 : 3, gpu.joints);
+        pass.setVertexBuffer(mesh ? 6 : 4, gpu.weights);
       }
       if (group.material !== boundMaterial) {
         pass.setBindGroup(2, group.material);
@@ -1259,6 +1268,25 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** The GPU copy of a geometry, uploaded on first sight. */
+  /**
+   * One shared all-white colour buffer, grown to the largest vertex
+   * count that asks, bound wherever a geometry carries no colours of
+   * its own — four bytes a vertex once, instead of a pipeline variant.
+   */
+  #whiteColors(vertices) {
+    if (!this.whiteColorBuffer || this.whiteColorCapacity < vertices) {
+      const capacity = Math.max(vertices, 4096, (this.whiteColorCapacity ?? 0) * 2);
+      this.whiteColorBuffer?.destroy();
+      this.whiteColorBuffer = this.device.createBuffer({
+        label: 'white vertex colors', size: capacity * 4, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true
+      });
+      new Uint8Array(this.whiteColorBuffer.getMappedRange()).fill(255);
+      this.whiteColorBuffer.unmap();
+      this.whiteColorCapacity = capacity;
+    }
+    return this.whiteColorBuffer;
+  }
+
   #geometry(geometry) {
     let gpu = this.geometryCache.get(geometry);
     if (gpu) return gpu;
@@ -1277,6 +1305,8 @@ export class WebGPURenderer extends BaseRenderer {
       // A geometry without tangents (a primitive) gets zeros; its material
       // has no normal map, so the shader never reads them.
       tangents: upload(geometry.tangents ?? new Float32Array((geometry.positions.length / 3) * 4), GPUBufferUsage.VERTEX, 'tangents'),
+      colors: geometry.colors ? upload(geometry.colors, GPUBufferUsage.VERTEX, 'vertex colors') : null,
+      vertices: geometry.positions.length / 3,
       skinned: !!geometry.skinned,
       joints: geometry.skinned ? upload(geometry.joints, GPUBufferUsage.VERTEX, 'joints') : null,
       weights: geometry.skinned ? upload(geometry.weights, GPUBufferUsage.VERTEX, 'weights') : null,

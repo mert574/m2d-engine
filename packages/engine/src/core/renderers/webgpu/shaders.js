@@ -371,6 +371,7 @@ struct VertexOut {
   @location(5) clipPrev: vec4f,
   // World-space tangent, handedness in w.
   @location(6) tangent: vec4f,
+  @location(7) vertexColor: vec4f,
 };
 
 @vertex
@@ -379,7 +380,8 @@ fn vs(
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
   @location(2) uv: vec2f,
-  @location(3) tangent: vec4f${skinned ? `,
+  @location(3) tangent: vec4f,
+  @location(6) color: vec4f${skinned ? `,
   @location(4) jointIndices: vec4u,
   @location(5) jointWeights: vec4f` : ''}
 ) -> VertexOut {
@@ -406,6 +408,7 @@ fn vs(
   out.instance = index;
   out.clipNow = vec4f(clip.xy - frame.jitter.xy * clip.w, clip.zw);
   out.clipPrev = frame.previousViewProjection * inst.previousModel * previousLocal;
+  out.vertexColor = color;
   return out;
 }
 `;
@@ -770,7 +773,7 @@ fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
   let mrSample = textureSampleBias(metallicRoughnessTexture, materialSampler, uv, mipBias);
   let emissiveSample = textureSampleBias(emissiveTexture, materialSampler, uv, mipBias);
   let occlusion = mix(1.0, textureSampleBias(occlusionTexture, materialSampler, uv, mipBias).r, material.emissive.w);
-  var base = inst.color.rgb * material.baseColor.rgb * baseSample.rgb;
+  var base = inst.color.rgb * material.baseColor.rgb * baseSample.rgb * in.vertexColor.rgb;
   let checker = inst.params.w;
   if (checker > 0.0) {
     let cell = floor(in.worldPosition.xz / checker);
@@ -851,7 +854,7 @@ fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
   // indirect times occlusion" stays exact through the blend: the
   // occlusion is one value at this pixel and multiplies out of both
   // sides. The opaque pipelines do not blend, so alpha is ignored there.
-  let coverage = select(1.0, baseSample.a * material.baseColor.a, material.flags.y > 1.5);
+  let coverage = select(1.0, baseSample.a * material.baseColor.a * in.vertexColor.a, material.flags.y > 1.5);
   out.direct = vec4f(clampHDR(color), coverage);
   out.indirect = vec4f(clampHDR(indirect), coverage);
   let viewDepth = -(frame.view * vec4f(in.worldPosition, 1.0)).z;

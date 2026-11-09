@@ -6,6 +6,7 @@
   "assets": {
     "models": {
       "truck": { "url": "models/CesiumMilkTruck.glb" },
+      "vertexBox": { "url": "models/dev/vertexBox.glb" },
       "fox": { "url": "models/Fox.glb" }
     }
   },
@@ -67,6 +68,11 @@
       "mesh": { "color": "#e8eef5", "emissive": 4, "roughness": 1 },
       "light": { "type": "spot", "color": "#dfe9ff", "intensity": 120, "range": 26, "direction": { "x": 0.35, "y": -1, "z": -0.25 }, "innerCone": 0.4, "outerCone": 0.65 }
     },
+    "corners": {
+      "actor": "Ground",
+      "physics": { "bodyType": "static", "friction": 0.6 },
+      "mesh": { "model": "vertexBox" }
+    },
     "mirror": {
       "actor": "Crate",
       "physics": { "bodyType": "dynamic", "shape": "sphere", "friction": 0.4, "restitution": 0.3, "density": 7800 },
@@ -117,6 +123,7 @@
       { "id": "lamp-2", "prefab": "lamp", "x": 4, "y": 5.6, "z": -8, "width": 0.5, "height": 0.5 },
       { "id": "lamp-3", "prefab": "lamp", "x": -11.5, "y": 2.9, "z": 4, "width": 0.4, "height": 0.4 },
       { "id": "flood-1", "prefab": "floodlight", "x": -2, "y": 6.2, "z": 8, "width": 0.6, "height": 0.3, "depth": 0.6 },
+      { "id": "corners-1", "prefab": "corners", "x": 6.2, "y": 0.4, "z": 3.4, "width": 0.8, "height": 0.8, "depth": 0.8 },
       { "id": "mirror-1", "prefab": "mirror", "x": 5.5, "y": 0.9, "z": -1, "width": 1.8, "height": 1.8 },
 
       { "id": "hero", "prefab": "hero", "x": 0, "y": 1, "z": 6, "width": 0.5, "height": 1.0 }

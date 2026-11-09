@@ -248,6 +248,20 @@ async function buildModel(json, bin, { decodeImage, name }) {
       ? read(prim.attributes.TANGENT, { asFloat: true })
       : (prim.attributes.TEXCOORD_0 !== undefined ? makeTangents(positions, normals, uvs, indices) : null);
     const geometry = { positions, normals, uvs, indices, tangents };
+    // Vertex colours multiply the base colour, as the spec says. Stored
+    // as bytes: the renderer binds them as a unorm8x4 attribute, a
+    // quarter the memory of floats on a mesh big enough to care.
+    if (prim.attributes.COLOR_0 !== undefined) {
+      const values = read(prim.attributes.COLOR_0, { asFloat: true });
+      const parts = COMPONENTS[accessors[prim.attributes.COLOR_0].type];
+      const colors = new Uint8Array(vertexCount * 4).fill(255);
+      for (let v = 0; v < vertexCount; v++) {
+        for (let c = 0; c < parts; c++) {
+          colors[v * 4 + c] = Math.round(Math.min(Math.max(values[v * parts + c], 0), 1) * 255);
+        }
+      }
+      geometry.colors = colors;
+    }
     if (prim.attributes.JOINTS_0 !== undefined && prim.attributes.WEIGHTS_0 !== undefined) {
       const joints = read(prim.attributes.JOINTS_0);
       geometry.joints = joints instanceof Uint16Array ? joints : Uint16Array.from(joints);

@@ -17,6 +17,7 @@ const assetsPlugin = {
       // batching stress test needs. The games draw in code or ship textures.
       execSync('node scripts/generateSprites.js --missing showcase', { stdio: 'inherit' });
       execSync('node scripts/generateDevTextures.mjs --missing', { stdio: 'inherit' });
+      execSync('node scripts/generateDevModels.mjs --missing', { stdio: 'inherit' });
       // The lot's photoscanned models are fetched and compiled, never
       // committed; the first run of a fresh checkout takes a few minutes.
       execSync('node scripts/buildModels.mjs --missing', { stdio: 'inherit' });

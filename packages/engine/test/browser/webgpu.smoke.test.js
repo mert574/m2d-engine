@@ -1164,6 +1164,49 @@ describe('KTX2 textures', () => {
   });
 });
 
+describe('vertex colours', () => {
+  beforeAll(() => initWebGPU());
+
+  it('shade across a face: the corner box is red toward +x and green toward +y', async () => {
+    const { parseGLB } = await import('../../src/core/gltf.js');
+    const response = await fetch(new URL('../fixtures/models/VertexBox.glb', import.meta.url));
+    const model = await parseGLB(await response.arrayBuffer(), { name: 'VertexBox' });
+
+    const W = 128, H = 96;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    // Square on to the +z face, which grades red left-to-right along x
+    // and green bottom-to-top along y.
+    const camera = cameraAt(W, H, { x: 0, y: 0, z: 3 });
+    const frame = renderer.createFrame();
+    frame.setCamera(camera);
+    frame.sun = { direction: [0, 0, -1], color: [1, 1, 1], intensity: 3 };
+    frame.ambient.intensity = 0.6;
+    frame.fog.density = 0;
+    frame.bloom.intensity = 0;
+    frame.shadow.enabled = false;
+    const [part] = model.parts;
+    frame.add(part.geometry, { model: part.matrix, material: part.material, color: [1, 1, 1], metallic: 1, roughness: 1 });
+    renderer.render(frame);
+    const pixels = await readPixels(renderer);
+    const at = (x, y) => {
+      const p = camera.worldToScreen(x, y, 0.5);
+      return pixels.at(Math.round(p.x), Math.round(p.y));
+    };
+    const right = at(0.35, 0);
+    const left = at(-0.35, 0);
+    const top = at(0, 0.35);
+    const bottom = at(0, -0.35);
+    // No texture and one flat material: only the vertex colours can make
+    // these four points differ, and they must differ the way the
+    // corners' positions say.
+    expect(right[0], `red grows toward +x: ${right} vs ${left}`).toBeGreaterThan(left[0] + 25);
+    expect(top[1], `green grows toward +y: ${top} vs ${bottom}`).toBeGreaterThan(bottom[1] + 25);
+  });
+});
+
 describe('a skinned model', () => {
   beforeAll(() => initWebGPU());
 
