@@ -43,7 +43,8 @@ import * as mat4 from './renderers/geometry/mat4.js';
  * `alphaMode` with its cutoff, `doubleSided`, `KHR_texture_transform` on
  * the base colour (applied to every texture of the material),
  * `KHR_materials_ior` and `KHR_materials_specular` (as one reflectance at
- * normal incidence) and `EXT_texture_webp`. Not yet: vertex colours, morph targets, the other
+ * normal incidence), `EXT_texture_webp` and `KHR_texture_basisu` (KTX2
+ * textures, decoded through `setKTX2Decoder`). Not yet: vertex colours, morph targets, the other
  * material extensions, `.gltf` with external files.
  */
 
@@ -97,7 +98,24 @@ export async function loadGLB(url, options = {}) {
   return parseGLB(await response.arrayBuffer(), { name: url, ...options });
 }
 
+/**
+ * The KTX2 decoder, set by the renderer that knows the GPU's compressed
+ * formats (`webgpuRenderer` registers one over `webgpu/basis.js`). It
+ * takes a file's bytes and resolves to the record `TextureCache3D.get`
+ * uploads. Without one — headless, or a renderer that cannot use the
+ * result — KTX2 images are skipped the way images are skipped without
+ * `createImageBitmap`.
+ * @type {((bytes: Uint8Array) => Promise<object|null>)|null}
+ */
+let ktx2Decoder = null;
+
+/** @param {((bytes: Uint8Array) => Promise<object|null>)|null} decoder */
+export function setKTX2Decoder(decoder) {
+  ktx2Decoder = decoder;
+}
+
 async function defaultDecodeImage(bytes, mimeType) {
+  if (mimeType === 'image/ktx2') return ktx2Decoder ? ktx2Decoder(bytes) : null;
   if (typeof createImageBitmap !== 'function') return null;
   // The renderer handles colour space and alpha itself: base colour goes
   // into an sRGB texture, the rest stay linear, and nothing is premultiplied.
@@ -164,8 +182,10 @@ async function buildModel(json, bin, { decodeImage, name }) {
     if (!ref) return null;
     const texture = json.textures?.[ref.index];
     if (!texture) return null;
-    // A WebP source stands in for the fallback; the browser decodes both.
-    const source = texture.extensions?.EXT_texture_webp?.source ?? texture.source;
+    // A KTX2 or WebP source stands in for the fallback.
+    const source = texture.extensions?.KHR_texture_basisu?.source
+      ?? texture.extensions?.EXT_texture_webp?.source
+      ?? texture.source;
     return source === undefined ? null : images[source];
   };
 

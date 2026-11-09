@@ -18,6 +18,24 @@ face (weights 100-900) in upright and italic. Loaded by
 font is not sold; it is bundled as part of the engine under the OFL's permission
 to distribute the font software with software.
 
+## Basis Universal transcoder
+
+The engine ships Binomial LLC's **Basis Universal** texture transcoder
+(`basis_transcoder.js` and `basis_transcoder.wasm`), released under the
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). The full
+license is included in
+[LICENSES/Apache-2.0-basis_universal.txt](LICENSES/Apache-2.0-basis_universal.txt).
+
+- Project: https://github.com/BinomialLLC/basis_universal
+- Source: the build distributed by three.js (npm `three@0.187.0`,
+  `examples/jsm/libs/basis/`)
+- Directory: `packages/engine/src/core/renderers/webgpu/basis/`
+
+Included unchanged except for an appended ES-module export line, marked by
+a comment; checksums of the originals are recorded in the directory's
+README. It turns the KTX2 textures the model compiler writes into the
+GPU's compressed format at load.
+
 # Music credits
 
 The demos' music is from **IDMf001: InDepthMelodics**, the first

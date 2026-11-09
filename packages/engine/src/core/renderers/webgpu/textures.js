@@ -24,6 +24,14 @@ struct Out { @builtin(position) position: vec4f, @location(0) uv: vec2f };
 @fragment fn fs(in: Out) -> @location(0) vec4f { return textureSample(src, smp, in.uv); }
 `;
 
+/** GPU formats per transcode target; block formats are 4x4, 16 bytes. */
+const COMPRESSED_FORMATS = {
+  bc7: { linear: 'bc7-rgba-unorm', srgb: 'bc7-rgba-unorm-srgb', block: 4, blockBytes: 16 },
+  astc: { linear: 'astc-4x4-unorm', srgb: 'astc-4x4-unorm-srgb', block: 4, blockBytes: 16 },
+  etc2: { linear: 'etc2-rgba8unorm', srgb: 'etc2-rgba8unorm-srgb', block: 4, blockBytes: 16 },
+  rgba8: { linear: 'rgba8unorm', srgb: 'rgba8unorm-srgb', block: 1, blockBytes: 4 }
+};
+
 export class TextureCache3D {
   /** @param {GPUDevice} device */
   constructor(device) {
@@ -59,14 +67,20 @@ export class TextureCache3D {
   }
 
   /**
-   * The texture for a decoded image (an `ImageBitmap` or any
-   * `copyExternalImageToTexture` source).
+   * The texture for a decoded image: an `ImageBitmap` (or any
+   * `copyExternalImageToTexture` source), or a transcoded KTX2 record
+   * from `basis.js` (`compressed: true`, pre-mipped, uploaded as is).
    * @param {object} image
    * @param {{srgb?: boolean}} [options] - sRGB-encoded colour data, or linear
    */
   get(image, { srgb = false } = {}) {
     let texture = this.textures.get(image);
     if (texture) return texture;
+    if (image.compressed) {
+      texture = this.#uploadCompressed(image, srgb);
+      this.textures.set(image, texture);
+      return texture;
+    }
     const width = image.width;
     const height = image.height;
     const mipLevelCount = 1 + Math.floor(Math.log2(Math.max(width, height)));
@@ -81,6 +95,38 @@ export class TextureCache3D {
     this.device.queue.copyExternalImageToTexture({ source: image }, { texture }, { width, height });
     if (mipLevelCount > 1) this.#generateMips(texture, format, mipLevelCount);
     this.textures.set(image, texture);
+    return texture;
+  }
+
+  /**
+   * A transcoded KTX2 record: a block-compressed (or RGBA8) payload with
+   * its own mip chain, written level by level. The three block formats
+   * all use 4x4 blocks of 16 bytes.
+   */
+  #uploadCompressed(image, srgb) {
+    const base = COMPRESSED_FORMATS[image.base];
+    if (!base) throw new Error(`M2D: unknown compressed texture format '${image.base}'`);
+    const format = srgb ? base.srgb : base.linear;
+    const texture = this.device.createTexture({
+      label: `image (${image.base})`,
+      size: { width: image.width, height: image.height },
+      format,
+      mipLevelCount: image.mips.length,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+    });
+    for (let level = 0; level < image.mips.length; level++) {
+      const width = Math.max(1, image.width >> level);
+      const height = Math.max(1, image.height >> level);
+      const block = base.block;
+      const bytesPerRow = Math.ceil(width / block) * base.blockBytes;
+      const rowsPerImage = Math.ceil(height / block);
+      this.device.queue.writeTexture(
+        { texture, mipLevel: level },
+        image.mips[level],
+        { bytesPerRow, rowsPerImage },
+        { width, height }
+      );
+    }
     return texture;
   }
 

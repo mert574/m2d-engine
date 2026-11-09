@@ -7,6 +7,8 @@ import {
   FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES, MAX_SPOT_SHADOWS, MAX_CULL_PASSES
 } from './webgpu/shaders.js';
 import { TextureCache3D } from './webgpu/textures.js';
+import { initBasis, bestTranscodeTarget, transcodeKTX2 } from './webgpu/basis.js';
+import { setKTX2Decoder } from '../gltf.js';
 import { Environment } from './webgpu/environment.js';
 import { PostPass } from './webgpu/post.js';
 import { Frame3D, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from './frame3d.js';
@@ -355,6 +357,11 @@ export class WebGPURenderer extends BaseRenderer {
     });
     this.textures = new TextureCache3D(device);
     this.defaultMaterial = this.#materialBindGroup(null);
+
+    // KTX2 textures in a model transcode to the best compressed format
+    // this device has; the transcoder wasm loads on the first one seen.
+    setKTX2Decoder(async (bytes) =>
+      transcodeKTX2(await initBasis(), bytes, bestTranscodeTarget(device)));
 
     this.#createShadowMaps();
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initPhysics } from '../src/core/physics/index.js';
-import { parseGLB, DEFAULT_MATERIAL, lodFor } from '../src/core/gltf.js';
+import { parseGLB, setKTX2Decoder, DEFAULT_MATERIAL, lodFor } from '../src/core/gltf.js';
 import { Frame3D, StaticBatch, INSTANCE_FLOATS } from '../src/core/renderers/frame3d.js';
 import { Camera3D } from '../src/core/camera3d.js';
 import { box, boundingSphere } from '../src/core/renderers/geometry/primitives.js';
@@ -49,6 +49,23 @@ describe('reading a .glb', () => {
     const bad = new Uint8Array(fixture('BoxTextured'));
     bad[4] = 1;
     await expect(parseGLB(bad.buffer, { name: 'old' })).rejects.toThrow(/glTF 1; only glTF 2.0/);
+  });
+
+  it('routes a KTX2 image (KHR_texture_basisu) through the registered decoder', async () => {
+    setKTX2Decoder(async (bytes) => ({ compressed: true, bytes: bytes.length }));
+    try {
+      const model = await parseGLB(fixture('BoxTexturedKtx2'));
+      const texture = model.parts[0].material.baseColorTexture;
+      expect(texture.compressed).toBe(true);
+      expect(texture.bytes).toBeGreaterThan(100);
+    } finally {
+      setKTX2Decoder(null);
+    }
+  });
+
+  it('skips KTX2 images when no decoder is registered, as headless must', async () => {
+    const model = await parseGLB(fixture('BoxTexturedKtx2'));
+    expect(model.parts[0].material.baseColorTexture).toBeNull();
   });
 
   it('gives a primitive without a material glTF\'s default', () => {

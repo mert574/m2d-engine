@@ -459,6 +459,23 @@ to the 4k and 8k Poly Haven ships, since a 4k RGBA8 texture with mips is
 loading by distance from the camera, with a budget. Clustered light
 culling lifts `MAX_LIGHTS`. A proper transparency pass for `BLEND`.
 
+*The KTX2 half landed 9 Nov 2026.* The compiler encodes textures as KTX2
+(`ktx2-encoder`, the Basis encoder as wasm, so a fresh checkout needs no
+system tool): UASTC+zstd for normal, metallic-roughness and occlusion
+maps (ETC1S's shared codebook smears correlated channels), ETC1S q192
+for colour and emissive, mip chains in the file, and the cap at 4096. The
+engine transcodes at load with Binomial's transcoder, vendored at
+`webgpu/basis/` from the build three.js ships (Apache-2.0, checksums in
+the directory README, lazily imported so a scene without models pays
+nothing) to the best of ASTC/BC7/ETC2/RGBA8 the device granted;
+`TextureCache3D` uploads the pre-mipped payload directly, and
+`gltf.js` resolves `KHR_texture_basisu` through a `setKTX2Decoder`
+registry the renderer fills — headless stays decoder-free and skips
+images as before. A `.format` stamp in the models directory makes
+`buildModels.mjs --missing` rebuild the WebP-era set once. *Still open
+in this slice:* streaming by distance, clustered lights, the
+transparency pass.
+
 **Storage, decided.** The owner, seeing the fetcher, chose it over
 committing anything heavy: *"we don't have to commit any big
 mesh/texture; follow this approach for any 3D stuff in the repo."*

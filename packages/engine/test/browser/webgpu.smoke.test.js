@@ -736,6 +736,62 @@ describe('a textured model', () => {
   });
 });
 
+describe('KTX2 textures', () => {
+  beforeAll(() => initWebGPU());
+
+  it('transcodes a KTX2 file to the device\'s format, every mip present', async () => {
+    const { initBasis, bestTranscodeTarget, transcodeKTX2 } = await import('../../src/core/renderers/webgpu/basis.js');
+    const { webgpuDevice } = await import('../../src/core/renderers/webgpu/device.js');
+    const response = await fetch(new URL('../fixtures/textures/blue.ktx2', import.meta.url));
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const target = bestTranscodeTarget(webgpuDevice());
+    const image = transcodeKTX2(await initBasis(), bytes, target, 'blue.ktx2');
+    expect(image.compressed).toBe(true);
+    expect(image.base).toBe(target);
+    expect(image.width).toBe(16);
+    expect(image.height).toBe(16);
+    // 16x16 with a full chain: 16, 8, 4, 2, 1.
+    expect(image.mips).toHaveLength(5);
+    for (const mip of image.mips) expect(mip.length).toBeGreaterThan(0);
+  });
+
+  it('draws a box whose texture is KTX2 (KHR_texture_basisu)', async () => {
+    const W = 96, H = 72;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    // init registers the KTX2 decoder, so it comes before the parse.
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+
+    const { parseGLB } = await import('../../src/core/gltf.js');
+    const response = await fetch(new URL('../fixtures/models/BoxTexturedKtx2.glb', import.meta.url));
+    const model = await parseGLB(await response.arrayBuffer(), { name: 'BoxTexturedKtx2' });
+    const texture = model.parts[0].material.baseColorTexture;
+    expect(texture.compressed).toBe(true);
+    expect(texture.mips.length).toBeGreaterThan(1);
+
+    const camera = cameraAt(W, H, { x: 0, y: 1.5, z: 4 });
+    const frame = renderer.createFrame();
+    frame.setCamera(camera);
+    frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+    frame.fog.density = 0;
+    frame.bloom.intensity = 0;
+    const [part] = model.parts;
+    frame.add(part.geometry, { model: part.matrix, material: part.material, color: [1, 1, 1], metallic: 1, roughness: 1 });
+    renderer.render(frame);
+    const pixels = await readPixels(renderer);
+
+    // The same checks the image-texture box passes: a lit face that varies.
+    const p = camera.worldToScreen(0, 0, 0.5);
+    const px = pixels.at(Math.round(p.x), Math.round(p.y));
+    expect(luma(px), `textured face is lit: ${px}`).toBeGreaterThan(40);
+    const q = camera.worldToScreen(0.35, 0.35, 0.5);
+    const qx = pixels.at(Math.round(q.x), Math.round(q.y));
+    const differs = px.slice(0, 3).some((v, i) => Math.abs(v - qx[i]) > 12);
+    expect(differs, `texture varies: ${px} vs ${qx}`).toBe(true);
+  });
+});
+
 describe('a skinned model', () => {
   beforeAll(() => initWebGPU());
 

@@ -15,9 +15,16 @@
  * The sources come from `scripts/fetchPolyHaven.mjs`; the outputs are
  * committed and are what `assets.models` in a scene names.
  *
- * Textures are capped at 2048 for now: a 4k RGBA texture with its mips
- * is 85 MB of GPU memory and a tree has nine, so 4k waits for compressed
- * textures (KTX2, the next slice), which cut that fourfold.
+ * Textures are KTX2 (Basis Universal, `KHR_texture_basisu`), which the
+ * engine transcodes at load to whatever block-compressed format the GPU
+ * has — a quarter of RGBA8's memory, with the mip chain in the file — so
+ * the cap is 4096 where WebP had to stop at 2048. Normal maps are UASTC
+ * with the encoder's normal-map tuning, metallic-roughness and occlusion
+ * UASTC too (ETC1S's shared codebook smears correlated channels), and
+ * colour maps ETC1S, which reads fine for albedo at a fraction of the
+ * bytes. Block formats need dimensions in whole 4px blocks at level 0,
+ * which the cap preserves for the power-of-two sources Poly Haven ships
+ * and `roundToBlock` guards for anything else.
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -25,8 +32,32 @@ import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { cloneDocument, mergeDocuments, dedup, weld, simplify, prune, textureCompress, unpartition } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
+import { ktx2 } from 'ktx2-encoder/gltf-transform';
 import sharp from 'sharp';
 import { SOURCE_DIR, ASSETS } from './fetchPolyHaven.mjs';
+
+/** The KTX2 encoder runs in Node, where it needs its images decoded for it. */
+const imageDecoder = async (buffer) => {
+  const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  return { data: new Uint8Array(data), width: info.width, height: info.height };
+};
+
+/**
+ * Block-compressed formats need level-0 dimensions in whole 4px blocks;
+ * shave anything that is not (none of Poly Haven's are) down to one.
+ */
+function roundToBlock() {
+  return async (document) => {
+    for (const texture of document.getRoot().listTextures()) {
+      const size = texture.getSize();
+      if (!size || (size[0] % 4 === 0 && size[1] % 4 === 0)) continue;
+      const [width, height] = size.map((d) => Math.max(4, Math.floor(d / 4) * 4));
+      const png = await sharp(texture.getImage()).resize(width, height, { fit: 'fill' }).png().toBuffer();
+      texture.setImage(png).setMimeType('image/png');
+      console.warn(`${texture.getName() || texture.getURI()}: ${size[0]}x${size[1]} is not whole 4px blocks; resized to ${width}x${height}`);
+    }
+  };
+}
 
 export const OUT_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'models', 'ph');
 
@@ -45,7 +76,13 @@ const LEVELS = [
   { ratio: 0.08, coverage: 0.12, error: 0.08 },
   { ratio: 0.02, coverage: 0.04, error: 0.2 }
 ];
-const TEXTURE_CAP = 2048;
+const TEXTURE_CAP = 4096;
+
+/**
+ * Bumped when what this script writes changes shape (texture format, LOD
+ * layout); `buildModels.mjs` rebuilds every model whose stamp disagrees.
+ */
+export const FORMAT = 2;
 
 /** What kind of thing each source is, which sets its triangle budget. */
 export const KINDS = {
@@ -142,9 +179,14 @@ export async function compileModel(id) {
     wrap(children, `LOD${i}`);
   }
   // The textures and materials the copies share, folded back together.
+  // The resize runs as lossless PNG; the KTX2 encode is the lossy step.
   await out.transform(
     dedup(),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [TEXTURE_CAP, TEXTURE_CAP], quality: 88 }),
+    textureCompress({ encoder: sharp, targetFormat: 'png', resize: [TEXTURE_CAP, TEXTURE_CAP] }),
+    roundToBlock(),
+    ktx2({ slots: /normalTexture/, imageDecoder, generateMipmap: true, isUASTC: true, needSupercompression: true, isNormalMap: true, isPerceptual: false, isSetKTX2SRGBTransferFunc: false }),
+    ktx2({ slots: /metallicRoughnessTexture|occlusionTexture/, imageDecoder, generateMipmap: true, isUASTC: true, needSupercompression: true, isPerceptual: false, isSetKTX2SRGBTransferFunc: false }),
+    ktx2({ slots: /baseColorTexture|emissiveTexture/, imageDecoder, generateMipmap: true, isUASTC: false, qualityLevel: 192, isPerceptual: true, isSetKTX2SRGBTransferFunc: true }),
     prune(),
     // The merged levels each brought a buffer; a .glb holds one.
     unpartition()

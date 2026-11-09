@@ -12,15 +12,19 @@
  * minutes of compiling, once.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ASSETS, fetchAsset } from './fetchPolyHaven.mjs';
-import { OUT_DIR } from './compileModel.mjs';
+import { OUT_DIR, FORMAT } from './compileModel.mjs';
 
 const args = process.argv.slice(2);
 const missingOnly = args.includes('--missing');
 const ids = args.filter((a) => !a.startsWith('--'));
-const wanted = (ids.length ? ids : Object.keys(ASSETS)).filter((id) => !missingOnly || !existsSync(resolve(OUT_DIR, `${id}.glb`)));
+// A compiled model from an older format (say, WebP textures before KTX2)
+// exists but is stale; the stamp makes --missing rebuild the lot once.
+const stampPath = resolve(OUT_DIR, '.format');
+const stale = !existsSync(stampPath) || readFileSync(stampPath, 'utf8').trim() !== String(FORMAT);
+const wanted = (ids.length ? ids : Object.keys(ASSETS)).filter((id) => !missingOnly || stale || !existsSync(resolve(OUT_DIR, `${id}.glb`)));
 
 if (!wanted.length) {
   console.log('Models are up to date');
@@ -34,5 +38,12 @@ if (!wanted.length) {
     });
     const line = out.split('\n').find((l) => l.startsWith(`${id}:`)) ?? 'compiled';
     console.log(line.replace(`${id}: `, ''));
+  }
+  // Stamped only when the whole set compiled in this format — a failed
+  // run throws before this, and a hand-picked subset proves nothing
+  // about the models it left alone.
+  if (!ids.length) {
+    mkdirSync(OUT_DIR, { recursive: true });
+    writeFileSync(stampPath, `${FORMAT}\n`);
   }
 }

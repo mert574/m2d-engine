@@ -44,8 +44,13 @@ export function initWebGPU({ powerPreference = 'high-performance' } = {}) {
     }
     // Indirect draws that start at an instance offset, which the 3D
     // renderer's GPU culling relies on, and GPU timestamps for its
-    // statistics; the renderer checks `device.features` for both.
-    const requiredFeatures = ['timestamp-query', 'indirect-first-instance'].filter((f) => adapter.features.has(f));
+    // statistics; the renderer checks `device.features` for both. The
+    // compressed-texture families decide what KTX2 textures transcode
+    // to (basis.js picks the best one present).
+    const requiredFeatures = [
+      'timestamp-query', 'indirect-first-instance',
+      'texture-compression-bc', 'texture-compression-etc2', 'texture-compression-astc'
+    ].filter((f) => adapter.features.has(f));
     device = await adapter.requestDevice({ requiredFeatures });
     // Validation errors are asynchronous; without this they vanish silently.
     device.addEventListener('uncapturederror', (event) => {
