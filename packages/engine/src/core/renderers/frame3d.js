@@ -79,6 +79,15 @@ export class Frame3D {
       vignette: 0,
       grain: 0
     };
+    /**
+     * An HDR environment panorama to use as the sky instead of the
+     * procedural one: `{ image, intensity }`, where `image` is what
+     * `hdr.js` decoded. It lights the scene through the same prefilter
+     * and irradiance bakes, and the camera sees the same panorama, so
+     * a reflection and the background agree. Null for the built-in sky.
+     * @type {{image: object, intensity?: number}|null}
+     */
+    this.environment = null;
     /** Joint matrix arrays of the skinned instances this frame, in order; the renderer packs them. @type {Float32Array[]} */
     this.skins = [];
     this.jointCount = 0;

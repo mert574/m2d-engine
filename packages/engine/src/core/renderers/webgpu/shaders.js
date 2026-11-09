@@ -66,7 +66,7 @@ struct Frame {
   ground: vec4f,
   // rgb fog colour; w density.
   fog: vec4f,
-  // x exposure, y unused, z unused, w unused.
+  // x exposure, y an HDR environment is bound, z its intensity, w unused.
   params: vec4f,
   // x light count, y bloom threshold, z bloom intensity, w prefiltered mip count - 1.
   params2: vec4f,
@@ -141,6 +141,10 @@ struct Light {
 // and their indices, ${CLUSTER_CAPACITY} slots per cluster.
 @group(0) @binding(5) var<storage, read> clusterCounts: array<u32>;
 @group(0) @binding(6) var<storage, read> clusterIndices: array<u32>;
+// An HDR environment panorama, equirectangular, when the scene loads
+// one; a 1x1 black stands in otherwise and frame.params.y says which.
+@group(0) @binding(7) var environmentMap: texture_2d<f32>;
+@group(0) @binding(8) var environmentMapSampler: sampler;
 
 const CLUSTER_X = ${CLUSTER_X}u;
 const CLUSTER_Y = ${CLUSTER_Y}u;
@@ -196,7 +200,31 @@ fn clampHDR(c: vec3f) -> vec3f {
 // sun's halo. The disc itself is drawn only on screen (withSun), since
 // the environment handles the sun's specular analytically and a disc in
 // the prefiltered cube would be a firefly.
+/**
+ * The sky in a direction. With an HDR environment loaded the panorama
+ * is the sky - it already holds its own sun, horizon and clouds, so
+ * none of the procedural terms apply - and lod picks how blurred a
+ * version to read, which is how the cube bake avoids aliasing its
+ * smaller mips. Without one, the analytic gradient below.
+ */
+fn skyColorLod(dir: vec3f, withSun: bool, lod: f32) -> vec3f {
+  if (frame.params.y > 0.5) {
+    // Equirectangular: longitude around y, latitude down from the
+    // zenith, so v 0 is the top row of the file. The longitude is
+    // three.js's and Blender's — the panorama's centre faces +x — so an
+    // HDRI's sun lands where its author put it rather than a quarter
+    // turn away.
+    let uv = vec2f(atan2(dir.z, dir.x) / 6.2831853 + 0.5, acos(clamp(dir.y, -1.0, 1.0)) / 3.14159265);
+    return clampHDR(textureSampleLevel(environmentMap, environmentMapSampler, uv, lod).rgb * frame.params.z);
+  }
+  return proceduralSky(dir, withSun);
+}
+
 fn skyColor(dir: vec3f, withSun: bool) -> vec3f {
+  return skyColorLod(dir, withSun, 0.0);
+}
+
+fn proceduralSky(dir: vec3f, withSun: bool) -> vec3f {
   let up = clamp(dir.y, -1.0, 1.0);
   let zenith = frame.sky.rgb * 1.6;
   let horizon = frame.fog.rgb;
@@ -843,7 +871,11 @@ ${CUBE_FACE}
 
 @fragment
 fn fs(in: FaceOut) -> @location(0) vec4f {
-  return vec4f(skyColor(faceDirection(u32(bake.params.x), in.ndc), false), 1.0);
+  // params.w is the cube mip being drawn. A procedural sky is analytic
+  // and every mip is exact at any size, but a panorama has detail to
+  // lose: reading it at a matching level of its own mip chain is what
+  // keeps the small mips from aliasing into sparkle.
+  return vec4f(skyColorLod(faceDirection(u32(bake.params.x), in.ndc), false, bake.params.w), 1.0);
 }
 `;
 

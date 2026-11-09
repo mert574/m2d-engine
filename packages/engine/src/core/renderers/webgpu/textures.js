@@ -10,6 +10,8 @@
  * fullscreen blit from each level into the next.
  */
 
+import { toHalf } from '../../hdr.js';
+
 const BLIT_SHADER = /* wgsl */ `
 struct Out { @builtin(position) position: vec4f, @location(0) uv: vec2f };
 @vertex fn vs(@builtin(vertex_index) i: u32) -> Out {
@@ -49,12 +51,53 @@ export class TextureCache3D {
     this.black = this.#solid([0, 0, 0, 255], 'rgba8unorm-srgb', 'black (srgb)');
     /** 1x1 straight-up tangent-space normal, for the normal slot. */
     this.flatNormal = this.#solid([128, 128, 255, 255], 'rgba8unorm', 'flat normal');
+    /**
+     * 1x1 black in the panorama's own format, bound when no HDR
+     * environment is loaded: a bind group must be complete even when
+     * the shader is about to ignore the slot.
+     */
+    this.blackHDR = device.createTexture({
+      label: 'no environment', size: { width: 1, height: 1 }, format: 'rgba16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+    });
+    device.queue.writeTexture(
+      { texture: this.blackHDR }, new Uint16Array([0, 0, 0, toHalf(1)]), { bytesPerRow: 8 }, { width: 1, height: 1 }
+    );
     this.sampler = device.createSampler({
       label: 'material',
       minFilter: 'linear', magFilter: 'linear', mipmapFilter: 'linear',
       addressModeU: 'repeat', addressModeV: 'repeat',
       maxAnisotropy: 8
     });
+  }
+
+  /**
+   * An HDR panorama from `hdr.js` as a filterable float texture, with a
+   * mip chain so the cube bake can read a blurrier level for its
+   * smaller mips. Cached on the decoded image, like every other texture.
+   * @param {{width: number, height: number, data: Uint16Array}} image
+   */
+  equirect(image) {
+    let texture = this.textures.get(image);
+    if (texture) return texture;
+    const { width, height } = image;
+    const mipLevelCount = 1 + Math.floor(Math.log2(Math.max(width, height)));
+    texture = this.device.createTexture({
+      label: 'environment panorama',
+      size: { width, height },
+      format: 'rgba16float',
+      mipLevelCount,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
+    });
+    this.device.queue.writeTexture(
+      { texture },
+      image.data,
+      { bytesPerRow: width * 8, rowsPerImage: height },
+      { width, height }
+    );
+    if (mipLevelCount > 1) this.#generateMips(texture, 'rgba16float', mipLevelCount);
+    this.textures.set(image, texture);
+    return texture;
   }
 
   #solid(rgba, format, label) {
@@ -171,7 +214,7 @@ export class TextureCache3D {
   }
 
   destroy() {
-    for (const t of [this.white, this.whiteSRGB, this.black, this.flatNormal]) t.destroy();
+    for (const t of [this.white, this.whiteSRGB, this.black, this.flatNormal, this.blackHDR]) t.destroy();
     this.textures = new WeakMap();
   }
 }

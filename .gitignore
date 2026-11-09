@@ -32,6 +32,8 @@ dist/
 # (`npm run dev` builds what is missing; see examples/scripts/buildModels.mjs)
 /examples/assets-src/
 /examples/src/yard/models/ph/
+# HDR panoramas, fetched the same way (no compile step)
+/examples/src/yard/environments/
 
 # Logs
 *.log

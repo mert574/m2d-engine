@@ -14,7 +14,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ASSETS, fetchAsset } from './fetchPolyHaven.mjs';
+import { ASSETS, HDRIS, fetchAsset, fetchHDRI, HDRI_DIR } from './fetchPolyHaven.mjs';
 import { OUT_DIR, FORMAT } from './compileModel.mjs';
 
 const args = process.argv.slice(2);
@@ -24,10 +24,24 @@ const ids = args.filter((a) => !a.startsWith('--'));
 // exists but is stale; the stamp makes --missing rebuild the lot once.
 const stampPath = resolve(OUT_DIR, '.format');
 const stale = !existsSync(stampPath) || readFileSync(stampPath, 'utf8').trim() !== String(FORMAT);
-const wanted = (ids.length ? ids : Object.keys(ASSETS)).filter((id) => !missingOnly || stale || !existsSync(resolve(OUT_DIR, `${id}.glb`)));
+const wanted = (ids.length ? ids.filter((id) => !(id in HDRIS)) : Object.keys(ASSETS))
+  .filter((id) => !missingOnly || stale || !existsSync(resolve(OUT_DIR, `${id}.glb`)));
+
+// HDR panoramas: fetched, never compiled, so they are their own step
+// and the models' format stamp does not cover them. Only when named —
+// no example lights with one yet (the yard's sky is procedural so its
+// dusk can move), and a fresh checkout should not pay for what it does
+// not draw. `node scripts/buildModels.mjs kloofendal_43d_clear_puresky`.
+const hdris = ids.filter((id) => id in HDRIS);
+for (const id of hdris) {
+  const resolution = HDRIS[id];
+  if (missingOnly && existsSync(resolve(HDRI_DIR, `${id}_${resolution}.hdr`))) continue;
+  const { bytes, name, authors } = await fetchHDRI(id, resolution);
+  console.log(`${id} (${name}, by ${authors.join(', ')}) at ${resolution}: ${(bytes / 1e6).toFixed(1)} MB`);
+}
 
 if (!wanted.length) {
-  console.log('Models are up to date');
+  if (!hdris.length) console.log('Models are up to date');
 } else {
   console.log(`Building ${wanted.length} model${wanted.length === 1 ? '' : 's'} (fetching sources from Poly Haven, then compiling)...`);
   for (const id of wanted) {

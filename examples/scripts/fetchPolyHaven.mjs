@@ -61,6 +61,33 @@ async function download(url, to, expectedMd5) {
   }
 }
 
+/**
+ * HDR environments the examples light with, by id and the resolution to
+ * fetch. A panorama is one `.hdr` the engine decodes at load, so unlike
+ * a model there is nothing to compile; it still arrives as a recipe
+ * rather than as bytes in the repository.
+ */
+export const HDRIS = {
+  kloofendal_43d_clear_puresky: '2k'
+};
+
+/** Where a fetched panorama lands, which is what a scene's `url` names. */
+export const HDRI_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'environments');
+
+/**
+ * One HDR panorama into `HDRI_DIR`. These are small next to a scan — a
+ * 2k sky is about 5 MB — and need no compile step.
+ */
+export async function fetchHDRI(id, resolution) {
+  const files = await api(`/files/${id}`);
+  const entry = files.hdri?.[resolution]?.hdr;
+  if (!entry) throw new Error(`${id}: no .hdr at ${resolution} (have ${Object.keys(files.hdri ?? {}).join(', ')})`);
+  const to = resolve(HDRI_DIR, `${id}_${resolution}.hdr`);
+  const fetched = await download(entry.url, to, entry.md5) ? 1 : 0;
+  const info = await api(`/info/${id}`);
+  return { fetched, bytes: entry.size, to, name: info.name, authors: Object.keys(info.authors ?? {}) };
+}
+
 export async function fetchAsset(id, resolution) {
   const files = await api(`/files/${id}`);
   const entry = files.gltf?.[resolution]?.gltf;

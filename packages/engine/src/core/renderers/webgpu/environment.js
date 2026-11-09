@@ -16,6 +16,16 @@ import { SKY_BAKE_SHADER, PREFILTER_SHADER, IRRADIANCE_SHADER, BRDF_LUT_SHADER }
  * from the analytic light, not from here.
  */
 
+/** A stable id per panorama object, so the bake key can name it. */
+const environmentIds = new WeakMap();
+let nextEnvironmentId = 1;
+function environmentId(image) {
+  if (!image) return 'none';
+  let id = environmentIds.get(image);
+  if (!id) environmentIds.set(image, id = nextEnvironmentId++);
+  return id;
+}
+
 const SKY_SIZE = 128;
 const PREFILTER_SIZE = 128;
 const PREFILTER_MIPS = 6;
@@ -127,8 +137,11 @@ export class Environment {
     const sun = frame.sun;
     const key = [
       ...sun.direction, ...(sun.color ?? [1, 1, 1]), sun.intensity ?? 1,
-      ...frame.ambient.sky, ...frame.fog.color
-    ].map((v) => Math.round(v * 1000)).join(',');
+      ...frame.ambient.sky, ...frame.fog.color,
+      frame.environment?.intensity ?? 1
+      // The panorama's own identity, so swapping one for another at the
+      // same intensity still re-bakes.
+    ].map((v) => Math.round(v * 1000)).join(',') + `|${environmentId(frame.environment?.image)}`;
     if (key === this.key) return false;
     this.key = key;
 
@@ -145,7 +158,7 @@ export class Environment {
     for (let mip = 0; mip < this.skyMips; mip++) {
       for (let face = 0; face < 6; face++) {
         const view = this.sky.createView({ dimension: '2d', baseMipLevel: mip, mipLevelCount: 1, baseArrayLayer: face, arrayLayerCount: 1 });
-        this.#draw(encoder, this.skyPipeline, view, sceneBindGroup, this.#bake([face, 0, 0, 0], this.dummyView));
+        this.#draw(encoder, this.skyPipeline, view, sceneBindGroup, this.#bake([face, 0, 0, mip], this.dummyView));
       }
     }
     // 2. Prefiltered reflections, roughness rising with the mip, sampling

@@ -6,6 +6,7 @@ import { geometryFor } from './renderers/geometry/primitives.js';
 import { StaticBatch } from './renderers/frame3d.js';
 import { meshFor } from './presentation3d.js';
 import { loadGLB, lodFor } from './gltf.js';
+import { loadHDR } from './hdr.js';
 import { Animator3D } from './animator3d.js';
 import { Quat } from './math.js';
 import * as mat4 from './renderers/geometry/mat4.js';
@@ -31,6 +32,8 @@ export class Scene {
     this.spriteSheets = new Map();
     /** Models from `assets.models`, by key, once loaded. @type {Map<string, import('./gltf.js').Model>} */
     this.models = new Map();
+    /** HDR panoramas from `assets.environments`, by key; hand one to `frame.environment`. @type {Map<string, {image: object, intensity: number}>} */
+    this.environments = new Map();
     /** The level's props as resident instance batches, built at load; see `setupProps`. @type {StaticBatch[]} */
     this.batches = [];
     /** The props' static bodies, removed with the scene. */
@@ -89,7 +92,7 @@ export class Scene {
   }
 
   async loadAssets() {
-    await Promise.all([this.#loadSpriteSheets(), this.#loadModels()]);
+    await Promise.all([this.#loadSpriteSheets(), this.#loadModels(), this.#loadEnvironments()]);
   }
 
   /**
@@ -97,6 +100,17 @@ export class Scene {
    * name })` on the config hears each arrive, for a loading screen; a
    * level with hundreds of megabytes of scans takes a while.
    */
+  async #loadEnvironments() {
+    const environments = this.config.assets?.environments;
+    if (!environments) return;
+    await Promise.all(Object.entries(environments).map(async ([key, environment]) => {
+      this.environments.set(key, {
+        image: await loadHDR(this.game.options.basePath + environment.url),
+        intensity: environment.intensity ?? 1
+      });
+    }));
+  }
+
   async #loadModels() {
     const models = this.config.assets?.models;
     if (!models) return;

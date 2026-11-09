@@ -150,9 +150,16 @@ const MODEL = s.object({
   url: s.string({ required: true, nonEmpty: true, description: 'Relative to the game\'s basePath' })
 });
 
+/** An HDR environment a 3D level lights with: a Radiance `.hdr` panorama. */
+const ENVIRONMENT = s.object({
+  url: s.string({ required: true, nonEmpty: true, description: 'Relative to the game\'s basePath' }),
+  intensity: s.number({ initial: 1, min: 0, description: 'Scales the panorama\'s radiance' })
+});
+
 const ASSETS = s.object({
   spritesheets: s.record(SPRITESHEET),
-  models: s.record(MODEL)
+  models: s.record(MODEL),
+  environments: s.record(ENVIRONMENT)
 });
 
 // === World ===

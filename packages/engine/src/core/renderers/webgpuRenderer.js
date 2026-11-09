@@ -294,7 +294,9 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 3, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
         { binding: 4, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
         { binding: 5, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
-        { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }
+        { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
+        { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+        { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
       ]
     });
     // The clustering writes what the scene group holds read-only, so like
@@ -640,6 +642,7 @@ export class WebGPURenderer extends BaseRenderer {
     const device = this.device;
     this.#jitter(frame);
     const shadows = this.#planShadows(frame);
+    this.#useEnvironment(frame.environment?.image ?? null);
     this.#writeFrameUniform(frame, shadows);
     this.#uploadLights(frame);
     this.#uploadJoints(frame);
@@ -962,6 +965,20 @@ export class WebGPURenderer extends BaseRenderer {
     if (this.instanceBuffer) this.#sceneBindGroup();
   }
 
+  /**
+   * Point the scene group at a decoded HDR panorama, or at nothing.
+   * Uploading is the texture cache's business and happens once per
+   * image; this only rebuilds the bind group when the image changes,
+   * since every pass in the frame reads through it.
+   * @param {object|null} image - From `hdr.js`, or null for the procedural sky
+   */
+  #useEnvironment(image) {
+    if (image === this.environmentImage) return;
+    this.environmentImage = image;
+    this.environmentTexture = image ? this.textures.equirect(image) : null;
+    this.#sceneBindGroup();
+  }
+
   #sceneBindGroup() {
     this.sceneBindGroup = this.device.createBindGroup({
       layout: this.sceneBindGroupLayout,
@@ -972,7 +989,9 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 3, resource: { buffer: this.jointBuffer } },
         { binding: 4, resource: { buffer: this.remapBuffer } },
         { binding: 5, resource: { buffer: this.clusterCountBuffer } },
-        { binding: 6, resource: { buffer: this.clusterIndexBuffer } }
+        { binding: 6, resource: { buffer: this.clusterIndexBuffer } },
+        { binding: 7, resource: (this.environmentTexture ?? this.textures.blackHDR).createView() },
+        { binding: 8, resource: this.textures.sampler }
       ]
     });
     this.cullSceneBindGroup = this.device.createBindGroup({
@@ -1280,7 +1299,9 @@ export class WebGPURenderer extends BaseRenderer {
     const fog = frame.fog;
     data[o + 20] = fog.color[0]; data[o + 21] = fog.color[1]; data[o + 22] = fog.color[2]; data[o + 23] = fog.density ?? 0;
     data[o + 24] = frame.exposure ?? 1;
-    data[o + 25] = 0; data[o + 26] = 0; data[o + 27] = 0;
+    data[o + 25] = this.environmentTexture ? 1 : 0;
+    data[o + 26] = frame.environment?.intensity ?? 1;
+    data[o + 27] = 0;
     data[o + 28] = Math.min(frame.lights?.length ?? 0, MAX_LIGHTS);
     data[o + 29] = frame.bloom?.threshold ?? 1;
     data[o + 30] = frame.bloom?.intensity ?? 0;

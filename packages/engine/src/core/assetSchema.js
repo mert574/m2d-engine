@@ -26,7 +26,7 @@ import { s } from './schema.js';
 export const MANIFEST_VERSION = 1;
 
 /** Asset types the engine knows how to resolve. */
-export const ASSET_TYPES = ['spritesheet', 'prefab', 'model'];
+export const ASSET_TYPES = ['spritesheet', 'prefab', 'model', 'environment'];
 
 /**
  * What a UID may look like. Deliberately the same spelling as a scene
@@ -89,6 +89,14 @@ const ASSET = s.tagged('type', {
     name: s.string({ nonEmpty: true, label: 'Name' }),
     source: s.string({ required: true, nonEmpty: true, editor: 'file', label: 'Source file (.glb)' }),
     import: MODEL_IMPORT
+  }),
+  environment: s.object({
+    type: s.string(),
+    name: s.string({ nonEmpty: true, label: 'Name' }),
+    source: s.string({ required: true, nonEmpty: true, editor: 'file', label: 'Source file (.hdr)' }),
+    import: s.object({
+      intensity: s.number({ initial: 1, min: 0, label: 'Intensity', description: 'Scales the panorama\'s radiance' })
+    })
   }),
   spritesheet: s.object({
     type: s.string(),

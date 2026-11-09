@@ -258,6 +258,7 @@ game.sceneManager.addScene('yard', {
 | `camera` | `viewProjection`, `inverseViewProjection` and `position`, filled from `game.camera` |
 | `sun` | One directional light: the `direction` its light travels, its linear `color`, and an `intensity` |
 | `ambient` | The environment's strength: linear `sky` and `ground` colours shape the sky, and `intensity` scales the image-based light taken from it |
+| `environment` | An HDR panorama to use as the sky instead of the procedural one: `{ image, intensity }`, where `image` is a decoded Radiance `.hdr` from [`assets.environments`](./scene-format#assets-environments). It becomes both what the camera sees and what the lighting bake reads, so reflections match the background. `null` for the built-in sky |
 | `fog` | Distance fog toward a linear `color`, at a `density` per metre; `0` turns it off. The sky's horizon takes the same colour |
 | `exposure` | A multiplier before tonemapping, `1` by default |
 | `bloom` | A share `intensity` (`0.05`) of the light scatters into a wide glow, energy-conserving; `threshold` keeps only light brighter than it, or `0` lets everything scatter a little, as a lens does. `intensity` `0` skips the passes |

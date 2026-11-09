@@ -860,6 +860,115 @@ describe('a textured model', () => {
   });
 });
 
+describe('an HDR environment', () => {
+  beforeAll(() => initWebGPU());
+
+  /** The 16x8 fixture: strong red over the left half, strong blue over the right. */
+  async function panorama() {
+    const { parseHDR } = await import('../../src/core/hdr.js');
+    const response = await fetch(new URL('../fixtures/textures/split.hdr', import.meta.url));
+    return parseHDR(new Uint8Array(await response.arrayBuffer()), 'split.hdr');
+  }
+
+  it('becomes the sky the camera sees, in place of the procedural one', async () => {
+    const image = await panorama();
+    expect(image.width).toBe(16);
+    expect(image.height).toBe(8);
+
+    const W = 96, H = 72;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+
+    // Look at the horizon so the sky fills the frame.
+    const sky = (environment, toward) => {
+      const camera = new Camera3D(W, H, { mode: 'free', position: { x: 0, y: 1, z: 0 }, lookAt: { ...toward, y: 1 } });
+      camera.update(0);
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [-0.5, -1, -0.3], color: [1, 1, 1], intensity: 1 };
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      frame.environment = environment;
+      renderer.render(frame);
+      return readPixels(renderer);
+    };
+
+    // The panorama's centre faces +x, so -z falls in its left (red)
+    // half and +z in its right (blue) one. Checking both pins the
+    // longitude mapping, not merely that something changed.
+    const red = (await sky({ image, intensity: 1 }, { x: 0, z: -10 })).at(W / 2, 4);
+    const blue = (await sky({ image, intensity: 1 }, { x: 0, z: 10 })).at(W / 2, 4);
+    expect(red[0], `-z is the panorama's red half: ${red}`).toBeGreaterThan(red[2] + 30);
+    expect(blue[2], `+z is its blue half: ${blue}`).toBeGreaterThan(blue[0] + 30);
+    // And it really replaced the procedural sky, which is blue both ways.
+    const was = (await sky(null, { x: 0, z: -10 })).at(W / 2, 4);
+    expect(was[2], `the procedural sky it replaced is blue: ${was}`).toBeGreaterThan(was[0]);
+  });
+
+  it('lights the scene through it: a white floor takes the panorama\'s colour', async () => {
+    const image = await panorama();
+    const W = 96, H = 72;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(W, H, { x: 0, y: 4, z: 6 });
+
+    const floor = (environment) => {
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      // No sun at all: every photon on the floor comes from the
+      // environment, through the irradiance bake.
+      frame.sun = { direction: [0, -1, 0], color: [1, 1, 1], intensity: 0 };
+      frame.ambient.intensity = 1;
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      frame.shadow.enabled = false;
+      frame.environment = environment;
+      frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [1, 1, 1], roughness: 0.9 });
+      renderer.render(frame);
+      return readPixels(renderer);
+    };
+
+    const unlit = (await floor(null)).at(W / 2, H - 8);
+    const lit = (await floor({ image, intensity: 1 })).at(W / 2, H - 8);
+    // The panorama is half red, half blue and nothing else, so what it
+    // pours onto a white floor is purple: strong in red and blue, dark
+    // in the green neither half emits.
+    expect(lit[0], `red from the panorama: ${lit}`).toBeGreaterThan(lit[1] + 40);
+    expect(lit[2], `blue from the panorama: ${lit}`).toBeGreaterThan(lit[1] + 40);
+    // The procedural sky it replaced lights the same floor near-neutral,
+    // so the colour is the environment's doing and not the shading's.
+    expect(unlit[1], `the procedural sky is not purple: ${unlit}`).toBeGreaterThan(unlit[0] - 10);
+  });
+
+  it('scales with its intensity, and re-bakes when it changes', async () => {
+    const image = await panorama();
+    const W = 64, H = 48;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = new Camera3D(W, H, { mode: 'free', position: { x: 0, y: 1, z: 0 }, lookAt: { x: 10, y: 1, z: 0 } });
+    camera.update(0);
+    const at = async (intensity) => {
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [-0.5, -1, -0.3], color: [1, 1, 1], intensity: 0 };
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      frame.environment = { image, intensity };
+      renderer.render(frame);
+      return luma((await readPixels(renderer)).at(W / 2, 4));
+    };
+    const dim = await at(0.05);
+    const bright = await at(1);
+    expect(bright, `intensity 1 (${bright}) over 0.05 (${dim})`).toBeGreaterThan(dim + 20);
+  });
+});
+
 describe('KTX2 textures', () => {
   beforeAll(() => initWebGPU());
 

@@ -53,6 +53,27 @@ A map from model name to model, for a 3D level. A model is a glTF 2.0 `.glb` fil
 
 A prefab draws a model by naming it in its [`mesh`](#mesh) block.
 
+## `assets.environments`
+
+A map from name to HDR environment, for a 3D level. An environment is a Radiance `.hdr` equirectangular panorama — the format Poly Haven and every HDRI library ship — whose pixels carry real radiance rather than 8-bit colour.
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `url` | yes | File path, prefixed with the engine's `basePath` |
+| `intensity` | no | Scales the panorama's radiance; `1` by default |
+
+The scene decodes each one into `scene.environments`, by name. Hand it to the frame to use it:
+
+```javascript
+onRender(frame) {
+  frame.environment = this.environments.get('sky');
+}
+```
+
+It then *is* the sky: the camera sees the panorama, and the same image is baked into the cubemap that lights every surface, so a reflection and the background agree. The procedural sky's `sun` still lights and casts shadows — the panorama's own sun is in its pixels, where the image-based lighting finds it, but a shadow needs a direction — while `ambient.sky` and `ambient.ground` no longer shape anything. Point the frame's `environment` back at `null` for the built-in sky.
+
+Panoramas are oriented as three.js and Blender orient them: the centre of the image faces `+x`, so an HDRI's sun lands where its author put it.
+
 ## `prefabs`
 
 A map from prefab name to prefab.
