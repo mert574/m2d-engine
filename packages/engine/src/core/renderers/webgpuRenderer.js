@@ -5,7 +5,7 @@ import { webgpuDevice } from './webgpu/device.js';
 import {
   SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER, CULL_SHADER,
   LIGHT_CLUSTER_SHADER, FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES,
-  MAX_SPOT_SHADOWS, MAX_CULL_PASSES, CLUSTER_COUNT, CLUSTER_CAPACITY
+  MAX_SPOT_SHADOWS, MAX_POINT_SHADOWS, POINT_SHADOW_NEAR, MAX_CULL_PASSES, CLUSTER_COUNT, CLUSTER_CAPACITY
 } from './webgpu/shaders.js';
 import { TextureCache3D } from './webgpu/textures.js';
 import { initBasis, bestTranscodeTarget, transcodeKTX2 } from './webgpu/basis.js';
@@ -80,10 +80,10 @@ const HDR_FORMAT = 'rgba16float';
  * how many spot lights get a map and at what size.
  */
 export const SHADOW_QUALITY = Object.freeze({
-  off: { cascades: 0, sunSize: 1, spots: 0, spotSize: 1 },
-  low: { cascades: 2, sunSize: 1024, spots: 1, spotSize: 512 },
-  medium: { cascades: 3, sunSize: 2048, spots: 2, spotSize: 1024 },
-  high: { cascades: 4, sunSize: 2048, spots: 4, spotSize: 1024 }
+  off: { cascades: 0, sunSize: 1, spots: 0, spotSize: 1, points: 0, pointSize: 1 },
+  low: { cascades: 2, sunSize: 1024, spots: 1, spotSize: 512, points: 0, pointSize: 256 },
+  medium: { cascades: 3, sunSize: 2048, spots: 2, spotSize: 1024, points: 1, pointSize: 512 },
+  high: { cascades: 4, sunSize: 2048, spots: 4, spotSize: 1024, points: 2, pointSize: 512 }
 });
 
 /** Where the cascade splits fall between linear and logarithmic spacing. */
@@ -138,6 +138,8 @@ export class WebGPURenderer extends BaseRenderer {
     /** Shadow maps: a depth array for the sun's cascades and one for the spots. */
     this.sunShadowTexture = null;
     this.spotShadowTexture = null;
+    this.pointShadowTexture = null;
+    this.pointShadowFaces = [];
     this.sunShadowLayers = [];
     this.spotShadowLayers = [];
     /** One 64-byte uniform and bind group per shadow pass, holding its light matrix. */
@@ -370,7 +372,8 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: 'cube' } },
         { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
         { binding: 5, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
-        { binding: 6, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth', viewDimension: '2d-array' } }
+        { binding: 6, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth', viewDimension: '2d-array' } },
+        { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'depth', viewDimension: 'cube-array' } }
       ]
     });
     const lightingBindGroupLayout = this.lightingBindGroupLayout;
@@ -378,7 +381,7 @@ export class WebGPURenderer extends BaseRenderer {
       label: 'shadow pass',
       entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } }]
     });
-    for (let i = 0; i < MAX_CASCADES + MAX_SPOT_SHADOWS; i++) {
+    for (let i = 0; i < MAX_CASCADES + MAX_SPOT_SHADOWS + MAX_POINT_SHADOWS * 6; i++) {
       const buffer = device.createBuffer({ label: `shadow pass ${i}`, size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
       this.shadowPassUniforms.push(buffer);
       this.shadowPassGroups.push(device.createBindGroup({
@@ -500,6 +503,7 @@ export class WebGPURenderer extends BaseRenderer {
     const q = SHADOW_QUALITY[this.shadowQuality];
     this.sunShadowTexture?.destroy();
     this.spotShadowTexture?.destroy();
+    this.pointShadowTexture?.destroy();
     const array = (size, layers, label) => device.createTexture({
       label, size: { width: size, height: size, depthOrArrayLayers: layers }, format: 'depth32float',
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
@@ -508,10 +512,19 @@ export class WebGPURenderer extends BaseRenderer {
     // holds whatever the quality; unused layers are never drawn or read.
     this.sunShadowTexture = array(q.sunSize, MAX_CASCADES, 'sun shadow maps');
     this.spotShadowTexture = array(q.spotSize, MAX_SPOT_SHADOWS, 'spot shadow maps');
+    // A cube array is six layers per cube, in +x -x +y -y +z -z order.
+    this.pointShadowTexture = device.createTexture({
+      label: 'point shadow cubes', size: { width: q.pointSize, height: q.pointSize, depthOrArrayLayers: MAX_POINT_SHADOWS * 6 },
+      format: 'depth32float', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      // A layered texture is assumed to be bound as a 2d-array unless it
+      // says otherwise, and the cube view has to agree with the binding.
+      textureBindingViewDimension: 'cube-array'
+    });
     const layers = (texture, count) => Array.from({ length: count }, (_, i) =>
       texture.createView({ dimension: '2d', baseArrayLayer: i, arrayLayerCount: 1 }));
     this.sunShadowLayers = layers(this.sunShadowTexture, MAX_CASCADES);
     this.spotShadowLayers = layers(this.spotShadowTexture, MAX_SPOT_SHADOWS);
+    this.pointShadowFaces = layers(this.pointShadowTexture, MAX_POINT_SHADOWS * 6);
     this.lightingBindGroup = device.createBindGroup({
       layout: this.lightingBindGroupLayout,
       entries: [
@@ -521,7 +534,8 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 3, resource: this.environment.prefilteredView },
         { binding: 4, resource: this.environment.lutView },
         { binding: 5, resource: this.environment.sampler },
-        { binding: 6, resource: this.spotShadowTexture.createView({ dimension: '2d-array' }) }
+        { binding: 6, resource: this.spotShadowTexture.createView({ dimension: '2d-array' }) },
+        { binding: 7, resource: this.pointShadowTexture.createView({ dimension: 'cube-array' }) }
       ]
     });
   }
@@ -574,7 +588,7 @@ export class WebGPURenderer extends BaseRenderer {
   destroy() {
     this.uiBackend?.destroy();
     this.overlayCanvas?.remove?.();
-    for (const texture of [...(this.colorTextures ?? []), this.depthTexture, this.sunShadowTexture, this.spotShadowTexture]) texture?.destroy();
+    for (const texture of [...(this.colorTextures ?? []), this.depthTexture, this.sunShadowTexture, this.spotShadowTexture, this.pointShadowTexture]) texture?.destroy();
     for (const buffer of this.shadowPassUniforms) buffer.destroy();
     this.shadowPassUniforms = [];
     this.shadowPassGroups = [];
@@ -608,6 +622,8 @@ export class WebGPURenderer extends BaseRenderer {
     this.overlayCanvas = null;
     this.colorTextures = [];
     this.depthTexture = this.sunShadowTexture = this.spotShadowTexture = this.lightingBindGroup = null;
+    this.pointShadowTexture = null;
+    this.pointShadowFaces = [];
     this.frameUniform = this.instanceBuffer = null;
     this.instanceCapacity = 0;
     this.skyPipeline = this.shadowPipeline = this.meshPipelines = null;
@@ -1451,7 +1467,37 @@ export class WebGPURenderer extends BaseRenderer {
         passes.push({ view: this.spotShadowLayers[layer], matrix });
       }
     }
-    return { cascades, spots, passes };
+
+    // Point lights, six faces each. The shader needs no matrices back:
+    // every face shares this frustum, so it rebuilds the depth a face
+    // wrote from the distance along the direction's dominant axis.
+    const points = [];
+    if (q.points) {
+      const eye = camera.position;
+      const candidates = [];
+      frame.lightInfo.forEach((light, index) => {
+        if ((light.type ?? 'point') !== 'point' || light.shadow === false) return;
+        const p = light.position;
+        const d = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z);
+        if (d > (light.range ?? 10) + frame.shadow.distance) return;
+        candidates.push({ light, index, d });
+      });
+      candidates.sort((a, b) => a.d - b.d);
+      for (const { light, index } of candidates.slice(0, q.points)) {
+        const cube = points.length;
+        const p = light.position;
+        const range = light.range ?? 10;
+        const projection = mat4.perspective(Math.PI / 2, 1, POINT_SHADOW_NEAR, range);
+        CUBE_FACES.forEach((face, i) => {
+          const view = mat4.lookAt(p, { x: p.x + face.dir[0], y: p.y + face.dir[1], z: p.z + face.dir[2] },
+            { x: face.up[0], y: face.up[1], z: face.up[2] });
+          passes.push({ view: this.pointShadowFaces[cube * 6 + i], matrix: mat4.multiply(projection, view) });
+        });
+        points.push({ index, range });
+        frame.lights[index][15] = cube + 1;
+      }
+    }
+    return { cascades, spots, points, passes };
   }
 
   /**
@@ -1509,6 +1555,26 @@ const MAIN_TARGETS = Object.freeze([
   { label: 'indirect', format: HDR_FORMAT },
   { label: 'normal depth', format: HDR_FORMAT },
   { label: 'velocity', format: 'rg16float' }
+]);
+
+/**
+ * The six faces of a shadow cube, in the order a cube texture's layers
+ * take them: +x, -x, +y, -y, +z, -z.
+ *
+ * The up vectors are the usual cube-map ones with their sign flipped.
+ * The textbook set is written for OpenGL, whose framebuffer origin is
+ * at the bottom; WebGPU's is at the top, so a face drawn with the
+ * textbook up lands mirrored vertically against the direction the
+ * hardware samples it by — and reads as no shadow at all, since the
+ * half of the face the lookup lands in is the empty half.
+ */
+const CUBE_FACES = Object.freeze([
+  { dir: [1, 0, 0], up: [0, 1, 0] },
+  { dir: [-1, 0, 0], up: [0, 1, 0] },
+  { dir: [0, 1, 0], up: [0, 0, -1] },
+  { dir: [0, -1, 0], up: [0, 0, 1] },
+  { dir: [0, 0, 1], up: [0, 1, 0] },
+  { dir: [0, 0, -1], up: [0, 1, 0] }
 ]);
 
 /** Straight (non-premultiplied) alpha over what is already there. */

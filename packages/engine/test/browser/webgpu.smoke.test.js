@@ -564,6 +564,45 @@ describe('lighting', () => {
     expect(luma(lit), `the 301st light still lights ${lit} vs ${dark}`).toBeGreaterThan(luma(dark) * 1.8);
   });
 
+  it('a point light casts a shadow on every side of itself', async () => {
+    // A lamp in the air with a box beside it, four times round: the
+    // shadow must fall on the far side of the box each time. Walking it
+    // around all four horizontal faces of the cube is what catches a
+    // face drawn in the wrong order or mirrored, which looks perfectly
+    // fine from any single angle.
+    const W = 128, H = 96;
+    const renderer = make(W, H);
+    renderer.setShadowQuality('high');
+    const camera = cameraAt(W, H, { x: 0, y: 9, z: 0.01 });
+    const at = (pixels, x, y, z) => {
+      const p = camera.worldToScreen(x, y, z);
+      return pixels.at(Math.round(p.x), Math.round(p.y));
+    };
+    const sides = [
+      { name: '+x', box: { x: 2, z: 0 }, shadow: { x: 4.2, z: 0 } },
+      { name: '-x', box: { x: -2, z: 0 }, shadow: { x: -4.2, z: 0 } },
+      { name: '+z', box: { x: 0, z: 2 }, shadow: { x: 0, z: 4.2 } },
+      { name: '-z', box: { x: 0, z: -2 }, shadow: { x: 0, z: -4.2 } }
+    ];
+    for (const side of sides) {
+      const build = (shadow) => (f) => {
+        f.shadow.enabled = true;
+        f.add(box(), { position: { x: side.box.x, y: 0.5, z: side.box.z }, scale: 1, color: [0.7, 0.7, 0.7] });
+        f.addLight({ position: { x: 0, y: 1.6, z: 0 }, color: [1, 1, 1], intensity: 60, range: 14, shadow });
+      };
+      renderer.render(scene(renderer, camera, build(true)));
+      const withShadow = await readPixels(renderer);
+      const shadowed = at(withShadow, side.shadow.x, 0, side.shadow.z);
+      renderer.render(scene(renderer, camera, build(false)));
+      const lit = at(await readPixels(renderer), side.shadow.x, 0, side.shadow.z);
+      expect(luma(shadowed), `${side.name}: floor beyond the box is shadowed (${shadowed}) vs unshadowed (${lit})`)
+        .toBeLessThan(luma(lit) * 0.8);
+      // And the floor between the lamp and the box still catches light.
+      const near = at(withShadow, side.box.x * 0.3, 0, side.box.z * 0.3);
+      expect(luma(near), `${side.name}: between lamp and box stays lit (${near})`).toBeGreaterThan(luma(shadowed));
+    }
+  });
+
   it('a shadowed spot light leaves the floor dark behind a box', async () => {
     const W = 96, H = 72;
     const renderer = make(W, H);

@@ -301,7 +301,7 @@ const LIGHT = s.object({
   direction: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Where a spot points' }),
   innerCone: s.number({ min: 0, unit: 'rad' }),
   outerCone: s.number({ min: 0, unit: 'rad' }),
-  shadow: s.boolean({ description: 'Whether a spot casts a shadow map; the nearest few do' })
+  shadow: s.boolean({ description: 'Whether the light casts a shadow — a map for a spot, a cube for a point; the nearest few do, by the quality setting' })
 }, { label: 'Light' });
 
 const PREFAB = s.object({

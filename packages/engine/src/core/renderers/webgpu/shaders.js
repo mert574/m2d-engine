@@ -17,6 +17,21 @@ export const MAX_CASCADES = 4;
 export const MAX_SPOT_SHADOWS = 4;
 
 /**
+ * Point lights that may cast a shadow cube at once. Each costs six
+ * passes — one per face — so this stays small and the quality setting
+ * decides how many of them a frame actually draws.
+ */
+export const MAX_POINT_SHADOWS = 2;
+
+/**
+ * The near plane every shadow cube face is drawn with. Both halves of
+ * the comparison have to agree on it: the renderer builds the face
+ * projections with this, and the shader rebuilds the stored depth from
+ * a distance with it.
+ */
+export const POINT_SHADOW_NEAR = 0.05;
+
+/**
  * The light cluster grid: tiles across the screen and slices into depth.
  * A fragment shades with the lights of its own cluster instead of every
  * light in the frame, which is what lets a level carry hundreds.
@@ -126,7 +141,8 @@ struct Light {
   color: vec4f,
   // xyz the direction a spot points; w 0 point, 1 spot.
   direction: vec4f,
-  // x cos inner cone, y cos outer cone, z shadow layer + 1 (0: none).
+  // x cos inner cone, y cos outer cone, z spot shadow layer + 1 (0:
+  // none), w point shadow cube + 1 (0: none).
   cone: vec4f,
 };
 
@@ -195,17 +211,37 @@ fn clampHDR(c: vec3f) -> vec3f {
   return clamp(c, vec3f(0.0), vec3f(HDR_MAX));
 }
 
-// The sky in a direction, in linear light: horizon in the fog colour,
-// zenith in the sky colour, haze darkening below the horizon, and the
-// sun's halo. The disc itself is drawn only on screen (withSun), since
-// the environment handles the sun's specular analytically and a disc in
-// the prefiltered cube would be a firefly.
+// The built-in sky in a direction, in linear light: horizon in the fog
+// colour, zenith in the sky colour, haze darkening below the horizon,
+// and the sun's halo. The disc itself is drawn only on screen
+// (withSun), since the environment handles the sun's specular
+// analytically and a disc in the prefiltered cube would be a firefly.
+//
+// Declared before its callers: WGSL wants a function defined above the
+// code that calls it, and Tint's leniency about that is not portable.
+fn proceduralSky(dir: vec3f, withSun: bool) -> vec3f {
+  let up = clamp(dir.y, -1.0, 1.0);
+  let zenith = frame.sky.rgb * 1.6;
+  let horizon = frame.fog.rgb;
+  var color = mix(horizon, zenith, pow(max(up, 0.0), 0.5));
+  color = mix(color, horizon * 0.45, smoothstep(0.0, -0.25, up));
+  let toSun = -normalize(frame.sunDirection.xyz);
+  let cosAngle = dot(dir, toSun);
+  let halo = pow(max(cosAngle, 0.0), 24.0) * 0.25;
+  var sun = halo;
+  if (withSun) {
+    sun += smoothstep(0.9993, 0.9998, cosAngle) * 2.0;
+  }
+  color += frame.sunColor.rgb * frame.sunDirection.w * sun * step(0.0, up + 0.02);
+  return color;
+}
+
 /**
  * The sky in a direction. With an HDR environment loaded the panorama
  * is the sky - it already holds its own sun, horizon and clouds, so
  * none of the procedural terms apply - and lod picks how blurred a
  * version to read, which is how the cube bake avoids aliasing its
- * smaller mips. Without one, the analytic gradient below.
+ * smaller mips. Without one, the analytic gradient above.
  */
 fn skyColorLod(dir: vec3f, withSun: bool, lod: f32) -> vec3f {
   if (frame.params.y > 0.5) {
@@ -222,23 +258,6 @@ fn skyColorLod(dir: vec3f, withSun: bool, lod: f32) -> vec3f {
 
 fn skyColor(dir: vec3f, withSun: bool) -> vec3f {
   return skyColorLod(dir, withSun, 0.0);
-}
-
-fn proceduralSky(dir: vec3f, withSun: bool) -> vec3f {
-  let up = clamp(dir.y, -1.0, 1.0);
-  let zenith = frame.sky.rgb * 1.6;
-  let horizon = frame.fog.rgb;
-  var color = mix(horizon, zenith, pow(max(up, 0.0), 0.5));
-  color = mix(color, horizon * 0.45, smoothstep(0.0, -0.25, up));
-  let toSun = -normalize(frame.sunDirection.xyz);
-  let cosAngle = dot(dir, toSun);
-  let halo = pow(max(cosAngle, 0.0), 24.0) * 0.25;
-  var sun = halo;
-  if (withSun) {
-    sun += smoothstep(0.9993, 0.9998, cosAngle) * 2.0;
-  }
-  color += frame.sunColor.rgb * frame.sunDirection.w * sun * step(0.0, up + 0.02);
-  return color;
 }
 
 // One triangle covering clip space.
@@ -491,8 +510,11 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
 }
 `;
 
-/** Passes the cull shader can test at once: the camera and every shadow map. */
-export const MAX_CULL_PASSES = 1 + MAX_CASCADES + MAX_SPOT_SHADOWS;
+/**
+ * Passes the cull shader can test at once: the camera, every shadow
+ * map, and the six faces of every shadow cube.
+ */
+export const MAX_CULL_PASSES = 1 + MAX_CASCADES + MAX_SPOT_SHADOWS + MAX_POINT_SHADOWS * 6;
 
 /**
  * Frustum culling on the GPU, for every pass at once. One invocation per
@@ -576,6 +598,9 @@ ${meshVertex(skinned)}
 @group(1) @binding(4) var brdfLut: texture_2d<f32>;
 @group(1) @binding(5) var environmentSampler: sampler;
 @group(1) @binding(6) var spotShadowMaps: texture_depth_2d_array;
+@group(1) @binding(7) var pointShadowMaps: texture_depth_cube_array;
+
+const POINT_SHADOW_NEAR = ${POINT_SHADOW_NEAR};
 
 ${MATERIAL}
 
@@ -650,6 +675,33 @@ fn spotVisibility(layer: u32, worldPosition: vec3f, normal: vec3f, nDotL: f32) -
   // Perspective depth is non-linear; the slope-scaled bias of the shadow
   // pipeline carries most of the work, this is a hair on top.
   return shadowLookup(spotShadowMaps, layer, lightSpace, frame.shadowParams.z, 0.0005);
+}
+
+/**
+ * How much of a shadowed point light reaches a place, through its cube.
+ *
+ * A cube needs no matrix here. Every face was drawn with the same 90
+ * degree frustum, so the depth stored for a point is a function of its
+ * distance along whichever axis dominates the direction to it, and
+ * that function inverts: rebuild the depth the face would have written
+ * and compare. Six matrices in the frame uniform, and the face
+ * selection to go with them, are what this avoids.
+ */
+fn pointVisibility(cube: u32, worldPosition: vec3f, lightPosition: vec3f, range: f32, normal: vec3f, nDotL: f32) -> f32 {
+  // Push off the surface along its normal first, as the other two do:
+  // a grazing surface self-shadows into acne otherwise.
+  let offset = normal * frame.shadowBias.x * (1.0 + 2.0 * (1.0 - nDotL));
+  let toFragment = worldPosition + offset - lightPosition;
+  // The face that saw this direction looked down its dominant axis, so
+  // that component is the view depth the projection was given.
+  let axis = max(abs(toFragment.x), max(abs(toFragment.y), abs(toFragment.z)));
+  if (axis <= POINT_SHADOW_NEAR) { return 1.0; }
+  // The perspective divide of mat4.perspective(90, 1, near, range),
+  // which is zero-to-one and right-handed: far * (d - near) / (d * (far - near)).
+  let near = POINT_SHADOW_NEAR;
+  let depth = range * (axis - near) / (axis * (range - near));
+  let bias = 0.0015 * (1.0 + 2.0 * (1.0 - nDotL));
+  return textureSampleCompareLevel(pointShadowMaps, shadowSampler, toFragment, cube, depth - bias);
 }
 
 // Cook-Torrance for one light arriving along l with the given radiance.
@@ -758,6 +810,9 @@ fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
     if (attenuation <= 0.0) { continue; }
     if (light.cone.z > 0.5) {
       attenuation *= spotVisibility(u32(light.cone.z) - 1u, in.worldPosition, n, max(dot(n, dir), 0.0));
+      if (attenuation <= 0.0) { continue; }
+    } else if (light.cone.w > 0.5) {
+      attenuation *= pointVisibility(u32(light.cone.w) - 1u, in.worldPosition, light.position.xyz, light.position.w, n, max(dot(n, dir), 0.0));
       if (attenuation <= 0.0) { continue; }
     }
     color += shade(n, v, dir, light.color.rgb * light.color.w * attenuation, base, f0, metallic, roughness);
