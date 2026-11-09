@@ -34,6 +34,8 @@ dist/
 /examples/src/yard/models/ph/
 # HDR panoramas, fetched the same way (no compile step)
 /examples/src/yard/environments/
+# Dev-grid textures, generated like the showcase sprites
+/examples/src/yard/textures/
 
 # Logs
 *.log

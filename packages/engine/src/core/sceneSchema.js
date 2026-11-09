@@ -280,6 +280,10 @@ const MESH = s.object({
   emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour' }),
   checker: s.number({ min: 0, unit: 'm', description: 'A two-tone checker of this cell size; 0 for none' }),
   castShadow: s.boolean({ default: true, description: 'Off for a glowing shell around a light, which would otherwise shadow its own lamp' }),
+  texture: s.object({
+    url: s.string({ required: true, nonEmpty: true, description: 'An image, relative to the game\'s basePath' }),
+    size: s.number({ positive: true, initial: 1, unit: 'm', description: 'World metres per tile: mapped planar from the position, so a floor and a wall tile alike' })
+  }, { description: 'A tiling texture over the shape, dev-grid style' }),
   animation: s.object({
     clip: s.string({ required: true, description: 'A clip in the model' }),
     loop: s.boolean(),

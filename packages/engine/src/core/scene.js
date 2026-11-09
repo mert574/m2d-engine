@@ -34,6 +34,8 @@ export class Scene {
     this.models = new Map();
     /** HDR panoramas from `assets.environments`, by key; hand one to `frame.environment`. @type {Map<string, {image: object, intensity: number}>} */
     this.environments = new Map();
+    /** One stable material per `mesh.texture` block, by url|size, so the renderer groups instances that share one. @type {Map<string, object>} */
+    this.meshMaterials = new Map();
     /** The level's props as resident instance batches, built at load; see `setupProps`. @type {StaticBatch[]} */
     this.batches = [];
     /** The props' static bodies, removed with the scene. */
@@ -94,7 +96,7 @@ export class Scene {
   }
 
   async loadAssets() {
-    await Promise.all([this.#loadSpriteSheets(), this.#loadModels(), this.#loadEnvironments()]);
+    await Promise.all([this.#loadSpriteSheets(), this.#loadModels(), this.#loadEnvironments(), this.#loadMeshTextures()]);
   }
 
   /**
@@ -102,6 +104,43 @@ export class Scene {
    * name })` on the config hears each arrive, for a loading screen; a
    * level with hundreds of megabytes of scans takes a while.
    */
+  /**
+   * The images named by the prefabs' `mesh.texture` blocks, decoded once
+   * each and wrapped as materials. The material object is stable for the
+   * scene's life — the renderer caches bind groups by its identity and
+   * `Frame3D` groups instances by it.
+   */
+  async #loadMeshTextures() {
+    if (this.game.headless || typeof createImageBitmap !== 'function') return;
+    const wanted = new Map();
+    for (const prefab of Object.values(this.config.prefabs ?? {})) {
+      const texture = prefab.mesh?.texture;
+      if (!texture) continue;
+      const key = `${texture.url}|${texture.size ?? 1}`;
+      if (!wanted.has(key)) wanted.set(key, texture);
+    }
+    await Promise.all([...wanted.entries()].map(async ([key, texture]) => {
+      const response = await fetch(this.game.options.basePath + texture.url);
+      if (!response.ok) throw new Error(`M2D: could not fetch texture ${texture.url} (${response.status})`);
+      const image = await createImageBitmap(await response.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+      this.meshMaterials.set(key, {
+        name: texture.url,
+        baseColor: [1, 1, 1, 1],
+        baseColorTexture: image,
+        metallic: 1,
+        roughness: 1,
+        worldScale: texture.size ?? 1
+      });
+    }));
+  }
+
+  /** The stable material for a mesh block's `texture`, or null without one. */
+  meshMaterial(mesh) {
+    const texture = mesh?.texture;
+    if (!texture) return null;
+    return this.meshMaterials.get(`${texture.url}|${texture.size ?? 1}`) ?? null;
+  }
+
   async #loadEnvironments() {
     const environments = this.config.assets?.environments;
     if (!environments) return;
@@ -404,7 +443,7 @@ export class Scene {
         this.#propColliders(prop, { min: { x: -size.x / 2, y: -size.y / 2, z: -size.z / 2 }, max: { x: size.x / 2, y: size.y / 2, z: size.z / 2 } }, ZERO, shape);
         if (headless) continue;
         const { geometry, scale: shapeScale } = geometryFor(shape, size);
-        const batch = batchFor(geometry, null);
+        const batch = batchFor(geometry, this.meshMaterial(mesh));
         for (const [x, y, z, yaw, scale] of prop.instances) {
           batch.push({
             position: { x, y, z }, rotation: Quat.fromAxisAngle(UP, yaw),
@@ -844,6 +883,7 @@ export class Scene {
           emissive: mesh.emissive,
           checker: mesh.checker,
           castShadow: mesh.castShadow,
+          material: this.meshMaterial(mesh),
           previousModel: entity.lastModel ?? undefined
         });
       }

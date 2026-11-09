@@ -18,17 +18,17 @@
     "ground": {
       "actor": "Ground",
       "physics": { "bodyType": "static", "friction": 0.8 },
-      "mesh": { "color": "#6f6a60", "roughness": 0.95, "checker": 2 }
+      "mesh": { "color": "#b5b5b0", "roughness": 0.95, "texture": { "url": "textures/dev_grid.png", "size": 1 } }
     },
     "wall": {
       "actor": "Ground",
       "physics": { "bodyType": "static", "friction": 0.6 },
-      "mesh": { "color": "#a89b8c", "roughness": 0.85 }
+      "mesh": { "color": "#e8e2d8", "roughness": 0.85, "texture": { "url": "textures/dev_orange.png", "size": 1 } }
     },
     "pillar": {
       "actor": "Ground",
       "physics": { "bodyType": "static", "shape": "cylinder" },
-      "mesh": { "color": "#cfc6b8", "roughness": 0.6 }
+      "mesh": { "color": "#efe9df", "roughness": 0.6, "texture": { "url": "textures/dev_grid.png", "size": 1 } }
     },
     "crate": {
       "actor": "Crate",

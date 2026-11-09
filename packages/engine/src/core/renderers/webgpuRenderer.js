@@ -1219,6 +1219,8 @@ export class WebGPURenderer extends BaseRenderer {
     data[18] = material?.normalTexture ? 1 : 0;
     data[19] = material?.doubleSided ? 1 : 0;
     data[20] = material?.specularF0 ?? 0.04;
+    // Metres per texture tile for world-planar mapping; 0 keeps the mesh's own uvs.
+    data[21] = material?.worldScale ?? 0;
     const uniform = device.createBuffer({
       label: `material ${material?.name ?? 'default'}`,
       size: data.byteLength,

@@ -325,6 +325,10 @@ struct Material {
   // x rotation (radians), y alpha mode (0 opaque, 1 mask, 2 blend), z 1 when the material has a normal map, w 1 when double sided.
   flags: vec4f,
   // x dielectric reflectance at normal incidence (0.04 for glTF's default ior 1.5, times KHR_materials_specular's factor).
+  // y world metres per texture tile: when set, the textures are mapped
+  // planar from the world position along the dominant normal axis — the
+  // dev-grid look, the same density on a floor and a wall whatever the
+  // mesh's own coordinates say.
   specular: vec4f,
 };
 @group(2) @binding(0) var<uniform> material: Material;
@@ -737,7 +741,12 @@ struct MeshFragment {
 @fragment
 fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
   let inst = instances[in.instance];
-  let uv = materialUV(in.uv);
+  var uv = materialUV(in.uv);
+  if (material.specular.y > 0.0) {
+    let axis = abs(in.normal);
+    let p = in.worldPosition / material.specular.y;
+    uv = select(select(p.xy, p.xz, axis.y >= axis.x && axis.y >= axis.z), p.yz, axis.x >= axis.y && axis.x >= axis.z);
+  }
   // Material lookups take the frame's mip bias: with TAA jittering the
   // sample positions, half a level sharper restores the detail the
   // temporal filter averages away, as every TAA renderer does.

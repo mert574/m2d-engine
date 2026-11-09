@@ -890,6 +890,50 @@ describe('the post stack', () => {
   });
 });
 
+describe('a textured primitive', () => {
+  beforeAll(() => initWebGPU());
+
+  it('maps a material by world position: the pattern tiles the floor in metres', async () => {
+    const W = 128, H = 96;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(W, H, { x: 1, y: 6, z: 4 });
+
+    // A 2x1 texture, red then blue. With two world metres per tile the
+    // floor must be red where floor(x) is even and blue where it is odd,
+    // whatever the mesh's own uvs or its scale say.
+    const paint = new OffscreenCanvas(2, 1).getContext('2d');
+    paint.fillStyle = '#ff0000'; paint.fillRect(0, 0, 1, 1);
+    paint.fillStyle = '#0000ff'; paint.fillRect(1, 0, 1, 1);
+    const image = await createImageBitmap(paint.canvas);
+    const material = { name: 'tiles', baseColor: [1, 1, 1, 1], baseColorTexture: image, metallic: 1, roughness: 1, worldScale: 2 };
+
+    const frame = renderer.createFrame();
+    frame.setCamera(camera);
+    frame.sun = { direction: [0, -1, 0.01], color: [1, 1, 1], intensity: 3 };
+    frame.fog.density = 0;
+    frame.bloom.intensity = 0;
+    frame.shadow.enabled = false;
+    frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [1, 1, 1], roughness: 1, material });
+    renderer.render(frame);
+    const pixels = await readPixels(renderer);
+
+    const at = (x, z) => {
+      const p = camera.worldToScreen(x, 0, z);
+      return pixels.at(Math.round(p.x), Math.round(p.y));
+    };
+    const even = at(0.5, 0.5);
+    const odd = at(1.5, 0.5);
+    expect(even[0], `red tile at x 0.5: ${even}`).toBeGreaterThan(even[2] + 40);
+    expect(odd[2], `blue tile at x 1.5: ${odd}`).toBeGreaterThan(odd[0] + 40);
+    // One more period along, the pattern repeats.
+    const again = at(2.5, 0.5);
+    expect(again[0], `red again at x 2.5: ${again}`).toBeGreaterThan(again[2] + 40);
+  });
+});
+
 describe('a textured model', () => {
   beforeAll(() => initWebGPU());
 
