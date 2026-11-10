@@ -2,6 +2,34 @@ import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
 import { tileTexture } from '../shared/textures.js';
 import { makeRng, range } from '../shared/rng.js';
+import bricksUrl from './textures/bricks.jpg';
+import plasterUrl from './textures/plaster.jpg';
+import roadUrl from './textures/road.jpg';
+import roofingUrl from './textures/roofing.jpg';
+import facadeAUrl from './textures/facade-a.jpg';
+import facadeBUrl from './textures/facade-b.jpg';
+import facadeCUrl from './textures/facade-c.jpg';
+
+const TEXTURE_URLS = {
+  bricks: bricksUrl, plaster: plasterUrl, road: roadUrl, roofing: roofingUrl,
+  facadeA: facadeAUrl, facadeB: facadeBUrl, facadeC: facadeCUrl
+};
+
+/**
+ * The street's ambientCG textures, decoded once for every street on the
+ * page and only when one is first drawn: decoding is presentation, so a
+ * headless street never asks for an image, and anything that builds the
+ * scene — the game, the editor — gets them without handing them over.
+ */
+let decoded = null;
+function streetTextures() {
+  decoded ??= Object.fromEntries(Object.entries(TEXTURE_URLS).map(([name, url]) => {
+    const image = new Image();
+    image.src = url;
+    return [name, image];
+  }));
+  return decoded;
+}
 
 /**
  * Ash Row's street, in depth.
@@ -36,7 +64,6 @@ function shift(camera, parallax) {
 
 export class Street extends Entity {
   static properties = {
-    textures: s.any({ description: 'Decoded facade images, handed over by the scene in code' }),
     lane: s.object({
       top: s.number({ required: true, unit: 'px' }),
       bottom: s.number({ required: true, unit: 'px' })
@@ -52,7 +79,6 @@ export class Street extends Entity {
     body.setCollisionFilter({ category: 0, mask: 0 });
     this.zIndex = 0;
     this.depth = -Infinity;
-    this.textures = options.textures ?? {};
     this.lane = options.lane;
     this.length = options.length;
     const rng = makeRng(options.seed ?? 3);
@@ -90,6 +116,11 @@ export class Street extends Entity {
     // Drains and patches on the pavement and road.
     this.drains = Array.from({ length: Math.floor(this.length / 900) }, (_, i) => ({ x: 450 + i * 900 + range(rng, -200, 200) }));
     this.patches = Array.from({ length: Math.floor(this.length / 260) }, () => ({ x: range(rng, 0, this.length), y: range(rng, 0.1, 0.9), r: range(rng, 40, 110) }));
+  }
+
+  /** The decoded textures; see `streetTextures`. */
+  get textures() {
+    return streetTextures();
   }
 
   draw() {

@@ -54,7 +54,7 @@
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `headless` | `false` | Build the simulation only, for a server or a test. The canvas must be `null`. Display, input device and audio options are ignored. See [Headless games](../guide/headless) |
-| `editMode` | `false` | Presentation without game, for an editor's viewport. Scenes materialize from their documents exactly as a load builds them — entities, constraints, props, tiles, lights — but no game code runs against them: lifecycle and draw hooks (`onEnter`, `onShow`, `onDraw`, `onRender`, `onHide`, `onExit`, ...) are never called, the simulation never ticks and game time never advances (`step` returns 0, whoever calls it), the scene's UI is drawn but receives no input, `gameOver` is inert, and cvars have no storage, so an editing session cannot overwrite a player's settings. Engine input events (`game.input.on`) still fire, for the editor's own tools. Playing in an editor is a fresh game without this flag |
+| `editMode` | `false` | Presentation without game, for an editor's viewport. Scenes materialize from their documents exactly as a load builds them — entities, constraints, props, tiles, lights — but no game code runs against them: lifecycle and draw hooks (`onEnter`, `onShow`, `onDraw`, `onRender`, `onHide`, `onExit`, ...) are never called, the simulation never ticks and game time never advances (`step` returns 0, whoever calls it), the scene's UI is drawn but receives no input, `gameOver` is inert, and cvars have no storage, so an editing session cannot overwrite a player's settings. Engine input events (`game.input.on`) still fire, for the editor's own tools. The picture is drawn on demand: the frame after `invalidate()` (a resize and a scene switch call it too) and otherwise at `M2D.EDIT_IDLE_FPS`, 20 by default, which is how an asset landing or a renderer's temporal history settling still reaches the screen at a fraction of the idle cost. Input is still delivered every frame. `game.drawOnDemand = false` turns this off and draws every frame, as play does (the editor's Power saving switch) Playing in an editor is a fresh game without this flag |
 
 ## Instance properties
 
@@ -129,6 +129,7 @@
 | `drawWorld(scene, dt)`, `drawUI(scene, dt)`, `drawOverlays(dt)` | The three drawing passes, for games that run their own loop |
 | `addView(canvas)` | A second live view of the world on another canvas, drawn every frame from a camera of its own (the returned view's `camera`, sized to the canvas — a `Camera3D` in 3D, a `Camera` in 2D). In 3D the frame's heavy half — assembly, culling, the shadow maps — is shared across views and each pays only its main pass and post stack, with temporal state (TAA history, exposure) per view; shadows stay fitted to the main camera. In 2D the scene is walked once more per view through a renderer of the same backend. Views draw no HUD and take no input: they are cameras, not screens. An editor's side viewports are the consumer; `yard?views=2` shows one live |
 | `removeView(view)` | Drop a view from `addView` and everything it holds. The canvas stays |
+| `invalidate()` | Draw the next frame. Only edit mode draws on demand, so only edit mode needs it: an editor calls it after a change the engine cannot see, such as a camera it moved by hand |
 
 ## Random numbers
 

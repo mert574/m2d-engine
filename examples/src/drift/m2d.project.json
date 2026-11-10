@@ -1,0 +1,5 @@
+{
+  "name": "Salvage Run",
+  "definition": "game.js",
+  "hooks": "hooks.js"
+}

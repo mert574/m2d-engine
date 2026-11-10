@@ -47,6 +47,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { writeScene } from 'm2d-editor-core';
+import { seedTarget } from './seedScene.mjs';
+
+// A seed: writes the scene only when it is not there; see seedScene.mjs.
+const out = seedTarget(new URL('../src/yard/scenes/lot.json', import.meta.url));
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const yard = JSON.parse(readFileSync(`${here}../src/yard/scenes/yard.json`, 'utf8'));
@@ -522,7 +526,6 @@ const scene = {
   version: yard.version,
   type: 'level',
   name: 'lot',
-  generator: 'scripts/buildLotScene.mjs',
   title: 'The Lot',
   world: yard.world,
   assets: { ...yard.assets, models: { ...yard.assets.models, ...models } },
@@ -544,6 +547,5 @@ const scene = {
   }]
 };
 
-const out = `${here}../src/yard/scenes/lot.json`;
 writeFileSync(out, writeScene(scene));
 console.log(`Wrote ${out}: ${SIDE * SIDE - 1} lots, ${total} prop instances in ${props.size} props, ${objects.length} exhibit objects`);

@@ -20,18 +20,21 @@ import { SceneLoader } from 'm2d-engine/core/sceneLoader.js';
 export interface ValidationIssue {
   /** `layers[0].objects[3].id`, or '' for the document itself. */
   path: string;
+  /** The problem, without the path: what a row next to the field says. */
   message: string;
 }
 
 export interface ValidationResult {
   ok: boolean;
+  /** Every problem the loader found, in document order. */
   issues: ValidationIssue[];
   /** The document with defaults applied, when it validated. */
   loaded: Record<string, unknown> | null;
 }
 
 /**
- * Check a scene document.
+ * Check a scene document, reporting every problem rather than the first —
+ * see `SceneLoader.check`.
  *
  * @param doc - A parsed scene document
  * @param game - A game whose registries resolve actor, constraint and
@@ -39,17 +42,14 @@ export interface ValidationResult {
  */
 export function validateScene(doc: unknown, game: unknown = null): ValidationResult {
   try {
-    const loaded = new SceneLoader(game).load(doc) as Record<string, unknown>;
-    return { ok: true, issues: [], loaded };
-  } catch (error) {
-    const issue = error as { path?: unknown; message?: unknown };
+    const { loaded, issues } = new SceneLoader(game).check(doc);
     return {
-      ok: false,
-      loaded: null,
-      issues: [{
-        path: typeof issue.path === 'string' ? issue.path : '',
-        message: typeof issue.message === 'string' ? issue.message : String(error)
-      }]
+      ok: issues.length === 0,
+      loaded,
+      issues: issues.map((issue) => ({ path: issue.path ?? '', message: issue.detail ?? issue.message }))
     };
+  } catch (error) {
+    // Not a problem with the document: a bug in a refine or a registry.
+    return { ok: false, loaded: null, issues: [{ path: '', message: String((error as Error).message ?? error) }] };
   }
 }

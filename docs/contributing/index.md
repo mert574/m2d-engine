@@ -22,8 +22,9 @@ npm run dev           # examples on port 3000
 npm run dev:lan       # the same over HTTPS on every interface, for a browser on another machine
 npm run build-models  # fetch and compile the lot's Poly Haven models and textures (the dev server does the missing ones itself)
 npm run docs:dev      # documentation site
-npm run editor        # the editor, hosting the examples project (random port, printed; PORT= pins it)
-npm run editor:mcp .  # the editor's MCP endpoint over stdio, for an agent
+npm run editor examples/src/yard      # the editor on one game (random port, printed; PORT= pins it)
+npm run editor new my-game --template 3d   # a new project from a template
+npm run editor:mcp examples/src/yard  # the MCP endpoint over stdio, when no editor is running
 npm test              # typecheck, engine suites, example scene validation
 npm run typecheck     # every workspace that has a tsconfig
 npm run build         # docs and demos into site/

@@ -168,10 +168,28 @@ function join(path, key) {
  *   `s.ref`. A scope that is absent is not checked, which is how a loader
  *   with nothing to cross-reference against skips the check.
  * @param {object} [ctx.context] - Carried through to every `refine`.
+ * @param {(error: unknown) => boolean} [ctx.collect] - Report every problem,
+ *   not just the first: each child of an object, record, array or tuple
+ *   (and each refine) is checked on its own, and an error thrown by `fail`
+ *   is handed to `collect` instead of ending the walk. `collect` returns
+ *   true for an error it recorded and false for one that should propagate
+ *   (a bug, not a problem with the document). A failed child keeps its
+ *   raw value, so the result is only meaningful when nothing was collected.
  * @returns {*}
  */
 export function validate(desc, value, ctx) {
-  const { fail, path = '', key = '', parent } = ctx;
+  const { fail, path = '', key = '', parent, collect } = ctx;
+  /** Run one independent check; with `collect`, record its failure and go on. */
+  const isolate = collect
+    ? (check, fallback) => {
+      try {
+        return check();
+      } catch (error) {
+        if (!collect(error)) throw error;
+        return fallback;
+      }
+    }
+    : (check) => check();
 
   /** Fail with the descriptor's own message, or `fallback`. */
   const reject = (fallback) => fail(path, messageFor(desc, value, key) ?? fallback);
@@ -227,16 +245,16 @@ export function validate(desc, value, ctx) {
       const allowed = Object.keys(fields);
       for (const name of Object.keys(value)) {
         if (!(name in fields)) {
-          fail(join(path, name), `unknown field '${name}' (allowed: ${allowed.join(', ')})`);
+          isolate(() => fail(join(path, name), `unknown field '${name}' (allowed: ${allowed.join(', ')})`));
         }
       }
       const out = { ...value };
       for (const [name, field] of Object.entries(fields)) {
-        const result = validate(field, value[name],
-          { ...ctx, path: join(path, name), key: name, parent: value });
+        const result = isolate(() => validate(field, value[name],
+          { ...ctx, path: join(path, name), key: name, parent: value }), value[name]);
         if (result !== undefined) out[name] = result;
       }
-      desc.refine?.(out, { path, fail, refs: ctx.refs, context: ctx.context });
+      if (desc.refine) isolate(() => desc.refine(out, { path, fail, refs: ctx.refs, context: ctx.context }));
       return out;
     }
 
@@ -244,8 +262,8 @@ export function validate(desc, value, ctx) {
       if (typeof value !== 'object' || Array.isArray(value)) reject(expected(desc, key));
       const out = {};
       for (const [name, entry] of Object.entries(value)) {
-        out[name] = validate(desc.value, entry,
-          { ...ctx, path: join(path, name), key: name, parent: value });
+        out[name] = isolate(() => validate(desc.value, entry,
+          { ...ctx, path: join(path, name), key: name, parent: value }), entry);
       }
       return out;
     }
@@ -255,9 +273,9 @@ export function validate(desc, value, ctx) {
       if (desc.minLength !== undefined && value.length < desc.minLength) {
         reject(`must have at least ${desc.minLength} item${desc.minLength === 1 ? '' : 's'}`);
       }
-      const out = value.map((entry, i) => validate(desc.item, entry,
-        { ...ctx, path: `${path}[${i}]`, key: String(i), parent: value }));
-      desc.refine?.(out, { path, fail, refs: ctx.refs, context: ctx.context });
+      const out = value.map((entry, i) => isolate(() => validate(desc.item, entry,
+        { ...ctx, path: `${path}[${i}]`, key: String(i), parent: value }), entry));
+      if (desc.refine) isolate(() => desc.refine(out, { path, fail, refs: ctx.refs, context: ctx.context }));
       return out;
     }
 
@@ -265,8 +283,8 @@ export function validate(desc, value, ctx) {
       if (!Array.isArray(value) || value.length !== desc.items.length) {
         reject(`must be an array of ${desc.items.length}`);
       }
-      return value.map((entry, i) => validate(desc.items[i], entry,
-        { ...ctx, path: `${path}[${i}]`, key: String(i), parent: value }));
+      return value.map((entry, i) => isolate(() => validate(desc.items[i], entry,
+        { ...ctx, path: `${path}[${i}]`, key: String(i), parent: value }), entry));
     }
 
     case 'dynamic': {

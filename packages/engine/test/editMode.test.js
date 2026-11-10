@@ -155,3 +155,48 @@ describe('materializing a scene in edit mode', () => {
     edit2.destroy();
   });
 });
+
+describe('replacing one object in place', () => {
+  const object = (id, x) => ({ id, prefab: 'crate', x, y: 50, width: 32, height: 32 });
+
+  async function room() {
+    const game = new M2D(null, { headless: true, editMode: true, worldWidth: 640, worldHeight: 480, seed: 1 });
+    game.registerActor('Crate', Crate);
+    game.registerConstraint('Drift', Drift);
+    const level = structuredClone(LEVEL);
+    level.layers[0].objects = [object('a', 10), object('b', 20), object('c', 30)];
+    game.sceneManager.addScene('room', { fetch: async () => level });
+    await game.sceneManager.switchTo('room');
+    return { game, scene: game.sceneManager.getCurrentScene() };
+  }
+  const order = (game) => [...game.entities].map((e) => `${e.sceneId}@${e.position.x}`);
+
+  it('rebuilds an object in its draw slot, body and constraints included', async () => {
+    const { game, scene } = await room();
+    const old = scene.entitiesById.get('b');
+    const bodies = game.physics.added?.size;
+    scene.replaceObject('b', object('b', 99));
+    expect(order(game)).toEqual(['a@10', 'b@99', 'c@30']);
+    expect(old.dead).toBe(true);
+    expect(scene.entitiesById.get('b')).not.toBe(old);
+    expect(scene.entitiesById.get('b').getConstraint('drift')).toBeTruthy();
+    if (bodies !== undefined) expect(game.physics.added.size).toBe(bodies);
+  });
+
+  it('follows a renamed id, removes, and inserts after a predecessor', async () => {
+    const { game, scene } = await room();
+    scene.replaceObject('b', object('b2', 20));
+    expect(scene.entitiesById.has('b')).toBe(false);
+    expect(order(game)).toEqual(['a@10', 'b2@20', 'c@30']);
+    scene.replaceObject('a', null);
+    expect(order(game)).toEqual(['b2@20', 'c@30']);
+    scene.replaceObject(null, object('d', 40), { after: 'b2' });
+    expect(order(game)).toEqual(['b2@20', 'd@40', 'c@30']);
+  });
+
+  it('is an edit-mode operation only', async () => {
+    const game = makeGame();
+    await game.sceneManager.switchTo('room');
+    expect(() => game.sceneManager.getCurrentScene().replaceObject('crate-1', null)).toThrow(/edit-mode/);
+  });
+});

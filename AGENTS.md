@@ -19,7 +19,7 @@ camera or a renderer:
 | `packages/engine` | The engine, published to npm as `m2d-engine`. Source in `src/`, tests in `test/` |
 | `packages/server` | The authoritative multiplayer host, published as `m2d-server` |
 | `packages/editor-core` | The editor's headless core (document, writer, commands, validation). TypeScript, no DOM |
-| `packages/editor-host` | The editor's companion process and its MCP server for agents |
+| `packages/editor-host` | The editor's host: serves one game's project to the editor, holds the open documents and their history, and is the MCP server agents edit through |
 | `packages/editor` | The editor app: DOM panels around engine viewports |
 | `examples` | The demo games and the demo site |
 | `docs` | The VitePress documentation site |
@@ -57,6 +57,7 @@ it.
 | Clocks, the simulation tick, pause, time scale, timers | `docs/guide/time.md` |
 | Headless games, splitting simulation from presentation, the server input gate | `docs/guide/headless.md` |
 | Multiplayer: match modules, the server, tickets, the client, replication | `docs/guide/multiplayer.md` |
+| The editor: projects, templates, assets, play, build, MCP tools | `docs/guide/editor.md` |
 | Engine options and instance API | `docs/reference/engine-options.md` |
 | Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
 | Example games and music credits | `docs/examples/index.md`, `docs/examples/music-credits.md` |
@@ -74,8 +75,9 @@ npm install
 npm run dev            # examples on port 3000
 npm run dev:lan        # HTTPS on 0.0.0.0, for a browser on another machine (PORT=... picks the port)
 npm run docs:dev       # documentation site
-npm run editor         # the editor, hosting the examples project (random port, printed)
-npm run editor:mcp .   # the editor's MCP endpoint over stdio
+npm run editor examples/src/yard      # the editor on one game's folder (random port, printed; MCP at /mcp)
+npm run editor new my-game --template 3d   # a new project from a template (2d or 3d)
+npm run editor:mcp examples/src/yard  # the MCP endpoint over stdio, when no editor is running
 npm test               # typecheck, then node + browser engine suites and example scene validation
 npm run typecheck      # every workspace that has a tsconfig
 npm run test:node      # fast engine suite
@@ -144,9 +146,25 @@ npx playwright install chromium   # once, for test:browser
 - Scene and manifest JSON on disk is the canonical writer's output, byte
   for byte (`m2d-editor-core`'s `writeScene`/`writeManifest`; a test
   enforces it). After editing one by hand, run
-  `node scripts/formatScenes.mjs` in `examples/`. A scene with a
-  `generator` field is owned by that script — edit the script and rerun
-  it, never the JSON.
+  `node scripts/formatScenes.mjs` in `examples/`. The layout scripts
+  (`build*Scene.mjs`) are seeds: they write a scene only when it is
+  missing, and from then on the JSON is the scene, edited by hand or in
+  the editor. `--force` rebuilds one from its script and discards those
+  edits. A scene with a `generator` field is owned by that script, and
+  the editor refuses to edit it until the field is deleted.
+- An editor project is one game's folder with an `m2d.project.json`
+  (`name`, `definition`, optionally `hooks`, `scenes` and `basePath`). Its
+  definition module exports `register(game)` (actors, constraints,
+  intents, asset manifest) and optionally `GAME`; it never draws, so a
+  headless game can import it. The optional hooks module exports
+  `sceneHooks(game)` with each scene's presentation hooks, and may export
+  `OPTIONS` (M2D options for the look, such as `textureFilter`). Every
+  demo with scene files has one. `main.js`
+  boots from both, and the editor's checks and play mode use them. See
+  `docs/guide/editor.md`.
+- The asset pipeline (Poly Haven fetch, model compiler) lives in
+  `packages/editor-host/src/pipeline/`. The examples' `fetchPolyHaven.mjs`
+  and `compileModel.mjs` wrap it with the lot's lists and paths.
 - A new renderer feature is mandatory for every backend or declared through
   `capabilities`.
 - Both backends must pass `npm test`. Check visual changes with

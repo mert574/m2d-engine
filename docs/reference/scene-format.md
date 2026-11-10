@@ -10,7 +10,7 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `type` | both | yes | `"level"` or `"ui"` |
 | `name` | both | no | Free text. Error messages use the registered name |
 | `title` | both | no | Free text, unused by the engine |
-| `generator` | both | no | Path of the script that owns this file, when the scene is generated rather than authored. The next run of the script overwrites hand edits, so an editor treats the scene as read-only while this is set; deleting the field detaches the scene from its script. The engine ignores it |
+| `generator` | both | no | Path of the script that owns this file, when a script regenerates the scene rather than people editing it. The next run of the script overwrites hand edits, so the editor shows the scene read-only while this is set, the editor's host refuses edits to it (except deleting this field, which detaches the scene) and refuses to save it. No shipped scene carries one: the examples' layout scripts are seeds that write a scene once and leave it to the editor. The engine ignores it |
 | `gameType` | level | no | Free text, unused by the engine |
 | `uses` | both | no | External assets by uid. See [Asset manifest](./asset-manifest#using-assets-in-a-scene) |
 | `world` | level | no | See below |
@@ -29,6 +29,7 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `width`, `height` | Size of the playable area in world units. The engine does not read these; a game does, from `scene.config.world`, to set camera bounds or lay out a level |
 | `gravity` | `{ "x", "y" }` in px/s² with down along `+y`; in a 3D level `{ "x", "y", "z" }` in m/s² with down along `-y`, so Earth is `{ "x": 0, "y": -9.81, "z": 0 }`. Applied to the physics world when the scene loads |
 | `projection` | How the ground plane is seen: `"isometric"` or `"belt"`, or `{ "type", "ratio" }`. Isometric draws a ground square as a `2:ratio·2` diamond; belt keeps x and compresses y by `ratio`. Positions are drawn through it; physics stays flat. See [Perspectives](../guide/perspectives#isometric-a-projection-on-positions) |
+| `environment` | A 3D level only: a key in `assets.environments`. That HDR panorama lights the level and is its sky, in play and in the editor. A scene's `onRender` hook may still set `frame.environment` itself, and that wins |
 | `sort` | Entity draw order within a `zIndex`. `"depth"` (default) draws by the bottom edge of the body, so whatever stands lower on the ground is in front. `"insertion"` keeps scene order. See [Perspectives](../guide/perspectives) |
 
 ## `assets.spritesheets`
@@ -167,7 +168,8 @@ An array of layers.
 | `prefab` | yes | | A key in `prefabs` |
 | `x`, `y` | yes | | Centre position in world units |
 | `width`, `height` | no | `32` | Size in world units. A circle's diameter is `width` |
-| `angle` | no | `0` | Rotation in radians |
+| `angle` | no | `0` | Rotation in radians. A 2D level only: a 3D level rejects it |
+| `rotation` | no | none | A 3D level only: the orientation as a unit quaternion `[x, y, z, w]`, the form the 3D physics reads. It is normalized when the body is built; `[0, 0, 0, 0]` is rejected. The editor shows it as yaw, pitch and roll in degrees (yaw about +y, then pitch about +x, then roll about +z, applied roll first) and writes the quaternion back |
 | `zIndex` | no | `0` | Draw order. Entities and tile layers draw in ascending `zIndex`; within one, entities draw by `world.sort` |
 | `constraints` | no | | Behaviours to attach or retune for this one object, below |
 | `overrides` | no | | What this object changes about its prefab, below |
@@ -338,7 +340,9 @@ Exactly one of `onClick` and `action` is required.
 
 ## Errors
 
-Validation throws `SceneValidationError` from `m2d-engine/core/sceneLoader.js`. The message has the form `Scene '<name>' at <path>: <problem>`, where the path names the exact field at fault. The error also carries `scene` and `path` properties.
+Validation throws `SceneValidationError` from `m2d-engine/core/sceneLoader.js`. The message has the form `Scene '<name>' at <path>: <problem>`, where the path names the exact field at fault. The error also carries `scene`, `path` and `detail` (the problem alone) properties.
+
+`new SceneLoader(game).check(data)` reports every problem instead of the first, as `{ loaded, issues }`: each object, field and list entry is checked on its own, so one bad object does not hide the next, and `loaded` is the normalized scene only when `issues` is empty. What has to hold before the schema applies (an object, the version, the type, `uses` resolving) still stops at its first problem. The editor's Problems panel and the MCP server's `validate_scene` use it.
 
 The format on this page is defined as data, in `m2d-engine/core/sceneSchema.js`, using the descriptor vocabulary in `m2d-engine/core/schema.js`. The loader validates against those descriptors, and tooling can read the same descriptors to discover the format rather than restate it.
 

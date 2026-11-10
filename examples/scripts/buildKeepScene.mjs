@@ -14,6 +14,10 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { writeScene } from 'm2d-editor-core';
+import { seedTarget } from './seedScene.mjs';
+
+// A seed: writes the scene only when it is not there; see seedScene.mjs.
+const out = seedTarget(new URL('../src/iso/scenes/keep.json', import.meta.url));
 
 const TILE = 64;
 const COLS = 64;
@@ -174,7 +178,7 @@ function directional(columns) {
 }
 
 const scene = {
-  version: 2, name: 'keep', type: 'level', generator: 'scripts/buildKeepScene.mjs', gameType: 'isometric',
+  version: 2, name: 'keep', type: 'level', gameType: 'isometric',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth', projection: 'isometric' },
   assets: {
     spritesheets: {
@@ -209,6 +213,5 @@ const scene = {
   },
   layers: [{ name: 'keep', type: 'objects', objects }]
 };
-const out = fileURLToPath(new URL('../src/iso/scenes/keep.json', import.meta.url));
 writeFileSync(out, writeScene(scene));
 console.log(`keep: ${objects.length} objects (${walls.length} walls, ${torchCount} torches, ${embers} embers, ${floor.size} floor tiles) → ${out}`);

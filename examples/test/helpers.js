@@ -82,6 +82,37 @@ export function sceneFiles() {
   return files;
 }
 
+/**
+ * The games among the examples that are editor projects — a folder with an
+ * `m2d.project.json` — each as a real headless game with its definition's
+ * `register(game)` run on it: the classes, intents and manifest the game
+ * itself boots with, so declared actor `properties` and constraint
+ * `params` are checked the way they are in play. The stubs above cannot
+ * do that: a `class {}` declares nothing, and a scene field its real
+ * actor rejects passes against it.
+ */
+export async function projectGames() {
+  const { M2D } = await import('m2d-engine/core/m2d.js');
+  const { initPhysics } = await import('m2d-engine/core/physics/index.js');
+  const src = join(import.meta.dirname, '..', 'src');
+  const folders = readdirSync(src).filter(name => existsSync(join(src, name, 'm2d.project.json')));
+  return Promise.all(folders.map(async (folder) => {
+    const root = join(src, folder);
+    const config = JSON.parse(readFileSync(join(root, 'm2d.project.json'), 'utf8'));
+    const definition = await import(join(root, config.definition));
+    const options = definition.GAME ?? {};
+    await initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
+    const game = new M2D(null, { ...options, headless: true });
+    definition.register(game);
+    const scenes = join(root, config.scenes ?? 'scenes');
+    return {
+      name: config.name,
+      game,
+      scenes: readdirSync(scenes).filter(f => f.endsWith('.json')).map(f => join(scenes, f))
+    };
+  }));
+}
+
 /** Every shipped asset manifest. */
 export function manifestFiles() {
   const examples = join(import.meta.dirname, '..', 'src');

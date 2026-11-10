@@ -51,7 +51,8 @@ export default defineConfig({
             { text: 'Time, ticks and timers', link: '/guide/time' },
             { text: 'Headless games', link: '/guide/headless' },
             { text: 'Multiplayer', link: '/guide/multiplayer' },
-            { text: 'Building', link: '/guide/building' }
+            { text: 'Building', link: '/guide/building' },
+            { text: 'The editor', link: '/guide/editor' }
           ]
         },
         {

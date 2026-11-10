@@ -1,0 +1,5 @@
+{
+  "name": "Ash Row",
+  "definition": "game.js",
+  "hooks": "hooks.js"
+}

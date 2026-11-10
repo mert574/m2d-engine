@@ -295,3 +295,45 @@ describe('SceneLoader', () => {
     });
   });
 });
+
+describe('SceneLoader.check: every problem, not the first', () => {
+  const scene = () => ({
+    version: SCENE_VERSION, type: 'level', name: 'many',
+    prefabs: { wall: { actor: 'Wall', physics: { bodyType: 'static' } } },
+    layers: [{ name: 'main', objects: [
+      { id: 'a', prefab: 'wall', x: 'left', y: 0 },
+      { id: 'b', prefab: 'nowhere', x: 0, y: 0 },
+      { prefab: 'wall', x: 0, y: 0, colour: 'red' },
+      { id: 'd', prefab: 'wall', x: 0, y: 0 }
+    ] }]
+  });
+
+  it('reports each problem with its path, and loads nothing', () => {
+    const { loaded, issues } = new SceneLoader(null).check(scene());
+    expect(loaded).toBeNull();
+    const paths = issues.map(issue => issue.path);
+    expect(paths).toEqual(expect.arrayContaining([
+      'layers[0].objects[0].x', 'layers[0].objects[1].prefab',
+      'layers[0].objects[2].colour', 'layers[0].objects[2].id'
+    ]));
+    expect(paths.some(path => path.startsWith('layers[0].objects[3]'))).toBe(false);
+    for (const issue of issues) expect(issue.detail).not.toContain('Scene ');
+  });
+
+  it('returns the loaded scene when there is nothing to report, as load does', () => {
+    const good = scene();
+    good.layers[0].objects = [good.layers[0].objects[3]];
+    const { loaded, issues } = new SceneLoader(null).check(good);
+    expect(issues).toEqual([]);
+    expect(loaded).toEqual(new SceneLoader(null).load(good));
+  });
+
+  it('leaves load throwing at the first problem', () => {
+    expect(() => new SceneLoader(null).load(scene())).toThrow(/objects\[0\]\.x/);
+  });
+
+  it('stops at what precedes the schema: the version', () => {
+    const { issues } = new SceneLoader(null).check({ ...scene(), version: 0 });
+    expect(issues.map(issue => issue.path)).toEqual(['version']);
+  });
+});

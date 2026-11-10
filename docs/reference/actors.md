@@ -74,6 +74,17 @@ The rules, all of which match constraints:
 - Expects a `static` body.
 - Projectiles treat it as a wall, and `Turret` treats it as blocking line of sight.
 
+## Prop
+
+`actors/prop.js`. Name `Prop`. Scenery with no behaviour. Draws the prefab's sprite, or in 3D its mesh. A 2D prop with no sprite draws a block in its `color`.
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `color` | `#8b95a3` | Fill of a 2D prop with no sprite |
+| `radius` | `4` | Corner rounding of that fill, px |
+
+The editor gives a placed model or image this actor when the game registers it. The editor's templates use it for their platforms and blocks.
+
 ## MovingPlatform
 
 `actors/movingPlatform.js`. Name `MovingPlatform`. Patrols a path with the `PathFollow` constraint.

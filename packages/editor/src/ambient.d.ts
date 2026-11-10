@@ -52,7 +52,19 @@ declare module 'm2d-engine/core/m2d.js' {
     removeView(view: unknown): void;
     start(): Promise<void>;
     destroy(): void;
+    /** Draw the next frame; edit mode otherwise draws at its idle rate. */
+    invalidate(): void;
+    /** Edit mode: draw on demand (true) or every frame. */
+    drawOnDemand: boolean;
+    static EDIT_IDLE_FPS: number;
   }
+}
+
+declare module 'm2d-engine/core/viewport.js' {
+  interface Rect { left: number; top: number; width: number; height: number }
+  export function mapPointer(params: { clientX: number; clientY: number; rect: Rect; viewport: never }):
+    { ui: { x: number; y: number }; view: { x: number; y: number }; inContent: boolean };
+  export function viewToClient(params: { x: number; y: number; rect: Rect; viewport: never }): { x: number; y: number };
 }
 
 declare module 'm2d-engine/core/entity.js' {

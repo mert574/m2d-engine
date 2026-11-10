@@ -147,11 +147,15 @@ export class Scene {
   async #loadMeshTextures() {
     if (this.game.headless || typeof createImageBitmap !== 'function') return;
     const wanted = new Map();
-    for (const prefab of Object.values(this.config.prefabs ?? {})) {
-      const texture = prefab.mesh?.texture;
-      if (!texture) continue;
+    const want = (texture) => {
+      if (!texture) return;
       const key = `${texture.url}|${texture.size ?? 1}`;
       if (!wanted.has(key)) wanted.set(key, texture);
+    };
+    for (const prefab of Object.values(this.config.prefabs ?? {})) want(prefab.mesh?.texture);
+    // An object may texture its own instance through its overrides.
+    for (const layer of this.config.layers ?? []) {
+      for (const object of layer.objects ?? []) want(object.overrides?.mesh?.texture);
     }
     await Promise.all([...wanted.entries()].map(async ([key, texture]) => {
       const response = await fetch(this.game.options.basePath + texture.url);
@@ -446,64 +450,124 @@ export class Scene {
 
     if (this.game.physics.dimensions === 3) this.setupProps();
 
-    this.config.layers.forEach(layer => {
-      layer.objects.forEach(object => {
-        const base = this.config.prefabs[object.prefab];
-        if (!base) {
-          console.error(`Prefab not found: ${object.prefab}`);
-          return;
-        }
-        // What this one object makes of the prefab. `physics` merges field
-        // by field so an override can change the friction without
-        // restating the body type.
-        const prefab = object.overrides
-          ? {
-            ...base,
-            ...object.overrides,
-            physics: { ...base.physics, ...object.overrides.physics },
-            mesh: { ...base.mesh, ...object.overrides.mesh },
-            ...((base.light || object.overrides.light) && { light: { ...base.light, ...object.overrides.light } })
-          }
-          : base;
+    for (const layer of this.config.layers) {
+      for (const object of layer.objects) this.materializeObject(object);
+    }
+  }
 
-        const entity = this.createPrefabInstance({
-          type: prefab.actor,
-          x: object.x,
-          y: object.y,
-          z: object.z,
-          width: object.width,
-          height: object.height,
-          depth: object.depth,
-          sprite: prefab.spritesheet,
-          animation: prefab.defaultAnimation,
-          mesh: prefab.mesh,
-          light: prefab.light,
-          // Placement is the object's, material is the prefab's: an object
-          // may rotate its instance (a ramp is a tilted platform) without
-          // the prefab having to know.
-          physics: object.angle !== undefined
-            ? { ...prefab.physics, angle: object.angle }
-            : prefab.physics,
-          options: object.properties
-        });
+  /**
+   * Build one placed object of a level — its entity, body, constraints and
+   * registration — exactly as a load builds each, and return the entity
+   * (null when its prefab is unknown). The object is a *loaded* one:
+   * defaults applied and `uses` expanded, as `SceneLoader` returns it.
+   */
+  materializeObject(object) {
+    const base = this.config.prefabs[object.prefab];
+    if (!base) {
+      console.error(`Prefab not found: ${object.prefab}`);
+      return null;
+    }
+    // What this one object makes of the prefab. `physics` merges field
+    // by field so an override can change the friction without
+    // restating the body type.
+    const prefab = object.overrides
+      ? {
+        ...base,
+        ...object.overrides,
+        physics: { ...base.physics, ...object.overrides.physics },
+        mesh: { ...base.mesh, ...object.overrides.mesh },
+        ...((base.light || object.overrides.light) && { light: { ...base.light, ...object.overrides.light } })
+      }
+      : base;
 
-        if (entity) {
-          // After the actor's own constructor, so a scene can retune what
-          // the actor set up rather than race it.
-          this.#applyConstraints(entity, prefab.constraints, object.constraints,
-            `object '${object.id}'`);
-          entity.sceneId = object.id;
-          this.entitiesById.set(object.id, entity);
-          if (object.zIndex !== undefined) entity.zIndex = object.zIndex;
-          if (entity.name === 'Player') {
-            this.game.player = entity;
-            if (!this.game.headless) this.game.camera.follow(entity);
-          }
-          this.game.entities.add(entity);
-          this.game.physics.add(entity.body);
+    const entity = this.createPrefabInstance({
+      type: prefab.actor,
+      x: object.x,
+      y: object.y,
+      z: object.z,
+      width: object.width,
+      height: object.height,
+      depth: object.depth,
+      sprite: prefab.spritesheet,
+      animation: prefab.defaultAnimation,
+      mesh: prefab.mesh,
+      light: prefab.light,
+      // Placement is the object's, material is the prefab's: an object
+      // may rotate its instance (a ramp is a tilted platform) without
+      // the prefab having to know.
+      physics: object.angle !== undefined || object.rotation
+        ? {
+          ...prefab.physics,
+          ...(object.angle !== undefined && { angle: object.angle }),
+          ...(object.rotation && { rotation: quaternion(object.rotation) })
         }
-      });
+        : prefab.physics,
+      options: object.properties
     });
+    if (!entity) return null;
+
+    // After the actor's own constructor, so a scene can retune what
+    // the actor set up rather than race it.
+    this.#applyConstraints(entity, prefab.constraints, object.constraints,
+      `object '${object.id}'`);
+    entity.sceneId = object.id;
+    this.entitiesById.set(object.id, entity);
+    if (object.zIndex !== undefined) entity.zIndex = object.zIndex;
+    if (entity.name === 'Player') {
+      this.game.player = entity;
+      if (!this.game.headless) this.game.camera.follow(entity);
+    }
+    this.game.entities.add(entity);
+    this.game.physics.add(entity.body);
+    return entity;
+  }
+
+  /**
+   * An editor's in-place change to one placed object: the entity with
+   * scene id `id` (if any) goes, and `object` (a loaded object, or null
+   * to only remove) is built in its place — the same slot in the draw
+   * order, so an edit does not move a sprite above its neighbours. A new
+   * object with no predecessor goes right after the entity of `after`,
+   * the object before it in the document, or last.
+   *
+   * Edit mode only: a played scene's entities carry simulation state a
+   * rebuild would discard, and play has `spawn` for what appears.
+   * @param {string|null} id - The scene id the object had, or null for a new one
+   * @param {object|null} object - The loaded object to build, or null
+   * @param {{after?: string|null}} [options]
+   * @returns {import('./entity.js').Entity|null}
+   */
+  replaceObject(id, object, { after = null } = {}) {
+    if (!this.game.editMode) throw new Error('Scene.replaceObject is an edit-mode operation');
+    const entities = this.game.entities;
+    const order = [...entities];
+    const old = id === null ? undefined : this.entitiesById.get(id);
+    let slot = old ? order.indexOf(old) : -1;
+    if (old) {
+      old.destroy();
+      entities.delete(old);
+      this.game.physics.remove(old.body);
+      this.entitiesById.delete(id);
+      if (this.game.player === old) this.game.player = null;
+    }
+    const entity = object ? this.materializeObject(object) : null;
+    if (!entity) {
+      this.game.invalidate();
+      return null;
+    }
+    if (slot < 0 && after !== null) {
+      const previous = this.entitiesById.get(after);
+      if (previous && previous !== entity) slot = order.indexOf(previous) + 1;
+    }
+    if (slot >= 0) {
+      // Sets keep insertion order; putting one back mid-order is a rebuild.
+      const list = order.filter((each) => each !== old);
+      list.splice(Math.min(slot, list.length), 0, entity);
+      entities.clear();
+      for (const each of list) entities.add(each);
+    }
+    this.game.invalidate();
+    return entity;
   }
 
   /**
@@ -1131,9 +1195,13 @@ export class Scene {
         });
       }
     }
+    // The level's own environment, when it names one: the sky and the
+    // light it bakes, drawn in edit mode too, so the editor shows it.
+    const environment = this.config.world?.environment;
+    if (environment && this.environments.has(environment)) frame.environment = this.environments.get(environment);
     // The game's chance to light and grade the frame — its sun, sky and
-    // post look. Edit mode skips it like every other hook; the editor sets
-    // its own frame environment.
+    // post look, and an environment of its own over the level's. Edit mode
+    // skips it like every other hook.
     if (!this.game.editMode) this.config.onRender?.(frame, deltaTime);
     return frame;
   }
@@ -1222,4 +1290,9 @@ function modelBounds(model, mesh) {
 /** The coverage ranges a model's levels tile, finest first: [threshold, previous threshold). */
 function lodRanges(model) {
   return model.lods.map((level, i) => [level.coverage, i === 0 ? Infinity : model.lods[i - 1].coverage]);
+}
+
+/** A scene's `[x, y, z, w]` rotation as the 3D physics takes it. */
+function quaternion([x, y, z, w]) {
+  return { x, y, z, w };
 }

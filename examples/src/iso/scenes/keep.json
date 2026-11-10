@@ -2,7 +2,6 @@
   "version": 2,
   "name": "keep",
   "type": "level",
-  "generator": "scripts/buildKeepScene.mjs",
   "gameType": "isometric",
   "world": {
     "width": 4096,

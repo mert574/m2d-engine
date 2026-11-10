@@ -5,6 +5,7 @@
  * `server.ts` for the agent-facing half.
  */
 
-export { Project, type SceneEntry, type GameEntry, type ProjectConfig } from './project.ts';
+export { Project, PROJECT_FILE, type SceneEntry, type ProjectConfig } from './project.ts';
 export { createServer, SERVER_NAME, SERVER_VERSION } from './server.ts';
 export { Companion, type CompanionOptions, type ChangeListener } from './companion.ts';
+export { Assets, renderCredits, type AssetFile, type LibraryRecord, type Job } from './assets.ts';

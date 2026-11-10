@@ -16,14 +16,11 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
-import { UIMeter } from 'm2d-engine/core/ui/meter.js';
-import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
 import { Rogue, Thug, Lamp, Bound } from './rowActors.js';
 import { WORLD, register } from './game.js';
-import { Street, Foreground } from './streetScenery.js';
+import { sceneHooks } from './hooks.js';
 import {
   attackSound, damageSound, jumpSound, levelCompleteSound, gameOverSound, solvedSound,
   g2Remix, lastTransmission, audioOption
@@ -32,15 +29,6 @@ import step1 from '../oblique/sounds/footstep-grass-1.wav';
 import step2 from '../oblique/sounds/footstep-grass-2.wav';
 import step3 from '../oblique/sounds/footstep-grass-3.wav';
 import step4 from '../oblique/sounds/footstep-grass-4.wav';
-import bricksUrl from './textures/bricks.jpg';
-import plasterUrl from './textures/plaster.jpg';
-import roadUrl from './textures/road.jpg';
-import roofingUrl from './textures/roofing.jpg';
-import facadeAUrl from './textures/facade-a.jpg';
-import facadeBUrl from './textures/facade-b.jpg';
-import facadeCUrl from './textures/facade-c.jpg';
-import layout from './layout.json';
-import assetManifest from './assets.json';
 
 const canvas = document.getElementById('screen');
 await initPhysics();
@@ -64,23 +52,9 @@ const game = new M2D(canvas, {
   music: { menu: { src: lastTransmission, volume: 0.7 }, game: { src: g2Remix, volume: 0.6 } }
 });
 
-function loadImage(url) {
-  const image = new Image();
-  image.src = url;
-  return image;
-}
-const textures = {
-  bricks: loadImage(bricksUrl), plaster: loadImage(plasterUrl), road: loadImage(roadUrl), roofing: loadImage(roofingUrl),
-  facadeA: loadImage(facadeAUrl), facadeB: loadImage(facadeBUrl), facadeC: loadImage(facadeCUrl)
-};
 
+// The cast and the asset manifest; see game.js.
 register(game);
-
-// The creatures come from the asset manifest, by uid: three sprite sheets
-// and the one prefab that wears them, defined once in assets.json and
-// bound into the scene by its `uses` block. Actors first, so a prefab
-// naming one that is not registered fails here.
-game.loadAssets(assetManifest);
 
 registerMainMenu(game, {
   title: 'Ash Row',
@@ -94,150 +68,9 @@ registerMainMenu(game, {
   onEnter: () => game.soundManager.playMusic('menu')
 });
 
-let unsubscribe = [];
-
 game.sceneManager.addScene('row', {
   fetch: async () => (await import('./scenes/row.json')).default,
-
-  onEnter() {
-    const scene = game.sceneManager.getCurrentScene();
-    game.soundManager.playMusic('game');
-    // The scenery entities were built by the scene; hand them the textures.
-    for (const e of game.entities) if (e instanceof Street) e.textures = textures;
-    const proj = game.projection;
-    const lane = layout.lane;
-    // The street is drawn in the lower part of the view, the wall above it.
-    // The gutter sits a little above the bottom edge; the wall fills the rest.
-    const gutterY = proj.toScreen(0, lane.bottom).y;
-    const viewH = game.camera.height;
-    const cameraY = gutterY + 84 - viewH / 2;
-    game.camera.followAxes = { x: true, y: false };
-    game.camera.y = cameraY;
-    game.camera.lerp = 0.12;
-    game.camera.zoom = 1;
-    // The camera's width follows the window under the "Fill" aspect mode.
-    // Where thugs spawn and when a wave wakes are rules, so they measure
-    // from the design width instead; only the camera lock uses the real one.
-    const view = game.options.width;
-    const setLock = (right) => { game.camera.bounds = { left: 0, top: cameraY - 10, right, bottom: cameraY + 10 }; };
-    setLock(layout.sections[0].lock + game.camera.width / 2);
-
-    // High noon: the lights pass only sweetens the lamps' glass.
-    game.renderer.setAmbientLight('#f2ecdf');
-    game.renderer.setPostEffects({
-      bloom: { threshold: 0.85, strength: 0.2, blur: 18 },
-      vignette: { strength: 0.18, start: 0.72 },
-      grade: { shadows: '#3a3a52', highlights: '#fff2d8', amount: 0.22, saturation: 1.12, contrast: 1.04 }
-    });
-
-    const ui = scene.ui;
-    const objective = ui.add(new UIText({ x: 20, y: 16, anchor: 'top-left', align: 'left', text: 'WALK THE ROW', fontSize: '15px', letterSpacing: 1, color: '#5a3416', outlineColor: 'rgba(255, 250, 240, 0.7)', outlineWidth: 2 }));
-    ui.add(new UIMeter(() => {
-      const health = game.player?.getConstraint('health');
-      return health ? { current: health.currentHealth, max: health.maxHealth } : null;
-    }, { x: 20, y: 44, color: k => (k > 0.35 ? '#e0905a' : '#ff5a4e') }));
-    const goSign = ui.add(new UIText({ x: -40, y: 0, anchor: 'right', align: 'right', text: '', fontSize: '34px', fontWeight: '700', letterSpacing: 4, color: '#c84a1e' }));
-    const notice = ui.add(new UIText({ x: 0, y: -120, anchor: 'center', align: 'center', text: '', fontSize: '30px', fontWeight: '600', letterSpacing: 3, color: '#3a2a16', outlineColor: 'rgba(255, 250, 240, 0.8)', outlineWidth: 3 }));
-    ui.add(new UIText({ x: -20, y: -16, anchor: 'bottom-right', align: 'right', text: 'Arrows move · Space jumps · X chains punches, the third launches · C sweeps the crowd · air X drop-kicks', fontSize: '13px', color: 'rgba(30, 26, 22, 0.75)' }));
-
-    // Waves. Each section locks the camera at its `lock` and spawns its
-    // thugs off the right edge; when they are down the lock lifts.
-    let section = 0;
-    let alive = 0;
-    let goTime = 0;
-    const spawnWave = (s) => {
-      let count = 0;
-      for (const [kind, n] of s.wave) {
-        for (let i = 0; i < n; i++) {
-          // Off the right edge of the locked view, but never past the
-          // boundary wall: a thug born outside the map cannot walk back in.
-          const x = Math.min(s.lock + view / 2 + 80 + i * 70, layout.length - 160 - (i % 4) * 60);
-          const y = lane.top + 40 + ((i * 97 + count * 53) % (lane.bottom - lane.top - 80));
-          // The creature is defined once, as a prefab asset, and the scene
-          // bound it under this name. Restating its body here is how this
-          // used to work, and how it drifted from the scene's copy.
-          const prefab = scene.config.prefabs[kind];
-          const thug = game.createEntity({
-            type: prefab.actor, x, y, width: 30, height: 30,
-            spritesheet: scene.spriteSheets.get(prefab.spritesheet),
-            physics: prefab.physics
-          });
-          thug.setAnimation(prefab.defaultAnimation);
-          thug.onDeath = () => { alive--; if (alive === 0) release(); };
-          game.entities.add(thug);
-          game.physics.add(thug.body);
-          count++;
-        }
-      }
-      alive = count;
-      objective.text = `SECTION ${section + 1} / ${layout.sections.length} · ${count} THUGS`;
-    };
-    const release = () => {
-      section++;
-      game.soundManager.playSound('go');
-      goTime = 2.5;
-      const next = layout.sections[section];
-      setLock(next ? next.lock + game.camera.width / 2 : layout.length);
-      objective.text = next ? 'GO →' : 'THE DOOR IS OPEN';
-      if (next) armed = true;
-    };
-    let armed = true;
-    spawnWave(layout.sections[0]);
-    armed = false;
-
-    // A notice clears itself after two seconds of wall time.
-    let noticeTimer = null;
-    const say = (text, { stay = false } = {}) => {
-      notice.text = text;
-      noticeTimer?.cancel();
-      noticeTimer = stay ? null : game.time.after(2, () => { notice.text = ''; }, { unscaled: true });
-    };
-
-    const door = [...game.entities].find(e => e instanceof Trigger);
-    if (door) {
-      let done = false;
-      door.onEnter = () => {
-        if (done || section < layout.sections.length) { if (!done) say('NOT YET · CLEAR THE ROW'); return; }
-        done = true;
-        say('YOU MADE IT OUT', { stay: true });
-        game.soundManager.playSound('levelComplete');
-        game.time.after(3, () => game.sceneManager.switchTo('mainMenu'), { unscaled: true });
-      };
-    }
-
-    const frame = {
-      fixed() {
-        const next = layout.sections[section];
-        if (armed && next && game.player.position.x > next.lock - view / 4) { armed = false; spawnWave(next); }
-      },
-      update(deltaTime) {
-        goTime = Math.max(0, goTime - deltaTime);
-        goSign.text = goTime > 0 && Math.sin(goTime * 10) > 0 ? 'GO  →' : '';
-      }
-    };
-    scene.frame = frame;
-
-    unsubscribe.push(game.input.on('keydown', (event) => {
-      if (event.code === 'Escape') { game.sceneManager.switchTo('mainMenu'); event.consume(); }
-    }));
-  },
-
-  onFixedUpdate() { game.sceneManager.getCurrentScene()?.frame?.fixed(); },
-  onUpdate(deltaTime) { game.sceneManager.getCurrentScene()?.frame?.update(deltaTime); },
-
-  onDrawBackground() {
-    // The Street entity paints the sky, the skyline and the road; this
-    // only guarantees no clear colour shows at the edges.
-    const area = game.camera.getVisibleArea();
-    game.renderer.drawRect({ x: area.left, y: area.top, width: area.right - area.left, height: area.bottom - area.top, fillStyle: '#5fa6e4' });
-  },
-
-  onExit() {
-    for (const stop of unsubscribe) stop();
-    unsubscribe = [];
-    game.renderer.setAmbientLight(null);
-    game.renderer.setPostEffects(null);
-  }
+  ...sceneHooks(game).row
 });
 
 new SettingsMenu(game).addOption(audioOption(game));

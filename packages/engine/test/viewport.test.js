@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeViewport, identityViewport, mapPointer, viewToUI, sameResolution, MAX_PIXEL_RATIO } from '../src/core/viewport.js';
+import { computeViewport, identityViewport, mapPointer, viewToUI, viewToClient, sameResolution, MAX_PIXEL_RATIO } from '../src/core/viewport.js';
 
 /**
  * Viewport sizing: the contract that keeps the three resolutions independent.
@@ -165,6 +165,25 @@ describe('viewport', () => {
       expect(v.uiScale).toBe(1);
       expect(v.worldScale).toBe(1);
       expect(v.contentX).toBe(0);
+    });
+  });
+
+  describe('viewToClient', () => {
+    it('inverts mapPointer, letterboxing and pixel density included', () => {
+      const rect = { left: 30, top: 12, width: 1000, height: 900 };
+      for (const params of [
+        { displayWidth: 1280, displayHeight: 720 },
+        { displayWidth: 1000, displayHeight: 900, pixelRatio: 2 },
+        { displayWidth: 1000, displayHeight: 900, aspect: 'letterbox', resolution: 0.5 }
+      ]) {
+        const viewport = computeViewport({ ...design, ...params });
+        for (const [clientX, clientY] of [[100, 200], [530, 462], [900, 800]]) {
+          const { view } = mapPointer({ clientX, clientY, rect, viewport });
+          const back = viewToClient({ ...view, rect, viewport });
+          expect(back.x).toBeCloseTo(clientX, 6);
+          expect(back.y).toBeCloseTo(clientY, 6);
+        }
+      }
     });
   });
 

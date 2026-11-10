@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { Companion, Project } from '../src/index.ts';
+import { Companion, Project, renderCredits } from '../src/index.ts';
+import { createProject } from '../src/templates.ts';
 
 /**
  * The companion and its MCP server, driven by a real client over a real
@@ -60,7 +61,10 @@ const textOf = (result: unknown) =>
 describe('the MCP server', () => {
   it('advertises its tools to a client', async () => {
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name).sort()).toEqual(['list_scenes', 'read_scene', 'validate_scene']);
+    expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'build_project', 'edit_scene', 'import_asset', 'inspect_node', 'list_assets', 'list_scenes', 'outline_scene',
+      'read_scene', 'redo', 'run_scene', 'save_scene', 'search_library', 'undo', 'validate_scene'
+    ]);
     // Every tool says what it is for: the description is the agent's
     // only documentation.
     for (const tool of tools) expect(tool.description?.length ?? 0).toBeGreaterThan(40);
@@ -100,24 +104,98 @@ describe('the MCP server', () => {
 });
 
 describe('the project declaration', () => {
-  it('reads m2d.project.json, keeping only well-formed games', async () => {
-    await writeFile(join(root, 'm2d.project.json'), JSON.stringify({
-      name: 'Demo project',
-      games: [
-        { name: 'Rooms', definition: 'src/game.js', scenes: 'scenes', basePath: 'src' },
-        { name: 'broken, missing fields' }
-      ]
-    }));
-    const config = await new Project(root).config();
-    expect(config.name).toBe('Demo project');
-    expect(config.games).toEqual([{ name: 'Rooms', definition: 'src/game.js', scenes: 'scenes', basePath: 'src' }]);
+  it('reads m2d.project.json: one game, with defaults for what it omits', async () => {
+    await writeFile(join(root, 'm2d.project.json'), JSON.stringify({ name: 'Rooms', definition: 'src/game.js' }));
+    const project = new Project(root);
+    expect(await project.declared()).toBe(true);
+    expect(await project.config()).toEqual({ name: 'Rooms', definition: 'src/game.js', hooks: null, scenes: 'scenes', basePath: '.' });
     await rm(join(root, 'm2d.project.json'));
   });
 
-  it('falls back to the folder name when there is no declaration', async () => {
-    const config = await new Project(root).config();
-    expect(config.games).toEqual([]);
+  it('falls back to the folder name and no code when there is no declaration', async () => {
+    const project = new Project(root);
+    expect(await project.declared()).toBe(false);
+    const config = await project.config();
+    expect(config.definition).toBeNull();
     expect(config.name).toContain('m2d-editor-host-');
+  });
+});
+
+describe('agents edit through the session', () => {
+  it('edits, undoes, redoes and saves, in one history the editor shares', async () => {
+    const heard: string[] = [];
+    const off = companion.session.onChange((event) => heard.push(`${event.kind}:${event.revision}`));
+    const path = 'scenes/menu.json';
+    const ops = [{ op: 'set', path: ['elements', 0, 'color'], value: '#224466' }];
+
+    const edited = await client.callTool({ name: 'edit_scene', arguments: { path, label: 'Recolour', ops } });
+    expect(edited.isError).toBeFalsy();
+    expect(JSON.parse(textOf(edited))).toMatchObject({ revision: 1, dirty: true, undo: 'Recolour (agent)' });
+    expect(textOf(await client.callTool({ name: 'read_scene', arguments: { path } }))).toContain('#224466');
+    // Not on disk until saved.
+    expect(await readFile(join(root, path), 'utf8')).not.toContain('#224466');
+
+    await client.callTool({ name: 'undo', arguments: { path } });
+    expect(textOf(await client.callTool({ name: 'read_scene', arguments: { path } }))).toContain('#111');
+    await client.callTool({ name: 'redo', arguments: { path } });
+    await client.callTool({ name: 'save_scene', arguments: { path } });
+    expect(await readFile(join(root, path), 'utf8')).toContain('#224466');
+    expect(heard).toEqual(['edit:1', 'undo:2', 'redo:3', 'saved:3']);
+
+    // The save comes back from the watcher as an echo, and changes nothing.
+    expect(await companion.session.fileChanged(path)).toBeNull();
+    off();
+  });
+
+  it('refuses a malformed edit whole, saying where', async () => {
+    const result = await client.callTool({
+      name: 'edit_scene',
+      arguments: { path: 'scenes/room.json', label: 'Bad', ops: [
+        { op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: 5 },
+        { op: 'set', path: ['layers', 9, 'objects', 0, 'x'], value: 5 }
+      ] }
+    });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/layers\[9\]/);
+    expect((await companion.session.document('scenes/room.json')).dirty).toBe(false);
+  });
+
+  it('refuses edits to a generated scene, except the one that detaches it', async () => {
+    const path = 'scenes/lot.json';
+    const refused = await client.callTool({ name: 'edit_scene', arguments: {
+      path, label: 'Move', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: 9 }]
+    } });
+    expect(textOf(refused)).toMatch(/generated by scripts\/buildLot\.mjs/);
+    const detached = await client.callTool({ name: 'edit_scene', arguments: {
+      path, label: 'Detach', ops: [{ op: 'set', path: ['generator'] }]
+    } });
+    expect(detached.isError).toBeFalsy();
+    expect((await companion.session.document(path)).generator).toBeNull();
+    await client.callTool({ name: 'undo', arguments: { path } });
+  });
+
+  it('outlines and inspects with the paths edits address', async () => {
+    const outline = JSON.parse(textOf(await client.callTool({ name: 'outline_scene', arguments: { path: 'scenes/room.json' } })));
+    const layer = outline.children.find((node: { kind: string }) => node.kind === 'layer');
+    expect(layer.children[0].path).toEqual(['layers', 0, 'objects', 0]);
+    const rows = JSON.parse(textOf(await client.callTool({
+      name: 'inspect_node', arguments: { path: 'scenes/room.json', node: ['layers', 0, 'objects', 0] }
+    })));
+    expect(rows.find((row: { key: string }) => row.key === 'x')).toMatchObject({ kind: 'number', unit: 'px', value: 0 });
+  });
+
+  it('reloads a clean document changed on disk, and keeps a dirty one', async () => {
+    const path = 'scenes/room.json';
+    await companion.session.document(path);
+    await writeFile(join(root, path), level({ title: 'From disk' }));
+    expect((await companion.session.fileChanged(path))?.kind).toBe('reset');
+    expect((await companion.session.document(path)).data.title).toBe('From disk');
+
+    await companion.session.edit(path, { label: 'Mine', ops: [{ op: 'set', path: ['title'], value: 'Mine' }] }, { origin: 'editor' });
+    await writeFile(join(root, path), level({ title: 'Theirs' }));
+    expect((await companion.session.fileChanged(path))?.kind).toBe('conflict');
+    expect((await companion.session.document(path)).data.title).toBe('Mine');
+    await writeFile(join(root, path), level());
   });
 });
 
@@ -135,5 +213,60 @@ describe('the project', () => {
     const project = new Project(root);
     const doc = await project.openScene('scenes/lot.json');
     await expect(project.saveScene(doc)).rejects.toThrow(/generated by scripts\/buildLot\.mjs.*read-only/s);
+  });
+});
+
+describe('what only the serving host can do', () => {
+  it('says so instead of pretending, when run over stdio', async () => {
+    const run = await client.callTool({ name: 'run_scene', arguments: { path: 'scenes/room.json' } });
+    expect(run.isError).toBe(true);
+    expect(textOf(run)).toMatch(/running editor/);
+    const build = await client.callTool({ name: 'build_project', arguments: {} });
+    expect(textOf(build)).toMatch(/running editor/);
+  });
+});
+
+describe('assets', () => {
+  it('lists the project\'s files by kind, with the url a scene names them by', async () => {
+    await mkdir(join(root, 'models'), { recursive: true });
+    await writeFile(join(root, 'models', 'crate.glb'), 'glb');
+    await writeFile(join(root, 'sky.hdr'), 'hdr');
+    await mkdir(join(root, 'library', 'sources', 'x'), { recursive: true });
+    await writeFile(join(root, 'library', 'sources', 'x', 'raw.gltf'), 'never listed');
+    const files = await companion.assets.list();
+    expect(files.map((file) => [file.path, file.kind, file.url])).toEqual(expect.arrayContaining([
+      ['models/crate.glb', 'model', 'models/crate.glb'],
+      ['sky.hdr', 'environment', 'sky.hdr']
+    ]));
+    expect(files.some((file) => file.path.includes('sources'))).toBe(false);
+  });
+
+  it('renders credits from the library: pack, author, licence and link', () => {
+    const credits = renderCredits([{
+      source: 'polyhaven', type: 'models', id: 'barrel_01', resolution: '2k', name: 'Barrel 01',
+      authors: ['Someone'], license: 'CC0', page: 'https://polyhaven.com/a/barrel_01', files: ['library/models/barrel_01.glb']
+    }]);
+    expect(credits).toContain('| Barrel 01 | Someone | CC0 | https://polyhaven.com/a/barrel_01 |');
+    expect(credits).toContain('## Poly Haven');
+  });
+});
+
+describe('templates', () => {
+  it('make a complete project in an empty folder, and refuse one in use', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'm2d-template-'));
+    const made = await createProject(join(folder, 'sunny-hop'), '3d', 'Sunny Hop');
+    expect(made.name).toBe('Sunny Hop');
+    const config = JSON.parse(await readFile(join(made.root, 'm2d.project.json'), 'utf8'));
+    expect(config).toMatchObject({ name: 'Sunny Hop', definition: 'game.js', hooks: 'hooks.js' });
+    expect(JSON.parse(await readFile(join(made.root, 'package.json'), 'utf8')).name).toBe('sunny-hop');
+    expect(await readFile(join(made.root, 'index.html'), 'utf8')).toContain('<title>Sunny Hop</title>');
+    const project = new Project(made.root);
+    const scenes = await project.scenes();
+    expect(scenes.map((scene) => scene.path)).toEqual(['scenes/level.json']);
+    const doc = await project.openScene('scenes/level.json');
+    expect(doc.validate().ok).toBe(true);
+    await expect(createProject(made.root, '2d')).rejects.toThrow(/not empty/);
+    await expect(createProject(join(folder, 'other'), 'nope')).rejects.toThrow(/no template/);
+    await rm(folder, { recursive: true, force: true });
   });
 });

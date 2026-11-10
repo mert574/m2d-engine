@@ -3,7 +3,6 @@
   "name": "lot",
   "type": "level",
   "title": "The Lot",
-  "generator": "scripts/buildLotScene.mjs",
   "world": { "dimensions": 3, "gravity": { "x": 0, "y": -20, "z": 0 } },
   "assets": {
     "models": {

@@ -21,6 +21,11 @@ const assetsPlugin = {
       // The lot's photoscanned models are fetched and compiled, never
       // committed; the first run of a fresh checkout takes a few minutes.
       execSync('node scripts/buildModels.mjs --missing', { stdio: 'inherit' });
+      // The laid-out scenes are seeds: built once by rule, edited from then
+      // on, so a builder only writes a scene that is not there.
+      for (const builder of ['Grove', 'Keep', 'Row', 'Drift', 'Lot']) {
+        execSync(`node scripts/build${builder}Scene.mjs --missing`, { stdio: 'inherit' });
+      }
       console.log('Assets processed successfully');
     } catch (error) {
       console.error('Error processing assets:', error);

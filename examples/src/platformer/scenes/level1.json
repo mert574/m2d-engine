@@ -46,7 +46,6 @@
           "width": 128,
           "properties": {
             "path": {
-              "type": "linear",
               "points": [{ "x": 1230, "y": 1120 }, { "x": 1560, "y": 1120 }],
               "speed": 180,
               "waitTime": 900
@@ -61,7 +60,6 @@
           "width": 128,
           "properties": {
             "path": {
-              "type": "linear",
               "points": [{ "x": 950, "y": 700 }, { "x": 950, "y": 430 }],
               "speed": 160,
               "waitTime": 900

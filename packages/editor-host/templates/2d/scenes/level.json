@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "name": "level",
+  "type": "level",
+  "world": { "width": 1600, "height": 900, "gravity": { "x": 0, "y": 1000 } },
+  "prefabs": {
+    "player": { "actor": "Player", "physics": { "bodyType": "dynamic", "friction": 5, "frictionAir": 0.001 } },
+    "sky": { "actor": "Prop", "physics": { "bodyType": "static", "isSensor": true } },
+    "ground": { "actor": "Prop", "physics": { "bodyType": "static", "friction": 0.8 } },
+    "platform": { "actor": "Prop", "physics": { "bodyType": "static", "friction": 0.8 } },
+    "goal": { "actor": "Prop", "physics": { "bodyType": "static", "isSensor": true } }
+  },
+  "layers": [
+    {
+      "name": "main",
+      "objects": [
+        {
+          "id": "sky",
+          "prefab": "sky",
+          "x": 800,
+          "y": 450,
+          "width": 1600,
+          "height": 900,
+          "zIndex": -10,
+          "properties": { "color": "#bfe3f5", "radius": 0 }
+        },
+        {
+          "id": "ground",
+          "prefab": "ground",
+          "x": 800,
+          "y": 870,
+          "width": 1600,
+          "height": 60,
+          "properties": { "color": "#7cb46b", "radius": 0 }
+        },
+        {
+          "id": "platform-1",
+          "prefab": "platform",
+          "x": 420,
+          "y": 720,
+          "width": 220,
+          "height": 24,
+          "properties": { "color": "#e0a458" }
+        },
+        {
+          "id": "platform-2",
+          "prefab": "platform",
+          "x": 760,
+          "y": 600,
+          "width": 200,
+          "height": 24,
+          "properties": { "color": "#e0a458" }
+        },
+        {
+          "id": "platform-3",
+          "prefab": "platform",
+          "x": 1120,
+          "y": 500,
+          "width": 220,
+          "height": 24,
+          "properties": { "color": "#e0a458" }
+        },
+        {
+          "id": "goal",
+          "prefab": "goal",
+          "x": 1460,
+          "y": 790,
+          "width": 40,
+          "height": 100,
+          "properties": { "color": "#ffd23f", "radius": 8 }
+        },
+        { "id": "player", "prefab": "player", "x": 120, "y": 780, "width": 28, "height": 40 }
+      ]
+    }
+  ]
+}

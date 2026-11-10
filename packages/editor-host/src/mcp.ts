@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 /**
- * The host's MCP face, as a one-off stdio command — no server to find, no
- * port to fight over, which is what lets any number of agents work on one
- * machine at once:
+ * The host's MCP face as a one-off stdio command, for when no editor is
+ * running — no server to find, no port to fight over:
  *
- *   npm run editor:mcp [project-folder]
+ *   npm run editor:mcp <project-folder>
  *
- * Point an agent at this command and it reads the project through the
- * same `Project` the serving half uses. `serve.ts` is the browser-facing
- * face of the same host.
+ * It edits through its own session over the same files. With an editor
+ * open, point the agent at that editor's `/mcp` instead (printed at
+ * start): then the agent and the person share one document and one undo
+ * history, rather than meeting only on disk.
  */
 
+import { resolve } from 'node:path';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { Companion } from './companion.ts';
 
-const root = process.argv[2] ?? process.cwd();
+// Relative to where the command was typed, not to the package `npm run` moved into.
+const root = resolve(process.env.INIT_CWD ?? process.cwd(), process.argv[2] ?? '.');
 const companion = new Companion({ root, watch: true });
 
 if (!(await companion.project.exists())) {

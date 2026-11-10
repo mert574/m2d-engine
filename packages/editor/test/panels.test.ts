@@ -95,6 +95,94 @@ describe('the inspector', () => {
     expect(keys).toContain('friction');
   });
 
+  it('turns leaf rows into inputs that write a path and a value', () => {
+    const writes: Array<[unknown[], unknown, string]> = [];
+    const inspector = createInspector(container, {
+      edit: (path, value, label) => writes.push([path, value, label]),
+      refs: (scope) => (scope === 'prefab' ? ['wall', 'ball'] : [])
+    });
+    const objects = (DOC.layers as Array<{ objects: Array<{ id: string }> }>)[0]!.objects;
+    const crate = objects.findIndex((object) => object.id === 'crate-1');
+    inspector.show('crate-1', inspectNode(DOC, ['layers', 0, 'objects', crate]));
+
+    // Placement reads as vector rows: x, y in Position, width, height in Size.
+    const position = [...container.querySelectorAll('dt')].find((dt) => dt.textContent === 'Position');
+    expect(position).toBeTruthy();
+    const x = container.querySelector<HTMLInputElement>('[data-key="x"] input')!;
+    expect(x.type).toBe('number');
+    x.value = '700';
+    x.dispatchEvent(new Event('change'));
+    expect(writes.at(-1)).toEqual([['layers', 0, 'objects', crate, 'x'], 700, 'Set x']);
+
+    // A ref chooses among the names in its scope.
+    const prefab = container.querySelector<HTMLSelectElement>('dd[data-key="prefab"] select')!;
+    expect([...prefab.options].map((option) => option.textContent)).toEqual(['wall', 'ball']);
+    prefab.value = JSON.stringify('ball');
+    prefab.dispatchEvent(new Event('change'));
+    expect(writes.at(-1)?.[1]).toBe('ball');
+
+    // A set field that may be absent resets; a required one does not.
+    expect(container.querySelector('[data-key="x"] .reset')).toBeNull();
+    container.querySelector<HTMLButtonElement>('[data-key="width"] .reset')!.click();
+    expect(writes.at(-1)).toEqual([['layers', 0, 'objects', crate, 'width'], undefined, 'Reset width']);
+  });
+
+  it('scrubs a number by dragging its label, as one write on release', () => {
+    const writes: Array<[unknown[], unknown, string]> = [];
+    const inspector = createInspector(container, { edit: (path, value, label) => writes.push([path, value, label]) });
+    inspector.show('crate-1', inspectNode(DOC, ['layers', 0, 'objects', 1]));
+    const letter = container.querySelector<HTMLElement>('[data-key="x"] .letter')!;
+    letter.setPointerCapture = () => {};
+    const at = (type: string, clientX: number) => letter.dispatchEvent(new PointerEvent(type, { clientX, button: 0, bubbles: true }));
+    at('pointerdown', 100);
+    at('pointermove', 120);
+    at('pointermove', 140);
+    expect(writes).toHaveLength(0);                     // live in the box, not yet written
+    at('pointerup', 140);
+    expect(writes).toEqual([[['layers', 0, 'objects', 1, 'x'], 640, 'Set x']]);   // 620 + 40 px / 2 × 1
+  });
+
+  it('shows radians as degrees and stores radians', () => {
+    const writes: Array<[unknown[], unknown, string]> = [];
+    const doc = JSON.parse(JSON.stringify(DOC));
+    doc.layers[0].objects[1].angle = Math.PI / 2;
+    const inspector = createInspector(container, { edit: (path, value, label) => writes.push([path, value, label]) });
+    inspector.show('crate-1', inspectNode(doc, ['layers', 0, 'objects', 1]));
+    const angle = container.querySelector<HTMLInputElement>('dd[data-key="angle"] input')!;
+    expect(angle.value).toBe('90');
+    expect(container.querySelector('dd[data-key="angle"] .unit')?.textContent).toBe('°');
+    angle.value = '45';
+    angle.dispatchEvent(new Event('change'));
+    expect(writes.at(-1)?.[1]).toBeCloseTo(Math.PI / 4, 6);
+  });
+
+  it('offers to add an absent block and to remove a set optional one', () => {
+    const writes: Array<[unknown[], unknown, string]> = [];
+    const inspector = createInspector(container, { edit: (path, value, label) => writes.push([path, value, label]) });
+    inspector.show('wall', inspectNode(DOC, ['prefabs', 'wall']));
+    const add = [...container.querySelectorAll<HTMLButtonElement>('dd.section button')].find((b) => b.textContent === 'Add');
+    expect(add).toBeTruthy();
+    add!.click();
+    expect(writes.at(-1)?.[1]).toEqual({});
+    const physics = container.querySelector<HTMLButtonElement>('dd.section[data-key="physics"] .reset')!;
+    physics.click();
+    expect(writes.at(-1)).toEqual([['prefabs', 'wall', 'physics'], undefined, 'Remove physics']);
+  });
+
+  it('marks the field the loader objected to, and goes read-only on request', () => {
+    const inspector = createInspector(container, { edit: () => {} });
+    inspector.show('floor', inspectNode(DOC, ['layers', 0, 'objects', 0]), {
+      readOnly: true,
+      issues: [{ path: 'layers[0].objects[0].x', message: 'must be a number' }]
+    });
+    expect(container.querySelector('.issue')?.textContent).toContain('must be a number');
+    expect(container.querySelector('[data-key="x"]')?.classList.contains('invalid')).toBe(true);
+    expect(container.querySelector('.row-issue')?.textContent).toBe('must be a number');
+    const controls = [...container.querySelectorAll<HTMLInputElement>('.control')];
+    expect(controls.length).toBeGreaterThan(0);
+    expect(controls.every((control) => control.disabled)).toBe(true);
+  });
+
   it('clears to a message', () => {
     const inspector = createInspector(container);
     inspector.clear('Pick something.');
@@ -115,9 +203,7 @@ describe('what the viewport registers', () => {
     expect([...named.constraints].sort()).toEqual(['Chase', 'Flee']);
   });
 
-  it('the demo scene is a valid document', () => {
-    // Belt and braces: the demo must never rot, since ?demo is the
-    // app's own smoke test.
+  it('the fixture is a valid document', () => {
     expect(DOC.version).toBe(SCENE_VERSION);
     expect(sceneOutline(DOC).children?.length).toBeGreaterThan(1);
   });

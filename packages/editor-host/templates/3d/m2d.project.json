@@ -1,0 +1,5 @@
+{
+  "name": "My 3D Game",
+  "definition": "game.js",
+  "hooks": "hooks.js"
+}

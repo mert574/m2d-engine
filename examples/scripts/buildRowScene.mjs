@@ -11,6 +11,10 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { writeScene, writeManifest } from 'm2d-editor-core';
+import { seedTarget } from './seedScene.mjs';
+
+// A seed: writes the scene only when it is not there; see seedScene.mjs.
+const out = seedTarget(new URL('../src/belt/scenes/row.json', import.meta.url));
 
 const LENGTH = 5200;
 const LANE = { top: 40, bottom: 360 };      // depth range the feet may stand in
@@ -116,7 +120,7 @@ function buildManifest() {
 }
 
 const scene = {
-  version: 2, name: 'row', type: 'level', generator: 'scripts/buildRowScene.mjs', gameType: 'belt',
+  version: 2, name: 'row', type: 'level', gameType: 'belt',
   world: { width: LENGTH, height: DEPTH, gravity: { x: 0, y: 0 }, sort: 'depth', projection: { type: 'belt', ratio: 0.5 } },
   // The three creatures live in the asset manifest instead, bound here by
   // uid. See CREATURES below.
@@ -139,7 +143,6 @@ const scene = {
   },
   layers: [{ name: 'row', type: 'objects', objects }]
 };
-const out = fileURLToPath(new URL('../src/belt/scenes/row.json', import.meta.url));
 writeFileSync(out, writeScene(scene));
 writeFileSync(fileURLToPath(new URL('../src/belt/assets.json', import.meta.url)),
   writeManifest(buildManifest()));

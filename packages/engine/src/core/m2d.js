@@ -191,6 +191,13 @@ function rendererOverrideFromURL() {
 }
 
 export class M2D {
+  /**
+   * How often an edit-mode game redraws when nothing invalidated it: often
+   * enough that an asset landing or a renderer's history settling shows
+   * at once to the eye, a third of a 60 Hz display's work at rest.
+   */
+  static EDIT_IDLE_FPS = 20;
+
   constructor(canvas, options = {}) {
     this.options = { ...defaultOptions, ...options };
     this.constructorOptions = options;
@@ -205,6 +212,17 @@ export class M2D {
      * persistence all consult; see the `editMode` option.
      */
     this.editMode = this.options.editMode === true;
+    /**
+     * Edit mode draws on demand: when something said the picture changed
+     * (`invalidate`), and otherwise at `EDIT_IDLE_FPS`. See `update`.
+     */
+    this.invalidated = true;
+    this.lastEditDraw = -Infinity;
+    /**
+     * Whether edit mode draws on demand (the default) or every frame like
+     * play — an editor's power-saving switch.
+     */
+    this.drawOnDemand = true;
     if (this.headless) {
       if (canvas) throw new Error('M2D headless: pass null for the canvas; a headless game has no display');
       this.#initSimulation();
@@ -813,6 +831,7 @@ export class M2D {
     // would otherwise form with the canvas attributes this sets.
     if (!force && sameViewport(viewport, this.viewport)) return;
     this.viewport = viewport;
+    this.invalidated = true;
     this.renderer.setViewport(viewport);
     // The camera's size is the *view* in world units, so it only moves when
     // the aspect ratio does — never when the render resolution changes.
@@ -1168,7 +1187,9 @@ export class M2D {
     // a size that disagrees with its collider.
     const material = {
       bodyType: physics.bodyType || 'dynamic',
-      ...(this.physics.dimensions === 3 ? {} : { angle: physics.angle || 0 }),
+      ...(this.physics.dimensions === 3
+        ? physics.rotation && { rotation: physics.rotation }
+        : { angle: physics.angle || 0 }),
       lockRotation: physics.lockRotation || false,
       isSensor: physics.isSensor || false,
       friction: physics.friction || 0.1,
@@ -1554,6 +1575,16 @@ export class M2D {
     this.uiRenderer.endFrame();
   }
 
+  /**
+   * Ask for the next frame to be drawn. Only edit mode needs it — a played
+   * game draws every frame — and there it is how an editor's change (an
+   * edit applied in place, a camera moved, a selection drawn) reaches the
+   * screen without waiting for the idle rate. Cheap; call it freely.
+   */
+  invalidate() {
+    this.invalidated = true;
+  }
+
   update(currentTime) {
     if (this.headless) throw new Error('M2D headless: there is no frame loop; drive the simulation with game.step()');
     // Display events are coalesced and applied here, between frames, so a
@@ -1572,6 +1603,26 @@ export class M2D {
       this.input.endFrame();
       this.frameHandle = requestAnimationFrame(this.update);
       return;
+    }
+
+    // Edit mode is a still picture until something changes it: the
+    // document never moves, so a frame is drawn when `invalidate` asked for
+    // one (an edit, a camera gesture, a resize) and otherwise only at
+    // EDIT_IDLE_FPS. The idle rate is what lets anything the editor does
+    // not hear about — a texture or a model landing, a streamed batch, the
+    // 3D renderer's temporal history settling — still reach the screen
+    // without the editor knowing when it happens. Input is still delivered
+    // every frame; only the draw waits. `lastTime` is left alone on a
+    // skipped frame, so the next drawn one sees the real time that passed.
+    if (this.editMode && this.drawOnDemand) {
+      const due = this.invalidated || currentTime - this.lastEditDraw >= 1000 / M2D.EDIT_IDLE_FPS;
+      if (!due) {
+        this.input.endFrame();
+        this.frameHandle = requestAnimationFrame(this.update);
+        return;
+      }
+      this.invalidated = false;
+      this.lastEditDraw = currentTime;
     }
 
     const rawDelta = (currentTime - this.lastTime) / 1000;

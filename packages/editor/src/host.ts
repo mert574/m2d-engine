@@ -2,19 +2,14 @@
  * The editor's side of the host.
  *
  * The app is served by `m2d-editor <project>` (packages/editor-host),
- * which pins one project for the process's life — there is no folder
- * picker and no switching mid-run; another project is another editor on
- * another port. The host serves the project's *code* through Vite, which
- * is what lets this module hand back real actor classes and fresh ones
- * after every save.
+ * which pins one project — one game — for the process's life: no picker,
+ * no switching; another game is another editor on another port. The host
+ * serves the game's *code* through Vite, which is what lets this module
+ * hand back real actor classes and fresh ones after every save, and it
+ * holds the open documents, which this module reaches over Vite's socket.
  */
 
-export interface GameEntry {
-  name: string;
-  definition: string;
-  scenes: string;
-  basePath: string;
-}
+import type { Op } from 'm2d-editor-core';
 
 export interface SceneEntry {
   path: string;
@@ -23,11 +18,17 @@ export interface SceneEntry {
   generator: string | null;
 }
 
+/** The project, as `/__project` describes it: one game. */
 export interface HostProject {
   name: string;
   /** Absolute path of the project on disk; `/@fs${root}/...` reaches into it. */
   root: string;
-  games: GameEntry[];
+  /** The definition module, project-relative, or null: no code, placeholders only. */
+  definition: string | null;
+  /** The presentation hooks module, project-relative, or null. */
+  hooks: string | null;
+  /** What scene asset URLs are relative to, project-relative. */
+  basePath: string;
   scenes: SceneEntry[];
 }
 
@@ -37,22 +38,48 @@ export interface GameDefinition {
   GAME?: Record<string, unknown>;
 }
 
+/** What the host says about a document besides its data; see the host's session.ts. */
+export interface DocState {
+  dirty: boolean;
+  generator: string | null;
+  history: string[];
+  undo: string | null;
+  redo: string | null;
+}
+
+export interface ChangeEvent {
+  path: string;
+  revision: number;
+  kind: 'edit' | 'undo' | 'redo' | 'saved' | 'reset' | 'conflict';
+  ops?: Op[];
+  label?: string;
+  origin?: string;
+  client?: string;
+  id?: number;
+  state: DocState;
+}
+
+export interface Snapshot {
+  path: string;
+  data: Record<string, unknown>;
+  revision: number;
+  state: DocState;
+}
+
+async function getJSON<T>(url: string, what: string): Promise<T> {
+  const response = await fetch(url);
+  const body = await response.json().catch(() => null) as (T & { error?: string }) | null;
+  if (!response.ok || !body) throw new Error(`${what}: ${body?.error ?? response.status}`);
+  return body;
+}
+
 export async function loadProject(): Promise<HostProject> {
-  const response = await fetch('/__project');
-  if (!response.ok) throw new Error(`The host did not answer /__project (${response.status}); start the editor with m2d-editor <project>`);
-  return await response.json() as HostProject;
+  return getJSON<HostProject>('/__project', 'The host did not describe the project (start the editor with m2d-editor <project>)');
 }
 
-/** One scene file's text, exactly as it is on disk. */
-export async function readSceneText(path: string): Promise<string> {
-  const response = await fetch(`/__scene?path=${encodeURIComponent(path)}`);
-  if (!response.ok) throw new Error(`Could not read ${path} (${response.status})`);
-  return await response.text();
-}
-
-/** The game whose scenes folder holds this scene, if the project says. */
-export function gameFor(project: HostProject, scenePath: string): GameEntry | null {
-  return project.games.find((game) => scenePath.startsWith(`${game.scenes}/`)) ?? null;
+/** An open document as the host holds it, opening it there first if need be. */
+export async function fetchDocument(path: string): Promise<Snapshot> {
+  return getJSON<Snapshot>(`/__doc?path=${encodeURIComponent(path)}`, `Could not open ${path}`);
 }
 
 /** A project file as an importable URL. `bust` forces a fresh module after a code change. */
@@ -60,9 +87,10 @@ export function moduleUrl(project: HostProject, path: string, bust = 0): string 
   return `/@fs${project.root}/${path}${bust ? `?t=${bust}` : ''}`;
 }
 
-/** Where a game's asset URLs resolve, as the engine's `basePath`. */
-export function assetBase(project: HostProject, game: GameEntry | null): string {
-  return game ? `/@fs${project.root}/${game.basePath}/` : `/@fs${project.root}/`;
+/** Where the game's asset URLs resolve, as the engine's `basePath`. */
+export function assetBase(project: HostProject): string {
+  const base = project.basePath === '.' ? '' : `${project.basePath.replace(/^\.\//, '').replace(/\/$/, '')}/`;
+  return `/@fs${project.root}/${base}`;
 }
 
 /**
@@ -70,23 +98,47 @@ export function assetBase(project: HostProject, game: GameEntry | null): string 
  * when a file in the module graph changed, a new top-level request gets
  * re-evaluated children too, so `bust` only ever needs to be new.
  */
-export async function loadDefinition(project: HostProject, game: GameEntry, bust = 0): Promise<GameDefinition> {
-  const loaded = await import(/* @vite-ignore */ moduleUrl(project, game.definition, bust)) as GameDefinition;
+export async function loadDefinition(project: HostProject, bust = 0): Promise<GameDefinition | null> {
+  if (!project.definition) return null;
+  const loaded = await import(/* @vite-ignore */ moduleUrl(project, project.definition, bust)) as GameDefinition;
   if (typeof loaded.register !== 'function') {
-    throw new Error(`${game.definition} does not export register(game); see m2d.project.json`);
+    throw new Error(`${project.definition} does not export register(game); see m2d.project.json`);
   }
   return loaded;
 }
 
-/**
- * Files changing on disk, from the host's watcher: scene JSON saved by
- * anything (an agent over MCP included), an asset dropped into the
- * folder, source edited. Module changes also flow through Vite's own
- * HMR; this channel is the editor's cue to reload documents and
- * re-materialize.
- */
-export function onProjectFile(listener: (path: string) => void): void {
-  if (import.meta.hot) {
-    import.meta.hot.on('m2d:file', (data: { path: string }) => listener(data.path));
-  }
+/** What a hooks module exports; see m2d.project.json. */
+export interface HooksModule {
+  sceneHooks?: (game: unknown) => Record<string, Record<string, unknown>>;
+  /** M2D options the game's look depends on (a texture filter), applied when editing and playing. */
+  OPTIONS?: Record<string, unknown>;
+}
+
+/** The game's presentation hooks module, imported fresh, or null when the project has none. */
+export async function loadHooks(project: HostProject, bust = 0): Promise<HooksModule | null> {
+  if (!project.hooks) return null;
+  return await import(/* @vite-ignore */ moduleUrl(project, project.hooks, bust)) as HooksModule;
+}
+
+/** POST a small JSON command to the host and read its answer. */
+export async function post<T>(url: string, body: Record<string, unknown> = {}): Promise<T> {
+  const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const answer = await response.json().catch(() => null) as (T & { error?: string }) | null;
+  if (!response.ok || !answer) throw new Error(answer?.error ?? `${url}: ${response.status}`);
+  return answer;
+}
+
+/** GET JSON from the host. */
+export function get<T>(url: string): Promise<T> {
+  return getJSON<T>(url, url);
+}
+
+/** Tell the host something: an edit, an undo, a save. */
+export function send(event: string, data: Record<string, unknown>): void {
+  import.meta.hot?.send(event, data);
+}
+
+/** Hear the host: `m2d:change`, `m2d:error`, `m2d:file`, `m2d:module`. */
+export function onHost<T>(event: string, listener: (data: T) => void): void {
+  import.meta.hot?.on(event, listener as (data: unknown) => void);
 }

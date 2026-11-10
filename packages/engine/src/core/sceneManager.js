@@ -91,6 +91,9 @@ export class SceneManager {
       return await work();
     } finally {
       this.loading = false;
+      // A new scene is a new picture; edit mode should not wait for its
+      // idle frame to show it.
+      this.game.invalidate?.();
     }
   }
 

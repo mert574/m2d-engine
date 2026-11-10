@@ -12,6 +12,7 @@
 import { writeScene } from './writer.ts';
 import { validateScene, type ValidationResult } from './validate.ts';
 import { CommandStack, type Command } from './commands.ts';
+import { EditCommand, type Edit } from './edits.ts';
 
 export class SceneDocument {
   /** Where it came from, for saving; null for one made in memory. */
@@ -20,14 +21,13 @@ export class SceneDocument {
   data: Record<string, unknown>;
   /** Applied edits, for undo. */
   readonly commands: CommandStack<SceneDocument>;
-  /** The canonical text last saved, to tell a real edit from a no-op. */
-  #saved: string;
+  /** Where the history stood at the last save; see `dirty`. */
+  #saved: object | null = null;
 
   constructor(data: Record<string, unknown>, path: string | null = null) {
     this.data = data;
     this.path = path;
     this.commands = new CommandStack<SceneDocument>(this);
-    this.#saved = this.text;
   }
 
   /** Parse a scene's text. Throws `SyntaxError` on malformed JSON. */
@@ -58,22 +58,35 @@ export class SceneDocument {
     return writeScene(this.data);
   }
 
-  /** Whether the canonical text differs from the last save. */
+  /**
+   * Whether the document differs from the last save: whether the history
+   * stands anywhere but where it stood then. Undoing back to a save is
+   * clean again; a new edit after undoing past one never is. A position
+   * comparison, so it costs nothing on a scene whose text takes
+   * milliseconds to write — a title bar may ask on every pointermove.
+   */
   get dirty(): boolean {
-    return this.text !== this.#saved;
+    return this.commands.position !== this.#saved;
   }
 
-  /** Apply an edit. The one way the document changes. */
+  /** Apply a command. The one way the document changes. */
   run(command: Command<SceneDocument>): void {
     this.commands.run(command);
+  }
+
+  /** Apply an edit — ops as data, see `edits.ts` — as one step of history. */
+  apply(edit: Edit, origin?: string): EditCommand {
+    const command = new EditCommand(edit, origin);
+    this.commands.run(command);
+    return command;
   }
 
   validate(game: unknown = null): ValidationResult {
     return validateScene(this.data, game);
   }
 
-  /** Note the current text as saved; the caller writes it where it belongs. */
+  /** Note the current state as saved; the caller writes `text` where it belongs. */
   markSaved(): void {
-    this.#saved = this.text;
+    this.#saved = this.commands.position;
   }
 }

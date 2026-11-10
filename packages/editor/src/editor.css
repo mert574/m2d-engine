@@ -5,204 +5,580 @@
  * editor. The engine draws inside the viewport; everything around it is
  * the browser's.
  *
- * The layout is a grid of named regions so a panel can be moved, hidden
- * or (later) docked elsewhere without touching the markup.
+ * One dark theme, defined once below as variables. The layout is a grid of
+ * named regions so a panel can move without touching the markup.
  */
 
 :root {
   color-scheme: dark;
-  --bg: #16191d;
-  --panel: #1d2126;
-  --line: #2b3138;
-  --text: #d8dee4;
+  --bg: #0f1114;
+  --panel: #16191d;
+  --panel-2: #1c2025;
+  --raise: #232830;
+  --line: #262b32;
+  --line-2: #323943;
+  --text: #dfe3e8;
   --dim: #8b949e;
-  --accent: #ffd58a;
+  --faint: #5f6873;
+  --accent: #ffc56b;
+  --accent-ink: #1b1406;
+  --select: #3d8bfd;
+  --select-bg: rgba(61, 139, 253, 0.16);
+  --danger: #ff6b6b;
+  --danger-bg: rgba(255, 107, 107, 0.09);
+  --ok: #67d08c;
+  --radius: 5px;
+  --row: 24px;
+  --font: 12.5px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 11.5px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font: 13px/1.5 system-ui, sans-serif;
+  font: var(--font);
+  -webkit-font-smoothing: antialiased;
 }
+
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+:focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
+.icon { display: block; flex: none; }
 
 .editor {
   display: grid;
   height: 100vh;
-  grid-template-columns: 240px 1fr 300px;
-  grid-template-rows: 40px 1fr 180px;
+  grid-template-columns: var(--tree-width, 260px) minmax(0, 1fr) var(--inspector-width, 340px);
+  grid-template-rows: 44px minmax(0, 1fr) 24px;
   grid-template-areas:
-    'bar       bar       bar'
-    'tree      viewport  inspector'
-    'assets    assets    console';
+    'bar    bar     bar'
+    'tree   center  inspector'
+    'status status  status';
   gap: 1px;
   background: var(--line);
 }
+
+/* --- The bar ------------------------------------------------------------ */
 
 .bar {
   grid-area: bar;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 0 12px;
   background: var(--panel);
 }
 
-.bar .title { font-weight: 600; letter-spacing: 0.04em; }
-.bar .status { color: var(--dim); margin-left: auto; }
-
-.bar button {
-  background: #2a3038;
-  color: var(--text);
-  border: 1px solid #39414b;
-  border-radius: 4px;
-  padding: 4px 10px;
-  font: inherit;
-  cursor: pointer;
+.brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.brand .mark {
+  width: 14px; height: 14px; border-radius: 3px; flex: none;
+  background: linear-gradient(135deg, var(--accent), #ff8a4c);
+  transform: rotate(45deg) scale(0.8);
 }
+.brand .title { font-weight: 650; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.bar button:hover { border-color: var(--accent); }
+.scene-field { display: flex; align-items: center; gap: 6px; }
+.scene-field .hint { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
 
-.panel {
-  background: var(--panel);
-  overflow: auto;
-  padding: 10px 12px;
+select, .bar select {
+  height: 26px;
+  background: var(--raise);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 0 24px 0 8px;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%), linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 11px, calc(100% - 9px) 11px;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
 }
+.bar select { min-width: 180px; max-width: 320px; }
 
-.panel h2 {
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--dim);
+.tools, .switches { display: flex; align-items: center; gap: 8px; }
+.switches { margin-left: auto; gap: 16px; }
+.group { display: flex; }
+.group > button:not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+.group > button:not(:last-child) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+
+.icon-button, .primary, .warn, .mini {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 28px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: var(--raise);
+  padding: 0 10px;
 }
+.icon-button { width: 30px; padding: 0; }
+.icon-button.small { width: 22px; height: 22px; border-color: transparent; background: none; color: var(--dim); }
+.icon-button:hover:not(:disabled), .mini:hover:not(:disabled) { background: #2b313a; border-color: #3d4550; }
+.icon-button:disabled, .primary:disabled { opacity: 0.4; }
 
-.panel .empty { color: var(--dim); font-style: italic; }
+.primary { background: #2a2f37; }
+.primary.dirty { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.primary.dirty:hover { filter: brightness(1.06); }
+.warn { border-color: #7a5a2a; color: var(--accent); background: rgba(255, 197, 107, 0.08); }
 
+/* Checkboxes as switches. */
+.toggle { display: inline-flex; align-items: center; gap: 7px; color: var(--dim); cursor: pointer; user-select: none; white-space: nowrap; }
+.toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle .track {
+  width: 26px; height: 15px; border-radius: 8px; background: #39404a; position: relative; transition: background 120ms;
+}
+.toggle .track::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%;
+  background: #c9d0d8; transition: transform 120ms;
+}
+.toggle input:checked + .track { background: var(--select); }
+.toggle input:checked + .track::after { transform: translateX(11px); background: #fff; }
+.toggle input:checked ~ span:last-child { color: var(--text); }
+.toggle input:focus-visible + .track { outline: 2px solid var(--select); outline-offset: 2px; }
+
+/* --- Panels ------------------------------------------------------------- */
+
+.panel { background: var(--panel); overflow: auto; min-height: 0; display: flex; flex-direction: column; }
 .tree { grid-area: tree; }
 .inspector { grid-area: inspector; }
-.assets { grid-area: assets; }
-.console { grid-area: console; }
+
+.panel-header {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 34px; padding: 6px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.panel-header h2 {
+  margin: 0; font-size: 11px; font-weight: 650; letter-spacing: 0.09em; text-transform: uppercase; color: var(--dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.panel-header .count { margin-left: auto; color: var(--faint); font-size: 11px; }
+.inspector-head h2 { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text); }
+.chip {
+  flex: none; font-size: 10.5px; padding: 1px 7px; border-radius: 9px; background: var(--raise); color: var(--dim);
+  border: 1px solid var(--line-2);
+}
+.chip.warn { color: var(--accent); border-color: #6b5226; background: rgba(255, 197, 107, 0.07); }
+
+.panel .empty { color: var(--faint); padding: 14px 12px; }
+
+/* --- The tree ----------------------------------------------------------- */
+
+.search {
+  display: flex; align-items: center; gap: 6px; margin: 8px 10px 4px; padding: 0 8px; height: 26px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); color: var(--faint);
+}
+.search:focus-within { border-color: var(--select); }
+.search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; }
+
+.tree-body { padding: 4px 6px 12px; }
+.tree .row {
+  display: flex; align-items: center; gap: 5px;
+  width: 100%; height: var(--row);
+  text-align: left; background: none; border: 0; border-radius: 4px;
+  padding-right: 6px; white-space: nowrap; overflow: hidden;
+}
+.tree .row:hover { background: var(--panel-2); }
+.tree .row.selected { background: var(--select-bg); box-shadow: inset 2px 0 0 var(--select); }
+.tree .row .twist { width: 14px; flex: none; color: var(--faint); display: grid; place-items: center; }
+.tree .row .twist .icon { transition: transform 100ms; }
+.tree .row .twist.open .icon { transform: rotate(90deg); }
+.tree .row .twist:hover { color: var(--text); }
+.tree .row .glyph { color: var(--dim); display: grid; place-items: center; flex: none; }
+.tree .row .label { overflow: hidden; text-overflow: ellipsis; }
+.tree .row .detail { color: var(--faint); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; }
+.tree .row.kind-scene .label { font-weight: 600; }
+.tree .row.kind-layer .glyph, .tree .row.kind-group .glyph { color: var(--accent); }
+.tree .row.kind-prefab .glyph { color: #b48cff; }
+.tree .row.kind-object .glyph { color: #7fb3ff; }
+.tree .row.kind-world .glyph, .tree .row.kind-background .glyph { color: var(--ok); }
+
+.badge {
+  margin-left: auto; flex: none; min-width: 18px; height: 16px; padding: 0 5px; border-radius: 8px;
+  display: inline-grid; place-items: center; font-size: 10.5px; font-weight: 650;
+  background: var(--raise); color: var(--dim);
+}
+.badge.problem, .tab .badge:not(.quiet):not(:empty):not(.zero) { background: var(--danger); color: #2a0a0a; }
+.badge.zero { background: var(--raise); color: var(--faint); }
+.badge:empty { display: none; }
+
+/* --- The inspector ------------------------------------------------------ */
+
+.inspector .issue {
+  list-style: none; margin: 10px 12px 0; padding: 8px 10px; border-radius: var(--radius);
+  background: var(--danger-bg); border: 1px solid rgba(255, 107, 107, 0.3);
+}
+.inspector .issue li { display: flex; gap: 8px; align-items: flex-start; padding: 2px 0; }
+.inspector .issue .icon { color: var(--danger); margin-top: 2px; }
+.inspector .issue code { font: var(--mono); color: var(--dim); }
+
+.fields {
+  display: grid;
+  grid-template-columns: minmax(76px, 32%) minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 3px;
+  margin: 0;
+  padding: 10px 12px 18px;
+  align-items: center;
+}
+.fields dt {
+  color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: var(--row);
+  display: flex; align-items: center;
+}
+.fields dt.required::after { content: '*'; color: var(--accent); margin-left: 3px; }
+.fields dt.scrub { cursor: ew-resize; user-select: none; }
+.fields dt.scrub:hover { color: var(--text); }
+.fields dd {
+  margin: 0; min-height: var(--row); display: flex; align-items: center; gap: 4px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fields dd.muted, .fields .muted { color: var(--faint); }
+.fields dd.nested { color: var(--faint); }
+.fields dd .unit { color: var(--faint); font-size: 11px; }
+.fields .invalid { color: var(--danger); }
+.fields dd.invalid .control, .fields .component.invalid { border-color: var(--danger); }
+.fields .row-issue { grid-column: 1 / -1; color: var(--danger); font-size: 11.5px; padding: 0 0 4px; white-space: normal; }
+
+/* Sections: an object, a record or a list, folding. */
+.fields dt.section { color: var(--text); font-weight: 600; margin-top: 6px; }
+.fields dd.section { margin-top: 6px; justify-content: flex-end; }
+.fields dt.section .fold {
+  display: flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; color: inherit; font-weight: 600;
+}
+.fields dt.section .fold .icon { color: var(--faint); transition: transform 100ms; }
+.fields dt.section .fold.open .icon { transform: rotate(90deg); }
+
+.control {
+  flex: 1; min-width: 0; height: 24px;
+  background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px; padding: 0 7px;
+}
+.control:hover:not(:disabled) { border-color: #3f4752; }
+.control:focus { outline: none; border-color: var(--select); box-shadow: 0 0 0 2px rgba(61, 139, 253, 0.25); }
+.control:disabled { opacity: 0.55; }
+select.control {
+  padding-right: 22px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%), linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+  background-position: calc(100% - 12px) 10px, calc(100% - 8px) 10px;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+input[type='number'].control { font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+input[type='number']::-webkit-inner-spin-button, input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.control::placeholder { color: var(--faint); font-style: italic; }
+.unset .control { color: var(--faint); }
+
+input[type='checkbox'].control.switch {
+  flex: none; appearance: none; width: 26px; height: 15px; padding: 0; border-radius: 8px; border: 0;
+  background: #39404a; position: relative; cursor: pointer;
+}
+input[type='checkbox'].control.switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #c9d0d8;
+  transition: transform 120ms;
+}
+input[type='checkbox'].control.switch:checked { background: var(--select); }
+input[type='checkbox'].control.switch:checked::after { transform: translateX(11px); background: #fff; }
+.unset input[type='checkbox'].control.switch { opacity: 0.6; }
+
+.unit-wrap { flex: 1; min-width: 0; position: relative; display: flex; }
+.unit-wrap .control { padding-right: 26px; }
+.unit-wrap .unit { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+
+input[type='color'].colour {
+  flex: none; width: 24px; height: 24px; padding: 2px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--bg);
+}
+
+/* Vector rows: Position, Size, Rotation. */
+.fields dd.vector { gap: 4px; }
+.component {
+  flex: 1; min-width: 0; display: flex; align-items: center; height: 24px; position: relative;
+  background: var(--bg); border: 1px solid var(--line-2); border-radius: 4px;
+}
+.component:focus-within { border-color: var(--select); }
+.component .letter {
+  flex: none; width: 18px; align-self: stretch; display: grid; place-items: center;
+  font-size: 10.5px; font-weight: 700; border-right: 1px solid var(--line); color: var(--dim);
+}
+.component .letter.scrub { cursor: ew-resize; user-select: none; }
+.component.axis-x .letter { color: #ff8b8b; }
+.component.axis-y .letter { color: #8fe08f; }
+.component.axis-z .letter { color: #84b8ff; }
+.component .control { border: 0; background: none; height: 22px; padding: 0 5px; box-shadow: none; }
+.component .reset { position: absolute; right: 1px; opacity: 0; }
+.component:hover .reset { opacity: 1; }
+
+.mini { height: 22px; padding: 0 7px; font-size: 11.5px; color: var(--dim); background: none; border-color: transparent; gap: 4px; }
+.mini:hover:not(:disabled) { color: var(--text); }
+.mini.icon-only { width: 20px; padding: 0; }
+.mini.reset { color: var(--faint); }
+.mini.reset:hover { color: var(--danger); background: none; border-color: transparent; }
+
+.fields dd .swatch {
+  display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* --- The centre: viewport over the dock --------------------------------- */
+
+.center {
+  grid-area: center; display: grid; min-height: 0; gap: 1px; background: var(--line);
+  grid-template-rows: minmax(0, 1fr) var(--dock-height, 216px);
+  position: relative;
+}
+.editor.dock-hidden .center { grid-template-rows: minmax(0, 1fr) 33px; }
 
 /*
  * The viewport is the engine's. It is positioned because the 3D renderer
  * lays its HUD canvas over the world canvas absolutely, and that overlay
  * needs this as its containing block.
  */
-.viewport {
-  grid-area: viewport;
-  position: relative;
-  background: #0d1117;
-  overflow: hidden;
-}
-
+.viewport { position: relative; background: #0b0d10; overflow: hidden; min-height: 0; }
 .viewport canvas { display: block; width: 100%; height: 100%; }
 
-.plate {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--dim);
-  pointer-events: none;
-  text-align: center;
-  padding: 24px;
+.viewport-tools {
+  position: absolute; top: 10px; left: 10px; z-index: 3;
+  display: flex; align-items: center; gap: 2px; padding: 3px;
+  background: rgba(22, 25, 29, 0.88); border: 1px solid var(--line-2); border-radius: 7px;
+  backdrop-filter: blur(6px);
 }
+.viewport-tools .tool {
+  width: 28px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 5px; background: none; color: var(--dim);
+}
+.viewport-tools .tool:hover:not(:disabled) { background: var(--raise); color: var(--text); }
+.viewport-tools .tool[aria-pressed='true'] { background: var(--select); color: #fff; }
+.viewport-tools .tool:disabled { opacity: 0.35; }
+.viewport-tools .sep { width: 1px; height: 18px; background: var(--line-2); margin: 0 3px; }
 
+.plate {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--dim); pointer-events: none; text-align: center; padding: 24px; white-space: pre-wrap;
+}
 .plate.gone { display: none; }
 
-/* The scene list in the tree panel, until the real tree replaces it. */
-.tree button.scene {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: 0;
-  border-radius: 3px;
-  padding: 4px 6px;
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
+/*
+ * The overlay: the selection's outline and its gizmo, in client pixels
+ * over the canvas. Only the handles take the pointer; a drag anywhere
+ * else still reaches the engine and moves the camera.
+ */
+.overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 2; }
+.overlay .outline line { stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.overlay .handle { pointer-events: all; cursor: grab; }
+.overlay .arm { stroke-width: 3; }
+.overlay .tip { stroke: rgba(0, 0, 0, 0.55); stroke-width: 1; }
+.overlay .free { fill: rgba(255, 197, 107, 0.9); stroke: rgba(0, 0, 0, 0.55); }
+.overlay .ring { stroke: rgba(255, 197, 107, 0.6); stroke-width: 6; }
+.overlay .ring3d { stroke-width: 3.5; pointer-events: stroke; opacity: 0.9; }
+.overlay .pivot { fill: #fff; stroke: rgba(0, 0, 0, 0.6); }
+.overlay .handle:hover { filter: brightness(1.35); }
+.overlay .ring3d:hover { stroke-width: 5; }
+.overlay.dragging .handle { cursor: grabbing; }
+
+/* The dock: problems and history, in tabs. */
+.dock { background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+.tabs { display: flex; align-items: center; gap: 2px; height: 32px; padding: 0 8px; border-bottom: 1px solid var(--line); flex: none; }
+.tab {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 0; background: none;
+  color: var(--dim); border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 12px;
 }
+.tab:hover { color: var(--text); }
+.tab[aria-selected='true'] { color: var(--text); border-bottom-color: var(--accent); }
+.tab .badge { margin-left: 0; }
+.tabs .spacer { flex: 1; }
+.dock-body { overflow: auto; flex: 1; min-height: 0; }
+.editor.dock-hidden .dock-body { display: none; }
 
-.tree button.scene:hover { background: #2a3038; }
-.tree button.scene[data-generated] { color: var(--dim); font-style: italic; }
-
-/* The scene tree: flat rows, the detail muted beside the label. */
-.tree .row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: 0;
-  border-radius: 3px;
-  padding: 2px 6px;
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
+.problems, .history { list-style: none; margin: 0; padding: 4px 0; }
+.problems li {
+  display: flex; align-items: baseline; gap: 10px; padding: 4px 14px; cursor: pointer;
 }
+.problems li:hover { background: var(--panel-2); }
+.problems li .icon { color: var(--danger); align-self: center; }
+.problems li code { font: var(--mono); color: var(--dim); flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.problems li.none { color: var(--ok); cursor: default; }
+.problems li.none:hover { background: none; }
 
-.tree .row:hover { background: #2a3038; }
-.tree .row.selected { background: #30425a; }
-.tree .row .detail { color: var(--dim); font-size: 12px; }
-.tree .row.kind-scene .label { font-weight: 600; }
-.tree .row.kind-layer .label, .tree .row.kind-group .label { color: var(--accent); }
-
-/* The inspector: label and value side by side, like a property grid. */
-.fields {
-  display: grid;
-  grid-template-columns: minmax(90px, 42%) 1fr;
-  column-gap: 10px;
-  row-gap: 2px;
-  margin: 0;
-  align-items: baseline;
+.history li {
+  display: flex; align-items: center; gap: 10px; padding: 3px 14px; color: var(--dim); cursor: pointer;
 }
+.history li::before { content: ''; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--faint); flex: none; }
+.history li:hover { background: var(--panel-2); color: var(--text); }
+.history li.current { color: var(--text); }
+.history li.current::before { background: var(--accent); border-color: var(--accent); }
+.history li.undone { color: var(--faint); text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.15); }
+.history li.agent .who { color: #b48cff; font-size: 11px; }
+.history li.saved .who { color: var(--ok); font-size: 11px; }
+.history li.origin::before { border-style: dashed; }
 
-.fields dt {
-  color: var(--dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* --- The status line ---------------------------------------------------- */
+
+.statusbar {
+  grid-area: status; display: flex; align-items: center; gap: 14px; padding: 0 12px;
+  background: var(--panel); color: var(--dim); font-size: 11.5px; white-space: nowrap;
 }
+.statusbar .status { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.statusbar .spacer { flex: 1; }
+.statusbar .stat { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); border: 0; background: none; padding: 0; font-size: 11.5px; }
+.statusbar button.stat:hover { color: var(--text); }
+.statusbar .stat.bad { color: var(--danger); }
+.statusbar .stat.good { color: var(--ok); }
+.statusbar .path { font: var(--mono); color: var(--faint); }
 
-.fields dt.required::after { content: ' *'; color: var(--accent); }
+/* --- Play, build, new ---------------------------------------------------- */
 
-.fields dd {
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.play {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px;
+  border-radius: var(--radius); border: 1px solid #2f6b46; background: rgba(103, 208, 140, 0.12); color: var(--ok); font-weight: 600;
 }
+.play:hover:not(:disabled) { background: rgba(103, 208, 140, 0.2); }
+.play:disabled { opacity: 0.4; }
+.play.playing { background: var(--danger); border-color: var(--danger); color: #2a0a0a; }
+.icon-button.wide { width: auto; padding: 0 10px; gap: 6px; }
+.project-tools { margin-left: 6px; padding-left: 12px; border-left: 1px solid var(--line-2); }
+.editor.playing .tree, .editor.playing .inspector { opacity: 0.55; pointer-events: none; }
+.editor.playing .viewport { box-shadow: inset 0 0 0 2px var(--ok); }
+.editor.playing .viewport-tools .tool:not(#frame) { opacity: 0.35; pointer-events: none; }
 
-.fields dd.muted { color: var(--dim); }
-.fields dd.nested { color: var(--dim); }
-.fields dd .unit { color: var(--dim); font-size: 11px; }
+/* --- The asset browser -------------------------------------------------- */
 
-.fields dd .swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  margin-right: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  vertical-align: baseline;
+.assets-pane { display: flex; flex-direction: column; height: 100%; }
+.assets-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); flex: none; }
+.assets-bar .search { margin: 0; flex: 1; max-width: 320px; }
+.assets-bar .control.small { flex: none; width: auto; height: 26px; }
+.assets-bar .source { color: var(--faint); font-size: 11.5px; margin-left: auto; }
+.assets-bar .license { color: var(--ok); }
+.segmented { display: inline-flex; background: var(--bg); border: 1px solid var(--line-2); border-radius: var(--radius); padding: 2px; flex: none; }
+.segmented button { border: 0; background: none; color: var(--dim); height: 22px; padding: 0 10px; border-radius: 3px; font-size: 12px; }
+.segmented button[aria-pressed='true'] { background: var(--raise); color: var(--text); }
+
+.asset-grid {
+  flex: 1; overflow: auto; padding: 8px 10px 14px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; align-content: start;
 }
-
-/* Game names heading the scene list. */
-.tree .scene-group {
-  margin: 8px 0 2px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
+.asset-heading {
+  grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; margin-top: 4px;
+  font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
 }
+.asset-heading span { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--faint); }
+.asset-note { grid-column: 1 / -1; color: var(--faint); padding: 8px 2px; }
+.asset-note.bad { color: var(--danger); }
+.asset-card {
+  position: relative; display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 6px;
+  background: var(--panel-2); border: 1px solid var(--line); min-width: 0;
+}
+.asset-card.placeable { cursor: grab; }
+.asset-card.placeable:hover { border-color: var(--select); }
+.asset-card.inert { opacity: 0.55; }
+.asset-card .thumb {
+  position: relative; height: 64px; border-radius: 4px; background: var(--bg); display: grid; place-items: center;
+  overflow: hidden; color: var(--faint);
+}
+.asset-card .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.asset-card .thumb .icon { width: 28px; height: 28px; }
+.asset-card .thumb-badge {
+  position: absolute; top: 4px; right: 4px; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+  background: rgba(15, 17, 20, 0.8); color: var(--ok);
+}
+.card-title { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-detail { font-size: 10.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-action {
+  margin-top: 4px; height: 22px; border-radius: 4px; border: 1px solid var(--line-2); background: var(--raise); font-size: 11.5px;
+}
+.card-action:hover:not(:disabled) { border-color: var(--select); }
+.card-action:disabled { color: var(--faint); }
+
+.jobs { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 0 10px; }
+.jobs:not(:empty) { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.job { display: grid; grid-template-columns: 180px 1fr 220px auto; align-items: center; gap: 10px; font-size: 11.5px; }
+.job-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-stage { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job.stage-failed .job-stage { color: var(--danger); white-space: normal; }
+.job.stage-done .job-stage { color: var(--ok); }
+.job-track { height: 4px; border-radius: 2px; background: var(--raise); overflow: hidden; position: relative; }
+.job-fill { display: block; height: 100%; background: var(--select); transition: width 200ms; }
+.job.stage-done .job-fill { background: var(--ok); }
+.job-track.indeterminate .job-fill { width: 30% !important; animation: slide 1.2s ease-in-out infinite; position: absolute; }
+@keyframes slide { from { left: -30%; } to { left: 100%; } }
+
+.viewport.drop-target { box-shadow: inset 0 0 0 2px var(--select); }
+
+/* --- The console -------------------------------------------------------- */
+
+.console-pane { display: flex; flex-direction: column; height: 100%; }
+.console-lines { list-style: none; margin: 0; padding: 4px 0; flex: 1; overflow: auto; font: var(--mono); }
+.console-lines .line { padding: 1px 12px; white-space: pre-wrap; word-break: break-word; border-bottom: 1px solid rgba(255,255,255,0.02); }
+.console-lines .warn { color: var(--accent); background: rgba(255, 197, 107, 0.05); }
+.console-lines .error { color: var(--danger); background: var(--danger-bg); }
+.console-lines .info { color: var(--dim); }
+.console-lines .input { color: var(--select); }
+.console-lines .repeat {
+  display: inline-block; min-width: 18px; margin-right: 8px; padding: 0 5px; border-radius: 8px; text-align: center;
+  background: var(--raise); color: var(--dim); font-size: 10.5px;
+}
+.console-input { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-top: 1px solid var(--line); flex: none; }
+.console-input span { color: var(--select); font: var(--mono); }
+.console-input input { flex: 1; border: 0; background: none; outline: none; font: var(--mono); color: var(--text); }
+
+/* --- Build -------------------------------------------------------------- */
+
+.build-pane { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; height: 100%; }
+.build-summary code { font: var(--mono); color: var(--dim); }
+.build-summary.good { color: var(--ok); }
+.build-summary.bad { color: var(--danger); }
+.build-actions { display: flex; gap: 8px; align-items: center; }
+.small-button { height: 26px; }
+.build-log { list-style: none; margin: 0; padding: 6px 8px; flex: 1; overflow: auto; font: var(--mono); color: var(--dim); background: var(--bg); border-radius: 4px; }
+.build-log li.warn { color: var(--accent); }
+.build-log li.error { color: var(--danger); }
+
+/* --- Dialogs ------------------------------------------------------------ */
+
+.dialog {
+  border: 1px solid var(--line-2); border-radius: 10px; padding: 0; background: var(--panel); color: var(--text);
+  width: min(460px, 92vw); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+.dialog::backdrop { background: rgba(5, 6, 8, 0.6); }
+.dialog form { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; }
+.dialog h3 { margin: 0; font-size: 15px; }
+.dialog p { margin: 0; }
+.dialog .muted { color: var(--dim); }
+.dialog .field { display: flex; flex-direction: column; gap: 4px; }
+.dialog .field span { color: var(--dim); font-size: 11.5px; }
+.dialog .field .control { height: 28px; }
+.dialog .field small { color: var(--faint); font: var(--mono); }
+.dialog .templates { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dialog .templates label {
+  display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 6px; cursor: pointer;
+}
+.dialog .templates label:has(input:checked) { border-color: var(--select); background: var(--select-bg); }
+.dialog .templates b { margin-right: 6px; }
+.dialog .error { color: var(--danger); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* --- Layout: resizable, toggleable panels -------------------------------- */
+
+.editor.tree-hidden { --tree-width: 0px !important; }
+.editor.inspector-hidden { --inspector-width: 0px !important; }
+.editor.tree-hidden .tree, .editor.inspector-hidden .inspector { display: none; }
+
+.splitter { position: absolute; z-index: 6; touch-action: none; }
+.splitter::after { content: ''; position: absolute; background: transparent; transition: background 120ms; }
+.splitter:hover::after, .splitter.dragging::after { background: var(--select); }
+.splitter-left, .splitter-right { top: 0; bottom: 0; width: 7px; cursor: col-resize; }
+.splitter-left { left: -4px; }
+.splitter-right { right: -4px; }
+.splitter-left::after, .splitter-right::after { top: 0; bottom: 0; left: 3px; width: 2px; }
+.splitter-dock { left: 0; right: 0; height: 7px; bottom: calc(var(--dock-height, 216px) - 3px); cursor: row-resize; }
+.splitter-dock::after { left: 0; right: 0; top: 3px; height: 2px; }
+.editor.tree-hidden .splitter-left, .editor.inspector-hidden .splitter-right, .editor.dock-hidden .splitter-dock { display: none; }
+.editor.resizing, .editor.resizing * { user-select: none; }
+.editor.resizing .viewport canvas { pointer-events: none; }
+
+.layout-toggles { display: inline-flex; gap: 2px; padding-left: 12px; border-left: 1px solid var(--line-2); }
+.panel-toggle {
+  width: 26px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 4px; background: none; color: var(--faint);
+}
+.panel-toggle:hover { background: var(--raise); color: var(--text); }
+.panel-toggle[aria-pressed='true'] { color: var(--text); }

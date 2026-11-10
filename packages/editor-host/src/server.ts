@@ -1,35 +1,90 @@
 /**
  * The MCP server: an AI agent as a first-class user of the editor.
  *
- * The point of this package, and the reason the editor's core is
- * headless. An agent is not scripting the GUI and not parsing
- * screenshots — it calls the same API the GUI calls, against the same
- * documents, through the same commands, so anything a person can do in
- * the inspector an agent can do over a tool call, and its edits land in
- * the human's undo list with a label on them.
+ * An agent is not scripting the GUI and not parsing screenshots — it
+ * calls the same session the editor's tabs talk to, against the same open
+ * documents, through the same edits, so anything a person can do in the
+ * inspector an agent can do over a tool call, and its edit lands in the
+ * person's undo list with a label on it. Served by the running editor on
+ * its own port (`/mcp`), or as a one-off stdio command when no editor is
+ * open (`mcp.ts`).
  *
- * This round ships the read-only half, which is what proves the wiring:
- * list the project's scenes, read one, validate one. The mutating tools
- * (`apply_commands`) arrive with the concrete commands in E2, the asset
- * tools with E3, and `run_scene` — stepping a headless game so an agent
- * can *play-test* what it just edited — with E4. They are deliberately
- * not stubbed here: a tool that exists and does nothing is worse than
- * one that is absent, because an agent will call it.
+ * Still absent, deliberately: asset tools (E3) and `run_scene` — stepping
+ * a headless game so an agent can play-test what it just edited (E4). A
+ * tool that exists and does nothing is worse than one that is absent,
+ * because an agent will call it.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { Project } from './project.ts';
+import { sceneOutline, inspectNode, validateScene, type Op } from 'm2d-editor-core';
+import type { Session, ChangeEvent } from './session.ts';
+import type { Assets } from './assets.ts';
 
 export const SERVER_NAME = 'm2d-editor';
-export const SERVER_VERSION = '0.1.0';
+export const SERVER_VERSION = '0.2.0';
+
+/** A game-like object with the project's real classes, for checks that need them. */
+export type GameProvider = () => Promise<unknown | null>;
+
+export interface ServerOptions {
+  /**
+   * The project's game with its real classes registered, when the host can
+   * load its code; validation and inspection then resolve actor properties
+   * and constraint params the way the game does.
+   */
+  game?: GameProvider;
+  /**
+   * Step a scene document headless for `ticks` and report where its
+   * objects ended up — the play-test an agent can run. Needs the game's
+   * code, so only the serving host offers it.
+   */
+  runScene?: (data: Record<string, unknown>, ticks: number) => Promise<RunReport>;
+  /** Build the project into a static site; the serving host only. */
+  build?: () => Promise<unknown>;
+}
+
+export interface RunReport {
+  ticks: number;
+  seconds: number;
+  /** Each placed object still in the world, where it is now. */
+  objects: Array<{ id: string; x: number; y: number; z?: number; moved: number }>;
+  /** Placed objects the run removed (collected, killed). */
+  removed: string[];
+  /** Entities the run spawned that the scene did not place. */
+  spawned: number;
+  /** What the game logged as an error while it ran. */
+  errors: string[];
+}
+
+const segment = z.union([z.string(), z.number().int().nonnegative()]);
+const path = z.array(segment);
+const OP = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('set'), path, value: z.unknown().optional() }),
+  z.object({ op: z.literal('insert'), path, index: z.number().int().nonnegative(), value: z.unknown() }),
+  z.object({ op: z.literal('remove'), path, index: z.number().int().nonnegative() })
+]);
+
+const text = (value: string, isError = false) => ({ content: [{ type: 'text' as const, text: value }], isError });
+const json = (value: unknown) => text(JSON.stringify(value, null, 2));
+const failure = (error: unknown) => text(String((error as Error).message ?? error), true);
+const summary = (event: ChangeEvent | null) => event
+  ? json({ revision: event.revision, dirty: event.state.dirty, undo: event.state.undo, redo: event.state.redo })
+  : text('nothing to do');
+
+const AGENT = { origin: 'agent' };
 
 /**
- * An MCP server over one project.
- * @param project - The folder the agent may read
+ * An MCP server over one editing session.
+ * @param session - The open documents the agent edits, shared with the editor
  */
-export function createServer(project: Project): McpServer {
+export function createServer(session: Session, options: ServerOptions = {}, assets?: Assets): McpServer {
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
+  const registries = async () => {
+    const game = (await options.game?.()) as { actors?: Map<string, unknown>; constraintTypes?: Map<string, unknown> } | null;
+    return game ? { actors: game.actors, constraintTypes: game.constraintTypes } : undefined;
+  };
+  const scenePath = z.string().describe('Project-relative path, as list_scenes gives it');
 
   server.registerTool('list_scenes', {
     title: 'List scenes',
@@ -37,36 +92,228 @@ export function createServer(project: Project): McpServer {
       'Every scene in the project, with its name, its type (level or ui), and the script that ' +
       'generates it when it has one. A generated scene is read-only: edit its script instead.',
     inputSchema: {}
-  }, async () => {
-    const scenes = await project.scenes();
-    return { content: [{ type: 'text', text: JSON.stringify(scenes, null, 2) }] };
-  });
+  }, async () => json(await session.project.scenes()));
 
   server.registerTool('read_scene', {
     title: 'Read a scene',
     description:
-      'One scene document as canonical JSON. This is the file as it is authored: defaults are ' +
-      'omitted and the loader applies them, so a field being absent means "the default".',
-    inputSchema: { path: z.string().describe('Project-relative path, as list_scenes gives it') }
-  }, async ({ path }) => {
-    const doc = await project.openScene(path);
-    return { content: [{ type: 'text', text: doc.text }] };
+      'One scene document as canonical JSON, as the editor currently holds it — unsaved edits ' +
+      'included. Defaults are omitted and the loader applies them, so an absent field means ' +
+      '"the default". Use outline_scene for the paths edit_scene addresses.',
+    inputSchema: { path: scenePath }
+  }, async ({ path: file }) => {
+    try {
+      return text((await session.document(file)).text);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('outline_scene', {
+    title: 'Outline a scene',
+    description:
+      'The scene as the editor\'s tree shows it: world, prefabs, layers with their objects and ' +
+      'props, UI elements — each node with its `path` into the document, e.g. ' +
+      '["layers", 0, "objects", 3]. Those paths are what inspect_node and edit_scene take.',
+    inputSchema: { path: scenePath }
+  }, async ({ path: file }) => {
+    try {
+      return json(sceneOutline((await session.document(file)).data));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('inspect_node', {
+    title: 'Inspect a node',
+    description:
+      'The inspector\'s rows for one node: every field the engine\'s schema declares for it, ' +
+      'set or not, with kind, unit, description, enum options and — for an unset field — the ' +
+      'default the loader applies. This is how to learn what an object, prefab or constraint ' +
+      'can be given before editing it.',
+    inputSchema: { path: scenePath, node: path.describe('The node\'s path, from outline_scene; [] for the scene') }
+  }, async ({ path: file, node }) => {
+    try {
+      const doc = await session.document(file);
+      return json(inspectNode(doc.data, node, { registries: await registries() }));
+    } catch (error) {
+      return failure(error);
+    }
   });
 
   server.registerTool('validate_scene', {
     title: 'Validate a scene',
     description:
-      "Check a scene against the engine's schema. Reports each problem with the field path it is " +
-      'at. Structural only here: actor, constraint and scene references resolve against a running ' +
-      "game's registries, which this server does not have.",
-    inputSchema: { path: z.string().describe('Project-relative path') }
-  }, async ({ path }) => {
-    const doc = await project.openScene(path);
-    const result = doc.validate();
-    const text = result.ok
-      ? 'valid'
-      : result.issues.map((issue) => `${issue.path || '(document)'}: ${issue.message}`).join('\n');
-    return { content: [{ type: 'text', text }], isError: !result.ok };
+      "Check a scene, as the editor currently holds it, against the engine's loader. Reports " +
+      'every problem, each with the field path it is at. Uses the game\'s real classes when the ' +
+      'host could load them, so actor properties and constraint params are checked too.',
+    inputSchema: { path: scenePath }
+  }, async ({ path: file }) => {
+    try {
+      const doc = await session.document(file);
+      const result = validateScene(doc.data, (await options.game?.()) ?? null);
+      return result.ok
+        ? text('valid')
+        : text(result.issues.map((issue) => `${issue.path || '(document)'}: ${issue.message}`).join('\n'), true);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('edit_scene', {
+    title: 'Edit a scene',
+    description:
+      'Apply one edit — a list of ops, applied in order, all or nothing — as one step of the ' +
+      'editor\'s undo history, labelled. The open editor shows it at once. Ops: ' +
+      '{"op":"set","path":[...],"value":v} sets a field or array element (omit value to delete ' +
+      'the field, which restores its default); {"op":"insert","path":[...array],"index":i,' +
+      '"value":v} and {"op":"remove","path":[...array],"index":i}. Every new object needs a ' +
+      'unique "id". Nothing is written to disk until save_scene. Follow with validate_scene.',
+    inputSchema: {
+      path: scenePath,
+      label: z.string().min(1).describe("What the undo list shows: 'Scatter 12 lamps'"),
+      ops: z.array(OP).min(1)
+    }
+  }, async ({ path: file, label, ops }) => {
+    try {
+      return summary(await session.edit(file, { label, ops: ops as Op[] }, AGENT));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('undo', {
+    title: 'Undo',
+    description: 'Undo the newest step of a scene\'s history — whoever made it, the person included.',
+    inputSchema: { path: scenePath }
+  }, async ({ path: file }) => {
+    try {
+      return summary(await session.undo(file, AGENT));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('redo', {
+    title: 'Redo',
+    description: 'Redo the newest undone step of a scene\'s history.',
+    inputSchema: { path: scenePath }
+  }, async ({ path: file }) => {
+    try {
+      return summary(await session.redo(file, AGENT));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('save_scene', {
+    title: 'Save a scene',
+    description:
+      'Write the scene to its file in canonical form. Refused for a generated scene. The ' +
+      'person may be editing too: say what you changed before saving their work with yours.',
+    inputSchema: { path: scenePath }
+  }, async ({ path: file }) => {
+    try {
+      await session.save(file, AGENT);
+      return text(`saved ${file}`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  if (assets) {
+    server.registerTool('list_assets', {
+      title: 'List assets',
+      description:
+        'The project\'s asset files — models, images, environments, audio — each with the `url` a ' +
+        'scene names it by (relative to the game\'s basePath) and, for a library import, its credit.',
+      inputSchema: {}
+    }, async () => {
+      try {
+        return json(await assets.list());
+      } catch (error) {
+        return failure(error);
+      }
+    });
+
+    server.registerTool('search_library', {
+      title: 'Search the asset library',
+      description:
+        'Search Poly Haven (CC0 models, textures and HDRIs) by words; every word must match the ' +
+        'name, id, categories or tags. Results carry the id import_asset takes, the authors and the page.',
+      inputSchema: {
+        type: z.enum(['models', 'textures', 'hdris']),
+        query: z.string().describe("Words to match, e.g. 'wooden crate'")
+      }
+    }, async ({ type, query }) => {
+      try {
+        return json((await assets.search('polyhaven', type, query)).slice(0, 20));
+      } catch (error) {
+        return failure(error);
+      }
+    });
+
+    server.registerTool('import_asset', {
+      title: 'Import a library asset',
+      description:
+        'Fetch an asset into the project as a recipe — checksummed download, a model compiled to a ' +
+        'level-of-detail .glb — and record its credit in library.json and CREDITS.md. Waits for the ' +
+        'import to finish (a model takes a minute or so) and returns the file and the url to place it by.',
+      inputSchema: {
+        type: z.enum(['models', 'textures', 'hdris']),
+        id: z.string().describe('The id search_library gave'),
+        resolution: z.string().optional().describe("Texture resolution, default '2k'")
+      }
+    }, async ({ type, id, resolution }) => {
+      try {
+        const job = assets.import('polyhaven', type, id, resolution);
+        const finished = await new Promise<typeof job>((done) => {
+          const off = assets.onJob((update) => {
+            if (update.id === job.id && (update.stage === 'done' || update.stage === 'failed')) { off(); done(update); }
+          });
+        });
+        if (finished.stage === 'failed') return text(`import failed: ${finished.message}`, true);
+        return json(finished.result);
+      } catch (error) {
+        return failure(error);
+      }
+    });
+  }
+
+  server.registerTool('run_scene', {
+    title: 'Run a scene',
+    description:
+      'Play-test: step the scene, as the editor holds it, headless for a number of fixed ticks ' +
+      '(60 a second) with no input, and report where each placed object ended up, which were ' +
+      'removed, how many entities were spawned and any errors. Use it after an edit to see that ' +
+      'things fall, land and stay where they should.',
+    inputSchema: {
+      path: scenePath,
+      seconds: z.number().positive().max(60).optional().describe('How long to run, default 3')
+    }
+  }, async ({ path: file, seconds }) => {
+    if (!options.runScene) return text('run_scene needs the running editor (npm run editor <project>); the stdio server cannot load the game', true);
+    try {
+      const doc = await session.document(file);
+      return json(await options.runScene(doc.data, Math.round((seconds ?? 3) * 60)));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('build_project', {
+    title: 'Build the project',
+    description:
+      'Build the game into dist/, a static site any host serves, with its runtime assets copied ' +
+      'beside the page. Builds what is saved on disk: save_scene first.',
+    inputSchema: {}
+  }, async () => {
+    if (!options.build) return text('build_project needs the running editor (npm run editor <project>)', true);
+    try {
+      return json(await options.build());
+    } catch (error) {
+      return failure(error);
+    }
   });
 
   return server;

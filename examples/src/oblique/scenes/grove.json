@@ -2,7 +2,6 @@
   "version": 2,
   "name": "grove",
   "type": "level",
-  "generator": "scripts/buildGroveScene.mjs",
   "gameType": "oblique",
   "world": { "width": 3200, "height": 2400, "gravity": { "x": 0, "y": 0 }, "sort": "depth" },
   "assets": {

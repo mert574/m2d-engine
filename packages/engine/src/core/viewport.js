@@ -333,3 +333,30 @@ export function mapPointer({ clientX, clientY, rect, viewport }) {
     inContent
   };
 }
+
+/**
+ * Map a point in view space back to client coordinates — the inverse of
+ * `mapPointer`'s `view`. What DOM laid over the canvas needs to sit on the
+ * world: an editor's selection outline and gizmo handles, a tooltip
+ * pinned to an entity. Resolves the drawn area inside the rect the same
+ * way, so letterboxing and `object-fit: contain` are accounted for.
+ *
+ * @param {Object} params
+ * @param {number} params.x - View-space X in world units, as `camera.worldToScreen` returns
+ * @param {number} params.y - View-space Y
+ * @param {DOMRect|{left: number, top: number, width: number, height: number}} params.rect - Canvas bounding rect
+ * @param {Viewport} params.viewport - Current viewport
+ * @returns {{x: number, y: number}} Client coordinates
+ */
+export function viewToClient({ x, y, rect, viewport }) {
+  const rectAspect = rect.width / rect.height;
+  const backingAspect = viewport.backingWidth / viewport.backingHeight;
+  const presentedWidth = rectAspect > backingAspect ? rect.height * backingAspect : rect.width;
+  const presentedHeight = rectAspect > backingAspect ? rect.height : rect.width / backingAspect;
+  const presentedX = rect.left + (rect.width - presentedWidth) / 2;
+  const presentedY = rect.top + (rect.height - presentedHeight) / 2;
+  const scale = presentedWidth / viewport.backingWidth;
+  const backingX = viewport.contentX + x / viewport.viewWidth * viewport.contentWidth;
+  const backingY = viewport.contentY + y / viewport.viewHeight * viewport.contentHeight;
+  return { x: presentedX + backingX * scale, y: presentedY + backingY * scale };
+}

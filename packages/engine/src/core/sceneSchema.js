@@ -192,7 +192,12 @@ const WORLD = s.object({
   height: s.number({ unit: 'px' }),
   gravity: vector('Gravity'),
   sort: s.enumOf(SORT_MODES, { label: 'Draw order' }),
-  projection: PROJECTION
+  projection: PROJECTION,
+  environment: s.ref('environment', {
+    label: 'Environment',
+    description: 'Three-dimensional levels only: a key in assets.environments, the HDR panorama ' +
+      'that lights the level and is its sky. Game code may still set the frame\'s own'
+  })
 });
 
 // === Constraints ===
@@ -412,6 +417,13 @@ const OBJECT = s.object({
   height: s.number({ positive: true, unit: 'px', default: DEFAULT_OBJECT_SIZE }),
   depth: s.number({ positive: true, unit: 'px', description: 'Three-dimensional levels only' }),
   angle: s.number({ unit: 'rad', message: value => `must be a number (radians), got ${JSON.stringify(value)}` }),
+  rotation: s.tuple([s.number(), s.number(), s.number(), s.number()], {
+    label: 'Rotation',
+    editor: 'rotation',
+    description: 'Three-dimensional levels only: the orientation as a unit quaternion [x, y, z, w] ' +
+      '(the form the 3D physics reads; an editor shows it as yaw, pitch and roll)',
+    message: 'must be a quaternion: an [x, y, z, w] tuple of numbers'
+  }),
   zIndex: s.number({ label: 'Draw order' }),
   constraints: OBJECT_CONSTRAINTS,
   overrides: OVERRIDES,
@@ -650,7 +662,24 @@ function checkDimension(level, fail) {
     }
   }
 
-  if (dimensions === 3) return;
+  if (dimensions === 3) {
+    (level.layers ?? []).forEach((layer, li) => {
+      layer.objects.forEach((object, oi) => {
+        const where = `layers[${li}].objects[${oi}]`;
+        if (object.angle !== undefined) {
+          fail(`${where}.angle`, "'angle' turns a 2D body in its plane; a 3D object turns by 'rotation', a quaternion");
+        }
+        if (object.rotation && Math.hypot(...object.rotation) < 1e-6) {
+          fail(`${where}.rotation`, 'a rotation quaternion cannot be zero; [0, 0, 0, 1] is no rotation');
+        }
+      });
+    });
+    return;
+  }
+  if (level.world?.environment !== undefined) {
+    fail('world.environment', 'an environment lights a 3D level, and this level is 2D ' +
+      '(set world.dimensions to 3)');
+  }
   if (level.world?.gravity?.z !== undefined) {
     fail('world.gravity.z', "'z' needs a third axis, and this level is 2D " +
       '(set world.dimensions to 3)');
@@ -661,7 +690,7 @@ function checkDimension(level, fail) {
         '(set world.dimensions to 3)');
     }
     layer.objects.forEach((object, oi) => {
-      for (const key of ['z', 'depth']) {
+      for (const key of ['z', 'depth', 'rotation']) {
         if (object[key] !== undefined) {
           fail(`layers[${li}].objects[${oi}].${key}`,
             `'${key}' needs a third axis, and this level is 2D ` +

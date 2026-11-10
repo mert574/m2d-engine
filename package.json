@@ -17,7 +17,7 @@
     "build:docs": "npm run build --workspace docs",
     "build:examples": "npm run build --workspace examples",
     "docs:dev": "npm run dev --workspace docs",
-    "editor": "node packages/editor-host/src/serve.ts examples",
+    "editor": "node packages/editor-host/src/serve.ts",
     "editor:mcp": "node packages/editor-host/src/mcp.ts",
     "preview": "npm run preview --workspace examples",
     "generate-sprites": "npm run generate-sprites --workspace examples",

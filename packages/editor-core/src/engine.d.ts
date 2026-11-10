@@ -106,8 +106,13 @@ declare module 'm2d-engine/core/constraint.js' {
 
 declare module 'm2d-engine/core/sceneLoader.js' {
   export const SCENE_VERSION: number;
+  export class SceneValidationError extends Error {
+    path: string;
+    detail: string;
+  }
   export class SceneLoader {
     constructor(game: unknown);
     load(data: unknown): Record<string, unknown>;
+    check(data: unknown): { loaded: Record<string, unknown> | null; issues: SceneValidationError[] };
   }
 }

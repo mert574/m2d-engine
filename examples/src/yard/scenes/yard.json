@@ -407,11 +407,12 @@
           "id": "neon-1",
           "prefab": "neon",
           "x": -2,
-          "y": 6.2,
-          "z": 8,
+          "y": 1.5279,
+          "z": 5.1612,
           "width": 5,
           "height": 0.16,
-          "depth": 0.16
+          "depth": 0.16,
+          "rotation": [-0.508351, -0.485108, 0.556956, 0.442774]
         },
         {
           "id": "wheel-1",
@@ -442,7 +443,16 @@
           "width": 1.8,
           "height": 1.8
         },
-        { "id": "hero", "prefab": "hero", "x": 0, "y": 1, "z": 6, "width": 0.5, "height": 1 }
+        {
+          "id": "hero",
+          "prefab": "hero",
+          "x": 0,
+          "y": 1,
+          "z": 6,
+          "width": 0.5,
+          "height": 1,
+          "rotation": [0, 0, 0.018504, 0.999829]
+        }
       ]
     }
   ]

@@ -136,6 +136,42 @@ describe('edit mode in a real browser', () => {
     expect(played.cvars.storage).not.toBeNull();
   });
 
+  it('draws on demand: when invalidated, otherwise at the idle rate', async () => {
+    const { game } = await makeGame(LEVEL);
+    // Drive the loop by hand with chosen timestamps; the real one stops.
+    cancelAnimationFrame(game.frameHandle);
+    const draws = vi.spyOn(game, 'drawWorld');
+    const frame = (time) => { game.update(time); cancelAnimationFrame(game.frameHandle); };
+
+    const idle = 1000 / M2D.EDIT_IDLE_FPS;
+    frame(1000);                       // first frame only sets the clock
+    frame(1004);                       // the switch invalidated: drawn
+    expect(draws).toHaveBeenCalledTimes(1);
+    for (let t = 1008; t < 1004 + idle; t += 4) frame(t);
+    expect(draws).toHaveBeenCalledTimes(1);   // idle, under one idle period: nothing
+
+    frame(1004 + idle);                // the idle frame
+    expect(draws).toHaveBeenCalledTimes(2);
+
+    game.invalidate();
+    frame(1008 + idle);                // asked for: drawn at once
+    expect(draws).toHaveBeenCalledTimes(3);
+    frame(1012 + idle);
+    expect(draws).toHaveBeenCalledTimes(3);
+
+    game.drawOnDemand = false;         // the editor's power saving, off
+    for (let t = 1016 + idle; t < 1056 + idle; t += 4) frame(t);
+    expect(draws).toHaveBeenCalledTimes(13);
+  });
+
+  it('draws every frame when played', async () => {
+    const { game } = await makeGame(LEVEL, { editMode: false });
+    cancelAnimationFrame(game.frameHandle);
+    const draws = vi.spyOn(game, 'drawWorld');
+    for (let t = 1000; t <= 1160; t += 16) { game.update(t); cancelAnimationFrame(game.frameHandle); }
+    expect(draws.mock.calls.length).toBeGreaterThanOrEqual(10);
+  });
+
   it('leaves nothing behind across edit, play, stop, edit', async () => {
     // Edit.
     const first = await makeGame(LEVEL);

@@ -13,9 +13,8 @@
  * undo, which keeps the before-state in a closure and makes a command
  * that forgets to be reversible impossible to write.
  *
- * The concrete commands (`SetProperty`, `MoveObject`, `AddConstraint`,
- * `PlacePrefab`, ...) arrive with the inspector and the gizmos that need
- * them; this is the contract they will satisfy.
+ * The concrete commands are edits as data (`edits.ts`); this is the
+ * contract they satisfy, and the stack that holds them.
  */
 
 /** Undoes one application of a command. */
@@ -88,6 +87,19 @@ export class CommandStack<T = unknown> {
     this.#changed();
     return true;
   }
+
+  /**
+   * Where the history stands, as a token: the newest applied entry, or
+   * null at the start. Two equal positions mean the same document, which
+   * is how `SceneDocument.dirty` is a comparison rather than a
+   * serialization of the scene.
+   */
+  get position(): object | null { return this.#done.at(-1) ?? null; }
+
+  /** The newest applied command, the one `undo` would revert. */
+  get top(): Command<T> | null { return this.#done.at(-1)?.command ?? null; }
+  /** The newest undone command, the one `redo` would apply. */
+  get next(): Command<T> | null { return this.#undone.at(-1)?.command ?? null; }
 
   get canUndo(): boolean { return this.#done.length > 0; }
   get canRedo(): boolean { return this.#undone.length > 0; }

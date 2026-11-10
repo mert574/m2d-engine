@@ -280,3 +280,48 @@ describe('validating a level by its dimension', () => {
       .toThrow(/world.dimensions: expected one of 2, 3/);
   });
 });
+
+describe('a 3D object\'s rotation', () => {
+  const turned = (object) => ({
+    ...LEVEL,
+    layers: [{ name: 'main', objects: [LEVEL.layers[0].objects[0], { ...LEVEL.layers[0].objects[1], ...object }] }]
+  });
+
+  it('reaches the body as its quaternion, normalized', async () => {
+    const s = Math.SQRT1_2;
+    const game = makeGame();
+    game.sceneManager.addScene('yard', { fetch: async () => turned({ rotation: [0, 2 * s, 0, 2 * s] }) });
+    await game.sceneManager.switchTo('yard');
+    const q = game.sceneManager.getCurrentScene().entitiesById.get('crate-1').body.rotation;
+    expect(q.y).toBeCloseTo(s, 5);
+    expect(q.w).toBeCloseTo(s, 5);
+  });
+
+  it('is refused in a 2D level, as angle is in a 3D one, and a zero quaternion anywhere', () => {
+    const loader = new SceneLoader(null);
+    const flat = {
+      version: SCENE_VERSION, type: 'level', name: 'flat',
+      prefabs: { crate: { actor: 'Crate', physics: { bodyType: 'dynamic' } } },
+      layers: [{ name: 'main', objects: [{ id: 'a', prefab: 'crate', x: 0, y: 0 }, { id: 'b', prefab: 'crate', x: 0, y: 0, rotation: [0, 0, 0, 1] }] }]
+    };
+    expect(() => loader.load(flat)).toThrow(/objects\[1\]\.rotation.*third axis/);
+    expect(() => loader.load(turned({ angle: 0.5 }))).toThrow(/objects\[1\]\.angle.*quaternion/);
+    expect(() => loader.load(turned({ rotation: [0, 0, 0, 0] }))).toThrow(/cannot be zero/);
+  });
+});
+
+describe('a 3D level\'s environment', () => {
+  it('must name one the level declares, and only in 3D', () => {
+    const loader = new SceneLoader(null);
+    const lit = { ...LEVEL, assets: { environments: { sky: { url: 'sky.hdr' } } }, world: { ...LEVEL.world, environment: 'sky' } };
+    expect(() => loader.load(lit)).not.toThrow();
+    expect(() => loader.load({ ...lit, world: { ...lit.world, environment: 'dusk' } })).toThrow(/no environment named 'dusk'/);
+    const flat = {
+      version: SCENE_VERSION, type: 'level', name: 'flat', world: { environment: 'sky' },
+      assets: { environments: { sky: { url: 'sky.hdr' } } },
+      prefabs: { crate: { actor: 'Crate', physics: { bodyType: 'dynamic' } } },
+      layers: [{ name: 'main', objects: [{ id: 'a', prefab: 'crate', x: 0, y: 0 }] }]
+    };
+    expect(() => loader.load(flat)).toThrow(/world\.environment.*2D/);
+  });
+});

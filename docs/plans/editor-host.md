@@ -82,3 +82,25 @@ rewriting are deleted (assets are simply *served* now, `basePath` =
 `/@fs/<project>/<game.basePath>/`), and the editor app no longer works
 from a bare static server — it requires its host, which is the honest
 shape of an IDE.
+
+## Correction, same month
+
+"Verified end to end" above was wrong, and the way it was wrong is the
+lesson: the check read the status line and the error log, not the
+picture. Every reload rebuilt the game on the same canvas, the old game's
+`destroy()` gave its WebGL context back with `loseContext()`, and the new
+game drew into that lost context — a dead viewport after every hot
+reload. The review that found it (recorded in `editor-e2.md`) also found
+code reloads firing for files outside the open game, once per watcher
+event and overlapping. Fixed: a fresh canvas per game; code reloads come
+from Vite's hot-update hook, after invalidation, only when the open
+game's definition imports the changed file, coalesced; loads run one at a
+time. An editor check reads pixels or counts from here on.
+
+## Changed by E2, same month
+
+A project is now **one game**: `m2d.project.json` declares one
+`definition` (and optionally `scenes`, `basePath`) at that game's folder,
+and the examples carry one per demo instead of one for all seven. The
+host also holds the open documents now (`session.ts`) and serves MCP on
+its own port. See `editor-e2.md`.

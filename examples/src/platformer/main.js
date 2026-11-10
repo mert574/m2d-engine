@@ -4,7 +4,7 @@ import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
 import { register } from './game.js';
-import { DuskLevelBackdrop } from './levelBackdrop.js';
+import { sceneHooks } from './hooks.js';
 import {
   EmberPlayer, DuskPlatform, DuskMovingPlatform, GlowCoin, DuskBee, ValleyGate
 } from './duskActors.js';
@@ -66,37 +66,9 @@ registerMainMenu(game, {
   onEnter: () => game.soundManager.playMusic('menu')
 });
 
-// The level's world: the menu's valley, built per entry and torn down on
-// exit so its ambient light and post pass never leak into the menu.
-let backdrop = null;
-
 game.sceneManager.addScene('level1', {
   fetch: async () => (await import('./scenes/level1.json')).default,
-  onEnter() {
-    // Keep the camera inside the level: without bounds, following the player
-    // (or an 'expand' aspect mode widening the view) reveals the void past
-    // the map.
-    game.camera.bounds = {
-      left: 0, top: 0,
-      right: game.options.worldWidth, bottom: game.options.worldHeight
-    };
-    game.soundManager.playMusic('game');
-    backdrop = new DuskLevelBackdrop(game);
-    backdrop.applyAtmosphere();
-  },
-  onExit() {
-    backdrop?.clearAtmosphere();
-    backdrop = null;
-  },
-  onUpdate(deltaTime) {
-    backdrop?.update(deltaTime);
-  },
-  onDrawBackground() {
-    backdrop?.drawBackground();
-  },
-  onDraw() {
-    backdrop?.drawForeground();
-  }
+  ...sceneHooks(game).level1
 });
 
 // Settings overlay (O), with the demos' shared Audio row added on.

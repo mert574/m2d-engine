@@ -2,7 +2,7 @@
   "name": "m2d-editor-host",
   "private": true,
   "version": "0.1.0",
-  "description": "The m2d editor's host: serves the editor app and the project's own code and assets through Vite, watches the project, will run the asset compilers, and speaks MCP over stdio for agents",
+  "description": "The m2d editor's host: serves one game's project to the editor through Vite, holds the open documents and their history, runs the asset pipeline (library search, fetch, compile) and the build, and speaks MCP for agents",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -21,9 +21,15 @@
     "node": ">=24"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "ktx2-encoder": "^0.6.0",
     "m2d-editor-core": "*",
     "m2d-engine": "*",
+    "meshoptimizer": "^1.3.0",
+    "sharp": "^0.35.5",
     "vite": "^8.3.5"
   },
   "devDependencies": {

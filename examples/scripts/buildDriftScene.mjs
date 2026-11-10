@@ -10,6 +10,10 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { writeScene } from 'm2d-editor-core';
+import { seedTarget } from './seedScene.mjs';
+
+// A seed: writes the scene only when it is not there; see seedScene.mjs.
+const out = seedTarget(new URL('../src/drift/scenes/field.json', import.meta.url));
 
 const W = 7000;
 const H = 7000;
@@ -131,7 +135,7 @@ add('gate', GATE.x, GATE.y, 220, 220, { visible: true, triggers: 'levelComplete'
 add('player', START.x, START.y, 60, 60);
 
 const scene = {
-  version: 2, name: 'field', type: 'level', generator: 'scripts/buildDriftScene.mjs', gameType: 'rotatingTopDown',
+  version: 2, name: 'field', type: 'level', gameType: 'rotatingTopDown',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth' },
   assets: { spritesheets },
   // The far star field, barely moving; the Sky entity draws the nearer
@@ -140,7 +144,6 @@ const scene = {
   prefabs,
   layers: [{ name: 'field', type: 'objects', objects }]
 };
-const out = fileURLToPath(new URL('../src/drift/scenes/field.json', import.meta.url));
 writeFileSync(out, writeScene(scene));
 writeFileSync(fileURLToPath(new URL('../src/drift/layout.json', import.meta.url)), JSON.stringify({ world: { width: W, height: H }, start: START, gate: GATE, pods: pods.length }, null, 2) + '\n');
 console.log(`field: ${objects.length} objects, ${placed.length} meteors, ${pods.length} pods → ${out}`);

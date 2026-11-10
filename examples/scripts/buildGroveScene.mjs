@@ -12,6 +12,10 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { writeScene } from 'm2d-editor-core';
+import { seedTarget } from './seedScene.mjs';
+
+// A seed: writes the scene only when it is not there; see seedScene.mjs.
+const out = seedTarget(new URL('../src/oblique/scenes/grove.json', import.meta.url));
 
 const W = 3200;
 const H = 2400;
@@ -257,13 +261,12 @@ for (const [x, y] of [[1500, 700], [2200, 1600], [700, 800], [2700, 1250], [1300
 add('player', SPAWN.x, SPAWN.y - CHARACTER_FRAME / 2, CHARACTER_FRAME, CHARACTER_FRAME, { spriteOffsetY: Math.round(CHARACTER_FRAME * CHARACTER_FEET) });
 
 const scene = {
-  version: 2, name: 'grove', type: 'level', generator: 'scripts/buildGroveScene.mjs', gameType: 'oblique',
+  version: 2, name: 'grove', type: 'level', gameType: 'oblique',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth' },
   assets: { spritesheets },
   tileLayers: [{ name: 'ground', spritesheet: 'grass', zIndex: -1 }],
   prefabs,
   layers: [{ name: 'grove', type: 'objects', objects }]
 };
-const out = fileURLToPath(new URL('../src/oblique/scenes/grove.json', import.meta.url));
 writeFileSync(out, writeScene(scene));
 console.log(`grove: ${objects.length} objects → ${out}`);

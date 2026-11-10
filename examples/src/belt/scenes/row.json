@@ -2,7 +2,6 @@
   "version": 2,
   "name": "row",
   "type": "level",
-  "generator": "scripts/buildRowScene.mjs",
   "gameType": "belt",
   "uses": { "zombie": "prefab-zombie", "goblin": "prefab-goblin", "skeleton": "prefab-skeleton" },
   "world": {

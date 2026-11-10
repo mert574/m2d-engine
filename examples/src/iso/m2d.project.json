@@ -1,0 +1,5 @@
+{
+  "name": "Cinder Keep",
+  "definition": "game.js",
+  "hooks": "hooks.js"
+}

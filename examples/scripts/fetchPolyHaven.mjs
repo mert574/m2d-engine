@@ -14,9 +14,9 @@
  * Poly Haven assets are CC0. The notice in THIRD_PARTY_NOTICES.md credits
  * them anyway, by id and author, as the engine credits everything.
  */
-import { createHash } from 'node:crypto';
-import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import * as polyhaven from 'm2d-editor-host/pipeline/polyhaven.mjs';
 
 export const SOURCE_DIR = resolve(import.meta.dirname, '..', 'assets-src', 'polyhaven');
 
@@ -37,29 +37,6 @@ export const ASSETS = {
   hand_truck: '2k', propane_tank: '2k', old_tyre: '2k', utility_box_01: '2k', fire_hydrant: '2k',
   modular_electricity_poles: '4k', modular_fort_01: '4k'
 };
-
-const api = async (path) => {
-  const response = await fetch(`https://api.polyhaven.com${path}`);
-  if (!response.ok) throw new Error(`Poly Haven API ${path}: ${response.status}`);
-  return response.json();
-};
-
-const md5 = (buffer) => createHash('md5').update(buffer).digest('hex');
-
-async function download(url, to, expectedMd5) {
-  if (existsSync(to) && md5(readFileSync(to)) === expectedMd5) return false;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`${url}: ${response.status}`);
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (md5(bytes) === expectedMd5) {
-      mkdirSync(dirname(to), { recursive: true });
-      writeFileSync(to, bytes);
-      return true;
-    }
-    if (attempt === 3) throw new Error(`${url}: checksum mismatch after ${attempt} attempts`);
-  }
-}
 
 /**
  * HDR environments the examples light with, by id and the resolution to
@@ -92,54 +69,22 @@ export const TEXTURE_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'te
 /** The file a texture's colour map is saved as, which a scene's `url` names. */
 export const texturePath = (id, resolution) => resolve(TEXTURE_DIR, `${id}_diff_${resolution}.jpg`);
 
-/**
- * One HDR panorama into `HDRI_DIR`. These are small next to a scan — a
- * 2k sky is about 5 MB — and need no compile step.
- */
-export async function fetchHDRI(id, resolution) {
-  const files = await api(`/files/${id}`);
-  const entry = files.hdri?.[resolution]?.hdr;
-  if (!entry) throw new Error(`${id}: no .hdr at ${resolution} (have ${Object.keys(files.hdri ?? {}).join(', ')})`);
-  const to = resolve(HDRI_DIR, `${id}_${resolution}.hdr`);
-  const fetched = await download(entry.url, to, entry.md5) ? 1 : 0;
-  const info = await api(`/info/${id}`);
-  return { fetched, bytes: entry.size, to, name: info.name, authors: Object.keys(info.authors ?? {}) };
+/** One HDR panorama into `HDRI_DIR`; a 2k sky is about 5 MB and needs no compile step. */
+export function fetchHDRI(id, resolution) {
+  return polyhaven.fetchHDRI(id, resolution, resolve(HDRI_DIR, `${id}_${resolution}.hdr`));
 }
 
 /** One texture's colour map into `TEXTURE_DIR`, about a megabyte at 1k. */
-export async function fetchTexture(id, resolution) {
-  const files = await api(`/files/${id}`);
-  const entry = files.Diffuse?.[resolution]?.jpg;
-  if (!entry) throw new Error(`${id}: no diffuse JPEG at ${resolution} (have ${Object.keys(files.Diffuse ?? {}).join(', ')})`);
-  const fetched = await download(entry.url, texturePath(id, resolution), entry.md5) ? 1 : 0;
-  const info = await api(`/info/${id}`);
-  return { fetched, bytes: entry.size, name: info.name, authors: Object.keys(info.authors ?? {}) };
+export function fetchTexture(id, resolution) {
+  return polyhaven.fetchTexture(id, resolution, texturePath(id, resolution));
 }
 
+/** One model's source into `SOURCE_DIR/<id>/`, for `compileModel.mjs`. */
 export async function fetchAsset(id, resolution) {
-  const files = await api(`/files/${id}`);
-  const entry = files.gltf?.[resolution]?.gltf;
-  if (!entry) throw new Error(`${id}: no glTF at ${resolution} (have ${Object.keys(files.gltf ?? {}).join(', ')})`);
   const dir = resolve(SOURCE_DIR, id);
-  let fetched = 0;
-  let bytes = entry.size;
-  if (await download(entry.url, resolve(dir, `${id}.gltf`), entry.md5)) fetched++;
-  for (const [relative, file] of Object.entries(entry.include)) {
-    bytes += file.size;
-    if (await download(file.url, resolve(dir, relative), file.md5)) fetched++;
-  }
-  // Alpha and opacity maps as PNG, for the compiler to fold into the colour.
-  for (const [key, byResolution] of Object.entries(files)) {
-    // `wire_alpha`, `Alpha`, `wire_opacity`: the API's keys vary in case and prefix.
-    if (!/(^|_)(alpha|opacity)$/i.test(key)) continue;
-    const png = byResolution[resolution]?.png ?? Object.values(byResolution)[0]?.png;
-    if (!png) continue;
-    bytes += png.size;
-    if (await download(png.url, resolve(dir, 'textures', `${id}_${key.toLowerCase()}_${resolution}.png`), png.md5)) fetched++;
-  }
-  const info = await api(`/info/${id}`);
-  writeFileSync(resolve(dir, 'info.json'), JSON.stringify({ id, resolution, name: info.name, authors: info.authors, categories: info.categories, tags: info.tags }, null, 2));
-  return { fetched, bytes, name: info.name, authors: Object.keys(info.authors ?? {}) };
+  mkdirSync(dir, { recursive: true });
+  const result = await polyhaven.fetchModel(id, resolution, dir);
+  return { fetched: result.fetched, bytes: result.bytes, name: result.name, authors: result.authors };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {

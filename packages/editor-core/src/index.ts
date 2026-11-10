@@ -11,17 +11,25 @@
  * - `writer` — the one way a scene becomes text, canonically (E0.3).
  * - `document` — an open scene: its data, its command stack, its text.
  * - `commands` — the command and undo model every edit goes through.
+ * - `edits` — the concrete commands: set, insert and remove ops as data.
  * - `validate` — the engine's loader, wrapped into a result.
  *
- * The concrete commands, the project (a folder of scenes and a manifest)
- * and the inspector's schema walk arrive with the phases that need them;
- * see docs/plans/editor-e0.md and the editor phases in the roadmap.
+ * - `outline`, `inspect`, `descriptors` — the tree and the inspector's
+ *   rows, from the document and the engine's descriptors.
+ *
+ * See docs/plans/editor-e2.md for how the editor and its host use them.
  */
 
 export { writeScene, writeManifest, write, WriteError } from './writer.ts';
 export { SceneDocument } from './document.ts';
 export { CommandStack, type Command, type Undo } from './commands.ts';
+export {
+  applyOps, EditCommand, EditError, uniqueId, formatPath, parsePath,
+  type Op, type SetOp, type InsertOp, type RemoveOp, type Edit
+} from './edits.ts';
 export { validateScene, type ValidationResult, type ValidationIssue } from './validate.ts';
 export { sceneOutline, type OutlineNode } from './outline.ts';
+export * as rotation from './rotation.ts';
+export type { Quaternion, Euler } from './rotation.ts';
 export { inspectNode, type InspectedRow, type InspectOptions } from './inspect.ts';
 export { descriptorAt, resolveDescriptor, isPlainObject, type PathSegment, type ResolveContext } from './descriptors.ts';

@@ -1,0 +1,96 @@
+{
+  "version": 2,
+  "name": "level",
+  "type": "level",
+  "world": { "dimensions": 3, "gravity": { "x": 0, "y": -9.81, "z": 0 } },
+  "prefabs": {
+    "ground": {
+      "actor": "Prop",
+      "physics": { "bodyType": "static", "friction": 0.8 },
+      "mesh": { "color": "#9fc48a", "roughness": 0.95 }
+    },
+    "block": {
+      "actor": "Prop",
+      "physics": { "bodyType": "static" },
+      "mesh": { "color": "#f2c38b", "roughness": 0.8 }
+    },
+    "pillar": {
+      "actor": "Prop",
+      "physics": { "bodyType": "static", "shape": "cylinder" },
+      "mesh": { "color": "#f4f1ea", "roughness": 0.7 }
+    },
+    "ball": {
+      "actor": "Prop",
+      "physics": { "bodyType": "dynamic", "shape": "sphere", "restitution": 0.5, "density": 300 },
+      "mesh": { "color": "#e8505b", "roughness": 0.35 }
+    }
+  },
+  "layers": [
+    {
+      "name": "main",
+      "objects": [
+        {
+          "id": "ground",
+          "prefab": "ground",
+          "x": 0,
+          "y": -0.25,
+          "z": 0,
+          "width": 30,
+          "height": 0.5,
+          "depth": 30
+        },
+        {
+          "id": "block-1",
+          "prefab": "block",
+          "x": -3,
+          "y": 0.75,
+          "z": -2,
+          "width": 1.5,
+          "height": 1.5,
+          "depth": 1.5
+        },
+        {
+          "id": "block-2",
+          "prefab": "block",
+          "x": -3,
+          "y": 2.1,
+          "z": -2,
+          "width": 1.2,
+          "height": 1.2,
+          "depth": 1.2,
+          "rotation": [0, 0.382683, 0, 0.92388]
+        },
+        {
+          "id": "pillar-1",
+          "prefab": "pillar",
+          "x": 3,
+          "y": 2,
+          "z": -4,
+          "width": 1,
+          "height": 4,
+          "depth": 1
+        },
+        {
+          "id": "pillar-2",
+          "prefab": "pillar",
+          "x": 6,
+          "y": 2,
+          "z": -4,
+          "width": 1,
+          "height": 4,
+          "depth": 1
+        },
+        {
+          "id": "ball",
+          "prefab": "ball",
+          "x": 1,
+          "y": 4,
+          "z": 1,
+          "width": 1,
+          "height": 1,
+          "depth": 1
+        }
+      ]
+    }
+  ]
+}

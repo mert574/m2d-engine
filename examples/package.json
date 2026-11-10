@@ -28,6 +28,7 @@
     "acorn": "^8.19.0",
     "ktx2-encoder": "^0.6.0",
     "m2d-editor-core": "^0.1.0",
+    "m2d-editor-host": "*",
     "meshoptimizer": "^1.3.0",
     "sharp": "^0.35.5",
     "vite": "^8.3.5",

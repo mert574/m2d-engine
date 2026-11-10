@@ -2,7 +2,6 @@
   "version": 2,
   "name": "field",
   "type": "level",
-  "generator": "scripts/buildDriftScene.mjs",
   "gameType": "rotatingTopDown",
   "world": { "width": 7000, "height": 7000, "gravity": { "x": 0, "y": 0 }, "sort": "depth" },
   "assets": {

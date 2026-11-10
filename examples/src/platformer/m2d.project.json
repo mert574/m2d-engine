@@ -1,0 +1,5 @@
+{
+  "name": "Ember Valley",
+  "definition": "game.js",
+  "hooks": "hooks.js"
+}

@@ -10,41 +10,122 @@
 
 <body>
   <!--
-    The panel frame: the regions an editor is made of, empty until the
-    phases that fill them (E1 the tree and the inspector, E2 selection
-    and gizmos, E3 the assets, E4 the console). The viewport is real
-    from the start, because a frame around nothing proves nothing.
+    The frame: the bar (the game, its scene, history, save, play, build,
+    a new project, the editor's switches), the scene tree, the viewport
+    with its tools and overlay over a dock (assets, problems, history,
+    console, build), the inspector, a status line. Resizable, toggleable
+    panels with saved layouts are on the plan (editor-e2.md).
   -->
   <div class="editor" id="editor">
     <header class="bar" id="bar">
-      <span class="title">M2D Editor</span>
-      <span class="status" id="status">Starting…</span>
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <span class="title" id="title">M2D Editor</span>
+      </div>
+      <label class="scene-field">
+        <span class="hint">Scene</span>
+        <select id="scene" title="The scene to edit" disabled></select>
+      </label>
+      <div class="tools">
+        <div class="group">
+          <button type="button" class="icon-button" id="undo" disabled data-icon="undo" title="Undo (Ctrl+Z)"></button>
+          <button type="button" class="icon-button" id="redo" disabled data-icon="redo" title="Redo (Ctrl+Shift+Z)"></button>
+        </div>
+        <button type="button" class="primary" id="save" disabled data-icon="save" title="Save (Ctrl+S)"><span class="text">Save</span></button>
+        <button type="button" class="warn" id="detach" hidden title="This scene is owned by a script">Detach from generator</button>
+        <button type="button" class="play" id="play" data-icon="play" title="Play the scene as it stands, unsaved edits included (F5)" disabled><span class="text">Play</span></button>
+      </div>
+      <div class="tools project-tools">
+        <button type="button" class="icon-button wide" id="build" data-icon="build" title="Build the game into a static site (dist/)"><span class="text">Build</span></button>
+        <button type="button" class="icon-button" id="new-project" data-icon="plus" title="New project from a template"></button>
+      </div>
+      <div class="switches">
+        <label class="toggle" title="Snap moves to the grid and turns to 15° (hold Ctrl to invert)">
+          <input type="checkbox" id="snap"><span class="track"></span><span>Snap</span>
+        </label>
+        <label class="toggle" title="Draw the viewport only when something changes (20 fps at rest). Off: every frame, like the game">
+          <input type="checkbox" id="power" checked><span class="track"></span><span>Power saving</span>
+        </label>
+        <div class="layout-toggles" role="group" aria-label="Panels">
+          <button type="button" class="panel-toggle" data-toggle="tree" data-icon="panelLeft" title="Show or hide the scene tree (Alt+1)" aria-pressed="true"></button>
+          <button type="button" class="panel-toggle" data-toggle="dock" data-icon="panelBottom" title="Show or hide the dock (Alt+2)" aria-pressed="true"></button>
+          <button type="button" class="panel-toggle" data-toggle="inspector" data-icon="panelRight" title="Show or hide the inspector (Alt+3)" aria-pressed="true"></button>
+        </div>
+      </div>
     </header>
 
-    <aside class="panel tree" data-region="tree">
-      <h2>Scene</h2>
-      <div class="empty">The scene tree lands here (E1).</div>
-    </aside>
+    <aside class="panel tree" data-region="tree"></aside>
 
-    <main class="viewport" id="viewport">
-      <canvas id="screen"></canvas>
-      <div class="plate" id="plate">Loading the project…</div>
+    <main class="center">
+      <div class="viewport" id="viewport">
+        <canvas id="screen"></canvas>
+        <div class="viewport-tools" role="toolbar" aria-label="Gizmo">
+          <button type="button" class="tool" id="mode-move" data-icon="move" title="Move (W)" aria-pressed="true"></button>
+          <button type="button" class="tool" id="mode-rotate" data-icon="rotate" title="Rotate (E)" aria-pressed="false"></button>
+          <span class="sep"></span>
+          <button type="button" class="tool" id="frame" data-icon="frame" title="Frame the selection (F)" disabled></button>
+        </div>
+        <div class="plate" id="plate">Loading the project…</div>
+      </div>
+      <section class="dock" id="dock">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab" role="tab" data-tab="assets" aria-selected="false">Assets</button>
+          <button type="button" class="tab" role="tab" data-tab="problems" aria-selected="true">Problems <span class="badge" id="problem-count">0</span></button>
+          <button type="button" class="tab" role="tab" data-tab="history" aria-selected="false">History <span class="badge quiet" id="history-count">0</span></button>
+          <button type="button" class="tab" role="tab" data-tab="console" aria-selected="false">Console <span class="badge quiet zero" id="console-count"></span></button>
+          <button type="button" class="tab" role="tab" data-tab="build" aria-selected="false">Build</button>
+          <span class="spacer"></span>
+          <button type="button" class="icon-button small" id="dock-toggle" title="Hide the panel" data-icon="expand"></button>
+        </div>
+        <div class="dock-body">
+          <div id="assets" data-pane="assets" hidden></div>
+          <ul class="problems" id="problems" data-pane="problems"></ul>
+          <ol class="history" id="history" data-pane="history" hidden></ol>
+          <div id="console" data-pane="console" hidden></div>
+          <div class="build-pane" id="build-pane" data-pane="build" hidden>
+            <div class="build-summary" id="build-summary">Build the game into <code>dist/</code>: a static site any host serves.</div>
+            <div class="build-actions">
+              <button type="button" class="primary small-button" id="build-run">Build</button>
+              <button type="button" class="mini" id="build-preview" disabled>Preview the site</button>
+            </div>
+            <ol class="build-log" id="build-log"></ol>
+          </div>
+        </div>
+      </section>
     </main>
 
     <aside class="panel inspector" data-region="inspector">
-      <h2>Inspector</h2>
-      <div class="empty">Fields generated from the schema land here (E1).</div>
+      <div class="panel-header"><h2>Inspector</h2></div>
+      <div class="empty">Select something in the scene or the tree.</div>
     </aside>
 
-    <section class="panel assets" data-region="assets">
-      <h2>Assets</h2>
-      <div class="empty">The asset browser lands here (E3).</div>
-    </section>
+    <dialog class="dialog" id="new-dialog">
+      <form method="dialog" id="new-form">
+        <h3>New project</h3>
+        <p class="muted">A complete small game to start from. It opens in a new editor, beside this one.</p>
+        <label class="field"><span>Name</span><input name="name" class="control" placeholder="My Game" required></label>
+        <label class="field"><span>Folder</span><input name="folder" class="control" placeholder="my-game" required>
+          <small id="new-where"></small></label>
+        <fieldset class="templates">
+          <label><input type="radio" name="template" value="2d" checked><span><b>2D</b> A small platformer: a hero, platforms, a goal</span></label>
+          <label><input type="radio" name="template" value="3d"><span><b>3D</b> A sunny blockout with an orbit camera</span></label>
+        </fieldset>
+        <p class="error" id="new-error" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="mini" value="cancel" id="new-cancel">Cancel</button>
+          <button type="submit" class="primary dirty" id="new-create">Create and open</button>
+        </div>
+      </form>
+    </dialog>
 
-    <section class="panel console" data-region="console">
-      <h2>Console</h2>
-      <div class="empty">The engine console lands here (E4).</div>
-    </section>
+    <footer class="statusbar">
+      <span class="status" id="status">Starting…</span>
+      <span class="spacer"></span>
+      <button type="button" class="stat" id="stat-problems" title="Show the problems"></button>
+      <span class="stat" id="stat-draw"></span>
+      <span class="stat" id="stat-dim"></span>
+      <span class="stat path" id="stat-path"></span>
+    </footer>
   </div>
 
   <script type="module" src="./src/main.ts"></script>

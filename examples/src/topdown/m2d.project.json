@@ -1,0 +1,5 @@
+{
+  "name": "The Facility",
+  "definition": "game.js",
+  "hooks": "hooks.js"
+}

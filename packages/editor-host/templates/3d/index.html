@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My 3D Game</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #b9d3ec; overflow: hidden; font-family: system-ui; }
+    /* The 3D renderer lays its HUD canvas over the world canvas; the stage is its containing block. */
+    .stage { position: relative; width: 100vw; height: 100vh; }
+    canvas { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div class="stage"><canvas id="screen"></canvas></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

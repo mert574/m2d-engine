@@ -42,6 +42,8 @@ export class SceneValidationError extends Error {
     this.name = 'SceneValidationError';
     this.scene = scene;
     this.path = path;
+    /** The problem alone, without the scene and the path. */
+    this.detail = message;
   }
 }
 
@@ -71,6 +73,38 @@ export class SceneLoader {
    * @throws {SceneValidationError} On anything the schema does not allow
    */
   load(data, sceneName = data?.name ?? 'unknown') {
+    return this.#load(data, sceneName, null);
+  }
+
+  /**
+   * Every problem with a scene, not just the first — what an editor shows.
+   * The schema walk checks each object, field and list entry on its own, so
+   * one bad object does not hide the next. What has to hold before the
+   * schema can even be chosen (an object, the version, the type, `uses`
+   * resolving) still stops at its first problem.
+   *
+   * @param {Object} data - Parsed scene JSON
+   * @param {string} [sceneName]
+   * @returns {{loaded: Object|null, issues: SceneValidationError[]}}
+   *   `loaded` is the normalized scene when there are no issues, else null.
+   */
+  check(data, sceneName = data?.name ?? 'unknown') {
+    const issues = [];
+    const collect = (error) => {
+      if (!(error instanceof SceneValidationError)) return false;
+      issues.push(error);
+      return true;
+    };
+    let loaded = null;
+    try {
+      loaded = this.#load(data, sceneName, collect);
+    } catch (error) {
+      if (!collect(error)) throw error;
+    }
+    return { loaded: issues.length ? null : loaded, issues };
+  }
+
+  #load(data, sceneName, collect) {
     const fail = (path, message) => { throw new SceneValidationError(sceneName, path, message); };
 
     if (!data || typeof data !== 'object') fail('', 'scene data is not an object');
@@ -99,6 +133,7 @@ export class SceneLoader {
 
     return validate(schema, scene, {
       fail,
+      collect: collect ?? undefined,
       refs: this.#refs(scene),
       context: {
         spritesheets: scene.assets?.spritesheets ?? {},
@@ -245,7 +280,9 @@ export class SceneLoader {
       prefab: scope(Object.keys(data.prefabs ?? {}),
         (name, known) => `no prefab named '${name}' (declared: ${known.join(', ') || 'none'})`),
       model: scope(Object.keys(data.assets?.models ?? {}),
-        (name, known) => `no model named '${name}' (declared: ${known.join(', ') || 'none'})`)
+        (name, known) => `no model named '${name}' (declared: ${known.join(', ') || 'none'})`),
+      environment: scope(Object.keys(data.assets?.environments ?? {}),
+        (name, known) => `no environment named '${name}' (declared: ${known.join(', ') || 'none'})`)
     };
 
     if (this.game?.assets) {
