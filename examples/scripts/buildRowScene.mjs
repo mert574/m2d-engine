@@ -10,6 +10,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { writeScene, writeManifest } from 'm2d-editor-core';
 
 const LENGTH = 5200;
 const LANE = { top: 40, bottom: 360 };      // depth range the feet may stand in
@@ -115,7 +116,7 @@ function buildManifest() {
 }
 
 const scene = {
-  version: 2, name: 'row', type: 'level', gameType: 'belt',
+  version: 2, name: 'row', type: 'level', generator: 'scripts/buildRowScene.mjs', gameType: 'belt',
   world: { width: LENGTH, height: DEPTH, gravity: { x: 0, y: 0 }, sort: 'depth', projection: { type: 'belt', ratio: 0.5 } },
   // The three creatures live in the asset manifest instead, bound here by
   // uid. See CREATURES below.
@@ -139,8 +140,8 @@ const scene = {
   layers: [{ name: 'row', type: 'objects', objects }]
 };
 const out = fileURLToPath(new URL('../src/belt/scenes/row.json', import.meta.url));
-writeFileSync(out, JSON.stringify(scene, null, 2) + '\n');
+writeFileSync(out, writeScene(scene));
 writeFileSync(fileURLToPath(new URL('../src/belt/assets.json', import.meta.url)),
-  JSON.stringify(buildManifest(), null, 2) + '\n');
+  writeManifest(buildManifest()));
 writeFileSync(fileURLToPath(new URL('../src/belt/layout.json', import.meta.url)), JSON.stringify({ lane: LANE, length: LENGTH, sections: SECTIONS }, null, 2) + '\n');
 console.log(`row: ${objects.length} objects, ${SECTIONS.length} sections → ${out}`);

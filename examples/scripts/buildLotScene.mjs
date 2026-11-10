@@ -46,6 +46,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { writeScene } from 'm2d-editor-core';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const yard = JSON.parse(readFileSync(`${here}../src/yard/scenes/yard.json`, 'utf8'));
@@ -521,6 +522,7 @@ const scene = {
   version: yard.version,
   type: 'level',
   name: 'lot',
+  generator: 'scripts/buildLotScene.mjs',
   title: 'The Lot',
   world: yard.world,
   assets: { ...yard.assets, models: { ...yard.assets.models, ...models } },
@@ -543,5 +545,5 @@ const scene = {
 };
 
 const out = `${here}../src/yard/scenes/lot.json`;
-writeFileSync(out, JSON.stringify(scene));
+writeFileSync(out, writeScene(scene));
 console.log(`Wrote ${out}: ${SIDE * SIDE - 1} lots, ${total} prop instances in ${props.size} props, ${objects.length} exhibit objects`);

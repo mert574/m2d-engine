@@ -1,0 +1,16 @@
+{
+  // Deliberately no DOM in `lib`: this package runs headless in Node and in
+  // a browser alike, and a browser API reached by accident should be a type
+  // error. The source runs directly under Node's type stripping (and under
+  // Vite in the browser), so it keeps to erasable syntax — no enums,
+  // namespaces, parameter properties or decorators.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Relative imports say `.ts`, because Node's type stripping runs the
+    // file named in the import and never rewrites an extension. Publishing
+    // compiles with `rewriteRelativeImportExtensions` instead (an E0.7
+    // concern); until then the base's `noEmit` makes this legal.
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

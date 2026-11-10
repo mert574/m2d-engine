@@ -134,7 +134,44 @@ independent fixes; one PR each or one sweep.
 
 **Done when:** the table is empty.
 
-### E0.3 — The scene writer
+### E0.3 — The scene writer — **Done, Nov 2026**
+
+Landed as the first real module of `packages/editor-core` (created early,
+not waiting for E0.7, since the writer needed a home): `writeScene`,
+`writeManifest` and a generic `write(doc, schema)`, with `WriteError`
+naming the field that cannot be JSON. Canonical form: keys in the
+schema's own declaration order (unknown regions keep document order — the
+writer never invents an order it would have to defend), two-space indent,
+a value inline while the line fits 100 columns and one entry per line
+past that, which packs a long array of short tuples one tuple per line.
+Every shipped scene and manifest is now the writer's output byte for
+byte, enforced by `examples/test/sceneWriter.test.js` beside the lossless
+and idempotence tests; the five generator scripts emit through it (the
+lot went from one 160 KB line to ~9,400 diffable ones, and the reformat
+of everything else *removed* a net 9,000 lines by inlining short
+objects); `examples/scripts/formatScenes.mjs` restores the form after a
+hand edit, and the shared game-stub machinery moved to
+`examples/test/helpers.js`. The generated-scene marker is a top-level
+`generator` field in the scene format (schema, reference docs and an
+AGENTS.md rule), written by each build script; deleting it detaches a
+scene from its script.
+
+Two corrections to this round as planned. **Omission is by `default`
+only, not `initial`**: the loader applies `default` on load, so omitting
+a default-equal field is lossless, but `initial` is inspector metadata
+the loader never applies — omitting initial-equal constraint params
+would change what loads. And the writer **formats, never validates**:
+validation stays the loader's single job, so there is one validator.
+
+A finding that de-risks E0.7: Node 24 runs the TS package's source
+directly (type stripping) — the generator scripts, plain `.mjs`, import
+`m2d-editor-core` with no build step, because workspace symlinks
+resolve outside `node_modules` where stripping is allowed. The cost:
+source that runs this way keeps to **erasable syntax** — no enums,
+namespaces, parameter properties or decorators — and relative imports
+say `.ts` (`allowImportingTsExtensions`), with
+`rewriteRelativeImportExtensions` the publish-time answer when E0.7
+decides emission.
 
 The roadmap's first blocker, and the foundation `editor-core` is built
 on. A canonical, diff-friendly serializer for scene JSON and asset

@@ -1,0 +1,31 @@
+{
+  "name": "m2d-editor-core",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The headless core of the m2d editor: the scene document, the canonical writer, validation and the command model. Runs in a browser and in Node; no DOM.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "author": "Mert Yildiz",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "m2d-engine": "*"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mert574/m2d-engine.git",
+    "directory": "packages/editor-core"
+  }
+}

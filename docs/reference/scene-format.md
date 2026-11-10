@@ -10,6 +10,7 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `type` | both | yes | `"level"` or `"ui"` |
 | `name` | both | no | Free text. Error messages use the registered name |
 | `title` | both | no | Free text, unused by the engine |
+| `generator` | both | no | Path of the script that owns this file, when the scene is generated rather than authored. The next run of the script overwrites hand edits, so an editor treats the scene as read-only while this is set; deleting the field detaches the scene from its script. The engine ignores it |
 | `gameType` | level | no | Free text, unused by the engine |
 | `uses` | both | no | External assets by uid. See [Asset manifest](./asset-manifest#using-assets-in-a-scene) |
 | `world` | level | no | See below |

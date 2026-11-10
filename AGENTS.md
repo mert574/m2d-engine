@@ -132,6 +132,12 @@ npx playwright install chromium   # once, for test:browser
 - Every scene object and UI element has a unique `id`. Code that builds a
   scene at runtime numbers its own objects; the loader never invents one,
   because an invented id is not stable across a reorder or a save.
+- Scene and manifest JSON on disk is the canonical writer's output, byte
+  for byte (`m2d-editor-core`'s `writeScene`/`writeManifest`; a test
+  enforces it). After editing one by hand, run
+  `node scripts/formatScenes.mjs` in `examples/`. A scene with a
+  `generator` field is owned by that script — edit the script and rerun
+  it, never the JSON.
 - A new renderer feature is mandatory for every backend or declared through
   `capabilities`.
 - Both backends must pass `npm test`. Check visual changes with
