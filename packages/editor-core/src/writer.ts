@@ -1,3 +1,4 @@
+/// <reference path="./engine.d.ts" />
 /**
  * The canonical scene and manifest writer.
  *

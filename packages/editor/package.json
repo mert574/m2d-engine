@@ -1,0 +1,23 @@
+{
+  "name": "m2d-editor",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The m2d editor: a browser app over editor-core, with DOM panels around engine viewports",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "author": "Mert Yildiz",
+  "license": "MIT",
+  "dependencies": {
+    "m2d-editor-core": "*",
+    "m2d-engine": "*"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}

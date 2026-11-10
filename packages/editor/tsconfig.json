@@ -1,0 +1,10 @@
+{
+  // The browser half: this one gets the DOM the base deliberately omits.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "lib": ["ES2025", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*"]
+}

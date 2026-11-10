@@ -1,4 +1,5 @@
 import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
 import { ObliquePlayer } from 'm2d-engine/actors/obliquePlayer.js';
 import { Ghost } from 'm2d-engine/actors/ghost.js';
@@ -43,6 +44,10 @@ const WISP = '#bfeaff';
  * little, going translucent while the walker is behind it.
  */
 export class Tree extends Platform {
+  static properties = {
+    seed: s.number({ description: 'Fixes the sway; the position decides when unset' })
+  };
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     const rng = makeRng(options.seed ?? seedFrom(body.position));
@@ -421,6 +426,13 @@ export class Clearing extends Trigger {
  */
 export class GroundDetail extends Entity {
   name = 'GroundDetail';
+
+  static properties = {
+    path: s.array(s.object({ x: s.number({ required: true }), y: s.number({ required: true }) }),
+      { label: 'Path', description: 'The worn track, smoothed into segments' }),
+    pathWidth: s.number({ initial: 64, positive: true, unit: 'px', label: 'Path width' }),
+    seed: s.number({ initial: 11, description: 'Fixes the scatter of grass and flowers' })
+  };
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);

@@ -1,5 +1,6 @@
 import { Entity } from '../core/entity.js';
 import { PathFollow } from '../constraints/pathFollow.js';
+import { s } from '../core/schema.js';
 
 /**
  * A platform that patrols a path, pausing at each point.
@@ -12,6 +13,11 @@ import { PathFollow } from '../constraints/pathFollow.js';
  */
 export class MovingPlatform extends Entity {
   name = 'MovingPlatform';
+
+  /** The path is the `PathFollow` constraint's own params, set through this actor. */
+  static properties = {
+    path: s.object(PathFollow.params, { label: 'Path' })
+  };
 
   constructor(body, sprite, game, options = {}) {
     body.bodyType = 'kinematic';

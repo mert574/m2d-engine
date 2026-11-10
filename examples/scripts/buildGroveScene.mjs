@@ -165,7 +165,9 @@ function tree(kind, x, y) {
 }
 
 // Ground detail first so it is drawn under everything at its zIndex.
-add('groundDetail', W / 2, H / 2, 16, 16, { path: PATH, pathWidth: PATH_WIDTH, pond: POND, seed: 3 });
+// `pond` used to ride along here and nothing ever read it; the pond is
+// its own object, placed below. Declaring actor properties found it.
+add('groundDetail', W / 2, H / 2, 16, 16, { path: PATH, pathWidth: PATH_WIDTH, seed: 3 });
 
 // Bounds: invisible walls, then a dense tree line just inside them.
 const T = 48;

@@ -18,6 +18,9 @@ camera or a renderer:
 | --- | --- |
 | `packages/engine` | The engine, published to npm as `m2d-engine`. Source in `src/`, tests in `test/` |
 | `packages/server` | The authoritative multiplayer host, published as `m2d-server` |
+| `packages/editor-core` | The editor's headless core (document, writer, commands, validation). TypeScript, no DOM |
+| `packages/editor-mcp` | The editor's companion process and its MCP server for agents |
+| `packages/editor` | The editor app: DOM panels around engine viewports |
 | `examples` | The demo games and the demo site |
 | `docs` | The VitePress documentation site |
 
@@ -71,6 +74,8 @@ npm install
 npm run dev            # examples on port 3000
 npm run dev:lan        # HTTPS on 0.0.0.0, for a browser on another machine (PORT=... picks the port)
 npm run docs:dev       # documentation site
+npm run editor         # the editor app
+npm run editor:mcp .   # the editor's MCP endpoint over stdio
 npm test               # typecheck, then node + browser engine suites and example scene validation
 npm run typecheck      # every workspace that has a tsconfig
 npm run test:node      # fast engine suite
@@ -125,6 +130,10 @@ npx playwright install chromium   # once, for test:browser
   `initial` (never a schema `default`, which an override would apply).
   Callbacks stay out of `params`: they are code, not scene data. Override
   `configure` when a param is derived or merges.
+- An actor declares what a scene may set in `static properties`, on the
+  same terms. A subclass's declarations merge over its bases', so it
+  restates nothing; an actor that declares none takes any bag, unchecked.
+  A new actor that reads `options` declares them.
 - An asset shared between scenes belongs in an asset manifest, keyed by a
   uid that a rename cannot break (`core/assets.js`). A scene's `uses`
   block binds uids to local names and the loader expands it into the

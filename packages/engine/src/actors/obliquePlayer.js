@@ -1,5 +1,6 @@
 import { TopDownPlayer } from './topDownPlayer.js';
 import { Angle } from '../core/math.js';
+import { s } from '../core/schema.js';
 
 /**
  * The top-down player for a 3/4 view, with a heading, a jump and a swing
@@ -34,6 +35,16 @@ import { Angle } from '../core/math.js';
  *   size is the ground body rather than the frame (an isometric game)
  */
 export class ObliquePlayer extends TopDownPlayer {
+  static properties = {
+    jumpSpeed: s.number({ initial: 430, positive: true, unit: 'px/s', label: 'Jump speed', description: 'Launch speed of elevation' }),
+    gravity: s.number({ initial: 1500, positive: true, unit: 'px/s²', description: 'Pull back down' }),
+    attackArc: s.number({ initial: Math.PI * 1.5, positive: true, unit: 'rad', label: 'Attack arc', description: 'Swing width' }),
+    attackRange: s.number({ initial: 60, positive: true, unit: 'px', label: 'Attack range' }),
+    attackKnockback: s.number({ initial: 6000, min: 0, label: 'Attack knockback' }),
+    spriteOffsetY: s.number({ initial: 0, unit: 'px', label: 'Sprite offset Y', description: "Shift the sprite down, for a sheet whose figure's feet sit above the frame" }),
+    spriteSize: s.number({ positive: true, unit: 'px', label: 'Sprite size', description: 'Drawn frame size when the object size is the ground body' })
+  };
+
   static replicated = ['heading', 'lift'];
   /** The heading follows the keys, so a client that moves early turns early. */
   static predictedFields = ['heading'];

@@ -1,0 +1,37 @@
+{
+  "name": "m2d-editor-mcp",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The m2d editor's companion process: serves the editor, watches the project folder, runs the asset compilers, and exposes the editor's commands to AI agents over MCP",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "bin": {
+    "m2d-editor": "./src/cli.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "author": "Mert Yildiz",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "m2d-editor-core": "*",
+    "m2d-engine": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "vitest": "^5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mert574/m2d-engine.git",
+    "directory": "packages/editor-mcp"
+  }
+}

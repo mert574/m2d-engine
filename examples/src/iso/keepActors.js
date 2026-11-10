@@ -4,6 +4,7 @@ import { Ghost } from 'm2d-engine/actors/ghost.js';
 import { Coin } from 'm2d-engine/actors/coin.js';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { PointerMove } from 'm2d-engine/constraints/pointerMove.js';
 import { Angle } from 'm2d-engine/core/math.js';
@@ -44,6 +45,11 @@ function diamond(projection, x, y, size) {
  * so its bottom corner meets the bottom corner of the floor diamond.
  */
 export class Wall extends Platform {
+  static properties = {
+    frame: s.number({ initial: 0, label: 'Frame', description: 'Which block of the sheet this stone is' }),
+    seed: s.number({ description: 'Fixes the weathering; the position decides when unset' })
+  };
+
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
@@ -83,6 +89,10 @@ export class Wall extends Platform {
 
 /** A wall torch: an animated flame on a block's lit face, and a light. */
 export class Torch extends Entity {
+  static properties = {
+    face: s.enumOf(['east', 'south'], { initial: 'east', label: 'Face', description: "Which of the block's lit faces the bracket hangs on" })
+  };
+
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }

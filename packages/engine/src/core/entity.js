@@ -11,6 +11,28 @@ export class Entity {
    */
   static replicated = ['elevation', 'visible', 'dead'];
 
+  /**
+   * What a scene may set in a placed object's `properties`, which reach
+   * the constructor as `options`: schema descriptors from `core/schema.js`
+   * named after the fields they set, exactly as a constraint declares
+   * `static params`. Defaults go in `initial`, never a schema `default` —
+   * an object that sets one property must not thereby reset the rest.
+   *
+   * ```js
+   * static properties = {
+   *   speed: s.number({ initial: 120, positive: true, unit: 'px/s', label: 'Walk speed' }),
+   *   label: s.string({ description: 'Shown above the head' })
+   * };
+   * ```
+   *
+   * The loader checks a scene against this when the actor is registered,
+   * so a misspelled property fails on load naming its path rather than
+   * doing nothing; an inspector reads it to draw the entity's fields.
+   * Callbacks stay out of it: they are code, not scene data. An actor that
+   * declares nothing takes any bag of properties, unchecked, as before.
+   */
+  static properties = null;
+
   constructor(body, sprite, game) {
     if (!body) {
       throw new Error('Physics body is required');

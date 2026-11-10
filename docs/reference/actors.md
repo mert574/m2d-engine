@@ -4,6 +4,36 @@ Actors from `m2d-engine/actors/`. Register the ones a game uses with `game.regis
 
 The platformer and top-down example scenes under `examples/src/*/scenes/` show them in use.
 
+## Declaring properties
+
+An actor says what a scene may set in `static properties`, as schema descriptors named after the fields they set — the actor-side twin of a constraint's [`static params`](../guide/entities#declaring-constraints-in-a-scene):
+
+```js
+import { s } from 'm2d-engine/core/schema.js';
+
+export class Lamp extends Entity {
+  static properties = {
+    radius: s.number({ initial: 120, positive: true, unit: 'px', label: 'Glow radius' }),
+    color: s.string({ initial: '#ffd9a0', editor: 'color' })
+  };
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    this.radius = options.radius ?? 120;
+  }
+}
+```
+
+The rules, all of which match constraints:
+
+- **Defaults go in `initial`**, never a schema `default`. An object that sets one property must not thereby reset the rest, so the loader does not fill these in; the constructor's own `??` does. `initial` is what an inspector shows.
+- **Declared properties are checked on load**, when the actor is registered: a misspelled one fails naming its path (`layers[0].objects[3].properties.spead`) instead of silently doing nothing. A loader with no game skips the check, as it does for constraint params.
+- **A subclass adds to its bases.** The `static properties` of every class in the chain are merged, base first, so a subclass restates nothing. (`static replicated` works the same way.)
+- **Callbacks stay out.** They are code, not scene data.
+- **Declaring nothing keeps the old contract**: `properties` is then a free-form bag the engine never looks inside. Adding a schema is per actor.
+
+`actorPropertiesSchema(Class)` from `m2d-engine/core/sceneSchema.js` returns the merged schema, and `fieldsOf` on it yields the inspector's field list.
+
 ## Player
 
 `actors/player.js`. Name `Player`. A platformer character controlled with the arrow keys, Space to jump and X to attack.

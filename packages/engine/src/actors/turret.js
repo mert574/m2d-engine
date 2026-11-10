@@ -5,9 +5,18 @@ import { Rocket } from './rocket.js';
 import { CollisionCategories } from '../core/constants.js';
 import { Vec2 } from '../core/math.js';
 import { Debug } from '../constraints/debug.js';
+import { s } from '../core/schema.js';
 
 export class Turret extends Entity {
   name = 'Turret';
+
+  static properties = {
+    detectionRange: s.number({ initial: 350, positive: true, unit: 'px', label: 'Detection range' }),
+    fireRate: s.number({ initial: 2, positive: true, unit: 's', label: 'Fire rate', description: 'Seconds between shots' }),
+    rocketSpeed: s.number({ initial: 360, positive: true, unit: 'px/s', label: 'Rocket speed' }),
+    rocketDamage: s.number({ initial: 25, min: 0, label: 'Rocket damage' }),
+    health: s.number({ initial: 80, positive: true })
+  };
 
   constructor(body, sprite, game, options = {}) {
     body.setCollisionFilter({ category: CollisionCategories.enemy });

@@ -30,6 +30,16 @@ export class Crate extends Entity {
 | `game` | The engine instance |
 | `options` | The object's `properties` from the scene JSON |
 
+Declare what `options` may hold in `static properties`, the way a constraint declares `static params`, and a misspelled property in a scene fails on load instead of doing nothing — and an editor can draw the fields. See [Declaring properties](../reference/actors#declaring-properties).
+
+```javascript
+import { s } from 'm2d-engine/core/schema.js';
+
+export class Crate extends Entity {
+  static properties = { contents: s.string({ initial: 'nothing' }) };
+}
+```
+
 Register the class under the name prefabs use, then reference it from scene JSON.
 
 ```javascript

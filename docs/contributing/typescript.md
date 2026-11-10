@@ -50,6 +50,36 @@ A single package:
 npm run typecheck --workspace packages/<name>
 ```
 
+## Importing the engine from a TypeScript package
+
+The engine is unchecked JavaScript, so its modules would otherwise
+collapse to `any`. The editor packages each declare the engine surface
+they use — `packages/editor-core/src/engine.d.ts`,
+`packages/editor/src/ambient.d.ts` — precisely, and shrink those files to
+nothing when the engine gains real types.
+
+One rule that is easy to get wrong: a package consumed **from source** by
+another package is compiled under *that* package's `tsconfig`, so
+ambient declarations listed only in its own `include` are invisible.
+Pull them in with a triple-slash reference from the files that need
+them, which travels with the source wherever it is compiled:
+
+```ts
+/// <reference path="./engine.d.ts" />
+import { SceneLoader } from 'm2d-engine/core/sceneLoader.js';
+```
+
+## Running TypeScript without a build
+
+Node 24 runs `.ts` directly by stripping types, which is why the
+generator scripts in `examples/scripts/` can `import { writeScene } from
+'m2d-editor-core'` with no build step. Two conditions come with it:
+source that runs this way keeps to **erasable syntax** — no enums,
+namespaces, parameter properties or decorators — and relative imports
+carry a `.ts` extension (`allowImportingTsExtensions`), because stripping
+runs the file the import names and never rewrites it. A package that
+starts publishing compiles with `rewriteRelativeImportExtensions`.
+
 ## The engine
 
 `packages/engine/tsconfig.json` exists and has `checkJs: false`. It is a

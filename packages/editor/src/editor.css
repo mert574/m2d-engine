@@ -1,0 +1,134 @@
+/*
+ * The editor's chrome. DOM, not the engine's UI toolkit: `core/ui` is a
+ * game UI — menus, dialogue, rows — with no text input, tree view,
+ * property grid or docking, and a game UI toolkit should not grow a text
+ * editor. The engine draws inside the viewport; everything around it is
+ * the browser's.
+ *
+ * The layout is a grid of named regions so a panel can be moved, hidden
+ * or (later) docked elsewhere without touching the markup.
+ */
+
+:root {
+  color-scheme: dark;
+  --bg: #16191d;
+  --panel: #1d2126;
+  --line: #2b3138;
+  --text: #d8dee4;
+  --dim: #8b949e;
+  --accent: #ffd58a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 system-ui, sans-serif;
+}
+
+.editor {
+  display: grid;
+  height: 100vh;
+  grid-template-columns: 240px 1fr 300px;
+  grid-template-rows: 40px 1fr 180px;
+  grid-template-areas:
+    'bar       bar       bar'
+    'tree      viewport  inspector'
+    'assets    assets    console';
+  gap: 1px;
+  background: var(--line);
+}
+
+.bar {
+  grid-area: bar;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: var(--panel);
+}
+
+.bar .title { font-weight: 600; letter-spacing: 0.04em; }
+.bar .status { color: var(--dim); margin-left: auto; }
+
+.bar button {
+  background: #2a3038;
+  color: var(--text);
+  border: 1px solid #39414b;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bar button:hover { border-color: var(--accent); }
+
+.panel {
+  background: var(--panel);
+  overflow: auto;
+  padding: 10px 12px;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.panel .empty { color: var(--dim); font-style: italic; }
+
+.tree { grid-area: tree; }
+.inspector { grid-area: inspector; }
+.assets { grid-area: assets; }
+.console { grid-area: console; }
+
+/*
+ * The viewport is the engine's. It is positioned because the 3D renderer
+ * lays its HUD canvas over the world canvas absolutely, and that overlay
+ * needs this as its containing block.
+ */
+.viewport {
+  grid-area: viewport;
+  position: relative;
+  background: #0d1117;
+  overflow: hidden;
+}
+
+.viewport canvas { display: block; width: 100%; height: 100%; }
+
+.plate {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+  pointer-events: none;
+  text-align: center;
+  padding: 24px;
+}
+
+.plate.gone { display: none; }
+
+/* The scene list in the tree panel, until the real tree replaces it. */
+.tree button.scene {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  padding: 4px 6px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tree button.scene:hover { background: #2a3038; }
+.tree button.scene[data-generated] { color: var(--dim); font-style: italic; }

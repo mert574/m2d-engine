@@ -111,13 +111,24 @@ const vector = (label) => s.object({
 }, { label });
 
 /**
- * A free-form bag passed to an actor's constructor as its `options`. The
- * engine never looks inside it, so neither does validation — the keys an
- * actor understands are the actor's business.
+ * What a placed object passes its actor's constructor as `options`.
+ *
+ * An actor declares what it understands in `static properties`, the way a
+ * constraint declares `static params`: schema descriptors named after the
+ * fields they set, defaults recorded as `initial`. When the actor is
+ * registered and says, this is checked here, so a misspelled property
+ * fails on load naming its path instead of silently doing nothing. An
+ * actor that declares nothing keeps the old contract — a free-form bag
+ * the engine never looks inside — so adding a schema is per actor and
+ * nothing breaks without one.
  */
-const actorProperties = s.any({
+const actorProperties = s.dynamic((value, ctx) => {
+  const prefab = ctx.context?.prefabs?.[ctx.parent?.prefab];
+  const ActorClass = prefab?.actor ? ctx.context?.actors?.get(prefab.actor) : null;
+  return actorPropertyFields(ActorClass) ? actorPropertiesSchema(ActorClass) : null;
+}, {
   label: 'Properties',
-  description: "Passed to the actor's constructor untouched"
+  description: "Passed to the actor's constructor"
 });
 
 /**
@@ -198,6 +209,39 @@ const WORLD = s.object({
  */
 export function constraintParamsSchema(ConstraintClass) {
   return s.object(ConstraintClass?.params ?? {});
+}
+
+/**
+ * Every `static properties` descriptor along an actor's class chain, base
+ * first, a subclass's own entry winning — so a subclass adds to what its
+ * bases said rather than restating it, the way `static replicated` works.
+ * Null when nothing in the chain declares any, which is what tells the
+ * loader to leave the bag unchecked.
+ * @param {Function} ActorClass
+ * @returns {object|null}
+ */
+export function actorPropertyFields(ActorClass) {
+  if (typeof ActorClass !== 'function') return null;
+  let fields = null;
+  const chain = [];
+  for (let c = ActorClass; c && c !== Function.prototype; c = Object.getPrototypeOf(c)) {
+    if (Object.prototype.hasOwnProperty.call(c, 'properties') && c.properties) chain.unshift(c.properties);
+  }
+  for (const own of chain) fields = { ...fields, ...own };
+  return fields;
+}
+
+/**
+ * The schema for an actor's `properties`, from its `static properties` —
+ * the actor-side twin of `constraintParamsSchema`, and what an inspector
+ * walks to draw an entity's own fields.
+ *
+ * Defaults are recorded as `initial` for the same reason constraints do
+ * it: a scene that sets one property must not thereby reset the rest.
+ * @param {Function} ActorClass
+ */
+export function actorPropertiesSchema(ActorClass) {
+  return s.object(actorPropertyFields(ActorClass) ?? {});
 }
 
 /**

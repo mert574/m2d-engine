@@ -103,7 +103,8 @@ export class SceneLoader {
       context: {
         spritesheets: scene.assets?.spritesheets ?? {},
         prefabs: scene.prefabs ?? {},
-        constraintTypes: this.game?.constraintTypes ?? null
+        constraintTypes: this.game?.constraintTypes ?? null,
+        actors: this.game?.actors ?? null
       }
     });
   }

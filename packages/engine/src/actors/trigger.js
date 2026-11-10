@@ -1,7 +1,15 @@
 import { Entity } from '../core/entity.js';
+import { s } from '../core/schema.js';
 
 export class Trigger extends Entity {
   name = 'Trigger';
+
+  static properties = {
+    active: s.boolean({ initial: false, description: 'Inert until set' }),
+    visible: s.boolean({ initial: false, description: 'Draw the sensor, to see where it is' }),
+    triggers: s.string({ description: 'What the scene does on entry; the scene reads it' }),
+    debugColor: s.string({ initial: '#e7693166', editor: 'color', label: 'Debug colour' })
+  };
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);

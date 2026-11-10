@@ -1,6 +1,7 @@
 import { Entity } from '../core/entity.js';
 import { ProximityPrompt } from '../constraints/proximityPrompt.js';
 import { Angle } from '../core/math.js';
+import { s } from '../core/schema.js';
 
 /**
  * Someone to talk to. Stands still on a static body, turns to face the
@@ -24,6 +25,15 @@ import { Angle } from '../core/math.js';
  */
 export class Npc extends Entity {
   name = 'Npc';
+
+  static properties = {
+    who: s.string({ description: 'An id for the game to look the character up by' }),
+    displayName: s.string({ label: 'Display name', description: 'Shown in the prompt; defaults to who' }),
+    facing: s.number({ initial: Math.PI / 2, unit: 'rad', description: 'Resting facing' }),
+    talkRadius: s.number({ initial: 110, positive: true, unit: 'px', label: 'Talk radius' }),
+    spriteOffsetY: s.number({ initial: 0, unit: 'px', label: 'Sprite offset Y', description: "Shift the sprite down, for a sheet whose figure's feet sit above the frame" }),
+    spriteSize: s.number({ positive: true, unit: 'px', label: 'Sprite size', description: 'Drawn frame size when the object size is the ground body' })
+  };
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);

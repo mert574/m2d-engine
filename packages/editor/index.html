@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M2D Editor</title>
+  <link rel="stylesheet" href="./src/editor.css" />
+</head>
+
+<body>
+  <!--
+    The panel frame: the regions an editor is made of, empty until the
+    phases that fill them (E1 the tree and the inspector, E2 selection
+    and gizmos, E3 the assets, E4 the console). The viewport is real
+    from the start, because a frame around nothing proves nothing.
+  -->
+  <div class="editor" id="editor">
+    <header class="bar" id="bar">
+      <span class="title">M2D Editor</span>
+      <button id="open" type="button">Open project…</button>
+      <span class="status" id="status">No project open</span>
+    </header>
+
+    <aside class="panel tree" data-region="tree">
+      <h2>Scene</h2>
+      <div class="empty">The scene tree lands here (E1).</div>
+    </aside>
+
+    <main class="viewport" id="viewport">
+      <canvas id="screen"></canvas>
+      <div class="plate" id="plate">Open a project folder to draw a scene.</div>
+    </main>
+
+    <aside class="panel inspector" data-region="inspector">
+      <h2>Inspector</h2>
+      <div class="empty">Fields generated from the schema land here (E1).</div>
+    </aside>
+
+    <section class="panel assets" data-region="assets">
+      <h2>Assets</h2>
+      <div class="empty">The asset browser lands here (E3).</div>
+    </section>
+
+    <section class="panel console" data-region="console">
+      <h2>Console</h2>
+      <div class="empty">The engine console lands here (E4).</div>
+    </section>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+
+</html>

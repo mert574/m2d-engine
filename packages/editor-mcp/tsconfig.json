@@ -1,0 +1,10 @@
+{
+  // Node only: this is the companion process. It asks for node types and
+  // keeps the base's DOM-free lib, since nothing here touches a browser.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

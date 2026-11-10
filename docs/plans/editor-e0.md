@@ -207,7 +207,41 @@ manifests.
 tests above, the build scripts emit through the writer, and one
 reformat commit has landed.
 
-### E0.4 — Actors declare `static properties`
+### E0.4 — Actors declare `static properties` — **Done, Nov 2026**
+
+Landed as the actor-side twin of constraint params: `static properties`
+on an `Entity` subclass, resolved through `s.dynamic` against
+`game.actors` exactly as constraint params resolve against
+`game.constraintTypes`, with `actorPropertiesSchema(Class)` and
+`fieldsOf` giving an inspector its field list. Three decisions the
+round settled:
+
+- **The chain merges.** A subclass's declarations merge over its bases',
+  base first, so `ObliquePlayer` restates nothing of `TopDownPlayer` and
+  a subclass that declares nothing is still checked against its base.
+  `static replicated` already worked this way; `actorPropertyFields`
+  does the same for objects rather than arrays.
+- **Declaring nothing keeps the old contract.** An actor with no
+  `static properties` anywhere in its chain takes any bag, unchecked, as
+  before — so this is adopted per actor and nothing broke without one.
+- **`initial`, never `default`**, for the constraint reason exactly: an
+  object that sets one property must not thereby reset the rest, so the
+  loader does not fill these in and the constructor's `??` still does.
+
+Schemas now on the engine actors the demos use (`Trigger`, `Npc`,
+`ObliquePlayer`, `MovingPlatform`, `Turret`) and the demo-side ones
+(`Tree`, `GroundDetail`, `Wall`, `Torch`, `Street`, `Foreground`). The
+vocabulary needed nothing new — `MovingPlatform.path` is literally
+`s.object(PathFollow.params)`, a constraint's params reused as an
+actor's property, which is a good sign about both.
+
+**What declaring found, which is the point of the round.** Two pieces of
+scene data that were lies: Hollow Grove's `groundDetail` carried a
+`pond` nothing has ever read (the pond is its own object; removed from
+the generator), and Cinder Keep's torches say `face: 'east' | 'south'`
+while a guess at `'north' | 'south'` failed on load — the code's own
+comment said east, and the schema is now what the code means. Both are
+exactly the class of bug an `s.any` bag hides forever.
 
 Constraints already declare `static params`; actors declare nothing, so
 their `options` are `s.any` and no inspector can edit them — and neither
@@ -391,7 +425,57 @@ proving no lifecycle hook ran, a browser test shows a materialized
 scene rendering with input and transitions inert, and the
 edit → play → stop → edit cycle passes a leak check.
 
-### E0.7 — The three package shells
+### E0.7 — The three package shells — **Done, Nov 2026**
+
+All three in the tree, typechecked, tested and wired into the root
+commands. `npm run editor` serves the app; `npm run editor:mcp [folder]`
+is the agent endpoint. Verified by hand as well as by test: a real MCP
+client over real stdio lists the tools and calls `list_scenes` against
+`examples/src/yard`, and correctly reports `lot.json` as generated and
+`yard.json` as editable — the `generator` field from E0.3 earning its
+keep end to end.
+
+`editor-core` grew the module boundaries around the writer:
+`SceneDocument` (the parsed scene, its canonical text, its dirty state,
+its generator flag), `CommandStack` (apply/undo/redo, batching, change
+listeners) and `validateScene` (the engine's loader wrapped into a list
+of issues rather than a throw). The command model's shape is the
+decision worth recording: **a command returns its own undo from
+`apply`**, rather than the stack snapshotting the document — a scene is
+large and most edits are small, so remembering the inverse is cheaper
+than remembering the world, and a command that forgets to be reversible
+becomes impossible to write. Concrete commands are E2's.
+
+`editor-mcp` is the companion process and the MCP server in one, for the
+reason the plan gave: the browser cannot run the asset pipeline, so a
+local process must exist anyway, and that is where an agent endpoint
+belongs. Three read-only tools this round (`list_scenes`, `read_scene`,
+`validate_scene`) and deliberately **no stubs** for the mutating ones —
+a tool that exists and does nothing is worse than one that is absent,
+because an agent will call it. `Project.resolve` refuses paths outside
+the project, which is the boundary an agent-named path needs.
+
+`editor` is the Vite app: the docked panel frame (tree, viewport,
+inspector, assets, console) as empty regions, a project opened through
+the File System Access API, its scenes listed, and the chosen one drawn
+by a real engine instance in **edit mode** — E0.6's payoff, since that
+is what lets a document be shown without any of its game code running.
+Panels stay empty on purpose; one faked now is one rewritten in E1.
+
+**Decided, as the round asked.** `editor` and `editor-mcp` are both
+private for now and `editor-core` publishes nothing yet: the companion
+is how a user starts the editor, and nothing outside this repo consumes
+the core until the editor ships. When they do publish, `editor-core`
+emits with `rewriteRelativeImportExtensions` (E0.3's finding).
+
+**One toolchain lesson.** A TS package consumed from source by another
+package is compiled under *that* package's tsconfig, so ambient
+declarations in its own `include` are invisible. The engine declarations
+`editor-core` carries are now pulled in by a triple-slash reference from
+the files that need them, which travels with the source wherever it is
+compiled. The editor app has the same arrangement, plus the File System
+Access API's directory picker, which Chromium ships and TypeScript's DOM
+library does not describe yet.
 
 E0 ends with every package that the editor work will live in already
 in the tree, wired into the toolchain, the test run and the dev

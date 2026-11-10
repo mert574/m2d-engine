@@ -1,0 +1,75 @@
+/**
+ * Declarations for what the editor uses and TypeScript cannot see.
+ *
+ * Two kinds, both temporary. The File System Access API's directory
+ * picker is shipped in Chromium (which the editor already requires) but
+ * is not in TypeScript's DOM library yet. And the engine is plain
+ * JavaScript whose JSDoc nothing checks, so the surface this app touches
+ * is declared precisely rather than inferred loosely; when the engine
+ * gains checked types (the Types roadmap item) that half goes away.
+ */
+
+interface DirectoryPickerOptions {
+  id?: string;
+  mode?: 'read' | 'readwrite';
+  startIn?: string | FileSystemHandle;
+}
+
+interface Window {
+  showDirectoryPicker(options?: DirectoryPickerOptions): Promise<FileSystemDirectoryHandle>;
+}
+
+interface FileSystemDirectoryHandle {
+  entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
+}
+
+declare module 'm2d-engine/core/m2d.js' {
+  /** A scene registered with the manager; `fetch` may return anything. */
+  interface SceneConfig {
+    fetch: () => unknown | Promise<unknown>;
+    [hook: string]: unknown;
+  }
+
+  interface SceneManager {
+    addScene(name: string, scene: SceneConfig): void;
+    switchTo(name: string): Promise<unknown>;
+    getCurrentScene(): unknown;
+  }
+
+  export interface M2DOptions {
+    dimensions?: number;
+    editMode?: boolean;
+    headless?: boolean;
+    width?: number;
+    height?: number;
+    worldWidth?: number;
+    worldHeight?: number;
+    performanceStats?: boolean;
+    devConsole?: boolean;
+    renderer?: string;
+    basePath?: string;
+    initialScene?: string;
+    [option: string]: unknown;
+  }
+
+  export class M2D {
+    constructor(canvas: HTMLCanvasElement | null, options?: M2DOptions);
+    readonly sceneManager: SceneManager;
+    readonly editMode: boolean;
+    registerActor(name: string, ActorClass: unknown): void;
+    registerConstraint(name: string, ConstraintClass: unknown): void;
+    addView(canvas: HTMLCanvasElement): { canvas: HTMLCanvasElement; camera: unknown; dimensions: number };
+    removeView(view: unknown): void;
+    start(): Promise<void>;
+    destroy(): void;
+  }
+}
+
+declare module 'm2d-engine/core/physics/index.js' {
+  export function initPhysics(options?: { dimensions?: number }): Promise<unknown>;
+}
+
+declare module 'm2d-engine/core/renderers/index.js' {
+  export function initWebGPU(): Promise<unknown>;
+  export function webgpuSupported(): boolean;
+}

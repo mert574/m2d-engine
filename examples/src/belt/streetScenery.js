@@ -1,4 +1,5 @@
 import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { tileTexture } from '../shared/textures.js';
 import { makeRng, range } from '../shared/rng.js';
 
@@ -34,6 +35,16 @@ function shift(camera, parallax) {
 }
 
 export class Street extends Entity {
+  static properties = {
+    textures: s.any({ description: 'Decoded facade images, handed over by the scene in code' }),
+    lane: s.object({
+      top: s.number({ required: true, unit: 'px' }),
+      bottom: s.number({ required: true, unit: 'px' })
+    }, { label: 'Lane', description: 'The walkable band the street is drawn around' }),
+    length: s.number({ positive: true, unit: 'px', description: 'How far the row runs' }),
+    seed: s.number({ initial: 3, description: 'Fixes the windows, signs and litter' })
+  };
+
   name = 'Street';
 
   constructor(body, sprite, game, options = {}) {
@@ -306,6 +317,13 @@ export class Street extends Entity {
 
 /** Bollards along the kerb, in front of the pavement, a little nearer than it. */
 export class Foreground extends Entity {
+  static properties = {
+    lane: s.object({
+      top: s.number({ required: true, unit: 'px' }),
+      bottom: s.number({ required: true, unit: 'px' })
+    }, { label: 'Lane', description: 'The walkable band the bollards stand in front of' })
+  };
+
   name = 'Foreground';
 
   constructor(body, sprite, game, options = {}) {
