@@ -146,7 +146,20 @@ const defaultOptions = {
    */
   theme: null,
   sounds: {},
-  music: {}
+  music: {},
+  /**
+   * Edit mode: the scene is presentation without game. The world is built
+   * from the scene document exactly as a load builds it — entities,
+   * constraints, props, tiles, lights — but no game code runs against it:
+   * scene lifecycle and draw hooks (`onEnter`, `onShow`, `onDraw`,
+   * `onRender`, `onHide`, `onExit`, ...) are never called, the simulation
+   * never ticks (`step` runs nothing, whoever calls it), the scene's UI
+   * receives no input, `gameOver` is inert, and cvars do not persist, so
+   * an editing session cannot overwrite a player's settings. This is what
+   * an editor's viewport runs; playing in an editor is a *fresh* game
+   * without this flag. See docs/plans/editor-e0.md (E0.6).
+   */
+  editMode: false
 };
 
 /** `game.resolution` as console text: 'native', a scale, or 'WxH'. */
@@ -186,6 +199,12 @@ export class M2D {
      * core/headless.js and `#initHeadless`.
      */
     this.headless = this.options.headless === true;
+    /**
+     * True when the world is being edited rather than played. One
+     * authoritative flag the tick, the hooks, input routing and cvar
+     * persistence all consult; see the `editMode` option.
+     */
+    this.editMode = this.options.editMode === true;
     if (this.headless) {
       if (canvas) throw new Error('M2D headless: pass null for the canvas; a headless game has no display');
       this.#initSimulation();
@@ -294,7 +313,10 @@ export class M2D {
      * and writes these; so does the developer console. See console/cvars.js.
      */
     this.cvars = new CVarRegistry({
-      saveId: this.options.saveId ?? defaultSaveId()
+      saveId: this.options.saveId ?? defaultSaveId(),
+      // Editing is not playing: cvar changes made while editing live for
+      // the session and never reach the player's persisted settings.
+      ...(this.editMode && { storage: null })
     });
     /** Console commands over those cvars and the engine. */
     this.commands = new CommandRegistry(this.cvars);
@@ -1251,6 +1273,9 @@ export class M2D {
   }
 
   gameOver() {
+    // Inert in edit mode, like every other transition: nothing may take
+    // the editor's viewport to the game-over screen or on to 'mainMenu'.
+    if (this.editMode) return;
     this.isGameOver = true;
     this.soundManager.playSound('gameOver');
   }
@@ -1275,6 +1300,10 @@ export class M2D {
    *   `time.tick` to run no further ticks this frame.
    */
   fixedUpdate(dt) {
+    // Edit mode never simulates: not from the frame loop, not from
+    // `step()`, not from a custom loop. One gate here covers every caller,
+    // so a world being edited cannot move however it is driven.
+    if (this.editMode) return false;
     // A scene switch requested by one of this tick's timers: the scene
     // being left does not tick again.
     if (this.sceneManager.loading) return false;
@@ -1308,6 +1337,9 @@ export class M2D {
     if (!Number.isInteger(ticks) || ticks < 0) {
       throw new Error(`M2D step: ticks must be a whole number from 0 up, got ${ticks}`);
     }
+    // Gated here as well as in fixedUpdate, so edit mode does not even
+    // advance the game clock: an edited world has no game time.
+    if (this.editMode) return 0;
     let ran = 0;
     while (ran < ticks && !this.sceneManager.loading) {
       ran++;
@@ -1476,7 +1508,9 @@ export class M2D {
     // camera, draw passes) and `time.delta` is this frame's game time for
     // per-frame animation: zero while paused and stretched by the time
     // scale, so an animation cycle slows down with the body it belongs to.
-    this.time.tick(rawDelta, { paused: this.paused, step: this.fixedUpdate });
+    // Edit mode is a standing pause: game time does not advance, so no
+    // tick runs and no game-time timer can fire into the edited world.
+    this.time.tick(rawDelta, { paused: this.paused || this.editMode, step: this.fixedUpdate });
     if (this.sceneManager.loading) {
       // A tick asked for a scene switch. The scene it leaves is not updated
       // or drawn again.
@@ -1502,7 +1536,7 @@ export class M2D {
 
     if (!this.isGameOver) {
       if (currentScene) {
-        if (!this.paused) {
+        if (!this.paused && !this.editMode) {
           this.camera.update(deltaTime);
           currentScene.update(this.time.delta);
         }

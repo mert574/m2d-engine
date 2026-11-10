@@ -103,7 +103,9 @@ export class Scene {
     if (!headless) {
       // A scene registers no input listeners of its own: it hands its UI to
       // the router, which hit-tests it between the overlay and world bands.
-      this.game.input.setUIContainer(this.ui);
+      // Except in edit mode: an edited scene's UI is drawn but never hears a
+      // click, so a materialized menu cannot fire its actions.
+      if (!this.game.editMode) this.game.input.setUIContainer(this.ui);
       this.game.camera.init(this);
     }
 
@@ -119,9 +121,10 @@ export class Scene {
 
     // A replica shows a world the server simulates: a level's simulation
     // hooks are the server's to run. A UI scene has no simulation, so a
-    // menu's hooks run as ever.
-    if (!this.#serverRuns) this.config.onEnter?.();
-    if (!headless) this.config.onShow?.();
+    // menu's hooks run as ever. In edit mode no hook runs at all — the
+    // scene is the document materialized, with no game code against it.
+    if (!this.#serverRuns && !this.game.editMode) this.config.onEnter?.();
+    if (!headless && !this.game.editMode) this.config.onShow?.();
   }
 
   async loadAssets() {
@@ -911,8 +914,8 @@ export class Scene {
   /** `onHide` (with a display), then `onExit`, then tear down. */
   unload() {
     const headless = this.game.headless;
-    if (!headless) this.config.onHide?.();
-    if (!this.#serverRuns) this.config.onExit?.();
+    if (!headless && !this.game.editMode) this.config.onHide?.();
+    if (!this.#serverRuns && !this.game.editMode) this.config.onExit?.();
 
     // Those entities are gone with the scene; holding them here would keep
     // every body of every scene ever loaded alive. onExit runs first so it
@@ -1018,10 +1021,15 @@ export class Scene {
   }
 
   draw(deltaTime) {
+    // In edit mode the scene's own draw hooks are game code and stay out of
+    // the pass; what the document declares (layers, entities, props) still
+    // draws, which is the entities' own `draw` below.
+    const hooks = !this.game.editMode;
+
     // World-space drawing that everything else sits on — a sky, parallax
     // scenery. Runs inside the world pass, before the background layer and
     // the entities, with the camera transform applied.
-    if (this.config.onDrawBackground) {
+    if (hooks && this.config.onDrawBackground) {
       this.config.onDrawBackground(deltaTime);
     }
 
@@ -1031,7 +1039,7 @@ export class Scene {
 
     // World-space drawing that does not belong to an entity. Runs inside the
     // world pass, after entities, with the camera transform applied.
-    if (this.config.onDraw) {
+    if (hooks && this.config.onDraw) {
       this.config.onDraw(deltaTime);
     }
   }
@@ -1123,7 +1131,10 @@ export class Scene {
         });
       }
     }
-    this.config.onRender?.(frame, deltaTime);
+    // The game's chance to light and grade the frame — its sun, sky and
+    // post look. Edit mode skips it like every other hook; the editor sets
+    // its own frame environment.
+    if (!this.game.editMode) this.config.onRender?.(frame, deltaTime);
     return frame;
   }
 

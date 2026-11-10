@@ -54,6 +54,7 @@
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `headless` | `false` | Build the simulation only, for a server or a test. The canvas must be `null`. Display, input device and audio options are ignored. See [Headless games](../guide/headless) |
+| `editMode` | `false` | Presentation without game, for an editor's viewport. Scenes materialize from their documents exactly as a load builds them — entities, constraints, props, tiles, lights — but no game code runs against them: lifecycle and draw hooks (`onEnter`, `onShow`, `onDraw`, `onRender`, `onHide`, `onExit`, ...) are never called, the simulation never ticks and game time never advances (`step` returns 0, whoever calls it), the scene's UI is drawn but receives no input, `gameOver` is inert, and cvars have no storage, so an editing session cannot overwrite a player's settings. Engine input events (`game.input.on`) still fire, for the editor's own tools. Playing in an editor is a fresh game without this flag |
 
 ## Instance properties
 

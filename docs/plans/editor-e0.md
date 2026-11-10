@@ -267,7 +267,37 @@ correctly on one page, with a browser test pinning that the views show
 different cameras of the same frame, and a written note on the measured
 per-view cost.
 
-### E0.6 — The edit-mode contract
+### E0.6 — The edit-mode contract — **Done, Nov 2026**
+
+Landed as one constructor flag, `editMode`, documented in the engine
+options reference. Materializing needed no new API: on an edit-mode game,
+`addScene` + `switchTo` *is* materialization, because the flag makes
+`Scene.load()` build everything and call nothing. What the flag gates,
+each at one authoritative place: every scene lifecycle and draw hook
+(`onEnter`, `onShow`, `onDraw`, `onDrawBackground`, `onRender`, `onHide`,
+`onExit`); the tick (`fixedUpdate` declines whoever calls it, `step`
+returns 0 without advancing the clock, and the frame loop treats edit
+mode as a standing pause so game time never moves and no timer fires);
+input routing to the scene's UI (`setUIContainer` is skipped, so a
+materialized menu draws but its buttons cannot fire); `gameOver`; and
+cvar persistence (the registry is built with no storage, so an editing
+session cannot touch a player's settings). Engine input events still
+fire — the editor's own picking and tools need them.
+
+One nuance the plan's wording hid: "no game code runs" means no *hooks*.
+Actor constructors, constraint construction and entity `draw` methods are
+game code and do run — they are what a 2D scene's look *is*, and the
+engine's own headless rule already forbids them side effects. The
+contract is: build everything, call no hook, step nothing, route nothing.
+
+Tests: `test/editMode.test.js` (headless materialize with hook spies, the
+never-ticks proof under gravity, inert `gameOver`, hook-free unload, the
+same game without the flag playing normally, and the
+edit → play → stop → edit cycle restoring the document's state); and
+`test/browser/editMode.test.js` (the materialized document drawn and
+pixel-checked with no hook run, a UI scene whose button cannot fire,
+engine input still delivered, cvars with no storage, and the full cycle
+leaving no listener on the page).
 
 In the editor, a loaded scene must be *presentation without game*: no
 `onEnter`/`onShow`/`onFixedUpdate` hooks, no game keybinds, no game
