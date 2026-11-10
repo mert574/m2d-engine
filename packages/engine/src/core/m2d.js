@@ -285,6 +285,14 @@ export class M2D {
       });
 
     /**
+     * Extra live views of the world from `addView`: an editor's side
+     * viewports, each a canvas and a camera of its own over the same
+     * running scene. Empty for a game that never asks.
+     * @type {Array<{canvas: HTMLCanvasElement, camera: object, dimensions: number}>}
+     */
+    this.views = [];
+
+    /**
      * Annotations drawn *on* the world rather than in it: debug geometry
      * (ranges, target dots, facing vectors) and world-anchored readouts.
      * Submitted in world coordinates, rasterized in the overlay pass at
@@ -939,6 +947,9 @@ export class M2D {
     this.settings?.destroy();
     this.ui?.destroy();
     this.motion?.destroy();
+    // 2D views own a renderer each; 3D view resources go down with the
+    // renderer itself below.
+    for (const view of this.views.splice(0)) view.renderer?.destroy();
     this.worldOverlay.destroy();
     this.input.destroy();
     this.soundManager.destroy();
@@ -1429,7 +1440,8 @@ export class M2D {
     this.worldOverlay.clear();
     if (this.renderer.dimensions === 3) {
       // A 3D renderer is retained: the scene describes the frame and the
-      // renderer draws it, instead of entities calling draw primitives.
+      // renderer draws it, instead of entities calling draw primitives —
+      // once per view, with the heavy half of the frame shared.
       this.renderer.render(currentScene.frame3D(deltaTime));
       return;
     }
@@ -1437,12 +1449,90 @@ export class M2D {
     this.renderer.applyCamera(this.camera);
     currentScene.draw(deltaTime);
     this.renderer.endFrame();
+
+    // 2D side views: the same scene walked again per view. The world pass
+    // is immediate-mode and entities, layers and constraints draw through
+    // `game.renderer` under `game.camera`, so both are swapped for the
+    // walk and restored — the one place that indirection is serviced.
+    for (const view of this.views) {
+      const renderer = this.renderer;
+      const camera = this.camera;
+      this.renderer = view.renderer;
+      this.camera = view.camera;
+      try {
+        view.renderer.clear('#000');
+        view.renderer.beginFrame();
+        view.renderer.applyCamera(view.camera);
+        currentScene.draw(deltaTime);
+        view.renderer.endFrame();
+      } finally {
+        this.renderer = renderer;
+        this.camera = camera;
+      }
+    }
   }
 
   drawUI(currentScene, deltaTime = 0) {
     this.uiRenderer.beginFrame();
     currentScene.drawUI(deltaTime);
     this.uiRenderer.endFrame();
+  }
+
+  /**
+   * A second live view of the world: `canvas` shows the same running scene
+   * from a camera of its own, every frame, beside the game's canvas. An
+   * editor's side viewports are the consumer; a game can use it for a
+   * replay angle or a map. The returned view's `camera` is the caller's to
+   * drive (a `Camera3D` in 3D, a `Camera` in 2D, sized to the canvas).
+   *
+   * In 3D the renderer shares the frame's heavy half — scene assembly,
+   * culling, the shadow maps — across views and pays the main pass and
+   * post stack per view, with temporal state (TAA history, exposure) per
+   * view. Shadows stay fitted to the main camera. In 2D the view is a
+   * renderer instance of the same backend on its canvas, and the scene is
+   * walked once more per view.
+   *
+   * No game UI, HUD or overlay draws on a view's canvas, and views take no
+   * input; they are cameras, not screens.
+   *
+   * @param {HTMLCanvasElement} canvas - Sized by the caller; after changing
+   *   its backing size, size the camera too (and in 3D call
+   *   `renderer.resizeView(view.handle)`)
+   * @returns {{canvas: HTMLCanvasElement, camera: object, dimensions: number}}
+   */
+  addView(canvas) {
+    if (this.headless) throw new Error('M2D headless: a headless game has no display to view');
+    const width = Math.max(1, canvas.width);
+    const height = Math.max(1, canvas.height);
+    if (this.renderer.dimensions === 3) {
+      const camera = new Camera3D(width, height);
+      const handle = this.renderer.createView(canvas, camera);
+      const view = { canvas, camera, handle, dimensions: 3 };
+      this.views.push(view);
+      return view;
+    }
+    const renderer = new this.renderer.constructor();
+    renderer.init(canvas, {
+      width, height,
+      worldFilter: this.options.worldFilter,
+      textureFilter: this.options.textureFilter
+    });
+    const camera = new Camera(width, height, {
+      worldWidth: this.options.worldWidth,
+      worldHeight: this.options.worldHeight
+    });
+    const view = { canvas, camera, renderer, dimensions: 2 };
+    this.views.push(view);
+    return view;
+  }
+
+  /** Drop a view from `addView` and everything it holds. The canvas stays. */
+  removeView(view) {
+    const index = this.views.indexOf(view);
+    if (index < 0) return;
+    this.views.splice(index, 1);
+    if (view.handle) this.renderer.removeView(view.handle);
+    else view.renderer.destroy();
   }
 
   /**

@@ -33,7 +33,15 @@ import {
 const HDR_FORMAT = 'rgba16float';
 const BLOOM_LEVELS = 8;
 
-export class PostPass {
+/**
+ * What every post stack shares: the pipelines, their layouts, the
+ * samplers, and the constant textures. One per renderer; each *view* of
+ * the world (the game's canvas, an editor's side viewports) runs its own
+ * `PostPass` over these, because the stack's mutable state — the TAA
+ * history, the adapted exposure, every intermediate target — belongs to
+ * one camera's sequence of frames and cannot be shared between two.
+ */
+export class PostPipelines {
   /**
    * @param {GPUDevice} device
    * @param {GPUBindGroupLayout} sceneLayout - Group 0: the frame uniform and storage arrays
@@ -97,17 +105,6 @@ export class PostPass {
       composite: pipeline(COMPOSITE_SHADER, 'composite', 4, canvasFormat)
     };
 
-    this.textures = {};
-    this.views = {};
-    this.levels = [];
-    this.groups = new Map();
-    this.viewIds = new WeakMap();
-    this.nextViewId = 1;
-    this.frameIndex = 0;
-    this.historyValid = false;
-    this.width = 0;
-    this.height = 0;
-
     const one = (label, data) => {
       const texture = device.createTexture({
         label, size: { width: 1, height: 1 }, format: HDR_FORMAT,
@@ -116,21 +113,17 @@ export class PostPass {
       device.queue.writeTexture({ texture }, new Uint16Array(data), { bytesPerRow: 8 }, { width: 1, height: 1 });
       return texture;
     };
+    this.makeOne = one;
     /** Black: no bloom, no history. */
     this.black = one('black', [0, 0, 0, 0x3c00]);
     this.blackView = this.black.createView();
-    /** Exposure 1, as a half float, in two textures the adaptation ping-pongs between. */
-    this.exposure = [one('exposure a', [0x3c00, 0, 0, 0x3c00]), one('exposure b', [0x3c00, 0, 0, 0x3c00])];
-    this.exposureViews = this.exposure.map((t) => t.createView());
-    this.exposureIndex = 0;
-    this.lum = one('luminance', [0x3c00, 0, 0, 0x3c00]);
-    this.lumView = this.lum.createView();
     /** A 16-step identity LUT strip; a frame's own replaces it. */
     this.identityLut = this.#identityLut();
     this.identityLutView = this.identityLut.createView();
-    this.lutTexture = null;
-    this.lutView = null;
-    this.lutImage = null;
+  }
+
+  destroy() {
+    for (const texture of [this.black, this.identityLut]) texture.destroy();
   }
 
   #identityLut() {
@@ -150,10 +143,44 @@ export class PostPass {
     this.device.queue.writeTexture({ texture }, data, { bytesPerRow: 256 * 4 }, { width: 256, height: 16 });
     return texture;
   }
+}
+
+/**
+ * One view's post stack: the mutable half of the frame after the meshes.
+ * Owns every target the stages write — including the TAA history and the
+ * adapted exposure, which persist across frames and belong to one camera.
+ */
+export class PostPass {
+  /** @param {PostPipelines} shared */
+  constructor(shared) {
+    this.shared = shared;
+    this.device = shared.device;
+
+    this.textures = {};
+    this.views = {};
+    this.levels = [];
+    this.groups = new Map();
+    this.viewIds = new WeakMap();
+    this.nextViewId = 1;
+    this.frameIndex = 0;
+    this.historyValid = false;
+    this.width = 0;
+    this.height = 0;
+
+    /** Exposure 1, as a half float, in two textures the adaptation ping-pongs between. */
+    this.exposure = [shared.makeOne('exposure a', [0x3c00, 0, 0, 0x3c00]), shared.makeOne('exposure b', [0x3c00, 0, 0, 0x3c00])];
+    this.exposureViews = this.exposure.map((t) => t.createView());
+    this.exposureIndex = 0;
+    this.lum = shared.makeOne('luminance', [0x3c00, 0, 0, 0x3c00]);
+    this.lumView = this.lum.createView();
+    this.lutTexture = null;
+    this.lutView = null;
+    this.lutImage = null;
+  }
 
   /** A grading LUT image (256x16 strip), uploaded once per image. */
   #lut(image) {
-    if (!image) return this.identityLutView;
+    if (!image) return this.shared.identityLutView;
     if (image !== this.lutImage) {
       this.lutTexture?.destroy();
       this.lutTexture = this.device.createTexture({
@@ -226,13 +253,13 @@ export class PostPass {
   }
 
   /** A bind group over `views` with a sampler, cached by the views' identities. */
-  #group(views, sampler = this.sampler) {
-    const key = views.map((v) => this.#id(v)).join(',') + (sampler === this.sampler ? '' : 'n');
+  #group(views, sampler = this.shared.sampler) {
+    const key = views.map((v) => this.#id(v)).join(',') + (sampler === this.shared.sampler ? '' : 'n');
     let group = this.groups.get(key);
     if (group) return group;
     const entries = [{ binding: 0, resource: views[0] }, { binding: 1, resource: sampler }];
     for (let i = 1; i < views.length; i++) entries.push({ binding: 1 + i, resource: views[i] });
-    group = this.device.createBindGroup({ layout: this.layouts[views.length - 1], entries });
+    group = this.device.createBindGroup({ layout: this.shared.layouts[views.length - 1], entries });
     this.groups.set(key, group);
     return group;
   }
@@ -265,7 +292,7 @@ export class PostPass {
    * @returns {number} Draw calls issued
    */
   run(encoder, sceneBindGroup, target, { effects, lut = null, bloomScatter = 0.75, filter = 'linear', rect = null, timestampWrites = undefined }) {
-    const p = this.pipelines;
+    const p = this.shared.pipelines;
     const v = this.views;
     let draws = 0;
     const draw = (pipeline, out, views, options) => {
@@ -312,7 +339,7 @@ export class PostPass {
     }
 
     const levels = this.levels;
-    let bloomView = this.blackView;
+    let bloomView = this.shared.blackView;
     if (effects.bloom && levels.length) {
       const scatter = Math.min(0.95, Math.max(0.05, bloomScatter));
       draw(p.prefilter, levels[0].view, [current, exposureView]);
@@ -323,7 +350,7 @@ export class PostPass {
       bloomView = levels[0].view;
     }
 
-    const sampler = filter === 'nearest' ? this.nearestSampler : this.sampler;
+    const sampler = filter === 'nearest' ? this.shared.nearestSampler : this.shared.sampler;
     this.#draw(encoder, p.composite, target, sceneBindGroup,
       this.#group([current, exposureView, bloomView, this.#lut(lut)], sampler), { rect, timestampWrites });
     draws++;
@@ -334,7 +361,7 @@ export class PostPass {
   destroy() {
     for (const texture of Object.values(this.textures)) texture.destroy();
     for (const level of this.levels) level.texture.destroy();
-    for (const texture of [this.black, this.lum, this.identityLut, ...this.exposure]) texture.destroy();
+    for (const texture of [this.lum, ...this.exposure]) texture.destroy();
     this.lutTexture?.destroy();
     this.textures = {};
     this.levels = [];

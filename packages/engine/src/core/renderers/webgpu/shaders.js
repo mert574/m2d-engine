@@ -566,7 +566,13 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
  * Passes the cull shader can test at once: the camera, every shadow
  * map, and the six faces of every shadow cube.
  */
-export const MAX_CULL_PASSES = 1 + MAX_CASCADES + MAX_SPOT_SHADOWS + MAX_POINT_SHADOWS * 6;
+/**
+ * Camera passes (the primary view plus up to seven more — an editor's side
+ * views) before the shadow passes. The cull tests every pass in one
+ * dispatch, so this is a compile-time bound on views plus shadow maps.
+ */
+export const MAX_VIEWS = 8;
+export const MAX_CULL_PASSES = MAX_VIEWS + MAX_CASCADES + MAX_SPOT_SHADOWS + MAX_POINT_SHADOWS * 6;
 
 /**
  * Frustum culling on the GPU, for every pass at once. One invocation per
@@ -581,7 +587,8 @@ export const CULL_SHADER = /* wgsl */ `
 ${COMMON}
 
 struct CullParams {
-  // x pass count, y instance count, z group count.
+  // x pass count, y instance count, z group count, w the index of the
+  // first shadow pass (every pass before it is a camera view).
   counts: vec4u,
   planes: array<vec4f, ${MAX_CULL_PASSES * 6}>,
 };
@@ -626,7 +633,8 @@ fn main(@builtin(global_invocation_id) id: vec3u) {
   if (coverage < range.x || coverage >= range.y) { return; }
   let passes = cull.counts.x;
   for (var p = 0u; p < passes; p++) {
-    if (p > 0u && inst.skin.w < 0.5) { continue; }
+    // A shadow pass sees only casters; every camera view sees everything.
+    if (p >= cull.counts.w && inst.skin.w < 0.5) { continue; }
     var inside = true;
     for (var k = 0u; k < 6u; k++) {
       let plane = cull.planes[p * 6u + k];

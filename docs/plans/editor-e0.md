@@ -230,7 +230,57 @@ can an agent without hallucinating. Mirror the constraint pattern:
 carries a schema, the loader validates against it, and `fieldsOf` on an
 actor yields an inspector-ready field list.
 
-### E0.5 — Multiple views of one scene
+### E0.5 — Multiple views of one scene — **Done, Nov 2026**
+
+Landed as `game.addView(canvas)` / `removeView(view)` over a renderer
+that is now view-structured. The realized shape differs from the planned
+`render(frame, views)` in one way worth recording: a view's GPU state
+(TAA history, adapted exposure, cluster grid, previous view-projection)
+must persist across frames, so views are *created* on the renderer
+(`createView(canvas, camera)`) rather than passed per call — a per-call
+array could not own a history.
+
+**How it works in 3D.** The frame uniform stays one buffer: each view's
+camera is written into it *between submits*, and because `writeBuffer`
+is itself a queue operation, each view's submit sees its own write — no
+bind-group explosion. Per frame: scene assembly, uploads, the GPU cull
+and the shadow maps run once (the cull tests every view's frustum in one
+dispatch — views are passes `0..V-1`, shadows after, with the
+caster-skip now keyed on a first-shadow-pass index in the cull params);
+per view: the main pass, the light-cluster rebuild, the post stack and
+the composite into its own canvas, which one shared `GPUDevice` happily
+configures. `PostPass` split into shared `PostPipelines` and a per-view
+stack, so a new view costs targets, not seventeen pipelines.
+
+**What a side view shares rather than owns**, each an editor-acceptable
+call recorded here: the shadow maps (fitted to the primary camera's
+frustum), the LOD the cull picks (the primary camera's), and the light
+fade distances `Frame3D.addLight` bakes in at add time. `MAX_VIEWS` is 8
+and `MAX_CULL_PASSES` grew to fit views + all shadow passes, with a
+runtime check where there was silent truncation before.
+
+**2D** needed no renderer change: the world pass is immediate-mode, so
+each view is a second renderer instance of the same backend, and
+`drawWorld` walks the scene once more per view with `game.renderer` and
+`game.camera` swapped for the walk — the one place that indirection is
+serviced, as the code map predicted.
+
+**Measured** (SwiftShader, 320×180, ~200 instances, medium shadows):
+1 view ≈ 102 ms, 2 ≈ 163 ms, 4 ≈ 284 ms — each extra view costs ~60% of
+a single-view frame, which is the main pass + post stack, with the
+shared ~40% (assembly, cull, shadows) paid once. Software-rasterizer
+numbers; the proportions, not the milliseconds, are the finding. Real-GPU
+numbers await a desktop run of `yard?views=2`, the demo deliverable: a
+picture-in-picture canvas circling the hero on its own camera while the
+main view stays interactive.
+
+Tests: `test/browser/views.test.js` — two 3D views showing different
+pictures of one assembled frame (instances counted once), a view facing
+the scene from the opposite side (its frustum culled independently),
+remove-and-keep-rendering, and the 2D two-canvas walk with the
+renderer/camera swap proven restored. Plus one readback lesson: a WebGPU
+canvas texture expires when the task ends, so reading two views means
+enqueueing both copies before the first await.
 
 Hard requirement. Today the 3D renderer binds exactly one canvas, draws
 one camera, and keeps per-frame state (TAA history, auto-exposure,

@@ -232,6 +232,38 @@ const yardScene = {
 game.sceneManager.addScene('yard', yardScene);
 game.sceneManager.addScene('lot', { ...yardScene, fetch: async () => (await import('./scenes/lot.json')).default });
 
+// `?views=2`: a second live view of the same running scene — the
+// multi-view path an editor's side viewports stand on. A
+// picture-in-picture canvas slowly circles the hero on a camera of its
+// own while the main view stays yours to orbit; one frame is assembled
+// and shadowed for both, and each pays only its own main pass and post.
+if (new URLSearchParams(location.search).get('views') === '2') {
+  const pip = document.createElement('canvas');
+  pip.width = 426;
+  pip.height = 240;
+  Object.assign(pip.style, {
+    position: 'absolute', right: '16px', bottom: '16px',
+    width: '426px', height: '240px',
+    border: '1px solid rgba(255, 255, 255, 0.25)', borderRadius: '4px',
+    // The main canvas keeps every pointer: a view is a camera, not a screen.
+    pointerEvents: 'none'
+  });
+  document.querySelector('.stage').appendChild(pip);
+  const view = game.addView(pip);
+  view.camera.mode = 'free';
+  let angle = 0;
+  const circle = () => {
+    if (!game.running) { requestAnimationFrame(circle); return; }
+    angle += 0.003;
+    const target = game.player?.position ?? { x: 0, y: 0, z: 0 };
+    view.camera.position = { x: target.x + Math.cos(angle) * 14, y: 6, z: target.z + Math.sin(angle) * 14 };
+    view.camera.lookAt = { x: target.x, y: 1, z: target.z };
+    view.camera.update(0);
+    requestAnimationFrame(circle);
+  };
+  circle();
+}
+
 loadAmbience(game.soundManager);
 new SettingsMenu(game).addOption(audioOption(game));
 game.start();

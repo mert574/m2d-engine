@@ -5,13 +5,13 @@ import { webgpuDevice } from './webgpu/device.js';
 import {
   SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER, CULL_SHADER,
   LIGHT_CLUSTER_SHADER, FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES,
-  MAX_SPOT_SHADOWS, MAX_POINT_SHADOWS, POINT_SHADOW_NEAR, MAX_CULL_PASSES, CLUSTER_COUNT, CLUSTER_CAPACITY
+  MAX_SPOT_SHADOWS, MAX_POINT_SHADOWS, POINT_SHADOW_NEAR, MAX_CULL_PASSES, MAX_VIEWS, CLUSTER_COUNT, CLUSTER_CAPACITY
 } from './webgpu/shaders.js';
 import { TextureCache3D } from './webgpu/textures.js';
 import { initBasis, bestTranscodeTarget, transcodeKTX2 } from './webgpu/basis.js';
 import { setKTX2Decoder } from '../gltf.js';
 import { Environment } from './webgpu/environment.js';
-import { PostPass } from './webgpu/post.js';
+import { PostPipelines, PostPass } from './webgpu/post.js';
 import { Frame3D, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from './frame3d.js';
 import * as mat4 from './geometry/mat4.js';
 
@@ -113,13 +113,23 @@ export class WebGPURenderer extends BaseRenderer {
     this.frameUniform = null;
     this.frameData = new Float32Array(FRAME_UNIFORM_FLOATS);
     this.sceneBindGroupLayout = null;
-    this.sceneBindGroup = null;
     /** Group 1 of the mesh pass: the shadow map and the environment. */
     this.lightingBindGroup = null;
     /** @type {Environment|null} */
     this.environment = null;
-    /** @type {PostPass|null} */
-    this.post = null;
+    /** @type {PostPipelines|null} The pipelines every view's post stack shares. */
+    this.postPipelines = null;
+    /**
+     * The views of the world this renderer draws each frame. `views[0]` is
+     * the game's own canvas, made at `init` and driven by `frame.camera`;
+     * the rest come from `createView` — an editor's side viewports — each
+     * with a camera of its own. Everything camera-dependent lives on the
+     * view record: its canvas context, its MSAA and depth targets, its
+     * post stack (TAA history, adapted exposure), its light-cluster grid
+     * and the bind groups that read it, and its previous view-projection.
+     * See `render` for how one frame serves them all.
+     */
+    this.views = [];
     this.lightBuffer = null;
     this.lightData = new Float32Array(MAX_LIGHTS * LIGHT_FLOATS);
     this.materialBindGroupLayout = null;
@@ -139,9 +149,6 @@ export class WebGPURenderer extends BaseRenderer {
     this.jointCapacity = 0;
     this.jointData = new Float32Array(0);
 
-    this.colorTextures = [];
-    this.colorViews = [];
-    this.depthTexture = null;
     /** Shadow maps: a depth array for the sun's cascades and one for the spots. */
     this.sunShadowTexture = null;
     this.spotShadowTexture = null;
@@ -160,10 +167,12 @@ export class WebGPURenderer extends BaseRenderer {
     this.shadowQuality = 'medium';
     /** Which post stages run; the frame's `post` block holds their strengths. */
     this.effects = { taa: true, ao: true, dof: true, motionBlur: true, autoExposure: true, bloom: true, film: true };
-    this.previousViewProjection = mat4.create();
     this.jitteredViewProjection = mat4.create();
     this.frameCounter = 0;
     this.lastFrameTime = 0;
+    /** This frame's wall-clock step, computed once in `render` and read by every view's uniform. */
+    this.frameDt = 1 / 60;
+    this.frameNow = 0;
     this.startTime = typeof performance !== 'undefined' ? performance.now() : 0;
     this.cascadeScratch = { eye: { x: 0, y: 0, z: 0 }, view: mat4.create(), projection: mat4.create(), lightBasis: mat4.create() };
 
@@ -181,14 +190,11 @@ export class WebGPURenderer extends BaseRenderer {
     this.cullBindGroup = null;
     this.cullParams = null;
     this.cullData = new Float32Array(4 + MAX_CULL_PASSES * 6 * 4);
-    /** The light cluster pass: its pipeline and the grid it fills. */
+    /** The light cluster pass: its pipeline; each view owns the grid it fills. */
     this.clusterPipeline = null;
     this.clusterSceneLayout = null;
     this.clusterSceneBindGroup = null;
     this.clusterBindGroupLayout = null;
-    this.clusterBindGroup = null;
-    this.clusterCountBuffer = null;
-    this.clusterIndexBuffer = null;
     this.groupStartsBuffer = null;
     this.groupLodBuffer = null;
     this.groupStartsCapacity = 0;
@@ -216,8 +222,13 @@ export class WebGPURenderer extends BaseRenderer {
     /** @type {WeakMap<object, GPUBuffer[]>} geometry -> its morph buffers */
     this.morphBuffers = new WeakMap();
 
-    /** The canvas texture of the frame being drawn; valid until the task ends. */
+    /** The primary canvas's texture of the frame being drawn; valid until the task ends. */
     this.currentTexture = null;
+  }
+
+  /** The primary view's post stack; tests and the error recovery reach it here. */
+  get post() {
+    return this.views[0]?.post ?? null;
   }
 
   /** Fullscreen takes the canvas's parent, so the HUD overlay comes along. */
@@ -230,14 +241,8 @@ export class WebGPURenderer extends BaseRenderer {
   init(element, options = {}) {
     this.canvas = element;
     this.device = webgpuDevice();
-    this.context = element.getContext('webgpu');
-    if (!this.context) throw new Error('WebGPURenderer: the canvas has no WebGPU context (is another context already on it?)');
     this.format = navigator.gpu.getPreferredCanvasFormat();
-    // COPY_SRC is for `readPixels`; it costs nothing when unused.
-    this.context.configure({
-      device: this.device, format: this.format, alphaMode: 'opaque',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
-    });
+    this.context = this.#configureCanvas(element);
 
     if (options.worldFilter) super.setWorldFilter(options.worldFilter);
     if (options.textureFilter) super.setTextureFilter(options.textureFilter);
@@ -248,8 +253,89 @@ export class WebGPURenderer extends BaseRenderer {
 
     this.#createOverlay(element, options, viewport);
     this.#createResources();
+    // The primary view: the game's canvas, drawn with `frame.camera`.
+    this.views.push(this.#makeView(element, this.context, null));
     this.setViewport(viewport);
     return true;
+  }
+
+  /** A canvas configured onto this renderer's device and format. */
+  #configureCanvas(element) {
+    const context = element.getContext('webgpu');
+    if (!context) throw new Error('WebGPURenderer: the canvas has no WebGPU context (is another context already on it?)');
+    // COPY_SRC is for `readPixels`; it costs nothing when unused.
+    context.configure({
+      device: this.device, format: this.format, alphaMode: 'opaque',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+    });
+    return context;
+  }
+
+  /** A view record over a configured canvas; `camera: null` means `frame.camera`. */
+  #makeView(canvas, context, camera) {
+    const device = this.device;
+    const view = {
+      canvas, context, camera,
+      post: new PostPass(this.postPipelines),
+      colorTextures: [], colorViews: [], depthTexture: null,
+      // One u32 per cluster, and CLUSTER_CAPACITY light indices per
+      // cluster. Per view: the grid is the camera's frustum, diced.
+      clusterCountBuffer: device.createBuffer({
+        label: 'cluster counts', size: CLUSTER_COUNT * 4, usage: GPUBufferUsage.STORAGE
+      }),
+      clusterIndexBuffer: device.createBuffer({
+        label: 'cluster light indices', size: CLUSTER_COUNT * CLUSTER_CAPACITY * 4, usage: GPUBufferUsage.STORAGE
+      }),
+      sceneBindGroup: null, clusterBindGroup: null,
+      previousViewProjection: mat4.create(), previousValid: false,
+      currentTexture: null,
+      worldWidth: 0, worldHeight: 0,
+      /** The content rectangle the composite writes; null fills the canvas. */
+      rect: null
+    };
+    this.#viewBindGroups(view);
+    return view;
+  }
+
+  /**
+   * A second live view of the world: `canvas` gets this frame's scene from
+   * `camera`'s point of view, with a post stack, light clusters and
+   * temporal history of its own. The heavy half of the frame — scene
+   * assembly, the cull, the shadow maps — is shared with every other view;
+   * see `render`. The camera is the caller's to move and to size
+   * (`camera.resize`) when the canvas changes; after changing the canvas's
+   * backing size, call `resizeView`.
+   *
+   * @param {HTMLCanvasElement} canvas
+   * @param {object} camera - A `Camera3D`
+   * @returns {object} The view handle, for `resizeView` and `removeView`
+   */
+  createView(canvas, camera) {
+    if (this.views.length >= MAX_VIEWS) {
+      throw new Error(`WebGPURenderer: at most ${MAX_VIEWS} views (the cull tests every view in one dispatch)`);
+    }
+    const view = this.#makeView(canvas, this.#configureCanvas(canvas), camera);
+    this.views.push(view);
+    this.resizeView(view);
+    return view;
+  }
+
+  /** Size a view's targets to its canvas's backing store. The primary view follows `setViewport` instead. */
+  resizeView(view) {
+    this.#resizeView(view, Math.max(1, view.canvas.width), Math.max(1, view.canvas.height));
+  }
+
+  /** Drop a view made by `createView` and everything it holds. */
+  removeView(view) {
+    const index = this.views.indexOf(view);
+    if (index <= 0) return;
+    this.views.splice(index, 1);
+    for (const t of view.colorTextures) t.destroy();
+    view.depthTexture?.destroy();
+    view.post.destroy();
+    view.clusterCountBuffer.destroy();
+    view.clusterIndexBuffer.destroy();
+    view.context.unconfigure();
   }
 
   #createOverlay(element, options, viewport) {
@@ -293,17 +379,6 @@ export class WebGPURenderer extends BaseRenderer {
       label: 'lights',
       size: MAX_LIGHTS * LIGHT_FLOATS * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
-    });
-    // One u32 per cluster, and CLUSTER_CAPACITY light indices per cluster.
-    this.clusterCountBuffer = device.createBuffer({
-      label: 'cluster counts',
-      size: CLUSTER_COUNT * 4,
-      usage: GPUBufferUsage.STORAGE
-    });
-    this.clusterIndexBuffer = device.createBuffer({
-      label: 'cluster light indices',
-      size: CLUSTER_COUNT * CLUSTER_CAPACITY * 4,
-      usage: GPUBufferUsage.STORAGE
     });
     this.sceneBindGroupLayout = device.createBindGroupLayout({
       label: 'scene',
@@ -428,7 +503,7 @@ export class WebGPURenderer extends BaseRenderer {
     }
     this.shadowSampler = device.createSampler({ compare: 'less', magFilter: 'linear', minFilter: 'linear' });
     this.environment = new Environment(device, this.sceneBindGroupLayout);
-    this.post = new PostPass(device, this.sceneBindGroupLayout, this.format);
+    this.postPipelines = new PostPipelines(device, this.sceneBindGroupLayout, this.format);
     this.materialBindGroupLayout = device.createBindGroupLayout({
       label: 'material',
       entries: [
@@ -600,23 +675,32 @@ export class WebGPURenderer extends BaseRenderer {
     const { backingWidth, backingHeight, worldWidth, worldHeight } = viewport;
     this.canvas.width = backingWidth;
     this.canvas.height = backingHeight;
-    for (const t of this.colorTextures ?? []) t.destroy();
-    this.depthTexture?.destroy();
     // The world renders at the resolution setting and is presented into the
     // content rectangle, as the 2D backends do; see viewport.js.
-    const size = { width: worldWidth, height: worldHeight };
-    this.colorTextures = MAIN_TARGETS.map(({ label, format }) => this.device.createTexture({
+    const primary = this.views[0];
+    this.#resizeView(primary, worldWidth, worldHeight);
+    primary.rect = [viewport.contentX, viewport.contentY, viewport.contentWidth, viewport.contentHeight];
+    if (this.overlayCanvas) this.#placeOverlay();
+    this.uiBackend?.setViewport(viewport);
+  }
+
+  /** (Re)create one view's render targets and post stack for a world size. */
+  #resizeView(view, width, height) {
+    for (const t of view.colorTextures) t.destroy();
+    view.depthTexture?.destroy();
+    const size = { width, height };
+    view.colorTextures = MAIN_TARGETS.map(({ label, format }) => this.device.createTexture({
       label: `${label} (msaa)`, size, sampleCount: SAMPLES, format,
       usage: GPUTextureUsage.RENDER_ATTACHMENT
     }));
-    this.colorViews = this.colorTextures.map((t) => t.createView());
-    this.post.resize(worldWidth, worldHeight);
-    this.depthTexture = this.device.createTexture({
+    view.colorViews = view.colorTextures.map((t) => t.createView());
+    view.post.resize(width, height);
+    view.depthTexture = this.device.createTexture({
       label: 'depth (msaa)', size, sampleCount: SAMPLES, format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
-    if (this.overlayCanvas) this.#placeOverlay();
-    this.uiBackend?.setViewport(viewport);
+    view.worldWidth = width;
+    view.worldHeight = height;
   }
 
   setWorldFilter(filter) {
@@ -632,20 +716,26 @@ export class WebGPURenderer extends BaseRenderer {
   destroy() {
     this.uiBackend?.destroy();
     this.overlayCanvas?.remove?.();
-    for (const texture of [...(this.colorTextures ?? []), this.depthTexture, this.sunShadowTexture, this.spotShadowTexture, this.pointShadowTexture]) texture?.destroy();
+    for (const view of this.views) {
+      for (const t of view.colorTextures) t.destroy();
+      view.depthTexture?.destroy();
+      view.post.destroy();
+      view.clusterCountBuffer.destroy();
+      view.clusterIndexBuffer.destroy();
+      if (view !== this.views[0]) view.context.unconfigure();
+    }
+    this.views = [];
+    for (const texture of [this.sunShadowTexture, this.spotShadowTexture, this.pointShadowTexture]) texture?.destroy();
     for (const buffer of this.shadowPassUniforms) buffer.destroy();
     this.shadowPassUniforms = [];
     this.shadowPassGroups = [];
     this.textures?.destroy();
     this.textures = null;
     this.environment?.destroy();
-    this.post?.destroy();
+    this.postPipelines?.destroy();
     this.lightBuffer?.destroy();
-    this.clusterCountBuffer?.destroy();
-    this.clusterIndexBuffer?.destroy();
-    this.environment = this.post = this.lightBuffer = null;
-    this.clusterCountBuffer = this.clusterIndexBuffer = null;
-    this.clusterSceneBindGroup = this.clusterBindGroup = null;
+    this.environment = this.postPipelines = this.lightBuffer = null;
+    this.clusterSceneBindGroup = null;
     this.materialCache = new WeakMap();
     this.defaultMaterial = null;
     this.frameUniform?.destroy();
@@ -664,8 +754,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.context?.unconfigure();
     this.uiBackend = null;
     this.overlayCanvas = null;
-    this.colorTextures = [];
-    this.depthTexture = this.sunShadowTexture = this.spotShadowTexture = this.lightingBindGroup = null;
+    this.sunShadowTexture = this.spotShadowTexture = this.lightingBindGroup = null;
     this.pointShadowTexture = null;
     this.pointShadowFaces = [];
     this.frameUniform = this.instanceBuffer = null;
@@ -684,6 +773,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.canvas = null;
   }
 
+
   // === The frame ===
 
   /**
@@ -701,20 +791,44 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /**
-   * Draw one frame.
+   * Draw one frame, once per view.
+   *
+   * The frame is assembled, culled and shadowed once — the cull tests
+   * every view's frustum in one dispatch (views are passes `0..V-1`, the
+   * shadow maps after them) and the shadow maps are planned for the
+   * primary camera. Then each view gets a submit of its own: the frame
+   * uniform is rewritten with that view's camera between submits (a
+   * `writeBuffer` is a queue operation, so each submit sees its own
+   * write), its light clusters are rebuilt, and its main pass and post
+   * stack run into its canvas. Per-view cost is therefore the main pass
+   * plus post; the scene walk, uploads, cull and shadows are paid once.
+   *
+   * What a side view shares with the primary rather than owning: the
+   * shadow maps (fitted to the primary camera's frustum — right for an
+   * editor, where side views are working views), the level of detail the
+   * cull picks (the primary camera's), and the light fade distances baked
+   * into the frame by `Frame3D.addLight`.
+   *
    * @param {Frame3D} frame
    */
   render(frame) {
     super.beginFrame();
     const device = this.device;
-    this.#jitter(frame);
+    const views = this.views;
+    const primary = views[0];
+    // One wall-clock step for the whole frame, read by every view's
+    // uniform write and by the shadow fade, so N views see one dt.
+    const now = (typeof performance !== 'undefined' ? performance.now() : 0) - this.startTime;
+    this.frameDt = this.lastFrameTime ? Math.min(0.1, (now - this.lastFrameTime) / 1000) : 1 / 60;
+    this.frameNow = now;
+    this.lastFrameTime = now;
+
     const shadows = this.#planShadows(frame);
     this.#useEnvironment(frame.environment?.image ?? null);
-    this.#writeFrameUniform(frame, shadows);
     this.#uploadLights(frame);
     this.#uploadJoints(frame);
     this.#uploadMorphs(frame);
-    const layout = this.#assemble(frame, 1 + shadows.passes.length);
+    const layout = this.#assemble(frame, views.length + shadows.passes.length);
     this.#writeCullParams(frame, shadows, layout);
     this.stats.instances = layout.total;
 
@@ -724,13 +838,16 @@ export class WebGPURenderer extends BaseRenderer {
     // done survive while the textures stay black. One bad frame must
     // heal, not poison everything keyed off it.
     device.pushErrorScope('validation');
+
+    // Submit 0: the shared work and the primary view.
+    this.#writeFrameUniform(frame, shadows, primary, frame.camera);
     const encoder = device.createCommandEncoder({ label: 'frame' });
     // Resident batches into this frame's instance buffer, GPU to GPU. The
     // per-frame records were written to the queue above, so they land first.
     for (const copy of layout.copies) {
       encoder.copyBufferToBuffer(copy.buffer, 0, this.instanceBuffer, copy.offset * INSTANCE_BYTES, copy.count * INSTANCE_BYTES);
     }
-    if (this.environment.update(encoder, frame, this.sceneBindGroup)) this.stats.stateChanges++;
+    if (this.environment.update(encoder, frame, primary.sceneBindGroup)) this.stats.stateChanges++;
 
     const stamps = this.hasTimestamps;
     const cull = encoder.beginComputePass({
@@ -746,7 +863,7 @@ export class WebGPURenderer extends BaseRenderer {
     // writes its own count, so there is nothing to clear first.
     cull.setPipeline(this.clusterPipeline);
     cull.setBindGroup(0, this.clusterSceneBindGroup);
-    cull.setBindGroup(1, this.clusterBindGroup);
+    cull.setBindGroup(1, primary.clusterBindGroup);
     cull.dispatchWorkgroups(Math.ceil(CLUSTER_COUNT / 64));
     cull.end();
 
@@ -758,49 +875,101 @@ export class WebGPURenderer extends BaseRenderer {
         colorAttachments: [],
         depthStencilAttachment: { view, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' }
       });
-      pass.setBindGroup(0, this.sceneBindGroup);
+      pass.setBindGroup(0, primary.sceneBindGroup);
       pass.setBindGroup(1, this.shadowPassGroups[i]);
-      this.#drawGroups(pass, layout, 'shadow', 1 + i);
+      this.#drawGroups(pass, layout, 'shadow', views.length + i);
       pass.end();
     }
 
-    const resolves = this.post.attachments;
+    this.#renderView(encoder, frame, primary, frame.camera, 0, layout, {
+      rect: primary.rect,
+      timestampWrites: stamps ? { querySet: this.querySet, endOfPassWriteIndex: 1 } : undefined
+    });
+    this.currentTexture = primary.currentTexture;
+
+    const slot = this.#stageStats(encoder, layout);
+    device.queue.submit([encoder.finish()]);
+
+    // Each remaining view: rewrite the frame uniform for its camera, then
+    // a submit of its own — the queue runs writes and submits in order,
+    // so every pass in a view's submit sees that view's camera.
+    for (let i = 1; i < views.length; i++) {
+      const view = views[i];
+      const camera = view.camera ?? frame.camera;
+      this.#writeFrameUniform(frame, shadows, view, camera);
+      const viewEncoder = device.createCommandEncoder({ label: 'view' });
+      const cluster = viewEncoder.beginComputePass({ label: 'view clusters' });
+      cluster.setPipeline(this.clusterPipeline);
+      cluster.setBindGroup(0, this.clusterSceneBindGroup);
+      cluster.setBindGroup(1, view.clusterBindGroup);
+      cluster.dispatchWorkgroups(Math.ceil(CLUSTER_COUNT / 64));
+      cluster.end();
+      this.#renderView(viewEncoder, frame, view, camera, i, layout, { rect: view.rect });
+      device.queue.submit([viewEncoder.finish()]);
+    }
+
+    device.popErrorScope().then((error) => {
+      if (!error || this.device !== device) return;
+      console.error(`M2D: a frame was discarded (${error.message}); re-baking what it carried`);
+      this.environment?.invalidate();
+      this.pointShadowCache = [];
+      for (const view of this.views) view.post.historyValid = false;
+    }, () => {
+      // The scope's promise rejects once the device is lost; `device.lost`
+      // reports that, and a rejection a frame would only add noise.
+    });
+    if (slot) this.#readStats(slot);
+    // What the cull decided last frame is the best answer this frame has.
+    this.stats.primitives = this.stats.drawn;
+    // Each view's unjittered camera is its next frame's previous.
+    for (const view of views) {
+      const camera = (view === primary ? frame.camera : view.camera) ?? frame.camera;
+      if (camera.viewProjection) {
+        view.previousViewProjection.set(camera.viewProjection);
+        view.previousValid = true;
+      }
+    }
+    this.frameCounter++;
+  }
+
+  /** One view's main pass and post stack, into its canvas. */
+  #renderView(encoder, frame, view, camera, passIndex, layout, { rect = null, timestampWrites = undefined } = {}) {
+    const resolves = view.post.attachments;
     const pass = encoder.beginRenderPass({
       label: 'main',
-      colorAttachments: this.colorViews.map((view, i) => ({
-        view,
+      colorAttachments: view.colorViews.map((target, i) => ({
+        view: target,
         resolveTarget: resolves[i],
         clearValue: { r: 0, g: 0, b: 0, a: 1 },
         loadOp: 'clear',
         storeOp: 'discard'
       })),
       depthStencilAttachment: {
-        view: this.depthTexture.createView(),
+        view: view.depthTexture.createView(),
         depthClearValue: 1,
         depthLoadOp: 'clear',
         depthStoreOp: 'discard'
       }
     });
-    pass.setBindGroup(0, this.sceneBindGroup);
+    pass.setBindGroup(0, view.sceneBindGroup);
     pass.setPipeline(this.skyPipeline);
     pass.draw(3);
     this.stats.drawCalls++;
 
     pass.setBindGroup(1, this.lightingBindGroup);
     this.stats.stateChanges += 2;
-    this.#drawGroups(pass, layout, 'main', 0);
+    this.#drawGroups(pass, layout, 'main', passIndex);
     // Blended surfaces last, over the finished opaque depth, farthest
-    // first. They share the camera's cull and its indirect arguments —
-    // pass 0 — so all this costs is a second walk of its groups.
-    const transparent = this.#transparentOrder(layout, frame);
-    if (transparent.length) this.#drawGroups(pass, layout, 'transparent', 0, transparent);
+    // first. They share the view's cull and its indirect arguments, so
+    // all this costs is a second walk of its groups.
+    const transparent = this.#transparentOrder(layout, camera);
+    if (transparent.length) this.#drawGroups(pass, layout, 'transparent', passIndex, transparent);
     pass.end();
 
-    this.currentTexture = this.context.getCurrentTexture();
-    const { contentX, contentY, contentWidth, contentHeight } = this.viewport;
+    view.currentTexture = view.context.getCurrentTexture();
     const e = this.effects;
     const post = frame.post ?? {};
-    this.stats.drawCalls += this.post.run(encoder, this.sceneBindGroup, this.currentTexture.createView(), {
+    this.stats.drawCalls += view.post.run(encoder, view.sceneBindGroup, view.currentTexture.createView(), {
       effects: {
         ao: e.ao && (post.ao?.intensity ?? 0) > 0,
         taa: e.taa,
@@ -812,28 +981,9 @@ export class WebGPURenderer extends BaseRenderer {
       lut: post.grade?.lut ?? null,
       bloomScatter: frame.bloom?.scatter ?? 0.75,
       filter: this.worldFilter,
-      rect: [contentX, contentY, contentWidth, contentHeight],
-      timestampWrites: stamps ? { querySet: this.querySet, endOfPassWriteIndex: 1 } : undefined
+      rect,
+      timestampWrites
     });
-
-    const slot = this.#stageStats(encoder, layout);
-    device.queue.submit([encoder.finish()]);
-    device.popErrorScope().then((error) => {
-      if (!error || this.device !== device) return;
-      console.error(`M2D: a frame was discarded (${error.message}); re-baking what it carried`);
-      this.environment?.invalidate();
-      this.pointShadowCache = [];
-      this.post.historyValid = false;
-    }, () => {
-      // The scope's promise rejects once the device is lost; `device.lost`
-      // reports that, and a rejection a frame would only add noise.
-    });
-    if (slot) this.#readStats(slot);
-    // What the cull decided last frame is the best answer this frame has.
-    this.stats.primitives = this.stats.drawn;
-    // This frame's unjittered camera is next frame's previous.
-    if (frame.camera.viewProjection) this.previousViewProjection.set(frame.camera.viewProjection);
-    this.frameCounter++;
   }
 
   /**
@@ -916,14 +1066,24 @@ export class WebGPURenderer extends BaseRenderer {
     return { groups, total, copies, passCount };
   }
 
-  /** The cull's planes: the camera's frustum for pass 0, each shadow map's after it. */
+  /** The cull's planes: each view's frustum first, each shadow map's after them. */
   #writeCullParams(frame, shadows, layout) {
+    if (layout.passCount > MAX_CULL_PASSES) {
+      throw new Error(`WebGPURenderer: ${layout.passCount} cull passes (views + shadow maps) exceed the compiled bound of ${MAX_CULL_PASSES}`);
+    }
     const data = this.cullData;
+    const views = this.views;
     const counts = new Uint32Array(data.buffer, 0, 4);
-    counts[0] = layout.passCount; counts[1] = layout.total; counts[2] = layout.groups.length; counts[3] = 0;
-    mat4.frustumPlanes(frame.camera.viewProjection ?? IDENTITY, data.subarray(4, 28));
+    // w says where the shadow passes start, so the cull knows which
+    // passes see everything and which see only casters.
+    counts[0] = layout.passCount; counts[1] = layout.total; counts[2] = layout.groups.length; counts[3] = views.length;
+    views.forEach((view, i) => {
+      const camera = (i === 0 ? frame.camera : view.camera) ?? frame.camera;
+      mat4.frustumPlanes(camera.viewProjection ?? IDENTITY, data.subarray(4 + i * 24, 4 + (i + 1) * 24));
+    });
     shadows.passes.forEach((pass, i) => {
-      mat4.frustumPlanes(pass.matrix, data.subarray(4 + (i + 1) * 24, 4 + (i + 2) * 24));
+      const o = 4 + (views.length + i) * 24;
+      mat4.frustumPlanes(pass.matrix, data.subarray(o, o + 24));
     });
     this.device.queue.writeBuffer(this.cullParams, 0, data);
   }
@@ -970,13 +1130,16 @@ export class WebGPURenderer extends BaseRenderer {
       encoder.copyBufferToBuffer(this.timeBuffer, 0, slot.buffer, Math.max(4, argsBytes), 16);
     }
     slot.pending = true;
-    slot.layout = { passCount: layout.passCount, indexCounts: layout.groups.map((g) => g.gpu.count), argsBytes };
+    slot.layout = {
+      passCount: layout.passCount, viewCount: this.views.length,
+      indexCounts: layout.groups.map((g) => g.gpu.count), argsBytes
+    };
     return slot;
   }
 
   /** Read a staged frame's statistics when the GPU has finished with them. */
   #readStats(slot) {
-    const { passCount, indexCounts, argsBytes } = slot.layout;
+    const { passCount, viewCount, indexCounts, argsBytes } = slot.layout;
     const buffer = slot.buffer;
     const promise = buffer.mapAsync(GPUMapMode.READ).then(() => {
       // The renderer may have been destroyed while the map was pending.
@@ -987,8 +1150,10 @@ export class WebGPURenderer extends BaseRenderer {
       for (let p = 0; p < passCount; p++) {
         for (let g = 0; g < groups; g++) {
           const count = view.getUint32((p * groups + g) * ARGS_BYTES + 4, true);
+          // The readout reports the primary view; the other views' passes
+          // are neither its draws nor shadow casters.
           if (p === 0) { drawn += count; triangles += count * indexCounts[g] / 3; }
-          else casters += count;
+          else if (p >= viewCount) casters += count;
         }
       }
       if (this.hasTimestamps) {
@@ -1009,23 +1174,6 @@ export class WebGPURenderer extends BaseRenderer {
   async flushStats() {
     await this.device?.queue.onSubmittedWorkDone();
     await this.statsPending;
-  }
-
-  /**
-   * The sub-pixel jitter for temporal anti-aliasing: a Halton (2, 3) point
-   * per frame, in NDC, folded into the frame's view-projection. Off when
-   * TAA is off, so the image is steady.
-   */
-  #jitter(frame) {
-    const { worldWidth, worldHeight } = this.viewport;
-    if (!this.effects.taa) {
-      this.jitterNDC = [0, 0];
-      return;
-    }
-    const i = (this.frameCounter % 8) + 1;
-    const jx = (halton(i, 2) - 0.5) * 2 / worldWidth;
-    const jy = (halton(i, 3) - 0.5) * 2 / worldHeight;
-    this.jitterNDC = [jx, jy];
   }
 
   /** Every skinned instance's joint matrices, back to back, as the instances' offsets expect. */
@@ -1093,22 +1241,9 @@ export class WebGPURenderer extends BaseRenderer {
     this.#sceneBindGroup();
   }
 
+  /** Rebuild the bind groups that hold shared buffers, for every view. */
   #sceneBindGroup() {
-    this.sceneBindGroup = this.device.createBindGroup({
-      layout: this.sceneBindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: this.frameUniform } },
-        { binding: 1, resource: { buffer: this.instanceBuffer } },
-        { binding: 2, resource: { buffer: this.lightBuffer } },
-        { binding: 3, resource: { buffer: this.jointBuffer } },
-        { binding: 4, resource: { buffer: this.remapBuffer } },
-        { binding: 5, resource: { buffer: this.clusterCountBuffer } },
-        { binding: 6, resource: { buffer: this.clusterIndexBuffer } },
-        { binding: 7, resource: (this.environmentTexture ?? this.textures.blackHDR).createView() },
-        { binding: 8, resource: this.textures.sampler },
-        { binding: 9, resource: { buffer: this.morphBuffer } }
-      ]
-    });
+    for (const view of this.views) this.#viewBindGroups(view);
     this.cullSceneBindGroup = this.device.createBindGroup({
       layout: this.cullSceneLayout,
       entries: [
@@ -1123,11 +1258,33 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 2, resource: { buffer: this.lightBuffer } }
       ]
     });
-    this.clusterBindGroup ??= this.device.createBindGroup({
+  }
+
+  /**
+   * One view's bind groups: the scene group (shared buffers plus the
+   * view's own cluster grid) and the cluster pass's write-side group.
+   */
+  #viewBindGroups(view) {
+    view.sceneBindGroup = this.device.createBindGroup({
+      layout: this.sceneBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.frameUniform } },
+        { binding: 1, resource: { buffer: this.instanceBuffer } },
+        { binding: 2, resource: { buffer: this.lightBuffer } },
+        { binding: 3, resource: { buffer: this.jointBuffer } },
+        { binding: 4, resource: { buffer: this.remapBuffer } },
+        { binding: 5, resource: { buffer: view.clusterCountBuffer } },
+        { binding: 6, resource: { buffer: view.clusterIndexBuffer } },
+        { binding: 7, resource: (this.environmentTexture ?? this.textures.blackHDR).createView() },
+        { binding: 8, resource: this.textures.sampler },
+        { binding: 9, resource: { buffer: this.morphBuffer } }
+      ]
+    });
+    view.clusterBindGroup ??= this.device.createBindGroup({
       layout: this.clusterBindGroupLayout,
       entries: [
-        { binding: 0, resource: { buffer: this.clusterCountBuffer } },
-        { binding: 1, resource: { buffer: this.clusterIndexBuffer } }
+        { binding: 0, resource: { buffer: view.clusterCountBuffer } },
+        { binding: 1, resource: { buffer: view.clusterIndexBuffer } }
       ]
     });
   }
@@ -1217,13 +1374,13 @@ export class WebGPURenderer extends BaseRenderer {
    *
    * @returns {number[]} Indices into `layout.groups`
    */
-  #transparentOrder(layout, frame) {
+  #transparentOrder(layout, camera) {
     const order = [];
     for (let g = 0; g < layout.groups.length; g++) {
       if (layout.groups[g].transparent) order.push(g);
     }
     if (order.length < 2) return order;
-    const eye = frame.camera?.position ?? ZERO;
+    const eye = camera?.position ?? ZERO;
     const depth = new Map();
     for (const g of order) {
       const c = layout.groups[g].centroid;
@@ -1483,11 +1640,23 @@ export class WebGPURenderer extends BaseRenderer {
     return gpu;
   }
 
-  #writeFrameUniform(frame, shadows) {
+  /**
+   * The frame uniform for one view's camera. Written once per view per
+   * frame, between submits: the buffer is one, and the queue's ordering of
+   * writes and submits is what gives each view's passes its own contents.
+   */
+  #writeFrameUniform(frame, shadows, view, camera) {
     const data = this.frameData;
-    const camera = frame.camera;
     const vp = camera.viewProjection ?? IDENTITY;
-    const [jx, jy] = this.jitterNDC ?? [0, 0];
+    // The sub-pixel jitter for temporal anti-aliasing: a Halton (2, 3)
+    // point per frame, in NDC of this view's surface. Off with TAA, so
+    // the image is steady.
+    let jx = 0, jy = 0;
+    if (this.effects.taa) {
+      const i = (this.frameCounter % 8) + 1;
+      jx = (halton(i, 2) - 0.5) * 2 / view.worldWidth;
+      jy = (halton(i, 3) - 0.5) * 2 / view.worldHeight;
+    }
     // Translate in clip space: x' = x + jx * w, which is row 0, column 3.
     const jittered = this.jitteredViewProjection;
     jittered.set(vp);
@@ -1545,10 +1714,9 @@ export class WebGPURenderer extends BaseRenderer {
 
     const post = frame.post ?? {};
     const p = FRAME_OFFSETS.post;
-    const now = (typeof performance !== 'undefined' ? performance.now() : 0) - this.startTime;
-    const dt = this.lastFrameTime ? Math.min(0.1, (now - this.lastFrameTime) / 1000) : 1 / 60;
-    this.lastFrameTime = now;
-    data[p] = this.post.historyValid ? (post.taa?.blend ?? 0.1) : 1;
+    const now = this.frameNow;
+    const dt = this.frameDt;
+    data[p] = view.post.historyValid ? (post.taa?.blend ?? 0.1) : 1;
     data[p + 1] = post.ao?.radius ?? 0.8;
     data[p + 2] = post.ao?.intensity ?? 1;
     data[p + 3] = this.effects.ao && (post.ao?.intensity ?? 0) > 0 ? 1 : 0;
@@ -1580,9 +1748,8 @@ export class WebGPURenderer extends BaseRenderer {
     const tanY = Math.tan((camera.fov ?? Math.PI / 3) / 2);
     data[l] = tanY * (camera.aspect ?? 16 / 9); data[l + 1] = tanY; data[l + 2] = camera.near ?? 0.1; data[l + 3] = camera.far ?? 500;
     const j = FRAME_OFFSETS.jitter;
-    data[j] = jx; data[j + 1] = jy; data[j + 2] = this.viewport.worldWidth; data[j + 3] = this.viewport.worldHeight;
-    data.set(this.previousValid ? this.previousViewProjection : vp, FRAME_OFFSETS.previousViewProjection);
-    this.previousValid = true;
+    data[j] = jx; data[j + 1] = jy; data[j + 2] = view.worldWidth; data[j + 3] = view.worldHeight;
+    data.set(view.previousValid ? view.previousViewProjection : vp, FRAME_OFFSETS.previousViewProjection);
     this.device.queue.writeBuffer(this.frameUniform, 0, data);
   }
 
@@ -1736,10 +1903,9 @@ export class WebGPURenderer extends BaseRenderer {
         }
       }
 
-      // This frame's wall-clock step, for the fade below; `lastFrameTime`
-      // is updated later, by the frame uniform write.
-      const now = (typeof performance !== 'undefined' ? performance.now() : 0) - this.startTime;
-      const dt = this.lastFrameTime ? Math.min(0.1, (now - this.lastFrameTime) / 1000) : 1 / 60;
+      // This frame's wall-clock step, for the fade below; computed once
+      // at the top of `render`.
+      const dt = this.frameDt;
       const candidateKeys = new Set(candidates.map((c) => c.key));
       slots.forEach((candidate, cube) => {
         if (!candidate) return;
@@ -1778,10 +1944,11 @@ export class WebGPURenderer extends BaseRenderer {
    * canvas format (BGRA is swizzled). For tests and tooling: it stalls on
    * the GPU and must be called in the same task as `render`, before the
    * canvas texture is presented.
+   * @param {object} [view] - A view from `createView`; the primary by default
    * @returns {Promise<{width: number, height: number, data: Uint8ClampedArray}>}
    */
-  async readPixels() {
-    const texture = this.currentTexture;
+  async readPixels(view = null) {
+    const texture = view ? view.currentTexture : this.currentTexture;
     if (!texture) throw new Error('WebGPURenderer.readPixels: nothing has been rendered this task');
     const { width, height } = texture;
     const bytesPerRow = Math.ceil(width * 4 / 256) * 256;
