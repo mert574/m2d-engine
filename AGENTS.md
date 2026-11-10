@@ -1,13 +1,23 @@
 # M2D Engine - Agent Context
 
-M2D is a 2D browser game engine: Rapier 2D physics behind an engine-owned
-interface, a WebGL2 renderer with a Canvas 2D fallback behind one contract,
-JSON scenes validated on load, and one input API over Pointer Events and the
-keyboard. The repository is an npm workspaces monorepo.
+M2D is a browser game engine: Rapier physics behind an engine-owned
+interface, JSON scenes validated on load, and one input API over Pointer
+Events and the keyboard. The repository is an npm workspaces monorepo.
+
+A game is 2D or 3D, chosen per scene by `world.dimensions` and checked
+against the game. The two are separate worlds that never share a body, a
+camera or a renderer:
+
+| | 2D | 3D |
+| --- | --- | --- |
+| Physics | Rapier 2D | Rapier 3D |
+| Renderer | Batched WebGL2, Canvas 2D fallback | Retained WebGPU, Chromium only |
+| Units | Pixels, y down | Metres, y up |
 
 | Workspace | Contents |
 | --- | --- |
 | `packages/engine` | The engine, published to npm as `m2d-engine`. Source in `src/`, tests in `test/` |
+| `packages/server` | The authoritative multiplayer host, published as `m2d-server` |
 | `examples` | The demo games and the demo site |
 | `docs` | The VitePress documentation site |
 
@@ -61,7 +71,8 @@ npm install
 npm run dev            # examples on port 3000
 npm run dev:lan        # HTTPS on 0.0.0.0, for a browser on another machine (PORT=... picks the port)
 npm run docs:dev       # documentation site
-npm test               # node + browser engine suites, example scene validation
+npm test               # typecheck, then node + browser engine suites and example scene validation
+npm run typecheck      # every workspace that has a tsconfig
 npm run test:node      # fast engine suite
 npm run test:browser   # WebGL2 conformance in headless Chromium
 npm run build          # site/ = docs + demos
@@ -77,7 +88,7 @@ npx playwright install chromium   # once, for test:browser
   lives in the backend.
 - Nothing outside `packages/engine/src/core/input/` registers a DOM input
   listener, except the sound manager's one-shot autoplay unlock.
-- Units are pixels, seconds and radians.
+- Units are seconds and radians, with pixels in 2D and metres in 3D.
 - Simulation state changes only in `fixedUpdate(dt)` (entities, constraints),
   `onFixedUpdate(dt)` (scenes), `game.time` timers and collision handlers.
   The per-frame `update(deltaTime)` is presentation only. Simulation code

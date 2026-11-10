@@ -73,7 +73,15 @@ const PREFAB_DATA = s.object({
   spritesheet: uid({ label: 'Sprite sheet' }),
   defaultAnimation: s.string(),
   physics: s.any({ description: 'Validated as part of the scene that uses it' }),
-  constraints: s.any({ description: 'Validated as part of the scene that uses it' })
+  constraints: s.any({ description: 'Validated as part of the scene that uses it' }),
+  /**
+   * The 3D half, so a 3D prefab can live in a manifest and be shared the
+   * way a 2D one is. `mesh.model` names a model asset by uid here, as
+   * `spritesheet` does, and the loader rewrites it to the scene's local
+   * name when the prefab is bound.
+   */
+  mesh: s.any({ description: 'Validated as part of the scene that uses it; mesh.model is an asset uid' }),
+  light: s.any({ description: 'Validated as part of the scene that uses it' })
 }, { required: true });
 
 /**

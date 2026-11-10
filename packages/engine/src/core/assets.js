@@ -107,21 +107,38 @@ export class AssetDatabase {
   }
 
   /**
+   * An environment asset in the shape a scene's inline
+   * `assets.environments` entry has. The import's `intensity` is part of
+   * the entry, so a scene that binds the asset lights the same way the
+   * manifest says it should.
+   */
+  environment(uid) {
+    const asset = this.get(uid);
+    if (asset?.type !== 'environment') return null;
+    return { url: this.basePath + asset.source, ...asset.import };
+  }
+
+  /**
    * A prefab asset in the shape a scene's inline prefab has.
    *
-   * The one difference between the two is the sprite sheet: an asset names
-   * it by uid, because an asset cannot see a scene's local names, and a
-   * scene's prefab names it locally. `sheetName` maps the one to the
-   * other — the caller has just bound that sheet into the scene.
+   * The difference between the two is how assets are named: an asset names
+   * its sprite sheet and its mesh's model by uid, because an asset cannot
+   * see a scene's local names, and a scene's prefab names them locally.
+   * `sheetName` and `modelName` map the one to the other — the caller has
+   * just bound that sheet or model into the scene.
    *
    * @param {string} uid
    * @param {(sheetUid: string) => string} sheetName
+   * @param {(modelUid: string) => string} [modelName]
    */
-  prefab(uid, sheetName) {
+  prefab(uid, sheetName, modelName) {
     const asset = this.get(uid);
     if (asset?.type !== 'prefab') return null;
     const prefab = { ...asset.data };
     if (prefab.spritesheet) prefab.spritesheet = sheetName(prefab.spritesheet);
+    if (prefab.mesh?.model && modelName) {
+      prefab.mesh = { ...prefab.mesh, model: modelName(prefab.mesh.model) };
+    }
     return prefab;
   }
 }

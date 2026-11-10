@@ -96,6 +96,7 @@ export default defineConfig({
             { text: 'Architecture', link: '/contributing/architecture' },
             { text: 'Determinism', link: '/contributing/determinism' },
             { text: 'Testing', link: '/contributing/testing' },
+            { text: 'TypeScript', link: '/contributing/typescript' },
             { text: 'Writing a renderer backend', link: '/contributing/renderer-backend' },
             { text: 'Adding a demo', link: '/contributing/adding-a-demo' },
             { text: 'Deployment', link: '/contributing/deployment' },

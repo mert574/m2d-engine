@@ -80,6 +80,17 @@ An **imported** asset: there is a source file, and settings for reading it.
 
 A scene that uses it gets a `models` entry under the local name, for a prefab's `mesh.model`. See [`assets.models`](./scene-format#assets-models).
 
+### `environment`
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `type` | yes | `"environment"` |
+| `name` | no | A label |
+| `source` | yes | Path to a Radiance `.hdr` panorama, relative to `basePath` |
+| `import` | no | `intensity`, which scales the panorama's radiance |
+
+A scene that uses it gets an `environments` entry under the local name, which a 3D scene hands to `frame.environment`. See [`assets.environments`](./scene-format#assets-environments).
+
 ### `prefab`
 
 An **authored** asset: there is no file, the asset is the data.
@@ -88,9 +99,24 @@ An **authored** asset: there is no file, the asset is the data.
 | --- | --- | --- |
 | `type` | yes | `"prefab"` |
 | `name` | no | Label |
-| `data` | yes | `actor`, `spritesheet`, `defaultAnimation`, `physics`, `constraints` |
+| `data` | yes | `actor`, `spritesheet`, `defaultAnimation`, `physics`, `constraints`, `mesh`, `light` |
 
-`data` is a prefab exactly as a scene declares one, with one difference: its `spritesheet` is a **uid**, not a scene-local name. An asset cannot see a scene's names. When a scene uses the prefab, that sheet comes along with it.
+`data` is a prefab exactly as a scene declares one, with one difference: the assets it names are **uids**, not scene-local names, because an asset cannot see a scene's names. That is its `spritesheet` and, for a 3D prefab, its `mesh.model`. When a scene uses the prefab, both come along with it.
+
+A 3D prefab is therefore shareable on the same terms as a 2D one:
+
+```json
+"prefab-lamp": {
+  "type": "prefab",
+  "name": "lamp",
+  "data": {
+    "actor": "Lamp",
+    "mesh": { "model": "model-lamp", "castShadow": false },
+    "light": { "type": "point", "color": "#ffd9a0", "intensity": 12, "range": 24 },
+    "physics": { "bodyType": "static", "shape": "cylinder" }
+  }
+}
+```
 
 ## Using assets in a scene
 
@@ -111,9 +137,9 @@ A scene binds the uids it wants to short local names in its `uses` block, and re
 
 This keeps scene files legible and reviewable (the body says `"prefab": "zombie"`, not a uid) while identity rests on something a rename cannot break. Godot's `ext_resource` block works the same way.
 
-A used sprite sheet joins `assets.spritesheets` under its local name; a used prefab joins `prefabs`. By the time anything builds from the scene there is one kind of sprite sheet and one kind of prefab, whichever way they arrived.
+A used asset joins the block a scene would have written it in: a sprite sheet `assets.spritesheets`, a model `assets.models`, an environment `assets.environments`, a prefab `prefabs`. By the time anything builds from the scene there is one kind of each, whichever way they arrived.
 
-A prefab brings its sheet with it, bound under the asset's `name`, or under its uid if that name is already taken by the scene.
+A prefab brings its sheet and its mesh's model with it, each bound under that asset's `name`, or under its uid if that name is already taken by the scene.
 
 A name that is both used and declared inline is an error. A silent precedence rule there would mean one of the two quietly losing.
 
@@ -126,6 +152,7 @@ A name that is both used and declared inline is an error. A silent precedence ru
 - an imported asset has a `source`, and a sprite sheet has `frameWidth` and `frameHeight`
 - a prefab's `actor` is registered, when the database is loaded through `game.loadAssets`
 - a prefab's `spritesheet` names an asset that exists and is a sprite sheet
+- a prefab's `mesh.model` names an asset that exists and is a model, checked when a scene uses the prefab
 
 Problems with a scene's `uses` block are scene errors and throw `SceneValidationError`, like the rest of the scene format.
 
@@ -140,4 +167,5 @@ Problems with a scene's `uses` block are scene errors and throw `SceneValidation
 | `assets.uids` | Every loaded uid |
 | `assets.spritesheet(uid)` | The sheet in the shape a scene declares inline, url included |
 | `assets.model(uid)` | The model in the shape a scene declares inline: `{ url }` |
-| `assets.prefab(uid, sheetName)` | The prefab in the shape a scene declares inline, its sheet uid mapped through `sheetName` |
+| `assets.environment(uid)` | The environment in the shape a scene declares inline: `{ url, intensity }` |
+| `assets.prefab(uid, sheetName, modelName)` | The prefab in the shape a scene declares inline, its sheet and `mesh.model` uids mapped through `sheetName` and `modelName` |

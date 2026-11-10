@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+
+  // The shared compiler settings for every TypeScript workspace. A package
+  // extends this and adds only what is true of that package: its `include`,
+  // its `lib` (the base is runtime-neutral and has no DOM), and whether it
+  // emits.
+  //
+  // The engine is still plain JavaScript with JSDoc and is not checked by
+  // this yet; see the Types item in docs/contributing/roadmap.md. Turning it
+  // on is `checkJs: true` in packages/engine/tsconfig.json and nothing else.
+  "compilerOptions": {
+    // Everything the language has shipped, as long as the infrastructure
+    // runs it: ES2025 is the floor of Node 24 (the engines/CI floor) and of
+    // the Chromium the 3D renderer already requires. Raise this when the
+    // runtimes raise theirs.
+    "target": "ES2025",
+    "lib": ["ES2025"],
+
+    // Node-style resolution with explicit file extensions in relative
+    // imports, which is what the engine's own source already writes and what
+    // lets one emitted file run in Node and in a browser without a bundler.
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "noEmit": true
+  }
+}

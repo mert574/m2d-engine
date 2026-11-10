@@ -9,6 +9,7 @@
   },
   "scripts": {
     "test": "npm run test:node && npm run test:browser",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:watch": "vitest --project node",
     "test:node": "vitest run --project node",
     "test:browser": "vitest run --project browser"

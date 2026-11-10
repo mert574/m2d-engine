@@ -6,7 +6,7 @@ The authoritative multiplayer host for [m2d-engine](https://www.npmjs.com/packag
 npm install m2d-server m2d-engine
 ```
 
-Requires Node 22 or later.
+Requires Node 24 or later.
 
 - [Multiplayer guide](https://mert574.github.io/m2d-engine/guide/multiplayer)
 - [Source](https://github.com/mert574/m2d-engine)

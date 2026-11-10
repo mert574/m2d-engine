@@ -26,17 +26,19 @@ class Floor extends Entity {
 
 // A scene names the actors it uses as prefabs and places them in layers.
 const scene = {
-  version: 1, type: 'level', name: 'main',
+  version: 2, type: 'level', name: 'main',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: {
     floor: { actor: 'Floor', physics: { bodyType: 'static' } },
     ball: { actor: 'Ball', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.7 } }
   },
+  // Every object carries an id that is unique in the scene and stays the
+  // same when the file is reordered or saved again.
   layers: [{ name: 'main', objects: [
-    { prefab: 'floor', x: 320, y: 350, width: 640, height: 20 },
-    { prefab: 'ball', x: 200, y: 60, width: 32, height: 32 },
-    { prefab: 'ball', x: 320, y: 140, width: 48, height: 48 },
-    { prefab: 'ball', x: 440, y: 20, width: 24, height: 24 }
+    { id: 'floor', prefab: 'floor', x: 320, y: 350, width: 640, height: 20 },
+    { id: 'ball-1', prefab: 'ball', x: 200, y: 60, width: 32, height: 32 },
+    { id: 'ball-2', prefab: 'ball', x: 320, y: 140, width: 48, height: 48 },
+    { id: 'ball-3', prefab: 'ball', x: 440, y: 20, width: 24, height: 24 }
   ] }]
 };
 

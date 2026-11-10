@@ -16,7 +16,6 @@ packages/engine/src/
 │   ├── scene.js          Builds a scene from validated JSON
 │   ├── schema.js         Declarative schema descriptors and their validator
 │   ├── sceneSchema.js    The scene format, written as descriptors
-│   ├── sceneMigrations.js Upgrades a scene written for an older format
 │   ├── assetSchema.js    The asset manifest format, as descriptors
 │   ├── assets.js         The asset database: assets by uid
 │   ├── sceneLoader.js    Validates scene JSON against the scene schema

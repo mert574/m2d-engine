@@ -83,7 +83,7 @@ class Walker extends Block {
 }
 
 const SCENE = {
-  version: 1, name: 'bodies', type: 'level',
+  version: 2, name: 'bodies', type: 'level',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.6 } },
@@ -93,20 +93,20 @@ const SCENE = {
     walker: { actor: 'Walker', physics: { bodyType: 'character', shape: 'capsule' } }
   },
   layers: [{ name: 'main', objects: [
-    { prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
-    { prefab: 'wall', x: 10, y: 180, width: 20, height: 360 },
-    { prefab: 'wall', x: 630, y: 180, width: 20, height: 360 },
-    { prefab: 'wall', x: 110, y: 250, width: 150, height: 14, angle: 0.4, properties: { label: 'static' } },
-    { prefab: 'ball', x: 70, y: 180, width: 24, height: 24, properties: { label: 'dynamic' } },
-    { prefab: 'box', x: 330, y: 324, width: 32, height: 32 },
-    { prefab: 'box', x: 330, y: 292, width: 32, height: 32 },
-    { prefab: 'box', x: 330, y: 260, width: 32, height: 32, properties: { label: 'dynamic' } },
-    { prefab: 'platform', x: 450, y: 200, width: 120, height: 14, properties: {
+    { id: 'floor', prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
+    { id: 'wall-left', prefab: 'wall', x: 10, y: 180, width: 20, height: 360 },
+    { id: 'wall-right', prefab: 'wall', x: 630, y: 180, width: 20, height: 360 },
+    { id: 'ramp', prefab: 'wall', x: 110, y: 250, width: 150, height: 14, angle: 0.4, properties: { label: 'static' } },
+    { id: 'ball', prefab: 'ball', x: 70, y: 180, width: 24, height: 24, properties: { label: 'dynamic' } },
+    { id: 'stack-1', prefab: 'box', x: 330, y: 324, width: 32, height: 32 },
+    { id: 'stack-2', prefab: 'box', x: 330, y: 292, width: 32, height: 32 },
+    { id: 'stack-3', prefab: 'box', x: 330, y: 260, width: 32, height: 32, properties: { label: 'dynamic' } },
+    { id: 'platform', prefab: 'platform', x: 450, y: 200, width: 120, height: 14, properties: {
       label: 'kinematic', labelBelow: true,
       path: { points: [{ x: 450, y: 200 }, { x: 540, y: 120 }], speed: 80, waitTime: 800 }
     } },
-    { prefab: 'box', x: 450, y: 176, width: 28, height: 28 },
-    { prefab: 'walker', x: 200, y: 318, width: 22, height: 44, properties: { label: 'character' } }
+    { id: 'rider', prefab: 'box', x: 450, y: 176, width: 28, height: 28 },
+    { id: 'walker', prefab: 'walker', x: 200, y: 318, width: 22, height: 44, properties: { label: 'character' } }
   ] }]
 };
 

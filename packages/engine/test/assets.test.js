@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
+import { initPhysics } from '../src/core/physics/index.js';
 import { Entity } from '../src/core/entity.js';
 import { AssetDatabase, AssetManifestError } from '../src/core/assets.js';
 import { MANIFEST_VERSION } from '../src/core/assetSchema.js';
@@ -243,6 +244,153 @@ describe('a scene using assets', () => {
     const loaded = load(scene);
     expect(loaded.assets.spritesheets).toEqual(scene.assets.spritesheets);
     expect(loaded.prefabs.marker).toEqual({ actor: 'Guard' });
+  });
+});
+
+/**
+ * The 3D half of the database. A model, an HDR environment and a prefab
+ * that wears a mesh and a light all belong in a manifest for the same
+ * reason a sprite sheet does: they are shared between scenes, and the uid
+ * is the name a rename cannot break.
+ */
+describe('3D assets in a manifest', () => {
+  beforeAll(async () => {
+    await initPhysics({ dimensions: 3 });
+  });
+
+  const manifest3d = (overrides = {}) => ({
+    version: MANIFEST_VERSION,
+    basePath: 'assets/',
+    assets: {
+      'model-lamp': { type: 'model', name: 'lamp', source: 'models/lamp.glb', import: {} },
+      'env-dusk': {
+        type: 'environment', name: 'dusk', source: 'hdr/dusk.hdr', import: { intensity: 0.8 }
+      },
+      'prefab-lamp': {
+        type: 'prefab',
+        name: 'lamp',
+        data: {
+          actor: 'Guard',
+          mesh: { model: 'model-lamp', scale: 1.5, castShadow: false },
+          light: { type: 'point', color: '#ffd9a0', intensity: 12, range: 24 },
+          physics: { bodyType: 'static', shape: 'cylinder' }
+        }
+      }
+    },
+    ...overrides
+  });
+
+  const make3dGame = () => {
+    const game = new M2D(null, {
+      headless: true, dimensions: 3, worldWidth: 100, worldHeight: 100, seed: 3
+    });
+    game.registerActor('Guard', Guard);
+    return game;
+  };
+
+  const level3d = (fields = {}) => ({
+    version: SCENE_VERSION, type: 'level', name: 'yard',
+    world: { dimensions: 3, gravity: { x: 0, y: -9.81, z: 0 } },
+    ...fields
+  });
+
+  it('resolves an environment into the shape a scene declares inline', () => {
+    const db = new AssetDatabase().load(manifest3d());
+    expect(db.environment('env-dusk')).toEqual({ url: 'assets/hdr/dusk.hdr', intensity: 0.8 });
+  });
+
+  it('binds an environment to a local name through uses', () => {
+    // Before this, an environment uid in `uses` failed with "a scene
+    // cannot use directly", so an HDR could be in the manifest and
+    // unreachable from the scene that wanted to light with it.
+    const game = make3dGame();
+    game.loadAssets(manifest3d());
+    const loaded = new SceneLoader(game).load(level3d({
+      uses: { dusk: 'env-dusk' },
+      layers: []
+    }));
+
+    expect(loaded.assets.environments.dusk)
+      .toEqual({ url: 'assets/hdr/dusk.hdr', intensity: 0.8 });
+    game.destroy();
+  });
+
+  it('refuses an environment that would shadow one the scene declared', () => {
+    const game = make3dGame();
+    game.loadAssets(manifest3d());
+    expect(() => new SceneLoader(game).load(level3d({
+      uses: { dusk: 'env-dusk' },
+      assets: { environments: { dusk: { url: 'own.hdr' } } },
+      layers: []
+    }))).toThrow(/'dusk' is already an environment declared by this scene/);
+    game.destroy();
+  });
+
+  it('brings a 3D prefab in with its mesh, its light and its model', () => {
+    // The prefab names its model by uid; the scene gets a local name, and
+    // the model is bound into assets.models as though the scene wrote it.
+    const game = make3dGame();
+    game.loadAssets(manifest3d());
+    const loaded = new SceneLoader(game).load(level3d({
+      uses: { lamp: 'prefab-lamp' },
+      layers: [{ name: 'main', objects: [{ id: 'lamp-1', prefab: 'lamp', x: 0, y: 0, z: 0 }] }]
+    }));
+
+    expect(loaded.assets.models.lamp).toEqual({ url: 'assets/models/lamp.glb' });
+    expect(loaded.prefabs.lamp.mesh).toEqual({ model: 'lamp', scale: 1.5, castShadow: false });
+    expect(loaded.prefabs.lamp.light)
+      .toEqual({ type: 'point', color: '#ffd9a0', intensity: 12, range: 24 });
+    game.destroy();
+  });
+
+  it('binds one model once when two prefabs share it', () => {
+    const data = manifest3d();
+    data.assets['prefab-lamp-2'] = {
+      type: 'prefab', name: 'lamp2',
+      data: { actor: 'Guard', mesh: { model: 'model-lamp' } }
+    };
+    const game = make3dGame();
+    game.loadAssets(data);
+    const loaded = new SceneLoader(game).load(level3d({
+      uses: { a: 'prefab-lamp', b: 'prefab-lamp-2' },
+      layers: []
+    }));
+
+    expect(Object.keys(loaded.assets.models)).toEqual(['lamp']);
+    expect(loaded.prefabs.a.mesh.model).toBe('lamp');
+    expect(loaded.prefabs.b.mesh.model).toBe('lamp');
+    game.destroy();
+  });
+
+  it('gives a prefab\'s model its uid when the scene already used that name', () => {
+    const game = make3dGame();
+    game.loadAssets(manifest3d());
+    const loaded = new SceneLoader(game).load(level3d({
+      uses: { post: 'prefab-lamp' },
+      assets: { models: { lamp: { url: 'own/lamp.glb' } } },
+      layers: []
+    }));
+
+    expect(loaded.assets.models.lamp).toEqual({ url: 'own/lamp.glb' });
+    expect(loaded.assets.models['model-lamp']).toEqual({ url: 'assets/models/lamp.glb' });
+    expect(loaded.prefabs.post.mesh.model).toBe('model-lamp');
+    game.destroy();
+  });
+
+  it('rejects a prefab whose mesh names something that is not a model', () => {
+    const data = manifest3d();
+    data.assets['prefab-lamp'].data.mesh.model = 'env-dusk';
+    const game = make3dGame();
+    game.loadAssets(data);
+    expect(() => new SceneLoader(game).load(level3d({
+      uses: { lamp: 'prefab-lamp' }, layers: []
+    }))).toThrow(/mesh.model must be a model asset uid, and 'env-dusk' is a environment/);
+    game.destroy();
+  });
+
+  it('leaves a 2D prefab asset untouched by the model mapping', () => {
+    const db = new AssetDatabase().load(manifest());
+    expect(db.prefab('prefab-guard', () => 'hero', () => 'unused').mesh).toBeUndefined();
   });
 });
 

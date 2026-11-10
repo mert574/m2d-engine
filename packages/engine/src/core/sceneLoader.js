@@ -110,13 +110,14 @@ export class SceneLoader {
 
   /**
    * Expand `uses` into the inline shape: an asset bound to a local name
-   * becomes a sprite sheet in `assets.spritesheets` or a prefab in
-   * `prefabs`, exactly as if the scene had written it out. A scene that
-   * uses assets and one that declares everything itself are then the same
-   * document, so there is one format to understand and one path to test.
+   * becomes an entry in `assets.spritesheets`, `assets.models`,
+   * `assets.environments` or `prefabs`, exactly as if the scene had
+   * written it out. A scene that uses assets and one that declares
+   * everything itself are then the same document, so there is one format
+   * to understand and one path to test.
    *
-   * A used prefab brings its sheet with it, since the asset names that
-   * sheet by uid and nothing downstream resolves uids.
+   * A used prefab brings its sheet and its mesh's model with it, since the
+   * asset names those by uid and nothing downstream resolves uids.
    */
   #resolveUses(scene, fail) {
     if (!scene.uses || typeof scene.uses !== 'object') return scene;
@@ -128,12 +129,16 @@ export class SceneLoader {
 
     const spritesheets = { ...scene.assets?.spritesheets };
     const models = { ...scene.assets?.models };
+    const environments = { ...scene.assets?.environments };
     const prefabs = { ...scene.prefabs };
     const declaredSheets = new Set(Object.keys(spritesheets));
     const declaredModels = new Set(Object.keys(models));
+    const declaredEnvironments = new Set(Object.keys(environments));
     const declaredPrefabs = new Set(Object.keys(prefabs));
     /** Local name each sheet uid was bound to, so one is bound once. */
     const sheetNames = new Map();
+    /** The same, for the models a used prefab's mesh names. */
+    const modelNames = new Map();
 
     /**
      * Add a sheet under `name`, refusing to shadow one the scene wrote
@@ -158,6 +163,28 @@ export class SceneLoader {
       return addSheet(declaredSheets.has(preferred) ? uid : preferred, uid, path);
     };
 
+    /** Add a model under `name`, on the same terms as a sheet. */
+    const addModel = (name, uid, path) => {
+      if (declaredModels.has(name)) {
+        fail(path, `'${name}' is already a model declared by this scene`);
+      }
+      models[name] = database.model(uid);
+      modelNames.set(uid, name);
+      return name;
+    };
+
+    /** The local name for a prefab mesh's model, binding it on first use. */
+    const modelFor = (uid, path) => {
+      if (modelNames.has(uid)) return modelNames.get(uid);
+      const asset = database.get(uid);
+      if (asset?.type !== 'model') {
+        fail(path, `a prefab's mesh.model must be a model asset uid, and '${uid}' is ` +
+          (asset ? `a ${asset.type}` : 'not a loaded asset'));
+      }
+      const preferred = asset.name ?? uid;
+      return addModel(declaredModels.has(preferred) ? uid : preferred, uid, path);
+    };
+
     for (const [local, uid] of Object.entries(scene.uses)) {
       const path = `uses.${local}`;
       if (typeof uid !== 'string') fail(path, 'must be an asset uid');
@@ -169,13 +196,21 @@ export class SceneLoader {
       if (asset.type === 'spritesheet') {
         addSheet(local, uid, path);
       } else if (asset.type === 'model') {
-        if (declaredModels.has(local)) fail(path, `'${local}' is already a model declared by this scene`);
-        models[local] = database.model(uid);
+        addModel(local, uid, path);
+      } else if (asset.type === 'environment') {
+        if (declaredEnvironments.has(local)) {
+          fail(path, `'${local}' is already an environment declared by this scene`);
+        }
+        environments[local] = database.environment(uid);
       } else if (asset.type === 'prefab') {
         if (declaredPrefabs.has(local)) {
           fail(path, `'${local}' is already a prefab declared by this scene`);
         }
-        prefabs[local] = database.prefab(uid, sheetUid => sheetFor(sheetUid, path));
+        prefabs[local] = database.prefab(
+          uid,
+          sheetUid => sheetFor(sheetUid, path),
+          modelUid => modelFor(modelUid, path)
+        );
       } else {
         // A type added to the manifest but not taught to scenes.
         fail(path, `asset '${uid}' is a ${asset.type}, which a scene cannot use directly`);
@@ -185,6 +220,7 @@ export class SceneLoader {
     const assets = { ...scene.assets };
     if (Object.keys(spritesheets).length) assets.spritesheets = spritesheets;
     if (Object.keys(models).length) assets.models = models;
+    if (Object.keys(environments).length) assets.environments = environments;
     return {
       ...scene,
       ...(Object.keys(assets).length && { assets }),

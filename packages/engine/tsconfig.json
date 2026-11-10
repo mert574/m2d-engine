@@ -1,0 +1,12 @@
+{
+  // Placeholder. The engine is plain JavaScript with JSDoc that nothing
+  // checks; this file exists so the Types roadmap item is one flag
+  // (`checkJs: true`) rather than a toolchain decision. Until then the
+  // typecheck run only proves the config chain resolves.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2025", "DOM", "DOM.Iterable"],
+    "checkJs": false
+  },
+  "include": ["src/**/*.js"]
+}

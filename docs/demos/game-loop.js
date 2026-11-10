@@ -21,18 +21,18 @@ class Block extends Entity {
 }
 
 const scene = {
-  version: 1, type: 'level', name: 'main',
+  version: 2, type: 'level', name: 'main',
   world: { gravity: { x: 0, y: 900 } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.3 } },
     ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.8 } }
   },
   layers: [{ name: 'main', objects: [
-    { prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
-    { prefab: 'wall', x: 10, y: 180, width: 20, height: 360 },
-    { prefab: 'wall', x: 630, y: 180, width: 20, height: 360 },
-    { prefab: 'wall', x: 200, y: 200, width: 200, height: 14, angle: 0.3 },
-    { prefab: 'wall', x: 440, y: 120, width: 200, height: 14, angle: -0.3 }
+    { id: 'floor', prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
+    { id: 'wall-left', prefab: 'wall', x: 10, y: 180, width: 20, height: 360 },
+    { id: 'wall-right', prefab: 'wall', x: 630, y: 180, width: 20, height: 360 },
+    { id: 'ramp-lower', prefab: 'wall', x: 200, y: 200, width: 200, height: 14, angle: 0.3 },
+    { id: 'ramp-upper', prefab: 'wall', x: 440, y: 120, width: 200, height: 14, angle: -0.3 }
   ] }]
 };
 

@@ -72,18 +72,18 @@ class Wall extends Entity {
 }
 
 const scene = {
-  version: 1, type: 'level', name: 'main',
+  version: 2, type: 'level', name: 'main',
   world: { gravity: { x: 0, y: 0 } },
   prefabs: {
     wall: { actor: 'Wall', physics: { bodyType: 'static' } },
     ball: { actor: 'Ball', physics: { bodyType: 'character', shape: 'circle' } }
   },
   layers: [{ name: 'main', objects: [
-    { prefab: 'wall', x: 320, y: 5, width: 640, height: 10 },
-    { prefab: 'wall', x: 320, y: 355, width: 640, height: 10 },
-    { prefab: 'wall', x: 5, y: 180, width: 10, height: 360 },
-    { prefab: 'wall', x: 635, y: 180, width: 10, height: 360 },
-    { prefab: 'ball', x: 400, y: 180, width: 28, height: 28 }
+    { id: 'wall-top', prefab: 'wall', x: 320, y: 5, width: 640, height: 10 },
+    { id: 'wall-bottom', prefab: 'wall', x: 320, y: 355, width: 640, height: 10 },
+    { id: 'wall-left', prefab: 'wall', x: 5, y: 180, width: 10, height: 360 },
+    { id: 'wall-right', prefab: 'wall', x: 635, y: 180, width: 10, height: 360 },
+    { id: 'ball', prefab: 'ball', x: 400, y: 180, width: 28, height: 28 }
   ] }]
 };
 

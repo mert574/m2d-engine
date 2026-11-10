@@ -13,7 +13,7 @@
   "author": "Mert Yildiz",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "dependencies": {
     "m2d-engine": "*",

@@ -19,7 +19,8 @@
     "docs:dev": "npm run dev --workspace docs",
     "preview": "npm run preview --workspace examples",
     "generate-sprites": "npm run generate-sprites --workspace examples",
-    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run typecheck && npm run test --workspaces --if-present",
     "test:watch": "npm run test:watch --workspace packages/engine",
     "test:node": "npm run test:node --workspace packages/engine",
     "test:browser": "npm run test:browser --workspace packages/engine"
@@ -28,5 +29,8 @@
   "license": "MIT",
   "allowScripts": {
     "esbuild@0.21.5": true
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
   }
 }

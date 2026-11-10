@@ -86,7 +86,7 @@ export default async function start(canvas) {
 
   game.sceneManager.addScene('main', {
     fetch: async () => ({
-      version: 1, type: 'level', name: 'main',
+      version: 2, type: 'level', name: 'main',
       world: { gravity: { x: 0, y: 0 } },
       assets: { spritesheets: {
         walker: { url: makeWalkerSheet(), frameWidth: FRAME, frameHeight: FRAME, animations: { walk: { frames: [[0, 0]] } } },
@@ -95,7 +95,7 @@ export default async function start(canvas) {
       background: { spritesheet: 'ground' },
       prefabs: { walker: { actor: 'Walker', spritesheet: 'walker', physics: { bodyType: 'kinematic' } } },
       layers: [{ name: 'main', objects: [
-        { prefab: 'walker', x: 100, y: 180, width: 96, height: 96, properties: { speed: 90 } }
+        { id: 'walker', prefab: 'walker', x: 100, y: 180, width: 96, height: 96, properties: { speed: 90 } }
       ] }]
     })
   });

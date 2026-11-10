@@ -5,12 +5,13 @@ The repository is an npm workspaces monorepo.
 | Workspace | Contents |
 | --- | --- |
 | `packages/engine` | The engine, published name `m2d-engine` |
+| `packages/server` | The authoritative multiplayer host, published name `m2d-server` |
 | `examples` | The example games and the demo site |
 | `docs` | This documentation site |
 
 ## Setup
 
-Node.js 22 or later.
+Node.js 24 or later.
 
 ```bash
 npm ci
@@ -18,7 +19,8 @@ npm run dev           # examples on port 3000
 npm run dev:lan       # the same over HTTPS on every interface, for a browser on another machine
 npm run build-models  # fetch and compile the lot's Poly Haven models and textures (the dev server does the missing ones itself)
 npm run docs:dev      # documentation site
-npm test              # engine suites plus example scene validation
+npm test              # typecheck, engine suites, example scene validation
+npm run typecheck     # every workspace that has a tsconfig
 npm run build         # docs and demos into site/
 ```
 
@@ -34,6 +36,7 @@ The browser test suite needs Chromium once: `npx playwright install chromium`. S
 - Check visual changes on both backends. Every example accepts `?renderer=canvas` and `?renderer=webgl`.
 - Adding a scene JSON field means adding a descriptor to `packages/engine/src/core/sceneSchema.js` and a row to the [scene format reference](../reference/scene-format).
 - Run `npm test` and `npm run build`, then check the affected demos with `npm run preview`. Check rendering, controls, scene transitions and audio after a user gesture.
+- New packages are TypeScript and extend the shared config. The engine stays JavaScript for now. See [TypeScript](./typescript).
 - Update the documentation page that covers the change. Documentation lives only in `docs/`. See [Writing documentation](./writing-docs).
 - Describe the verification steps and any known limitations in the change.
 

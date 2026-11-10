@@ -26,7 +26,7 @@ class Block extends Entity {
 }
 
 const scene = {
-  version: 1, type: 'level', name: 'main',
+  version: 2, type: 'level', name: 'main',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.5 } },
@@ -34,14 +34,14 @@ const scene = {
     ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.6 } }
   },
   layers: [{ name: 'main', objects: [
-    { prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
-    { prefab: 'wall', x: 10, y: 180, width: 20, height: 360 },
-    { prefab: 'wall', x: 630, y: 180, width: 20, height: 360 },
-    { prefab: 'box', x: 200, y: 300, width: 40, height: 40 },
-    { prefab: 'box', x: 250, y: 300, width: 40, height: 40 },
-    { prefab: 'box', x: 225, y: 250, width: 40, height: 40 },
-    { prefab: 'ball', x: 420, y: 200, width: 36, height: 36 },
-    { prefab: 'ball', x: 480, y: 120, width: 28, height: 28 }
+    { id: 'floor', prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
+    { id: 'wall-left', prefab: 'wall', x: 10, y: 180, width: 20, height: 360 },
+    { id: 'wall-right', prefab: 'wall', x: 630, y: 180, width: 20, height: 360 },
+    { id: 'box-1', prefab: 'box', x: 200, y: 300, width: 40, height: 40 },
+    { id: 'box-2', prefab: 'box', x: 250, y: 300, width: 40, height: 40 },
+    { id: 'box-3', prefab: 'box', x: 225, y: 250, width: 40, height: 40 },
+    { id: 'ball-1', prefab: 'ball', x: 420, y: 200, width: 36, height: 36 },
+    { id: 'ball-2', prefab: 'ball', x: 480, y: 120, width: 28, height: 28 }
   ] }]
 };
 

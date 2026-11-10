@@ -41,7 +41,7 @@ class Goal extends Entity {
 
 // A UI scene: screen-space elements, positioned against anchors.
 const menu = {
-  version: 1, type: 'ui', name: 'mainMenu',
+  version: 2, type: 'ui', name: 'mainMenu',
   elements: [
     { type: 'rect', id: 'background', fill: true, color: '#1b2a38' },
     { type: 'text', id: 'title', anchor: 'center', x: 0, y: -90,
@@ -58,7 +58,7 @@ const menu = {
 // A level scene: prefabs placed in layers. The ball rolls down the ramp
 // into the goal.
 const level = {
-  version: 1, type: 'level', name: 'level',
+  version: 2, type: 'level', name: 'level',
   world: { gravity: { x: 0, y: 900 } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.4 } },
@@ -66,11 +66,11 @@ const level = {
     goal: { actor: 'Goal', physics: { bodyType: 'static', isSensor: true } }
   },
   layers: [{ name: 'main', objects: [
-    { prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
-    { prefab: 'wall', x: 200, y: 160, width: 360, height: 16, angle: 0.35 },
-    { prefab: 'wall', x: 440, y: 290, width: 200, height: 16, angle: -0.25 },
-    { prefab: 'ball', x: 60, y: 80, width: 28, height: 28 },
-    { prefab: 'goal', x: 600, y: 324, width: 48, height: 32 }
+    { id: 'floor', prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
+    { id: 'ramp-upper', prefab: 'wall', x: 200, y: 160, width: 360, height: 16, angle: 0.35 },
+    { id: 'ramp-lower', prefab: 'wall', x: 440, y: 290, width: 200, height: 16, angle: -0.25 },
+    { id: 'ball', prefab: 'ball', x: 60, y: 80, width: 28, height: 28 },
+    { id: 'goal', prefab: 'goal', x: 600, y: 324, width: 48, height: 32 }
   ] }]
 };
 

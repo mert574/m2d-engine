@@ -72,15 +72,17 @@ class Floor extends Entity {
 const CRATES = [[120, 318], [200, 318], [160, 270], [460, 318], [540, 318], [500, 270], [500, 222]];
 
 const scene = {
-  version: 1, type: 'level', name: 'main',
+  version: 2, type: 'level', name: 'main',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: {
     floor: { actor: 'Floor', physics: { bodyType: 'static' } },
     crate: { actor: 'Crate', physics: { bodyType: 'dynamic', friction: 0.8 } }
   },
+  // Code that builds objects numbers its own ids; the loader never invents
+  // one, because an invented id would not survive a reorder.
   layers: [{ name: 'main', objects: [
-    { prefab: 'floor', x: 320, y: 350, width: 640, height: 20 },
-    ...CRATES.map(([x, y]) => ({ prefab: 'crate', x, y, width: 44, height: 44 }))
+    { id: 'floor', prefab: 'floor', x: 320, y: 350, width: 640, height: 20 },
+    ...CRATES.map(([x, y], i) => ({ id: `crate-${i + 1}`, prefab: 'crate', x, y, width: 44, height: 44 }))
   ] }]
 };
 
