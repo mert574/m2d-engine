@@ -3,8 +3,28 @@ import { sceneOutline, inspectNode, type OutlineNode } from 'm2d-editor-core';
 import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { createTree } from '../src/tree.ts';
 import { createInspector } from '../src/inspector.ts';
-import { demoScene } from '../src/demoScene.ts';
 import { namedClasses } from '../src/viewport.ts';
+
+/** A small level exercising the panels: prefabs, ids, set and unset fields. */
+function fixtureScene(): Record<string, unknown> {
+  return {
+    version: SCENE_VERSION, name: 'courtyard', type: 'level',
+    world: { width: 960, height: 540, gravity: { x: 0, y: 900 } },
+    prefabs: {
+      wall: { actor: 'Wall', physics: { bodyType: 'static', friction: 0.4 } },
+      ball: { actor: 'Ball', physics: { bodyType: 'dynamic', shape: 'circle' } }
+    },
+    layers: [{
+      name: 'main',
+      objects: [
+        { id: 'floor', prefab: 'wall', x: 480, y: 520, width: 960, height: 40 },
+        { id: 'crate-1', prefab: 'wall', x: 620, y: 460, width: 56, height: 56 },
+        // No size at all: the schema's default applies, shown muted.
+        { id: 'pebble', prefab: 'ball', x: 520, y: 80 }
+      ]
+    }]
+  };
+}
 
 /**
  * The panels as DOM: the tree renders the outline and reports what was
@@ -13,7 +33,7 @@ import { namedClasses } from '../src/viewport.ts';
  * is proven here is the rendering and the wiring.
  */
 
-const DOC = demoScene();
+const DOC = fixtureScene();
 
 let container: HTMLElement;
 beforeEach(() => {

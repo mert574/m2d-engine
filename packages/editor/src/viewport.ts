@@ -90,33 +90,35 @@ export function namedClasses(doc: Record<string, unknown>): { actors: Set<string
 }
 
 export interface ShowOptions {
-  /** Real classes to register ahead of the placeholders, by name. */
-  actors?: Record<string, unknown>;
+  /**
+   * The game's definition from the project: `register(game)` installs its
+   * real actor and constraint classes, `GAME` carries the M2D options its
+   * simulation depends on. Placeholders cover only what registration did
+   * not — a class that failed to load, a scene from a game the project
+   * does not declare.
+   */
+  definition?: { register?: (game: unknown) => void; GAME?: Record<string, unknown> } | null;
+  /** The engine's basePath: where the scene's asset URLs resolve. */
+  basePath?: string;
   /** Other scene names the document may refer to (buttons, triggers). */
   sceneNames?: string[];
-  /**
-   * What the engine materializes, when it differs from the document —
-   * a copy whose asset URLs were made reachable (see assetUrls.ts).
-   */
-  data?: Record<string, unknown>;
-  /** Called at close, after the game is gone: blob URLs go back here. */
-  cleanup?: () => void;
 }
 
 export class Viewport {
   readonly canvas: HTMLCanvasElement;
   #game: InstanceType<typeof M2D> | null = null;
   #detach: (() => void) | null = null;
-  #cleanup: (() => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
   }
 
-  /** The dimension a document asks for; the game is built to match. */
-  static dimensionsOf(doc: SceneDocument): number {
+  /** The dimension a document asks for — or, when it is silent, its game's. */
+  static dimensionsOf(doc: SceneDocument, definition?: ShowOptions['definition']): number {
     const world = (doc.data as { world?: { dimensions?: unknown } }).world;
-    return world?.dimensions === 3 ? 3 : 2;
+    if (world?.dimensions === 3) return 3;
+    if (world?.dimensions === 2) return 2;
+    return definition?.GAME?.dimensions === 3 ? 3 : 2;
   }
 
   /**
@@ -126,7 +128,7 @@ export class Viewport {
    */
   async show(doc: SceneDocument, options: ShowOptions = {}): Promise<void> {
     this.close();
-    const dimensions = Viewport.dimensionsOf(doc);
+    const dimensions = Viewport.dimensionsOf(doc, options.definition);
     if (dimensions === 3) {
       if (!webgpuSupported()) throw new Error('This scene is 3D, which needs WebGPU: Chrome or Edge with a GPU.');
       await initWebGPU();
@@ -135,30 +137,34 @@ export class Viewport {
 
     const world = isPlainObject(doc.data.world) ? doc.data.world : {};
     const game = new M2D(this.canvas, {
+      // The game's own simulation options first; the document and the
+      // editor override what they must.
+      ...options.definition?.GAME,
       dimensions,
       editMode: true,
       width: this.canvas.clientWidth || 960,
       height: this.canvas.clientHeight || 540,
       // Tile layers and bounds size themselves from the world, so the
       // document's say matters here.
-      worldWidth: typeof world.width === 'number' ? world.width : undefined,
-      worldHeight: typeof world.height === 'number' ? world.height : undefined,
+      ...(typeof world.width === 'number' && { worldWidth: world.width }),
+      ...(typeof world.height === 'number' && { worldHeight: world.height }),
+      ...(options.basePath && { basePath: options.basePath }),
       // The editor's own chrome is DOM; the engine draws the world only.
       performanceStats: false,
       devConsole: false
     });
-    for (const [name, Class] of Object.entries(options.actors ?? {})) {
-      game.registerActor(name, Class as never);
-    }
+    // The project's real classes — the game as it actually looks and is
+    // tuned. Placeholders only fill what registration left unnamed.
+    options.definition?.register?.(game);
     const named = namedClasses(doc.data);
     for (const name of named.actors) {
-      if (!(options.actors && name in options.actors)) game.registerActor(name, placeholderActor() as never);
+      if (!game.actors.has(name)) game.registerActor(name, placeholderActor() as never);
     }
     for (const type of named.constraints) {
-      game.registerConstraint(type, placeholderConstraint() as never);
+      if (!game.constraintTypes.has(type)) game.registerConstraint(type, placeholderConstraint() as never);
     }
 
-    const data = options.data ?? doc.data;
+    const data = doc.data;
     const name = doc.name ?? 'scene';
     game.sceneManager.addScene(name, { fetch: async () => data });
     // The rest of the project's scenes, so a button or a trigger that
@@ -177,7 +183,6 @@ export class Viewport {
       camera.y = (typeof world.height === 'number' ? world.height : game.options.height as number) / 2;
     }
     this.#detach = attachCameraControls(game as never);
-    this.#cleanup = options.cleanup ?? null;
   }
 
   /** Nothing of a game may outlive this; see the engine's teardown rule. */
@@ -186,8 +191,33 @@ export class Viewport {
     this.#detach = null;
     this.#game?.destroy();
     this.#game = null;
-    this.#cleanup?.();
-    this.#cleanup = null;
+  }
+
+  /**
+   * The camera as plain state and back, so a hot reload — a new game, the
+   * new code, the same document — does not move your eye.
+   */
+  captureCamera(): Record<string, unknown> | null {
+    const camera = this.#game?.camera as Record<string, unknown> | undefined;
+    if (!camera) return null;
+    const keys = ['x', 'y', 'zoom', 'yaw', 'pitch', 'distance', 'mode'];
+    const state: Record<string, unknown> = {};
+    for (const key of keys) {
+      if (typeof camera[key] === 'number' || typeof camera[key] === 'string') state[key] = camera[key];
+    }
+    const lookAt = camera.lookAt;
+    if (isPlainObject(lookAt)) state.lookAt = { ...lookAt };
+    return state;
+  }
+
+  restoreCamera(state: Record<string, unknown> | null): void {
+    const camera = this.#game?.camera as (Record<string, unknown> & { update?: (dt: number) => void }) | undefined;
+    if (!camera || !state) return;
+    for (const [key, value] of Object.entries(state)) {
+      if (key === 'lookAt' && isPlainObject(camera.lookAt) && isPlainObject(value)) Object.assign(camera.lookAt, value);
+      else camera[key] = value;
+    }
+    camera.update?.(0);
   }
 
   get game(): InstanceType<typeof M2D> | null {

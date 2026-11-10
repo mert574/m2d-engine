@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * `m2d-editor` — start the companion for a project.
+ * The host's MCP face, as a one-off stdio command — no server to find, no
+ * port to fight over, which is what lets any number of agents work on one
+ * machine at once:
  *
- *   m2d-editor [project-folder]      serve the project and speak MCP on stdio
+ *   npm run editor:mcp [project-folder]
  *
- * Over stdio it is an MCP endpoint: point an agent at this command and it
- * can read the project. The editor app connects to the same process once
- * it has an HTTP half to connect to (E0.7 leaves that to the phase that
- * needs it; in development Vite serves the app).
+ * Point an agent at this command and it reads the project through the
+ * same `Project` the serving half uses. `serve.ts` is the browser-facing
+ * face of the same host.
  */
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';

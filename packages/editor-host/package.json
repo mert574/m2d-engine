@@ -1,15 +1,15 @@
 {
-  "name": "m2d-editor-mcp",
+  "name": "m2d-editor-host",
   "private": true,
   "version": "0.1.0",
-  "description": "The m2d editor's companion process: serves the editor, watches the project folder, runs the asset compilers, and exposes the editor's commands to AI agents over MCP",
+  "description": "The m2d editor's host: serves the editor app and the project's own code and assets through Vite, watches the project, will run the asset compilers, and speaks MCP over stdio for agents",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./*": "./src/*"
   },
   "bin": {
-    "m2d-editor": "./src/cli.ts"
+    "m2d-editor": "./src/serve.ts"
   },
   "scripts": {
     "test": "vitest run",
@@ -23,7 +23,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "m2d-editor-core": "*",
-    "m2d-engine": "*"
+    "m2d-engine": "*",
+    "vite": "^8.3.5"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
@@ -32,6 +33,6 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mert574/m2d-engine.git",
-    "directory": "packages/editor-mcp"
+    "directory": "packages/editor-host"
   }
 }

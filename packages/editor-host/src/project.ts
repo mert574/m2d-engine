@@ -21,6 +21,22 @@ export interface SceneEntry {
   generator: string | null;
 }
 
+/** One game a project declares in `m2d.project.json`. */
+export interface GameEntry {
+  name: string;
+  /** The game-definition module, project-relative: exports `register(game)` and may export `GAME` options. */
+  definition: string;
+  /** The folder its scene JSON lives in, project-relative. */
+  scenes: string;
+  /** What asset URLs in its scenes are relative to, project-relative. */
+  basePath: string;
+}
+
+export interface ProjectConfig {
+  name: string;
+  games: GameEntry[];
+}
+
 export class Project {
   readonly root: string;
 
@@ -39,6 +55,25 @@ export class Project {
       throw new Error(`Project: '${path}' is outside the project`);
     }
     return full;
+  }
+
+  /**
+   * The project's declaration, `m2d.project.json` at its root: its name
+   * and its games — which module registers each game's classes, where its
+   * scenes live, what its asset paths are relative to. A folder without
+   * one still opens; its scenes just have no game to run them with.
+   */
+  async config(): Promise<ProjectConfig> {
+    const fallback = { name: this.root.split(sep).pop() ?? 'project', games: [] };
+    try {
+      const raw = JSON.parse(await readFile(join(this.root, 'm2d.project.json'), 'utf8')) as Partial<ProjectConfig>;
+      const games = (Array.isArray(raw.games) ? raw.games : []).filter((game): game is GameEntry =>
+        typeof game?.name === 'string' && typeof game?.definition === 'string'
+        && typeof game?.scenes === 'string' && typeof game?.basePath === 'string');
+      return { name: typeof raw.name === 'string' ? raw.name : fallback.name, games };
+    } catch {
+      return fallback;
+    }
   }
 
   /** Every `.json` scene under the project, by walking it. */

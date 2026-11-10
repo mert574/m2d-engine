@@ -84,3 +84,12 @@ the screenshot is the evidence.
   classes yet. The machinery is built and tested — `inspectNode` with
   registries resolves them — and E5's project manifest is what feeds it.
 - `uses`-based scenes need the asset database wired into the viewer (E3).
+
+## Addendum, same month: the host replaced this round's stopgaps
+
+The owner reviewed E1 and called the two shortcuts for what they were:
+placeholders standing in for real classes, and a built-in demo scene
+standing in for real projects. Both are gone — the editor now runs the
+project's own code, served and hot-reloaded by its host. The File System
+Access half of this record (BrowserProject, blob-URL assets, `?demo`) is
+deleted; see `docs/plans/editor-host.md` for what replaced it and why.

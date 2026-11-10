@@ -23,6 +23,7 @@ import { SpriteSheet } from 'm2d-engine/core/spriteSheet.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
 import { Ship, Meteor, Drone, Salvage, Gate, Bound, Sky } from './fieldActors.js';
+import { register } from './game.js';
 import { symmetricalTree, redux, audioOption } from '../shared/audio.js';
 import laserSound from './sounds/laser1.ogg';
 import droneLaserSound from './sounds/laser2.ogg';
@@ -61,13 +62,7 @@ const game = new M2D(canvas, {
   music: { menu: { src: symmetricalTree, volume: 0.6 }, game: { src: redux, volume: 0.55 } }
 });
 
-game.registerActor('Ship', Ship);
-game.registerActor('Meteor', Meteor);
-game.registerActor('Drone', Drone);
-game.registerActor('Salvage', Salvage);
-game.registerActor('Gate', Gate);
-game.registerActor('Bound', Bound);
-game.registerActor('Sky', Sky);
+register(game);
 
 /**
  * Sprites the actors spawn at runtime (lasers, flames, damage overlays) are

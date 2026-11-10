@@ -25,7 +25,7 @@ const level = (fields: Record<string, unknown> = {}) => JSON.stringify({
 }, null, 2);
 
 beforeAll(async () => {
-  root = await mkdtemp(join(tmpdir(), 'm2d-editor-mcp-'));
+  root = await mkdtemp(join(tmpdir(), 'm2d-editor-host-'));
   await mkdir(join(root, 'scenes'), { recursive: true });
   await mkdir(join(root, 'node_modules', 'junk'), { recursive: true });
   await writeFile(join(root, 'scenes', 'room.json'), level());
@@ -96,6 +96,28 @@ describe('the MCP server', () => {
     const result = await client.callTool({ name: 'read_scene', arguments: { path: '../../etc/passwd' } });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toMatch(/outside the project/);
+  });
+});
+
+describe('the project declaration', () => {
+  it('reads m2d.project.json, keeping only well-formed games', async () => {
+    await writeFile(join(root, 'm2d.project.json'), JSON.stringify({
+      name: 'Demo project',
+      games: [
+        { name: 'Rooms', definition: 'src/game.js', scenes: 'scenes', basePath: 'src' },
+        { name: 'broken, missing fields' }
+      ]
+    }));
+    const config = await new Project(root).config();
+    expect(config.name).toBe('Demo project');
+    expect(config.games).toEqual([{ name: 'Rooms', definition: 'src/game.js', scenes: 'scenes', basePath: 'src' }]);
+    await rm(join(root, 'm2d.project.json'));
+  });
+
+  it('falls back to the folder name when there is no declaration', async () => {
+    const config = await new Project(root).config();
+    expect(config.games).toEqual([]);
+    expect(config.name).toContain('m2d-editor-host-');
   });
 });
 

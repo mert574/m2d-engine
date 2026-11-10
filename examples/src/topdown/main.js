@@ -3,6 +3,7 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
+import { register } from './game.js';
 import { FacilityBackdrop } from './facilityBackdrop.js';
 import {
   FacilityWall, SpecterGhost, SentryTurret, DataCore, ExtractionPad, ScannerAgent
@@ -44,12 +45,7 @@ const game = new M2D(canvas, {
 // Register actors. The scene JSON names the stock actors; what answers to
 // those names here is the facility cast from facilityActors.js, which keeps
 // every behaviour and replaces the tiled sprites with drawn hardware.
-game.registerActor('TopDownPlayer', ScannerAgent);
-game.registerActor('Ghost', SpecterGhost);
-game.registerActor('Platform', FacilityWall);
-game.registerActor('Coin', DataCore);
-game.registerActor('Trigger', ExtractionPad);
-game.registerActor('Turret', SentryTurret);
+register(game);
 
 // Register scenes
 registerMainMenu(game, {

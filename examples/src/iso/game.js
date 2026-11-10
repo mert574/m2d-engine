@@ -30,6 +30,10 @@ export const KEEP_INPUT = new InputSchema({
 /** M2D options the keep's simulation depends on. */
 export const KEEP_GAME = { worldWidth: WORLD.width, worldHeight: WORLD.height };
 
+/** The uniform names the editor's project file points at; see m2d.project.json. */
+export const GAME = KEEP_GAME;
+export { registerKeep as register };
+
 /** Where knights come in: the start room, a little apart from each other. */
 const START = { x: 416, y: 2656 };
 const SPREAD = [[0, 0], [64, 0], [-64, 0], [0, 64], [64, 64], [-64, 64], [128, 0], [128, 64]];

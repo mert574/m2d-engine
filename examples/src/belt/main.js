@@ -22,6 +22,7 @@ import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
 import { Rogue, Thug, Lamp, Bound } from './rowActors.js';
+import { WORLD, register } from './game.js';
 import { Street, Foreground } from './streetScenery.js';
 import {
   attackSound, damageSound, jumpSound, levelCompleteSound, gameOverSound, solvedSound,
@@ -44,7 +45,6 @@ import assetManifest from './assets.json';
 const canvas = document.getElementById('screen');
 await initPhysics();
 
-const WORLD = { width: layout.length, height: 400 };
 const RATIO = 0.5;
 
 const game = new M2D(canvas, {
@@ -74,13 +74,7 @@ const textures = {
   facadeA: loadImage(facadeAUrl), facadeB: loadImage(facadeBUrl), facadeC: loadImage(facadeCUrl)
 };
 
-game.registerActor('ObliquePlayer', Rogue);
-game.registerActor('Ghost', Thug);
-game.registerActor('Lamp', Lamp);
-game.registerActor('Bound', Bound);
-game.registerActor('Street', Street);
-game.registerActor('Foreground', Foreground);
-game.registerActor('Trigger', Trigger);
+register(game);
 
 // The creatures come from the asset manifest, by uid: three sprite sheets
 // and the one prefab that wears them, defined once in assets.json and

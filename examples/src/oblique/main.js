@@ -28,10 +28,10 @@ import { UIDialogue } from 'm2d-engine/core/ui/dialogue.js';
 import { UIMinimap } from 'm2d-engine/core/ui/minimap.js';
 import { UIAbilityBar } from 'm2d-engine/core/ui/abilityBar.js';
 import { UIMeter } from 'm2d-engine/core/ui/meter.js';
-import { Npc } from 'm2d-engine/actors/npc.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
 import { Tree, Decor, Bound, Pond, Wanderer, Wisp, Lantern, Clearing, GroundDetail } from './groveActors.js';
+import { WORLD, register } from './game.js';
 import { GroveQuest } from './quest.js';
 import {
   attackSound, damageSound, coinSound, jumpSound, levelCompleteSound, gameOverSound,
@@ -49,7 +49,6 @@ import wardIcon from './textures/icons/ward.png';
 const canvas = document.getElementById('screen');
 await initPhysics();
 
-const WORLD = { width: 3200, height: 2400 };
 const STEP_VOLUME = 0.7;
 
 const game = new M2D(canvas, {
@@ -91,16 +90,7 @@ function loadImage(url) {
 const icons = { flare: loadImage(flareIcon), blink: loadImage(blinkIcon), ward: loadImage(wardIcon) };
 
 // The scene JSON names the stock actors; the grove's cast answers.
-game.registerActor('ObliquePlayer', Wanderer);
-game.registerActor('Ghost', Wisp);
-game.registerActor('Tree', Tree);
-game.registerActor('Decor', Decor);
-game.registerActor('Bound', Bound);
-game.registerActor('Pond', Pond);
-game.registerActor('Coin', Lantern);
-game.registerActor('Trigger', Clearing);
-game.registerActor('Npc', Npc);
-game.registerActor('GroundDetail', GroundDetail);
+register(game);
 
 registerMainMenu(game, {
   title: 'Hollow Grove',

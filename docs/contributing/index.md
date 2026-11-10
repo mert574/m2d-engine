@@ -7,7 +7,7 @@ The repository is an npm workspaces monorepo.
 | `packages/engine` | The engine, published name `m2d-engine` |
 | `packages/server` | The authoritative multiplayer host, published name `m2d-server` |
 | `packages/editor-core` | The editor's headless core: the scene document, the canonical writer, the command and undo model, validation. TypeScript, no DOM |
-| `packages/editor-mcp` | The editor's companion process: watches the project, will run the asset compilers, and serves the editor's API to AI agents over MCP |
+| `packages/editor-host` | The editor's companion process: watches the project, will run the asset compilers, and serves the editor's API to AI agents over MCP |
 | `packages/editor` | The editor app: DOM panels around engine viewports. TypeScript and Vite |
 | `examples` | The example games and the demo site |
 | `docs` | This documentation site |
@@ -22,7 +22,7 @@ npm run dev           # examples on port 3000
 npm run dev:lan       # the same over HTTPS on every interface, for a browser on another machine
 npm run build-models  # fetch and compile the lot's Poly Haven models and textures (the dev server does the missing ones itself)
 npm run docs:dev      # documentation site
-npm run editor        # the editor app (PORT=... picks the port)
+npm run editor        # the editor, hosting the examples project (random port, printed; PORT= pins it)
 npm run editor:mcp .  # the editor's MCP endpoint over stdio, for an agent
 npm test              # typecheck, engine suites, example scene validation
 npm run typecheck     # every workspace that has a tsconfig

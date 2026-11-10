@@ -1,0 +1,12 @@
+{
+  "name": "M2D examples",
+  "games": [
+    { "name": "Ember Valley", "definition": "src/platformer/game.js", "scenes": "src/platformer/scenes", "basePath": "src/platformer" },
+    { "name": "The Facility", "definition": "src/topdown/game.js", "scenes": "src/topdown/scenes", "basePath": "src/topdown" },
+    { "name": "Hollow Grove", "definition": "src/oblique/game.js", "scenes": "src/oblique/scenes", "basePath": "src/oblique" },
+    { "name": "Cinder Keep", "definition": "src/iso/game.js", "scenes": "src/iso/scenes", "basePath": "src/iso" },
+    { "name": "Ash Row", "definition": "src/belt/game.js", "scenes": "src/belt/scenes", "basePath": "src/belt" },
+    { "name": "Salvage Run", "definition": "src/drift/game.js", "scenes": "src/drift/scenes", "basePath": "src/drift" },
+    { "name": "The Yard", "definition": "src/yard/game.js", "scenes": "src/yard/scenes", "basePath": "src/yard" }
+  ]
+}
