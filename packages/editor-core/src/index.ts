@@ -22,3 +22,6 @@ export { writeScene, writeManifest, write, WriteError } from './writer.ts';
 export { SceneDocument } from './document.ts';
 export { CommandStack, type Command, type Undo } from './commands.ts';
 export { validateScene, type ValidationResult, type ValidationIssue } from './validate.ts';
+export { sceneOutline, type OutlineNode } from './outline.ts';
+export { inspectNode, type InspectedRow, type InspectOptions } from './inspect.ts';
+export { descriptorAt, resolveDescriptor, isPlainObject, type PathSegment, type ResolveContext } from './descriptors.ts';

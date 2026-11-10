@@ -187,6 +187,24 @@ describe('validating declared constraints', () => {
       .toThrow(/constraints.bob.params.amplitude: must be a number/);
   });
 
+  it('leaves params unchecked for a class whose static params is null', () => {
+    // The base's `{}` means "nothing settable"; null means "anything".
+    // What an editor registers as a stand-in for a project constraint it
+    // cannot load, so the project's scenes still materialize.
+    class Stub extends Constraint {
+      static params = null;
+    }
+    const game = makeGame();
+    game.registerConstraint('ProjectThing', Stub);
+    const data = level({ prefabConstraints: { x: { type: 'ProjectThing', params: { whatever: [1, 2] } } } });
+    expect(() => new SceneLoader(game).load(data)).not.toThrow();
+    // The inherited `{}` stays strict: nothing settable means nothing.
+    class Mute extends Constraint {}
+    game.registerConstraint('Mute', Mute);
+    const strict = level({ prefabConstraints: { x: { type: 'Mute', params: { anything: 1 } } } });
+    expect(() => new SceneLoader(game).load(strict)).toThrow(/unknown field 'anything'/);
+  });
+
   it('enforces a param range', () => {
     const data = level({ prefabConstraints: { bob: { type: 'Hover', params: { frequency: -1 } } } });
     expect(() => loader().load(data)).toThrow(/constraints.bob.params.frequency/);

@@ -86,6 +86,20 @@ export class BrowserProject {
     doc.markSaved();
   }
 
+  /** A file by project-relative path, or null when nothing is there. */
+  async readFile(path: string): Promise<File | null> {
+    const parts = path.split('/').filter(Boolean);
+    const name = parts.pop();
+    if (!name) return null;
+    let dir: FileSystemDirectoryHandle = this.root;
+    try {
+      for (const part of parts) dir = await dir.getDirectoryHandle(part);
+      return await (await dir.getFileHandle(name)).getFile();
+    } catch {
+      return null;
+    }
+  }
+
   async #describe(handle: FileSystemFileHandle, path: string): Promise<SceneEntry | null> {
     try {
       const data = JSON.parse(await (await handle.getFile()).text()) as Record<string, unknown>;

@@ -239,7 +239,7 @@ An entry whose slot is already filled **retunes** what is there rather than repl
   "constraints": { "chase": { "params": { "speed": 110, "detectionRange": 620 } } } }
 ```
 
-`type` is only needed when the slot is empty. What a scene may set is the constraint's `static params`, its data; callbacks cannot be written in JSON and stay in the actor. Params are validated on load wherever the file names the type, and when the scene builds otherwise. See [Scene format](../reference/scene-format#constraints).
+`type` is only needed when the slot is empty. What a scene may set is the constraint's `static params`, its data; callbacks cannot be written in JSON and stay in the actor. The base class's `static params = {}` means nothing is settable; a class that sets `params = null` opts out of the check entirely and takes any bag — what an editor registers as a stand-in for a project constraint whose code it cannot load. Params are validated on load wherever the file names the type, and when the scene builds otherwise. See [Scene format](../reference/scene-format#constraints).
 
 ### Writing a constraint
 

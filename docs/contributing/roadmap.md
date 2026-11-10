@@ -113,7 +113,7 @@ Phases, each its own plan when it starts:
 
 | Phase | Work | Done when |
 | --- | --- | --- |
-| E1: Viewer and inspector | Open a project, show the scene tree from `scene.entitiesById` and the props, inspect any object or prefab through the descriptors, read-only | A shipped scene opens and every field shows with its descriptor's type and default |
+| ~~E1: Viewer and inspector~~ | ~~Open a project, show the scene tree and the props, inspect any object or prefab through the descriptors, read-only~~ | **Done, Nov 2026** — see `docs/plans/editor-e1.md`. The tree comes from the *document* (`sceneOutline`), not the live game, so a scene that fails to materialize still shows; the inspector's rows come from the descriptors (`inspectNode` over `descriptorAt`), every declared field with its kind, unit and what absence means; the viewport materializes in edit mode with placeholder actors (sprite or body outline) and `params: null` placeholder constraints; project images reach the engine as blob URLs. `npm run editor`, then open a folder — or `?demo` for the built-in scene |
 | E2: Edit and save | Selection, gizmos, the inspector writes, undo, the scene writer | A lot district is moved by hand, saved, and the game loads the result |
 | E3: Assets | The asset browser over the project and the manifest, drag to place, import through the recipe, the online search panel (item 3) | A Poly Haven model is found, fetched, placed and credited without leaving the editor |
 | E4: Play and iterate | Play in editor, hot reload of scenes and materials, the console inside the editor | Edit, play, stop, edit again without reloading the page |

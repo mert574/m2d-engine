@@ -263,7 +263,12 @@ function constraintEntry(inheritedType) {
       // actor attached in code, or there is no registry to ask because the
       // loader has no game. Either way the params are checked when they
       // are applied, where the entity makes the class known.
-      return ConstraintClass ? constraintParamsSchema(ConstraintClass) : null;
+      //
+      // A class whose `static params` is null opts out of the check — the
+      // base's `{}` means "nothing settable", null means "anything": an
+      // editor's placeholder for a constraint whose real class it cannot
+      // load says null, so a project's scene still materializes.
+      return ConstraintClass?.params ? constraintParamsSchema(ConstraintClass) : null;
     }, { label: 'Parameters' })
   });
 }

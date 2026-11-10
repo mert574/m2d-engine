@@ -35,6 +35,7 @@
  */
 
 import type { SchemaDescriptor } from 'm2d-engine/core/schema.js';
+import { resolveDescriptor, isPlainObject } from './descriptors.ts';
 import { schemaForType } from 'm2d-engine/core/sceneSchema.js';
 import { MANIFEST_SCHEMA } from 'm2d-engine/core/assetSchema.js';
 
@@ -77,36 +78,10 @@ export function write(doc: unknown, schema: SchemaDescriptor): string {
   return render(doc, schema, '', 0, true) + '\n';
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
- * Follow `union`, `tagged` and `dynamic` to the concrete descriptor for
- * this value, the way `validate` does, or null when it cannot be known
- * without a game (an unregistered constraint's params) — in which case
- * the value is formatted but not reordered.
- */
-function resolve(desc: SchemaDescriptor | null, value: unknown): SchemaDescriptor | null {
-  let current = desc;
-  for (let hops = 0; current && hops < 32; hops++) {
-    if (current.kind === 'union') {
-      current = current.branches?.find(branch => !branch.match || branch.match(value)) ?? null;
-    } else if (current.kind === 'tagged') {
-      const tag = current.tag !== undefined && isPlainObject(value) ? value[current.tag] : undefined;
-      current = (typeof tag === 'string' ? current.variants?.[tag] : undefined) ?? null;
-    } else if (current.kind === 'dynamic') {
-      try {
-        current = current.select?.(value, {}) ?? null;
-      } catch {
-        current = null;
-      }
-    } else {
-      return current;
-    }
-  }
-  return current;
-}
+// Descriptor resolution is shared with the inspector; a writer resolves
+// with no registries, so dynamic regions (constraint params, actor
+// properties) keep the document's own key order.
+const resolve = (desc: SchemaDescriptor | null, value: unknown) => resolveDescriptor(desc, value);
 
 /** Deep equality over JSON shapes, for comparing a value to its default. */
 function equalsDefault(value: unknown, fallback: unknown): boolean {

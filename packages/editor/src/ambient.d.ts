@@ -56,12 +56,30 @@ declare module 'm2d-engine/core/m2d.js' {
     constructor(canvas: HTMLCanvasElement | null, options?: M2DOptions);
     readonly sceneManager: SceneManager;
     readonly editMode: boolean;
+    readonly options: Record<string, unknown>;
+    readonly camera: Record<string, unknown>;
+    readonly renderer: { dimensions: number };
+    readonly input: { on(type: string, handler: (event: never) => void): () => void };
     registerActor(name: string, ActorClass: unknown): void;
     registerConstraint(name: string, ConstraintClass: unknown): void;
     addView(canvas: HTMLCanvasElement): { canvas: HTMLCanvasElement; camera: unknown; dimensions: number };
     removeView(view: unknown): void;
     start(): Promise<void>;
     destroy(): void;
+  }
+}
+
+declare module 'm2d-engine/core/entity.js' {
+  export class Entity {
+    constructor(body: unknown, sprite: unknown, game: unknown, options?: unknown);
+    static properties: Record<string, unknown> | null;
+  }
+}
+
+declare module 'm2d-engine/core/constraint.js' {
+  export class Constraint {
+    constructor(entity: unknown, options?: unknown);
+    static params: Record<string, unknown> | null;
   }
 }
 

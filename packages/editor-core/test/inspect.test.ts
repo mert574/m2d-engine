@@ -1,0 +1,162 @@
+import { describe, it, expect } from 'vitest';
+import { sceneOutline, inspectNode, type InspectedRow } from '../src/index.ts';
+import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
+import { s } from 'm2d-engine/core/schema.js';
+import { Entity } from 'm2d-engine/core/entity.js';
+import { Constraint } from 'm2d-engine/core/constraint.js';
+
+/**
+ * The viewer's two halves, headless: the tree a scene panel draws and
+ * the rows an inspector draws, both generated from the document and the
+ * engine's own descriptors. E1's "done when" lives here: every declared
+ * field shows with its kind and what absence falls back to.
+ */
+
+const DOC = {
+  version: SCENE_VERSION, type: 'level', name: 'grove',
+  world: { gravity: { x: 0, y: 0 }, sort: 'depth' },
+  prefabs: {
+    guard: {
+      actor: 'Guard',
+      physics: { bodyType: 'character', shape: 'circle' },
+      constraints: { chase: { type: 'Chase', params: { speed: 80 } } }
+    },
+    tree: { actor: 'Tree', physics: { bodyType: 'static' } }
+  },
+  layers: [{
+    name: 'main',
+    objects: [
+      { id: 'guard-1', prefab: 'guard', x: 320, y: 180, properties: { speed: 70 },
+        constraints: { chase: { params: { speed: 160 } } } },
+      { id: 'tree-1', prefab: 'tree', x: 40, y: 40, width: 24, height: 24 }
+    ],
+    props: [{ id: 'stones', prefab: 'tree', instances: [[0, 0, 0, 0, 1], [4, 0, 2, 0, 1]] }]
+  }],
+  tileLayers: [{ name: 'ground', spritesheet: 'paving' }]
+};
+
+class Guard extends Entity {
+  override name = 'Guard';
+  static override properties = {
+    speed: s.number({ initial: 60, positive: true, unit: 'px/s', label: 'Patrol speed' }),
+    alert: s.boolean({ initial: false })
+  };
+}
+
+class Chase extends Constraint {
+  static override params = {
+    speed: s.number({ initial: 60, positive: true, unit: 'px/s' }),
+    detectionRange: s.number({ initial: 400, positive: true, unit: 'px' })
+  };
+}
+
+const registries = {
+  actors: new Map<string, unknown>([['Guard', Guard]]),
+  constraintTypes: new Map<string, unknown>([['Chase', Chase]])
+};
+
+const byKey = (rows: InspectedRow[], key: string) => rows.find((row) => row.key === key);
+
+describe('sceneOutline', () => {
+  it('shows the document as a tree with paths', () => {
+    const root = sceneOutline(DOC);
+    expect(root.label).toBe('grove');
+    expect(root.children?.map((n) => n.kind))
+      .toEqual(['world', 'group', 'layer', 'tileLayer']);
+
+    const prefabs = root.children?.find((n) => n.label === 'Prefabs');
+    expect(prefabs?.children?.map((n) => `${n.label}:${n.detail}`)).toEqual(['guard:Guard', 'tree:Tree']);
+
+    const layer = root.children?.find((n) => n.kind === 'layer');
+    expect(layer?.label).toBe('Layer main');
+    expect(layer?.children?.map((n) => n.label)).toEqual(['guard-1', 'tree-1', 'stones']);
+    expect(layer?.children?.[2]).toMatchObject({ kind: 'props', detail: 'tree ×2', path: ['layers', 0, 'props', 0] });
+    expect(layer?.children?.[0]?.path).toEqual(['layers', 0, 'objects', 0]);
+  });
+
+  it('shows a ui scene\'s elements', () => {
+    const root = sceneOutline({
+      type: 'ui', name: 'menu',
+      elements: [{ type: 'button', id: 'start' }]
+    });
+    const elements = root.children?.find((n) => n.label === 'Elements');
+    expect(elements?.children?.[0]).toMatchObject({ label: 'start', detail: 'button', path: ['elements', 0] });
+  });
+
+  it('tolerates a shape that is not a scene at all', () => {
+    expect(sceneOutline(null).children).toEqual([]);
+    expect(sceneOutline({ layers: 'what' }).label).toBe('scene');
+  });
+});
+
+describe('inspectNode', () => {
+  it('shows every declared field of an object, set or not, with kind and fallback', () => {
+    const rows = inspectNode(DOC, ['layers', 0, 'objects', 1]);
+    const keys = rows.map((row) => row.key);
+    // The schema's declaration order, exactly as the format reference reads.
+    expect(keys.slice(0, 6)).toEqual(['id', 'prefab', 'x', 'y', 'z', 'width']);
+
+    expect(byKey(rows, 'id')).toMatchObject({ kind: 'string', present: true, value: 'tree-1', required: true });
+    expect(byKey(rows, 'prefab')).toMatchObject({ kind: 'ref', refScope: 'prefab', value: 'tree' });
+    expect(byKey(rows, 'x')).toMatchObject({ kind: 'number', unit: 'px', present: true, value: 40 });
+    // Not set: the row is still there, carrying what absence means.
+    expect(byKey(rows, 'z')).toMatchObject({ kind: 'number', present: false });
+    expect(byKey(rows, 'angle')).toMatchObject({ kind: 'number', unit: 'rad', present: false });
+    const width = byKey(rows, 'width');
+    expect(width).toMatchObject({ kind: 'number', present: true, value: 24, fallback: 32 });
+  });
+
+  it('inspects the scene root and a prefab', () => {
+    const root = inspectNode(DOC, []);
+    expect(byKey(root, 'version')).toMatchObject({ kind: 'integer', value: SCENE_VERSION, required: true });
+    expect(byKey(root, 'generator')).toMatchObject({ kind: 'string', present: false, label: 'Generated by' });
+
+    const prefab = inspectNode(DOC, ['prefabs', 'guard']);
+    expect(byKey(prefab, 'actor')).toMatchObject({ kind: 'ref', refScope: 'actor', value: 'Guard' });
+    const physics = byKey(prefab, 'physics');
+    expect(physics?.children && byKey(physics.children, 'bodyType'))
+      .toMatchObject({ kind: 'enum', value: 'character' });
+    expect(physics?.children && byKey(physics.children, 'bodyType')?.options)
+      .toContain('kinematic');
+  });
+
+  it('resolves an actor\'s properties when a registry names the class', () => {
+    const rows = inspectNode(DOC, ['layers', 0, 'objects', 0], { registries });
+    const properties = byKey(rows, 'properties');
+    expect(properties?.children?.map((row) => row.key)).toEqual(['speed', 'alert']);
+    expect(properties?.children && byKey(properties.children, 'speed'))
+      .toMatchObject({ label: 'Patrol speed', unit: 'px/s', value: 70, fallback: 60 });
+    expect(properties?.children && byKey(properties.children, 'alert'))
+      .toMatchObject({ present: false, fallback: false });
+
+    // Without the registry the same bag still shows, as itself.
+    const bare = inspectNode(DOC, ['layers', 0, 'objects', 0]);
+    const loose = byKey(bare, 'properties');
+    expect(loose?.children?.map((row) => row.key)).toEqual(['speed']);
+    expect(loose?.children?.[0]?.kind).toBe('unknown');
+  });
+
+  it('resolves a constraint override\'s params through the prefab\'s type', () => {
+    // The object's entry names no type; the prefab said Chase, and the
+    // schema's dynamic walk follows that exactly as the loader does.
+    const rows = inspectNode(DOC, ['layers', 0, 'objects', 0, 'constraints', 'chase'], { registries });
+    const params = byKey(rows, 'params');
+    expect(params?.children && byKey(params.children, 'speed'))
+      .toMatchObject({ kind: 'number', unit: 'px/s', value: 160, fallback: 60 });
+    expect(params?.children && byKey(params.children, 'detectionRange'))
+      .toMatchObject({ present: false, fallback: 400 });
+  });
+
+  it('summarizes a long array instead of rendering thousands of rows', () => {
+    const doc = {
+      ...DOC,
+      layers: [{
+        name: 'main', objects: [],
+        props: [{ id: 'forest', prefab: 'tree', instances: Array.from({ length: 500 }, () => [0, 0, 0, 0, 1]) }]
+      }]
+    };
+    const rows = inspectNode(doc, ['layers', 0, 'props', 0]);
+    expect(byKey(rows, 'instances')).toMatchObject({ summary: '500 entries' });
+    expect(byKey(rows, 'instances')?.children).toBeUndefined();
+  });
+});

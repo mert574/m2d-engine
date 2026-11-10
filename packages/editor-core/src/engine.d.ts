@@ -38,9 +38,38 @@ declare module 'm2d-engine/core/schema.js' {
     default?: unknown;
     /** Inspector metadata: what a new object starts with. Never applied on load. */
     initial?: unknown;
+    /** `enum`: the allowed values. */
+    values?: unknown[];
+    /** `ref`: the namespace it points into ('prefab', 'spritesheet', ...). */
+    scope?: string;
+    /** Inspector metadata, carried through untouched by validation. */
+    label?: string;
+    description?: string;
+    unit?: string;
+    /** The widget hint: 'color', 'asset', 'file', 'keys', 'cursor', 'font'. */
+    editor?: string;
+    /** True, or a predicate on the containing object. */
+    required?: boolean | ((parent: unknown) => boolean);
   }
 
-  export const s: Record<string, (...args: never[]) => SchemaDescriptor>;
+  /** The descriptor builders, as `core/schema.js` exports them. */
+  export interface SchemaBuilders {
+    number(options?: Record<string, unknown>): SchemaDescriptor;
+    integer(options?: Record<string, unknown>): SchemaDescriptor;
+    string(options?: Record<string, unknown>): SchemaDescriptor;
+    boolean(options?: Record<string, unknown>): SchemaDescriptor;
+    enumOf(values: unknown[], options?: Record<string, unknown>): SchemaDescriptor;
+    object(fields: Record<string, SchemaDescriptor>, options?: Record<string, unknown>): SchemaDescriptor;
+    record(value: SchemaDescriptor, options?: Record<string, unknown>): SchemaDescriptor;
+    array(item: SchemaDescriptor, options?: Record<string, unknown>): SchemaDescriptor;
+    tuple(items: SchemaDescriptor[], options?: Record<string, unknown>): SchemaDescriptor;
+    union(branches: SchemaDescriptor[], options?: Record<string, unknown>): SchemaDescriptor;
+    tagged(tag: string, variants: Record<string, SchemaDescriptor>, options?: Record<string, unknown>): SchemaDescriptor;
+    ref(scope: string, options?: Record<string, unknown>): SchemaDescriptor;
+    dynamic(select: (value: unknown, ctx: unknown) => SchemaDescriptor | null, options?: Record<string, unknown>): SchemaDescriptor;
+    any(options?: Record<string, unknown>): SchemaDescriptor;
+  }
+  export const s: SchemaBuilders;
   export function fieldsOf(desc: SchemaDescriptor): Array<{ key: string } & SchemaDescriptor>;
   export function refScopesOf(desc: SchemaDescriptor): string[];
   export function validate(desc: SchemaDescriptor, value: unknown, ctx: unknown): unknown;
@@ -58,6 +87,21 @@ declare module 'm2d-engine/core/assetSchema.js' {
   import type { SchemaDescriptor } from 'm2d-engine/core/schema.js';
   export const MANIFEST_VERSION: number;
   export const MANIFEST_SCHEMA: SchemaDescriptor;
+}
+
+declare module 'm2d-engine/core/entity.js' {
+  export class Entity {
+    constructor(body: unknown, sprite: unknown, game: unknown, options?: unknown);
+    static properties: Record<string, unknown> | null;
+    name: string;
+  }
+}
+
+declare module 'm2d-engine/core/constraint.js' {
+  export class Constraint {
+    constructor(entity?: unknown, options?: unknown);
+    static params: Record<string, unknown> | null;
+  }
 }
 
 declare module 'm2d-engine/core/sceneLoader.js' {

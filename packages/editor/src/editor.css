@@ -132,3 +132,67 @@ html, body {
 
 .tree button.scene:hover { background: #2a3038; }
 .tree button.scene[data-generated] { color: var(--dim); font-style: italic; }
+
+/* The scene tree: flat rows, the detail muted beside the label. */
+.tree .row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.tree .row:hover { background: #2a3038; }
+.tree .row.selected { background: #30425a; }
+.tree .row .detail { color: var(--dim); font-size: 12px; }
+.tree .row.kind-scene .label { font-weight: 600; }
+.tree .row.kind-layer .label, .tree .row.kind-group .label { color: var(--accent); }
+
+/* The inspector: label and value side by side, like a property grid. */
+.fields {
+  display: grid;
+  grid-template-columns: minmax(90px, 42%) 1fr;
+  column-gap: 10px;
+  row-gap: 2px;
+  margin: 0;
+  align-items: baseline;
+}
+
+.fields dt {
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fields dt.required::after { content: ' *'; color: var(--accent); }
+
+.fields dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fields dd.muted { color: var(--dim); }
+.fields dd.nested { color: var(--dim); }
+.fields dd .unit { color: var(--dim); font-size: 11px; }
+
+.fields dd .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  vertical-align: baseline;
+}
