@@ -2,6 +2,7 @@ import { Constraint } from '../core/constraint.js';
 import { s } from '../core/schema.js';
 
 export class Debug extends Constraint {
+  static description = 'Draw the body, its velocity and its contacts, for debugging';
   static params = {
     showBounds: s.boolean({ initial: true }),
     showCenter: s.boolean({ initial: true }),

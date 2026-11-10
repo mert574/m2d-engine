@@ -799,14 +799,14 @@ describe('lights', () => {
     game.destroy();
   });
 
-  it('rejects a light block in a 2D level', () => {
+  it('accepts a light block in a 2D level, where it is drawn as a 2D light', () => {
     const game = new M2D(null, { headless: true, worldWidth: 20, worldHeight: 20, seed: 1 });
     game.registerActor('Lamp', class extends Entity { name = 'Lamp'; });
     expect(() => new SceneLoader(game).load({
       version: SCENE_VERSION, type: 'level', name: 'flat',
-      prefabs: { lamp: { actor: 'Lamp', light: { intensity: 1 } } },
+      prefabs: { lamp: { actor: 'Lamp', light: { intensity: 1, range: 120 } } },
       layers: [{ name: 'main', objects: [] }]
-    })).toThrow(/prefabs.lamp.light: a light belongs to the 3D renderer, and this level is 2D/);
+    })).not.toThrow();
   });
 });
 

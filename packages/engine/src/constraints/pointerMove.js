@@ -20,6 +20,7 @@ import { s } from '../core/schema.js';
  * @param {Function} [options.onMove] - `(dx, dy)` unit direction each tick while moving
  */
 export class PointerMove extends Constraint {
+  static description = 'Click to move: a press on the world sets a destination to walk to';
   static params = {
     speed: s.number({ initial: 200, positive: true, unit: 'px/s' }),
     speedSpace: s.enumOf(['screen', 'world'], { initial: 'screen' }),

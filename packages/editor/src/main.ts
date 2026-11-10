@@ -29,7 +29,7 @@
  */
 
 import {
-  sceneOutline, inspectNode, uniqueId, isPlainObject, validateScene, parsePath,
+  sceneOutline, inspectNode, uniqueId, isPlainObject, validateScene, parsePath, structure,
   type OutlineNode, type PathSegment, type Op, type Edit, type ValidationIssue, type Quaternion
 } from 'm2d-editor-core';
 import { M2D } from 'm2d-engine/core/m2d.js';
@@ -40,10 +40,14 @@ import {
 } from './host.ts';
 import { RemoteDocument, type ReplicaChange } from './remote.ts';
 import { Viewport } from './viewport.ts';
-import { createTree } from './tree.ts';
-import { createInspector } from './inspector.ts';
+import { createTree, type SelectMode } from './tree.ts';
+import { showMenu, SEPARATOR, type MenuItem } from './menu.ts';
+import { buildCatalog, type CatalogEntry } from './catalog.ts';
+import { createComponentsPanel } from './componentsPanel.ts';
+import { createInspector, type InspectorGroup } from './inspector.ts';
 import { createOverlay, type GizmoResult, type GizmoMode } from './overlay.ts';
 import { createAssetsPanel, DRAG_TYPE, type Placeable, type AssetFileEntry, type JobState, type LibraryCard } from './assetsPanel.ts';
+import { resizeOps, scalesUniformly, currentSizes, setDeep as setDeepIn } from './scaling.ts';
 import { createConsolePanel } from './consolePanel.ts';
 import { ICONS, iconElement } from './icons.ts';
 import { createLayout, type Region } from './layout.ts';
@@ -53,6 +57,8 @@ const status = $<HTMLElement>('#status');
 const plate = $<HTMLElement>('#plate');
 const title = $<HTMLElement>('#title');
 const picker = $<HTMLSelectElement>('#scene');
+const sceneMenuButton = $<HTMLButtonElement>('#scene-menu');
+const arrangeStrip = $<HTMLElement>('#arrange');
 const undoButton = $<HTMLButtonElement>('#undo');
 const redoButton = $<HTMLButtonElement>('#redo');
 const saveButton = $<HTMLButtonElement>('#save');
@@ -71,6 +77,7 @@ const statDim = $<HTMLElement>('#stat-dim');
 const statPath = $<HTMLElement>('#stat-path');
 const moveTool = $<HTMLButtonElement>('#mode-move');
 const rotateTool = $<HTMLButtonElement>('#mode-rotate');
+const scaleTool = $<HTMLButtonElement>('#mode-scale');
 const frameTool = $<HTMLButtonElement>('#frame');
 const viewportPanel = $<HTMLElement>('#viewport');
 const treePanel = $<HTMLElement>('[data-region="tree"]');
@@ -121,6 +128,8 @@ let project: HostProject | null = null;
 let remote: RemoteDocument | null = null;
 let entry: SceneEntry | null = null;
 let outline: OutlineNode | null = null;
+/** The outline's nodes by their path key, rebuilt with the outline: what a path lookup reads. */
+let outlineIndex = new Map<string, OutlineNode>();
 let definition: GameDefinition | null = null;
 /** The game's presentation hooks module, for play. */
 let hooksModule: HooksModule | null = null;
@@ -128,10 +137,19 @@ let hooksModule: HooksModule | null = null;
 let validator: unknown = null;
 /** Bumped per code change; makes the next definition import fresh. */
 let generation = 0;
-/** What is selected: a placed object by id (it survives reordering), or any node by path. */
-let selection: { id: string } | { path: PathSegment[] } | null = null;
+/**
+ * What is selected: placed objects by id (ids survive reordering), the
+ * first being the primary the inspector shows, or any one node by path.
+ */
+let selection: { ids: string[] } | { path: PathSegment[] } | null = null;
 /** Every problem the loader finds with the document. */
 let issues: ValidationIssue[] = [];
+/**
+ * What the real load threw, when the check passed and the build still
+ * failed (a constraint entry with no type on an actor that attached
+ * none): listed as a problem too, so it is not only a line on the plate.
+ */
+let loadError: string | null = null;
 /** Whether the viewport is playing the scene rather than editing it. */
 let playing = false;
 /** Camera to return to when play stops. */
@@ -144,15 +162,62 @@ const showPlate = (text: string | null) => {
 };
 const readOnly = () => !!remote?.state.generator;
 
-const tree = createTree(treePanel, (node) => select(selectionFor(node.path)), {
+const tree = createTree(treePanel, (node, mode) => selectFromTree(node, mode), {
   activate: (node) => {
     const id = objectIdAt(node.path);
     if (id) viewport.frame(id);
-  }
+  },
+  menu: (node, at) => showMenu(treeMenu(node), at)
 });
 const inspector = createInspector(inspectorPanel, {
-  edit: (path, value, label) => edit({ label, ops: [{ op: 'set', path, value }] }),
+  edit: (path, value, label) => {
+    // A model object's size is one size: resizing a side resizes the
+    // model with it, and the other sides keep its shape (scaling.ts).
+    const key = path[4];
+    if (path.length === 5 && objectIdAt(path) && typeof value === 'number' && (key === 'width' || key === 'height' || key === 'depth')
+      && remote && scalesUniformly(remote.doc.data, path.slice(0, 4), viewport.dimensions)) {
+      edit({ label: `Resize ${objectIdAt(path)}`, ops: resizeOps(remote.doc.data, path.slice(0, 4), { [key]: value }, viewport.dimensions) });
+      return;
+    }
+    edit({ label, ops: [{ op: 'set', path, value }] });
+  },
   list: (op, label) => edit({ label, ops: [op as Op] }),
+  preview: (path, value) => {
+    // Position and Size fields of a placed object move the thing on screen while scrubbed.
+    const id = path.length === 5 ? objectIdAt(path) : null;
+    if (!id || !remote) return;
+    const key = path[4] as string;
+    if (value === undefined) {
+      if (['width', 'height', 'depth'].includes(key)) viewport.endPreviewSize(id, false);
+      return;
+    }
+    const object = at(path.slice(0, 4)) as Record<string, unknown>;
+    const n = (k: string, d: number) => (typeof object[k] === 'number' ? object[k] as number : d);
+    if (['x', 'y', 'z'].includes(key)) {
+      viewport.preview(id, { position: { x: n('x', 0), y: n('y', 0), ...(viewport.dimensions === 3 && { z: n('z', 0) }), [key]: value } });
+    } else if (['width', 'height', 'depth'].includes(key)) {
+      const sizes = currentSizes(remote.doc.data, path.slice(0, 4), viewport.dimensions);
+      const next = { width: sizes.width, height: sizes.height, depth: sizes.depth, [key]: value };
+      if (scalesUniformly(remote.doc.data, path.slice(0, 4), viewport.dimensions)) {
+        const factor = value / sizes[key as 'width'];
+        viewport.previewSize(id, { x: sizes.width * factor, y: sizes.height * factor, z: sizes.depth * factor });
+      } else {
+        viewport.previewSize(id, { x: next.width, y: next.height, ...(viewport.dimensions === 3 && { z: next.depth }) });
+      }
+    }
+  },
+  rename: (path, from, to) => {
+    if (!remote) return;
+    try {
+      edit({ label: `Rename ${from} to ${to}`, ops: structure.renameEntry(remote.doc.data, path, from, to) });
+      // Follow the renamed node when it is the one shown.
+      if (selection && 'path' in selection && selection.path.length === path.length + 1 && selection.path[path.length] === from) {
+        select({ path: [...path, to] });
+      }
+    } catch (error) {
+      say(String((error as Error).message ?? error));
+    }
+  },
   refs: (scope) => {
     const data = remote?.doc.data;
     const keys = (value: unknown) => (isPlainObject(value) ? Object.keys(value) : []);
@@ -178,9 +243,22 @@ const overlay = createOverlay(viewportPanel, viewport, {
     if (!object) return null;
     const number = (key: string) => (typeof object[key] === 'number' ? object[key] as number : undefined);
     const turn = Array.isArray(object.rotation) && object.rotation.length === 4 ? object.rotation as Quaternion : undefined;
-    return { x: number('x'), y: number('y'), z: number('z'), angle: number('angle'), rotation: turn };
+    return {
+      x: number('x'), y: number('y'), z: number('z'), angle: number('angle'), rotation: turn,
+      width: number('width'), height: number('height'), depth: number('depth'),
+      uniform: !!remote && !!path && scalesUniformly(remote.doc.data, path, viewport.dimensions)
+    };
   },
-  commit: (id, result) => commitGizmo(id, result)
+  commit: (results) => commitGizmo(results)
+});
+const components = createComponentsPanel($<HTMLElement>('#components'), {
+  catalog: () => buildCatalog(viewport.registries),
+  target: () => {
+    const owner = constraintOwner();
+    return owner ? { label: owner.label, kind: owner.kind } : null;
+  },
+  attach: (entry) => attachComponent(entry),
+  newPrefab: (entry) => newPrefabOf(entry.name)
 });
 const consolePanel = createConsolePanel($<HTMLElement>('#console'), () => viewport.game as never, (count) => {
   consoleCount.textContent = count ? String(count) : '';
@@ -198,6 +276,7 @@ const assets = createAssetsPanel($<HTMLElement>('#assets'), {
   search: (type, query) => get<LibraryCard[]>(`/__library/search?source=polyhaven&type=${encodeURIComponent(type)}&q=${encodeURIComponent(query)}`),
   import: async (type, id) => { await post('/__library/import', { source: 'polyhaven', type, id, resolution: '2k' }); },
   place: (item, point) => { void place(item, point); },
+  dragging: (item) => { dragItem = item; if (item?.kind === 'file') void assetInfo(item.path); if (!item) overlay.ghost(null); },
   dimensions: () => viewport.dimensions
 });
 
@@ -233,34 +312,78 @@ function objectIdAt(path: PathSegment[]): string | null {
 
 function selectionFor(path: PathSegment[]): typeof selection {
   const id = path.length === 4 ? objectIdAt(path) : null;
-  return id ? { id } : { path };
+  return id ? { ids: [id] } : { path };
 }
 
+const selectedIds = (): string[] => (selection && 'ids' in selection ? selection.ids : []);
+const selectedId = (): string | null => selectedIds()[0] ?? null;
 const selectedPath = (): PathSegment[] =>
-  (selection && 'id' in selection ? objectPath(selection.id) : selection?.path) ?? [];
-const selectedId = (): string | null => (selection && 'id' in selection ? selection.id : null);
+  (selection && 'ids' in selection ? objectPath(selection.ids[0]!) : selection?.path) ?? [];
 
 function select(next: typeof selection): void {
   selection = next;
-  // A selected object that no longer exists falls back to the scene.
-  if (selection && 'id' in selection && !objectPath(selection.id)) selection = null;
-  tree.select(selectedPath());
-  overlay.select(playing ? null : selectedId());
+  // Selected objects that no longer exist drop out; none left falls back to the scene.
+  if (selection && 'ids' in selection) {
+    const ids = selection.ids.filter((id) => objectPath(id));
+    selection = ids.length ? { ids } : null;
+  }
+  const others = selectedIds().slice(1).map((id) => objectPath(id)).filter((path): path is PathSegment[] => !!path);
+  tree.select(selectedPath(), others);
+  overlay.select(playing ? [] : selectedIds());
   frameTool.disabled = !selectedId() || playing;
+  updateArrange();
+  components.refresh();
   showInspector();
+}
+
+/** A click in the tree: on its own, toggling into the set (Ctrl), or a range of the layer's objects (Shift). */
+function selectFromTree(node: OutlineNode, mode: SelectMode): void {
+  const id = node.path.length === 4 ? objectIdAt(node.path) : null;
+  if (!id || mode === 'replace') { select(selectionFor(node.path)); return; }
+  if (mode === 'toggle') { toggleSelected(id); return; }
+  // A range: from the primary to this one, in the layer's order.
+  const anchor = selectedId();
+  const anchorPath = anchor ? objectPath(anchor) : null;
+  if (!anchorPath || anchorPath[1] !== node.path[1]) { toggleSelected(id); return; }
+  const layer = remote?.doc.data.layers as Array<{ objects?: Array<{ id?: unknown }> }> | undefined;
+  const objects = layer?.[node.path[1] as number]?.objects ?? [];
+  const [from, to] = [anchorPath[3] as number, node.path[3] as number].sort((a, b) => a - b) as [number, number];
+  const range = objects.slice(from, to + 1).flatMap((object) => (typeof object.id === 'string' ? [object.id] : []));
+  select({ ids: [anchor!, ...range.filter((each) => each !== anchor)] });
+}
+
+/** Add an object to the selection, or take it out; the primary stays the primary. */
+function toggleSelected(id: string): void {
+  const ids = selectedIds();
+  if (ids.includes(id)) select(ids.length > 1 ? { ids: ids.filter((each) => each !== id) } : null);
+  else select({ ids: [...ids, id] });
+}
+
+/** Select every object of a prefab: the one asked for, else the primary's. */
+function selectAllOfPrefab(prefab?: string): void {
+  if (!remote) return;
+  const name = prefab ?? (() => { const id = selectedId(); const path = id ? objectPath(id) : null; const object = path ? at(path) as { prefab?: unknown } : null; return typeof object?.prefab === 'string' ? object.prefab : null; })();
+  if (!name) return;
+  const ids = structure.objectsOfPrefab(remote.doc.data, name);
+  if (ids.length) { select({ ids }); say(`Selected ${ids.length} ${name}${ids.length === 1 ? '' : 's'}`); }
+}
+
+/** The outline, indexed by path key — once per outline, not once per lookup over six hundred nodes. */
+function indexOutline(root: OutlineNode | null): Map<string, OutlineNode> {
+  const index = new Map<string, OutlineNode>();
+  const stack = root ? [root] : [];
+  while (stack.length) {
+    const node = stack.pop()!;
+    index.set(JSON.stringify(node.path), node);
+    for (const child of node.children ?? []) stack.push(child);
+  }
+  return index;
 }
 
 /** The node at a path in the outline, for the inspector's title. */
 function nodeAt(root: OutlineNode | null, path: PathSegment[]): OutlineNode | null {
   if (!root) return null;
-  const key = JSON.stringify(path);
-  const stack = [root];
-  while (stack.length) {
-    const node = stack.pop()!;
-    if (JSON.stringify(node.path) === key) return node;
-    stack.push(...(node.children ?? []));
-  }
-  return null;
+  return outlineIndex.get(JSON.stringify(path)) ?? null;
 }
 
 /** The deepest outline node a document path is in: what a problem selects. */
@@ -270,6 +393,38 @@ function nodeContaining(path: PathSegment[]): OutlineNode | null {
     if (node) return node;
   }
   return null;
+}
+
+/**
+ * The inspector's tabs for a kind of node. A placed object: where it is,
+ * what it is, what it changes about its prefab. A prefab: its body, its
+ * look, its constraints. Anything else is one tab of cards.
+ */
+function groupsFor(kind: string, dimensions: 2 | 3): InspectorGroup[] | undefined {
+  if (kind === 'object') {
+    return [
+      { id: 'transform', label: 'Transform', keys: dimensions === 3 ? ['x', 'y', 'z', 'width', 'height', 'depth', 'rotation', 'zIndex'] : ['x', 'y', 'width', 'height', 'angle', 'zIndex'] },
+      { id: 'object', label: 'Object', keys: ['id', 'prefab', 'properties', 'constraints'], rest: true },
+      { id: 'overrides', label: 'Overrides', keys: ['overrides'] }
+    ];
+  }
+  if (kind === 'world') {
+    return [
+      { id: 'world', label: 'World', keys: ['dimensions', 'width', 'height', 'gravity', 'sort', 'projection', 'environment', 'player'], rest: true },
+      { id: 'camera', label: 'Camera', keys: ['camera'] },
+      { id: 'look', label: 'Look', keys: ['lighting', 'post', 'cycle'] },
+      { id: 'rules', label: 'Rules', keys: ['rules', 'killPlane'] },
+      { id: 'sound', label: 'Sound', keys: ['music'] }
+    ];
+  }
+  if (kind === 'prefab') {
+    return [
+      { id: 'body', label: 'Body', keys: ['actor', 'physics'], rest: true },
+      { id: 'look', label: 'Look', keys: ['spritesheet', 'defaultAnimation', 'mesh', 'light'] },
+      { id: 'constraints', label: 'Constraints', keys: ['constraints'] }
+    ];
+  }
+  return undefined;
 }
 
 const startsWith = (path: PathSegment[], prefix: PathSegment[]) => prefix.every((segment, i) => path[i] === segment);
@@ -289,10 +444,13 @@ function showInspector(): void {
     const hidden = world?.dimensions === 3 ? ['angle'] : ['z', 'depth', 'rotation'];
     rows = rows.filter((row) => row.present || !hidden.includes(row.key));
   }
+  const kind = node?.kind ?? (path.length === 2 && path[0] === 'prefabs' ? 'prefab' : 'scene');
   inspector.show(heading, rows, {
     readOnly: readOnly() || playing,
     issues: here,
-    kind: node ? (node.detail && node.kind === 'object' ? node.detail : node.kind) : 'scene'
+    kind: node ? (node.detail && node.kind === 'object' ? node.detail : node.kind) : 'scene',
+    groups: groupsFor(kind, viewport.dimensions),
+    live: kind === 'object' && selectedId() ? viewport.liveConstraints(selectedId()!) : undefined
   });
 }
 
@@ -302,6 +460,7 @@ function showInspector(): void {
 function checkProblems(): void {
   if (!remote) return;
   issues = validateScene(remote.doc.data, validator).issues;
+  if (loadError && !issues.length) issues = [{ path: '', message: `The scene did not load: ${loadError}` }];
   tree.setProblems(issues.map((issue) => parsePath(issue.path)));
   problemCount.textContent = String(issues.length);
   problemCount.classList.toggle('zero', issues.length === 0);
@@ -328,8 +487,7 @@ function checkProblems(): void {
     item.addEventListener('click', () => {
       if (!node) return;
       select(selectionFor(node.path));
-      const row = inspectorPanel.querySelector(`[data-path="${CSS.escape(issue.path)}"]`);
-      row?.scrollIntoView({ block: 'center' });
+      inspector.reveal(issue.path);
     });
     problemList.append(item);
   }
@@ -372,40 +530,259 @@ function edit(change: Edit): void {
   }
 }
 
-function commitGizmo(id: string, result: GizmoResult): void {
-  const path = objectPath(id);
-  if (!path) return;
+/** A gesture ended: one edit for every object it moved, turned or resized. */
+function commitGizmo(results: Array<{ id: string; result: GizmoResult }>): void {
+  if (!remote) return;
   const ops: Op[] = [];
   const round = (value: number) => Math.round(value * 1e4) / 1e4;
-  if (result.position) {
-    for (const axis of ['x', 'y', 'z'] as const) {
-      const value = result.position[axis];
-      if (value !== undefined) ops.push({ op: 'set', path: [...path, axis], value: round(value) });
+  let verb = 'Move';
+  for (const { id, result } of results) {
+    const path = objectPath(id);
+    if (!path) continue;
+    if (result.position) {
+      for (const axis of ['x', 'y', 'z'] as const) {
+        const value = result.position[axis];
+        if (value !== undefined) ops.push({ op: 'set', path: [...path, axis], value: round(value) });
+      }
     }
+    if (result.angle !== undefined) ops.push({ op: 'set', path: [...path, 'angle'], value: round(result.angle) });
+    if (result.rotation) ops.push({ op: 'set', path: [...path, 'rotation'], value: result.rotation });
+    if (result.size) {
+      const sizes = { width: result.size.x, height: result.size.y, ...(result.size.z !== undefined && { depth: result.size.z }) };
+      ops.push(...resizeOps(remote.doc.data, path, sizes, viewport.dimensions));
+    }
+    verb = result.size ? 'Resize' : result.angle !== undefined || result.rotation ? 'Rotate' : 'Move';
   }
-  if (result.angle !== undefined) ops.push({ op: 'set', path: [...path, 'angle'], value: round(result.angle) });
-  if (result.rotation) ops.push({ op: 'set', path: [...path, 'rotation'], value: result.rotation });
-  const turned = result.angle !== undefined || result.rotation;
-  if (ops.length) edit({ label: `${turned ? 'Rotate' : 'Move'} ${id}`, ops });
+  const what = results.length === 1 ? results[0]!.id : `${results.length} objects`;
+  if (ops.length) edit({ label: `${verb} ${what}`, ops });
 }
 
 function removeSelected(): void {
-  const id = selectedId();
-  const path = id ? objectPath(id) : null;
-  if (!id || !path) return;
-  edit({ label: `Delete ${id}`, ops: [{ op: 'remove', path: path.slice(0, 3), index: path[3] as number }] });
+  const ids = selectedIds();
+  if (!ids.length || !remote) return;
+  edit({ label: `Delete ${ids.length === 1 ? ids[0] : `${ids.length} objects`}`, ops: structure.removeObjects(remote.doc.data, ids) });
 }
 
+/** Copies of the selected objects beside them, selected after. */
 function duplicateSelected(): void {
-  const id = selectedId();
-  const path = id ? objectPath(id) : null;
-  if (!id || !path || !remote) return;
-  const copy = JSON.parse(JSON.stringify(at(path))) as Record<string, unknown>;
-  copy.id = uniqueId(remote.doc.data, id);
+  const ids = selectedIds();
+  if (!ids.length || !remote) return;
   const step = viewport.dimensions === 3 ? 1 : 16;
-  if (typeof copy.x === 'number') copy.x += step;
-  edit({ label: `Duplicate ${id}`, ops: [{ op: 'insert', path: path.slice(0, 3), index: (path[3] as number) + 1, value: copy }] });
-  select({ id: copy.id as string });
+  const made = pasteObjects(ids.map((id) => at(objectPath(id)!) as Record<string, unknown>), { x: step }, 'Duplicate');
+  if (made) select({ ids: made });
+}
+
+/** Insert copies into the primary's layer (else the first), ids made unique, as one edit. Returns the new ids. */
+function pasteObjects(objects: Array<Record<string, unknown>>, offset: { x?: number; y?: number; z?: number }, verb: string): string[] | null {
+  if (!remote || !objects.length) return null;
+  const layer = (selectedId() ? objectPath(selectedId()!)?.[1] as number : undefined) ?? 0;
+  try {
+    const { ops, ids } = structure.insertObjects(remote.doc.data, objects, layer, offset);
+    edit({ label: `${verb} ${objects.length === 1 ? ids[0] : `${objects.length} objects`}`, ops });
+    return ids;
+  } catch (error) {
+    say(String((error as Error).message ?? error));
+    return null;
+  }
+}
+
+/** The clipboard: placed objects as JSON, in localStorage so another scene's tab can paste them. */
+const CLIPBOARD = 'm2d-editor.clipboard';
+function copySelected(): void {
+  const ids = selectedIds();
+  if (!ids.length) return;
+  const objects = ids.map((id) => at(objectPath(id)!));
+  localStorage.setItem(CLIPBOARD, JSON.stringify({ dimensions: viewport.dimensions, objects }));
+  say(`Copied ${ids.length === 1 ? ids[0] : `${ids.length} objects`}`);
+}
+function pasteClipboard(): void {
+  const raw = localStorage.getItem(CLIPBOARD);
+  if (!raw || !remote) { say('Nothing to paste'); return; }
+  const { dimensions, objects } = JSON.parse(raw) as { dimensions: 2 | 3; objects: Array<Record<string, unknown>> };
+  if (dimensions !== viewport.dimensions) { say(`The clipboard holds ${dimensions}D objects; this scene is ${viewport.dimensions}D`); return; }
+  // Into this scene: the prefabs must exist here; those that do not are named.
+  const prefabs = isPlainObject(remote.doc.data.prefabs) ? remote.doc.data.prefabs : {};
+  const missing = [...new Set(objects.map((o) => o.prefab).filter((name) => typeof name !== 'string' || !(name in prefabs)))];
+  if (missing.length) { say(`This scene has no prefab ${missing.map(String).join(', ')}; make it first`); return; }
+  const step = viewport.dimensions === 3 ? 1 : 16;
+  const made = pasteObjects(objects, { x: step }, 'Paste');
+  if (made) select({ ids: made });
+}
+
+/** Line the selection up or spread it out on one axis. */
+function arrangeSelected(axis: 'x' | 'y' | 'z', how: 'min' | 'center' | 'max' | 'distribute'): void {
+  const ids = selectedIds();
+  if (ids.length < 2 || !remote) return;
+  const ops = structure.arrangeObjects(remote.doc.data, ids, axis, how);
+  if (ops.length) edit({ label: `${how === 'distribute' ? 'Distribute' : 'Align'} ${ids.length} objects on ${axis}`, ops });
+}
+
+/** The Arrange strip over the viewport: shown with two or more objects selected. */
+function updateArrange(): void {
+  const ids = selectedIds();
+  arrangeStrip.hidden = ids.length < 2 || playing;
+  if (arrangeStrip.hidden) return;
+  arrangeStrip.replaceChildren();
+  const label = document.createElement('span');
+  label.className = 'label';
+  label.textContent = `${ids.length} selected`;
+  arrangeStrip.append(label);
+  const axes = viewport.dimensions === 3 ? (['x', 'y', 'z'] as const) : (['x', 'y'] as const);
+  for (const axis of axes) {
+    const group = document.createElement('span');
+    group.className = `axis axis-${axis}`;
+    const name = document.createElement('b');
+    name.textContent = axis.toUpperCase();
+    group.append(name);
+    for (const [how, glyph, title] of [['min', '⇤', 'Align to the least'], ['center', '⇹', 'Align to the middle'], ['max', '⇥', 'Align to the greatest'], ['distribute', '⋯', 'Distribute evenly']] as const) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = glyph;
+      button.title = `${title} on ${axis}`;
+      button.addEventListener('click', () => arrangeSelected(axis, how));
+      group.append(button);
+    }
+    arrangeStrip.append(group);
+  }
+}
+
+// --- Structure: the tree's menu, prefabs, constraints, scenes --------------
+
+/** The node a constraint would attach to: the selected object or prefab. */
+function constraintOwner(): { path: PathSegment[]; label: string; kind: 'object' | 'prefab' } | null {
+  const id = selectedId();
+  if (id) { const path = objectPath(id); return path ? { path, label: id, kind: 'object' } : null; }
+  const path = selection && 'path' in selection ? selection.path : null;
+  if (path && path.length === 2 && path[0] === 'prefabs') return { path, label: String(path[1]), kind: 'prefab' };
+  return null;
+}
+
+function attachComponent(entry: CatalogEntry): void {
+  const owner = constraintOwner();
+  if (!remote || !owner) { say('Select an object or a prefab to attach a constraint to'); return; }
+  const params: Record<string, unknown> = {};
+  const { ops, slot } = structure.attachConstraint(remote.doc.data, owner.path, entry.name, params);
+  edit({ label: `Attach ${entry.name} to ${owner.label}`, ops });
+  inspector.reveal(`${owner.path.map((seg, i) => (typeof seg === 'number' ? `[${seg}]` : i ? `.${seg}` : seg)).join('')}.constraints.${slot}`);
+}
+
+function newPrefabOf(actor: string): void {
+  if (!remote) return;
+  const { ops, name } = structure.addPrefab(remote.doc.data, actor.charAt(0).toLowerCase() + actor.slice(1), actor, viewport.dimensions);
+  edit({ label: `New prefab ${name}`, ops });
+  select({ path: ['prefabs', name] });
+}
+
+/** What can be done with a tree node, by its kind. */
+function treeMenu(node: OutlineNode): MenuItem[] {
+  if (!remote) return [];
+  const data = remote.doc.data;
+  const layers = Array.isArray(data.layers) ? data.layers as Array<{ name?: unknown }> : [];
+  const layerName = (i: number) => (typeof layers[i]?.name === 'string' ? layers[i]!.name as string : `Layer ${i}`);
+  const items: MenuItem[] = [];
+  if (node.kind === 'object') {
+    const ids = selectedIds().length > 1 && selectedIds().includes(objectIdAt(node.path) ?? '') ? selectedIds() : [objectIdAt(node.path)!];
+    const many = ids.length > 1;
+    const object = at(node.path) as { prefab?: string };
+    items.push(
+      { label: 'Frame', hint: 'F', action: () => viewport.frame(ids[0]!) },
+      { label: many ? `Duplicate ${ids.length}` : 'Duplicate', hint: 'Ctrl+D', action: duplicateSelected },
+      { label: 'Copy', hint: 'Ctrl+C', action: copySelected },
+      SEPARATOR,
+      {
+        label: 'Move to layer',
+        children: layers.map((_, i) => ({
+          label: layerName(i), disabled: !many && i === node.path[1],
+          action: () => {
+            const ops = ids.flatMap((id) => { const path = objectPath(id); return path ? structure.moveObject(remote!.doc.data, path, i) : []; });
+            // Paths shift as objects leave a layer; apply one at a time through the document instead.
+            if (ids.length === 1) edit({ label: `Move ${ids[0]} to ${layerName(i)}`, ops });
+            else for (const id of ids) { const path = objectPath(id); if (path) edit({ label: `Move ${id} to ${layerName(i)}`, ops: structure.moveObject(remote!.doc.data, path, i) }); }
+          }
+        }))
+      },
+      { label: 'Bring forward', disabled: many, action: () => { const path = node.path; edit({ label: `Reorder ${ids[0]}`, ops: structure.moveObject(data, path, path[1] as number, (path[3] as number) + 1) }); } },
+      { label: 'Send backward', disabled: many || node.path[3] === 0, action: () => { const path = node.path; edit({ label: `Reorder ${ids[0]}`, ops: structure.moveObject(data, path, path[1] as number, (path[3] as number) - 1) }); } },
+      SEPARATOR,
+      { label: `Select all ${object?.prefab ?? ''}`.trim(), hint: 'Ctrl+Shift+A', disabled: !object?.prefab, action: () => selectAllOfPrefab(object?.prefab) },
+      { label: 'Make a prefab of this', disabled: many, action: () => { try { const { ops, name } = structure.objectToPrefab(data, node.path); edit({ label: `Prefab ${name} from ${ids[0]}`, ops }); } catch (error) { say(String((error as Error).message ?? error)); } } },
+      SEPARATOR,
+      { label: many ? `Delete ${ids.length}` : 'Delete', hint: 'Del', danger: true, action: removeSelected }
+    );
+  } else if (node.kind === 'layer') {
+    const index = node.path[1] as number;
+    items.push(
+      { label: 'New layer below', action: () => { const name = prompt('Layer name', `layer-${layers.length + 1}`); if (name) edit({ label: `Add layer ${name}`, ops: structure.addLayer(data, name, index + 1) }); } },
+      { label: 'Rename', action: () => { const name = prompt('Layer name', layerName(index)); if (name) edit({ label: `Rename layer to ${name}`, ops: [{ op: 'set', path: ['layers', index, 'name'], value: name }] }); } },
+      SEPARATOR,
+      { label: 'Move up', disabled: index === 0, action: () => edit({ label: `Move ${layerName(index)} up`, ops: structure.moveLayer(data, index, index - 1) }) },
+      { label: 'Move down', disabled: index >= layers.length - 1, action: () => edit({ label: `Move ${layerName(index)} down`, ops: structure.moveLayer(data, index, index + 1) }) },
+      SEPARATOR,
+      { label: 'Delete layer', danger: true, disabled: layers.length <= 1, action: () => { if (confirm(`Delete ${layerName(index)} and everything in it?`)) edit({ label: `Delete ${layerName(index)}`, ops: structure.removeLayer(data, index) }); } }
+    );
+  } else if (node.kind === 'prefab') {
+    const name = String(node.path[1]);
+    const uses = structure.objectsOfPrefab(data, name).length;
+    items.push(
+      { label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } },
+      { label: 'Duplicate', action: () => { const { ops, name: copy } = structure.duplicatePrefab(data, name); edit({ label: `Duplicate prefab ${name}`, ops }); select({ path: ['prefabs', copy] }); } },
+      { label: 'Rename', action: () => { const to = prompt('Prefab name', name); if (to && to !== name) { try { edit({ label: `Rename ${name} to ${to}`, ops: structure.renameEntry(data, ['prefabs'], name, to) }); select({ path: ['prefabs', to] }); } catch (error) { say(String((error as Error).message ?? error)); } } } },
+      SEPARATOR,
+      { label: `Select instances (${uses})`, disabled: !uses, action: () => selectAllOfPrefab(name) },
+      SEPARATOR,
+      { label: 'Delete prefab', danger: true, action: () => { if (!uses || confirm(`${uses} object${uses === 1 ? ' uses' : 's use'} ${name}; delete it anyway? They will fail to load until re-pointed.`)) edit({ label: `Delete prefab ${name}`, ops: structure.removeEntry(data, ['prefabs'], name) }); } }
+    );
+  } else if (node.kind === 'group' && node.path[0] === 'prefabs') {
+    items.push({ label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } });
+  } else if (node.kind === 'scene') {
+    items.push(
+      { label: 'New layer', action: () => { const name = prompt('Layer name', `layer-${layers.length + 1}`); if (name) edit({ label: `Add layer ${name}`, ops: structure.addLayer(data, name) }); } },
+      { label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } }
+    );
+  }
+  return items;
+}
+
+/** New, duplicate, rename and delete scene files, through the host. */
+function sceneMenu(): MenuItem[] {
+  const current = entry;
+  const run = (label: string, action: () => Promise<void>) => { void action().catch((error: unknown) => say(`${label} failed: ${String((error as Error).message ?? error)}`)); };
+  const create = async (body: Record<string, unknown>) => {
+    const { path } = await post<{ path: string }>('/__scene', { action: 'create', ...body });
+    project = await loadProject();
+    listScenes();
+    const next = project.scenes.find((scene) => scene.path === path);
+    if (next) enqueue(() => open(next));
+  };
+  return [
+    { label: 'New 2D level…', action: () => { const name = prompt('Scene name', 'level-2'); if (name) run('New scene', () => create({ name, type: 'level', dimensions: 2 })); } },
+    { label: 'New 3D level…', action: () => { const name = prompt('Scene name', 'level-3d'); if (name) run('New scene', () => create({ name, type: 'level', dimensions: 3 })); } },
+    { label: 'New UI scene…', action: () => { const name = prompt('Scene name', 'menu'); if (name) run('New scene', () => create({ name, type: 'ui' })); } },
+    SEPARATOR,
+    { label: 'Duplicate this scene…', disabled: !current, action: () => { const name = prompt('Name of the copy', `${current!.name ?? 'scene'}-copy`); if (name) run('Duplicate', () => create({ name, path: current!.path })); } },
+    { label: 'Rename this scene…', disabled: !current || !!remote?.dirty, action: () => {
+      const name = prompt('New file name', current!.path.split('/').pop()!.replace(/\.json$/, ''));
+      if (!name) return;
+      run('Rename', async () => {
+        const { path } = await post<{ path: string }>('/__scene', { action: 'rename', path: current!.path, name });
+        project = await loadProject();
+        listScenes();
+        const next = project.scenes.find((scene) => scene.path === path);
+        if (next) enqueue(() => open(next));
+      });
+    } },
+    SEPARATOR,
+    { label: 'Delete this scene', danger: true, disabled: !current || (project?.scenes.length ?? 0) < 2, action: () => {
+      if (!confirm(`Delete ${current!.path} for good?`)) return;
+      run('Delete', async () => {
+        await post('/__scene', { action: 'delete', path: current!.path });
+        project = await loadProject();
+        listScenes();
+        const next = project.scenes[0];
+        if (next) enqueue(() => open(next)); else { remote?.close(); remote = null; viewport.close(); showPlate('This project has no scenes yet.'); }
+      });
+    } }
+  ];
 }
 
 /** The replica changed: everything that shows it catches up. */
@@ -422,6 +799,7 @@ function changed(change: ReplicaChange): void {
   const next = sceneOutline(remote.doc.data);
   if (JSON.stringify(next) !== JSON.stringify(outline)) tree.show(next);
   outline = next;
+  outlineIndex = indexOutline(outline);
   assets.refreshPrefabs();
   if (change.kind === 'reset') {
     select(selection);
@@ -549,8 +927,16 @@ async function materialize(keepView: boolean): Promise<void> {
       ? `This scene does not load: ${count} problem${count === 1 ? '' : 's'}.\nThe tree, the fields and the Problems panel are still the document's.`
       : String((error as Error).message ?? error));
     say(`${remote.path}: does not load`);
-    if (count) showDock('problems');
+    if (!count) {
+      loadError = String((error as Error).message ?? error);
+      checkProblems();
+    }
+    showDock('problems');
     return;
+  }
+  if (loadError) {
+    loadError = null;
+    problemsSoon();
   }
   viewport.drawOnDemand = powerBox.checked;
   if (keepView) viewport.restoreCamera(camera);
@@ -566,6 +952,7 @@ async function open(next: SceneEntry): Promise<void> {
   remote = null;
   selection = null;
   issues = [];
+  loadError = null;
   playing = false;
   editorFrame.classList.remove('playing');
   entry = next;
@@ -591,6 +978,7 @@ async function open(next: SceneEntry): Promise<void> {
   });
   await buildValidator();
   outline = sceneOutline(remote.doc.data);
+  outlineIndex = indexOutline(outline);
   tree.show(outline);
   checkProblems();
   select(null);
@@ -667,14 +1055,75 @@ function sceneryActor(kind: 'mesh' | 'spritesheet'): string | null {
 
 /** An op that sets `value` at `path`, creating the first missing container on the way. */
 function setDeep(path: PathSegment[], value: unknown): Op {
-  for (let depth = 1; depth < path.length; depth++) {
-    if (at(path.slice(0, depth)) === undefined) {
-      let nested: unknown = value;
-      for (let i = path.length - 1; i >= depth; i--) nested = { [path[i] as string]: nested };
-      return { op: 'set', path: path.slice(0, depth), value: nested };
-    }
+  return setDeepIn(remote?.doc.data, path, value);
+}
+
+// --- The drop ghost --------------------------------------------------------
+
+/** The asset card being dragged, from the assets panel's dragstart to its dragend. */
+let dragItem: Placeable | null = null;
+/** What the host says about a file — a model's bounds, an image's size — fetched once per path. */
+const assetInfos = new Map<string, Promise<{ bounds?: { min: number[]; max: number[] }; width?: number; height?: number }>>();
+function assetInfo(path: string) {
+  let info = assetInfos.get(path);
+  if (!info) {
+    info = get<{ bounds?: { min: number[]; max: number[] }; width?: number; height?: number }>(`/__asset-info?path=${encodeURIComponent(path)}`).catch(() => ({}));
+    assetInfos.set(path, info);
+    void info.then((got) => { assetInfoNow.set(path, got); });
   }
-  return { op: 'set', path, value };
+  return info;
+}
+/** The last answer for a path, without waiting: the ghost draws with what has arrived. */
+const assetInfoNow = new Map<string, { bounds?: { min: number[]; max: number[] }; width?: number; height?: number }>();
+
+/**
+ * The outline of what dropping `item` at a client point would place —
+ * the exact spot and size, so the drop lands where it looks — with a
+ * caption. Null when there is nothing to show (an environment lights the
+ * whole level).
+ */
+function ghostFor(item: Placeable, client: { x: number; y: number }): { edges: Array<[{ x: number; y: number }, { x: number; y: number }]>; caption: string } | null {
+  if (!remote) return null;
+  const where = dropPoint(client);
+  if (!where) return null;
+  const threeD = viewport.dimensions === 3;
+  const fallback = threeD ? 1 : 32;
+  let size: { x: number; y: number; z?: number } | null = null;
+  let caption = '';
+  if (item.kind === 'prefab') {
+    const layers = remote.doc.data.layers;
+    const objects = Array.isArray(layers) ? layers.flatMap((layer) => (isPlainObject(layer) && Array.isArray(layer.objects) ? layer.objects : [])) : [];
+    const like = objects.find((o) => isPlainObject(o) && o.prefab === item.name) as Record<string, unknown> | undefined;
+    const n = (key: string, d: number) => (typeof like?.[key] === 'number' ? like[key] as number : d);
+    size = { x: n('width', fallback), y: n('height', fallback), ...(threeD && { z: n('depth', n('width', fallback)) }) };
+    caption = item.name;
+  } else if (item.type === 'model' && threeD) {
+    const info = assetInfoNow.get(item.path);
+    if (!info) void assetInfo(item.path);
+    const min = info?.bounds?.min ?? [-0.5, 0, -0.5];
+    const max = info?.bounds?.max ?? [0.5, 1, 0.5];
+    size = { x: Math.max(0.05, max[0]! - min[0]!), y: Math.max(0.05, max[1]! - min[1]!), z: Math.max(0.05, max[2]! - min[2]!) };
+    caption = keyFrom(item.path);
+  } else if (item.type === 'image' && threeD) {
+    // A texture goes onto the object under the pointer: show which.
+    const id = viewport.pick(client.x, client.y);
+    const placement = id ? viewport.placement(id) : null;
+    return placement ? { edges: placement.edges, caption: `Texture ${id}` } : null;
+  } else if (item.type === 'image') {
+    const info = assetInfoNow.get(item.path);
+    if (!info) void assetInfo(item.path);
+    const width = info?.width ?? 64;
+    const height = info?.height ?? 64;
+    const fit = Math.min(1, 256 / Math.max(width, height));
+    size = { x: Math.round(width * fit), y: Math.round(height * fit) };
+    caption = keyFrom(item.path);
+  } else {
+    return null;
+  }
+  const position = threeD ? { x: where.x, y: size.y / 2, z: where.z ?? 0 } : { x: where.x, y: where.y };
+  const edges = viewport.outline({ position, size });
+  const at = threeD ? `${where.x.toFixed(2)}, ${where.z?.toFixed(2) ?? '0'} m` : `${where.x}, ${where.y} px`;
+  return { edges, caption: `${caption} · ${at}` };
 }
 
 /** Where a drop lands, in document coordinates; the view's centre when no point is given. */
@@ -755,7 +1204,7 @@ async function place(item: Placeable, point?: { x: number; y: number }): Promise
       label: `Texture ${id}`,
       ops: [setDeep([...path, 'overrides', 'mesh', 'texture'], { url: item.url, size: existing?.size ?? 1 })]
     });
-    select({ id });
+    select({ ids: [id] });
     return;
   } else if (item.type === 'environment') {
     if (viewport.dimensions !== 3) { say('An environment lights a 3D scene'); return; }
@@ -793,7 +1242,7 @@ async function place(item: Placeable, point?: { x: number; y: number }): Promise
   }
   ops.push({ op: 'insert', path: target, index: objects.length, value: object });
   edit({ label, ops });
-  select({ id: object.id as string });
+  select({ ids: [object.id as string] });
 }
 
 // --- Play ----------------------------------------------------------------
@@ -943,10 +1392,11 @@ function setMode(mode: GizmoMode): void {
   overlay.setMode(mode);
   moveTool.setAttribute('aria-pressed', String(mode === 'move'));
   rotateTool.setAttribute('aria-pressed', String(mode === 'rotate'));
+  scaleTool.setAttribute('aria-pressed', String(mode === 'scale'));
 }
 
-type DockTab = 'assets' | 'problems' | 'history' | 'console' | 'build';
-const DOCK_TABS: DockTab[] = ['assets', 'problems', 'history', 'console', 'build'];
+type DockTab = 'assets' | 'components' | 'problems' | 'history' | 'console' | 'build';
+const DOCK_TABS: DockTab[] = ['assets', 'components', 'problems', 'history', 'console', 'build'];
 
 function showDock(tab: DockTab): void {
   for (const button of document.querySelectorAll<HTMLElement>('.tab')) {
@@ -955,6 +1405,7 @@ function showDock(tab: DockTab): void {
   for (const pane of document.querySelectorAll<HTMLElement>('[data-pane]')) pane.hidden = pane.dataset.pane !== tab;
   if (tab === 'console') consolePanel.seen();
   if (tab === 'assets') void assets.refresh().catch(() => {});
+  if (tab === 'components') components.refresh();
   setDockHidden(false);
   settings.set('dock.tab', tab);
 }
@@ -981,6 +1432,10 @@ picker.addEventListener('change', () => {
   }
   enqueue(() => open(next));
 });
+sceneMenuButton.addEventListener('click', () => {
+  const box = sceneMenuButton.getBoundingClientRect();
+  showMenu(sceneMenu(), { x: box.left, y: box.bottom + 4 });
+});
 undoButton.addEventListener('click', () => remote?.undo());
 redoButton.addEventListener('click', () => remote?.redo());
 saveButton.addEventListener('click', () => remote?.save());
@@ -992,6 +1447,7 @@ detachButton.addEventListener('click', () => {
 });
 moveTool.addEventListener('click', () => setMode('move'));
 rotateTool.addEventListener('click', () => setMode('rotate'));
+scaleTool.addEventListener('click', () => setMode('scale'));
 frameTool.addEventListener('click', () => { const id = selectedId(); if (id) viewport.frame(id); });
 playButton.addEventListener('click', togglePlay);
 buildButton.addEventListener('click', () => { void runBuild(); });
@@ -1056,18 +1512,38 @@ showDock(DOCK_TABS.includes(savedTab) ? savedTab : 'assets');
 setDockHidden(dockWasHidden);
 updateDrawStat();
 
-// A click on the world selects what is under it; a drag is the camera's.
-let down: { x: number; y: number } | null = null;
+// A click on the world selects what is under it (Ctrl adds or takes
+// away); a drag is the camera's, unless Shift is held, when it is a
+// marquee that selects every object whose centre it covers.
+let down: { x: number; y: number; shift: boolean; ctrl: boolean } | null = null;
 viewportPanel.addEventListener('pointerdown', (event) => {
-  down = event.button === 0 && event.target instanceof HTMLCanvasElement && !playing ? { x: event.clientX, y: event.clientY } : null;
+  down = event.button === 0 && event.target instanceof HTMLCanvasElement && !playing
+    ? { x: event.clientX, y: event.clientY, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey } : null;
+});
+viewportPanel.addEventListener('pointermove', (event) => {
+  if (!down?.shift || overlay.dragging) return;
+  const x = Math.min(down.x, event.clientX); const y = Math.min(down.y, event.clientY);
+  overlay.marquee({ x, y, width: Math.abs(event.clientX - down.x), height: Math.abs(event.clientY - down.y) });
 });
 viewportPanel.addEventListener('pointerup', (event) => {
   if (!down || overlay.dragging) return;
-  const moved = Math.hypot(event.clientX - down.x, event.clientY - down.y);
+  const start = down;
   down = null;
+  overlay.marquee(null);
+  const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+  if (start.shift && moved > 4) {
+    const left = Math.min(start.x, event.clientX); const right = Math.max(start.x, event.clientX);
+    const top = Math.min(start.y, event.clientY); const bottom = Math.max(start.y, event.clientY);
+    const inside = viewport.objectsWithin((c: { x: number; y: number }) => c.x >= left && c.x <= right && c.y >= top && c.y <= bottom);
+    if (!inside.length) { if (!start.ctrl) select(null); return; }
+    select({ ids: start.ctrl ? [...new Set([...selectedIds(), ...inside])] : inside });
+    say(`Selected ${inside.length} object${inside.length === 1 ? '' : 's'}`);
+    return;
+  }
   if (moved > 4) return;
   const id = viewport.pick(event.clientX, event.clientY);
-  select(id ? { id } : null);
+  if (start.ctrl && id) toggleSelected(id);
+  else select(id ? { ids: [id] } : null);
 });
 
 // Drop an asset card on the viewport to place it.
@@ -1076,10 +1552,14 @@ viewportPanel.addEventListener('dragover', (event) => {
   event.preventDefault();
   event.dataTransfer.dropEffect = 'copy';
   viewportPanel.classList.add('drop-target');
+  // The payload is sealed until the drop; the panel told us what it is.
+  const ghost = dragItem ? ghostFor(dragItem, { x: event.clientX, y: event.clientY }) : null;
+  overlay.ghost(ghost?.edges ?? null, ghost?.caption);
 });
-viewportPanel.addEventListener('dragleave', () => viewportPanel.classList.remove('drop-target'));
+viewportPanel.addEventListener('dragleave', () => { viewportPanel.classList.remove('drop-target'); overlay.ghost(null); });
 viewportPanel.addEventListener('drop', (event) => {
   viewportPanel.classList.remove('drop-target');
+  overlay.ghost(null);
   const payload = event.dataTransfer?.getData(DRAG_TYPE);
   if (!payload) return;
   event.preventDefault();
@@ -1102,8 +1582,9 @@ document.addEventListener('keydown', (event) => {
     syncDockToggle();
     return;
   }
-  // While playing, the keyboard is the game's.
-  if (playing) return;
+  // While playing, the keyboard is the game's; while flying (the right
+  // button held over the viewport), W A S D Q E are the camera's.
+  if (playing || viewport.flying) return;
   if (mod && event.code === 'KeyS') {
     event.preventDefault();
     if (remote?.dirty && !readOnly()) remote.save();
@@ -1119,6 +1600,15 @@ document.addEventListener('keydown', (event) => {
   } else if (mod && event.code === 'KeyD') {
     event.preventDefault();
     duplicateSelected();
+  } else if (mod && event.code === 'KeyC' && selectedIds().length) {
+    event.preventDefault();
+    copySelected();
+  } else if (mod && event.code === 'KeyV') {
+    event.preventDefault();
+    pasteClipboard();
+  } else if (mod && event.shiftKey && event.code === 'KeyA') {
+    event.preventDefault();
+    selectAllOfPrefab();
   } else if (event.code === 'Delete' || event.code === 'Backspace') {
     removeSelected();
   } else if (event.code === 'Escape') {
@@ -1130,6 +1620,8 @@ document.addEventListener('keydown', (event) => {
     setMode('move');
   } else if (!mod && event.code === 'KeyE') {
     setMode('rotate');
+  } else if (!mod && event.code === 'KeyR') {
+    setMode('scale');
   }
 });
 
@@ -1174,5 +1666,8 @@ try {
 // For browser automation (tests, an agent driving the page): the live
 // viewport and the open replica. Read-only by convention.
 Object.assign(window, {
-  m2dEditor: { viewport, place, togglePlay, get remote() { return remote; }, get issues() { return issues; }, get playing() { return playing; } }
+  m2dEditor: {
+    viewport, place, togglePlay, select, selectedIds, edit,
+    get remote() { return remote; }, get issues() { return issues; }, get playing() { return playing; }
+  }
 });

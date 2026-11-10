@@ -92,6 +92,21 @@ export function sceneOutline(doc: unknown): OutlineNode {
     });
   });
 
+  const hud = Array.isArray(data.hud) ? data.hud : [];
+  if (hud.length) {
+    children.push({
+      label: 'HUD',
+      kind: 'group',
+      path: ['hud'],
+      children: hud.flatMap((element, index): OutlineNode[] => isPlainObject(element) ? [{
+        label: str(element.id) ?? `#${index}`,
+        detail: str(element.type),
+        kind: 'element',
+        path: ['hud', index]
+      }] : [])
+    });
+  }
+
   const elements = Array.isArray(data.elements) ? data.elements : [];
   if (elements.length) {
     children.push({

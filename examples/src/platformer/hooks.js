@@ -15,19 +15,14 @@ export function sceneHooks(game) {
   return {
     level1: {
       onEnter() {
-        // Keep the camera inside the level: without bounds, following the
-        // player (or an 'expand' aspect mode widening the view) reveals the
-        // void past the map.
-        game.camera.bounds = {
-          left: 0, top: 0,
-          right: game.options.worldWidth, bottom: game.options.worldHeight
-        };
+        // The camera's bounds, the ambient light and the post pass are the
+        // scene's (`world.camera`, `world.lighting`, `world.post` in
+        // level1.json), so the editor shows and edits them. The music stays
+        // here: its file is the page's import, not a scene asset.
         game.soundManager.playMusic('game');
         backdrop = new DuskLevelBackdrop(game);
-        backdrop.applyAtmosphere();
       },
       onExit() {
-        backdrop?.clearAtmosphere();
         backdrop = null;
       },
       onUpdate(deltaTime) {

@@ -40,6 +40,7 @@ import { s } from '../core/schema.js';
  * into the simple answer (place the body under the pointer each frame).
  */
 export class Interactive extends Constraint {
+  static description = 'Respond to the pointer: hover, click, drag';
   static params = {
     hitArea: s.union([
       s.enumOf(['body'], { match: value => typeof value === 'string' }),

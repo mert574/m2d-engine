@@ -5,6 +5,7 @@ import { Debug } from '../constraints/debug.js';
 import { KeyboardControl } from '../constraints/keyboardControl.js';
 
 export class TopDownPlayer extends Entity {
+  static description = 'The top-down player, moved by the keyboard in the plane';
   name = 'Player';
   static replicated = ['facingDirection'];
   /**

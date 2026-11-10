@@ -14,6 +14,7 @@ import { s } from '../core/schema.js';
  * alone and online, without the game writing it twice.
  */
 export class Health extends Constraint {
+  static description = 'Hit points, invulnerability after a hit, a bar; raises damage and death events';
   static params = {
     maxHealth: s.number({ initial: 100, positive: true }),
     invulnerableDuration: s.number({ initial: 1, min: 0, unit: 's' }),

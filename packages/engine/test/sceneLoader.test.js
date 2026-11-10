@@ -77,6 +77,21 @@ describe('SceneLoader', () => {
       expect(() => loader.load(ui([]))).not.toThrow();
     });
 
+    it('accepts the world\'s presentation fields and names a bad one', () => {
+      const world = {
+        width: 640, height: 360, player: 'p1',
+        camera: { bounds: 'world', lerp: 0.1, followAxes: { x: true, y: false }, zoom: 1.5 },
+        lighting: { ambient: '#ded9e4', sun: { direction: { x: 0, y: -1, z: 0 }, color: '#fff', intensity: 3 }, fog: { color: '#aab', density: 0.01 } },
+        post: { bloom: { threshold: 0.7, strength: 0.6, blur: 32 }, grain: { strength: 0.03 } },
+        music: { track: 'theme', volume: 0.6 }
+      };
+      expect(() => loader.load(level({ world, assets: { ...level().assets, music: { theme: { url: 'theme.mp3' } } } }))).not.toThrow();
+      expect(() => loader.load(level({ world: { camera: { bounds: 'screen' } } }))).toThrow(/world.camera.bounds: expected one of world/);
+      expect(() => loader.load(level({ world: { camera: { bounds: { left: 0 } } } }))).toThrow(/world.camera.bounds/);
+      expect(() => loader.load(level({ world: { lighting: { ambient: 7 } } }))).toThrow(/world.lighting.ambient/);
+      expect(() => loader.load(level({ world: { music: { volume: 1 } } }))).toThrow(/world.music.track/);
+    });
+
     it('rejects a version that is not this engine\'s', () => {
       expectError(level({ version: SCENE_VERSION - 1 }), 'version', `expected scene format ${SCENE_VERSION}`);
       expectError(level({ version: '1.0' }), 'version', '"1.0"');

@@ -2,12 +2,13 @@ import { Entity } from '../core/entity.js';
 import { s } from '../core/schema.js';
 
 export class Trigger extends Entity {
+  static description = 'An invisible sensor that fires when something enters it';
   name = 'Trigger';
 
   static properties = {
     active: s.boolean({ initial: false, description: 'Inert until set' }),
     visible: s.boolean({ initial: false, description: 'Draw the sensor, to see where it is' }),
-    triggers: s.string({ description: 'What the scene does on entry; the scene reads it' }),
+    triggers: s.string({ description: 'A tag for game code to read on entry; a level\'s rules watch the object itself (when: enter)' }),
     debugColor: s.string({ initial: '#e7693166', editor: 'color', label: 'Debug colour' })
   };
 
@@ -25,9 +26,6 @@ export class Trigger extends Entity {
     if (!this.active) return;
 
     if (other.entity?.name === 'Player') {
-      if (this.triggers === 'levelComplete') {
-        this.game.soundManager.playSound('levelComplete');
-      }
       if (this.onEnter) {
         this.onEnter(other.entity, this.data);
       }

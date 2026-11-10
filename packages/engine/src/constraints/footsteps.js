@@ -25,6 +25,7 @@ import { s } from '../core/schema.js';
  * @param {Function} [options.onStep] - Called with the step index, bound to the entity
  */
 export class Footsteps extends Constraint {
+  static description = 'Footstep sounds paced by distance travelled';
   static params = {
     sounds: s.array(s.string({ nonEmpty: true }), { label: 'Sound keys' }),
     stride: s.number({ initial: 34, positive: true, unit: 'px' }),

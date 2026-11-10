@@ -6,6 +6,7 @@ import { KeyboardControl } from '../constraints/keyboardControl.js';
 import { WallSlip } from '../constraints/wallSlip.js';
 
 export class Player extends Entity {
+  static description = 'The side-view platformer player';
   name = 'Player';
 
   constructor(body, sprite, game, options = {}) {

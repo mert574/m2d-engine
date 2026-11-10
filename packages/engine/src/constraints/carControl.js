@@ -64,6 +64,7 @@ import { s } from '../core/schema.js';
  * @param {() => void} [options.onNitro] - Nitro ignited.
  */
 export class CarControl extends Constraint {
+  static description = 'Arcade top-down car handling: throttle, steering, drift';
   static params = {
     manual: s.boolean({ initial: false, label: 'Manual drift' }),
     acceleration: s.number({ initial: 420, positive: true, unit: 'px/s²' }),

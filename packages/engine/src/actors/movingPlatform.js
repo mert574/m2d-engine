@@ -12,6 +12,7 @@ import { s } from '../core/schema.js';
  * actor is just the body setup.
  */
 export class MovingPlatform extends Entity {
+  static description = 'A platform that patrols a path, pausing at each point';
   name = 'MovingPlatform';
 
   /** The path is the `PathFollow` constraint's own params, set through this actor. */

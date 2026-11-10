@@ -38,6 +38,7 @@ const DEFAULT_KEYS = Object.freeze({
  * @param {Function} [options.onBoost] - Called when a boost ignites
  */
 export class ThrustControl extends Constraint {
+  static description = 'Keyboard thrust and turn for a ship or a rocket';
   static params = {
     thrust: s.number({ initial: 520, positive: true, unit: 'px/s²' }),
     reverse: s.number({ initial: 260, min: 0, unit: 'px/s²' }),

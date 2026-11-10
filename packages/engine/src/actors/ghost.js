@@ -7,6 +7,7 @@ import { CollisionCategories } from '../core/constants.js';
 import { Debug } from '../constraints/debug.js';
 
 export class Ghost extends Entity {
+  static description = 'A floating enemy that drifts toward the player';
   name = 'Ghost';
 
   constructor(body, sprite, game, options = {}) {

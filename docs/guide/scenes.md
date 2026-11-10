@@ -211,7 +211,7 @@ The name `mainMenu` is special in two places. The game-over screen's M key switc
 
 `onEnter`, `onFixedUpdate` and `onExit` are simulation and run in a [headless game](./headless) too. `onShow`, `onHide` and the per-frame hooks are presentation: camera setup, lights, post effects, HUD and music go there. A game that never runs headless can keep everything in `onEnter` and `onExit`.
 
-`onFixedUpdate`, `onUpdate`, `onDrawBackground` and `onDraw` are for things that are not entities. A director that spawns waves or a win condition goes in `onFixedUpdate`, so it runs the same at every frame rate. A sky or a particle layer goes in `onUpdate` and the draw hooks. Screen-space drawing does not belong in either draw hook. Add a UI element to the scene instead, as shown in [UI](./ui).
+`onFixedUpdate`, `onUpdate`, `onDrawBackground` and `onDraw` are for things that are not entities. A director that spawns waves goes in `onFixedUpdate`, so it runs the same at every frame rate. A win or lose condition usually needs no code at all: the scene's [`world.rules`](../reference/scene-format#rules) say what happens when every coin is collected, the player enters the gate or dies, and its [`hud`](../reference/scene-format#hud) shows the objective, a health meter and a notice, all edited in the editor. A sky or a particle layer goes in `onUpdate` and the draw hooks. Screen-space drawing does not belong in either draw hook. Add a UI element to the scene instead, as shown in [UI](./ui).
 
 The current scene is available as `game.sceneManager.getCurrentScene()`. Its `ui` property is the container that holds its screen-space elements.
 

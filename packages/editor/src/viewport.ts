@@ -28,10 +28,20 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { initWebGPU, webgpuSupported } from 'm2d-engine/core/renderers/index.js';
 import { mapPointer, viewToClient } from 'm2d-engine/core/viewport.js';
 import { isPlainObject, validateScene, rotation, type SceneDocument, type Op, type ValidationIssue, type Quaternion } from 'm2d-editor-core';
-import { attachCameraControls } from './cameraControls.ts';
+import { attachCameraControls, type CameraControls } from './cameraControls.ts';
+import { rayShape, isBackdrop3D, bestHit, slopOffsets, type Hit, type Shape } from './picking.ts';
 
 /** A point in client (CSS) pixels. */
 export interface Point { x: number; y: number }
+
+/** A projected point: where a world point lands in client pixels, and whether it is behind the eye. */
+export interface ClientPoint extends Point { behind: boolean }
+
+/** How far outside the canvas a selection's centre may be before its gizmo hides. */
+const OFFSCREEN_MARGIN = 24;
+
+/** How far from the pointer, in client pixels, a near miss still picks. */
+const PICK_SLOP = 6;
 
 /**
  * Where a placed object is on screen, for the overlay: its outline as
@@ -47,6 +57,16 @@ export interface Placement {
   axes: Array<{ axis: 'x' | 'y' | 'z'; dir: Point; scale: number }>;
   /** The object's document position (ground position in a projected 2D game). */
   position: { x: number; y: number; z?: number };
+  /** The body's size, in world units: what a scale drag starts from when the document leaves a side out. */
+  size: { x: number; y: number; z?: number };
+  /** 2D: where the frame is drawn, on the render plane. */
+  drawnAt?: Point;
+  /**
+   * Whether the centre is on the canvas (within a small margin). Off it,
+   * the outline may still show what is clipped, but a gizmo would float at
+   * the edge over nothing — so it hides.
+   */
+  onScreen: boolean;
   angle: number;
   /** 3D: the body's orientation. */
   rotation?: Quaternion;
@@ -74,14 +94,40 @@ interface EntityLike {
   renderPosition: { x: number; y: number };
   renderAngle?: number;
   size: { x: number; y: number; z?: number };
+  /** 3D: the merged mesh block the entity draws with (`m2d.js` sets it). */
+  mesh?: { model?: string; scale?: number; offset?: V3; shape?: string; visible?: boolean } | null;
+  /** 2D: whether it has a sprite to draw at all. */
+  sprite?: unknown;
+  visible?: boolean;
   body: {
     setPosition(p: object): void; setAngle?(a: number): void; angle?: number;
     rotation?: { x: number; y: number; z: number; w: number }; setRotation?(q: object): void;
+    shape?: string; isSensor?: boolean;
+    /** 3D: the size the body was made with; what a shape mesh draws at. */
+    sizeVec?: V3;
   };
+  /** The constraints attached to the entity, by slot, whoever attached them. */
+  constraints?: Map<string, { constructor: { name: string; params?: Record<string, unknown> | null }; [field: string]: unknown }>;
 }
 interface SceneLike {
   entitiesById: Map<string, EntityLike>;
+  /** 3D: the loaded models by key, each with the bounds of its file. */
+  models?: Map<string, { bounds?: { min: V3; max: V3 } }>;
+  /** 3D: the materials made for `mesh.texture` blocks, by `url|size`. */
+  meshMaterials?: Map<string, unknown>;
+  /** 2D: the loaded sprite sheets by key. */
+  spriteSheets?: Map<string, unknown>;
   replaceObject(id: string | null, object: object | null, options?: { after?: string | null }): unknown;
+}
+
+/** The geometry a pick tests for one entity, in the body's frame. */
+interface PickVolume {
+  shape: Shape;
+  /** Full extents. */
+  size: V3;
+  /** The volume's centre, offset from the body's. */
+  centre: V3;
+  hidden: boolean;
 }
 
 /**
@@ -192,7 +238,7 @@ export class Viewport {
    */
   canvas: HTMLCanvasElement;
   #game: InstanceType<typeof M2D> | null = null;
-  #detach: (() => void) | null = null;
+  #controls: CameraControls | null = null;
   /** Bumped by every show and close; a show that sees it move was overtaken. */
   #generation = 0;
   /** Whether the shown game is being played rather than edited. */
@@ -331,7 +377,7 @@ export class Viewport {
       camera.x = (typeof world.width === 'number' ? world.width : game.options.width as number) / 2;
       camera.y = (typeof world.height === 'number' ? world.height : game.options.height as number) / 2;
     }
-    this.#detach = attachCameraControls(game as never, () => this.#viewChanged());
+    this.#controls = attachCameraControls(game as never, this.canvas, () => this.#viewChanged());
     this.#records = recordsOf(doc.data);
     this.#viewChanged();
     return true;
@@ -339,6 +385,9 @@ export class Viewport {
 
   /** Whether the shown game is being played: edits, picks and gizmos wait. */
   get playing(): boolean { return this.#playing; }
+
+  /** Whether the camera is being flown (the right button held): the keys are its, not the editor's. */
+  get flying(): boolean { return this.#controls?.flying ?? false; }
 
   /** The power-saving switch: draw on demand, or every frame like play. */
   get drawOnDemand(): boolean { return this.#drawOnDemand; }
@@ -379,7 +428,10 @@ export class Viewport {
     const loaded = loadedObjects(result.loaded);
     for (const [id, record] of next) {
       const before = this.#records.get(id);
-      if (before && before.overrides !== record.overrides) return { kind: 'rebuild' };
+      // Overrides may name an asset the scene has not loaded (a new texture,
+      // a model, a sheet): that is a rebuild. A scale, a recolour or a swap
+      // to a loaded asset rebuilds the one object.
+      if (before && before.overrides !== record.overrides && !this.#assetsLoaded(scene, loaded.get(id))) return { kind: 'rebuild' };
     }
     let changed = 0;
     for (const id of this.#records.keys()) {
@@ -399,47 +451,177 @@ export class Viewport {
   }
 
   /**
-   * The placed object under a client point, by its scene id, or null. 2D
-   * tests the drawn bounds and prefers the smallest object containing the
-   * point, so a backdrop the size of the world never wins over what stands
-   * on it; 3D casts the camera's ray against each object's box and takes
-   * the nearest hit.
+   * The placed object under a client point, by its scene id, or null.
+   *
+   * 3D casts the camera's ray against each object's *visible* volume — a
+   * model's scaled bounds, a shape's real sphere or cylinder, never a
+   * trigger box the renderer does not draw at that size — and a ring of
+   * rays a few pixels around it, so a near miss on something small still
+   * finds it. Hits rank drawn before hidden, direct before near, nearest
+   * first, and a backdrop (the floor under the view) last of all. 2D tests
+   * the drawn bounds the same way and prefers the smallest object
+   * containing the point, so a backdrop the size of the world never wins
+   * over what stands on it; see `picking.ts`.
    */
   pick(clientX: number, clientY: number): string | null {
     if (this.#playing) return null;
     const game = this.#game as unknown as { viewport: never; camera: Record<string, never> } | null;
     const scene = this.#scene();
     if (!game || !scene) return null;
-    const { view } = mapPointer({ clientX, clientY, rect: this.canvas.getBoundingClientRect(), viewport: game.viewport });
-    let best: string | null = null;
-    let bestScore = Infinity;
+    const rect = this.canvas.getBoundingClientRect();
+    const viewAt = (x: number, y: number) => mapPointer({ clientX: x, clientY: y, rect, viewport: game.viewport }).view;
+    const hits: Hit[] = [];
+
     if (this.dimensions === 3) {
       const camera = game.camera as unknown as { screenToRay(x: number, y: number): { origin: V3; direction: V3 } };
-      const { origin, direction } = camera.screenToRay(view.x, view.y);
-      for (const [id, entity] of scene.entitiesById) {
-        // Into the box's own frame, where it is axis-aligned at the origin.
-        const inverse = rotation.conjugate(quatOf(entity));
-        const c = entity.position as V3;
-        const local = rotation.rotate(inverse, { x: origin.x - c.x, y: origin.y - c.y, z: origin.z - c.z });
-        const t = rayBox(local, rotation.rotate(inverse, direction), { x: 0, y: 0, z: 0 }, entity.size as V3);
-        if (t !== null && t < bestScore) { bestScore = t; best = id; }
+      const volumes = [...scene.entitiesById].map(([id, entity]) => [id, entity, pickVolume(entity, scene)] as const);
+      for (const { dx, dy, direct } of slopOffsets(PICK_SLOP)) {
+        const view = viewAt(clientX + dx, clientY + dy);
+        const { origin, direction } = camera.screenToRay(view.x, view.y);
+        for (const [id, entity, volume] of volumes) {
+          // Into the body's frame, where the volume is axis-aligned, then to the volume's own centre.
+          const inverse = rotation.conjugate(quatOf(entity));
+          const c = entity.position as V3;
+          const o = rotation.rotate(inverse, { x: origin.x - c.x, y: origin.y - c.y, z: origin.z - c.z });
+          const local = { x: o.x - volume.centre.x, y: o.y - volume.centre.y, z: o.z - volume.centre.z };
+          const t = rayShape(local, rotation.rotate(inverse, direction), volume.shape, volume.size);
+          if (t === null) continue;
+          hits.push({ id, t, tier: volume.hidden ? 1 : 0, backdrop: isBackdrop3D(volume.size, t), direct });
+        }
       }
-      return best;
+      return bestHit(hits);
     }
-    const camera = game.camera as unknown as { screenToWorld(x: number, y: number): Point };
+
+    const camera = game.camera as unknown as {
+      zoom?: number; screenToWorld(x: number, y: number): Point; getVisibleArea?(): { width: number; height: number };
+    };
+    const zoom = typeof camera.zoom === 'number' && camera.zoom > 0 ? camera.zoom : 1;
+    const slop = PICK_SLOP / zoom;
+    const visible = camera.getVisibleArea?.();
+    const viewArea = visible ? visible.width * visible.height : Infinity;
+    const view = viewAt(clientX, clientY);
     const world = camera.screenToWorld(view.x, view.y);
     for (const [id, entity] of scene.entitiesById) {
+      if (entity.visible === false) continue;
       const { x, y } = entity.renderPosition;
       const halfW = entity.size.x / 2;
       const halfH = entity.size.y / 2;
-      if (Math.abs(world.x - x) > halfW || Math.abs(world.y - y) > halfH) continue;
+      const dx = Math.abs(world.x - x);
+      const dy = Math.abs(world.y - y);
+      if (dx > halfW + slop || dy > halfH + slop) continue;
       const area = entity.size.x * entity.size.y;
-      if (area < bestScore) { bestScore = area; best = id; }
+      hits.push({
+        id,
+        // Smaller first: the thing on the backdrop, not the backdrop.
+        t: area,
+        tier: entity.sprite || entity.mesh ? 0 : 1,
+        backdrop: area >= viewArea / 4,
+        direct: dx <= halfW && dy <= halfH
+      });
     }
-    return best;
+    return bestHit(hits);
   }
 
-  /** Where an object is on screen, for its outline and gizmo; null if it is not shown. */
+  /** Whether every asset a loaded object's overrides name is in the shown scene already. */
+  #assetsLoaded(scene: SceneLike, object: object | undefined): boolean {
+    const overrides = isPlainObject(object) && isPlainObject(object.overrides) ? object.overrides : null;
+    if (!overrides) return true;
+    if (typeof overrides.spritesheet === 'string' && !scene.spriteSheets?.has(overrides.spritesheet)) return false;
+    const mesh = isPlainObject(overrides.mesh) ? overrides.mesh : null;
+    if (mesh) {
+      if (typeof mesh.model === 'string' && !scene.models?.has(mesh.model)) return false;
+      const texture = isPlainObject(mesh.texture) ? mesh.texture : null;
+      if (texture && typeof texture.url === 'string' && !scene.meshMaterials?.has(`${texture.url}|${(texture.size as number | undefined) ?? 1}`)) return false;
+    }
+    return true;
+  }
+
+  /** What `previewSize` changed on an entity, to put back if the drag is cancelled. */
+  #sizePreviews = new Map<string, () => void>();
+
+  /**
+   * Show an object at another size while a scale drag is in progress: a
+   * shape mesh draws at the body's recorded size, so that is what moves; a
+   * model draws at its mesh block's scale and offset, so those scale; a 2D
+   * sprite draws at the entity's size. The collider is left alone — the
+   * edit on release rebuilds the object for real. `endPreviewSize` puts
+   * the entity back when the drag is cancelled.
+   */
+  previewSize(id: string, size: { x: number; y: number; z?: number }): void {
+    const entity = this.#scene()?.entitiesById.get(id);
+    if (!entity) return;
+    if (!this.#sizePreviews.has(id)) {
+      const body = entity.body;
+      const was = { sizeVec: body.sizeVec ? { ...body.sizeVec } : null, mesh: entity.mesh, size: { ...entity.size } };
+      this.#sizePreviews.set(id, () => {
+        if (was.sizeVec) body.sizeVec = was.sizeVec;
+        entity.mesh = was.mesh;
+        entity.size = was.size;
+      });
+    }
+    if (this.dimensions === 3) {
+      const base = this.#sizePreviews.get(id) ? entity : entity;
+      const mesh = entity.mesh;
+      if (mesh?.model) {
+        // Uniform, by the width's ratio to what the preview started from.
+        const started = (entity.body.sizeVec ?? entity.size).x || 1;
+        const factor = size.x / started;
+        const o = mesh.offset ?? { x: 0, y: 0, z: 0 };
+        entity.mesh = { ...mesh, scale: (mesh.scale ?? 1) * factor, offset: { x: o.x * factor, y: o.y * factor, z: o.z * factor } };
+      }
+      if (entity.body.sizeVec) entity.body.sizeVec = { x: size.x, y: size.y, z: size.z ?? size.x };
+      void base;
+    } else {
+      entity.size = { x: size.x, y: size.y };
+    }
+    this.#viewChanged();
+  }
+
+  /** Put back what `previewSize` changed (the drag was cancelled), or forget it (the edit rebuilt the object). */
+  endPreviewSize(id: string, restore: boolean): void {
+    const undo = this.#sizePreviews.get(id);
+    this.#sizePreviews.delete(id);
+    if (restore) undo?.();
+    this.#viewChanged();
+  }
+
+  /**
+   * The constraints the shown entity actually carries — the ones its actor
+   * attached in its constructor as well as the document's — each with the
+   * live value of every param its class declares. What the inspector shows
+   * so a scene author sees what the game really runs, not only what the
+   * document says.
+   */
+  liveConstraints(id: string): Array<{ slot: string; type: string; params: Record<string, unknown> }> {
+    const entity = this.#scene()?.entitiesById.get(id);
+    if (!entity?.constraints) return [];
+    const out: Array<{ slot: string; type: string; params: Record<string, unknown> }> = [];
+    for (const [slot, constraint] of entity.constraints) {
+      const klass = constraint.constructor;
+      const params: Record<string, unknown> = {};
+      for (const key of Object.keys(klass.params ?? {})) {
+        const shown = plainValue(constraint[key]);
+        if (shown !== undefined) params[key] = shown;
+      }
+      out.push({ slot, type: klass.name, params });
+    }
+    return out;
+  }
+
+  /** The ids of the placed objects whose on-screen centre a test accepts: what a marquee selects. */
+  objectsWithin(test: (centre: ClientPoint) => boolean): string[] {
+    const scene = this.#scene();
+    const toClient = this.#toClient();
+    if (this.#playing || !scene || !toClient) return [];
+    const ids: string[] = [];
+    for (const [id, entity] of scene.entitiesById) {
+      const centre = toClient(this.dimensions === 3 ? entity.position : entity.renderPosition);
+      if (!centre.behind && test(centre)) ids.push(id);
+    }
+    return ids;
+  }
+
+  /** Where an object is on screen, for its outline and gizmo; null if it is not shown or is behind the eye. */
   placement(id: string): Placement | null {
     if (this.#playing) return null;
     const entity = this.#scene()?.entitiesById.get(id);
@@ -447,18 +629,19 @@ export class Viewport {
     const toClient = this.#toClient();
     if (!toClient) return null;
     const angle = entity.body.angle ?? 0;
+    const rect = this.canvas.getBoundingClientRect();
+    const onScreen = (c: Point) =>
+      c.x >= rect.left - OFFSCREEN_MARGIN && c.x <= rect.right + OFFSCREEN_MARGIN
+      && c.y >= rect.top - OFFSCREEN_MARGIN && c.y <= rect.bottom + OFFSCREEN_MARGIN;
 
     if (this.dimensions === 3) {
       const p = entity.position as V3;
       const q = quatOf(entity);
-      const h = { x: entity.size.x / 2, y: entity.size.y / 2, z: (entity.size.z ?? 0) / 2 };
-      const corner = (sx: number, sy: number, sz: number) => {
-        const r = rotation.rotate(q, { x: sx * h.x, y: sy * h.y, z: sz * h.z });
-        return toClient({ x: p.x + r.x, y: p.y + r.y, z: p.z + r.z });
-      };
-      const edges: Array<[Point, Point]> = [];
-      for (const [a, b] of BOX_EDGES) edges.push([corner(...a), corner(...b)]);
+      const size = { x: entity.size.x, y: entity.size.y, z: entity.size.z ?? entity.size.x };
       const center = toClient(p);
+      // Behind the eye a point still projects — mirrored, onto nonsense. Nothing to show.
+      if (center.behind) return null;
+      const edges = this.outline({ position: p, size, rotation: q });
       const axes = (['x', 'y', 'z'] as const).map((axis) => axisOf(axis, center, toClient({ ...p, [axis]: p[axis] + 1 })));
       // Rings sized to read about RING_PX across on screen, whatever the distance.
       const pxPerUnit = axes.reduce((sum, a) => sum + a.scale, 0) / 3 || 1;
@@ -473,31 +656,90 @@ export class Viewport {
           const w = { ...p };
           w[u] += Math.cos(a) * radius;
           w[v] += Math.sin(a) * radius;
-          points.push(toClient(w));
+          const point = toClient(w);
+          if (!point.behind) points.push(point);
         }
         const facing = (eye[axis] - p[axis]) > 0;
         return { axis, normal, points, facing };
       });
-      return { id, dimensions: 3, center, edges, axes, position: { x: p.x, y: p.y, z: p.z }, angle, rotation: q, rings };
+      return {
+        id, dimensions: 3, center, edges, axes, size, onScreen: onScreen(center),
+        position: { x: p.x, y: p.y, z: p.z }, angle, rotation: q, rings
+      };
     }
 
     // 2D: the outline is the drawn frame, turned with the body; the axes
     // are the ground's, through the projection when the game has one.
-    const projection = (this.#game as unknown as { projection?: { toScreen(x: number, y: number): Point } }).projection;
-    const plane = (x: number, y: number) => toClient(projection ? projection.toScreen(x, y) : { x, y });
     const drawn = entity.renderPosition;
     const turn = entity.renderAngle ?? angle;
+    const edges = this.outline({ drawnAt: drawn, size: entity.size, angle: turn });
+    const ground = entity.position;
+    const origin = this.#plane(ground.x, ground.y, toClient);
+    const axes = [
+      axisOf('x', origin, this.#plane(ground.x + 1, ground.y, toClient)),
+      axisOf('y', origin, this.#plane(ground.x, ground.y + 1, toClient))
+    ];
+    const center = toClient(drawn);
+    return {
+      id, dimensions: 2, center, edges, axes, size: { x: entity.size.x, y: entity.size.y }, onScreen: onScreen(center),
+      drawnAt: { x: drawn.x, y: drawn.y }, position: { x: ground.x, y: ground.y }, angle
+    };
+  }
+
+  /**
+   * The outline of a box on screen, as client-space segments: a 3D box at
+   * a position with a size and an orientation, or a 2D frame drawn at a
+   * render-plane point (or standing at a ground point, through the
+   * projection) with a size and a turn. Segments with an end behind the
+   * eye are left out. What the selection's outline, a scale drag's preview
+   * and a drop's ghost all draw with.
+   */
+  outline(spec: {
+    position?: { x: number; y: number; z?: number }; drawnAt?: Point;
+    size: { x: number; y: number; z?: number }; rotation?: Quaternion; angle?: number;
+  }): Array<[Point, Point]> {
+    const toClient = this.#toClient();
+    if (!toClient) return [];
+    if (this.dimensions === 3) {
+      const p = { x: spec.position?.x ?? 0, y: spec.position?.y ?? 0, z: spec.position?.z ?? 0 };
+      const q = spec.rotation ?? rotation.IDENTITY;
+      const h = { x: spec.size.x / 2, y: spec.size.y / 2, z: (spec.size.z ?? spec.size.x) / 2 };
+      const corner = (sx: number, sy: number, sz: number) => {
+        const r = rotation.rotate(q, { x: sx * h.x, y: sy * h.y, z: sz * h.z });
+        return toClient({ x: p.x + r.x, y: p.y + r.y, z: p.z + r.z });
+      };
+      const edges: Array<[Point, Point]> = [];
+      for (const [a, b] of BOX_EDGES) {
+        const from = corner(...a);
+        const to = corner(...b);
+        if (!from.behind && !to.behind) edges.push([from, to]);
+      }
+      return edges;
+    }
+    const drawn = spec.drawnAt ?? this.#renderPlane(spec.position?.x ?? 0, spec.position?.y ?? 0);
+    const turn = spec.angle ?? 0;
     const cos = Math.cos(turn);
     const sin = Math.sin(turn);
-    const hw = entity.size.x / 2;
-    const hh = entity.size.y / 2;
+    const hw = spec.size.x / 2;
+    const hh = spec.size.y / 2;
     const corners = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([dx, dy]) =>
       toClient({ x: drawn.x + dx! * cos - dy! * sin, y: drawn.y + dx! * sin + dy! * cos }));
-    const edges = corners.map((point, i): [Point, Point] => [point, corners[(i + 1) % 4]!]);
-    const ground = entity.position;
-    const origin = plane(ground.x, ground.y);
-    const axes = [axisOf('x', origin, plane(ground.x + 1, ground.y)), axisOf('y', origin, plane(ground.x, ground.y + 1))];
-    return { id, dimensions: 2, center: toClient(drawn), edges, axes, position: { x: ground.x, y: ground.y }, angle };
+    return corners.map((point, i): [Point, Point] => [point, corners[(i + 1) % 4]!]);
+  }
+
+  /** A world point (render-plane point in 2D) on screen, in client pixels, or null with no game. */
+  project(p: { x: number; y: number; z?: number }): ClientPoint | null {
+    return this.#toClient()?.(p) ?? null;
+  }
+
+  /** A 2D ground point on the render plane, through the game's projection when it has one. */
+  #renderPlane(x: number, y: number): Point {
+    const projection = (this.#game as unknown as { projection?: { toScreen(x: number, y: number): Point } }).projection;
+    return projection ? projection.toScreen(x, y) : { x, y };
+  }
+
+  #plane(x: number, y: number, toClient: (p: { x: number; y: number }) => ClientPoint): ClientPoint {
+    return toClient(this.#renderPlane(x, y));
   }
 
   /**
@@ -566,14 +808,27 @@ export class Viewport {
     return (this.#game?.sceneManager.getCurrentScene() as unknown as SceneLike | undefined) ?? null;
   }
 
-  /** World (render-plane in 2D) to client pixels, for the current camera and canvas. */
-  #toClient(): ((p: { x: number; y: number; z?: number }) => Point) | null {
-    const game = this.#game as unknown as { viewport: never; camera: { worldToScreen(x: number, y: number, z?: number): Point } } | null;
+  /**
+   * World (render-plane in 2D) to client pixels, for the current camera
+   * and canvas. In 3D a point behind the eye still projects — the divide
+   * flips it onto the screen — so each point says whether it is behind,
+   * from its depth in view space, and callers leave those out.
+   */
+  #toClient(): ((p: { x: number; y: number; z?: number }) => ClientPoint) | null {
+    const game = this.#game as unknown as {
+      viewport: never;
+      camera: { worldToScreen(x: number, y: number, z?: number): Point; view?: Float32Array | number[]; near?: number };
+    } | null;
     if (!game) return null;
     const rect = this.canvas.getBoundingClientRect();
+    const { view: matrix, near = 0.1 } = game.camera;
+    const threeD = this.dimensions === 3 && matrix !== undefined;
     return (p) => {
       const view = game.camera.worldToScreen(p.x, p.y, p.z);
-      return viewToClient({ x: view.x, y: view.y, rect, viewport: game.viewport });
+      const client = viewToClient({ x: view.x, y: view.y, rect, viewport: game.viewport });
+      // View space looks down -z: the depth of the point is minus its view z.
+      const depth = threeD ? -(matrix[2]! * p.x + matrix[6]! * p.y + matrix[10]! * (p.z ?? 0) + matrix[14]!) : 1;
+      return { x: client.x, y: client.y, behind: depth < near };
     };
   }
 
@@ -593,8 +848,8 @@ export class Viewport {
     this.#generation++;
     this.#playing = false;
     this.#records.clear();
-    this.#detach?.();
-    this.#detach = null;
+    this.#controls?.detach();
+    this.#controls = null;
     this.#game?.destroy();
     this.#game = null;
   }
@@ -640,6 +895,51 @@ const RING_PX = 80;
 function quatOf(entity: EntityLike): Quaternion {
   const r = entity.body.rotation;
   return r ? [r.x, r.y, r.z, r.w] : [0, 0, 0, 1];
+}
+
+/**
+ * What a pick tests for a 3D entity: the model's bounds under the mesh
+ * block's scale and offset when it draws one, else its shape at the
+ * body's size. A trigger box twice the size of the lamp inside it is not
+ * what the eye sees, so it is not what a click lands on.
+ */
+function pickVolume(entity: EntityLike, scene: SceneLike): PickVolume {
+  const size = { x: entity.size.x, y: entity.size.y, z: entity.size.z ?? entity.size.x };
+  const mesh = entity.mesh;
+  const hidden = mesh?.visible === false || entity.visible === false;
+  const bounds = mesh?.model ? scene.models?.get(mesh.model)?.bounds : undefined;
+  if (bounds) {
+    const s = mesh?.scale ?? 1;
+    const o = mesh?.offset ?? { x: 0, y: 0, z: 0 };
+    return {
+      shape: 'box',
+      size: { x: (bounds.max.x - bounds.min.x) * s, y: (bounds.max.y - bounds.min.y) * s, z: (bounds.max.z - bounds.min.z) * s },
+      centre: { x: (bounds.max.x + bounds.min.x) / 2 * s + o.x, y: (bounds.max.y + bounds.min.y) / 2 * s + o.y, z: (bounds.max.z + bounds.min.z) / 2 * s + o.z },
+      hidden
+    };
+  }
+  const shape = (mesh?.shape ?? entity.body.shape ?? 'box') as Shape;
+  return { shape: ['sphere', 'cylinder', 'capsule'].includes(shape) ? shape : 'box', size, centre: { x: 0, y: 0, z: 0 }, hidden };
+}
+
+/**
+ * A live field as plain data for display, or undefined when it is not
+ * data: a function, an engine object (a body, a collider set) or anything
+ * cyclic. Arrays and plain objects are copied two levels down.
+ */
+function plainValue(value: unknown, depth = 0): unknown {
+  if (value === null) return null;
+  if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value !== 'object' || depth > 2) return undefined;
+  if (Array.isArray(value)) return value.map((each) => plainValue(each, depth + 1) ?? null);
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return undefined;
+  const out: Record<string, unknown> = {};
+  for (const [key, each] of Object.entries(value as Record<string, unknown>)) {
+    const shown = plainValue(each, depth + 1);
+    if (shown !== undefined) out[key] = shown;
+  }
+  return out;
 }
 
 /** A placed object's record, as the in-place diff compares it. */
@@ -690,30 +990,6 @@ function axisOf(axis: 'x' | 'y' | 'z', from: Point, to: Point) {
   const dy = to.y - from.y;
   const scale = Math.hypot(dx, dy);
   return { axis, dir: scale > 1e-9 ? { x: dx / scale, y: dy / scale } : { x: 0, y: 0 }, scale };
-}
-
-/** Distance along a ray to a box centred on `center`, or null for a miss. */
-function rayBox(origin: V3, direction: V3, center: V3, size: { x: number; y: number; z?: number }): number | null {
-  let near = -Infinity;
-  let far = Infinity;
-  for (const axis of ['x', 'y', 'z'] as const) {
-    const half = (axis === 'z' ? size.z ?? 0 : size[axis]) / 2;
-    const lo = center[axis] - half;
-    const hi = center[axis] + half;
-    const d = direction[axis];
-    if (Math.abs(d) < 1e-12) {
-      if (origin[axis] < lo || origin[axis] > hi) return null;
-      continue;
-    }
-    let t1 = (lo - origin[axis]) / d;
-    let t2 = (hi - origin[axis]) / d;
-    if (t1 > t2) [t1, t2] = [t2, t1];
-    near = Math.max(near, t1);
-    far = Math.min(far, t2);
-    if (near > far) return null;
-  }
-  // The camera inside a box (the ground under a low eye) is not a pick of it.
-  return near >= 0 ? near : null;
 }
 
 /** The twelve edges of a box, as pairs of corner signs. */

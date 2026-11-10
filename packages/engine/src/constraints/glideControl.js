@@ -37,6 +37,7 @@ const DEFAULT_KEYS = Object.freeze({
  * - `keys`: bindings, as physical codes.
  */
 export class GlideControl extends Constraint {
+  static description = 'Keyboard flight: thrust, pitch and glide for a winged thing';
   static params = {
     speed: s.number({ initial: 240, positive: true, unit: 'px/s' }),
     grid: s.number({ initial: 32, positive: true, unit: 'px' }),

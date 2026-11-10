@@ -156,17 +156,53 @@ describe('the inspector', () => {
     expect(writes.at(-1)?.[1]).toBeCloseTo(Math.PI / 4, 6);
   });
 
-  it('offers to add an absent block and to remove a set optional one', () => {
+  it('offers the absent blocks as Add chips and removes a set one from its card', () => {
     const writes: Array<[unknown[], unknown, string]> = [];
     const inspector = createInspector(container, { edit: (path, value, label) => writes.push([path, value, label]) });
     inspector.show('wall', inspectNode(DOC, ['prefabs', 'wall']));
-    const add = [...container.querySelectorAll<HTMLButtonElement>('dd.section button')].find((b) => b.textContent === 'Add');
-    expect(add).toBeTruthy();
-    add!.click();
-    expect(writes.at(-1)?.[1]).toEqual({});
-    const physics = container.querySelector<HTMLButtonElement>('dd.section[data-key="physics"] .reset')!;
-    physics.click();
+    // No tabs asked for: one body, the set block as a card, the rest as chips.
+    expect(container.querySelector('.inspector-tabs')).toBeNull();
+    const physics = container.querySelector<HTMLElement>('.card[data-key="physics"]')!;
+    expect(physics).toBeTruthy();
+    expect(physics.querySelector('dd[data-key="bodyType"]')).toBeTruthy();
+    const chips = [...container.querySelectorAll<HTMLButtonElement>('.add-chip')].map((chip) => chip.dataset.key);
+    expect(chips).toContain('mesh');
+    expect(chips).toContain('constraints');
+    expect(chips).not.toContain('physics');
+    container.querySelector<HTMLButtonElement>('.add-chip[data-key="mesh"]')!.click();
+    expect(writes.at(-1)).toEqual([['prefabs', 'wall', 'mesh'], {}, 'Add mesh']);
+    physics.querySelector<HTMLButtonElement>('.card-head .reset')!.click();
     expect(writes.at(-1)).toEqual([['prefabs', 'wall', 'physics'], undefined, 'Remove physics']);
+  });
+
+  it('sorts the rows into the tabs asked for, remembers the tab per kind and reveals a path', () => {
+    const inspector = createInspector(container, { edit: () => {} });
+    const groups = [
+      { id: 'transform', label: 'Transform', keys: ['x', 'y', 'width', 'height'] },
+      { id: 'object', label: 'Object', keys: ['id', 'prefab'], rest: true },
+      { id: 'overrides', label: 'Overrides', keys: ['overrides'] }
+    ];
+    inspector.show('crate-1', inspectNode(DOC, ['layers', 0, 'objects', 1]), { kind: 'object', groups });
+    const tabs = () => [...container.querySelectorAll<HTMLElement>('.inspector-tab')];
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['Transform', 'Object', 'Overrides']);
+    expect(container.querySelector('[data-key="x"]')).toBeTruthy();
+    expect(container.querySelector('[data-key="prefab"]')).toBeNull();
+
+    tabs()[1]!.click();
+    expect(container.querySelector('[data-key="prefab"]')).toBeTruthy();
+    expect(container.querySelector('[data-key="x"]')).toBeNull();
+    // Another object of the same kind opens on the same tab.
+    inspector.show('pebble', inspectNode(DOC, ['layers', 0, 'objects', 2]), { kind: 'object', groups });
+    expect(tabs()[1]!.getAttribute('aria-selected')).toBe('true');
+    // The Overrides tab holds only an absent block: one chip.
+    expect(container.querySelector('[data-key="overrides"]')).toBeNull();
+    tabs()[2]!.click();
+    expect(container.querySelector('.add-chip[data-key="overrides"]')).toBeTruthy();
+
+    // A problem's path opens the tab its row is in.
+    inspector.reveal('layers[0].objects[2].width');
+    expect(tabs()[0]!.getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('[data-key="width"]')).toBeTruthy();
   });
 
   it('marks the field the loader objected to, and goes read-only on request', () => {

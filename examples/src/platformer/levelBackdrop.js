@@ -162,34 +162,9 @@ export class DuskLevelBackdrop {
     }));
   }
 
-  /**
-   * Ambient light and the post pass are persistent renderer state, so they
-   * are set once on scene enter, not per frame. A backend without the
-   * capability ignores them and the painted palette stands on its own.
-   */
-  applyAtmosphere() {
-    // The painted art carries the exposure: the ambient is only a gentle
-    // cool grade, and the lights on top are accents — the sun's warmth, the
-    // player's own ember — not what keeps the scene visible. A dark ambient
-    // re-lit by broad fills is how a scene goes muddy.
-    this.renderer.setAmbientLight('#ded9e4');
-    this.renderer.setPostEffects({
-      bloom: { threshold: 0.68, strength: 0.65, blur: 32 },
-      vignette: { strength: 0.28, start: 0.55 },
-      // The grade pushes shadows toward the night that is coming and the
-      // highlights toward the sun that is going: the hour, in the colour.
-      grade: { shadows: '#7a6e9c', highlights: '#fff0d4', amount: 0.45, saturation: 1.08, contrast: 1.04 },
-      chromatic: { strength: 0.0015 },
-      distortion: { strength: 0.012 },
-      grain: { strength: 0.035 }
-    });
-  }
-
-  /** Undo `applyAtmosphere` on the way out, or the menu inherits it. */
-  clearAtmosphere() {
-    this.renderer.setAmbientLight(null);
-    this.renderer.setPostEffects(null);
-  }
+  // The ambient light and the post pass used to be set here; they are the
+  // scene's now (`world.lighting`, `world.post`), applied and cleared by the
+  // engine, so the editor shows the level as it is lit.
 
   /**
    * @param {number} deltaTime - Seconds since the last frame

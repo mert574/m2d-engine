@@ -35,6 +35,7 @@ import { s } from '../core/schema.js';
  *   size is the ground body rather than the frame (an isometric game)
  */
 export class ObliquePlayer extends TopDownPlayer {
+  static description = 'The 3/4-view player with a heading, a jump and a swing';
   static properties = {
     jumpSpeed: s.number({ initial: 430, positive: true, unit: 'px/s', label: 'Jump speed', description: 'Launch speed of elevation' }),
     gravity: s.number({ initial: 1500, positive: true, unit: 'px/s²', description: 'Pull back down' }),

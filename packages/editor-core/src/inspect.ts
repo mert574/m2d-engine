@@ -49,6 +49,18 @@ export interface InspectedRow {
   children?: InspectedRow[];
   /** For a long array: how many entries the summary stands for. */
   summary?: string;
+  /**
+   * For a field declared as a union or a tagged union: the shapes it may
+   * take, each with a starting value — what a variant picker offers. The
+   * row's own `kind` is the shape the document chose.
+   */
+  alternatives?: Array<{ label: string; value: unknown }>;
+  /** For a tuple: each position's descriptor label, for a cell per position. */
+  tuple?: Array<{ label?: string; kind: string }>;
+  /** For a record: what a new entry starts as (its required fields begun). */
+  entryTemplate?: unknown;
+  /** For an array: what a new item starts as. */
+  itemTemplate?: unknown;
 }
 
 export interface InspectOptions {
@@ -153,6 +165,13 @@ function row(
   if (present) out.value = value;
   const fallback = desc?.default ?? desc?.initial;
   if (fallback !== undefined) out.fallback = fallback;
+  const alternatives = alternativesOf(declared);
+  if (alternatives.length > 1) out.alternatives = alternatives;
+  if (desc?.kind === 'tuple' && desc.items) {
+    out.tuple = desc.items.map((item) => ({ label: typeof item.label === 'string' ? item.label : undefined, kind: item.kind }));
+  }
+  if (desc?.kind === 'record') out.entryTemplate = startingValue(desc.value ?? null) ?? {};
+  if (desc?.kind === 'array') out.itemTemplate = startingValue(desc.item ?? null);
 
   // Only what the document sets expands: an absent object field is one
   // muted row, not a subtree of dashes.
@@ -167,4 +186,62 @@ function row(
     }
   }
   return out;
+}
+
+/**
+ * The shapes a union or a tagged union may take, each with a value that
+ * satisfies it: an enum branch is one alternative per value, a tagged
+ * variant is its tag with the required fields started. Empty for anything
+ * that is not a choice of shapes.
+ */
+function alternativesOf(declared: SchemaDescriptor | null): Array<{ label: string; value: unknown }> {
+  if (!declared) return [];
+  if (declared.kind === 'union') {
+    return (declared.branches ?? []).flatMap((branch) => {
+      if (branch.kind === 'enum') return (branch.values ?? []).map((value) => ({ label: String(value), value }));
+      return [{ label: shapeLabel(branch), value: startingValue(branch) }];
+    });
+  }
+  if (declared.kind === 'tagged' && declared.tag && declared.variants) {
+    return Object.entries(declared.variants).map(([tag, variant]) => ({
+      label: tag,
+      value: { ...(startingValue(variant) as Record<string, unknown>), [declared.tag!]: tag }
+    }));
+  }
+  return [];
+}
+
+function shapeLabel(desc: SchemaDescriptor): string {
+  if (typeof desc.label === 'string') return desc.label;
+  if (desc.kind === 'object') return `{ ${Object.keys(desc.fields ?? {}).join(', ')} }`;
+  return desc.kind;
+}
+
+/** A value a descriptor accepts, with its required fields started and its defaults taken. */
+export function startingValue(desc: SchemaDescriptor | null): unknown {
+  if (!desc) return undefined;
+  if (desc.default !== undefined) return desc.default;
+  if (desc.initial !== undefined) return desc.initial;
+  switch (desc.kind) {
+    case 'number': case 'integer': return 0;
+    case 'string': case 'ref': return '';
+    case 'boolean': return false;
+    case 'enum': return desc.values?.[0];
+    case 'array': return [];
+    case 'record': return {};
+    case 'tuple': return (desc.items ?? []).map(startingValue);
+    case 'object': {
+      const out: Record<string, unknown> = {};
+      for (const [key, field] of Object.entries(desc.fields ?? {})) {
+        if (field.required === true) out[key] = startingValue(field);
+      }
+      return out;
+    }
+    case 'union': return startingValue(desc.branches?.[0] ?? null);
+    case 'tagged': {
+      const [tag, variant] = Object.entries(desc.variants ?? {})[0] ?? [];
+      return tag && variant ? { ...(startingValue(variant) as Record<string, unknown>), [desc.tag!]: tag } : {};
+    }
+    default: return undefined;
+  }
 }

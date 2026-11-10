@@ -166,6 +166,29 @@ describe('constraints declared in a scene', () => {
   });
 });
 
+describe('the engine\'s own constraints and actors, unregistered', () => {
+  it('attach by name without the game registering them, the game\'s registration winning', async () => {
+    const game = makeGame();
+    expect(game.constraintTypes.has('Footsteps')).toBe(true);        // never registered here
+    expect(game.constraintTypes.isBuiltin('Footsteps')).toBe(true);
+    expect(game.constraintTypes.isBuiltin('Hover')).toBe(false);     // registered by makeGame
+    expect(game.constraintTypes.own.has('Footsteps')).toBe(false);
+    expect([...game.constraintTypes.keys()]).toContain('PathFollow');
+    expect(game.actors.has('Prop')).toBe(true);
+    const data = level({ prefabConstraints: { wobble: { type: 'Hover', params: { amplitude: 2 } }, tracks: { type: 'Footsteps' } } });
+    game.sceneManager.addScene('level1', { fetch: async () => data });
+    await game.sceneManager.switchTo('level1');
+    const entity = game.sceneManager.getCurrentScene().entitiesById.get('thing-1');
+    expect(entity.getConstraint('tracks').constructor.name).toBe('Footsteps');
+    // A game's own class under an engine name is the one a scene gets.
+    class OwnHover extends Constraint { static params = {}; }
+    game.registerConstraint('Hover', OwnHover);
+    expect(game.constraintTypes.get('Hover')).toBe(OwnHover);
+    expect(game.constraintTypes.isBuiltin('Hover')).toBe(false);
+    game.destroy();
+  });
+});
+
 describe('validating declared constraints', () => {
   const loader = () => new SceneLoader(makeGame());
 

@@ -15,13 +15,9 @@ export function sceneHooks(game) {
   return {
     level1: {
       onEnter() {
-        // Keep the camera inside the level: without bounds, following the player
-        // (or an 'expand' aspect mode widening the view) reveals the void past
-        // the map.
-        game.camera.bounds = {
-          left: 0, top: 0,
-          right: game.options.worldWidth, bottom: game.options.worldHeight
-        };
+        // The camera's bounds and the ambient light are the scene's
+        // (`world.camera`, `world.lighting` in level1.json). The post pass
+        // stays in code: it tears with the player's hurt, every frame.
         game.soundManager.playMusic('game');
         backdrop = new FacilityBackdrop(game, game.sceneManager.getCurrentScene().spriteSheets.get('floor'));
         backdrop.applyAtmosphere();

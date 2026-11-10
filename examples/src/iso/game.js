@@ -1,4 +1,5 @@
 import { InputSchema } from 'm2d-engine/net/input.js';
+import { AttackSwing, HitBurst } from '../shared/effects.js';
 import { Wall, Torch, Ember, Stair, Creature, Knight, Quartermaster } from './keepActors.js';
 import { keepIntents, newPurse } from './keepIntents.js';
 
@@ -43,6 +44,9 @@ export function registerKeep(game) {
   for (const [name, actor] of Object.entries({
     ObliquePlayer: Knight, Ghost: Creature, Wall, Torch, Coin: Ember, Trigger: Stair, Quartermaster
   })) game.registerActor(name, actor);
+  // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
+  game.registerConstraint('AttackSwing', AttackSwing);
+  game.registerConstraint('HitBurst', HitBurst);
   game.registerIntents(keepIntents);
 }
 

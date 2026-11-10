@@ -16,6 +16,8 @@
  *
  * - `outline`, `inspect`, `descriptors` — the tree and the inspector's
  *   rows, from the document and the engine's descriptors.
+ * - `structure` — the structural edits (add an entry, rename a prefab,
+ *   move a layer) as ops, shared by the GUI and the MCP tools.
  *
  * See docs/plans/editor-e2.md for how the editor and its host use them.
  */
@@ -31,5 +33,7 @@ export { validateScene, type ValidationResult, type ValidationIssue } from './va
 export { sceneOutline, type OutlineNode } from './outline.ts';
 export * as rotation from './rotation.ts';
 export type { Quaternion, Euler } from './rotation.ts';
-export { inspectNode, type InspectedRow, type InspectOptions } from './inspect.ts';
+export { inspectNode, startingValue, type InspectedRow, type InspectOptions } from './inspect.ts';
 export { descriptorAt, resolveDescriptor, isPlainObject, type PathSegment, type ResolveContext } from './descriptors.ts';
+export * as structure from './structure.ts';
+export { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';

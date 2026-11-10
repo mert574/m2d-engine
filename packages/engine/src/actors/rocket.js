@@ -1,6 +1,7 @@
 import { Projectile } from '../core/projectile.js';
 
 export class Rocket extends Projectile {
+  static description = 'A projectile that flies straight and explodes on contact';
   name = 'Rocket';
 
   constructor(body, sprite, game, options = {}) {

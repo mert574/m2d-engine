@@ -33,6 +33,13 @@ export class Entity {
    */
   static properties = null;
 
+  /**
+   * One line on what the actor is, for an editor's component library.
+   * Empty means the class has nothing to say for itself beyond its name.
+   * @type {string}
+   */
+  static description = '';
+
   constructor(body, sprite, game) {
     if (!body) {
       throw new Error('Physics body is required');

@@ -278,7 +278,8 @@ export class Knight extends ObliquePlayer {
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
-    super(body, sprite, game, { ...options, attackRange: 70, attackArc: Math.PI * 1.4, jumpSpeed: 0 });
+    // The knight's defaults, under whatever the scene sets: a declared property typed in the inspector must win.
+    super(body, sprite, game, { attackRange: 70, attackArc: Math.PI * 1.4, jumpSpeed: 0, ...options });
     this.getConstraint('control').inputSpace = 'screen';
     this.addConstraint('walk', new PointerMove(this, {
       speed: 230, arrive: 10,

@@ -60,6 +60,12 @@ export interface AssetsPanelOptions {
   import(type: string, id: string): Promise<void>;
   /** Place at a client point, or the viewport's centre. */
   place(item: Placeable, at?: { x: number; y: number }): void;
+  /**
+   * A card started or stopped being dragged. The payload is sealed until
+   * the drop, so this is how the viewport knows what to preview while the
+   * pointer is over it.
+   */
+  dragging?(item: Placeable | null): void;
   /** The scene's dimension, which decides what can be placed. */
   dimensions(): 2 | 3;
 }
@@ -317,7 +323,9 @@ export function createAssetsPanel(container: HTMLElement, options: AssetsPanelOp
       element.addEventListener('dragstart', (event) => {
         event.dataTransfer?.setData(DRAG_TYPE, JSON.stringify(item));
         if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+        options.dragging?.(item);
       });
+      element.addEventListener('dragend', () => options.dragging?.(null));
       element.addEventListener('dblclick', () => options.place(item));
     } else if (view === 'project') {
       element.classList.add('inert');

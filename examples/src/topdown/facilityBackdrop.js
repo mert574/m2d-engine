@@ -103,9 +103,9 @@ export class FacilityBackdrop {
   }
 
   applyAtmosphere() {
-    // Dark enough that the lamps and the player's own light matter, bright
-    // enough that the labyrinth's shape still reads between them.
-    this.renderer.setAmbientLight('#e4e6ec');
+    // The ambient (dark enough that the lamps and the player's own light
+    // matter) is the scene's `world.lighting.ambient`; only the post pass,
+    // which moves with the signal damage, is set here.
     this.glitchShown = -1;
     this.#applyPost(0.7);
   }
@@ -132,7 +132,6 @@ export class FacilityBackdrop {
   }
 
   clearAtmosphere() {
-    this.renderer.setAmbientLight(null);
     this.renderer.setPostEffects(null);
   }
 

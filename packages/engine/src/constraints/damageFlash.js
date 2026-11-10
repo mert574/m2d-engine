@@ -18,6 +18,7 @@ import { s } from '../core/schema.js';
  * @param {string} [options.color] - Overlay fill.
  */
 export class DamageFlash extends Constraint {
+  static description = 'Tint the entity for a moment after it is hit';
   static params = {
     duration: s.number({ initial: 0.167, min: 0, unit: 's' }),
     color: s.string({ initial: 'rgba(255, 0, 0, 0.5)', editor: 'color' })

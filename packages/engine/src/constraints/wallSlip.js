@@ -13,6 +13,7 @@ import { Constraint } from '../core/constraint.js';
  * is lost, because friction only ever acts through contacts.
  */
 export class WallSlip extends Constraint {
+  static description = 'No surface friction while airborne, so a body slides off walls instead of sticking';
   static params = {};
 
   constructor(entity) {

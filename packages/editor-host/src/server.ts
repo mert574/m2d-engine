@@ -17,7 +17,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { sceneOutline, inspectNode, validateScene, type Op } from 'm2d-editor-core';
+import { sceneOutline, inspectNode, validateScene, structure, SCENE_VERSION, type Op } from 'm2d-editor-core';
 import type { Session, ChangeEvent } from './session.ts';
 import type { Assets } from './assets.ts';
 
@@ -73,6 +73,7 @@ const summary = (event: ChangeEvent | null) => event
   : text('nothing to do');
 
 const AGENT = { origin: 'agent' };
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /**
  * An MCP server over one editing session.
@@ -85,6 +86,15 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
     return game ? { actors: game.actors, constraintTypes: game.constraintTypes } : undefined;
   };
   const scenePath = z.string().describe('Project-relative path, as list_scenes gives it');
+
+  /** A class's declared fields (`static params` or `static properties`), as the inspector would list them. */
+  const fieldsOf = (fields: unknown) => Object.entries(isRecord(fields) ? fields : {}).map(([key, desc]) => {
+    const d = isRecord(desc) ? desc : {};
+    return {
+      key, kind: d.kind, label: d.label, unit: d.unit, description: d.description,
+      initial: d.initial ?? d.default, required: d.required === true || undefined, values: d.values
+    };
+  });
 
   server.registerTool('list_scenes', {
     title: 'List scenes',
@@ -219,6 +229,79 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
     } catch (error) {
       return failure(error);
     }
+  });
+
+  server.registerTool('create_scene', {
+    title: 'Create a scene',
+    description:
+      'Make a new scene file in the project\'s scenes folder: a blank level (2D or 3D) or UI scene, ' +
+      'or a copy of an existing scene. Returns the new path, which the open editor lists at once.',
+    inputSchema: {
+      name: z.string().min(1).describe('The file\'s name without .json; also the scene\'s name'),
+      type: z.enum(['level', 'ui']).optional().describe('A blank scene of this type (default level)'),
+      dimensions: z.union([z.literal(2), z.literal(3)]).optional().describe('For a level: 2 or 3 (default 2)'),
+      copyOf: scenePath.optional().describe('Copy this scene instead of starting blank')
+    }
+  }, async ({ name, type, dimensions, copyOf }) => {
+    try {
+      const data = copyOf
+        ? { ...JSON.parse((await session.document(copyOf)).text) as Record<string, unknown>, name, generator: undefined }
+        : structure.blankScene(name, type ?? 'level', SCENE_VERSION, dimensions ?? 2);
+      return json({ path: await session.project.createScene(name, data) });
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('rename_scene', {
+    title: 'Rename a scene',
+    description: 'Move a scene file to a new name in its folder. Refused while it has unsaved edits.',
+    inputSchema: { path: scenePath, name: z.string().min(1).describe('The new file name without .json') }
+  }, async ({ path: file, name }) => {
+    try {
+      if (session.isDirty(file)) throw new Error(`'${file}' has unsaved edits; save it first`);
+      const moved = await session.project.renameScene(file, name);
+      session.forget(file);
+      return json({ path: moved });
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('delete_scene', {
+    title: 'Delete a scene',
+    description: 'Delete a scene file for good. Unsaved edits to it are lost with it.',
+    inputSchema: { path: scenePath }
+  }, async ({ path: file }) => {
+    try {
+      await session.project.deleteScene(file);
+      session.forget(file);
+      return text(`deleted ${file}`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('list_components', {
+    title: 'List components',
+    description:
+      'The actors and constraints the game registers, each with its description and the fields a ' +
+      'scene may set (an actor\'s `properties`, a constraint\'s `params`), as the editor\'s ' +
+      'Components tab shows them. A prefab names an actor; a constraint goes under a prefab\'s or ' +
+      'an object\'s `constraints` as { "slot": { "type": "Name", "params": {...} } }.',
+    inputSchema: {}
+  }, async () => {
+    const found = await registries();
+    if (!found) return text('the game\'s code did not load in the host, so its registries are not known', true);
+    const describe = (klass: unknown) => (isRecord(klass) || typeof klass === 'function' ? (klass as { description?: unknown }).description : undefined);
+    return json({
+      actors: [...(found.actors ?? [])].map(([name, klass]) => ({
+        name, description: describe(klass) || undefined, properties: fieldsOf((klass as { properties?: unknown }).properties)
+      })),
+      constraints: [...(found.constraintTypes ?? [])].map(([name, klass]) => ({
+        name, description: describe(klass) || undefined, params: fieldsOf((klass as { params?: unknown }).params)
+      }))
+    });
   });
 
   if (assets) {

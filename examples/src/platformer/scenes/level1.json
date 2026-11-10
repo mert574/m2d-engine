@@ -3,7 +3,46 @@
   "name": "level1",
   "type": "level",
   "gameType": "sideScroll",
-  "world": { "width": 1920, "height": 1440, "gravity": { "x": 0, "y": 1000 } },
+  "world": {
+    "width": 1920,
+    "height": 1440,
+    "gravity": { "x": 0, "y": 1000 },
+    "player": "player-1",
+    "camera": { "bounds": "world" },
+    "lighting": { "ambient": "#ded9e4" },
+    "post": {
+      "bloom": { "threshold": 0.68, "strength": 0.65, "blur": 32 },
+      "vignette": { "strength": 0.28, "start": 0.55 },
+      "grade": {
+        "shadows": "#7a6e9c",
+        "highlights": "#fff0d4",
+        "amount": 0.45,
+        "saturation": 1.08,
+        "contrast": 1.04
+      },
+      "chromatic": { "strength": 0.0015 },
+      "distortion": { "strength": 0.012 },
+      "grain": { "strength": 0.035 }
+    },
+    "rules": [
+      {
+        "when": { "event": "collected", "prefab": "coin" },
+        "then": [
+          { "do": "notice", "text": "EVERY COIN", "seconds": 2 },
+          { "do": "objective", "text": "Reach the gate" }
+        ]
+      },
+      {
+        "when": { "event": "enter", "object": "trigger-1" },
+        "then": [
+          { "do": "sound", "key": "levelComplete" },
+          { "do": "notice", "text": "LEVEL COMPLETE", "seconds": 3 },
+          { "do": "switch", "scene": "mainMenu", "after": 3 }
+        ]
+      },
+      { "when": { "event": "death", "object": "player" }, "then": [{ "do": "gameOver" }] }
+    ]
+  },
   "assets": { "spritesheets": {} },
   "prefabs": {
     "player": { "actor": "Player", "physics": { "bodyType": "dynamic", "friction": 5, "frictionAir": 0.001 } },
@@ -89,6 +128,34 @@
           "properties": { "visible": true, "triggers": "levelComplete", "active": true }
         }
       ]
+    }
+  ],
+  "hud": [
+    {
+      "type": "text",
+      "id": "objective",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": { "text": "Collect the coins", "fontSize": "15px", "color": "#ffe3b0" }
+    },
+    {
+      "type": "meter",
+      "id": "health",
+      "x": 20,
+      "y": 42,
+      "anchor": "top-left",
+      "width": 160,
+      "height": 10,
+      "properties": { "label": "HP" }
+    },
+    {
+      "type": "notice",
+      "id": "notice",
+      "x": 0,
+      "y": -80,
+      "anchor": "center",
+      "properties": { "color": "#fff3d6" }
     }
   ]
 }

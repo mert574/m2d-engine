@@ -47,18 +47,36 @@ Drag the edge of the scene tree, the inspector or the dock to resize it. Double-
 
 | Region | Shows |
 | --- | --- |
-| Bar | The scene picker, undo and redo, Save, Play, Build, New project, Snap and Power saving |
-| Scene tree | The scene's world, prefabs, layers and objects. Big groups start folded. The filter narrows it. A badge counts the problems under a node |
-| Viewport | The scene, drawn by the game's own code. Drag moves the camera, scroll zooms |
-| Inspector | The selected node's fields, every one the schema declares, with defaults shown as placeholders |
-| Dock | Tabs for Assets, Problems, History, Console and Build |
+| Bar | The scene picker and its menu (new, duplicate, rename, delete a scene), undo and redo, Save, Play, Build, New project, Snap and Power saving |
+| Scene tree | The scene's world, prefabs, layers and objects. Big groups start folded. The filter narrows it. A badge counts the problems under a node. Right-click a node for what can be done with it |
+| Viewport | The scene, drawn by the game's own code. Left drag orbits (pans in 2D), right drag looks around, middle drag pans, scroll zooms. Hold the right button and press W A S D to fly, Q and E to sink and rise; the arrow keys and Page Up and Page Down fly too |
+| Inspector | The selected node's fields in tabs by concern, every one the schema declares, with defaults shown as placeholders |
+| Dock | Tabs for Assets, Components, Problems, History, Console and Build |
 | Status line | The last action, the problem count, the drawing mode, the dimension and the scene's path |
 
 ## Editing
 
-Click an object in the viewport or the tree to select it. The gizmo has two modes. Move shows an arm per axis and a square for a free move, which runs along the ground in 3D. Rotate turns a 2D object's `angle`, or a 3D object's `rotation` about the world axes. Snap rounds moves to 8 px or 0.25 m and turns to 15°. Hold Ctrl to invert Snap for one drag.
+Click an object in the viewport or the tree to select it. A click lands on what you see: a model's own bounds and a shape's real outline, not a trigger box around them, and a near miss of a few pixels still finds a small thing. The floor and other backdrops are picked only when nothing else is under the pointer. A hidden mesh is picked last.
 
-The inspector writes as you type. Drag a number's label sideways to scrub it (Shift for ten times the step, Alt for a tenth). Angles show in degrees and are stored in radians. A 3D rotation shows as yaw, pitch and roll and is stored as a quaternion. Add creates a block the scene leaves out. The × button resets a field to its default or removes a block or list entry.
+The gizmo has three modes. Move shows an arm per axis and a square for a free move, which runs along the ground in 3D. Rotate turns a 2D object's `angle`, or a 3D object's `rotation` about the world axes. Scale drags a side's handle to resize that side, or the centre handle to resize every side; the object takes the size as you drag and is rebuilt on release. An object that draws a model scales as a whole, and the model scales with it: its `overrides.mesh.scale` (and `offset`) follow the box, so a model that came in small can be dragged up to size. Snap rounds moves to 8 px or 0.25 m, sizes to the same grid and turns to 15°. Hold Ctrl to invert Snap for one drag. The gizmo hides while the selection is off screen or behind the camera.
+
+Hold Ctrl to add an object to the selection or take it out, in the viewport or the tree; Shift-click in the tree selects the run of objects between. Shift-drag on the viewport draws a marquee that selects every object whose centre it covers. With several selected, every one is outlined, the gizmo sits at their centre and moves them together; a turn or a scale applies to each about its own centre; one undo step per gesture. Delete, Ctrl+D, Ctrl+C and Ctrl+V act on the whole set, and a paste works across scenes (the prefabs must exist there). An Arrange strip appears over the viewport: align to the least, the middle or the greatest on each axis, or distribute evenly. Ctrl+Shift+A selects every object of the selection's prefab.
+
+The inspector sorts a node's fields into tabs: an object's Transform, Object and Overrides; a prefab's Body, Look and Constraints; the world's World, Camera, Look, Rules and Sound. A level's camera, lighting, post effects, lighting cycle, rules, kill plane and music are scene fields, so they are edited here; the lighting and post show in the viewport as you edit them (the cycle at its starting phase), while the camera, the rules and the music run when the scene plays. The HUD is a group in the tree: its texts, meters, notices and minimap are drawn over the level in the viewport, and a meter reads the player's starting health. The tab stays as you step through nodes of the same kind. Within a tab the plain fields come first and each block the scene sets (physics, mesh, a list) is a card with its own fold, add and remove; the blocks the scene leaves out are one row of Add chips at the foot. The inspector writes as you type. Drag a number's label sideways to scrub it (Shift for ten times the step, Alt for a tenth). Angles show in degrees and are stored in radians. A 3D rotation shows as yaw, pitch and roll and is stored as a quaternion. Resizing a model object's Size in the inspector scales it as the gizmo does, and scrubbing a Position or Size label moves or resizes the object on screen as you drag. The × button resets a field to its default or removes a block or list entry.
+
+An object's Object tab ends with **Running constraints**: every constraint the entity carries in the game, the ones its actor attached in code as well as the document's, with the live value of each param. A slot the document does not name has a Retune button, which adds an entry for it so its params can be set above.
+
+Anything the scene format can hold can be made here. A record (prefabs, constraints, sprite sheets, animations, models, environments) has an Add row at the foot of its card: type a name and press Add; a constraints block also asks which type, from the ones the game registers, or none to retune a constraint the actor attached itself. Hover an entry's name for the rename pencil; renaming a prefab, a sheet or a model rewrites every reference to it. A field that may take several shapes (a projection, a parallax, a prop's collider, a UI element's type) has a shape picker beside it. Tuples (a frame, a tile cell) read as a row of cells, and an empty list gains its first item from its template.
+
+## Structure
+
+Right-click in the scene tree. A layer: new layer below, rename, move up or down, delete. An object: frame, duplicate, copy, move to a layer, bring forward or send backward in its draw order, select all of its prefab, make a prefab of it (its overrides folded into a prefab of its own), delete. A prefab: duplicate, rename (carried into every object), select its instances, delete. The scene itself: new layer, new prefab.
+
+The scene picker's menu makes a new 2D level, 3D level or UI scene, duplicates, renames or deletes the current one. Files are made in the project's scenes folder; a rename waits until the scene is saved.
+
+## Components
+
+The Components tab lists every actor and constraint the game registers and every one the engine ships, each with what it does and the fields a scene may set, with their kinds, units and starting values. Filter by name or by what a field is called. With an object or a prefab selected, Attach adds a constraint to it under a free slot. New prefab makes a prefab of an actor and selects it. The engine's own actors and constraints are marked "engine" and can be attached without the game registering them; a scene names them and they load in the game too.
 
 An object edit rebuilds that object in place. Other edits rebuild the scene with the camera held.
 
@@ -66,13 +84,13 @@ Edits are kept by the editor's host process until you save. Save writes the scen
 
 ## Problems
 
-The editor checks the scene after every change against the game's real classes. Every problem the loader finds is listed in the Problems tab, counted on the tree and marked on the field it names. Click a problem to select its object. A scene with problems keeps its last good picture in the viewport.
+The editor checks the scene after every change against the game's real classes. Every problem the loader finds is listed in the Problems tab, counted on the tree and marked on the field it names. Click a problem to select its object and open the inspector tab its field is in. A scene with problems keeps its last good picture in the viewport.
 
 ## Assets
 
 The Assets tab has two views.
 
-Project lists the scene's prefabs and the project's models, images and environments. Drag a card into the viewport to place it, or double-click it to place it at the centre of the view.
+Project lists the scene's prefabs and the project's models, images and environments. Drag a card into the viewport to place it, or double-click it to place it at the centre of the view. While you drag, a ghost outline shows exactly where and how big the thing will land: a prefab or model standing on the ground under the pointer with its coordinates, or the object a texture would go onto.
 
 | Dropped | Becomes |
 | --- | --- |
@@ -116,6 +134,8 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `undo`, `redo`, `save_scene` | Step the history, write the scene |
 | `validate_scene` | Every problem, with its path |
 | `list_assets`, `search_library`, `import_asset` | The project's asset files, a Poly Haven search, an import with its credit |
+| `create_scene`, `rename_scene`, `delete_scene` | Scene files: a blank level or UI scene or a copy, a new name, gone |
+| `list_components` | The actors and constraints the game registers, with their fields, as the Components tab shows them |
 | `run_scene` | Step the scene headless for some seconds and report where each object ended up |
 | `build_project` | Build the game into `dist/` |
 
@@ -127,8 +147,13 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | Ctrl+S | Save |
 | Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y | Undo, redo |
 | Ctrl+D | Duplicate the selection |
+| Ctrl+C, Ctrl+V | Copy the selection, paste it (into this scene or another) |
+| Ctrl+Shift+A | Select every object of the selection's prefab |
+| Ctrl+click, Shift+drag | Add to the selection; draw a marquee |
 | Delete | Delete the selection |
-| W, E | Move or rotate gizmo |
+| W, E, R | Move, rotate or scale gizmo |
+| Right button held + W A S D, Q, E | Fly the camera: forward, left, back, right, down, up (Shift hurries, Alt creeps) |
+| Arrows, Page Up, Page Down | Fly the camera when the viewport has the focus |
 | Alt+1, Alt+2, Alt+3 | Show or hide the scene tree, the dock, the inspector |
 | F | Frame the selection |
 | Escape | Clear the selection |

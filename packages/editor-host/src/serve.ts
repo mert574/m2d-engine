@@ -40,7 +40,7 @@ import { engineAlias, buildProject, previewProject, closePreview } from './build
 import { spawn } from 'node:child_process';
 import { openSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import type { Edit } from 'm2d-editor-core';
+import { structure, SCENE_VERSION, type Edit } from 'm2d-editor-core';
 
 /** A free port the OS hands out, so parallel editors never fight. */
 function freePort(): Promise<number> {
@@ -336,6 +336,36 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
             const made = await createProject(resolve(companion.project.root, '..', body.folder), body.template ?? '2d', body.name);
             json(res, { ...made, url: await launchEditor(made.root) });
             return;
+          }
+          if (url.pathname === '/__scene' && req.method === 'POST') {
+            // The scene picker's New, Duplicate, Rename and Delete; the same
+            // moves the MCP tools make (create_scene, rename_scene, delete_scene).
+            const body = await readBody(req) as { action?: string; path?: string; name?: string; type?: 'level' | 'ui'; dimensions?: 2 | 3 };
+            const project = companion.project;
+            if (body.action === 'create') {
+              if (!body.name) throw new Error('a scene needs a name');
+              const data = body.path
+                ? { ...JSON.parse((await session.document(body.path)).text) as Record<string, unknown>, name: body.name, generator: undefined }
+                : structure.blankScene(body.name, body.type ?? 'level', SCENE_VERSION, body.dimensions ?? 2);
+              json(res, { path: await project.createScene(body.name, data) });
+              return;
+            }
+            if (body.action === 'rename') {
+              if (!body.path || !body.name) throw new Error('a rename needs a path and a name');
+              if (session.isDirty(body.path)) throw new Error(`${body.path} has unsaved edits; save it first`);
+              const path = await project.renameScene(body.path, body.name);
+              session.forget(body.path);
+              json(res, { path });
+              return;
+            }
+            if (body.action === 'delete') {
+              if (!body.path) throw new Error('a delete needs a path');
+              await project.deleteScene(body.path);
+              session.forget(body.path);
+              json(res, { deleted: body.path });
+              return;
+            }
+            throw new Error(`unknown scene action '${body.action}'`);
           }
           if (url.pathname === '/__doc') {
             json(res, await session.snapshot(url.searchParams.get('path') ?? ''));

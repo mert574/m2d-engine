@@ -2,6 +2,7 @@ import { Entity } from '../core/entity.js';
 import { Hover } from '../constraints/hover.js';
 
 export class Coin extends Entity {
+  static description = 'A pickup collected on touch';
   name = 'Coin';
 
   constructor(body, sprite, game, options = {}) {

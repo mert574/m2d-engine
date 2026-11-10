@@ -25,6 +25,7 @@
       <label class="scene-field">
         <span class="hint">Scene</span>
         <select id="scene" title="The scene to edit" disabled></select>
+        <button type="button" class="icon-button small" id="scene-menu" data-icon="more" title="New, duplicate, rename or delete a scene"></button>
       </label>
       <div class="tools">
         <div class="group">
@@ -57,19 +58,22 @@
     <aside class="panel tree" data-region="tree"></aside>
 
     <main class="center">
-      <div class="viewport" id="viewport">
+      <div class="viewport" id="viewport" title="Left drag orbits (2D: pans), right drag looks around, middle drag pans, scroll zooms. Hold the right button and press W A S D Q E to fly; Shift hurries">
         <canvas id="screen"></canvas>
         <div class="viewport-tools" role="toolbar" aria-label="Gizmo">
           <button type="button" class="tool" id="mode-move" data-icon="move" title="Move (W)" aria-pressed="true"></button>
           <button type="button" class="tool" id="mode-rotate" data-icon="rotate" title="Rotate (E)" aria-pressed="false"></button>
+          <button type="button" class="tool" id="mode-scale" data-icon="scale" title="Scale (R)" aria-pressed="false"></button>
           <span class="sep"></span>
           <button type="button" class="tool" id="frame" data-icon="frame" title="Frame the selection (F)" disabled></button>
         </div>
+        <div class="arrange" id="arrange" role="toolbar" aria-label="Arrange the selection" hidden></div>
         <div class="plate" id="plate">Loading the project…</div>
       </div>
       <section class="dock" id="dock">
         <div class="tabs" role="tablist">
           <button type="button" class="tab" role="tab" data-tab="assets" aria-selected="false">Assets</button>
+          <button type="button" class="tab" role="tab" data-tab="components" aria-selected="false">Components</button>
           <button type="button" class="tab" role="tab" data-tab="problems" aria-selected="true">Problems <span class="badge" id="problem-count">0</span></button>
           <button type="button" class="tab" role="tab" data-tab="history" aria-selected="false">History <span class="badge quiet" id="history-count">0</span></button>
           <button type="button" class="tab" role="tab" data-tab="console" aria-selected="false">Console <span class="badge quiet zero" id="console-count"></span></button>
@@ -79,6 +83,7 @@
         </div>
         <div class="dock-body">
           <div id="assets" data-pane="assets" hidden></div>
+          <div id="components" data-pane="components" hidden></div>
           <ul class="problems" id="problems" data-pane="problems"></ul>
           <ol class="history" id="history" data-pane="history" hidden></ol>
           <div id="console" data-pane="console" hidden></div>

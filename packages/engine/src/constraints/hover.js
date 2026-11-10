@@ -14,6 +14,7 @@ import { s } from '../core/schema.js';
  * @param {number} [options.spin] - Spin rate, rad/s. 0 disables the spin.
  */
 export class Hover extends Constraint {
+  static description = 'A visual idle motion: bob on a sine wave, spin at a constant rate';
   static params = {
     amplitude: s.number({ initial: 5, min: 0, unit: 'px' }),
     frequency: s.number({ initial: 2, min: 0, unit: 'Hz' }),

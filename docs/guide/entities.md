@@ -208,12 +208,12 @@ Prefer a constraint over logic inside an actor when another actor could want the
 
 ### Declaring constraints in a scene
 
-A behaviour does not need an actor written for it. Register the constraint, and a scene can attach and tune it: on a prefab, for every instance, or on a single placed object.
+A behaviour does not need an actor written for it. A scene can attach and tune any constraint by name: on a prefab, for every instance, or on a single placed object. The engine's own constraints (and actors) resolve by name without the game registering them; a game registers its own with `registerConstraint`, and a registration wins over a built-in of the same name.
 
 ```javascript
-import { Chase } from 'm2d-engine/constraints/chase.js';
+import { Teleport } from './teleport.js';
 
-game.registerConstraint('Chase', Chase);
+game.registerConstraint('Teleport', Teleport);
 ```
 
 ```json

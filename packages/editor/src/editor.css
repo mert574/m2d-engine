@@ -208,6 +208,42 @@ select, .bar select {
 
 /* --- The inspector ------------------------------------------------------ */
 
+/* Tabs under the title: a node's fields by concern. */
+.inspector-tabs {
+  position: sticky; top: 34px; z-index: 2;
+  display: flex; align-items: center; gap: 2px; padding: 0 8px; height: 30px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.inspector-tab {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px; border: 0; background: none;
+  color: var(--dim); border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 12px;
+}
+.inspector-tab:hover { color: var(--text); }
+.inspector-tab[aria-selected='true'] { color: var(--text); border-bottom-color: var(--accent); }
+.inspector-tab .badge { margin-left: 0; }
+.inspector-body { padding-bottom: 18px; }
+.inspector-body > .fields { padding-bottom: 6px; }
+
+/* Cards: a set block (physics, mesh, a list), its tools in the header, its fields inside. */
+.card { margin: 6px 10px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); overflow: hidden; }
+.card-head { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 6px 2px 4px; }
+.card-head .fold {
+  display: flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0 2px; color: var(--text); font-weight: 600; min-width: 0;
+}
+.card-head .fold .icon { color: var(--faint); transition: transform 100ms; }
+.card-head .fold.open .icon { transform: rotate(90deg); }
+.card-head .meta { flex: 1; min-width: 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-head.invalid .fold { color: var(--danger); }
+.card > .fields { padding: 4px 8px 8px; border-top: 1px solid var(--line); background: var(--panel); }
+.card .fields .span { grid-column: 1 / -1; padding: 2px 0 4px; }
+
+/* The blocks a node leaves out, as one row of things to add. */
+.add-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px 4px; }
+.add-row > .muted { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-right: 2px; }
+.add-chip { height: 22px; padding: 0 8px 0 5px; border: 1px dashed var(--line-2); border-radius: 11px; background: none; color: var(--dim); font-size: 11.5px; }
+.add-chip:hover:not(:disabled) { color: var(--text); border-color: var(--select); background: var(--select-bg); }
+.add-chip.invalid { color: var(--danger); border-color: var(--danger); }
+
 .inspector .issue {
   list-style: none; margin: 10px 12px 0; padding: 8px 10px; border-radius: var(--radius);
   background: var(--danger-bg); border: 1px solid rgba(255, 107, 107, 0.3);
@@ -365,6 +401,11 @@ input[type='color'].colour {
  */
 .overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 2; }
 .overlay .outline line { stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.overlay .outline.preview line { stroke-dasharray: 6 4; }
+.overlay .ghost line { stroke: var(--select); stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.overlay .ghost .caption { fill: var(--text); font: 11.5px system-ui, sans-serif; paint-order: stroke; stroke: rgba(15, 17, 20, 0.85); stroke-width: 3px; }
+.overlay .free.uniform { fill: #fff; }
+.overlay .mode-scale .tip { stroke: rgba(0, 0, 0, 0.55); }
 .overlay .handle { pointer-events: all; cursor: grab; }
 .overlay .arm { stroke-width: 3; }
 .overlay .tip { stroke: rgba(0, 0, 0, 0.55); stroke-width: 1; }
@@ -503,6 +544,89 @@ input[type='color'].colour {
 @keyframes slide { from { left: -30%; } to { left: 100%; } }
 
 .viewport.drop-target { box-shadow: inset 0 0 0 2px var(--select); }
+
+/* --- The component library --------------------------------------------- */
+
+.components-pane { display: flex; flex-direction: column; height: 100%; }
+.component-grid {
+  flex: 1; overflow: auto; padding: 8px 10px 14px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; align-content: start;
+}
+.component-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 6px;
+  background: var(--panel-2); border: 1px solid var(--line); min-width: 0;
+}
+.component-card.unregistered { opacity: 0.8; border-style: dashed; }
+.component-head { display: flex; align-items: center; gap: 6px; }
+.component-head .icon { color: #b48cff; }
+.component-card[data-kind='constraint'] .component-head .icon { color: var(--accent); }
+.component-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.component-text { color: var(--dim); font-size: 11.5px; line-height: 1.4; }
+.component-text.muted { color: var(--faint); font-style: italic; }
+.component-fields { margin: 0; display: grid; grid-template-columns: minmax(70px, 40%) 1fr; column-gap: 8px; row-gap: 1px; font-size: 11px; }
+.component-fields dt { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.component-fields dd { margin: 0; color: var(--faint); font: var(--mono); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.component-actions { margin-top: auto; }
+.component-actions .card-action { width: 100%; }
+.component-snippet { margin: 0; padding: 6px 8px; font: var(--mono); font-size: 10.5px; color: var(--dim); background: var(--bg); border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+
+/* --- Menus -------------------------------------------------------------- */
+
+.menu {
+  position: fixed; z-index: 50; min-width: 180px; padding: 4px; border-radius: 7px;
+  background: var(--raise); border: 1px solid var(--line-2); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.menu-item {
+  display: flex; align-items: center; gap: 14px; width: 100%; height: 26px; padding: 0 10px; border: 0; border-radius: 4px;
+  background: none; color: var(--text); text-align: left; font-size: 12.5px;
+}
+.menu-item span:first-child { flex: 1; }
+.menu-item:hover:not(:disabled) { background: var(--select); color: #fff; }
+.menu-item:hover:not(:disabled) .menu-hint { color: rgba(255, 255, 255, 0.8); }
+.menu-item:disabled { color: var(--faint); cursor: default; }
+.menu-item.danger { color: var(--danger); }
+.menu-item.danger:hover:not(:disabled) { background: var(--danger); color: #2a0a0a; }
+.menu-hint { color: var(--faint); font-size: 11px; }
+.menu-sep { height: 1px; margin: 4px 6px; background: var(--line-2); }
+
+/* The selection's extra rows in the tree, and the arrange strip. */
+.tree .row.also { background: rgba(61, 139, 253, 0.08); box-shadow: inset 2px 0 0 rgba(61, 139, 253, 0.5); }
+.arrange {
+  position: absolute; top: 10px; left: 170px; z-index: 3;
+  display: flex; align-items: center; gap: 2px; padding: 3px 6px;
+  background: rgba(22, 25, 29, 0.88); border: 1px solid var(--line-2); border-radius: 7px; backdrop-filter: blur(6px);
+  font-size: 11px; color: var(--dim);
+}
+.arrange .label { padding: 0 4px; }
+.arrange .axis { display: inline-flex; gap: 1px; padding: 0 3px; border-left: 1px solid var(--line-2); }
+.arrange .axis b { align-self: center; width: 12px; text-align: center; font-weight: 700; }
+.arrange .axis-x b { color: #ff8b8b; } .arrange .axis-y b { color: #8fe08f; } .arrange .axis-z b { color: #84b8ff; }
+.arrange button { height: 22px; min-width: 22px; padding: 0 5px; border: 0; border-radius: 4px; background: none; color: var(--dim); font-size: 11px; }
+.arrange button:hover { background: var(--raise); color: var(--text); }
+.overlay .outline.also line { stroke: rgba(255, 197, 107, 0.55); stroke-dasharray: 3 3; }
+.overlay .marquee rect { fill: rgba(61, 139, 253, 0.12); stroke: var(--select); stroke-width: 1; stroke-dasharray: 4 3; }
+
+/* The running constraints: read-only, from the game. */
+.card.live { border-style: dashed; }
+.card.live .fold .icon { color: var(--accent); }
+.live-slot { padding: 6px 10px 8px; border-top: 1px solid var(--line); background: var(--panel); }
+.live-title { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.live-title b { font-weight: 600; }
+.live-title .retune { margin-left: auto; }
+.live-title .chip { margin-left: auto; }
+.live-slot .component-fields { margin-top: 4px; }
+
+/* Record entries: the add row and renames. */
+.add-entry { display: flex; align-items: center; gap: 4px; padding: 4px 8px 8px; }
+.add-entry .control { height: 24px; min-width: 0; flex: 1; }
+.add-entry select.control { flex: 1.2; }
+.add-entry .mini { flex: none; }
+.fields .span .add-entry { padding: 2px 0 4px; }
+.fields .rename { opacity: 0; margin-left: 2px; }
+.fields dt:hover .rename, .card-head:hover .rename { opacity: 1; }
+.fields .rename-field { height: 20px; width: 120px; padding: 0 4px; }
+.fields select.variant { flex: none; width: auto; max-width: 46%; height: 22px; font-size: 11px; }
+.card-head select.variant { margin-right: 4px; }
 
 /* --- The console -------------------------------------------------------- */
 

@@ -46,6 +46,9 @@ export class Constraint {
    */
   static params = {};
 
+  /** One line on what the constraint does, for an editor's component library. @type {string} */
+  static description = '';
+
   constructor(entity) {
     this.entity = entity;
   }

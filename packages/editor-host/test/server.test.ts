@@ -62,8 +62,9 @@ describe('the MCP server', () => {
   it('advertises its tools to a client', async () => {
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
-      'build_project', 'edit_scene', 'import_asset', 'inspect_node', 'list_assets', 'list_scenes', 'outline_scene',
-      'read_scene', 'redo', 'run_scene', 'save_scene', 'search_library', 'undo', 'validate_scene'
+      'build_project', 'create_scene', 'delete_scene', 'edit_scene', 'import_asset', 'inspect_node', 'list_assets',
+      'list_components', 'list_scenes', 'outline_scene', 'read_scene', 'redo', 'rename_scene', 'run_scene', 'save_scene',
+      'search_library', 'undo', 'validate_scene'
     ]);
     // Every tool says what it is for: the description is the agent's
     // only documentation.
@@ -145,6 +146,37 @@ describe('agents edit through the session', () => {
     // The save comes back from the watcher as an echo, and changes nothing.
     expect(await companion.session.fileChanged(path)).toBeNull();
     off();
+  });
+
+  it('creates, renames and deletes scene files', async () => {
+    const made = JSON.parse(textOf(await client.callTool({ name: 'create_scene', arguments: { name: 'Cellar Two', type: 'level', dimensions: 3 } })));
+    expect(made.path).toBe('scenes/Cellar-Two.json');
+    const written = JSON.parse(await readFile(join(root, made.path), 'utf8'));
+    expect(written).toMatchObject({ type: 'level', name: 'Cellar Two', world: { dimensions: 3 } });
+    // Listed, and refused a second time.
+    const listed = JSON.parse(textOf(await client.callTool({ name: 'list_scenes', arguments: {} }))) as Array<{ path: string }>;
+    expect(listed.map((scene) => scene.path)).toContain(made.path);
+    expect((await client.callTool({ name: 'create_scene', arguments: { name: 'Cellar Two' } })).isError).toBe(true);
+
+    const copy = JSON.parse(textOf(await client.callTool({ name: 'create_scene', arguments: { name: 'room-copy', copyOf: 'scenes/room.json' } })));
+    expect(JSON.parse(await readFile(join(root, copy.path), 'utf8'))).toMatchObject({ name: 'room-copy', prefabs: { wall: expect.anything() } });
+
+    const moved = JSON.parse(textOf(await client.callTool({ name: 'rename_scene', arguments: { path: copy.path, name: 'room-two' } })));
+    expect(moved.path).toBe('scenes/room-two.json');
+    expect(await readFile(join(root, copy.path), 'utf8').catch(() => 'gone')).toBe('gone');
+
+    // Dirty documents do not move.
+    await client.callTool({ name: 'edit_scene', arguments: { path: moved.path, label: 'Tweak', ops: [{ op: 'set', path: ['title'], value: 'x' }] } });
+    expect((await client.callTool({ name: 'rename_scene', arguments: { path: moved.path, name: 'nope' } })).isError).toBe(true);
+
+    for (const path of [made.path, moved.path]) {
+      expect((await client.callTool({ name: 'delete_scene', arguments: { path } })).isError).toBeFalsy();
+    }
+    expect((await client.callTool({ name: 'delete_scene', arguments: { path: made.path } })).isError).toBe(true);
+    // A name is a file stem, never a path: it cannot leave the scenes folder.
+    const tamed = JSON.parse(textOf(await client.callTool({ name: 'create_scene', arguments: { name: '../escape' } })));
+    expect(tamed.path).toBe('scenes/escape.json');
+    await client.callTool({ name: 'delete_scene', arguments: { path: tamed.path } });
   });
 
   it('refuses a malformed edit whole, saying where', async () => {

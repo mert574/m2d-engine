@@ -31,6 +31,14 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `projection` | How the ground plane is seen: `"isometric"` or `"belt"`, or `{ "type", "ratio" }`. Isometric draws a ground square as a `2:ratio·2` diamond; belt keeps x and compresses y by `ratio`. Positions are drawn through it; physics stays flat. See [Perspectives](../guide/perspectives#isometric-a-projection-on-positions) |
 | `environment` | A 3D level only: a key in `assets.environments`. That HDR panorama lights the level and is its sky, in play and in the editor. A scene's `onRender` hook may still set `frame.environment` itself, and that wins |
 | `sort` | Entity draw order within a `zIndex`. `"depth"` (default) draws by the bottom edge of the body, so whatever stands lower on the ground is in front. `"insertion"` keeps scene order. See [Perspectives](../guide/perspectives) |
+| `player` | The id of the placed object that is the player: `game.player` when the scene shows, and what the camera follows unless `camera.follow` says otherwise |
+| `camera` | How the level is seen, applied when the scene shows (not in the editor, whose camera is its own). 2D: `mode` (`follow`, `scroll`, `rooms`), `follow` (an object id), `zoom`, `lerp`, `followAxes { x, y }`, `bounds` (`"world"` for the world's size, or `{ left, top, right, bottom }`), `followRotation`, `rotationLerp`, `rotationMaxRate`. 3D: `mode` (`orbit`, `free`), `distance`, `yaw`, `pitch`, `minDistance`, `maxDistance`, `minPitch`, `maxPitch`, `fov`, `targetOffset`. Nested blocks merge over the camera's defaults, so a scene may set one axis |
+| `lighting` | The light the level stands in, applied in the editor too. 2D: `ambient`, a colour that switches lighting on (actors add their lights with `drawLight`). 3D: `sun { direction, color, intensity }`, `sky` and `ground` ambient colours with `ambientIntensity`, `fog { color, density }`, `exposure`, `shadowDistance`. A scene's `onRender` hook may change any of them afterwards, which is how a day and night cycle moves them |
+| `post` | The full-screen pass. Each block is what the renderer takes: 2D `bloom { threshold, strength, blur }`, `vignette { strength, start }`, `grade { shadows, highlights, amount, saturation, contrast }`, `chromatic`, `distortion`, `grain`, `scanlines`, `blur`; 3D `bloom { threshold, intensity, scatter }`, `vignette`, `grain` (numbers), `grade { saturation, contrast, temperature }`, `dof { focalLength, fStop, maxBlur }` (the focus follows the camera's target), `autoExposure`. Blocks a renderer does not know are ignored |
+| `music` | `{ track, volume }`: a key in `assets.music` (or one the game loaded), played when the scene shows and stopped when it leaves. Not in the editor |
+| `cycle` | A turn of the light: `states`, at least two, each a name with the `lighting` and `post` that differ from the level's resting ones; `period` seconds for a full turn and back to the first (0 to move it by hand); `phase`, where it starts; `ease`, how fast the phase approaches a target per second. Game code moves it with `scene.cycle.target = 1` (or `phase` to jump); a rule's `cycle` action does the same. Blended state by state: numbers lerp, colours mix. The editor shows the level at `phase` |
+| `killPlane` | 2D: the `y` below which the player is lost; the world's height plus 50 by default. Crossing it fires the `fall` rules, or ends the game when there are none |
+| `rules` | What happens when, run by the engine each tick (headless too; not in the editor). See [Rules](#rules) |
 
 ## `assets.spritesheets`
 
@@ -54,6 +62,54 @@ A map from model name to model, for a 3D level. A model is a glTF 2.0 `.glb` fil
 | `url` | yes | File path, prefixed with the engine's `basePath` |
 
 A prefab draws a model by naming it in its [`mesh`](#mesh) block.
+
+## Rules
+
+`world.rules` is a list of `{ "when", "then", "once" }`. `when` names an event the scene watches for; `then` is the actions it takes, in order, the first tick the event holds (`once: false` fires every tick it holds).
+
+| `when.event` | Holds when |
+| --- | --- |
+| `start` | The scene's first tick |
+| `collected` | No object of `prefab` is left (and the scene placed some) |
+| `enter` | The player touches `object` (an id): a sensor or a body |
+| `death` | `object` (an id, or `"player"`, the default) is dead or gone |
+| `fall` | The player crossed `world.killPlane` this tick |
+
+| `then[].do` | Does |
+| --- | --- |
+| `notice` | Shows `text` on a `notice` HUD element for `seconds` (`element` names one; the first otherwise) |
+| `objective` | Sets a HUD text's `text` (`element`, default `objective`) |
+| `sound` | Plays the sound `key` |
+| `unseal` | Sets `object`'s `active` to true and its `sealed` to false, and calls its `onUnseal()` if it has one |
+| `remove` | Removes `object` from the world |
+| `set` | Sets `property` on `object` to `value` |
+| `switch` | Switches to `scene`, `after` seconds; the scene may be one the page builds in code |
+| `gameOver` | Ends the game, `after` seconds |
+| `cycle` | Moves `world.cycle`: `target` to ease to, `phase` to jump to, `ease` |
+
+```json
+"rules": [
+  { "when": { "event": "collected", "prefab": "coin" }, "then": [{ "do": "unseal", "object": "gate" }, { "do": "notice", "text": "THE GATE OPENS" }] },
+  { "when": { "event": "enter", "object": "gate" }, "then": [{ "do": "sound", "key": "levelComplete" }, { "do": "switch", "scene": "mainMenu", "after": 3 }] },
+  { "when": { "event": "death" }, "then": [{ "do": "gameOver" }] }
+]
+```
+
+## `hud`
+
+A level's overlay, drawn over the world and shown in the editor: a list of elements like a UI scene's, with three more that read the running game. Every element has an `id`, an `anchor` and `x`, `y` from it.
+
+| `type` | Fields |
+| --- | --- |
+| `text` | `properties.text`, `fontSize`, `color`, `align`, …; a rule's `objective` action rewrites it |
+| `notice` | A text that is hidden until a rule's `notice` action shows it, and fades after `properties.seconds` (2.5) |
+| `meter` | A bar: `width`, `height`, `bind { object, constraint, current, max }`, the player's `health` slot's `currentHealth` over `maxHealth` by default; an empty `constraint` reads the entity's own fields; `properties.label`, `color`, `background` |
+| `minimap` | `size` (width; the height follows the world's shape, or `bounds`), `plot`: prefab name to dot colour |
+| `image`, `rect` | As in a UI scene |
+
+## `assets.sounds`, `assets.music`
+
+Sound effects and music tracks the scene brings, by key: `{ "url", "volume" }`, the URL relative to the game's `basePath`, the volume 0 to 1 (default 1). Loaded into the sound manager when the scene loads, beside what the game's own options loaded; a key both name is the scene's. Game code plays an effect with `game.soundManager.playSound(key)`; `world.music` plays a track.
 
 ## `assets.environments`
 
@@ -87,7 +143,7 @@ A map from prefab name to prefab.
 | `defaultAnimation` | no | An animation on that sheet. Defaults to `default` |
 | `physics` | no | Body settings, below |
 | `mesh` | no | How a 3D level draws it, below. 3D levels only |
-| `light` | no | A light it carries, below. 3D levels only |
+| `light` | no | A light it carries, below |
 | `constraints` | no | Behaviours to attach, below |
 
 ### `prefabs.*.physics`
@@ -101,6 +157,8 @@ A map from prefab name to prefab.
 | `restitution` | number | `0` |
 | `lockRotation` | boolean | `false` |
 | `isSensor` | boolean | `false` |
+| `category` | A collision category: a `CollisionCategories` name (`player`, `enemy`, `platform`, `movingPlatform`, `coin`, `trigger`, `projectile`) or a bit | `"default"` |
+| `mask` | What the body collides with: a list of category names, or a bit mask | everything |
 | `angle` | number, radians. An object's own `angle` overrides it | `0` |
 | `density` | number greater than 0. Mass is density times area | the engine default |
 | `footprint` | `{ "height", "width" }` | none |
@@ -132,7 +190,7 @@ A shape is sized by the object's `width`, `height` and `depth`, like the collide
 
 ### `light`
 
-A light the prefab carries, following its body. In a 2D level a `light` is an error; 2D lighting is the renderer's `drawLight`.
+A light the prefab carries, following its body. In a 2D level it is drawn with the renderer's `drawLight` each frame, once `world.lighting.ambient` has switched lighting on: `range` is the radius in px, `offset` is `{ x, y }` in px (and `z`, how high it hangs over shadow casters), a spot's `direction` is `{ x, y }` and its width is `outerCone` either side.
 
 | Key | Values | Default |
 | --- | --- | --- |

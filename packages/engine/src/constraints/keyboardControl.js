@@ -30,6 +30,7 @@ const ZERO_VELOCITY = { x: 0, y: 0 };
 const BLOCKED_DOT = 0.85;
 
 export class KeyboardControl extends Constraint {
+  static description = 'Keyboard movement for a platformer or top-down body: walk, jump';
   static params = {
     acceleration: s.number({ initial: 600, positive: true, unit: 'px/s²' }),
     deceleration: s.number({ positive: true, unit: 'px/s²', description: 'Defaults to acceleration' }),

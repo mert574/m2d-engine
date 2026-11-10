@@ -3,7 +3,32 @@
   "name": "level1",
   "type": "level",
   "gameType": "topDown",
-  "world": { "width": 3840, "height": 2880, "gravity": { "x": 0, "y": 0 } },
+  "world": {
+    "width": 3840,
+    "height": 2880,
+    "gravity": { "x": 0, "y": 0 },
+    "player": "player-1",
+    "camera": { "bounds": "world" },
+    "lighting": { "ambient": "#e4e6ec" },
+    "rules": [
+      {
+        "when": { "event": "collected", "prefab": "coin" },
+        "then": [
+          { "do": "notice", "text": "DATA RECOVERED", "seconds": 2 },
+          { "do": "objective", "text": "Reach the extraction pad" }
+        ]
+      },
+      {
+        "when": { "event": "enter", "object": "trigger-1" },
+        "then": [
+          { "do": "sound", "key": "levelComplete" },
+          { "do": "notice", "text": "EXTRACTED", "seconds": 3 },
+          { "do": "switch", "scene": "mainMenu", "after": 3 }
+        ]
+      },
+      { "when": { "event": "death", "object": "player" }, "then": [{ "do": "gameOver" }] }
+    ]
+  },
   "assets": {
     "spritesheets": {
       "floor": { "url": "textures/concrete.jpg", "frameWidth": 256, "frameHeight": 256 },
@@ -304,6 +329,43 @@
         { "id": "turret-18", "prefab": "turret", "x": 3100, "y": 2300 },
         { "id": "turret-19", "prefab": "turret", "x": 3500, "y": 2550 }
       ]
+    }
+  ],
+  "hud": [
+    {
+      "type": "text",
+      "id": "objective",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": { "text": "Recover the data cores", "fontSize": "15px", "color": "#cfe6ff" }
+    },
+    {
+      "type": "meter",
+      "id": "health",
+      "x": 20,
+      "y": 42,
+      "anchor": "top-left",
+      "width": 160,
+      "height": 10,
+      "properties": { "label": "HP" }
+    },
+    {
+      "type": "notice",
+      "id": "notice",
+      "x": 0,
+      "y": -80,
+      "anchor": "center",
+      "properties": { "color": "#e8f4ff" }
+    },
+    {
+      "type": "minimap",
+      "id": "map",
+      "x": -16,
+      "y": 16,
+      "anchor": "top-right",
+      "size": 150,
+      "plot": { "player": "#7dffc4", "coin": "#ffd56b", "ghost": "#ff6b6b" }
     }
   ]
 }

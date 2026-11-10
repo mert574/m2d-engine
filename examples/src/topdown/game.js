@@ -1,3 +1,4 @@
+import { AttackSwing, HitBurst } from '../shared/effects.js';
 import {
   FacilityWall, SpecterGhost, SentryTurret, DataCore, ExtractionPad, ScannerAgent
 } from './facilityActors.js';
@@ -16,4 +17,7 @@ export function register(game) {
     TopDownPlayer: ScannerAgent, Ghost: SpecterGhost, Platform: FacilityWall,
     Coin: DataCore, Trigger: ExtractionPad, Turret: SentryTurret
   })) game.registerActor(name, actor);
+  // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
+  game.registerConstraint('AttackSwing', AttackSwing);
+  game.registerConstraint('HitBurst', HitBurst);
 }

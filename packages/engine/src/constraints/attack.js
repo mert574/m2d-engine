@@ -46,6 +46,7 @@ const KNOCKBACK_IMPULSE = { x: 8335, y: -4997 };
  *   target's `elevation` here
  */
 export class Attack extends Constraint {
+  static description = 'A melee or ranged attack on a key, with damage, reach and knockback';
   static params = {
     damage: s.number({ initial: 10, min: 0 }),
     range: s.number({ initial: 40, positive: true, unit: 'px' }),

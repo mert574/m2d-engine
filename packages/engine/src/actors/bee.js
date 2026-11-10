@@ -7,6 +7,7 @@ import { CollisionCategories } from '../core/constants.js';
 import { Debug } from '../constraints/debug.js';
 
 export class Bee extends Entity {
+  static description = 'A flying enemy that bobs and chases';
   name = 'Bee';
 
   constructor(body, sprite, game, options = {}) {

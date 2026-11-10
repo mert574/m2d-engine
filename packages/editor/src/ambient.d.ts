@@ -71,6 +71,7 @@ declare module 'm2d-engine/core/entity.js' {
   export class Entity {
     constructor(body: unknown, sprite: unknown, game: unknown, options?: unknown);
     static properties: Record<string, unknown> | null;
+    static description: string;
   }
 }
 
@@ -78,7 +79,18 @@ declare module 'm2d-engine/core/constraint.js' {
   export class Constraint {
     constructor(entity: unknown, options?: unknown);
     static params: Record<string, unknown> | null;
+    static description: string;
   }
+}
+
+/** The engine's own actors and constraints, for the component catalog: each module exports one class. */
+declare module 'm2d-engine/actors/*' {
+  const actors: Record<string, unknown>;
+  export = actors;
+}
+declare module 'm2d-engine/constraints/*' {
+  const constraints: Record<string, unknown>;
+  export = constraints;
 }
 
 declare module 'm2d-engine/core/physics/index.js' {

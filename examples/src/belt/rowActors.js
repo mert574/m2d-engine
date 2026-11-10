@@ -186,7 +186,8 @@ export class Thug extends Ghost {
  */
 export class Rogue extends ObliquePlayer {
   constructor(body, sprite, game, options = {}) {
-    super(body, sprite, game, { ...options, attackRange: 80, attackArc: Math.PI * 0.9, jumpSpeed: 520, gravity: 1700 });
+    // The rogue's defaults, under whatever the scene sets: a declared property typed in the inspector must win.
+    super(body, sprite, game, { attackRange: 80, attackArc: Math.PI * 0.9, jumpSpeed: 520, gravity: 1700, ...options });
     // The thugs' strikes target the player category; without this the
     // rogue sits in the default one and their blows pass through.
     body.setCollisionFilter({ category: CollisionCategories.player });

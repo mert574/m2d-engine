@@ -28,6 +28,7 @@ const ARRIVE_DISTANCE = 1;
  *   reaching cruise speed in half a second.
  */
 export class PathFollow extends Constraint {
+  static description = 'Patrol a path of points, pausing at each';
   static params = {
     points: s.array(s.object({ x: s.number({ required: true }), y: s.number({ required: true }) }),
       { label: 'Path points' }),

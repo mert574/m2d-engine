@@ -9,6 +9,7 @@ import { s } from '../core/schema.js';
  * the actor an editor gives a model or an image dropped into a scene.
  */
 export class Prop extends Entity {
+  static description = 'Scenery: a placed thing that stands there, drawing its sprite or mesh';
   static properties = {
     color: s.string({ editor: 'color', initial: '#8b95a3', description: 'Fill of a 2D prop with no sprite' }),
     radius: s.number({ min: 0, unit: 'px', initial: 4, description: 'Corner rounding of that fill' })

@@ -2,6 +2,7 @@ import { Constraint } from '../core/constraint.js';
 import { s } from '../core/schema.js';
 
 export class ContactDamage extends Constraint {
+  static description = 'Deal damage to whatever this touches';
   static params = {
     damage: s.number({ initial: 33, min: 0 }),
     knockbackStrength: s.number({ initial: 720, min: 0, unit: 'px/s' }),

@@ -1,4 +1,5 @@
 import { Constraint } from 'm2d-engine/core/constraint.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 /**
  * Combat visuals the demos share, kept out of the engine on purpose.
@@ -25,6 +26,14 @@ import { Constraint } from 'm2d-engine/core/constraint.js';
  * @param {string} [options.attack='attack'] - Which Attack constraint to follow
  */
 export class AttackSwing extends Constraint {
+  static description = 'An arc that sweeps where an Attack struck, for a frame or two';
+  static params = {
+    color: s.string({ editor: 'color', initial: '#ffffff', description: 'Arc colour' }),
+    duration: s.number({ positive: true, initial: 0.3, unit: 's' }),
+    reach: s.number({ positive: true, description: "Outer radius; the attack's range when unset" }),
+    attack: s.string({ initial: 'attack', description: 'The Attack slot to follow' })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.color = options.color ?? '#ffffff';
@@ -105,6 +114,13 @@ export class AttackSwing extends Constraint {
  * @param {number} [options.radius] - Ring reach; defaults to the entity's size
  */
 export class HitBurst extends Constraint {
+  static description = 'A flash and an expanding ring when the entity is hit';
+  static params = {
+    color: s.string({ editor: 'color', initial: '#fff3e6', description: 'Flash and ring colour' }),
+    duration: s.number({ positive: true, initial: 0.3, unit: 's' }),
+    radius: s.number({ positive: true, description: "Ring reach; the entity's size when unset" })
+  };
+
   constructor(entity, options = {}) {
     super(entity);
     this.color = options.color ?? '#fff3e6';

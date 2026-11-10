@@ -24,6 +24,7 @@ import { s } from '../core/schema.js';
  *   size is the ground body rather than the frame
  */
 export class Npc extends Entity {
+  static description = 'Someone to talk to: stands still, faces the player, opens a dialogue';
   name = 'Npc';
 
   static properties = {

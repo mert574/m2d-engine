@@ -133,6 +133,6 @@ Defaults: speed 480, damage 25, lifetime 6 s, targets `['Player']`. Every `Proje
 
 - Expects a `static` sensor body.
 - `properties`: `active` (false), `visible` (false), `triggers` (a label drawn on the area, such as `"levelComplete"`), `debugColor`.
-- Does nothing unless `active` is `true`. `setActive(flag)` and `setVisible(flag)` change the flags at runtime. When `triggers` is `"levelComplete"` it plays the `levelComplete` sound.
+- Does nothing unless `active` is `true`. `setActive(flag)` and `setVisible(flag)` change the flags at runtime. A level's rules watch the object itself (`when: { "event": "enter", "object": "gate" }`), and an `unseal` action sets it active; `triggers` is a tag for game code.
 - When the player enters, `onEnter(player)` runs. The built-in `onEnter` switches to the scene named `mainMenu`. Subclass it to change that. An `onExit(player)` method runs when the player leaves if the subclass defines one.
 - When visible, draws its area and label through the world overlay.

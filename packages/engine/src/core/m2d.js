@@ -1,4 +1,18 @@
 import { createPhysicsWorld } from './physics/index.js';
+import { Registry, BUILTIN_ACTORS, BUILTIN_CONSTRAINTS } from './builtins.js';
+
+/** A prefab's `category` or `mask` as bits: a name or a list of names from CollisionCategories, or a number. */
+function categoryBits(value) {
+  if (typeof value === 'number') return value;
+  const names = Array.isArray(value) ? value : [value];
+  let bits = 0;
+  for (const name of names) {
+    const bit = CollisionCategories[name];
+    if (bit === undefined) throw new Error(`M2D: unknown collision category '${name}' (known: ${Object.keys(CollisionCategories).join(', ')})`);
+    bits |= bit;
+  }
+  return bits;
+}
 import { Time } from './time.js';
 import { Rng } from './rng.js';
 import { InputManager } from './input/index.js';
@@ -415,14 +429,15 @@ export class M2D {
 
     this.entities = new Set();
     this.player = null;
-    this.actors = new Map();
+    this.actors = new Registry(BUILTIN_ACTORS);
     /**
-     * Constraint classes a scene may attach by name, registered with
-     * `registerConstraint`. Like actors, a game registers the ones it uses,
-     * so a build only carries the behaviours it actually plays.
+     * Constraint classes a scene may attach by name: what the game
+     * registered with `registerConstraint`, and behind them the engine's own
+     * (`core/builtins.js`), so a scene may name `Hover` without the game
+     * having to know. The game's registration wins for a shared name.
      * @type {Map<string, typeof import('./constraint.js').Constraint>}
      */
-    this.constraintTypes = new Map();
+    this.constraintTypes = new Registry(BUILTIN_CONSTRAINTS);
     /**
      * Assets the game owns, by uid. Empty until `loadAssets`; a game whose
      * scenes declare everything inline never needs it. See `assets.js`.
@@ -1195,7 +1210,9 @@ export class M2D {
       friction: physics.friction || 0.1,
       frictionAir: physics.frictionAir || 0.01,
       restitution: physics.restitution || 0,
-      ...(physics.density !== undefined && { density: physics.density })
+      ...(physics.density !== undefined && { density: physics.density }),
+      ...(physics.category !== undefined && { category: categoryBits(physics.category) }),
+      ...(physics.mask !== undefined && { mask: categoryBits(physics.mask) })
     };
     // A footprint splits the collider from the drawn frame: the body is a
     // short box at the bottom of the object (the feet) and the sprite stands
@@ -1239,7 +1256,7 @@ export class M2D {
      * A point or spot light this entity carries, following its body, or
      * null. The prefab's `light` block with its colour in linear light.
      */
-    entity.light = this.physics.dimensions === 3 && light ? lightFor(light) : null;
+    entity.light = light ? (this.physics.dimensions === 3 ? lightFor(light) : light) : null;
     /**
      * How this entity was made, for a server to tell clients to make the
      * same one. `options` must be plain data for that to work.

@@ -4,7 +4,11 @@ import { constraintParamsSchema } from './sceneSchema.js';
 import { Projection } from './projection.js';
 import { geometryFor } from './renderers/geometry/primitives.js';
 import { StaticBatch } from './renderers/frame3d.js';
-import { meshFor, lightFor, placeLight } from './presentation3d.js';
+import { meshFor, lightFor, placeLight, toLinear } from './presentation3d.js';
+import { parseColor } from './renderers/geometry/color.js';
+import { SceneRules } from './rules.js';
+import { SceneHud } from './hud.js';
+import { cycleLook, advanceCycle } from './look.js';
 import { lodFor } from './gltf.js';
 import { loadModel } from './modelLoader.js';
 import { loadHDR } from './hdr.js';
@@ -118,6 +122,8 @@ export class Scene {
     }
 
     this.game.markSceneBuilt?.();
+    if (this.config.type === 'level') this.#applyLevelLogic();
+    if (!headless) this.#applyPresentation();
 
     // A replica shows a world the server simulates: a level's simulation
     // hooks are the server's to run. A UI scene has no simulation, so a
@@ -131,6 +137,159 @@ export class Scene {
     // Before anything is fetched: what may stream, and where it stands.
     this.indexProps();
     await Promise.all([this.#loadSpriteSheets(), this.#loadModels(), this.#loadEnvironments(), this.#loadMeshTextures()]);
+    this.#loadSounds();
+  }
+
+  /** The scene's own sound effects and music tracks, into the sound manager by key. */
+  #loadSounds() {
+    const base = this.game.options.basePath ?? '';
+    const manager = this.game.soundManager;
+    if (!manager) return;
+    for (const [key, sound] of Object.entries(this.config.assets?.sounds ?? {})) {
+      manager.loadSound(key, { src: base + sound.url, volume: sound.volume ?? 1 });
+    }
+    for (const [key, track] of Object.entries(this.config.assets?.music ?? {})) {
+      manager.loadMusic(key, { src: base + track.url, volume: track.volume ?? 1 });
+    }
+  }
+
+  /**
+   * The level's rules and its lighting cycle, from `world.rules` and
+   * `world.cycle`: simulation state, made headless too. Not in edit mode,
+   * where nothing moves — but the cycle's resting phase still applies, so
+   * the editor shows the level at the state the document names.
+   */
+  #applyLevelLogic() {
+    const world = this.config.world ?? {};
+    if (world.cycle) {
+      const states = world.cycle.states ?? [];
+      this.cycle = { phase: world.cycle.phase ?? 0, target: world.cycle.phase ?? 0, period: world.cycle.period ?? 0, ease: world.cycle.ease ?? 1.5, count: states.length };
+    }
+    if (world.player) {
+      const player = this.entitiesById.get(world.player);
+      if (player && !this.game.player) this.game.player = player;
+    }
+    if (!this.game.editMode && !this.#serverRuns && world.rules?.length) this.rules = new SceneRules(this, world.rules);
+  }
+
+  /** Whether `#applyLook` set the renderer's ambient or post pass, to clear on unload. */
+  #lookApplied = false;
+  /** Whether `#applyPresentation` started the world's music, to stop on unload. */
+  #musicStarted = false;
+
+  /**
+   * The level's look from `world.lighting` and `world.post`, in 2D: the
+   * ambient colour switches lighting on, the post blocks go to the
+   * renderer. Applied in edit mode too, so the editor shows the level as
+   * it is lit. 3D lighting goes on the frame instead, every draw.
+   */
+  #applyLook() {
+    if (this.game.physics.dimensions === 3) return;
+    this.#apply2DLook(this.#currentLook());
+  }
+
+  /** The level's lighting and post as they stand: the resting look, or the cycle's blend at its phase. */
+  #currentLook() {
+    const world = this.config.world ?? {};
+    if (!world.cycle || !this.cycle) return { lighting: world.lighting, post: world.post };
+    return cycleLook(world.cycle, this.cycle.phase, world);
+  }
+
+  #lastLook = null;
+  #apply2DLook({ lighting, post }) {
+    const renderer = this.game.renderer;
+    const key = JSON.stringify([lighting?.ambient ?? null, post ?? null]);
+    if (key === this.#lastLook) return;
+    this.#lastLook = key;
+    if (lighting?.ambient) { renderer.setAmbientLight(lighting.ambient); this.#lookApplied = true; }
+    if (post && Object.keys(post).length) { renderer.setPostEffects({ ...post }); this.#lookApplied = true; }
+  }
+
+  /** One frame of the lighting cycle: move the phase, and in 2D re-apply the look it lands on. */
+  #updateCycle(deltaTime) {
+    if (!this.cycle || this.game.editMode) return;
+    const before = this.cycle.phase;
+    this.cycle.phase = advanceCycle(this.cycle, deltaTime);
+    if (this.cycle.phase !== before && this.game.physics.dimensions !== 3 && !this.game.headless) this.#apply2DLook(this.#currentLook());
+  }
+
+  /**
+   * The level's camera and music, from `world.camera`, `world.player` and
+   * `world.music`, once the objects stand. Not in edit mode: the editor's
+   * camera is its own, and an edited scene is silent.
+   */
+  #applyPresentation() {
+    const world = this.config.world ?? {};
+    const player = world.player ? this.entitiesById.get(world.player) : null;
+    if (player && !this.game.player) this.game.player = player;
+    if (this.config.hud?.length) this.hud = new SceneHud(this, this.config.hud);
+    if (this.game.editMode) return;
+    const camera = this.game.camera;
+    const config = world.camera;
+    if (config) {
+      const { follow, bounds, ...rest } = config;
+      for (const [key, value] of Object.entries(rest)) {
+        if (value === undefined) continue;
+        // Nested blocks (followAxes, targetOffset) merge over the camera's own, so a scene may set one axis.
+        if (value && typeof value === 'object' && camera[key] && typeof camera[key] === 'object') Object.assign(camera[key], value);
+        else camera[key] = value;
+      }
+      if (bounds === 'world') {
+        camera.bounds = { left: 0, top: 0, right: world.width ?? this.game.options.worldWidth, bottom: world.height ?? this.game.options.worldHeight };
+      } else if (bounds) {
+        camera.bounds = { ...bounds };
+      }
+      const target = follow ? this.entitiesById.get(follow) : player;
+      if (target) camera.follow(target);
+      camera.update?.(0);
+    } else if (player && !camera.target) {
+      camera.follow(player);
+    }
+    if (world.music?.track && this.game.soundManager) {
+      this.game.soundManager.playMusic(world.music.track);
+      this.#musicStarted = true;
+    }
+  }
+
+  /** The 3D frame's lighting and post from `world.lighting` and `world.post`, before the scene's own `onRender`. */
+  #applyFrameLook(frame) {
+    const { lighting, post } = this.#currentLook();
+    if (lighting) {
+      const linear = (css) => { const [r, g, b] = parseColor(css); return [toLinear(r), toLinear(g), toLinear(b)]; };
+      if (lighting.sun) {
+        frame.sun = {
+          direction: lighting.sun.direction ? [lighting.sun.direction.x ?? 0, lighting.sun.direction.y ?? -1, lighting.sun.direction.z ?? 0] : frame.sun.direction,
+          color: lighting.sun.color ? linear(lighting.sun.color) : frame.sun.color,
+          intensity: lighting.sun.intensity ?? frame.sun.intensity
+        };
+      }
+      if (lighting.sky || lighting.ground || lighting.ambientIntensity !== undefined) {
+        frame.ambient = {
+          sky: lighting.sky ? linear(lighting.sky) : frame.ambient.sky,
+          ground: lighting.ground ? linear(lighting.ground) : frame.ambient.ground,
+          intensity: lighting.ambientIntensity ?? frame.ambient.intensity
+        };
+      }
+      if (lighting.fog) frame.fog = { color: lighting.fog.color ? linear(lighting.fog.color) : frame.fog.color, density: lighting.fog.density ?? frame.fog.density };
+      if (lighting.exposure !== undefined) frame.exposure = lighting.exposure;
+      if (lighting.shadowDistance !== undefined) frame.shadow.distance = lighting.shadowDistance;
+    }
+    if (post) {
+      const { bloom, ...rest } = post;
+      if (bloom && typeof bloom === 'object') frame.bloom = { ...frame.bloom, ...bloom };
+      for (const [key, value] of Object.entries(rest)) {
+        if (value === undefined) continue;
+        if (key === 'dof' && value && typeof value === 'object') {
+          // The focus follows the camera's target: the eye-to-target distance.
+          const camera = this.game.camera;
+          const eye = camera.position;
+          const at = this.game.player?.body?.renderPosition ?? camera.lookAt;
+          frame.post.dof = { focus: Math.hypot(at.x - eye.x, at.y - eye.y, at.z - eye.z), ...value };
+        } else {
+          frame.post[key] = value && typeof value === 'object' && frame.post[key] && typeof frame.post[key] === 'object' ? { ...frame.post[key], ...value } : value;
+        }
+      }
+    }
   }
 
   /**
@@ -389,6 +548,7 @@ export class Scene {
 
     // Tile layers are drawn and nothing else; the simulation never sees them.
     if (this.game.headless) return;
+    this.#applyLook();
     if (this.config.background) {
       this.setupBackground(this.config.background);
     }
@@ -511,6 +671,7 @@ export class Scene {
     this.#applyConstraints(entity, prefab.constraints, object.constraints,
       `object '${object.id}'`);
     entity.sceneId = object.id;
+    entity.prefab = object.prefab;
     this.entitiesById.set(object.id, entity);
     if (object.zIndex !== undefined) entity.zIndex = object.zIndex;
     if (entity.name === 'Player') {
@@ -995,6 +1156,11 @@ export class Scene {
     this.models.clear();
     this.batches = [];
     this.propBodies = [];
+    // The level's rules, HUD and cycle are this scene's; headless too.
+    this.rules = null;
+    this.hud = null;
+    this.cycle = null;
+    this.#lastLook = null;
 
     // Headless there is no camera, UI or cursor to reset, only the scene's
     // timers (see the end of this method).
@@ -1007,6 +1173,16 @@ export class Scene {
     // this scene chose must not leak into the next one. onExit runs first so
     // it can still read the camera it configured.
     this.game.camera.resetConfig();
+    // So does the look the document set, and the music it started.
+    if (this.#lookApplied) {
+      this.game.renderer.setAmbientLight(null);
+      this.game.renderer.setPostEffects(null);
+      this.#lookApplied = false;
+    }
+    if (this.#musicStarted) {
+      this.game.soundManager?.stopMusic();
+      this.#musicStarted = false;
+    }
 
     this.sprites.clear();
     this.spriteSheets.clear();
@@ -1032,16 +1208,25 @@ export class Scene {
    */
   fixedUpdate(dt) {
     if (this.config.type === 'level') {
-      if (this.game.player &&
-          this.game.player.body.position.y > this.game.options.worldHeight + 50) {
-        console.log('Game Over!');
-        this.game.gameOver();
-        return;
+      // The kill plane: the world's own, or its height plus a margin. Below
+      // it the player is gone — game over, unless the level's rules say
+      // what a fall does.
+      const killPlane = this.config.world?.killPlane ?? (this.game.physics.dimensions === 3 ? -Infinity : this.game.options.worldHeight + 50);
+      const player = this.game.player;
+      if (player && !player.dead && (this.game.physics.dimensions === 3 ? player.body.position.y < killPlane : player.body.position.y > killPlane)) {
+        const handled = this.rules?.rules.some((rule) => rule.when?.event === 'fall');
+        if (handled) this.rules.fell = true;
+        else {
+          console.log('Game Over!');
+          this.game.gameOver();
+          return;
+        }
       }
 
       // A copy: a tick may remove entities (a death, a projectile hit) or
       // add them (a spawner), and the set must not change under the loop.
       for (const entity of [...this.game.entities]) entity.fixedUpdate(dt);
+      this.rules?.fixedUpdate(dt);
     }
 
     // Scene-level simulation that is not an entity: a director spawning
@@ -1060,6 +1245,7 @@ export class Scene {
   update(deltaTime) {
     if (this.config.type === 'level') {
       this.game.entities.forEach(entity => entity.update(deltaTime));
+      this.#updateCycle(deltaTime);
     }
 
     // Scene-level presentation that is not an entity (a sky, a particle
@@ -1124,11 +1310,33 @@ export class Scene {
         next++;
       }
       entity.draw(deltaTime);
+      if (entity.light && !entity.dead && entity.visible !== false) this.#drawLight2D(entity);
     }
     while (next < layers.length) {
       this.game.layers.drawOne(layers[next][1]);
       next++;
     }
+  }
+
+  /**
+   * A 2D entity's `light` block, drawn at its body each frame: a disc of
+   * `range`, or a spot along `direction` as wide as `outerCone`, with the
+   * block's offset (in level units) and its shadow flag. The renderer
+   * ignores it without an ambient set (`world.lighting.ambient`).
+   */
+  #drawLight2D(entity) {
+    const light = entity.light;
+    const { x, y } = entity.renderPosition;
+    const offset = light.offset ?? {};
+    const spot = light.type === 'spot' && light.direction;
+    this.game.renderer.drawLight({
+      x: x + (offset.x ?? 0), y: y + (offset.y ?? 0),
+      radius: light.range ?? Math.max(entity.size.x, entity.size.y) * 2,
+      color: light.color, intensity: light.intensity ?? 1,
+      ...(spot && { angle: Math.atan2(light.direction.y, light.direction.x), cone: (light.outerCone ?? 0.5) * 2 }),
+      shadows: light.shadow === true,
+      z: offset.z ?? 0
+    });
   }
 
   /**
@@ -1199,6 +1407,8 @@ export class Scene {
     // light it bakes, drawn in edit mode too, so the editor shows it.
     const environment = this.config.world?.environment;
     if (environment && this.environments.has(environment)) frame.environment = this.environments.get(environment);
+    // The level's own light and post look, from the document, in edit mode too.
+    this.#applyFrameLook(frame);
     // The game's chance to light and grade the frame — its sun, sky and
     // post look, and an environment of its own over the level's. Edit mode
     // skips it like every other hook.

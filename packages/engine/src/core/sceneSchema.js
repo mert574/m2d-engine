@@ -167,10 +167,18 @@ const ENVIRONMENT = s.object({
   intensity: s.number({ initial: 1, min: 0, description: 'Scales the panorama\'s radiance' })
 });
 
+/** A sound effect or a music track the scene brings: a file, and how loud it plays. */
+const SOUND = s.object({
+  url: s.string({ required: true, nonEmpty: true, description: 'Relative to the game\'s basePath' }),
+  volume: s.number({ min: 0, max: 1, initial: 1 })
+});
+
 const ASSETS = s.object({
   spritesheets: s.record(SPRITESHEET),
   models: s.record(MODEL),
-  environments: s.record(ENVIRONMENT)
+  environments: s.record(ENVIRONMENT),
+  sounds: s.record(SOUND, { description: 'Effects, loaded into the sound manager by key when the scene loads' }),
+  music: s.record(SOUND, { description: 'Tracks, loaded by key; world.music plays one' })
 });
 
 // === World ===
@@ -182,6 +190,128 @@ const PROJECTION = s.union([
     ratio: s.number({ positive: true })
   }, { match: value => typeof value === 'object' && value !== null })
 ], { message: value => `expected one of ${list(PROJECTION_TYPES)}, got ${JSON.stringify(value)}` });
+
+/** A CSS colour, as everywhere in a scene file. */
+const colour = (options = {}) => s.string({ editor: 'color', ...options });
+
+/**
+ * How the level is seen: the camera's configuration, applied when the
+ * scene shows (the editor's own camera stands aside while editing). The 2D
+ * fields are the `Camera`'s, the 3D ones the `Camera3D`'s; a scene sets the
+ * ones its dimension has. `follow` is the id of a placed object.
+ */
+const CAMERA = s.object({
+  mode: s.enumOf(['follow', 'scroll', 'rooms', 'orbit', 'free'], { description: '2D: follow, scroll or rooms; 3D: orbit or free' }),
+  follow: s.string({ description: 'The id of the placed object the camera follows (the player, by default)' }),
+  zoom: s.number({ positive: true, description: '2D' }),
+  lerp: s.number({ min: 0, max: 1, description: 'Fraction of the way to the target per frame at 60 Hz' }),
+  followAxes: s.object({ x: s.boolean(), y: s.boolean() }, { label: 'Follow axes', description: '2D: which axes follow the target' }),
+  bounds: s.union([
+    s.enumOf(['world'], { match: value => typeof value === 'string' }),
+    s.object({ left: s.number({ required: true }), top: s.number({ required: true }), right: s.number({ required: true }), bottom: s.number({ required: true }) },
+      { match: value => typeof value === 'object' && value !== null })
+  ], { description: '2D: "world" for the world\'s size, or a rectangle in px', message: 'must be "world" or { left, top, right, bottom }' }),
+  followRotation: s.boolean({ label: 'Follow rotation', description: '2D: turn with the target' }),
+  rotationLerp: s.number({ min: 0, max: 1, label: 'Rotation lerp' }),
+  rotationMaxRate: s.number({ positive: true, unit: 'rad/s', label: 'Rotation max rate' }),
+  distance: s.number({ positive: true, unit: 'm', description: '3D orbit' }),
+  yaw: s.number({ unit: 'rad', description: '3D orbit' }),
+  pitch: s.number({ unit: 'rad', description: '3D orbit' }),
+  minDistance: s.number({ positive: true, unit: 'm', label: 'Min distance' }),
+  maxDistance: s.number({ positive: true, unit: 'm', label: 'Max distance' }),
+  minPitch: s.number({ unit: 'rad', label: 'Min pitch' }),
+  maxPitch: s.number({ unit: 'rad', label: 'Max pitch' }),
+  fov: s.number({ positive: true, unit: 'rad', label: 'Field of view', description: '3D: vertical' }),
+  targetOffset: s.object({ x: s.number(), y: s.number(), z: s.number() }, { label: 'Target offset', description: '3D: added to the followed object\'s position' })
+}, { label: 'Camera' });
+
+/**
+ * The light the level stands in. 2D: an ambient colour switches lighting
+ * on, and the actors' `drawLight` calls add to it. 3D: the sun, the sky
+ * and ground ambient, the fog, the exposure and the shadow distance, as
+ * `frame3D` takes them; a scene's `onRender` may still change any of them
+ * afterwards, which is how a day and night cycle moves these.
+ */
+const LIGHTING = s.object({
+  ambient: colour({ description: '2D: the ambient light; set, the world is lit (actors add lights). Unset, full brightness' }),
+  sun: s.object({
+    direction: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Where the light goes; down is negative y' }),
+    color: colour({ label: 'Colour' }),
+    intensity: s.number({ min: 0 })
+  }, { description: '3D' }),
+  sky: colour({ description: '3D: ambient from above' }),
+  ground: colour({ description: '3D: ambient from below' }),
+  ambientIntensity: s.number({ min: 0, label: 'Ambient intensity', description: '3D: scales sky and ground' }),
+  fog: s.object({ color: colour({ label: 'Colour' }), density: s.number({ min: 0 }) }, { description: '3D' }),
+  exposure: s.number({ positive: true, description: '3D' }),
+  shadowDistance: s.number({ positive: true, unit: 'm', label: 'Shadow distance', description: '3D: how far the sun casts shadows' })
+}, { label: 'Lighting' });
+
+/**
+ * The full-screen pass over the level. Each block is what the renderer
+ * takes: in 2D `setPostEffects` (bloom { threshold, strength, blur },
+ * vignette { strength, start }, grade { shadows, highlights, amount,
+ * saturation, contrast }, chromatic, distortion, grain, scanlines, blur,
+ * glitch, flash — all `{ strength }` unless said), in 3D `frame.post` and
+ * `frame.bloom`. Blocks a renderer does not know are ignored.
+ */
+const POST = s.object({
+  bloom: s.any({ description: '2D { threshold, strength, blur }; 3D { threshold, intensity, scatter }' }),
+  vignette: s.any({ description: '2D { strength, start }; 3D a number' }),
+  grade: s.any({ description: '2D { shadows, highlights, amount, saturation, contrast }; 3D { saturation, contrast, temperature }' }),
+  chromatic: s.any({ description: '{ strength }' }),
+  distortion: s.any({ description: '{ strength }' }),
+  grain: s.any({ description: '2D { strength }; 3D a number' }),
+  scanlines: s.any({ description: '2D { strength, density }' }),
+  blur: s.any({ description: '2D { strength }' }),
+  dof: s.any({ label: 'Depth of field', description: '3D { focalLength, fStop, maxBlur }; the focus follows the camera\'s target' }),
+  autoExposure: s.any({ label: 'Auto exposure', description: '3D { enabled, key, min, max, speed }' })
+}, { label: 'Post effects' });
+
+/** What a rule watches for; see core/rules.js. */
+const RULE_WHEN = s.tagged('event', {
+  start: s.object({ event: s.string({ required: true }) }),
+  collected: s.object({ event: s.string({ required: true }), prefab: s.ref('prefab', { required: true, description: 'Fires when no object of this prefab is left' }) }),
+  enter: s.object({ event: s.string({ required: true }), object: s.string({ required: true, description: 'The object the player touches; "player" is not allowed here' }) }),
+  death: s.object({ event: s.string({ required: true }), object: s.string({ initial: 'player', description: 'The object that died, or "player"' }) }),
+  fall: s.object({ event: s.string({ required: true }) })
+}, { label: 'When', message: value => `unknown event ${JSON.stringify(value)} (known: start, collected, enter, death, fall)` });
+
+/** What a rule does; see core/rules.js. */
+const RULE_ACTION = s.tagged('do', {
+  notice: s.object({ do: s.string({ required: true }), text: s.string({ required: true }), seconds: s.number({ positive: true }), element: s.string({ description: 'A notice element\'s id; the first one by default' }) }),
+  objective: s.object({ do: s.string({ required: true }), text: s.string({ required: true }), element: s.string({ initial: 'objective', description: 'A text element\'s id' }) }),
+  sound: s.object({ do: s.string({ required: true }), key: s.string({ required: true }) }),
+  unseal: s.object({ do: s.string({ required: true }), object: s.string({ required: true, description: 'Sets its active true and its sealed false' }) }),
+  remove: s.object({ do: s.string({ required: true }), object: s.string({ required: true }) }),
+  set: s.object({ do: s.string({ required: true }), object: s.string({ required: true }), property: s.string({ required: true }), value: s.any() }),
+  switch: s.object({ do: s.string({ required: true }), scene: s.string({ required: true, nonEmpty: true, description: 'A scene by name: one of the project\'s, or one the game\'s page builds in code (a menu)' }), after: s.number({ min: 0, unit: 's' }) }),
+  gameOver: s.object({ do: s.string({ required: true }), after: s.number({ min: 0, unit: 's' }) }),
+  cycle: s.object({ do: s.string({ required: true }), target: s.number({ min: 0, description: 'The lighting state to ease to' }), phase: s.number({ min: 0, description: 'Jump to this state' }), ease: s.number({ positive: true }) })
+}, { label: 'Action', message: value => `unknown action ${JSON.stringify(value)} (known: notice, objective, sound, unseal, remove, set, switch, gameOver, cycle)` });
+
+const RULE = s.object({
+  when: RULE_WHEN,
+  then: s.array(RULE_ACTION, { required: true }),
+  once: s.boolean({ default: true, description: 'Fire once, or every tick the event holds' })
+}, { refine(rule, { path, fail }) { if (!rule.when) fail(`${path}.when`, 'a rule needs an event to watch for'); } });
+
+/**
+ * A day and night cycle (or any turn of the light): named looks the level
+ * blends between. `period` seconds turns through them all and round
+ * again; without one the phase eases toward `target`, which game code or
+ * a rule sets (`scene.cycle.target = 1`). `phase` is where it starts.
+ */
+const CYCLE = s.object({
+  states: s.array(s.object({
+    name: s.string(),
+    lighting: LIGHTING,
+    post: POST
+  }), { required: true, minLength: 2, message: 'must be a list of at least two states' }),
+  period: s.number({ min: 0, unit: 's', description: 'Seconds per full turn; 0 means the phase is moved by hand' }),
+  phase: s.number({ min: 0, description: 'The starting state (fractions blend)' }),
+  ease: s.number({ positive: true, initial: 1.5, description: 'How fast the phase approaches its target, per second' })
+}, { label: 'Cycle' });
 
 const WORLD = s.object({
   dimensions: s.enumOf(DIMENSIONS, {
@@ -197,8 +327,20 @@ const WORLD = s.object({
     label: 'Environment',
     description: 'Three-dimensional levels only: a key in assets.environments, the HDR panorama ' +
       'that lights the level and is its sky. Game code may still set the frame\'s own'
-  })
+  }),
+  player: s.string({ description: 'The id of the placed object that is the player: game.player, and what the camera follows unless told otherwise' }),
+  camera: CAMERA,
+  lighting: LIGHTING,
+  post: POST,
+  music: s.object({
+    track: s.string({ required: true, description: 'A key in assets.music (or one the game loaded)' }),
+    volume: s.number({ min: 0, max: 1 })
+  }, { label: 'Music', description: 'Played when the scene shows, stopped when it leaves' }),
+  cycle: CYCLE,
+  killPlane: s.number({ label: 'Kill plane', unit: 'px', description: '2D: the player falling below this y fires the fall rules (game over without one); the world\'s height plus 50 by default' }),
+  rules: s.array(RULE, { label: 'Rules', description: 'What happens when: see the guide' })
 });
+
 
 // === Constraints ===
 
@@ -311,6 +453,14 @@ const PHYSICS = s.object({
   angle: s.number({ unit: 'rad' }),
   lockRotation: s.boolean(),
   isSensor: s.boolean(),
+  category: s.union([
+    s.string({ match: value => typeof value === 'string' }),
+    s.integer({ min: 1, match: value => typeof value === 'number' })
+  ], { label: 'Collision category', description: 'A CollisionCategories name (player, enemy, platform, …) or a bit', message: 'must be a category name or a bit' }),
+  mask: s.union([
+    s.integer({ min: 0, match: value => typeof value === 'number' }),
+    s.array(s.string(), { match: value => Array.isArray(value) })
+  ], { label: 'Collides with', description: 'Category names this body collides with, or a bit mask; everything when unset', message: 'must be a list of category names or a bit mask' }),
   friction: s.number({ min: 0 }),
   frictionAir: s.number({ min: 0 }),
   restitution: s.number({ min: 0 }),
@@ -593,6 +743,35 @@ const ELEMENTS = s.tagged('type', {
     `(known: ${list(['button', 'text', 'image', 'rect'])})`
 });
 
+/** A level's HUD: the UI scene's elements plus the three that read the game. */
+const HUD_ELEMENTS = s.tagged('type', {
+  text: s.object({ ...ELEMENT_COMMON, properties: s.object({ text: styled('text'), fontSize: styled('size'), fontFamily: styled('font'), fontWeight: styled('font'), fontStyle: styled('font'), color: styled('color'), align: styled('align') }) }),
+  notice: s.object({ ...ELEMENT_COMMON, properties: s.object({ fontSize: styled('size'), fontWeight: styled('font'), color: styled('color'), align: styled('align'), seconds: s.number({ positive: true, initial: 2.5, unit: 's' }) }) }),
+  meter: s.object({
+    ...ELEMENT_COMMON,
+    width: s.number({ positive: true, unit: 'px', initial: 180 }),
+    height: s.number({ positive: true, unit: 'px', initial: 12 }),
+    bind: s.object({
+      object: s.string({ initial: 'player', description: 'An object id, or "player"' }),
+      constraint: s.string({ initial: 'health', description: 'The constraint slot read from (health by default); an empty string reads the entity\'s own fields' }),
+      current: s.string({ initial: 'currentHealth' }),
+      max: s.string({ initial: 'maxHealth' })
+    }, { label: 'Binding' }),
+    properties: s.object({ label: styled('text'), color: styled('color'), background: styled('color') })
+  }),
+  minimap: s.object({
+    ...ELEMENT_COMMON,
+    size: s.number({ positive: true, unit: 'px', initial: 160 }),
+    bounds: s.object({ width: s.number({ required: true, positive: true }), height: s.number({ required: true, positive: true }) }, { description: 'The world area mapped; the world\'s size when unset' }),
+    plot: s.record(s.string({ editor: 'color' }), { label: 'Plot', description: 'Prefab name to dot colour' }),
+    properties: s.object({ background: styled('color') })
+  }),
+  image: s.object({ ...ELEMENT_COMMON, sprite: s.string({ required: true, editor: 'asset' }), properties: s.object({ width: styled('size'), height: styled('size'), scale: styled('size') }) }),
+  rect: s.object({ ...ELEMENT_COMMON, width: styled('size'), height: styled('size'), color: styled('color'), fill: s.boolean({ label: 'Fill the screen' }), properties: s.object({}) })
+}, {
+  message: (value) => `unknown HUD element type ${JSON.stringify(value)} (known: text, notice, meter, minimap, image, rect)`
+});
+
 // === Scenes ===
 
 const SCENE_COMMON = {
@@ -656,10 +835,6 @@ function checkDimension(level, fail) {
       fail(`prefabs.${name}.mesh`, 'a mesh is drawn by the 3D renderer, and this level is 2D ' +
         '(set world.dimensions to 3, or give the prefab a spritesheet)');
     }
-    if (dimensions === 2 && prefab.light) {
-      fail(`prefabs.${name}.light`, 'a light belongs to the 3D renderer, and this level is 2D ' +
-        "(set world.dimensions to 3; 2D lights are the renderer's drawLight)");
-    }
   }
 
   if (dimensions === 3) {
@@ -710,7 +885,8 @@ export const LEVEL_SCHEMA = s.object({
   prefabs: s.record(PREFAB),
   layers: s.array(LAYER),
   background: BACKGROUND,
-  tileLayers: s.array(TILE_LAYER)
+  tileLayers: s.array(TILE_LAYER),
+  hud: s.array(HUD_ELEMENTS, { label: 'HUD', description: 'The overlay drawn over the level: texts, meters, notices, a minimap' })
 }, {
   refine(level, { fail }) {
     checkDimension(level, fail);

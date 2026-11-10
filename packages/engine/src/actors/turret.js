@@ -8,6 +8,7 @@ import { Debug } from '../constraints/debug.js';
 import { s } from '../core/schema.js';
 
 export class Turret extends Entity {
+  static description = 'A fixed gun that tracks and fires at the player';
   name = 'Turret';
 
   static properties = {

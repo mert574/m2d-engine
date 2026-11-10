@@ -22,6 +22,7 @@ import { Vec2 } from '../core/math.js';
  * @param {number} [options.wanderInterval] - Seconds between wander targets.
  */
 export class Chase extends Constraint {
+  static description = 'Chase the nearest player while one is in range, else wander or stand';
   static params = {
     speed: s.number({ initial: 60, positive: true, unit: 'px/s', label: 'Pursuit speed' }),
     idleSpeed: s.number({ positive: true, unit: 'px/s', label: 'Wander speed', description: 'Defaults to 60% of speed' }),

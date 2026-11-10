@@ -1,4 +1,5 @@
 import { Ship, Meteor, Drone, Salvage, Gate, Bound, Sky } from './fieldActors.js';
+import { AttackSwing, HitBurst } from '../shared/effects.js';
 import layout from './layout.json';
 
 /**
@@ -14,4 +15,7 @@ export function register(game) {
   for (const [name, actor] of Object.entries({
     Ship, Meteor, Drone, Salvage, Gate, Bound, Sky
   })) game.registerActor(name, actor);
+  // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
+  game.registerConstraint('AttackSwing', AttackSwing);
+  game.registerConstraint('HitBurst', HitBurst);
 }

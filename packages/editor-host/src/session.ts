@@ -154,6 +154,17 @@ export class Session {
     return this.#emit(path, open, { kind: 'reset', origin: 'disk' });
   }
 
+  /** Forget one document (its file was deleted or moved); its replicas are told to reset. */
+  forget(path: string): void {
+    this.#open.delete(path);
+    this.#loading.delete(path);
+  }
+
+  /** Whether the document at `path` is open with unsaved edits. */
+  isDirty(path: string): boolean {
+    return this.#open.get(path)?.doc.dirty ?? false;
+  }
+
   /** Forget every document, unsaved edits included. */
   close(): void {
     this.#open.clear();

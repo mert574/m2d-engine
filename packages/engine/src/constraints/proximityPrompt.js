@@ -15,6 +15,7 @@ import { s } from '../core/schema.js';
  * @param {string} [options.color]
  */
 export class ProximityPrompt extends Constraint {
+  static description = 'A prompt over the entity while the player is near, and an action on the key';
   static params = {
     radius: s.number({ initial: 110, positive: true, unit: 'px' }),
     text: s.string({ initial: 'E' }),

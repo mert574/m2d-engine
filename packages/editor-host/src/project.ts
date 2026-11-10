@@ -9,7 +9,8 @@
  * something needs more, it is this.
  */
 
-import { readFile, writeFile, readdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, readdir, stat, mkdir, rename, rm } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { join, relative, resolve, sep } from 'node:path';
 import { SceneDocument } from 'm2d-editor-core';
 
@@ -168,6 +169,43 @@ export class Project {
     await writeFile(this.resolve(doc.path), text);
     doc.markSaved();
     return text;
+  }
+
+  /**
+   * Make a new scene file in the scenes folder from a document's data,
+   * refusing to overwrite. `name` is the file's stem; the path is
+   * returned project-relative, as `scenes()` lists it.
+   */
+  async createScene(name: string, data: Record<string, unknown>): Promise<string> {
+    const stem = name.replace(/\.json$/i, '').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!stem) throw new Error('Project: a scene needs a name');
+    const { scenes } = await this.config();
+    const path = `${scenes.replace(/^\.\/?/, '').replace(/\/$/, '')}/${stem}.json`.replace(/^\//, '');
+    const full = this.resolve(path);
+    if (await stat(full).then(() => true, () => false)) throw new Error(`Project: '${path}' already exists`);
+    await mkdir(dirname(full), { recursive: true });
+    const doc = new SceneDocument({ ...data, name: typeof data.name === 'string' ? data.name : stem }, path);
+    await writeFile(full, doc.text);
+    return path;
+  }
+
+  /** Move a scene file; the new path is returned project-relative. */
+  async renameScene(path: string, name: string): Promise<string> {
+    const stem = name.replace(/\.json$/i, '').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!stem) throw new Error('Project: a scene needs a name');
+    const from = this.resolve(path);
+    const to = join(dirname(from), `${stem}.json`);
+    if (from === to) return path;
+    if (await stat(to).then(() => true, () => false)) throw new Error(`Project: '${relative(this.root, to)}' already exists`);
+    await rename(from, to);
+    return relative(this.root, to).split(sep).join('/');
+  }
+
+  /** Delete a scene file. */
+  async deleteScene(path: string): Promise<void> {
+    const full = this.resolve(path);
+    if (!(await stat(full).then((entry) => entry.isFile(), () => false))) throw new Error(`Project: there is no '${path}'`);
+    await rm(full);
   }
 
   /** Whether the project folder is there at all. */

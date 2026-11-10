@@ -10,12 +10,12 @@ Options marked with an asterisk treat `0` as unset and fall back to the default.
 
 ## Attaching one from a scene
 
-A constraint can also be declared in a scene file instead of in an actor, on a prefab or on a single placed object. Register it first, the way actors are registered:
+A constraint can also be declared in a scene file instead of in an actor, on a prefab or on a single placed object. Every constraint on this page resolves by name without registration; a game's own is registered first, the way actors are:
 
 ```javascript
-import { Chase } from 'm2d-engine/constraints/chase.js';
+import { Teleport } from './teleport.js';
 
-game.registerConstraint('Chase', Chase);
+game.registerConstraint('Teleport', Teleport);
 ```
 
 ```json

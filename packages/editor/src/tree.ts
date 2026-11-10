@@ -17,15 +17,23 @@ export interface TreeHandle {
   show(root: OutlineNode): void;
   /** The selected node's path, or null. */
   selection(): PathSegment[] | null;
-  /** Select a node from elsewhere (a pick in the viewport); no callback. */
-  select(path: PathSegment[] | null): void;
+  /**
+   * Select nodes from elsewhere (a pick in the viewport); no callback.
+   * The first is the primary; the rest are highlighted with it.
+   */
+  select(path: PathSegment[] | null, others?: PathSegment[][]): void;
   /** Problem counts by document path; a node shows the sum at and under it. */
   setProblems(paths: PathSegment[][]): void;
 }
 
+/** How a click selects: on its own, adding to the selection (Ctrl) or a range (Shift). */
+export type SelectMode = 'replace' | 'toggle' | 'range';
+
 export interface TreeOptions {
   /** A node was double-clicked: frame it. */
   activate?: (node: OutlineNode) => void;
+  /** A node was right-clicked: show what can be done with it. */
+  menu?: (node: OutlineNode, at: { x: number; y: number }) => void;
 }
 
 const pathKey = (path: PathSegment[]) => JSON.stringify(path);
@@ -33,10 +41,12 @@ const startsWith = (path: PathSegment[], prefix: PathSegment[]) => prefix.every(
 
 export function createTree(
   container: HTMLElement,
-  onSelect: (node: OutlineNode) => void,
+  onSelect: (node: OutlineNode, mode: SelectMode) => void,
   options: TreeOptions = {}
 ): TreeHandle {
   let selected: string | null = null;
+  /** The other selected paths, highlighted beside the primary. */
+  let also = new Set<string>();
   let root: OutlineNode | null = null;
   let query = '';
   let problems: PathSegment[][] = [];
@@ -141,14 +151,31 @@ export function createTree(
       row.append(badge);
     }
 
-    row.addEventListener('click', () => {
-      selected = key;
-      for (const other of body.querySelectorAll('.row.selected')) other.classList.remove('selected');
-      row.classList.add('selected');
-      onSelect(node);
+    row.addEventListener('click', (event) => {
+      const mode: SelectMode = event.shiftKey ? 'range' : event.ctrlKey || event.metaKey ? 'toggle' : 'replace';
+      if (mode === 'replace') {
+        selected = key;
+        also.clear();
+        for (const other of body.querySelectorAll('.row.selected, .row.also')) other.classList.remove('selected', 'also');
+        row.classList.add('selected');
+      }
+      onSelect(node, mode);
+    });
+    row.addEventListener('contextmenu', (event) => {
+      if (!options.menu) return;
+      event.preventDefault();
+      if (selected !== key && !also.has(key)) {
+        selected = key;
+        also.clear();
+        for (const other of body.querySelectorAll('.row.selected, .row.also')) other.classList.remove('selected', 'also');
+        row.classList.add('selected');
+        onSelect(node, 'replace');
+      }
+      options.menu(node, { x: event.clientX, y: event.clientY });
     });
     row.addEventListener('dblclick', () => options.activate?.(node));
     if (selected === key) row.classList.add('selected');
+    else if (also.has(key)) row.classList.add('also');
 
     wrap.append(row);
     if (open) for (const child of children) wrap.append(nodeRow(child, depth + 1));
@@ -181,14 +208,17 @@ export function createTree(
       render();
     },
     selection: () => (selected ? JSON.parse(selected) as PathSegment[] : null),
-    select(path) {
+    select(path, others = []) {
       selected = path ? pathKey(path) : null;
+      also = new Set(others.map(pathKey));
       if (path && reveal(path)) render();
-      for (const other of body.querySelectorAll('.row.selected')) other.classList.remove('selected');
+      for (const other of body.querySelectorAll('.row.selected, .row.also')) other.classList.remove('selected', 'also');
       if (!selected) return;
-      const row = [...body.querySelectorAll<HTMLElement>('.row')].find((each) => each.dataset.path === selected);
+      const rows = [...body.querySelectorAll<HTMLElement>('.row')];
+      const row = rows.find((each) => each.dataset.path === selected);
       row?.classList.add('selected');
       row?.scrollIntoView?.({ block: 'nearest' });
+      for (const each of rows) if (also.has(each.dataset.path ?? '')) each.classList.add('also');
     },
     setProblems(paths) {
       problems = paths;
