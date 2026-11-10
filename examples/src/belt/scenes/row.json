@@ -2,1295 +2,127 @@
   "version": 2,
   "name": "row",
   "type": "level",
+  "generator": "scripts/buildRowScene.mjs",
   "gameType": "belt",
+  "uses": { "zombie": "prefab-zombie", "goblin": "prefab-goblin", "skeleton": "prefab-skeleton" },
   "world": {
     "width": 5200,
     "height": 400,
-    "gravity": {
-      "x": 0,
-      "y": 0
-    },
+    "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
-    "projection": {
-      "type": "belt",
-      "ratio": 0.5
-    }
-  },
-  "uses": {
-    "zombie": "prefab-zombie",
-    "goblin": "prefab-goblin",
-    "skeleton": "prefab-skeleton"
+    "projection": { "type": "belt", "ratio": 0.5 }
   },
   "assets": {
     "spritesheets": {
-      "paving": {
-        "url": "textures/paving.jpg",
-        "frameWidth": 512,
-        "frameHeight": 512
-      },
+      "paving": { "url": "textures/paving.jpg", "frameWidth": 512, "frameHeight": 512 },
       "rogue": {
         "url": "textures/characters/rogue.png",
         "frameWidth": 128,
         "frameHeight": 128,
         "animations": {
-          "idle_left": {
-            "frames": [
-              [
-                0,
-                0
-              ],
-              [
-                1,
-                0
-              ],
-              [
-                2,
-                0
-              ],
-              [
-                3,
-                0
-              ]
-            ],
-            "fps": 5
-          },
+          "idle_left": { "frames": [[0, 0], [1, 0], [2, 0], [3, 0]], "fps": 5 },
           "run_left": {
-            "frames": [
-              [
-                4,
-                0
-              ],
-              [
-                5,
-                0
-              ],
-              [
-                6,
-                0
-              ],
-              [
-                7,
-                0
-              ],
-              [
-                8,
-                0
-              ],
-              [
-                9,
-                0
-              ],
-              [
-                10,
-                0
-              ],
-              [
-                11,
-                0
-              ]
-            ],
+            "frames": [[4, 0], [5, 0], [6, 0], [7, 0], [8, 0], [9, 0], [10, 0], [11, 0]],
             "fps": 14
           },
-          "swing_left": {
-            "frames": [
-              [
-                12,
-                0
-              ],
-              [
-                13,
-                0
-              ],
-              [
-                14,
-                0
-              ],
-              [
-                15,
-                0
-              ]
-            ],
-            "fps": 14,
-            "loop": false
-          },
-          "hit_left": {
-            "frames": [
-              [
-                18,
-                0
-              ],
-              [
-                19,
-                0
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "die_left": {
-            "frames": [
-              [
-                20,
-                0
-              ],
-              [
-                21,
-                0
-              ],
-              [
-                22,
-                0
-              ],
-              [
-                23,
-                0
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "cast_left": {
-            "frames": [
-              [
-                24,
-                0
-              ],
-              [
-                25,
-                0
-              ],
-              [
-                26,
-                0
-              ],
-              [
-                27,
-                0
-              ]
-            ],
-            "fps": 10,
-            "loop": false
-          },
-          "idle_up_left": {
-            "frames": [
-              [
-                0,
-                1
-              ],
-              [
-                1,
-                1
-              ],
-              [
-                2,
-                1
-              ],
-              [
-                3,
-                1
-              ]
-            ],
-            "fps": 5
-          },
+          "swing_left": { "frames": [[12, 0], [13, 0], [14, 0], [15, 0]], "fps": 14, "loop": false },
+          "hit_left": { "frames": [[18, 0], [19, 0]], "fps": 8, "loop": false },
+          "die_left": { "frames": [[20, 0], [21, 0], [22, 0], [23, 0]], "fps": 8, "loop": false },
+          "cast_left": { "frames": [[24, 0], [25, 0], [26, 0], [27, 0]], "fps": 10, "loop": false },
+          "idle_up_left": { "frames": [[0, 1], [1, 1], [2, 1], [3, 1]], "fps": 5 },
           "run_up_left": {
-            "frames": [
-              [
-                4,
-                1
-              ],
-              [
-                5,
-                1
-              ],
-              [
-                6,
-                1
-              ],
-              [
-                7,
-                1
-              ],
-              [
-                8,
-                1
-              ],
-              [
-                9,
-                1
-              ],
-              [
-                10,
-                1
-              ],
-              [
-                11,
-                1
-              ]
-            ],
+            "frames": [[4, 1], [5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [10, 1], [11, 1]],
             "fps": 14
           },
-          "swing_up_left": {
-            "frames": [
-              [
-                12,
-                1
-              ],
-              [
-                13,
-                1
-              ],
-              [
-                14,
-                1
-              ],
-              [
-                15,
-                1
-              ]
-            ],
-            "fps": 14,
-            "loop": false
-          },
-          "hit_up_left": {
-            "frames": [
-              [
-                18,
-                1
-              ],
-              [
-                19,
-                1
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "die_up_left": {
-            "frames": [
-              [
-                20,
-                1
-              ],
-              [
-                21,
-                1
-              ],
-              [
-                22,
-                1
-              ],
-              [
-                23,
-                1
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "cast_up_left": {
-            "frames": [
-              [
-                24,
-                1
-              ],
-              [
-                25,
-                1
-              ],
-              [
-                26,
-                1
-              ],
-              [
-                27,
-                1
-              ]
-            ],
-            "fps": 10,
-            "loop": false
-          },
-          "idle_up": {
-            "frames": [
-              [
-                0,
-                2
-              ],
-              [
-                1,
-                2
-              ],
-              [
-                2,
-                2
-              ],
-              [
-                3,
-                2
-              ]
-            ],
-            "fps": 5
-          },
+          "swing_up_left": { "frames": [[12, 1], [13, 1], [14, 1], [15, 1]], "fps": 14, "loop": false },
+          "hit_up_left": { "frames": [[18, 1], [19, 1]], "fps": 8, "loop": false },
+          "die_up_left": { "frames": [[20, 1], [21, 1], [22, 1], [23, 1]], "fps": 8, "loop": false },
+          "cast_up_left": { "frames": [[24, 1], [25, 1], [26, 1], [27, 1]], "fps": 10, "loop": false },
+          "idle_up": { "frames": [[0, 2], [1, 2], [2, 2], [3, 2]], "fps": 5 },
           "run_up": {
-            "frames": [
-              [
-                4,
-                2
-              ],
-              [
-                5,
-                2
-              ],
-              [
-                6,
-                2
-              ],
-              [
-                7,
-                2
-              ],
-              [
-                8,
-                2
-              ],
-              [
-                9,
-                2
-              ],
-              [
-                10,
-                2
-              ],
-              [
-                11,
-                2
-              ]
-            ],
+            "frames": [[4, 2], [5, 2], [6, 2], [7, 2], [8, 2], [9, 2], [10, 2], [11, 2]],
             "fps": 14
           },
-          "swing_up": {
-            "frames": [
-              [
-                12,
-                2
-              ],
-              [
-                13,
-                2
-              ],
-              [
-                14,
-                2
-              ],
-              [
-                15,
-                2
-              ]
-            ],
-            "fps": 14,
-            "loop": false
-          },
-          "hit_up": {
-            "frames": [
-              [
-                18,
-                2
-              ],
-              [
-                19,
-                2
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "die_up": {
-            "frames": [
-              [
-                20,
-                2
-              ],
-              [
-                21,
-                2
-              ],
-              [
-                22,
-                2
-              ],
-              [
-                23,
-                2
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "cast_up": {
-            "frames": [
-              [
-                24,
-                2
-              ],
-              [
-                25,
-                2
-              ],
-              [
-                26,
-                2
-              ],
-              [
-                27,
-                2
-              ]
-            ],
-            "fps": 10,
-            "loop": false
-          },
-          "idle_up_right": {
-            "frames": [
-              [
-                0,
-                3
-              ],
-              [
-                1,
-                3
-              ],
-              [
-                2,
-                3
-              ],
-              [
-                3,
-                3
-              ]
-            ],
-            "fps": 5
-          },
+          "swing_up": { "frames": [[12, 2], [13, 2], [14, 2], [15, 2]], "fps": 14, "loop": false },
+          "hit_up": { "frames": [[18, 2], [19, 2]], "fps": 8, "loop": false },
+          "die_up": { "frames": [[20, 2], [21, 2], [22, 2], [23, 2]], "fps": 8, "loop": false },
+          "cast_up": { "frames": [[24, 2], [25, 2], [26, 2], [27, 2]], "fps": 10, "loop": false },
+          "idle_up_right": { "frames": [[0, 3], [1, 3], [2, 3], [3, 3]], "fps": 5 },
           "run_up_right": {
-            "frames": [
-              [
-                4,
-                3
-              ],
-              [
-                5,
-                3
-              ],
-              [
-                6,
-                3
-              ],
-              [
-                7,
-                3
-              ],
-              [
-                8,
-                3
-              ],
-              [
-                9,
-                3
-              ],
-              [
-                10,
-                3
-              ],
-              [
-                11,
-                3
-              ]
-            ],
+            "frames": [[4, 3], [5, 3], [6, 3], [7, 3], [8, 3], [9, 3], [10, 3], [11, 3]],
             "fps": 14
           },
-          "swing_up_right": {
-            "frames": [
-              [
-                12,
-                3
-              ],
-              [
-                13,
-                3
-              ],
-              [
-                14,
-                3
-              ],
-              [
-                15,
-                3
-              ]
-            ],
-            "fps": 14,
-            "loop": false
-          },
-          "hit_up_right": {
-            "frames": [
-              [
-                18,
-                3
-              ],
-              [
-                19,
-                3
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "die_up_right": {
-            "frames": [
-              [
-                20,
-                3
-              ],
-              [
-                21,
-                3
-              ],
-              [
-                22,
-                3
-              ],
-              [
-                23,
-                3
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "cast_up_right": {
-            "frames": [
-              [
-                24,
-                3
-              ],
-              [
-                25,
-                3
-              ],
-              [
-                26,
-                3
-              ],
-              [
-                27,
-                3
-              ]
-            ],
-            "fps": 10,
-            "loop": false
-          },
-          "idle_right": {
-            "frames": [
-              [
-                0,
-                4
-              ],
-              [
-                1,
-                4
-              ],
-              [
-                2,
-                4
-              ],
-              [
-                3,
-                4
-              ]
-            ],
-            "fps": 5
-          },
+          "swing_up_right": { "frames": [[12, 3], [13, 3], [14, 3], [15, 3]], "fps": 14, "loop": false },
+          "hit_up_right": { "frames": [[18, 3], [19, 3]], "fps": 8, "loop": false },
+          "die_up_right": { "frames": [[20, 3], [21, 3], [22, 3], [23, 3]], "fps": 8, "loop": false },
+          "cast_up_right": { "frames": [[24, 3], [25, 3], [26, 3], [27, 3]], "fps": 10, "loop": false },
+          "idle_right": { "frames": [[0, 4], [1, 4], [2, 4], [3, 4]], "fps": 5 },
           "run_right": {
-            "frames": [
-              [
-                4,
-                4
-              ],
-              [
-                5,
-                4
-              ],
-              [
-                6,
-                4
-              ],
-              [
-                7,
-                4
-              ],
-              [
-                8,
-                4
-              ],
-              [
-                9,
-                4
-              ],
-              [
-                10,
-                4
-              ],
-              [
-                11,
-                4
-              ]
-            ],
+            "frames": [[4, 4], [5, 4], [6, 4], [7, 4], [8, 4], [9, 4], [10, 4], [11, 4]],
             "fps": 14
           },
-          "swing_right": {
-            "frames": [
-              [
-                12,
-                4
-              ],
-              [
-                13,
-                4
-              ],
-              [
-                14,
-                4
-              ],
-              [
-                15,
-                4
-              ]
-            ],
-            "fps": 14,
-            "loop": false
-          },
-          "hit_right": {
-            "frames": [
-              [
-                18,
-                4
-              ],
-              [
-                19,
-                4
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "die_right": {
-            "frames": [
-              [
-                20,
-                4
-              ],
-              [
-                21,
-                4
-              ],
-              [
-                22,
-                4
-              ],
-              [
-                23,
-                4
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "cast_right": {
-            "frames": [
-              [
-                24,
-                4
-              ],
-              [
-                25,
-                4
-              ],
-              [
-                26,
-                4
-              ],
-              [
-                27,
-                4
-              ]
-            ],
-            "fps": 10,
-            "loop": false
-          },
-          "idle_down_right": {
-            "frames": [
-              [
-                0,
-                5
-              ],
-              [
-                1,
-                5
-              ],
-              [
-                2,
-                5
-              ],
-              [
-                3,
-                5
-              ]
-            ],
-            "fps": 5
-          },
+          "swing_right": { "frames": [[12, 4], [13, 4], [14, 4], [15, 4]], "fps": 14, "loop": false },
+          "hit_right": { "frames": [[18, 4], [19, 4]], "fps": 8, "loop": false },
+          "die_right": { "frames": [[20, 4], [21, 4], [22, 4], [23, 4]], "fps": 8, "loop": false },
+          "cast_right": { "frames": [[24, 4], [25, 4], [26, 4], [27, 4]], "fps": 10, "loop": false },
+          "idle_down_right": { "frames": [[0, 5], [1, 5], [2, 5], [3, 5]], "fps": 5 },
           "run_down_right": {
-            "frames": [
-              [
-                4,
-                5
-              ],
-              [
-                5,
-                5
-              ],
-              [
-                6,
-                5
-              ],
-              [
-                7,
-                5
-              ],
-              [
-                8,
-                5
-              ],
-              [
-                9,
-                5
-              ],
-              [
-                10,
-                5
-              ],
-              [
-                11,
-                5
-              ]
-            ],
+            "frames": [[4, 5], [5, 5], [6, 5], [7, 5], [8, 5], [9, 5], [10, 5], [11, 5]],
             "fps": 14
           },
-          "swing_down_right": {
-            "frames": [
-              [
-                12,
-                5
-              ],
-              [
-                13,
-                5
-              ],
-              [
-                14,
-                5
-              ],
-              [
-                15,
-                5
-              ]
-            ],
-            "fps": 14,
-            "loop": false
-          },
-          "hit_down_right": {
-            "frames": [
-              [
-                18,
-                5
-              ],
-              [
-                19,
-                5
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "die_down_right": {
-            "frames": [
-              [
-                20,
-                5
-              ],
-              [
-                21,
-                5
-              ],
-              [
-                22,
-                5
-              ],
-              [
-                23,
-                5
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "cast_down_right": {
-            "frames": [
-              [
-                24,
-                5
-              ],
-              [
-                25,
-                5
-              ],
-              [
-                26,
-                5
-              ],
-              [
-                27,
-                5
-              ]
-            ],
-            "fps": 10,
-            "loop": false
-          },
-          "idle_down": {
-            "frames": [
-              [
-                0,
-                6
-              ],
-              [
-                1,
-                6
-              ],
-              [
-                2,
-                6
-              ],
-              [
-                3,
-                6
-              ]
-            ],
-            "fps": 5
-          },
+          "swing_down_right": { "frames": [[12, 5], [13, 5], [14, 5], [15, 5]], "fps": 14, "loop": false },
+          "hit_down_right": { "frames": [[18, 5], [19, 5]], "fps": 8, "loop": false },
+          "die_down_right": { "frames": [[20, 5], [21, 5], [22, 5], [23, 5]], "fps": 8, "loop": false },
+          "cast_down_right": { "frames": [[24, 5], [25, 5], [26, 5], [27, 5]], "fps": 10, "loop": false },
+          "idle_down": { "frames": [[0, 6], [1, 6], [2, 6], [3, 6]], "fps": 5 },
           "run_down": {
-            "frames": [
-              [
-                4,
-                6
-              ],
-              [
-                5,
-                6
-              ],
-              [
-                6,
-                6
-              ],
-              [
-                7,
-                6
-              ],
-              [
-                8,
-                6
-              ],
-              [
-                9,
-                6
-              ],
-              [
-                10,
-                6
-              ],
-              [
-                11,
-                6
-              ]
-            ],
+            "frames": [[4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [10, 6], [11, 6]],
             "fps": 14
           },
-          "swing_down": {
-            "frames": [
-              [
-                12,
-                6
-              ],
-              [
-                13,
-                6
-              ],
-              [
-                14,
-                6
-              ],
-              [
-                15,
-                6
-              ]
-            ],
-            "fps": 14,
-            "loop": false
-          },
-          "hit_down": {
-            "frames": [
-              [
-                18,
-                6
-              ],
-              [
-                19,
-                6
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "die_down": {
-            "frames": [
-              [
-                20,
-                6
-              ],
-              [
-                21,
-                6
-              ],
-              [
-                22,
-                6
-              ],
-              [
-                23,
-                6
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "cast_down": {
-            "frames": [
-              [
-                24,
-                6
-              ],
-              [
-                25,
-                6
-              ],
-              [
-                26,
-                6
-              ],
-              [
-                27,
-                6
-              ]
-            ],
-            "fps": 10,
-            "loop": false
-          },
-          "idle_down_left": {
-            "frames": [
-              [
-                0,
-                7
-              ],
-              [
-                1,
-                7
-              ],
-              [
-                2,
-                7
-              ],
-              [
-                3,
-                7
-              ]
-            ],
-            "fps": 5
-          },
+          "swing_down": { "frames": [[12, 6], [13, 6], [14, 6], [15, 6]], "fps": 14, "loop": false },
+          "hit_down": { "frames": [[18, 6], [19, 6]], "fps": 8, "loop": false },
+          "die_down": { "frames": [[20, 6], [21, 6], [22, 6], [23, 6]], "fps": 8, "loop": false },
+          "cast_down": { "frames": [[24, 6], [25, 6], [26, 6], [27, 6]], "fps": 10, "loop": false },
+          "idle_down_left": { "frames": [[0, 7], [1, 7], [2, 7], [3, 7]], "fps": 5 },
           "run_down_left": {
-            "frames": [
-              [
-                4,
-                7
-              ],
-              [
-                5,
-                7
-              ],
-              [
-                6,
-                7
-              ],
-              [
-                7,
-                7
-              ],
-              [
-                8,
-                7
-              ],
-              [
-                9,
-                7
-              ],
-              [
-                10,
-                7
-              ],
-              [
-                11,
-                7
-              ]
-            ],
+            "frames": [[4, 7], [5, 7], [6, 7], [7, 7], [8, 7], [9, 7], [10, 7], [11, 7]],
             "fps": 14
           },
-          "swing_down_left": {
-            "frames": [
-              [
-                12,
-                7
-              ],
-              [
-                13,
-                7
-              ],
-              [
-                14,
-                7
-              ],
-              [
-                15,
-                7
-              ]
-            ],
-            "fps": 14,
-            "loop": false
-          },
-          "hit_down_left": {
-            "frames": [
-              [
-                18,
-                7
-              ],
-              [
-                19,
-                7
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "die_down_left": {
-            "frames": [
-              [
-                20,
-                7
-              ],
-              [
-                21,
-                7
-              ],
-              [
-                22,
-                7
-              ],
-              [
-                23,
-                7
-              ]
-            ],
-            "fps": 8,
-            "loop": false
-          },
-          "cast_down_left": {
-            "frames": [
-              [
-                24,
-                7
-              ],
-              [
-                25,
-                7
-              ],
-              [
-                26,
-                7
-              ],
-              [
-                27,
-                7
-              ]
-            ],
-            "fps": 10,
-            "loop": false
-          },
-          "idle": {
-            "frames": [
-              [
-                0,
-                6
-              ],
-              [
-                1,
-                6
-              ],
-              [
-                2,
-                6
-              ],
-              [
-                3,
-                6
-              ]
-            ],
-            "fps": 5
-          },
+          "swing_down_left": { "frames": [[12, 7], [13, 7], [14, 7], [15, 7]], "fps": 14, "loop": false },
+          "hit_down_left": { "frames": [[18, 7], [19, 7]], "fps": 8, "loop": false },
+          "die_down_left": { "frames": [[20, 7], [21, 7], [22, 7], [23, 7]], "fps": 8, "loop": false },
+          "cast_down_left": { "frames": [[24, 7], [25, 7], [26, 7], [27, 7]], "fps": 10, "loop": false },
+          "idle": { "frames": [[0, 6], [1, 6], [2, 6], [3, 6]], "fps": 5 },
           "run": {
-            "frames": [
-              [
-                4,
-                6
-              ],
-              [
-                5,
-                6
-              ],
-              [
-                6,
-                6
-              ],
-              [
-                7,
-                6
-              ],
-              [
-                8,
-                6
-              ],
-              [
-                9,
-                6
-              ],
-              [
-                10,
-                6
-              ],
-              [
-                11,
-                6
-              ]
-            ],
+            "frames": [[4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [10, 6], [11, 6]],
             "fps": 14
           }
         }
       }
     }
   },
-  "tileLayers": [
-    {
-      "name": "street",
-      "spritesheet": "paving",
-      "zIndex": -1,
-      "tileSize": 200,
-      "stretch": true
-    }
-  ],
   "prefabs": {
     "player": {
       "actor": "ObliquePlayer",
       "spritesheet": "rogue",
       "defaultAnimation": "idle_right",
-      "physics": {
-        "bodyType": "character",
-        "shape": "circle",
-        "frictionAir": 0.2
-      }
+      "physics": { "bodyType": "character", "shape": "circle", "frictionAir": 0.2 }
     },
-    "lamp": {
-      "actor": "Lamp",
-      "physics": {
-        "bodyType": "static",
-        "shape": "circle"
-      }
-    },
-    "street": {
-      "actor": "Street",
-      "physics": {
-        "bodyType": "static",
-        "isSensor": true
-      }
-    },
-    "foreground": {
-      "actor": "Foreground",
-      "physics": {
-        "bodyType": "static",
-        "isSensor": true
-      }
-    },
-    "bound": {
-      "actor": "Bound",
-      "physics": {
-        "bodyType": "static"
-      }
-    },
-    "door": {
-      "actor": "Trigger",
-      "physics": {
-        "bodyType": "static",
-        "isSensor": true
-      }
-    }
+    "lamp": { "actor": "Lamp", "physics": { "bodyType": "static", "shape": "circle" } },
+    "street": { "actor": "Street", "physics": { "bodyType": "static", "isSensor": true } },
+    "foreground": { "actor": "Foreground", "physics": { "bodyType": "static", "isSensor": true } },
+    "bound": { "actor": "Bound", "physics": { "bodyType": "static" } },
+    "door": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } }
   },
   "layers": [
     {
       "name": "row",
       "type": "objects",
       "objects": [
-        {
-          "id": "bound-1",
-          "prefab": "bound",
-          "x": 2600,
-          "y": -80,
-          "width": 5680,
-          "height": 240
-        },
-        {
-          "id": "bound-2",
-          "prefab": "bound",
-          "x": 2600,
-          "y": 480,
-          "width": 5680,
-          "height": 240
-        },
-        {
-          "id": "bound-3",
-          "prefab": "bound",
-          "x": -120,
-          "y": 200,
-          "width": 240,
-          "height": 880
-        },
-        {
-          "id": "bound-4",
-          "prefab": "bound",
-          "x": 5320,
-          "y": 200,
-          "width": 240,
-          "height": 880
-        },
+        { "id": "bound-1", "prefab": "bound", "x": 2600, "y": -80, "width": 5680, "height": 240 },
+        { "id": "bound-2", "prefab": "bound", "x": 2600, "y": 480, "width": 5680, "height": 240 },
+        { "id": "bound-3", "prefab": "bound", "x": -120, "y": 200, "width": 240, "height": 880 },
+        { "id": "bound-4", "prefab": "bound", "x": 5320, "y": 200, "width": 240, "height": 880 },
         {
           "id": "street-1",
           "prefab": "street",
@@ -1298,14 +130,7 @@
           "y": 200,
           "width": 16,
           "height": 16,
-          "properties": {
-            "seed": 3,
-            "lane": {
-              "top": 40,
-              "bottom": 360
-            },
-            "length": 5200
-          }
+          "properties": { "seed": 3, "lane": { "top": 40, "bottom": 360 }, "length": 5200 }
         },
         {
           "id": "foreground-1",
@@ -1314,93 +139,18 @@
           "y": 200,
           "width": 16,
           "height": 16,
-          "properties": {
-            "lane": {
-              "top": 40,
-              "bottom": 360
-            }
-          }
+          "properties": { "lane": { "top": 40, "bottom": 360 } }
         },
-        {
-          "id": "lamp-1",
-          "prefab": "lamp",
-          "x": 300,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
-        {
-          "id": "lamp-2",
-          "prefab": "lamp",
-          "x": 820,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
-        {
-          "id": "lamp-3",
-          "prefab": "lamp",
-          "x": 1340,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
-        {
-          "id": "lamp-4",
-          "prefab": "lamp",
-          "x": 1860,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
-        {
-          "id": "lamp-5",
-          "prefab": "lamp",
-          "x": 2380,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
-        {
-          "id": "lamp-6",
-          "prefab": "lamp",
-          "x": 2900,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
-        {
-          "id": "lamp-7",
-          "prefab": "lamp",
-          "x": 3420,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
-        {
-          "id": "lamp-8",
-          "prefab": "lamp",
-          "x": 3940,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
-        {
-          "id": "lamp-9",
-          "prefab": "lamp",
-          "x": 4460,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
-        {
-          "id": "lamp-10",
-          "prefab": "lamp",
-          "x": 4980,
-          "y": 50,
-          "width": 24,
-          "height": 24
-        },
+        { "id": "lamp-1", "prefab": "lamp", "x": 300, "y": 50, "width": 24, "height": 24 },
+        { "id": "lamp-2", "prefab": "lamp", "x": 820, "y": 50, "width": 24, "height": 24 },
+        { "id": "lamp-3", "prefab": "lamp", "x": 1340, "y": 50, "width": 24, "height": 24 },
+        { "id": "lamp-4", "prefab": "lamp", "x": 1860, "y": 50, "width": 24, "height": 24 },
+        { "id": "lamp-5", "prefab": "lamp", "x": 2380, "y": 50, "width": 24, "height": 24 },
+        { "id": "lamp-6", "prefab": "lamp", "x": 2900, "y": 50, "width": 24, "height": 24 },
+        { "id": "lamp-7", "prefab": "lamp", "x": 3420, "y": 50, "width": 24, "height": 24 },
+        { "id": "lamp-8", "prefab": "lamp", "x": 3940, "y": 50, "width": 24, "height": 24 },
+        { "id": "lamp-9", "prefab": "lamp", "x": 4460, "y": 50, "width": 24, "height": 24 },
+        { "id": "lamp-10", "prefab": "lamp", "x": 4980, "y": 50, "width": 24, "height": 24 },
         {
           "id": "door-1",
           "prefab": "door",
@@ -1408,11 +158,7 @@
           "y": 200,
           "width": 120,
           "height": 200,
-          "properties": {
-            "visible": true,
-            "triggers": "levelComplete",
-            "active": true
-          }
+          "properties": { "visible": true, "triggers": "levelComplete", "active": true }
         },
         {
           "id": "player-1",
@@ -1421,12 +167,10 @@
           "y": 200,
           "width": 28,
           "height": 24,
-          "properties": {
-            "spriteSize": 200,
-            "spriteOffsetY": -56
-          }
+          "properties": { "spriteSize": 200, "spriteOffsetY": -56 }
         }
       ]
     }
-  ]
+  ],
+  "tileLayers": [{ "name": "street", "spritesheet": "paving", "zIndex": -1, "tileSize": 200, "stretch": true }]
 }

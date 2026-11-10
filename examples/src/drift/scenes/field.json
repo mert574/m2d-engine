@@ -2,108 +2,29 @@
   "version": 2,
   "name": "field",
   "type": "level",
+  "generator": "scripts/buildDriftScene.mjs",
   "gameType": "rotatingTopDown",
-  "world": {
-    "width": 7000,
-    "height": 7000,
-    "gravity": {
-      "x": 0,
-      "y": 0
-    },
-    "sort": "depth"
-  },
+  "world": { "width": 7000, "height": 7000, "gravity": { "x": 0, "y": 0 }, "sort": "depth" },
   "assets": {
     "spritesheets": {
-      "starsFar": {
-        "url": "textures/backgrounds/stars-far.png",
-        "frameWidth": 256,
-        "frameHeight": 256
-      },
-      "star1": {
-        "url": "textures/effects/star1.png",
-        "frameWidth": 25,
-        "frameHeight": 24
-      },
-      "star2": {
-        "url": "textures/effects/star2.png",
-        "frameWidth": 25,
-        "frameHeight": 24
-      },
-      "star3": {
-        "url": "textures/effects/star3.png",
-        "frameWidth": 24,
-        "frameHeight": 24
-      },
-      "player": {
-        "url": "textures/ships/player.png",
-        "frameWidth": 112,
-        "frameHeight": 75
-      },
-      "droneRed": {
-        "url": "textures/ships/drone-red.png",
-        "frameWidth": 93,
-        "frameHeight": 84
-      },
-      "droneBlack": {
-        "url": "textures/ships/drone-black.png",
-        "frameWidth": 103,
-        "frameHeight": 84
-      },
-      "salvage": {
-        "url": "textures/pickups/salvage.png",
-        "frameWidth": 19,
-        "frameHeight": 30
-      },
-      "beacon": {
-        "url": "textures/pickups/beacon.png",
-        "frameWidth": 34,
-        "frameHeight": 33
-      },
-      "brownBig1": {
-        "url": "textures/meteors/brown-big1.png",
-        "frameWidth": 101,
-        "frameHeight": 84
-      },
-      "brownBig3": {
-        "url": "textures/meteors/brown-big3.png",
-        "frameWidth": 89,
-        "frameHeight": 82
-      },
-      "greyBig2": {
-        "url": "textures/meteors/grey-big2.png",
-        "frameWidth": 120,
-        "frameHeight": 98
-      },
-      "brownMed1": {
-        "url": "textures/meteors/brown-med1.png",
-        "frameWidth": 43,
-        "frameHeight": 43
-      },
-      "greyMed2": {
-        "url": "textures/meteors/grey-med2.png",
-        "frameWidth": 45,
-        "frameHeight": 40
-      },
-      "brownSmall1": {
-        "url": "textures/meteors/brown-small1.png",
-        "frameWidth": 28,
-        "frameHeight": 28
-      },
-      "greySmall2": {
-        "url": "textures/meteors/grey-small2.png",
-        "frameWidth": 29,
-        "frameHeight": 26
-      }
+      "starsFar": { "url": "textures/backgrounds/stars-far.png", "frameWidth": 256, "frameHeight": 256 },
+      "star1": { "url": "textures/effects/star1.png", "frameWidth": 25, "frameHeight": 24 },
+      "star2": { "url": "textures/effects/star2.png", "frameWidth": 25, "frameHeight": 24 },
+      "star3": { "url": "textures/effects/star3.png", "frameWidth": 24, "frameHeight": 24 },
+      "player": { "url": "textures/ships/player.png", "frameWidth": 112, "frameHeight": 75 },
+      "droneRed": { "url": "textures/ships/drone-red.png", "frameWidth": 93, "frameHeight": 84 },
+      "droneBlack": { "url": "textures/ships/drone-black.png", "frameWidth": 103, "frameHeight": 84 },
+      "salvage": { "url": "textures/pickups/salvage.png", "frameWidth": 19, "frameHeight": 30 },
+      "beacon": { "url": "textures/pickups/beacon.png", "frameWidth": 34, "frameHeight": 33 },
+      "brownBig1": { "url": "textures/meteors/brown-big1.png", "frameWidth": 101, "frameHeight": 84 },
+      "brownBig3": { "url": "textures/meteors/brown-big3.png", "frameWidth": 89, "frameHeight": 82 },
+      "greyBig2": { "url": "textures/meteors/grey-big2.png", "frameWidth": 120, "frameHeight": 98 },
+      "brownMed1": { "url": "textures/meteors/brown-med1.png", "frameWidth": 43, "frameHeight": 43 },
+      "greyMed2": { "url": "textures/meteors/grey-med2.png", "frameWidth": 45, "frameHeight": 40 },
+      "brownSmall1": { "url": "textures/meteors/brown-small1.png", "frameWidth": 28, "frameHeight": 28 },
+      "greySmall2": { "url": "textures/meteors/grey-small2.png", "frameWidth": 29, "frameHeight": 26 }
     }
   },
-  "tileLayers": [
-    {
-      "name": "starsFar",
-      "spritesheet": "starsFar",
-      "zIndex": -3,
-      "parallax": 0.12
-    }
-  ],
   "prefabs": {
     "player": {
       "actor": "Ship",
@@ -119,55 +40,25 @@
     "droneRed": {
       "actor": "Drone",
       "spritesheet": "droneRed",
-      "physics": {
-        "bodyType": "dynamic",
-        "shape": "circle",
-        "lockRotation": true,
-        "frictionAir": 0.3
-      }
+      "physics": { "bodyType": "dynamic", "shape": "circle", "lockRotation": true, "frictionAir": 0.3 }
     },
     "droneBlack": {
       "actor": "Drone",
       "spritesheet": "droneBlack",
-      "physics": {
-        "bodyType": "dynamic",
-        "shape": "circle",
-        "lockRotation": true,
-        "frictionAir": 0.3
-      }
+      "physics": { "bodyType": "dynamic", "shape": "circle", "lockRotation": true, "frictionAir": 0.3 }
     },
     "salvage": {
       "actor": "Salvage",
       "spritesheet": "salvage",
-      "physics": {
-        "bodyType": "static",
-        "isSensor": true,
-        "shape": "circle"
-      }
+      "physics": { "bodyType": "static", "shape": "circle", "isSensor": true }
     },
     "gate": {
       "actor": "Gate",
       "spritesheet": "beacon",
-      "physics": {
-        "bodyType": "static",
-        "isSensor": true,
-        "shape": "circle"
-      }
+      "physics": { "bodyType": "static", "shape": "circle", "isSensor": true }
     },
-    "bound": {
-      "actor": "Bound",
-      "physics": {
-        "bodyType": "static",
-        "restitution": 0.6
-      }
-    },
-    "sky": {
-      "actor": "Sky",
-      "physics": {
-        "bodyType": "static",
-        "isSensor": true
-      }
-    },
+    "bound": { "actor": "Bound", "physics": { "bodyType": "static", "restitution": 0.6 } },
+    "sky": { "actor": "Sky", "physics": { "bodyType": "static", "isSensor": true } },
     "brownBig1": {
       "actor": "Meteor",
       "spritesheet": "brownBig1",
@@ -258,42 +149,12 @@
           "y": 3500,
           "width": 16,
           "height": 16,
-          "properties": {
-            "seed": 5
-          }
+          "properties": { "seed": 5 }
         },
-        {
-          "id": "bound-1",
-          "prefab": "bound",
-          "x": 3500,
-          "y": -100,
-          "width": 7400,
-          "height": 200
-        },
-        {
-          "id": "bound-2",
-          "prefab": "bound",
-          "x": 3500,
-          "y": 7100,
-          "width": 7400,
-          "height": 200
-        },
-        {
-          "id": "bound-3",
-          "prefab": "bound",
-          "x": -100,
-          "y": 3500,
-          "width": 200,
-          "height": 7400
-        },
-        {
-          "id": "bound-4",
-          "prefab": "bound",
-          "x": 7100,
-          "y": 3500,
-          "width": 200,
-          "height": 7400
-        },
+        { "id": "bound-1", "prefab": "bound", "x": 3500, "y": -100, "width": 7400, "height": 200 },
+        { "id": "bound-2", "prefab": "bound", "x": 3500, "y": 7100, "width": 7400, "height": 200 },
+        { "id": "bound-3", "prefab": "bound", "x": -100, "y": 3500, "width": 200, "height": 7400 },
+        { "id": "bound-4", "prefab": "bound", "x": 7100, "y": 3500, "width": 200, "height": 7400 },
         {
           "id": "greySmall2-1",
           "prefab": "greySmall2",
@@ -301,13 +162,7 @@
           "y": 2752,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.31899752765893935,
-            "drift": [
-              15.706652141176164,
-              -12.346261722967029
-            ]
-          }
+          "properties": { "spin": -0.31899752765893935, "drift": [15.706652141176164, -12.346261722967029] }
         },
         {
           "id": "brownSmall1-1",
@@ -316,13 +171,7 @@
           "y": 3637,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.5922727106139064,
-            "drift": [
-              10.489408646710217,
-              -0.5738876536488533
-            ]
-          }
+          "properties": { "spin": -0.5922727106139064, "drift": [10.489408646710217, -0.5738876536488533] }
         },
         {
           "id": "greyBig2-1",
@@ -331,13 +180,7 @@
           "y": 267,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": -0.038980030640959784,
-            "drift": [
-              -4.566632282920182,
-              -9.102280693128705
-            ]
-          }
+          "properties": { "spin": -0.038980030640959784, "drift": [-4.566632282920182, -9.102280693128705] }
         },
         {
           "id": "greyBig2-2",
@@ -346,13 +189,7 @@
           "y": 1618,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.36331007732078435,
-            "drift": [
-              5.692018378525972,
-              -0.6100370334461331
-            ]
-          }
+          "properties": { "spin": 0.36331007732078435, "drift": [5.692018378525972, -0.6100370334461331] }
         },
         {
           "id": "brownBig1-1",
@@ -361,13 +198,7 @@
           "y": 5463,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.23016028599813576,
-            "drift": [
-              -17.000021567568183,
-              -16.40130940731615
-            ]
-          }
+          "properties": { "spin": 0.23016028599813576, "drift": [-17.000021567568183, -16.40130940731615] }
         },
         {
           "id": "greySmall2-2",
@@ -376,13 +207,7 @@
           "y": 4614,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.25041118646040555,
-            "drift": [
-              -5.905843175947666,
-              -3.113997266627848
-            ]
-          }
+          "properties": { "spin": -0.25041118646040555, "drift": [-5.905843175947666, -3.113997266627848] }
         },
         {
           "id": "brownBig1-2",
@@ -391,13 +216,7 @@
           "y": 4572,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.4486484348773956,
-            "drift": [
-              4.416518113575876,
-              -2.6885530930012465
-            ]
-          }
+          "properties": { "spin": -0.4486484348773956, "drift": [4.416518113575876, -2.6885530930012465] }
         },
         {
           "id": "brownMed1-1",
@@ -406,13 +225,7 @@
           "y": 1823,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.35557674597948785,
-            "drift": [
-              9.005401809699833,
-              8.945737637579441
-            ]
-          }
+          "properties": { "spin": -0.35557674597948785, "drift": [9.005401809699833, 8.945737637579441] }
         },
         {
           "id": "brownBig1-3",
@@ -421,13 +234,7 @@
           "y": 2508,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.17402956075966358,
-            "drift": [
-              13.13715139310807,
-              5.421060232445598
-            ]
-          }
+          "properties": { "spin": 0.17402956075966358, "drift": [13.13715139310807, 5.421060232445598] }
         },
         {
           "id": "greyBig2-3",
@@ -436,13 +243,7 @@
           "y": 1701,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.5664251320995389,
-            "drift": [
-              -3.711313420906663,
-              -1.4734876407310367
-            ]
-          }
+          "properties": { "spin": 0.5664251320995389, "drift": [-3.711313420906663, -1.4734876407310367] }
         },
         {
           "id": "brownBig1-4",
@@ -451,13 +252,7 @@
           "y": 703,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.587224209588021,
-            "drift": [
-              13.822382044047117,
-              0.9703145502135158
-            ]
-          }
+          "properties": { "spin": 0.587224209588021, "drift": [13.822382044047117, 0.9703145502135158] }
         },
         {
           "id": "brownBig1-5",
@@ -466,13 +261,7 @@
           "y": 6229,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.5636722507886588,
-            "drift": [
-              3.901127250865102,
-              -3.664306744001806
-            ]
-          }
+          "properties": { "spin": -0.5636722507886588, "drift": [3.901127250865102, -3.664306744001806] }
         },
         {
           "id": "greyBig2-4",
@@ -481,13 +270,7 @@
           "y": 2892,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.32787401508539915,
-            "drift": [
-              -12.652752256952226,
-              14.047943618148565
-            ]
-          }
+          "properties": { "spin": 0.32787401508539915, "drift": [-12.652752256952226, 14.047943618148565] }
         },
         {
           "id": "brownMed1-2",
@@ -496,13 +279,7 @@
           "y": 3412,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.5810512868687511,
-            "drift": [
-              -15.29980921279639,
-              -2.4314828887581825
-            ]
-          }
+          "properties": { "spin": -0.5810512868687511, "drift": [-15.29980921279639, -2.4314828887581825] }
         },
         {
           "id": "greyBig2-5",
@@ -511,13 +288,7 @@
           "y": 5367,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.5168921146541833,
-            "drift": [
-              15.91278966050595,
-              -7.291899310424924
-            ]
-          }
+          "properties": { "spin": 0.5168921146541833, "drift": [15.91278966050595, -7.291899310424924] }
         },
         {
           "id": "greyBig2-6",
@@ -526,13 +297,7 @@
           "y": 2557,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.5810256024822592,
-            "drift": [
-              9.727600500918925,
-              14.722239095717669
-            ]
-          }
+          "properties": { "spin": 0.5810256024822592, "drift": [9.727600500918925, 14.722239095717669] }
         },
         {
           "id": "brownMed1-3",
@@ -541,13 +306,7 @@
           "y": 4852,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.29793842956423755,
-            "drift": [
-              -4.567440600134432,
-              13.433508256450295
-            ]
-          }
+          "properties": { "spin": 0.29793842956423755, "drift": [-4.567440600134432, 13.433508256450295] }
         },
         {
           "id": "brownBig3-1",
@@ -556,13 +315,7 @@
           "y": 3874,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.17276180265471336,
-            "drift": [
-              -13.688468081876636,
-              7.164461315609515
-            ]
-          }
+          "properties": { "spin": -0.17276180265471336, "drift": [-13.688468081876636, 7.164461315609515] }
         },
         {
           "id": "brownMed1-4",
@@ -571,13 +324,7 @@
           "y": 4608,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.22409881968051193,
-            "drift": [
-              -6.13641410227865,
-              1.8148516528308392
-            ]
-          }
+          "properties": { "spin": -0.22409881968051193, "drift": [-6.13641410227865, 1.8148516528308392] }
         },
         {
           "id": "brownMed1-5",
@@ -586,13 +333,7 @@
           "y": 2213,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.3568238879553973,
-            "drift": [
-              4.961415756493807,
-              9.060524876229465
-            ]
-          }
+          "properties": { "spin": 0.3568238879553973, "drift": [4.961415756493807, 9.060524876229465] }
         },
         {
           "id": "brownSmall1-2",
@@ -601,13 +342,7 @@
           "y": 5162,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.42893961863592256,
-            "drift": [
-              6.0597457978874445,
-              -17.12732437904924
-            ]
-          }
+          "properties": { "spin": 0.42893961863592256, "drift": [6.0597457978874445, -17.12732437904924] }
         },
         {
           "id": "brownSmall1-3",
@@ -616,13 +351,7 @@
           "y": 2822,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.4782943666912615,
-            "drift": [
-              4.57694385945797,
-              17.97611129935831
-            ]
-          }
+          "properties": { "spin": -0.4782943666912615, "drift": [4.57694385945797, 17.97611129935831] }
         },
         {
           "id": "greyMed2-1",
@@ -631,13 +360,7 @@
           "y": 3855,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.364180161897093,
-            "drift": [
-              2.017899787053466,
-              17.14149219263345
-            ]
-          }
+          "properties": { "spin": 0.364180161897093, "drift": [2.017899787053466, 17.14149219263345] }
         },
         {
           "id": "brownMed1-6",
@@ -646,13 +369,7 @@
           "y": 4969,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.4196782970800995,
-            "drift": [
-              -8.978135394863784,
-              -2.319688618183136
-            ]
-          }
+          "properties": { "spin": 0.4196782970800995, "drift": [-8.978135394863784, -2.319688618183136] }
         },
         {
           "id": "brownMed1-7",
@@ -661,13 +378,7 @@
           "y": 1216,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.23227810179814695,
-            "drift": [
-              11.276580205187201,
-              10.164486248977482
-            ]
-          }
+          "properties": { "spin": -0.23227810179814695, "drift": [11.276580205187201, 10.164486248977482] }
         },
         {
           "id": "greyMed2-2",
@@ -676,13 +387,7 @@
           "y": 524,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.4941989821381867,
-            "drift": [
-              -8.323859933763742,
-              -16.45780107099563
-            ]
-          }
+          "properties": { "spin": -0.4941989821381867, "drift": [-8.323859933763742, -16.45780107099563] }
         },
         {
           "id": "brownBig3-2",
@@ -691,13 +396,7 @@
           "y": 6723,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.21699491618201133,
-            "drift": [
-              -11.38728885166347,
-              13.522631884552538
-            ]
-          }
+          "properties": { "spin": -0.21699491618201133, "drift": [-11.38728885166347, 13.522631884552538] }
         },
         {
           "id": "brownSmall1-4",
@@ -706,13 +405,7 @@
           "y": 3515,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.09697574833407996,
-            "drift": [
-              -8.226426512002945,
-              -16.091444679535925
-            ]
-          }
+          "properties": { "spin": -0.09697574833407996, "drift": [-8.226426512002945, -16.091444679535925] }
         },
         {
           "id": "brownBig1-6",
@@ -721,13 +414,7 @@
           "y": 6605,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.14317167615517973,
-            "drift": [
-              7.470881005749106,
-              -3.2954584462568164
-            ]
-          }
+          "properties": { "spin": -0.14317167615517973, "drift": [7.470881005749106, -3.2954584462568164] }
         },
         {
           "id": "greyBig2-7",
@@ -736,13 +423,7 @@
           "y": 4689,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.10360216889530416,
-            "drift": [
-              8.503860709257424,
-              -14.754476264119148
-            ]
-          }
+          "properties": { "spin": 0.10360216889530416, "drift": [8.503860709257424, -14.754476264119148] }
         },
         {
           "id": "brownBig1-7",
@@ -751,13 +432,7 @@
           "y": 1403,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.41176557177677753,
-            "drift": [
-              -0.8507007602602243,
-              -16.184525127522647
-            ]
-          }
+          "properties": { "spin": 0.41176557177677753, "drift": [-0.8507007602602243, -16.184525127522647] }
         },
         {
           "id": "greyMed2-3",
@@ -766,13 +441,7 @@
           "y": 346,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.3259129193611443,
-            "drift": [
-              2.4354587607085705,
-              2.4921154556795955
-            ]
-          }
+          "properties": { "spin": -0.3259129193611443, "drift": [2.4354587607085705, 2.4921154556795955] }
         },
         {
           "id": "brownBig3-3",
@@ -781,13 +450,7 @@
           "y": 1023,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.5052749063819647,
-            "drift": [
-              5.904810215346515,
-              -7.277853319421411
-            ]
-          }
+          "properties": { "spin": 0.5052749063819647, "drift": [5.904810215346515, -7.277853319421411] }
         },
         {
           "id": "brownMed1-8",
@@ -796,13 +459,7 @@
           "y": 2660,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.3199268030002713,
-            "drift": [
-              15.645526223815978,
-              14.036144312471151
-            ]
-          }
+          "properties": { "spin": -0.3199268030002713, "drift": [15.645526223815978, 14.036144312471151] }
         },
         {
           "id": "brownBig3-4",
@@ -811,13 +468,7 @@
           "y": 5879,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.5570486473850905,
-            "drift": [
-              -9.495213015004992,
-              -2.9453541627153754
-            ]
-          }
+          "properties": { "spin": -0.5570486473850905, "drift": [-9.495213015004992, -2.9453541627153754] }
         },
         {
           "id": "brownBig1-8",
@@ -826,13 +477,7 @@
           "y": 478,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.06267664683982732,
-            "drift": [
-              7.131015116348863,
-              -14.565012387000024
-            ]
-          }
+          "properties": { "spin": -0.06267664683982732, "drift": [7.131015116348863, -14.565012387000024] }
         },
         {
           "id": "brownMed1-9",
@@ -841,13 +486,7 @@
           "y": 420,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.4161989805288612,
-            "drift": [
-              -15.259608892723918,
-              -11.993714257143438
-            ]
-          }
+          "properties": { "spin": 0.4161989805288612, "drift": [-15.259608892723918, -11.993714257143438] }
         },
         {
           "id": "greySmall2-3",
@@ -856,13 +495,7 @@
           "y": 5851,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.30315537219867106,
-            "drift": [
-              11.37571681290865,
-              1.526453792117536
-            ]
-          }
+          "properties": { "spin": 0.30315537219867106, "drift": [11.37571681290865, 1.526453792117536] }
         },
         {
           "id": "greySmall2-4",
@@ -871,13 +504,7 @@
           "y": 5907,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.15780096547678113,
-            "drift": [
-              -5.063360150903463,
-              -13.056735564954579
-            ]
-          }
+          "properties": { "spin": -0.15780096547678113, "drift": [-5.063360150903463, -13.056735564954579] }
         },
         {
           "id": "brownBig3-5",
@@ -886,13 +513,7 @@
           "y": 4173,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.5537037069909274,
-            "drift": [
-              -17.38792518340051,
-              4.332547285594046
-            ]
-          }
+          "properties": { "spin": -0.5537037069909274, "drift": [-17.38792518340051, 4.332547285594046] }
         },
         {
           "id": "brownBig1-9",
@@ -901,13 +522,7 @@
           "y": 6244,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.18593327198177573,
-            "drift": [
-              15.112083063460886,
-              -11.440345745533705
-            ]
-          }
+          "properties": { "spin": -0.18593327198177573, "drift": [15.112083063460886, -11.440345745533705] }
         },
         {
           "id": "brownBig3-6",
@@ -916,13 +531,7 @@
           "y": 1486,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.22109091952443122,
-            "drift": [
-              3.6138049056753516,
-              1.1090662870556116
-            ]
-          }
+          "properties": { "spin": -0.22109091952443122, "drift": [3.6138049056753516, 1.1090662870556116] }
         },
         {
           "id": "brownSmall1-5",
@@ -931,13 +540,7 @@
           "y": 2110,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.4152942309156059,
-            "drift": [
-              -14.610109004192054,
-              16.8082442432642
-            ]
-          }
+          "properties": { "spin": 0.4152942309156059, "drift": [-14.610109004192054, 16.8082442432642] }
         },
         {
           "id": "brownBig3-7",
@@ -946,13 +549,7 @@
           "y": 3761,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.2760702442377806,
-            "drift": [
-              15.197143773548305,
-              -13.761887485161424
-            ]
-          }
+          "properties": { "spin": 0.2760702442377806, "drift": [15.197143773548305, -13.761887485161424] }
         },
         {
           "id": "brownSmall1-6",
@@ -961,13 +558,7 @@
           "y": 4564,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.4756398900412023,
-            "drift": [
-              5.859322054311633,
-              -15.459099906496704
-            ]
-          }
+          "properties": { "spin": -0.4756398900412023, "drift": [5.859322054311633, -15.459099906496704] }
         },
         {
           "id": "greyMed2-4",
@@ -976,13 +567,7 @@
           "y": 3480,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.41072146547958244,
-            "drift": [
-              -11.081730913370848,
-              14.349868412129581
-            ]
-          }
+          "properties": { "spin": 0.41072146547958244, "drift": [-11.081730913370848, 14.349868412129581] }
         },
         {
           "id": "greySmall2-5",
@@ -991,13 +576,7 @@
           "y": 5329,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.3327813665382564,
-            "drift": [
-              -6.625665714964271,
-              -13.725753880105913
-            ]
-          }
+          "properties": { "spin": -0.3327813665382564, "drift": [-6.625665714964271, -13.725753880105913] }
         },
         {
           "id": "brownSmall1-7",
@@ -1006,13 +585,7 @@
           "y": 4927,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.19600917454808953,
-            "drift": [
-              13.636386782862246,
-              7.208190802484751
-            ]
-          }
+          "properties": { "spin": 0.19600917454808953, "drift": [13.636386782862246, 7.208190802484751] }
         },
         {
           "id": "brownBig3-8",
@@ -1021,13 +594,7 @@
           "y": 3958,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.3482966311275959,
-            "drift": [
-              -2.0037231305614114,
-              17.254549289122224
-            ]
-          }
+          "properties": { "spin": 0.3482966311275959, "drift": [-2.0037231305614114, 17.254549289122224] }
         },
         {
           "id": "brownBig1-10",
@@ -1036,13 +603,7 @@
           "y": 2507,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.5947836125269531,
-            "drift": [
-              2.2776898266747594,
-              12.157192826271057
-            ]
-          }
+          "properties": { "spin": 0.5947836125269531, "drift": [2.2776898266747594, 12.157192826271057] }
         },
         {
           "id": "brownSmall1-8",
@@ -1051,13 +612,7 @@
           "y": 3678,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.16892349980771537,
-            "drift": [
-              -9.84602985251695,
-              9.658186247572303
-            ]
-          }
+          "properties": { "spin": 0.16892349980771537, "drift": [-9.84602985251695, 9.658186247572303] }
         },
         {
           "id": "brownBig3-9",
@@ -1066,13 +621,7 @@
           "y": 6629,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.1580109788104892,
-            "drift": [
-              -2.766417092643678,
-              -1.9126856960356236
-            ]
-          }
+          "properties": { "spin": 0.1580109788104892, "drift": [-2.766417092643678, -1.9126856960356236] }
         },
         {
           "id": "greyBig2-8",
@@ -1081,13 +630,7 @@
           "y": 4884,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.347237978875637,
-            "drift": [
-              17.402086115442216,
-              3.8897534776479006
-            ]
-          }
+          "properties": { "spin": 0.347237978875637, "drift": [17.402086115442216, 3.8897534776479006] }
         },
         {
           "id": "brownSmall1-9",
@@ -1096,13 +639,7 @@
           "y": 6540,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.20012046117335558,
-            "drift": [
-              5.8174844132736325,
-              4.7414513155817986
-            ]
-          }
+          "properties": { "spin": 0.20012046117335558, "drift": [5.8174844132736325, 4.7414513155817986] }
         },
         {
           "id": "brownBig3-10",
@@ -1111,13 +648,7 @@
           "y": 3556,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.0019073847681283507,
-            "drift": [
-              -0.8126179100945592,
-              13.671646876260638
-            ]
-          }
+          "properties": { "spin": 0.0019073847681283507, "drift": [-0.8126179100945592, 13.671646876260638] }
         },
         {
           "id": "brownBig1-11",
@@ -1126,13 +657,7 @@
           "y": 2503,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.21406755354255436,
-            "drift": [
-              8.335259632207453,
-              0.5377471335232258
-            ]
-          }
+          "properties": { "spin": 0.21406755354255436, "drift": [8.335259632207453, 0.5377471335232258] }
         },
         {
           "id": "brownSmall1-10",
@@ -1141,13 +666,7 @@
           "y": 428,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.3146766861900687,
-            "drift": [
-              -3.833968701772392,
-              -8.254870668053627
-            ]
-          }
+          "properties": { "spin": -0.3146766861900687, "drift": [-3.833968701772392, -8.254870668053627] }
         },
         {
           "id": "brownSmall1-11",
@@ -1156,13 +675,7 @@
           "y": 4775,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.22970512099564072,
-            "drift": [
-              11.0026889545843,
-              15.33057645522058
-            ]
-          }
+          "properties": { "spin": -0.22970512099564072, "drift": [11.0026889545843, 15.33057645522058] }
         },
         {
           "id": "brownBig1-12",
@@ -1171,13 +684,7 @@
           "y": 4311,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.13936206903308634,
-            "drift": [
-              -2.06283403839916,
-              13.670680660754442
-            ]
-          }
+          "properties": { "spin": 0.13936206903308634, "drift": [-2.06283403839916, 13.670680660754442] }
         },
         {
           "id": "brownBig1-13",
@@ -1186,13 +693,7 @@
           "y": 3895,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.18459086939692493,
-            "drift": [
-              0.004934518598020077,
-              14.128016391769052
-            ]
-          }
+          "properties": { "spin": 0.18459086939692493, "drift": [0.004934518598020077, 14.128016391769052] }
         },
         {
           "id": "brownBig1-14",
@@ -1201,13 +702,7 @@
           "y": 4223,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.48138489816337826,
-            "drift": [
-              8.42690893728286,
-              -14.902722224593163
-            ]
-          }
+          "properties": { "spin": 0.48138489816337826, "drift": [8.42690893728286, -14.902722224593163] }
         },
         {
           "id": "brownBig1-15",
@@ -1216,13 +711,7 @@
           "y": 4766,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.46747044241055835,
-            "drift": [
-              15.643050067126751,
-              -3.588568822480738
-            ]
-          }
+          "properties": { "spin": 0.46747044241055835, "drift": [15.643050067126751, -3.588568822480738] }
         },
         {
           "id": "greyMed2-5",
@@ -1231,13 +720,7 @@
           "y": 2865,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.2565285340882838,
-            "drift": [
-              1.2445460390299559,
-              2.494063359685242
-            ]
-          }
+          "properties": { "spin": 0.2565285340882838, "drift": [1.2445460390299559, 2.494063359685242] }
         },
         {
           "id": "greyMed2-6",
@@ -1246,13 +729,7 @@
           "y": 5959,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.1906299663707614,
-            "drift": [
-              -13.844751725904644,
-              5.1318855956196785
-            ]
-          }
+          "properties": { "spin": -0.1906299663707614, "drift": [-13.844751725904644, 5.1318855956196785] }
         },
         {
           "id": "brownSmall1-12",
@@ -1261,13 +738,7 @@
           "y": 3429,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.50866468437016,
-            "drift": [
-              5.010984244756401,
-              5.048450170084834
-            ]
-          }
+          "properties": { "spin": 0.50866468437016, "drift": [5.010984244756401, 5.048450170084834] }
         },
         {
           "id": "greyBig2-9",
@@ -1276,13 +747,7 @@
           "y": 6659,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": -0.1730520213022828,
-            "drift": [
-              2.0257015535607934,
-              7.3768878020346165
-            ]
-          }
+          "properties": { "spin": -0.1730520213022828, "drift": [2.0257015535607934, 7.3768878020346165] }
         },
         {
           "id": "greySmall2-6",
@@ -1291,13 +756,7 @@
           "y": 410,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.12965972498059275,
-            "drift": [
-              -7.889853344298899,
-              -13.639472102746367
-            ]
-          }
+          "properties": { "spin": 0.12965972498059275, "drift": [-7.889853344298899, -13.639472102746367] }
         },
         {
           "id": "brownBig3-11",
@@ -1306,13 +765,7 @@
           "y": 5524,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.27856208346784117,
-            "drift": [
-              -4.9420237289741635,
-              -5.549023697152734
-            ]
-          }
+          "properties": { "spin": 0.27856208346784117, "drift": [-4.9420237289741635, -5.549023697152734] }
         },
         {
           "id": "brownBig3-12",
@@ -1321,13 +774,7 @@
           "y": 5328,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.3106577365659177,
-            "drift": [
-              -14.5702745039016,
-              10.329840210266411
-            ]
-          }
+          "properties": { "spin": -0.3106577365659177, "drift": [-14.5702745039016, 10.329840210266411] }
         },
         {
           "id": "greyBig2-10",
@@ -1336,13 +783,7 @@
           "y": 1593,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": -0.24169131712988018,
-            "drift": [
-              7.309078607708216,
-              -11.432057459838688
-            ]
-          }
+          "properties": { "spin": -0.24169131712988018, "drift": [7.309078607708216, -11.432057459838688] }
         },
         {
           "id": "greySmall2-7",
@@ -1351,13 +792,7 @@
           "y": 6002,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.30494799865409733,
-            "drift": [
-              -14.525344317778945,
-              -10.252103975974023
-            ]
-          }
+          "properties": { "spin": -0.30494799865409733, "drift": [-14.525344317778945, -10.252103975974023] }
         },
         {
           "id": "brownBig1-16",
@@ -1366,13 +801,7 @@
           "y": 5031,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.23688440462574367,
-            "drift": [
-              -15.093263000249863,
-              -1.0970438802614808
-            ]
-          }
+          "properties": { "spin": 0.23688440462574367, "drift": [-15.093263000249863, -1.0970438802614808] }
         },
         {
           "id": "brownBig1-17",
@@ -1381,13 +810,7 @@
           "y": 2070,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.19168654493987558,
-            "drift": [
-              15.88492841552943,
-              -15.030693853273988
-            ]
-          }
+          "properties": { "spin": 0.19168654493987558, "drift": [15.88492841552943, -15.030693853273988] }
         },
         {
           "id": "brownSmall1-13",
@@ -1396,13 +819,7 @@
           "y": 3439,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.43373018223792315,
-            "drift": [
-              10.550759651698172,
-              -12.292310077697039
-            ]
-          }
+          "properties": { "spin": -0.43373018223792315, "drift": [10.550759651698172, -12.292310077697039] }
         },
         {
           "id": "brownBig3-13",
@@ -1411,13 +828,7 @@
           "y": 2076,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.4958490782417357,
-            "drift": [
-              -3.110362730920315,
-              -0.026238114573061466
-            ]
-          }
+          "properties": { "spin": -0.4958490782417357, "drift": [-3.110362730920315, -0.026238114573061466] }
         },
         {
           "id": "brownBig1-18",
@@ -1426,13 +837,7 @@
           "y": 1744,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.45418635159730913,
-            "drift": [
-              16.391671693883836,
-              -8.175290985032916
-            ]
-          }
+          "properties": { "spin": -0.45418635159730913, "drift": [16.391671693883836, -8.175290985032916] }
         },
         {
           "id": "greySmall2-8",
@@ -1441,13 +846,7 @@
           "y": 759,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.14100195514038205,
-            "drift": [
-              -13.120151644572616,
-              12.082264789380133
-            ]
-          }
+          "properties": { "spin": 0.14100195514038205, "drift": [-13.120151644572616, 12.082264789380133] }
         },
         {
           "id": "greyMed2-7",
@@ -1456,13 +855,7 @@
           "y": 690,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.57439019177109,
-            "drift": [
-              7.479713813401759,
-              11.133699584752321
-            ]
-          }
+          "properties": { "spin": -0.57439019177109, "drift": [7.479713813401759, 11.133699584752321] }
         },
         {
           "id": "greyBig2-11",
@@ -1471,13 +864,7 @@
           "y": 3648,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.2885045908391476,
-            "drift": [
-              5.62044298555702,
-              -15.641018679365516
-            ]
-          }
+          "properties": { "spin": 0.2885045908391476, "drift": [5.62044298555702, -15.641018679365516] }
         },
         {
           "id": "brownBig1-19",
@@ -1486,13 +873,7 @@
           "y": 1552,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.24668160472065215,
-            "drift": [
-              11.441376325674355,
-              -2.5730598717927933
-            ]
-          }
+          "properties": { "spin": 0.24668160472065215, "drift": [11.441376325674355, -2.5730598717927933] }
         },
         {
           "id": "greyBig2-12",
@@ -1501,13 +882,7 @@
           "y": 2566,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": -0.3677248913794756,
-            "drift": [
-              -17.74625562597066,
-              2.352628206834197
-            ]
-          }
+          "properties": { "spin": -0.3677248913794756, "drift": [-17.74625562597066, 2.352628206834197] }
         },
         {
           "id": "brownBig1-20",
@@ -1516,13 +891,7 @@
           "y": 1673,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.3336048161610961,
-            "drift": [
-              -14.200169431976974,
-              -8.525314450263977
-            ]
-          }
+          "properties": { "spin": -0.3336048161610961, "drift": [-14.200169431976974, -8.525314450263977] }
         },
         {
           "id": "brownBig3-14",
@@ -1531,13 +900,7 @@
           "y": 4836,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.07778189247474077,
-            "drift": [
-              -6.364407442510128,
-              13.200202851556242
-            ]
-          }
+          "properties": { "spin": 0.07778189247474077, "drift": [-6.364407442510128, 13.200202851556242] }
         },
         {
           "id": "brownMed1-10",
@@ -1546,13 +909,7 @@
           "y": 505,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.12663595369085667,
-            "drift": [
-              17.82296521961689,
-              7.680629826150835
-            ]
-          }
+          "properties": { "spin": 0.12663595369085667, "drift": [17.82296521961689, 7.680629826150835] }
         },
         {
           "id": "greyBig2-13",
@@ -1561,13 +918,7 @@
           "y": 903,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.081832950655371,
-            "drift": [
-              2.2641359623521566,
-              -12.588818754069507
-            ]
-          }
+          "properties": { "spin": 0.081832950655371, "drift": [2.2641359623521566, -12.588818754069507] }
         },
         {
           "id": "brownSmall1-14",
@@ -1576,13 +927,7 @@
           "y": 3808,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.2517300906591118,
-            "drift": [
-              3.3730777613818645,
-              -15.240788829512894
-            ]
-          }
+          "properties": { "spin": 0.2517300906591118, "drift": [3.3730777613818645, -15.240788829512894] }
         },
         {
           "id": "brownSmall1-15",
@@ -1591,13 +936,7 @@
           "y": 3090,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.5486957553774118,
-            "drift": [
-              2.4318594289943576,
-              -12.685506144538522
-            ]
-          }
+          "properties": { "spin": -0.5486957553774118, "drift": [2.4318594289943576, -12.685506144538522] }
         },
         {
           "id": "brownMed1-11",
@@ -1606,13 +945,7 @@
           "y": 2599,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.2823940753005445,
-            "drift": [
-              8.552757857367396,
-              15.770981487818062
-            ]
-          }
+          "properties": { "spin": -0.2823940753005445, "drift": [8.552757857367396, 15.770981487818062] }
         },
         {
           "id": "brownSmall1-16",
@@ -1621,13 +954,7 @@
           "y": 2741,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.0783991883508861,
-            "drift": [
-              2.768139783293009,
-              6.371232817880809
-            ]
-          }
+          "properties": { "spin": 0.0783991883508861, "drift": [2.768139783293009, 6.371232817880809] }
         },
         {
           "id": "brownBig1-21",
@@ -1636,13 +963,7 @@
           "y": 5676,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.3462332686409354,
-            "drift": [
-              -5.557016386650503,
-              -16.202542405575514
-            ]
-          }
+          "properties": { "spin": 0.3462332686409354, "drift": [-5.557016386650503, -16.202542405575514] }
         },
         {
           "id": "greyMed2-8",
@@ -1651,13 +972,7 @@
           "y": 5715,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.22946965601295233,
-            "drift": [
-              -2.8768017617985606,
-              4.045889273285866
-            ]
-          }
+          "properties": { "spin": -0.22946965601295233, "drift": [-2.8768017617985606, 4.045889273285866] }
         },
         {
           "id": "brownSmall1-17",
@@ -1666,13 +981,7 @@
           "y": 5790,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.1338560152798891,
-            "drift": [
-              -0.016565700061619282,
-              10.47655195556581
-            ]
-          }
+          "properties": { "spin": -0.1338560152798891, "drift": [-0.016565700061619282, 10.47655195556581] }
         },
         {
           "id": "brownMed1-12",
@@ -1681,13 +990,7 @@
           "y": 5487,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.30434600617736574,
-            "drift": [
-              -5.423581584356725,
-              5.361745644360781
-            ]
-          }
+          "properties": { "spin": 0.30434600617736574, "drift": [-5.423581584356725, 5.361745644360781] }
         },
         {
           "id": "brownMed1-13",
@@ -1696,13 +999,7 @@
           "y": 4039,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.004411337524652503,
-            "drift": [
-              9.05065035726875,
-              14.284379789605737
-            ]
-          }
+          "properties": { "spin": -0.004411337524652503, "drift": [9.05065035726875, 14.284379789605737] }
         },
         {
           "id": "brownSmall1-18",
@@ -1711,13 +1008,7 @@
           "y": 3278,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.318288324214518,
-            "drift": [
-              10.684342143125832,
-              3.1042335480451584
-            ]
-          }
+          "properties": { "spin": 0.318288324214518, "drift": [10.684342143125832, 3.1042335480451584] }
         },
         {
           "id": "brownBig3-15",
@@ -1726,13 +1017,7 @@
           "y": 3284,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.2948840411379933,
-            "drift": [
-              12.741190471686423,
-              6.568330865353346
-            ]
-          }
+          "properties": { "spin": -0.2948840411379933, "drift": [12.741190471686423, 6.568330865353346] }
         },
         {
           "id": "greyBig2-14",
@@ -1741,13 +1026,7 @@
           "y": 4148,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.21251149177551265,
-            "drift": [
-              -6.776123919524252,
-              -3.1686990838497877
-            ]
-          }
+          "properties": { "spin": 0.21251149177551265, "drift": [-6.776123919524252, -3.1686990838497877] }
         },
         {
           "id": "greySmall2-9",
@@ -1756,13 +1035,7 @@
           "y": 4710,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.2743935959413648,
-            "drift": [
-              -9.493023972027004,
-              4.771408773958683
-            ]
-          }
+          "properties": { "spin": 0.2743935959413648, "drift": [-9.493023972027004, 4.771408773958683] }
         },
         {
           "id": "brownBig1-22",
@@ -1771,13 +1044,7 @@
           "y": 1792,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.5655987686477602,
-            "drift": [
-              -6.213055366650224,
-              14.514273558743298
-            ]
-          }
+          "properties": { "spin": -0.5655987686477602, "drift": [-6.213055366650224, 14.514273558743298] }
         },
         {
           "id": "brownBig1-23",
@@ -1786,13 +1053,7 @@
           "y": 3247,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.2945796308107674,
-            "drift": [
-              -14.300811756402254,
-              13.809621560387313
-            ]
-          }
+          "properties": { "spin": -0.2945796308107674, "drift": [-14.300811756402254, 13.809621560387313] }
         },
         {
           "id": "brownSmall1-19",
@@ -1801,13 +1062,7 @@
           "y": 5427,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.49700547493994235,
-            "drift": [
-              -4.646785204298794,
-              -9.643738428130746
-            ]
-          }
+          "properties": { "spin": -0.49700547493994235, "drift": [-4.646785204298794, -9.643738428130746] }
         },
         {
           "id": "brownBig1-24",
@@ -1816,13 +1071,7 @@
           "y": 3616,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.01469057807698848,
-            "drift": [
-              -14.467345001176,
-              15.060364541597664
-            ]
-          }
+          "properties": { "spin": 0.01469057807698848, "drift": [-14.467345001176, 15.060364541597664] }
         },
         {
           "id": "brownBig1-25",
@@ -1831,13 +1080,7 @@
           "y": 5972,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.14046997530385852,
-            "drift": [
-              -9.932273324579,
-              -12.757147838361561
-            ]
-          }
+          "properties": { "spin": 0.14046997530385852, "drift": [-9.932273324579, -12.757147838361561] }
         },
         {
           "id": "greyMed2-9",
@@ -1846,13 +1089,7 @@
           "y": 3138,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.22600529836490746,
-            "drift": [
-              4.576272452250123,
-              16.402028658427298
-            ]
-          }
+          "properties": { "spin": 0.22600529836490746, "drift": [4.576272452250123, 16.402028658427298] }
         },
         {
           "id": "brownMed1-14",
@@ -1861,13 +1098,7 @@
           "y": 592,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.02796450695022945,
-            "drift": [
-              -2.8736130595207214,
-              -16.279451706446707
-            ]
-          }
+          "properties": { "spin": 0.02796450695022945, "drift": [-2.8736130595207214, -16.279451706446707] }
         },
         {
           "id": "brownBig3-16",
@@ -1876,13 +1107,7 @@
           "y": 2631,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.48188751507550476,
-            "drift": [
-              14.979378660209477,
-              -5.237167797982693
-            ]
-          }
+          "properties": { "spin": 0.48188751507550476, "drift": [14.979378660209477, -5.237167797982693] }
         },
         {
           "id": "greyMed2-10",
@@ -1891,13 +1116,7 @@
           "y": 4992,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.4281656532548367,
-            "drift": [
-              -14.482032760977745,
-              10.916980541311204
-            ]
-          }
+          "properties": { "spin": 0.4281656532548367, "drift": [-14.482032760977745, 10.916980541311204] }
         },
         {
           "id": "brownBig3-17",
@@ -1906,13 +1125,7 @@
           "y": 334,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.17559966221451762,
-            "drift": [
-              9.330875619314611,
-              4.238686675205827
-            ]
-          }
+          "properties": { "spin": 0.17559966221451762, "drift": [9.330875619314611, 4.238686675205827] }
         },
         {
           "id": "brownBig3-18",
@@ -1921,13 +1134,7 @@
           "y": 649,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.2980530308559537,
-            "drift": [
-              -5.865987787954509,
-              -10.824297957122326
-            ]
-          }
+          "properties": { "spin": 0.2980530308559537, "drift": [-5.865987787954509, -10.824297957122326] }
         },
         {
           "id": "greyBig2-15",
@@ -1936,13 +1143,7 @@
           "y": 5674,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.16199793107807636,
-            "drift": [
-              8.685279074124992,
-              -7.350695075467229
-            ]
-          }
+          "properties": { "spin": 0.16199793107807636, "drift": [8.685279074124992, -7.350695075467229] }
         },
         {
           "id": "brownSmall1-20",
@@ -1951,13 +1152,7 @@
           "y": 808,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.5384317008778453,
-            "drift": [
-              3.305557885207236,
-              -11.762678403407335
-            ]
-          }
+          "properties": { "spin": 0.5384317008778453, "drift": [3.305557885207236, -11.762678403407335] }
         },
         {
           "id": "brownMed1-15",
@@ -1966,13 +1161,7 @@
           "y": 2909,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.5844116466119885,
-            "drift": [
-              2.38075162936002,
-              -14.895692490041256
-            ]
-          }
+          "properties": { "spin": 0.5844116466119885, "drift": [2.38075162936002, -14.895692490041256] }
         },
         {
           "id": "greyMed2-11",
@@ -1981,13 +1170,7 @@
           "y": 903,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.21572445686906572,
-            "drift": [
-              -16.954453526996076,
-              16.74142387881875
-            ]
-          }
+          "properties": { "spin": 0.21572445686906572, "drift": [-16.954453526996076, 16.74142387881875] }
         },
         {
           "id": "greyMed2-12",
@@ -1996,13 +1179,7 @@
           "y": 6349,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.5983779095113277,
-            "drift": [
-              -9.196433261968195,
-              -16.57693058811128
-            ]
-          }
+          "properties": { "spin": -0.5983779095113277, "drift": [-9.196433261968195, -16.57693058811128] }
         },
         {
           "id": "brownSmall1-21",
@@ -2011,13 +1188,7 @@
           "y": 5902,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.13369984533637758,
-            "drift": [
-              -5.449796958826482,
-              1.2155563719570637
-            ]
-          }
+          "properties": { "spin": 0.13369984533637758, "drift": [-5.449796958826482, 1.2155563719570637] }
         },
         {
           "id": "greyMed2-13",
@@ -2026,13 +1197,7 @@
           "y": 2071,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.4018132698722183,
-            "drift": [
-              13.507425393909216,
-              15.752243760041893
-            ]
-          }
+          "properties": { "spin": -0.4018132698722183, "drift": [13.507425393909216, 15.752243760041893] }
         },
         {
           "id": "brownSmall1-22",
@@ -2041,13 +1206,7 @@
           "y": 2185,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.06404843749478462,
-            "drift": [
-              3.2610772121697664,
-              1.045033902861178
-            ]
-          }
+          "properties": { "spin": 0.06404843749478462, "drift": [3.2610772121697664, 1.045033902861178] }
         },
         {
           "id": "brownBig3-19",
@@ -2056,13 +1215,7 @@
           "y": 3370,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.0432188012637198,
-            "drift": [
-              9.243242226541042,
-              8.265580250881612
-            ]
-          }
+          "properties": { "spin": -0.0432188012637198, "drift": [9.243242226541042, 8.265580250881612] }
         },
         {
           "id": "brownSmall1-23",
@@ -2071,13 +1224,7 @@
           "y": 6097,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.14637324213981628,
-            "drift": [
-              10.87226369138807,
-              -0.7806452494114637
-            ]
-          }
+          "properties": { "spin": -0.14637324213981628, "drift": [10.87226369138807, -0.7806452494114637] }
         },
         {
           "id": "brownBig3-20",
@@ -2086,13 +1233,7 @@
           "y": 2508,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.01595036555081608,
-            "drift": [
-              1.9650011854246259,
-              -13.903384052217007
-            ]
-          }
+          "properties": { "spin": 0.01595036555081608, "drift": [1.9650011854246259, -13.903384052217007] }
         },
         {
           "id": "brownMed1-16",
@@ -2101,13 +1242,7 @@
           "y": 305,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.27628561668097973,
-            "drift": [
-              11.015269788913429,
-              4.443838147446513
-            ]
-          }
+          "properties": { "spin": -0.27628561668097973, "drift": [11.015269788913429, 4.443838147446513] }
         },
         {
           "id": "greySmall2-10",
@@ -2116,13 +1251,7 @@
           "y": 1978,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.21840552035719152,
-            "drift": [
-              15.961623650975525,
-              -9.893912941217422
-            ]
-          }
+          "properties": { "spin": 0.21840552035719152, "drift": [15.961623650975525, -9.893912941217422] }
         },
         {
           "id": "brownBig3-21",
@@ -2131,13 +1260,7 @@
           "y": 3517,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.56219959622249,
-            "drift": [
-              -13.014485768973827,
-              -0.4261541375890374
-            ]
-          }
+          "properties": { "spin": 0.56219959622249, "drift": [-13.014485768973827, -0.4261541375890374] }
         },
         {
           "id": "greyMed2-14",
@@ -2146,13 +1269,7 @@
           "y": 4288,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.40380892166867854,
-            "drift": [
-              9.85866373591125,
-              12.753464695997536
-            ]
-          }
+          "properties": { "spin": 0.40380892166867854, "drift": [9.85866373591125, 12.753464695997536] }
         },
         {
           "id": "brownBig3-22",
@@ -2161,13 +1278,7 @@
           "y": 1575,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.5676143439486622,
-            "drift": [
-              16.47428143490106,
-              13.803875707089901
-            ]
-          }
+          "properties": { "spin": 0.5676143439486622, "drift": [16.47428143490106, 13.803875707089901] }
         },
         {
           "id": "brownMed1-17",
@@ -2176,13 +1287,7 @@
           "y": 917,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.2796841761097312,
-            "drift": [
-              11.595618532039225,
-              -14.564510386437178
-            ]
-          }
+          "properties": { "spin": 0.2796841761097312, "drift": [11.595618532039225, -14.564510386437178] }
         },
         {
           "id": "brownSmall1-24",
@@ -2191,13 +1296,7 @@
           "y": 394,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.5851391005329788,
-            "drift": [
-              12.659007327631116,
-              10.670472205616534
-            ]
-          }
+          "properties": { "spin": -0.5851391005329788, "drift": [12.659007327631116, 10.670472205616534] }
         },
         {
           "id": "brownBig3-23",
@@ -2206,13 +1305,7 @@
           "y": 4300,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.29734461922198535,
-            "drift": [
-              9.929132767952979,
-              -13.780976045876741
-            ]
-          }
+          "properties": { "spin": -0.29734461922198535, "drift": [9.929132767952979, -13.780976045876741] }
         },
         {
           "id": "brownMed1-18",
@@ -2221,13 +1314,7 @@
           "y": 677,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.36716830478981133,
-            "drift": [
-              -16.177460800856352,
-              4.558901603333652
-            ]
-          }
+          "properties": { "spin": -0.36716830478981133, "drift": [-16.177460800856352, 4.558901603333652] }
         },
         {
           "id": "greySmall2-11",
@@ -2236,13 +1323,7 @@
           "y": 3999,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.5939545174129307,
-            "drift": [
-              0.7913497779518366,
-              -10.012407696805894
-            ]
-          }
+          "properties": { "spin": 0.5939545174129307, "drift": [0.7913497779518366, -10.012407696805894] }
         },
         {
           "id": "greyBig2-16",
@@ -2251,13 +1332,7 @@
           "y": 4290,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.3755678557790816,
-            "drift": [
-              -0.9473327044397593,
-              -14.471410567872226
-            ]
-          }
+          "properties": { "spin": 0.3755678557790816, "drift": [-0.9473327044397593, -14.471410567872226] }
         },
         {
           "id": "greyBig2-17",
@@ -2266,13 +1341,7 @@
           "y": 5697,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.20454514352604747,
-            "drift": [
-              -12.350722152739763,
-              10.707157867960632
-            ]
-          }
+          "properties": { "spin": 0.20454514352604747, "drift": [-12.350722152739763, 10.707157867960632] }
         },
         {
           "id": "brownSmall1-25",
@@ -2281,13 +1350,7 @@
           "y": 1701,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.32676162393763664,
-            "drift": [
-              -12.739009140059352,
-              5.309589729644358
-            ]
-          }
+          "properties": { "spin": 0.32676162393763664, "drift": [-12.739009140059352, 5.309589729644358] }
         },
         {
           "id": "brownBig3-24",
@@ -2296,13 +1359,7 @@
           "y": 3983,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.27674149805679915,
-            "drift": [
-              -1.7631427869200706,
-              5.251048891805112
-            ]
-          }
+          "properties": { "spin": -0.27674149805679915, "drift": [-1.7631427869200706, 5.251048891805112] }
         },
         {
           "id": "brownSmall1-26",
@@ -2311,13 +1368,7 @@
           "y": 5850,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.3747384013608098,
-            "drift": [
-              15.624200080521405,
-              12.137476913630962
-            ]
-          }
+          "properties": { "spin": 0.3747384013608098, "drift": [15.624200080521405, 12.137476913630962] }
         },
         {
           "id": "greySmall2-12",
@@ -2326,13 +1377,7 @@
           "y": 954,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.06944283870980139,
-            "drift": [
-              -7.734655944630504,
-              16.312210933305323
-            ]
-          }
+          "properties": { "spin": -0.06944283870980139, "drift": [-7.734655944630504, 16.312210933305323] }
         },
         {
           "id": "greyMed2-15",
@@ -2341,13 +1386,7 @@
           "y": 4169,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.07773749995976686,
-            "drift": [
-              8.134831094183028,
-              -5.774507973343134
-            ]
-          }
+          "properties": { "spin": -0.07773749995976686, "drift": [8.134831094183028, -5.774507973343134] }
         },
         {
           "id": "brownBig3-25",
@@ -2356,13 +1395,7 @@
           "y": 1999,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.4489232389256358,
-            "drift": [
-              -2.1297337962314487,
-              5.351274870336056
-            ]
-          }
+          "properties": { "spin": -0.4489232389256358, "drift": [-2.1297337962314487, 5.351274870336056] }
         },
         {
           "id": "brownMed1-19",
@@ -2371,13 +1404,7 @@
           "y": 930,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.36754164258018135,
-            "drift": [
-              -11.080026268959045,
-              7.773107967339456
-            ]
-          }
+          "properties": { "spin": -0.36754164258018135, "drift": [-11.080026268959045, 7.773107967339456] }
         },
         {
           "id": "greySmall2-13",
@@ -2386,13 +1413,7 @@
           "y": 5258,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.09954508468508716,
-            "drift": [
-              -13.038989634253085,
-              0.277491906657815
-            ]
-          }
+          "properties": { "spin": 0.09954508468508716, "drift": [-13.038989634253085, 0.277491906657815] }
         },
         {
           "id": "greySmall2-14",
@@ -2401,13 +1422,7 @@
           "y": 6023,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.40747303850948813,
-            "drift": [
-              -11.284303148277104,
-              3.800561076030135
-            ]
-          }
+          "properties": { "spin": -0.40747303850948813, "drift": [-11.284303148277104, 3.800561076030135] }
         },
         {
           "id": "brownMed1-20",
@@ -2416,13 +1431,7 @@
           "y": 476,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.599992317147553,
-            "drift": [
-              14.147446104325354,
-              -1.77475081756711
-            ]
-          }
+          "properties": { "spin": -0.599992317147553, "drift": [14.147446104325354, -1.77475081756711] }
         },
         {
           "id": "greySmall2-15",
@@ -2431,13 +1440,7 @@
           "y": 3785,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.38972324430942534,
-            "drift": [
-              -17.998577364720404,
-              -17.489564208313823
-            ]
-          }
+          "properties": { "spin": -0.38972324430942534, "drift": [-17.998577364720404, -17.489564208313823] }
         },
         {
           "id": "brownMed1-21",
@@ -2446,13 +1449,7 @@
           "y": 2487,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.3585272150114178,
-            "drift": [
-              -12.878559387288988,
-              -7.565680179744959
-            ]
-          }
+          "properties": { "spin": -0.3585272150114178, "drift": [-12.878559387288988, -7.565680179744959] }
         },
         {
           "id": "brownBig1-26",
@@ -2461,13 +1458,7 @@
           "y": 2467,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.3491152927279472,
-            "drift": [
-              -1.480392568744719,
-              -13.942042781040072
-            ]
-          }
+          "properties": { "spin": -0.3491152927279472, "drift": [-1.480392568744719, -13.942042781040072] }
         },
         {
           "id": "brownBig3-26",
@@ -2476,13 +1467,7 @@
           "y": 1464,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.17456227261573076,
-            "drift": [
-              10.503217999823391,
-              17.439603053033352
-            ]
-          }
+          "properties": { "spin": 0.17456227261573076, "drift": [10.503217999823391, 17.439603053033352] }
         },
         {
           "id": "brownMed1-22",
@@ -2491,13 +1476,7 @@
           "y": 3990,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.5478170011192559,
-            "drift": [
-              17.312087911181152,
-              -4.3711941707879305
-            ]
-          }
+          "properties": { "spin": 0.5478170011192559, "drift": [17.312087911181152, -4.3711941707879305] }
         },
         {
           "id": "brownMed1-23",
@@ -2506,13 +1485,7 @@
           "y": 3936,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.002402261830866337,
-            "drift": [
-              1.7522263387218118,
-              -14.955092053860426
-            ]
-          }
+          "properties": { "spin": -0.002402261830866337, "drift": [1.7522263387218118, -14.955092053860426] }
         },
         {
           "id": "greySmall2-16",
@@ -2521,13 +1494,7 @@
           "y": 6006,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.44054626347497094,
-            "drift": [
-              -7.425232691690326,
-              7.052311182953417
-            ]
-          }
+          "properties": { "spin": 0.44054626347497094, "drift": [-7.425232691690326, 7.052311182953417] }
         },
         {
           "id": "brownSmall1-27",
@@ -2536,13 +1503,7 @@
           "y": 2848,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.471341463457793,
-            "drift": [
-              -16.985415464267135,
-              -4.177212229929864
-            ]
-          }
+          "properties": { "spin": -0.471341463457793, "drift": [-16.985415464267135, -4.177212229929864] }
         },
         {
           "id": "brownSmall1-28",
@@ -2551,13 +1512,7 @@
           "y": 6731,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.24913839558139445,
-            "drift": [
-              11.861293405294418,
-              -16.096105285920203
-            ]
-          }
+          "properties": { "spin": -0.24913839558139445, "drift": [11.861293405294418, -16.096105285920203] }
         },
         {
           "id": "brownBig3-27",
@@ -2566,13 +1521,7 @@
           "y": 1168,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.4578482888638974,
-            "drift": [
-              -17.810917616821826,
-              10.852306673303246
-            ]
-          }
+          "properties": { "spin": 0.4578482888638974, "drift": [-17.810917616821826, 10.852306673303246] }
         },
         {
           "id": "brownMed1-24",
@@ -2581,13 +1530,7 @@
           "y": 4821,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.21583917131647468,
-            "drift": [
-              -12.602486327290535,
-              -17.055486255325377
-            ]
-          }
+          "properties": { "spin": 0.21583917131647468, "drift": [-12.602486327290535, -17.055486255325377] }
         },
         {
           "id": "brownBig3-28",
@@ -2596,13 +1539,7 @@
           "y": 6738,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.39537582322955134,
-            "drift": [
-              -7.766388044692576,
-              9.438355112448335
-            ]
-          }
+          "properties": { "spin": -0.39537582322955134, "drift": [-7.766388044692576, 9.438355112448335] }
         },
         {
           "id": "brownBig3-29",
@@ -2611,13 +1548,7 @@
           "y": 3646,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.04502196041867135,
-            "drift": [
-              3.1384703535586596,
-              2.8637042501941323
-            ]
-          }
+          "properties": { "spin": -0.04502196041867135, "drift": [3.1384703535586596, 2.8637042501941323] }
         },
         {
           "id": "brownSmall1-29",
@@ -2626,13 +1557,7 @@
           "y": 4580,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.5505372173152864,
-            "drift": [
-              -10.652001164853573,
-              -9.740480870939791
-            ]
-          }
+          "properties": { "spin": 0.5505372173152864, "drift": [-10.652001164853573, -9.740480870939791] }
         },
         {
           "id": "greySmall2-17",
@@ -2641,13 +1566,7 @@
           "y": 1077,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.3907077996991575,
-            "drift": [
-              -6.510380180552602,
-              1.9284127028658986
-            ]
-          }
+          "properties": { "spin": -0.3907077996991575, "drift": [-6.510380180552602, 1.9284127028658986] }
         },
         {
           "id": "greySmall2-18",
@@ -2656,13 +1575,7 @@
           "y": 5270,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.046568975877016805,
-            "drift": [
-              9.235597763210535,
-              -8.134744961746037
-            ]
-          }
+          "properties": { "spin": 0.046568975877016805, "drift": [9.235597763210535, -8.134744961746037] }
         },
         {
           "id": "greySmall2-19",
@@ -2671,13 +1584,7 @@
           "y": 617,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.55967410588637,
-            "drift": [
-              -17.268537679687142,
-              7.8171657817438245
-            ]
-          }
+          "properties": { "spin": 0.55967410588637, "drift": [-17.268537679687142, 7.8171657817438245] }
         },
         {
           "id": "brownBig1-27",
@@ -2686,13 +1593,7 @@
           "y": 4761,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.12264901008456947,
-            "drift": [
-              10.193116483278573,
-              13.71277628839016
-            ]
-          }
+          "properties": { "spin": -0.12264901008456947, "drift": [10.193116483278573, 13.71277628839016] }
         },
         {
           "id": "greyBig2-18",
@@ -2701,13 +1602,7 @@
           "y": 287,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.588619055505842,
-            "drift": [
-              6.499422870576382,
-              -7.647906825877726
-            ]
-          }
+          "properties": { "spin": 0.588619055505842, "drift": [6.499422870576382, -7.647906825877726] }
         },
         {
           "id": "brownMed1-25",
@@ -2716,13 +1611,7 @@
           "y": 3501,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.4585803673602641,
-            "drift": [
-              -0.9221426714211702,
-              10.968299699015915
-            ]
-          }
+          "properties": { "spin": 0.4585803673602641, "drift": [-0.9221426714211702, 10.968299699015915] }
         },
         {
           "id": "brownBig3-30",
@@ -2731,13 +1620,7 @@
           "y": 4496,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.582385985367,
-            "drift": [
-              7.529656847007573,
-              -17.43828769773245
-            ]
-          }
+          "properties": { "spin": -0.582385985367, "drift": [7.529656847007573, -17.43828769773245] }
         },
         {
           "id": "brownBig1-28",
@@ -2746,13 +1629,7 @@
           "y": 5226,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.01461373586207626,
-            "drift": [
-              16.637872346676886,
-              10.96629936620593
-            ]
-          }
+          "properties": { "spin": -0.01461373586207626, "drift": [16.637872346676886, 10.96629936620593] }
         },
         {
           "id": "greyMed2-16",
@@ -2761,13 +1638,7 @@
           "y": 4936,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.5916347550228237,
-            "drift": [
-              9.716577996499836,
-              -8.511929087340832
-            ]
-          }
+          "properties": { "spin": 0.5916347550228237, "drift": [9.716577996499836, -8.511929087340832] }
         },
         {
           "id": "greyMed2-17",
@@ -2776,13 +1647,7 @@
           "y": 4672,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.15183858163654806,
-            "drift": [
-              5.951404276303947,
-              5.701461849734187
-            ]
-          }
+          "properties": { "spin": 0.15183858163654806, "drift": [5.951404276303947, 5.701461849734187] }
         },
         {
           "id": "greySmall2-20",
@@ -2791,13 +1656,7 @@
           "y": 3605,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.02858388014137747,
-            "drift": [
-              15.005677233450115,
-              -6.60454442538321
-            ]
-          }
+          "properties": { "spin": -0.02858388014137747, "drift": [15.005677233450115, -6.60454442538321] }
         },
         {
           "id": "brownBig3-31",
@@ -2806,13 +1665,7 @@
           "y": 1798,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.0616671474650502,
-            "drift": [
-              17.239419140852988,
-              -3.35612465813756
-            ]
-          }
+          "properties": { "spin": -0.0616671474650502, "drift": [17.239419140852988, -3.35612465813756] }
         },
         {
           "id": "greySmall2-21",
@@ -2821,13 +1674,7 @@
           "y": 1517,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.215074360370636,
-            "drift": [
-              -10.992430963553488,
-              12.348838152363896
-            ]
-          }
+          "properties": { "spin": -0.215074360370636, "drift": [-10.992430963553488, 12.348838152363896] }
         },
         {
           "id": "brownBig1-29",
@@ -2836,13 +1683,7 @@
           "y": 2688,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.41546168820932505,
-            "drift": [
-              -4.504554172977805,
-              1.4636711413040757
-            ]
-          }
+          "properties": { "spin": 0.41546168820932505, "drift": [-4.504554172977805, 1.4636711413040757] }
         },
         {
           "id": "brownBig3-32",
@@ -2851,13 +1692,7 @@
           "y": 1944,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.5540365582332015,
-            "drift": [
-              -12.438759385608137,
-              -9.467882361263037
-            ]
-          }
+          "properties": { "spin": 0.5540365582332015, "drift": [-12.438759385608137, -9.467882361263037] }
         },
         {
           "id": "brownMed1-26",
@@ -2866,13 +1701,7 @@
           "y": 2701,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.13927685245871546,
-            "drift": [
-              -9.586718277074397,
-              0.25829976238310337
-            ]
-          }
+          "properties": { "spin": -0.13927685245871546, "drift": [-9.586718277074397, 0.25829976238310337] }
         },
         {
           "id": "greyMed2-18",
@@ -2881,13 +1710,7 @@
           "y": 704,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.32069009989500047,
-            "drift": [
-              -12.157384746707976,
-              -14.347067071124911
-            ]
-          }
+          "properties": { "spin": -0.32069009989500047, "drift": [-12.157384746707976, -14.347067071124911] }
         },
         {
           "id": "brownBig1-30",
@@ -2896,13 +1719,7 @@
           "y": 1246,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.04349824469536545,
-            "drift": [
-              -12.974099571816623,
-              11.408668957650661
-            ]
-          }
+          "properties": { "spin": -0.04349824469536545, "drift": [-12.974099571816623, 11.408668957650661] }
         },
         {
           "id": "greyMed2-19",
@@ -2911,13 +1728,7 @@
           "y": 6579,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.24395554745569825,
-            "drift": [
-              -0.2726920936256647,
-              -6.308695237152278
-            ]
-          }
+          "properties": { "spin": 0.24395554745569825, "drift": [-0.2726920936256647, -6.308695237152278] }
         },
         {
           "id": "greyMed2-20",
@@ -2926,13 +1737,7 @@
           "y": 6309,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.448515875916928,
-            "drift": [
-              17.14926576241851,
-              -17.908363309688866
-            ]
-          }
+          "properties": { "spin": 0.448515875916928, "drift": [17.14926576241851, -17.908363309688866] }
         },
         {
           "id": "greyMed2-21",
@@ -2941,13 +1746,7 @@
           "y": 6481,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.5006833149120211,
-            "drift": [
-              11.655829061754048,
-              -16.632536821067333
-            ]
-          }
+          "properties": { "spin": -0.5006833149120211, "drift": [11.655829061754048, -16.632536821067333] }
         },
         {
           "id": "greyMed2-22",
@@ -2956,13 +1755,7 @@
           "y": 675,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.4033157824538648,
-            "drift": [
-              8.582117602229118,
-              -2.199702554382384
-            ]
-          }
+          "properties": { "spin": 0.4033157824538648, "drift": [8.582117602229118, -2.199702554382384] }
         },
         {
           "id": "brownSmall1-30",
@@ -2971,13 +1764,7 @@
           "y": 3904,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.3432744118385017,
-            "drift": [
-              -14.290588516741991,
-              2.6476170597597957
-            ]
-          }
+          "properties": { "spin": 0.3432744118385017, "drift": [-14.290588516741991, 2.6476170597597957] }
         },
         {
           "id": "brownSmall1-31",
@@ -2986,13 +1773,7 @@
           "y": 2982,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.542994696367532,
-            "drift": [
-              1.0893120355904102,
-              -16.38551185000688
-            ]
-          }
+          "properties": { "spin": -0.542994696367532, "drift": [1.0893120355904102, -16.38551185000688] }
         },
         {
           "id": "greyMed2-23",
@@ -3001,13 +1782,7 @@
           "y": 1396,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.29517516391351817,
-            "drift": [
-              -2.31015851162374,
-              -4.09811348374933
-            ]
-          }
+          "properties": { "spin": 0.29517516391351817, "drift": [-2.31015851162374, -4.09811348374933] }
         },
         {
           "id": "greyMed2-24",
@@ -3016,13 +1791,7 @@
           "y": 4422,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.46681291172280903,
-            "drift": [
-              3.641884759068489,
-              12.727035499177873
-            ]
-          }
+          "properties": { "spin": -0.46681291172280903, "drift": [3.641884759068489, 12.727035499177873] }
         },
         {
           "id": "brownSmall1-32",
@@ -3031,13 +1800,7 @@
           "y": 425,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.35781262451782825,
-            "drift": [
-              -13.736786836758256,
-              3.388991986401379
-            ]
-          }
+          "properties": { "spin": 0.35781262451782825, "drift": [-13.736786836758256, 3.388991986401379] }
         },
         {
           "id": "brownMed1-27",
@@ -3046,13 +1809,7 @@
           "y": 1770,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.27013847865164275,
-            "drift": [
-              16.03377579431981,
-              -6.847512798383832
-            ]
-          }
+          "properties": { "spin": 0.27013847865164275, "drift": [16.03377579431981, -6.847512798383832] }
         },
         {
           "id": "brownBig3-33",
@@ -3061,13 +1818,7 @@
           "y": 6602,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.08854721691459422,
-            "drift": [
-              16.185489968396723,
-              -14.811907421797514
-            ]
-          }
+          "properties": { "spin": 0.08854721691459422, "drift": [16.185489968396723, -14.811907421797514] }
         },
         {
           "id": "greyMed2-25",
@@ -3076,13 +1827,7 @@
           "y": 3283,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.4007646242156625,
-            "drift": [
-              -17.417875709943473,
-              10.932353362441063
-            ]
-          }
+          "properties": { "spin": 0.4007646242156625, "drift": [-17.417875709943473, 10.932353362441063] }
         },
         {
           "id": "brownSmall1-33",
@@ -3091,13 +1836,7 @@
           "y": 270,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.16708675101399423,
-            "drift": [
-              -17.728500039316714,
-              0.970503369346261
-            ]
-          }
+          "properties": { "spin": -0.16708675101399423, "drift": [-17.728500039316714, 0.970503369346261] }
         },
         {
           "id": "brownMed1-28",
@@ -3106,13 +1845,7 @@
           "y": 2885,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.29950071601197126,
-            "drift": [
-              -2.6219581849873066,
-              9.550581025891006
-            ]
-          }
+          "properties": { "spin": 0.29950071601197126, "drift": [-2.6219581849873066, 9.550581025891006] }
         },
         {
           "id": "greyMed2-26",
@@ -3121,13 +1854,7 @@
           "y": 5569,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.3040303286164999,
-            "drift": [
-              -1.0193415926769376,
-              4.933896442875266
-            ]
-          }
+          "properties": { "spin": 0.3040303286164999, "drift": [-1.0193415926769376, 4.933896442875266] }
         },
         {
           "id": "brownSmall1-34",
@@ -3136,13 +1863,7 @@
           "y": 5686,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.5982379258610308,
-            "drift": [
-              -15.995238007977605,
-              -17.04678190033883
-            ]
-          }
+          "properties": { "spin": 0.5982379258610308, "drift": [-15.995238007977605, -17.04678190033883] }
         },
         {
           "id": "brownBig1-31",
@@ -3151,13 +1872,7 @@
           "y": 599,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.5008997764438391,
-            "drift": [
-              2.4868915854021907,
-              5.714638603851199
-            ]
-          }
+          "properties": { "spin": -0.5008997764438391, "drift": [2.4868915854021907, 5.714638603851199] }
         },
         {
           "id": "greyMed2-27",
@@ -3166,13 +1881,7 @@
           "y": 4423,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.575879524089396,
-            "drift": [
-              12.553399966098368,
-              12.577016908675432
-            ]
-          }
+          "properties": { "spin": -0.575879524089396, "drift": [12.553399966098368, 12.577016908675432] }
         },
         {
           "id": "greyBig2-19",
@@ -3181,13 +1890,7 @@
           "y": 5111,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": -0.566985572129488,
-            "drift": [
-              6.714981942437589,
-              -16.183817049488425
-            ]
-          }
+          "properties": { "spin": -0.566985572129488, "drift": [6.714981942437589, -16.183817049488425] }
         },
         {
           "id": "greySmall2-22",
@@ -3196,13 +1899,7 @@
           "y": 4395,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.49102799417451026,
-            "drift": [
-              7.658546822145581,
-              -0.8524211039766669
-            ]
-          }
+          "properties": { "spin": 0.49102799417451026, "drift": [7.658546822145581, -0.8524211039766669] }
         },
         {
           "id": "brownBig1-32",
@@ -3211,13 +1908,7 @@
           "y": 3503,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.32658425057306883,
-            "drift": [
-              -4.992107100784779,
-              5.426513238810003
-            ]
-          }
+          "properties": { "spin": -0.32658425057306883, "drift": [-4.992107100784779, 5.426513238810003] }
         },
         {
           "id": "greyMed2-28",
@@ -3226,13 +1917,7 @@
           "y": 2715,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.2783250049687922,
-            "drift": [
-              0.3653173875063658,
-              12.422886055894196
-            ]
-          }
+          "properties": { "spin": 0.2783250049687922, "drift": [0.3653173875063658, 12.422886055894196] }
         },
         {
           "id": "brownSmall1-35",
@@ -3241,13 +1926,7 @@
           "y": 985,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.10024205697700383,
-            "drift": [
-              14.79513644054532,
-              2.9821457220241427
-            ]
-          }
+          "properties": { "spin": 0.10024205697700383, "drift": [14.79513644054532, 2.9821457220241427] }
         },
         {
           "id": "brownSmall1-36",
@@ -3256,13 +1935,7 @@
           "y": 6249,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.49775672955438494,
-            "drift": [
-              -7.109398355707526,
-              13.20041295234114
-            ]
-          }
+          "properties": { "spin": -0.49775672955438494, "drift": [-7.109398355707526, 13.20041295234114] }
         },
         {
           "id": "brownBig3-34",
@@ -3271,13 +1944,7 @@
           "y": 4538,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.46972203841432936,
-            "drift": [
-              -13.22180463373661,
-              8.140476590953767
-            ]
-          }
+          "properties": { "spin": 0.46972203841432936, "drift": [-13.22180463373661, 8.140476590953767] }
         },
         {
           "id": "brownBig1-33",
@@ -3286,13 +1953,7 @@
           "y": 3015,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.0800146646797657,
-            "drift": [
-              -3.2097703674808145,
-              -10.522483980283141
-            ]
-          }
+          "properties": { "spin": 0.0800146646797657, "drift": [-3.2097703674808145, -10.522483980283141] }
         },
         {
           "id": "greySmall2-23",
@@ -3301,13 +1962,7 @@
           "y": 731,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.5968047629110514,
-            "drift": [
-              -4.941088518127799,
-              3.13281034771353
-            ]
-          }
+          "properties": { "spin": -0.5968047629110514, "drift": [-4.941088518127799, 3.13281034771353] }
         },
         {
           "id": "brownBig3-35",
@@ -3316,13 +1971,7 @@
           "y": 4288,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.5906043464317917,
-            "drift": [
-              17.506115675903857,
-              3.6938808895647526
-            ]
-          }
+          "properties": { "spin": -0.5906043464317917, "drift": [17.506115675903857, 3.6938808895647526] }
         },
         {
           "id": "brownMed1-29",
@@ -3331,13 +1980,7 @@
           "y": 896,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.36670886222273114,
-            "drift": [
-              -13.43481423240155,
-              12.3382588326931
-            ]
-          }
+          "properties": { "spin": 0.36670886222273114, "drift": [-13.43481423240155, 12.3382588326931] }
         },
         {
           "id": "greySmall2-24",
@@ -3346,13 +1989,7 @@
           "y": 6687,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.2598195754922926,
-            "drift": [
-              15.131557770073414,
-              4.695678471587598
-            ]
-          }
+          "properties": { "spin": -0.2598195754922926, "drift": [15.131557770073414, 4.695678471587598] }
         },
         {
           "id": "greyMed2-29",
@@ -3361,13 +1998,7 @@
           "y": 1635,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": 0.2993084077723325,
-            "drift": [
-              6.3218642715364695,
-              1.6250262642279267
-            ]
-          }
+          "properties": { "spin": 0.2993084077723325, "drift": [6.3218642715364695, 1.6250262642279267] }
         },
         {
           "id": "greySmall2-25",
@@ -3376,13 +2007,7 @@
           "y": 4295,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.5087449475191533,
-            "drift": [
-              17.011526584625244,
-              -4.21327964309603
-            ]
-          }
+          "properties": { "spin": 0.5087449475191533, "drift": [17.011526584625244, -4.21327964309603] }
         },
         {
           "id": "brownBig3-36",
@@ -3391,13 +2016,7 @@
           "y": 5375,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": -0.000347398873418614,
-            "drift": [
-              12.87515371106565,
-              7.729358573444188
-            ]
-          }
+          "properties": { "spin": -0.000347398873418614, "drift": [12.87515371106565, 7.729358573444188] }
         },
         {
           "id": "brownSmall1-37",
@@ -3406,13 +2025,7 @@
           "y": 1920,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.21764849899336697,
-            "drift": [
-              3.4648389983922243,
-              11.632245839573443
-            ]
-          }
+          "properties": { "spin": -0.21764849899336697, "drift": [3.4648389983922243, 11.632245839573443] }
         },
         {
           "id": "brownSmall1-38",
@@ -3421,13 +2034,7 @@
           "y": 3879,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.515617281384766,
-            "drift": [
-              12.839537688530982,
-              15.969449054449797
-            ]
-          }
+          "properties": { "spin": -0.515617281384766, "drift": [12.839537688530982, 15.969449054449797] }
         },
         {
           "id": "brownBig3-37",
@@ -3436,13 +2043,7 @@
           "y": 5364,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.36465569604188197,
-            "drift": [
-              -11.82792956661433,
-              -15.963421694934368
-            ]
-          }
+          "properties": { "spin": 0.36465569604188197, "drift": [-11.82792956661433, -15.963421694934368] }
         },
         {
           "id": "brownMed1-30",
@@ -3451,13 +2052,7 @@
           "y": 562,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.03954066624864938,
-            "drift": [
-              9.323073014616966,
-              12.608102328144014
-            ]
-          }
+          "properties": { "spin": 0.03954066624864938, "drift": [9.323073014616966, 12.608102328144014] }
         },
         {
           "id": "brownMed1-31",
@@ -3466,13 +2061,7 @@
           "y": 5150,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.2144121958874166,
-            "drift": [
-              6.687661958858371,
-              13.020515752024949
-            ]
-          }
+          "properties": { "spin": -0.2144121958874166, "drift": [6.687661958858371, 13.020515752024949] }
         },
         {
           "id": "greyBig2-20",
@@ -3481,13 +2070,7 @@
           "y": 834,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": -0.564725892059505,
-            "drift": [
-              -14.465963403694332,
-              10.763912715017796
-            ]
-          }
+          "properties": { "spin": -0.564725892059505, "drift": [-14.465963403694332, 10.763912715017796] }
         },
         {
           "id": "greySmall2-26",
@@ -3496,13 +2079,7 @@
           "y": 5064,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.5643559288233518,
-            "drift": [
-              -10.928812284953892,
-              -4.770165855064988
-            ]
-          }
+          "properties": { "spin": 0.5643559288233518, "drift": [-10.928812284953892, -4.770165855064988] }
         },
         {
           "id": "greySmall2-27",
@@ -3511,13 +2088,7 @@
           "y": 5756,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.011066554393619255,
-            "drift": [
-              -8.195114152505994,
-              12.113746982999146
-            ]
-          }
+          "properties": { "spin": -0.011066554393619255, "drift": [-8.195114152505994, 12.113746982999146] }
         },
         {
           "id": "brownSmall1-39",
@@ -3526,13 +2097,7 @@
           "y": 4610,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.545349927060306,
-            "drift": [
-              2.878245343454182,
-              3.8287600949406624
-            ]
-          }
+          "properties": { "spin": -0.545349927060306, "drift": [2.878245343454182, 3.8287600949406624] }
         },
         {
           "id": "greyMed2-30",
@@ -3541,13 +2106,7 @@
           "y": 2549,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.36310592405498027,
-            "drift": [
-              17.851318540982902,
-              6.492876587435603
-            ]
-          }
+          "properties": { "spin": -0.36310592405498027, "drift": [17.851318540982902, 6.492876587435603] }
         },
         {
           "id": "greyMed2-31",
@@ -3556,13 +2115,7 @@
           "y": 1116,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.11771858828142284,
-            "drift": [
-              10.50367296114564,
-              -17.265902032144368
-            ]
-          }
+          "properties": { "spin": -0.11771858828142284, "drift": [10.50367296114564, -17.265902032144368] }
         },
         {
           "id": "brownMed1-32",
@@ -3571,13 +2124,7 @@
           "y": 2021,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.43715244261547925,
-            "drift": [
-              9.412111105397344,
-              6.736158535815775
-            ]
-          }
+          "properties": { "spin": -0.43715244261547925, "drift": [9.412111105397344, 6.736158535815775] }
         },
         {
           "id": "brownSmall1-40",
@@ -3586,13 +2133,7 @@
           "y": 4152,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.18367655742913486,
-            "drift": [
-              -10.154194897972047,
-              -10.764099899679422
-            ]
-          }
+          "properties": { "spin": -0.18367655742913486, "drift": [-10.154194897972047, -10.764099899679422] }
         },
         {
           "id": "brownSmall1-41",
@@ -3601,13 +2142,7 @@
           "y": 1634,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.32267638938501475,
-            "drift": [
-              16.987214270979166,
-              -8.667151381261647
-            ]
-          }
+          "properties": { "spin": -0.32267638938501475, "drift": [16.987214270979166, -8.667151381261647] }
         },
         {
           "id": "brownMed1-33",
@@ -3616,13 +2151,7 @@
           "y": 1196,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.4398185069672763,
-            "drift": [
-              5.489155853167176,
-              9.64494011644274
-            ]
-          }
+          "properties": { "spin": -0.4398185069672763, "drift": [5.489155853167176, 9.64494011644274] }
         },
         {
           "id": "brownBig1-34",
@@ -3631,13 +2160,7 @@
           "y": 2093,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.0014445475302636845,
-            "drift": [
-              17.93411265872419,
-              11.371709902770817
-            ]
-          }
+          "properties": { "spin": -0.0014445475302636845, "drift": [17.93411265872419, 11.371709902770817] }
         },
         {
           "id": "brownBig3-38",
@@ -3646,13 +2169,7 @@
           "y": 3244,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.15921793598681688,
-            "drift": [
-              3.545400713570416,
-              8.621202819049358
-            ]
-          }
+          "properties": { "spin": 0.15921793598681688, "drift": [3.545400713570416, 8.621202819049358] }
         },
         {
           "id": "brownMed1-34",
@@ -3661,13 +2178,7 @@
           "y": 5863,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": 0.07649814365431662,
-            "drift": [
-              4.675433065742254,
-              11.722201648168266
-            ]
-          }
+          "properties": { "spin": 0.07649814365431662, "drift": [4.675433065742254, 11.722201648168266] }
         },
         {
           "id": "brownMed1-35",
@@ -3676,13 +2187,7 @@
           "y": 5850,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.41588558312505486,
-            "drift": [
-              -14.009089934639633,
-              -11.92500901222229
-            ]
-          }
+          "properties": { "spin": -0.41588558312505486, "drift": [-14.009089934639633, -11.92500901222229] }
         },
         {
           "id": "greyBig2-21",
@@ -3691,13 +2196,7 @@
           "y": 2597,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": 0.27831273805350065,
-            "drift": [
-              -0.1922978824004531,
-              -0.13425559177994728
-            ]
-          }
+          "properties": { "spin": 0.27831273805350065, "drift": [-0.1922978824004531, -0.13425559177994728] }
         },
         {
           "id": "greySmall2-28",
@@ -3706,13 +2205,7 @@
           "y": 2291,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.29868571143597367,
-            "drift": [
-              15.513285943306983,
-              0.7832300774753094
-            ]
-          }
+          "properties": { "spin": 0.29868571143597367, "drift": [15.513285943306983, 0.7832300774753094] }
         },
         {
           "id": "greyMed2-32",
@@ -3721,13 +2214,7 @@
           "y": 2922,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.505849811900407,
-            "drift": [
-              -5.246158730238676,
-              -13.862003509886563
-            ]
-          }
+          "properties": { "spin": -0.505849811900407, "drift": [-5.246158730238676, -13.862003509886563] }
         },
         {
           "id": "brownSmall1-42",
@@ -3736,13 +2223,7 @@
           "y": 2602,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.2638347811996937,
-            "drift": [
-              -15.826260373927653,
-              -17.55046490393579
-            ]
-          }
+          "properties": { "spin": 0.2638347811996937, "drift": [-15.826260373927653, -17.55046490393579] }
         },
         {
           "id": "brownSmall1-43",
@@ -3751,13 +2232,7 @@
           "y": 4726,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.07227411512285475,
-            "drift": [
-              -1.3573068855330348,
-              -10.745194852352142
-            ]
-          }
+          "properties": { "spin": 0.07227411512285475, "drift": [-1.3573068855330348, -10.745194852352142] }
         },
         {
           "id": "greySmall2-29",
@@ -3766,13 +2241,7 @@
           "y": 740,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.3931161814369261,
-            "drift": [
-              5.141258038580418,
-              -14.96488490793854
-            ]
-          }
+          "properties": { "spin": -0.3931161814369261, "drift": [5.141258038580418, -14.96488490793854] }
         },
         {
           "id": "brownSmall1-44",
@@ -3781,13 +2250,7 @@
           "y": 1168,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.343872335460037,
-            "drift": [
-              17.52299848012626,
-              -10.4564208118245
-            ]
-          }
+          "properties": { "spin": -0.343872335460037, "drift": [17.52299848012626, -10.4564208118245] }
         },
         {
           "id": "greySmall2-30",
@@ -3796,13 +2259,7 @@
           "y": 3321,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.2242005388252437,
-            "drift": [
-              -9.444910313934088,
-              -8.841854115016758
-            ]
-          }
+          "properties": { "spin": 0.2242005388252437, "drift": [-9.444910313934088, -8.841854115016758] }
         },
         {
           "id": "brownSmall1-45",
@@ -3811,13 +2268,7 @@
           "y": 5091,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.13281618990004063,
-            "drift": [
-              4.553247976116836,
-              -4.414107101038098
-            ]
-          }
+          "properties": { "spin": 0.13281618990004063, "drift": [4.553247976116836, -4.414107101038098] }
         },
         {
           "id": "greyBig2-22",
@@ -3826,13 +2277,7 @@
           "y": 2929,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": -0.1616969296708703,
-            "drift": [
-              -8.957365139387548,
-              10.289807964116335
-            ]
-          }
+          "properties": { "spin": -0.1616969296708703, "drift": [-8.957365139387548, 10.289807964116335] }
         },
         {
           "id": "brownBig1-35",
@@ -3841,13 +2286,7 @@
           "y": 451,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.49615749344229687,
-            "drift": [
-              13.051608203910291,
-              -3.3559392001479864
-            ]
-          }
+          "properties": { "spin": 0.49615749344229687, "drift": [13.051608203910291, -3.3559392001479864] }
         },
         {
           "id": "greyBig2-23",
@@ -3856,13 +2295,7 @@
           "y": 4735,
           "width": 204,
           "height": 204,
-          "properties": {
-            "spin": -0.15785924093797804,
-            "drift": [
-              0.9077783860266209,
-              0.3164479834958911
-            ]
-          }
+          "properties": { "spin": -0.15785924093797804, "drift": [0.9077783860266209, 0.3164479834958911] }
         },
         {
           "id": "brownBig1-36",
@@ -3871,13 +2304,7 @@
           "y": 1270,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.5077997731044889,
-            "drift": [
-              1.9786445433273911,
-              15.806929048150778
-            ]
-          }
+          "properties": { "spin": -0.5077997731044889, "drift": [1.9786445433273911, 15.806929048150778] }
         },
         {
           "id": "brownMed1-36",
@@ -3886,13 +2313,7 @@
           "y": 5110,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.05909207062795763,
-            "drift": [
-              13.632586989551783,
-              -17.64276929665357
-            ]
-          }
+          "properties": { "spin": -0.05909207062795763, "drift": [13.632586989551783, -17.64276929665357] }
         },
         {
           "id": "greyMed2-33",
@@ -3901,13 +2322,7 @@
           "y": 3004,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.06251894608139996,
-            "drift": [
-              -1.9633372435346246,
-              -7.426847448572516
-            ]
-          }
+          "properties": { "spin": -0.06251894608139996, "drift": [-1.9633372435346246, -7.426847448572516] }
         },
         {
           "id": "brownSmall1-46",
@@ -3916,13 +2331,7 @@
           "y": 303,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": 0.22202532710507517,
-            "drift": [
-              17.726434277370572,
-              -2.4860127260908484
-            ]
-          }
+          "properties": { "spin": 0.22202532710507517, "drift": [17.726434277370572, -2.4860127260908484] }
         },
         {
           "id": "brownBig1-37",
@@ -3931,13 +2340,7 @@
           "y": 6314,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.06564404508098964,
-            "drift": [
-              3.8742939960211515,
-              7.7121741296723485
-            ]
-          }
+          "properties": { "spin": -0.06564404508098964, "drift": [3.8742939960211515, 7.7121741296723485] }
         },
         {
           "id": "greySmall2-31",
@@ -3946,13 +2349,7 @@
           "y": 6547,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.1854235142469406,
-            "drift": [
-              -17.75310964230448,
-              5.671090157702565
-            ]
-          }
+          "properties": { "spin": -0.1854235142469406, "drift": [-17.75310964230448, 5.671090157702565] }
         },
         {
           "id": "greySmall2-32",
@@ -3961,13 +2358,7 @@
           "y": 2379,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.23221014272421597,
-            "drift": [
-              -15.136093745939434,
-              -13.944012813270092
-            ]
-          }
+          "properties": { "spin": -0.23221014272421597, "drift": [-15.136093745939434, -13.944012813270092] }
         },
         {
           "id": "brownBig1-38",
@@ -3976,13 +2367,7 @@
           "y": 4941,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.29082120303064585,
-            "drift": [
-              -16.612315404228866,
-              -5.799777030944824
-            ]
-          }
+          "properties": { "spin": 0.29082120303064585, "drift": [-16.612315404228866, -5.799777030944824] }
         },
         {
           "id": "brownMed1-37",
@@ -3991,13 +2376,7 @@
           "y": 3728,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.026705338060855843,
-            "drift": [
-              5.413374639116228,
-              13.919621961191297
-            ]
-          }
+          "properties": { "spin": -0.026705338060855843, "drift": [5.413374639116228, 13.919621961191297] }
         },
         {
           "id": "brownMed1-38",
@@ -4006,13 +2385,7 @@
           "y": 586,
           "width": 69,
           "height": 69,
-          "properties": {
-            "spin": -0.5878591801039874,
-            "drift": [
-              11.445569330826402,
-              -7.2111591612920165
-            ]
-          }
+          "properties": { "spin": -0.5878591801039874, "drift": [11.445569330826402, -7.2111591612920165] }
         },
         {
           "id": "greySmall2-33",
@@ -4021,13 +2394,7 @@
           "y": 788,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.5173275746405125,
-            "drift": [
-              0.06309205200523138,
-              14.796311030164361
-            ]
-          }
+          "properties": { "spin": -0.5173275746405125, "drift": [0.06309205200523138, 14.796311030164361] }
         },
         {
           "id": "greySmall2-34",
@@ -4036,13 +2403,7 @@
           "y": 5724,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.18457196764647965,
-            "drift": [
-              -7.868150283582509,
-              3.647666847333312
-            ]
-          }
+          "properties": { "spin": 0.18457196764647965, "drift": [-7.868150283582509, 3.647666847333312] }
         },
         {
           "id": "greySmall2-35",
@@ -4051,13 +2412,7 @@
           "y": 497,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": 0.5678297001868485,
-            "drift": [
-              6.449552449397743,
-              -2.2107191998511553
-            ]
-          }
+          "properties": { "spin": 0.5678297001868485, "drift": [6.449552449397743, -2.2107191998511553] }
         },
         {
           "id": "greyMed2-34",
@@ -4066,13 +2421,7 @@
           "y": 5625,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.4735253892838955,
-            "drift": [
-              7.040513738058507,
-              3.628288859501481
-            ]
-          }
+          "properties": { "spin": -0.4735253892838955, "drift": [7.040513738058507, 3.628288859501481] }
         },
         {
           "id": "brownSmall1-47",
@@ -4081,13 +2430,7 @@
           "y": 3753,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.29785968689247966,
-            "drift": [
-              -6.3612941186875105,
-              11.405538694001734
-            ]
-          }
+          "properties": { "spin": -0.29785968689247966, "drift": [-6.3612941186875105, 11.405538694001734] }
         },
         {
           "id": "brownSmall1-48",
@@ -4096,13 +2439,7 @@
           "y": 5516,
           "width": 42,
           "height": 42,
-          "properties": {
-            "spin": -0.3204992710612714,
-            "drift": [
-              13.02354913763702,
-              -16.373227718286216
-            ]
-          }
+          "properties": { "spin": -0.3204992710612714, "drift": [13.02354913763702, -16.373227718286216] }
         },
         {
           "id": "brownBig1-39",
@@ -4111,13 +2448,7 @@
           "y": 2068,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": 0.576605797279626,
-            "drift": [
-              -16.560046887025237,
-              -15.546178660355508
-            ]
-          }
+          "properties": { "spin": 0.576605797279626, "drift": [-16.560046887025237, -15.546178660355508] }
         },
         {
           "id": "brownBig3-39",
@@ -4126,13 +2457,7 @@
           "y": 2049,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.08165370309725406,
-            "drift": [
-              15.402885725721717,
-              16.861053963191807
-            ]
-          }
+          "properties": { "spin": 0.08165370309725406, "drift": [15.402885725721717, 16.861053963191807] }
         },
         {
           "id": "brownBig1-40",
@@ -4141,13 +2466,7 @@
           "y": 4305,
           "width": 172,
           "height": 172,
-          "properties": {
-            "spin": -0.230911145824939,
-            "drift": [
-              15.248319324105978,
-              -6.778595474548638
-            ]
-          }
+          "properties": { "spin": -0.230911145824939, "drift": [15.248319324105978, -6.778595474548638] }
         },
         {
           "id": "greySmall2-36",
@@ -4156,13 +2475,7 @@
           "y": 6391,
           "width": 44,
           "height": 44,
-          "properties": {
-            "spin": -0.41796401599422095,
-            "drift": [
-              -14.113236397504807,
-              9.6838903343305
-            ]
-          }
+          "properties": { "spin": -0.41796401599422095, "drift": [-14.113236397504807, 9.6838903343305] }
         },
         {
           "id": "brownBig3-40",
@@ -4171,13 +2484,7 @@
           "y": 6572,
           "width": 151,
           "height": 151,
-          "properties": {
-            "spin": 0.26573536209762094,
-            "drift": [
-              -4.893686701543629,
-              -7.358439886942506
-            ]
-          }
+          "properties": { "spin": 0.26573536209762094, "drift": [-4.893686701543629, -7.358439886942506] }
         },
         {
           "id": "greyMed2-35",
@@ -4186,110 +2493,20 @@
           "y": 5486,
           "width": 72,
           "height": 72,
-          "properties": {
-            "spin": -0.4351329982280731,
-            "drift": [
-              15.882179520092905,
-              17.364129664376378
-            ]
-          }
+          "properties": { "spin": -0.4351329982280731, "drift": [15.882179520092905, 17.364129664376378] }
         },
-        {
-          "id": "salvage-1",
-          "prefab": "salvage",
-          "x": 1908,
-          "y": 5551,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-2",
-          "prefab": "salvage",
-          "x": 3191,
-          "y": 4677,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-3",
-          "prefab": "salvage",
-          "x": 4355,
-          "y": 3163,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-4",
-          "prefab": "salvage",
-          "x": 5488,
-          "y": 1830,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-5",
-          "prefab": "salvage",
-          "x": 1085,
-          "y": 4267,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-6",
-          "prefab": "salvage",
-          "x": 1759,
-          "y": 2506,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-7",
-          "prefab": "salvage",
-          "x": 3029,
-          "y": 1514,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-8",
-          "prefab": "salvage",
-          "x": 4805,
-          "y": 1135,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-9",
-          "prefab": "salvage",
-          "x": 2506,
-          "y": 6255,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-10",
-          "prefab": "salvage",
-          "x": 4265,
-          "y": 5919,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-11",
-          "prefab": "salvage",
-          "x": 5678,
-          "y": 4498,
-          "width": 44,
-          "height": 44
-        },
-        {
-          "id": "salvage-12",
-          "prefab": "salvage",
-          "x": 6248,
-          "y": 2748,
-          "width": 44,
-          "height": 44
-        },
+        { "id": "salvage-1", "prefab": "salvage", "x": 1908, "y": 5551, "width": 44, "height": 44 },
+        { "id": "salvage-2", "prefab": "salvage", "x": 3191, "y": 4677, "width": 44, "height": 44 },
+        { "id": "salvage-3", "prefab": "salvage", "x": 4355, "y": 3163, "width": 44, "height": 44 },
+        { "id": "salvage-4", "prefab": "salvage", "x": 5488, "y": 1830, "width": 44, "height": 44 },
+        { "id": "salvage-5", "prefab": "salvage", "x": 1085, "y": 4267, "width": 44, "height": 44 },
+        { "id": "salvage-6", "prefab": "salvage", "x": 1759, "y": 2506, "width": 44, "height": 44 },
+        { "id": "salvage-7", "prefab": "salvage", "x": 3029, "y": 1514, "width": 44, "height": 44 },
+        { "id": "salvage-8", "prefab": "salvage", "x": 4805, "y": 1135, "width": 44, "height": 44 },
+        { "id": "salvage-9", "prefab": "salvage", "x": 2506, "y": 6255, "width": 44, "height": 44 },
+        { "id": "salvage-10", "prefab": "salvage", "x": 4265, "y": 5919, "width": 44, "height": 44 },
+        { "id": "salvage-11", "prefab": "salvage", "x": 5678, "y": 4498, "width": 44, "height": 44 },
+        { "id": "salvage-12", "prefab": "salvage", "x": 6248, "y": 2748, "width": 44, "height": 44 },
         {
           "id": "droneRed-1",
           "prefab": "droneRed",
@@ -4345,21 +2562,11 @@
           "y": 800,
           "width": 220,
           "height": 220,
-          "properties": {
-            "visible": true,
-            "triggers": "levelComplete",
-            "active": true
-          }
+          "properties": { "visible": true, "triggers": "levelComplete", "active": true }
         },
-        {
-          "id": "player-1",
-          "prefab": "player",
-          "x": 700,
-          "y": 6300,
-          "width": 60,
-          "height": 60
-        }
+        { "id": "player-1", "prefab": "player", "x": 700, "y": 6300, "width": 60, "height": 60 }
       ]
     }
-  ]
+  ],
+  "tileLayers": [{ "name": "starsFar", "spritesheet": "starsFar", "zIndex": -3, "parallax": 0.12 }]
 }
