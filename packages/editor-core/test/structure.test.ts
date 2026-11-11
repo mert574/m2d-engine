@@ -183,3 +183,56 @@ describe('inspector rows', () => {
     expect(frames[0]!.tuple?.map((t) => t.kind)).toEqual(['number', 'number']);
   });
 });
+
+describe('props', () => {
+  it('scatters instances as one op and erases by index', async () => {
+    const { scatterProps, erasePropInstances } = await import('../src/structure.ts');
+    const d = doc();
+    run(d, scatterProps(d, ['layers', 0, 'props', 0], [[1, 0, 2, 0.5, 1.2], [3, 0, 4, 0, 1]]));
+    const group = (d.layers as Array<{ props: Array<{ instances: number[][] }> }>)[0]!.props[0]!;
+    expect(group.instances).toHaveLength(3);
+    expect(group.instances[1]).toEqual([1, 0, 2, 0.5, 1.2]);
+    run(d, erasePropInstances(d, ['layers', 0, 'props', 0], [0, 2]));
+    expect(group.instances).toEqual([[1, 0, 2, 0.5, 1.2]]);
+    expect(erasePropInstances(d, ['layers', 0, 'props', 0], [])).toEqual([]);
+  });
+
+  it('promotes an instance to an object, lossless for a pure yaw', async () => {
+    const { promotePropInstance } = await import('../src/structure.ts');
+    const d = doc();
+    const layer = (d.layers as Array<Record<string, unknown>>)[0]!;
+    (layer.props as Array<Record<string, unknown>>)[0] = {
+      id: 'grass', prefab: 'crate', width: 2, height: 3, depth: 2, instances: [[5, 0, -2, Math.PI / 2, 2]]
+    };
+    const { ops, id } = promotePropInstance(d, ['layers', 0, 'props', 0, 'instances', 0]);
+    run(d, ops);
+    const made = objects(d).find((o) => o.id === id)!;
+    expect(made.prefab).toBe('crate');
+    expect(made).toMatchObject({ x: 5, y: 0, z: -2, width: 4, height: 6, depth: 4 });
+    const q = made.rotation as number[];
+    expect(q[1]).toBeCloseTo(Math.SQRT1_2, 4);
+    expect(q[3]).toBeCloseTo(Math.SQRT1_2, 4);
+    // The crate prefab draws a model: the instance scale rides overrides.mesh.scale.
+    expect((made.overrides as { mesh: { scale: number } }).mesh.scale).toBe(2);
+    expect((layer.props as Array<{ instances: unknown[] }>)[0]!.instances).toHaveLength(0);
+  });
+
+  it('demotes an object into a matching group, or a new one', async () => {
+    const { demoteObjectToProp } = await import('../src/structure.ts');
+    const d = doc();
+    // floor is a wall of 10x1x10; the grass group is wall at the default size, so no match: a new group.
+    const first = demoteObjectToProp(d, ['layers', 0, 'objects', 0]);
+    run(d, first.ops);
+    const props = (d.layers as Array<{ props: Array<Record<string, unknown>> }>)[0]!.props;
+    expect(props).toHaveLength(2);
+    expect(props[1]).toMatchObject({ id: 'props-wall', prefab: 'wall', width: 10, height: 1, depth: 10, collider: 'bounds' });
+    expect(props[1]!.instances).toEqual([[0, 0, 0, 0, 1]]);
+    expect(objects(d).some((o) => o.id === 'floor')).toBe(false);
+    // An object with overrides cannot ride an instance.
+    expect(() => demoteObjectToProp(d, ['layers', 0, 'objects', 0])).toThrow(/overrides/);
+    // A tilted object cannot either.
+    const far = objects(d, 1)[0]!;
+    far.rotation = [0.3826834, 0, 0, 0.9238795];
+    expect(() => demoteObjectToProp(d, ['layers', 1, 'objects', 0])).toThrow(/tilted/);
+  });
+});

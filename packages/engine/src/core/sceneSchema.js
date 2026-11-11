@@ -620,7 +620,13 @@ const OBJECT = s.object({
  * turn about the up axis in radians, and a multiplier on the size.
  */
 const PROP_INSTANCE = s.tuple(
-  [s.number(), s.number(), s.number(), s.number(), s.number({ positive: true })],
+  [
+    s.number({ label: 'X', unit: 'm' }),
+    s.number({ label: 'Y', unit: 'm' }),
+    s.number({ label: 'Z', unit: 'm' }),
+    s.number({ label: 'Turn', unit: 'rad' }),
+    s.number({ label: 'Scale', positive: true })
+  ],
   { message: 'must be an [x, y, z, yaw, scale] tuple of numbers' }
 );
 

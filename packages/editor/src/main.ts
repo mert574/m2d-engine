@@ -29,7 +29,7 @@
  */
 
 import {
-  sceneOutline, inspectNode, uniqueId, isPlainObject, validateScene, parsePath, structure,
+  sceneOutline, inspectNode, uniqueId, isPlainObject, validateScene, parsePath, structure, rotation,
   type OutlineNode, type PathSegment, type Op, type Edit, type ValidationIssue, type Quaternion
 } from 'm2d-editor-core';
 import { M2D } from 'm2d-engine/core/m2d.js';
@@ -39,7 +39,8 @@ import {
   type HostProject, type SceneEntry, type GameDefinition, type HooksModule
 } from './host.ts';
 import { RemoteDocument, type ReplicaChange } from './remote.ts';
-import { Viewport } from './viewport.ts';
+import { Viewport, encodeInstance, decodeInstance } from './viewport.ts';
+import { createPropBrush } from './propBrush.ts';
 import { createTree, type SelectMode } from './tree.ts';
 import { showMenu, SEPARATOR, type MenuItem } from './menu.ts';
 import { buildCatalog, type CatalogEntry } from './catalog.ts';
@@ -238,6 +239,12 @@ const overlay = createOverlay(viewportPanel, viewport, {
   angleStep: Math.PI / 12,
   editable: () => !readOnly() && !playing,
   placed: (id) => {
+    // A prop instance: the tuple is the document's word on where it stands.
+    const tuplePath = instancePath(id);
+    if (tuplePath) {
+      const [x, y, z, yaw = 0] = at(tuplePath) as number[];
+      return { x, y, z, rotation: rotation.forScene(rotation.fromAxisAngle({ x: 0, y: 1, z: 0 }, yaw)), uniform: true };
+    }
     const path = objectPath(id);
     const object = path ? at(path) as Record<string, unknown> : null;
     if (!object) return null;
@@ -250,6 +257,13 @@ const overlay = createOverlay(viewportPanel, viewport, {
     };
   },
   commit: (results) => commitGizmo(results)
+});
+const brush = createPropBrush(viewportPanel, viewport, {
+  doc: () => remote?.doc.data ?? null,
+  edit: (label, ops) => edit({ label, ops }),
+  ghost: (edges, caption) => overlay.ghost(edges, caption),
+  say,
+  changed: () => updateArrange()
 });
 const components = createComponentsPanel($<HTMLElement>('#components'), {
   catalog: () => buildCatalog(viewport.registries),
@@ -303,6 +317,18 @@ function objectPath(id: string): PathSegment[] | null {
   return null;
 }
 
+/**
+ * The document path of the prop instance an encoded id names
+ * (`props:<layer>:<prop>:<index>`, see viewport.ts), checked against the
+ * document, or null.
+ */
+function instancePath(id: string): PathSegment[] | null {
+  const ref = decodeInstance(id);
+  if (!ref) return null;
+  const path: PathSegment[] = ['layers', ref.layer, 'props', ref.prop, 'instances', ref.index];
+  return Array.isArray(at(path)) ? path : null;
+}
+
 /** The id of the placed object a path is in, if it is in one. */
 function objectIdAt(path: PathSegment[]): string | null {
   if (path.length < 4 || path[0] !== 'layers' || path[2] !== 'objects') return null;
@@ -318,17 +344,20 @@ function selectionFor(path: PathSegment[]): typeof selection {
 const selectedIds = (): string[] => (selection && 'ids' in selection ? selection.ids : []);
 const selectedId = (): string | null => selectedIds()[0] ?? null;
 const selectedPath = (): PathSegment[] =>
-  (selection && 'ids' in selection ? objectPath(selection.ids[0]!) : selection?.path) ?? [];
+  (selection && 'ids' in selection ? objectPath(selection.ids[0]!) ?? instancePath(selection.ids[0]!) : selection?.path) ?? [];
+
+/** The tree row a selected thing sits under: an instance highlights its group. */
+const treePathOf = (id: string): PathSegment[] | null => objectPath(id) ?? instancePath(id)?.slice(0, 4) ?? null;
 
 function select(next: typeof selection): void {
   selection = next;
-  // Selected objects that no longer exist drop out; none left falls back to the scene.
+  // Selected things that no longer exist drop out; none left falls back to the scene.
   if (selection && 'ids' in selection) {
-    const ids = selection.ids.filter((id) => objectPath(id));
+    const ids = selection.ids.filter((id) => objectPath(id) || instancePath(id));
     selection = ids.length ? { ids } : null;
   }
-  const others = selectedIds().slice(1).map((id) => objectPath(id)).filter((path): path is PathSegment[] => !!path);
-  tree.select(selectedPath(), others);
+  const others = selectedIds().slice(1).map(treePathOf).filter((path): path is PathSegment[] => !!path);
+  tree.select(selectedId() ? treePathOf(selectedId()!) ?? [] : selectedPath(), others);
   overlay.select(playing ? [] : selectedIds());
   frameTool.disabled = !selectedId() || playing;
   updateArrange();
@@ -433,7 +462,12 @@ function showInspector(): void {
   if (!remote) return;
   const path = selectedPath();
   const node = nodeAt(outline, path);
-  const heading = path.length && node ? node.label : remote.doc.name ?? 'Scene';
+  // A prop instance has no tree node of its own; it reads as its group plus an index.
+  const instance = !node && path.length === 6 && path[2] === 'props' && path[4] === 'instances';
+  const groupId = instance ? (at(path.slice(0, 4)) as { id?: string } | undefined)?.id : undefined;
+  const heading = instance
+    ? `${groupId ?? 'props'} · ${String(path[5])}`
+    : path.length && node ? node.label : remote.doc.name ?? 'Scene';
   const here = issues.filter((issue) => startsWith(parsePath(issue.path), path));
   let rows = inspectNode(remote.doc.data, path, { registries: viewport.registries });
   // A placed object shows only what its level's dimension can take: a 2D
@@ -448,7 +482,7 @@ function showInspector(): void {
   inspector.show(heading, rows, {
     readOnly: readOnly() || playing,
     issues: here,
-    kind: node ? (node.detail && node.kind === 'object' ? node.detail : node.kind) : 'scene',
+    kind: instance ? 'instance' : node ? (node.detail && node.kind === 'object' ? node.detail : node.kind) : 'scene',
     groups: groupsFor(kind, viewport.dimensions),
     live: kind === 'object' && selectedId() ? viewport.liveConstraints(selectedId()!) : undefined
   });
@@ -537,6 +571,19 @@ function commitGizmo(results: Array<{ id: string; result: GizmoResult }>): void 
   const round = (value: number) => Math.round(value * 1e4) / 1e4;
   let verb = 'Move';
   for (const { id, result } of results) {
+    // A prop instance commits as its whole tuple: one set, and the props
+    // rebuild in place when it lands.
+    const tuplePath = instancePath(id);
+    if (tuplePath) {
+      const info = viewport.instanceAt(id);
+      let [x = 0, y = 0, z = 0, yaw = 0, scale = 1] = at(tuplePath) as number[];
+      if (result.position) { x = result.position.x ?? x; y = result.position.y ?? y; z = result.position.z ?? z; }
+      if (result.rotation) yaw = 2 * Math.atan2(result.rotation[1], result.rotation[3]);
+      if (result.size && info && info.size.x > 1e-9) scale = Math.max(1e-4, scale * (result.size.x / info.size.x));
+      ops.push({ op: 'set', path: tuplePath, value: [round(x), round(y), round(z), round(yaw), round(scale)] });
+      verb = result.size ? 'Resize' : result.rotation ? 'Rotate' : 'Move';
+      continue;
+    }
     const path = objectPath(id);
     if (!path) continue;
     if (result.position) {
@@ -560,14 +607,48 @@ function commitGizmo(results: Array<{ id: string; result: GizmoResult }>): void 
 function removeSelected(): void {
   const ids = selectedIds();
   if (!ids.length || !remote) return;
-  edit({ label: `Delete ${ids.length === 1 ? ids[0] : `${ids.length} objects`}`, ops: structure.removeObjects(remote.doc.data, ids) });
+  const objectIds = ids.filter((id) => objectPath(id));
+  // Instances erase per group, as one set each.
+  const groups = new Map<string, { path: PathSegment[]; indices: number[] }>();
+  for (const id of ids) {
+    const path = instancePath(id);
+    if (!path) continue;
+    const key = JSON.stringify(path.slice(0, 4));
+    const entry = groups.get(key) ?? { path: path.slice(0, 4), indices: [] };
+    entry.indices.push(path[5] as number);
+    groups.set(key, entry);
+  }
+  const ops = [
+    ...structure.removeObjects(remote.doc.data, objectIds),
+    ...[...groups.values()].flatMap(({ path, indices }) => structure.erasePropInstances(remote!.doc.data, path, indices))
+  ];
+  if (ops.length) edit({ label: `Delete ${ids.length === 1 ? (objectIds[0] ?? 'instance') : `${ids.length} things`}`, ops });
 }
 
-/** Copies of the selected objects beside them, selected after. */
+/** Copies of the selected objects (or prop instances) beside them, selected after. */
 function duplicateSelected(): void {
   const ids = selectedIds();
   if (!ids.length || !remote) return;
   const step = viewport.dimensions === 3 ? 1 : 16;
+  const instancePaths = ids.map(instancePath).filter((path): path is PathSegment[] => !!path);
+  if (instancePaths.length) {
+    const ops: Op[] = [];
+    const made: string[] = [];
+    const added = new Map<string, number>();
+    for (const path of instancePaths) {
+      const tuple = (at(path) as number[]).slice();
+      tuple[0] = (tuple[0] ?? 0) + step;
+      const key = JSON.stringify(path.slice(0, 4));
+      const group = at(path.slice(0, 4)) as { instances: unknown[] };
+      const index = group.instances.length + (added.get(key) ?? 0);
+      ops.push({ op: 'insert', path: path.slice(0, 5), index, value: tuple });
+      made.push(encodeInstance({ layer: path[1] as number, prop: path[3] as number, index }));
+      added.set(key, (added.get(key) ?? 0) + 1);
+    }
+    edit({ label: `Duplicate ${instancePaths.length === 1 ? 'an instance' : `${instancePaths.length} instances`}`, ops });
+    select({ ids: made });
+    return;
+  }
   const made = pasteObjects(ids.map((id) => at(objectPath(id)!) as Record<string, unknown>), { x: step }, 'Duplicate');
   if (made) select({ ids: made });
 }
@@ -589,8 +670,11 @@ function pasteObjects(objects: Array<Record<string, unknown>>, offset: { x?: num
 /** The clipboard: placed objects as JSON, in localStorage so another scene's tab can paste them. */
 const CLIPBOARD = 'm2d-editor.clipboard';
 function copySelected(): void {
-  const ids = selectedIds();
-  if (!ids.length) return;
+  const ids = selectedIds().filter((id) => objectPath(id));
+  if (!ids.length) {
+    if (selectedIds().length) say('Prop instances duplicate (Ctrl+D) rather than copy');
+    return;
+  }
   const objects = ids.map((id) => at(objectPath(id)!));
   localStorage.setItem(CLIPBOARD, JSON.stringify({ dimensions: viewport.dimensions, objects }));
   say(`Copied ${ids.length === 1 ? ids[0] : `${ids.length} objects`}`);
@@ -617,9 +701,44 @@ function arrangeSelected(axis: 'x' | 'y' | 'z', how: 'min' | 'center' | 'max' | 
   if (ops.length) edit({ label: `${how === 'distribute' ? 'Distribute' : 'Align'} ${ids.length} objects on ${axis}`, ops });
 }
 
-/** The Arrange strip over the viewport: shown with two or more objects selected. */
+/** The Arrange strip over the viewport: shown with two or more objects selected, or any prop instance. */
 function updateArrange(): void {
   const ids = selectedIds();
+  const instances = ids.filter((id) => instancePath(id));
+  if (instances.length && !playing && !readOnly()) {
+    arrangeStrip.hidden = false;
+    arrangeStrip.replaceChildren();
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = instances.length === 1
+      ? (viewport.instanceAt(instances[0]!)?.group ?? 'instance')
+      : `${instances.length} instances`;
+    arrangeStrip.append(label);
+    if (ids.length === 1) {
+      const promote = document.createElement('button');
+      promote.type = 'button';
+      promote.textContent = 'To object';
+      promote.title = 'Turn this instance into a placed object, lossless';
+      promote.addEventListener('click', () => {
+        if (!remote) return;
+        try {
+          const { ops, id } = structure.promotePropInstance(remote.doc.data, instancePath(ids[0]!)!);
+          edit({ label: `Promote an instance to ${id}`, ops });
+          select({ ids: [id] });
+        } catch (error) {
+          say(String((error as Error).message ?? error));
+        }
+      });
+      arrangeStrip.append(promote);
+    }
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Delete';
+    remove.title = 'Delete the selected instances (Del)';
+    remove.addEventListener('click', removeSelected);
+    arrangeStrip.append(remove);
+    return;
+  }
   arrangeStrip.hidden = ids.length < 2 || playing;
   if (arrangeStrip.hidden) return;
   arrangeStrip.replaceChildren();
@@ -706,6 +825,10 @@ function treeMenu(node: OutlineNode): MenuItem[] {
       SEPARATOR,
       { label: `Select all ${object?.prefab ?? ''}`.trim(), hint: 'Ctrl+Shift+A', disabled: !object?.prefab, action: () => selectAllOfPrefab(object?.prefab) },
       { label: 'Make a prefab of this', disabled: many, action: () => { try { const { ops, name } = structure.objectToPrefab(data, node.path); edit({ label: `Prefab ${name} from ${ids[0]}`, ops }); } catch (error) { say(String((error as Error).message ?? error)); } } },
+      ...(viewport.dimensions === 3 ? [{
+        label: 'Make a prop instance', disabled: many,
+        action: () => { try { const { ops, group } = structure.demoteObjectToProp(data, node.path); edit({ label: `Demote ${ids[0]} into ${group}`, ops }); select({ path: ['layers', node.path[1]!] }); } catch (error) { say(String((error as Error).message ?? error)); } }
+      }] : []),
       SEPARATOR,
       { label: many ? `Delete ${ids.length}` : 'Delete', hint: 'Del', danger: true, action: removeSelected }
     );
@@ -719,6 +842,20 @@ function treeMenu(node: OutlineNode): MenuItem[] {
       { label: 'Move down', disabled: index >= layers.length - 1, action: () => edit({ label: `Move ${layerName(index)} down`, ops: structure.moveLayer(data, index, index + 1) }) },
       SEPARATOR,
       { label: 'Delete layer', danger: true, disabled: layers.length <= 1, action: () => { if (confirm(`Delete ${layerName(index)} and everything in it?`)) edit({ label: `Delete ${layerName(index)}`, ops: structure.removeLayer(data, index) }); } }
+    );
+  } else if (node.kind === 'props') {
+    const group = at(node.path) as { id?: string; prefab?: string; instances?: unknown[] } | undefined;
+    const count = Array.isArray(group?.instances) ? group.instances.length : 0;
+    const name = group?.id ?? 'the group';
+    items.push(
+      { label: 'Scatter brush', action: () => brush.start('scatter', node.path) },
+      { label: 'Erase brush', action: () => brush.start('erase', node.path) },
+      SEPARATOR,
+      { label: `Delete group (${count} instance${count === 1 ? '' : 's'})`, danger: true, action: () => {
+        if (!count || confirm(`Delete ${name} and its ${count} instances?`)) {
+          edit({ label: `Delete ${name}`, ops: [{ op: 'remove', path: node.path.slice(0, 3), index: node.path[3] as number }] });
+        }
+      } }
     );
   } else if (node.kind === 'prefab') {
     const name = String(node.path[1]);
@@ -948,6 +1085,7 @@ async function materialize(keepView: boolean): Promise<void> {
 
 async function open(next: SceneEntry): Promise<void> {
   if (!project) return;
+  brush.stop();
   remote?.close();
   remote = null;
   selection = null;
@@ -1250,6 +1388,7 @@ async function place(item: Placeable, point?: { x: number; y: number }): Promise
 /** Play the scene as the document stands, unsaved edits included, with the game's hooks. */
 async function startPlay(): Promise<void> {
   if (!project || !remote) return;
+  brush.stop();
   if (!playing) editCamera = viewport.captureCamera();
   playing = true;
   editorFrame.classList.add('playing');

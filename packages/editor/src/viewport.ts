@@ -109,6 +109,15 @@ interface EntityLike {
   /** The constraints attached to the entity, by slot, whoever attached them. */
   constraints?: Map<string, { constructor: { name: string; params?: Record<string, unknown> | null }; [field: string]: unknown }>;
 }
+/** A layer's prop group as the loaded scene config holds it. */
+interface PropGroupLike {
+  id?: string;
+  prefab?: string;
+  width?: number;
+  height?: number;
+  depth?: number;
+  instances?: number[][];
+}
 interface SceneLike {
   entitiesById: Map<string, EntityLike>;
   /** 3D: the loaded models by key, each with the bounds of its file. */
@@ -117,7 +126,50 @@ interface SceneLike {
   meshMaterials?: Map<string, unknown>;
   /** 2D: the loaded sprite sheets by key. */
   spriteSheets?: Map<string, unknown>;
+  /** The loaded document the scene was built from; props edit in place through it. */
+  config?: {
+    layers?: Array<{ props?: PropGroupLike[] }>;
+    prefabs?: Record<string, { mesh?: { model?: string; scale?: number; offset?: V3; shape?: string } }>;
+  };
   replaceObject(id: string | null, object: object | null, options?: { after?: string | null }): unknown;
+  /** Rebuild every prop from the config in place (E7b); see the engine's SceneProps. */
+  rebuildProps?(): void;
+}
+
+/**
+ * A prop instance, addressed by its place in the document. It has no id
+ * of its own, so the editor addresses it as `props:<layer>:<prop>:<index>`
+ * — a form no object id can take, since ids cannot hold a colon.
+ */
+export interface InstanceRef { layer: number; prop: number; index: number }
+
+export function encodeInstance(ref: InstanceRef): string {
+  return `props:${ref.layer}:${ref.prop}:${ref.index}`;
+}
+
+export function decodeInstance(id: string): InstanceRef | null {
+  if (!id.startsWith('props:')) return null;
+  const [layer, prop, index] = id.slice(6).split(':').map(Number);
+  return Number.isInteger(layer) && Number.isInteger(prop) && Number.isInteger(index) && layer! >= 0 && prop! >= 0 && index! >= 0
+    ? { layer: layer!, prop: prop!, index: index! }
+    : null;
+}
+
+/** What the editor knows about one shown prop instance. */
+export interface InstanceInfo {
+  ref: InstanceRef;
+  /** The document's `[x, y, z, yaw, scale]`. */
+  tuple: [number, number, number, number, number];
+  position: V3;
+  yaw: number;
+  scale: number;
+  /** The drawn volume's full extents, instance scale included. */
+  size: V3;
+  /** The volume's centre, offset from the instance origin in its own frame. */
+  centre: V3;
+  /** The group's id and prefab, for labels. */
+  group: string;
+  prefab: string;
 }
 
 /** The geometry a pick tests for one entity, in the body's frame. */
@@ -247,6 +299,8 @@ export class Viewport {
   #drawOnDemand = true;
   /** Each placed object's document record as last built, by id; see `apply`. */
   #records = new Map<string, ObjectRecord>();
+  /** In-flight gizmo poses for prop instances: the outline moves, the batch waits for the commit. */
+  #instancePoses = new Map<string, { position?: V3; yaw?: number }>();
   #viewListeners = new Set<() => void>();
 
   constructor(canvas: HTMLCanvasElement) {
@@ -362,6 +416,7 @@ export class Viewport {
     }
     this.#game = game;
     this.#playing = playing;
+    this.#instancePoses.clear();
     if (playing) {
       // The game's own camera, its own input: the editor steps aside.
       this.canvas.focus();
@@ -420,9 +475,25 @@ export class Viewport {
   apply(ops: readonly Op[], data: Record<string, unknown>): Applied {
     if (this.#playing) return { kind: 'rebuild' };
     const scene = this.#scene();
-    if (!scene || !ops.every(objectLevel)) return { kind: 'rebuild' };
+    if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op))) return { kind: 'rebuild' };
     const result = validateScene(data, this.#game);
     if (!result.ok) return { kind: 'invalid', issues: result.issues };
+
+    // Props edit in place as a whole: the loaded groups go into the shown
+    // scene's config and the engine rebuilds its batches, bodies and
+    // lights from them (SceneProps.rebuild) — never the game around them.
+    let propsChanged = 0;
+    if (ops.some(propsLevel)) {
+      const layers = isPlainObject(result.loaded) && Array.isArray(result.loaded.layers) ? result.loaded.layers : null;
+      if (!scene.config?.layers || !scene.rebuildProps || !layers) return { kind: 'rebuild' };
+      layers.forEach((layer, i) => {
+        const shown = scene.config!.layers![i];
+        if (shown && isPlainObject(layer)) shown.props = (layer as { props?: PropGroupLike[] }).props;
+      });
+      this.#instancePoses.clear();
+      scene.rebuildProps();
+      propsChanged = ops.filter(propsLevel).length;
+    }
 
     const next = recordsOf(data);
     const loaded = loadedObjects(result.loaded);
@@ -475,6 +546,7 @@ export class Viewport {
     if (this.dimensions === 3) {
       const camera = game.camera as unknown as { screenToRay(x: number, y: number): { origin: V3; direction: V3 } };
       const volumes = [...scene.entitiesById].map(([id, entity]) => [id, entity, pickVolume(entity, scene)] as const);
+      const instances = this.#pickableInstances(scene);
       for (const { dx, dy, direct } of slopOffsets(PICK_SLOP)) {
         const view = viewAt(clientX + dx, clientY + dy);
         const { origin, direction } = camera.screenToRay(view.x, view.y);
@@ -487,6 +559,16 @@ export class Viewport {
           const t = rayShape(local, rotation.rotate(inverse, direction), volume.shape, volume.size);
           if (t === null) continue;
           hits.push({ id, t, tier: volume.hidden ? 1 : 0, backdrop: isBackdrop3D(volume.size, t), direct });
+        }
+        // Prop instances, by the same ranking: a yaw-only frame, so the
+        // ray turns about the up axis instead of a full quaternion.
+        for (const inst of instances) {
+          const p = inst.position;
+          const o = rotateY({ x: origin.x - p.x, y: origin.y - p.y, z: origin.z - p.z }, -inst.yaw);
+          const local = { x: o.x - inst.centre.x, y: o.y - inst.centre.y, z: o.z - inst.centre.z };
+          const t = rayShape(local, rotateY(direction, -inst.yaw), inst.shape, inst.size);
+          if (t === null) continue;
+          hits.push({ id: inst.id, t, tier: inst.hidden ? 1 : 0, backdrop: isBackdrop3D(inst.size, t), direct });
         }
       }
       return bestHit(hits);
@@ -522,6 +604,44 @@ export class Viewport {
     return bestHit(hits);
   }
 
+  /** What the editor knows about the prop instance `id` names — its tuple, volume and group — or null. */
+  instanceAt(id: string): InstanceInfo | null {
+    const ref = decodeInstance(id);
+    const scene = this.#scene();
+    if (!ref || !scene?.config) return null;
+    const group = scene.config.layers?.[ref.layer]?.props?.[ref.prop];
+    const tuple = group?.instances?.[ref.index];
+    if (!group || !Array.isArray(tuple)) return null;
+    const [x = 0, y = 0, z = 0, yaw = 0, scale = 1] = tuple;
+    const { size, centre } = instanceVolume(scene, group, scale);
+    return {
+      ref, tuple: [x, y, z, yaw, scale], position: { x, y, z }, yaw, scale, size, centre,
+      group: group.id ?? `props[${ref.prop}]`, prefab: group.prefab ?? ''
+    };
+  }
+
+  /** Every prop instance of the shown 3D scene, with its pick volume. */
+  #pickableInstances(scene: SceneLike): Array<{ id: string; position: V3; yaw: number; shape: Shape; size: V3; centre: V3; hidden: boolean }> {
+    const out: Array<{ id: string; position: V3; yaw: number; shape: Shape; size: V3; centre: V3; hidden: boolean }> = [];
+    const layers = scene.config?.layers ?? [];
+    layers.forEach((layer, l) => {
+      (layer.props ?? []).forEach((group, p) => {
+        const mesh = group.prefab ? scene.config?.prefabs?.[group.prefab]?.mesh : undefined;
+        // A model streamed out or still loading is not on screen: its
+        // instances rank behind drawn things, but still answer a click.
+        const hidden = !!mesh?.model && !scene.models?.has(mesh.model);
+        const { shape } = instanceShape(mesh);
+        (group.instances ?? []).forEach((tuple, i) => {
+          if (!Array.isArray(tuple)) return;
+          const [x = 0, y = 0, z = 0, yaw = 0, scale = 1] = tuple;
+          const { size, centre } = instanceVolume(scene, group, scale);
+          out.push({ id: encodeInstance({ layer: l, prop: p, index: i }), position: { x, y, z }, yaw, shape, size, centre, hidden });
+        });
+      });
+    });
+    return out;
+  }
+
   /** Whether every asset a loaded object's overrides name is in the shown scene already. */
   #assetsLoaded(scene: SceneLike, object: object | undefined): boolean {
     const overrides = isPlainObject(object) && isPlainObject(object.overrides) ? object.overrides : null;
@@ -548,6 +668,7 @@ export class Viewport {
    * the entity back when the drag is cancelled.
    */
   previewSize(id: string, size: { x: number; y: number; z?: number }): void {
+    if (decodeInstance(id)) { this.#viewChanged(); return; }
     const entity = this.#scene()?.entitiesById.get(id);
     if (!entity) return;
     if (!this.#sizePreviews.has(id)) {
@@ -624,15 +745,12 @@ export class Viewport {
   /** Where an object is on screen, for its outline and gizmo; null if it is not shown or is behind the eye. */
   placement(id: string): Placement | null {
     if (this.#playing) return null;
+    if (decodeInstance(id)) return this.#instancePlacement(id);
     const entity = this.#scene()?.entitiesById.get(id);
     if (!entity) return null;
     const toClient = this.#toClient();
     if (!toClient) return null;
     const angle = entity.body.angle ?? 0;
-    const rect = this.canvas.getBoundingClientRect();
-    const onScreen = (c: Point) =>
-      c.x >= rect.left - OFFSCREEN_MARGIN && c.x <= rect.right + OFFSCREEN_MARGIN
-      && c.y >= rect.top - OFFSCREEN_MARGIN && c.y <= rect.bottom + OFFSCREEN_MARGIN;
 
     if (this.dimensions === 3) {
       const p = entity.position as V3;
@@ -643,27 +761,9 @@ export class Viewport {
       if (center.behind) return null;
       const edges = this.outline({ position: p, size, rotation: q });
       const axes = (['x', 'y', 'z'] as const).map((axis) => axisOf(axis, center, toClient({ ...p, [axis]: p[axis] + 1 })));
-      // Rings sized to read about RING_PX across on screen, whatever the distance.
-      const pxPerUnit = axes.reduce((sum, a) => sum + a.scale, 0) / 3 || 1;
-      const radius = RING_PX / pxPerUnit;
-      const eye = (this.#game?.camera as unknown as { position?: V3 } | undefined)?.position ?? p;
-      const rings = (['x', 'y', 'z'] as const).map((axis) => {
-        const normal = { x: axis === 'x' ? 1 : 0, y: axis === 'y' ? 1 : 0, z: axis === 'z' ? 1 : 0 };
-        const [u, v] = axis === 'x' ? ['y', 'z'] as const : axis === 'y' ? ['z', 'x'] as const : ['x', 'y'] as const;
-        const points: Point[] = [];
-        for (let i = 0; i <= 48; i++) {
-          const a = (i / 48) * Math.PI * 2;
-          const w = { ...p };
-          w[u] += Math.cos(a) * radius;
-          w[v] += Math.sin(a) * radius;
-          const point = toClient(w);
-          if (!point.behind) points.push(point);
-        }
-        const facing = (eye[axis] - p[axis]) > 0;
-        return { axis, normal, points, facing };
-      });
+      const rings = this.#rings3D(p, axes, toClient);
       return {
-        id, dimensions: 3, center, edges, axes, size, onScreen: onScreen(center),
+        id, dimensions: 3, center, edges, axes, size, onScreen: this.#onScreen(center),
         position: { x: p.x, y: p.y, z: p.z }, angle, rotation: q, rings
       };
     }
@@ -681,9 +781,64 @@ export class Viewport {
     ];
     const center = toClient(drawn);
     return {
-      id, dimensions: 2, center, edges, axes, size: { x: entity.size.x, y: entity.size.y }, onScreen: onScreen(center),
+      id, dimensions: 2, center, edges, axes, size: { x: entity.size.x, y: entity.size.y }, onScreen: this.#onScreen(center),
       drawnAt: { x: drawn.x, y: drawn.y }, position: { x: ground.x, y: ground.y }, angle
     };
+  }
+
+  /** A prop instance's placement: its volume outlined, yaw the only ring, a uniform scale. */
+  #instancePlacement(id: string): Placement | null {
+    if (this.dimensions !== 3) return null;
+    const info = this.instanceAt(id);
+    const toClient = this.#toClient();
+    if (!info || !toClient) return null;
+    const pose = this.#instancePoses.get(id);
+    const p = pose?.position ?? info.position;
+    const yaw = pose?.yaw ?? info.yaw;
+    const q: Quaternion = rotation.forScene(rotation.fromAxisAngle({ x: 0, y: 1, z: 0 }, yaw));
+    const offset = rotateY(info.centre, yaw);
+    const drawnAt = { x: p.x + offset.x, y: p.y + offset.y, z: p.z + offset.z };
+    const center = toClient(drawnAt);
+    if (center.behind) return null;
+    const edges = this.outline({ position: drawnAt, size: info.size, rotation: q });
+    const axes = (['x', 'y', 'z'] as const).map((axis) => axisOf(axis, center, toClient({ ...drawnAt, [axis]: drawnAt[axis] + 1 })));
+    // An instance turns about the up axis alone, so only that ring shows.
+    const rings = this.#rings3D(drawnAt, axes, toClient).filter((ring) => ring.axis === 'y');
+    return {
+      id, dimensions: 3, center, edges, axes, size: { ...info.size }, onScreen: this.#onScreen(center),
+      position: { x: p.x, y: p.y, z: p.z }, angle: 0, rotation: q, rings
+    };
+  }
+
+  /** Whether a client point is on the canvas (within a small margin); off it a gizmo would float over nothing. */
+  #onScreen(c: Point): boolean {
+    const rect = this.canvas.getBoundingClientRect();
+    return c.x >= rect.left - OFFSCREEN_MARGIN && c.x <= rect.right + OFFSCREEN_MARGIN
+      && c.y >= rect.top - OFFSCREEN_MARGIN && c.y <= rect.bottom + OFFSCREEN_MARGIN;
+  }
+
+  /** The three rotate rings around `p`, sized to read about RING_PX across on screen. */
+  #rings3D(
+    p: V3, axes: Placement['axes'], toClient: (point: { x: number; y: number; z?: number }) => ClientPoint
+  ): NonNullable<Placement['rings']> {
+    const pxPerUnit = axes.reduce((sum, a) => sum + a.scale, 0) / 3 || 1;
+    const radius = RING_PX / pxPerUnit;
+    const eye = (this.#game?.camera as unknown as { position?: V3 } | undefined)?.position ?? p;
+    return (['x', 'y', 'z'] as const).map((axis) => {
+      const normal = { x: axis === 'x' ? 1 : 0, y: axis === 'y' ? 1 : 0, z: axis === 'z' ? 1 : 0 };
+      const [u, v] = axis === 'x' ? ['y', 'z'] as const : axis === 'y' ? ['z', 'x'] as const : ['x', 'y'] as const;
+      const points: Point[] = [];
+      for (let i = 0; i <= 48; i++) {
+        const a = (i / 48) * Math.PI * 2;
+        const w = { ...p };
+        w[u] += Math.cos(a) * radius;
+        w[v] += Math.sin(a) * radius;
+        const point = toClient(w);
+        if (!point.behind) points.push(point);
+      }
+      const facing = (eye[axis] - p[axis]) > 0;
+      return { axis, normal, points, facing };
+    });
   }
 
   /**
@@ -775,6 +930,16 @@ export class Viewport {
    * stands may then look different there, which is the truth.
    */
   preview(id: string, pose: Pose): void {
+    if (decodeInstance(id)) {
+      // The batch cannot move per frame (every shadow cube would re-render);
+      // the pose moves the overlay's outline, and the commit rebuilds once.
+      const entry = this.#instancePoses.get(id) ?? {};
+      if (pose.position) entry.position = { x: pose.position.x, y: pose.position.y, z: pose.position.z ?? 0 };
+      if (pose.rotation) entry.yaw = 2 * Math.atan2(pose.rotation[1], pose.rotation[3]);
+      this.#instancePoses.set(id, entry);
+      this.#viewChanged();
+      return;
+    }
     const entity = this.#scene()?.entitiesById.get(id);
     if (!entity) return;
     const { position, angle, rotation: q } = pose;
@@ -784,10 +949,17 @@ export class Viewport {
     this.#viewChanged();
   }
 
-  /** Point the camera at an object, keeping the zoom and the angle. */
+  /** Point the camera at an object or a prop instance, keeping the zoom and the angle. */
   frame(id: string): void {
-    const entity = this.#scene()?.entitiesById.get(id);
     const camera = this.#game?.camera as (Record<string, unknown> & { update?(dt: number): void; lookAt?: Record<string, number> }) | undefined;
+    const instance = decodeInstance(id) ? this.instanceAt(id) : null;
+    if (instance && camera) {
+      if (camera.lookAt) Object.assign(camera.lookAt, instance.position);
+      camera.update?.(0);
+      this.#viewChanged();
+      return;
+    }
+    const entity = this.#scene()?.entitiesById.get(id);
     if (!entity || !camera) return;
     if (this.dimensions === 3) {
       const p = entity.position as V3;
@@ -848,6 +1020,7 @@ export class Viewport {
     this.#generation++;
     this.#playing = false;
     this.#records.clear();
+    this.#instancePoses.clear();
     this.#controls?.detach();
     this.#controls = null;
     this.#game?.destroy();
@@ -983,6 +1156,59 @@ function objectLevel(op: Op): boolean {
   const [layers, index, objects] = op.path;
   return layers === 'layers' && typeof index === 'number' && objects === 'objects'
     && (op.path.length > 3 || op.op !== 'set' || op.value !== undefined);
+}
+
+/** Whether an op only touches a layer's props: the in-place prop rebuild covers it. */
+function propsLevel(op: Op): boolean {
+  const [layers, index, props] = op.path;
+  return layers === 'layers' && typeof index === 'number' && props === 'props';
+}
+
+/** A vector turned about the up axis, the way the engine turns a prop by its yaw. */
+function rotateY(v: V3, yaw: number): V3 {
+  const c = Math.cos(yaw);
+  const s = Math.sin(yaw);
+  return { x: c * v.x + s * v.z, y: v.y, z: -s * v.x + c * v.z };
+}
+
+/** The pick shape of a prop instance: the prefab's primitive, or a box for a model. */
+function instanceShape(mesh?: { model?: string; shape?: string }): { shape: Shape } {
+  if (mesh?.model) return { shape: 'box' };
+  const shape = mesh?.shape ?? 'box';
+  return { shape: (['sphere', 'cylinder', 'capsule'].includes(shape) ? shape : 'box') as Shape };
+}
+
+/**
+ * The drawn volume of one instance of a prop group, in the instance's own
+ * frame (before its yaw): a model's bounds under the mesh block's scale
+ * and offset, or the group's size for a primitive — both times the
+ * instance's scale. A model not resident falls back to the group's size
+ * standing on the instance origin, so it can still be outlined and picked.
+ */
+function instanceVolume(scene: SceneLike, group: PropGroupLike, scale: number): { size: V3; centre: V3 } {
+  const mesh = group.prefab ? scene.config?.prefabs?.[group.prefab]?.mesh : undefined;
+  const bounds = mesh?.model ? scene.models?.get(mesh.model)?.bounds : undefined;
+  if (bounds && mesh) {
+    const s = mesh.scale ?? 1;
+    const o = mesh.offset ?? { x: 0, y: 0, z: 0 };
+    return {
+      size: {
+        x: (bounds.max.x - bounds.min.x) * s * scale,
+        y: (bounds.max.y - bounds.min.y) * s * scale,
+        z: (bounds.max.z - bounds.min.z) * s * scale
+      },
+      centre: {
+        x: (((bounds.max.x + bounds.min.x) / 2) * s + o.x) * scale,
+        y: (((bounds.max.y + bounds.min.y) / 2) * s + o.y) * scale,
+        z: (((bounds.max.z + bounds.min.z) / 2) * s + o.z) * scale
+      }
+    };
+  }
+  const w = (group.width ?? 32) * scale;
+  const h = (group.height ?? 32) * scale;
+  const d = (group.depth ?? group.width ?? 32) * scale;
+  if (mesh?.model) return { size: { x: w, y: h, z: d }, centre: { x: 0, y: h / 2, z: 0 } };
+  return { size: { x: w, y: h, z: d }, centre: { x: 0, y: 0, z: 0 } };
 }
 
 function axisOf(axis: 'x' | 'y' | 'z', from: Point, to: Point) {

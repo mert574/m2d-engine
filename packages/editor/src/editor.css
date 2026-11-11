@@ -606,6 +606,19 @@ input[type='color'].colour {
 .overlay .outline.also line { stroke: rgba(255, 197, 107, 0.55); stroke-dasharray: 3 3; }
 .overlay .marquee rect { fill: rgba(61, 139, 253, 0.12); stroke: var(--select); stroke-width: 1; stroke-dasharray: 4 3; }
 
+/* The prop brush strip (E7b): the scatter and erase settings over the viewport. */
+#brush {
+  position: absolute; top: 44px; left: 170px; z-index: 3;
+  display: flex; align-items: center; gap: 8px; padding: 3px 8px;
+  background: rgba(22, 25, 29, 0.88); border: 1px solid var(--line-2); border-radius: 7px; backdrop-filter: blur(6px);
+  font-size: 11px; color: var(--dim);
+}
+#brush .label { color: var(--text); font-weight: 600; }
+#brush .brush-field { display: inline-flex; align-items: center; gap: 4px; }
+#brush input[type="number"] { width: 52px; height: 20px; padding: 0 4px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--panel-2); color: var(--text); font-size: 11px; }
+#brush button { height: 22px; padding: 0 8px; border: 0; border-radius: 4px; background: var(--raise); color: var(--text); font-size: 11px; }
+#brush button:hover { background: var(--select); color: #fff; }
+
 /* The running constraints: read-only, from the game. */
 .card.live { border-style: dashed; }
 .card.live .fold .icon { color: var(--accent); }

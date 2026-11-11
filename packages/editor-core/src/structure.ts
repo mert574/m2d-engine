@@ -12,6 +12,7 @@
 
 import { isPlainObject, type PathSegment } from './descriptors.ts';
 import { uniqueId, type Op } from './edits.ts';
+import { fromAxisAngle, forScene, toEuler, type Quaternion } from './rotation.ts';
 
 /** A deep copy of plain JSON data; this package's `lib` has no DOM, so no `structuredClone`. */
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -320,6 +321,166 @@ export function arrangeObjects(
   const target = round(how === 'min' ? Math.min(...values) : how === 'max' ? Math.max(...values) : (Math.min(...values) + Math.max(...values)) / 2);
   for (const p of placed) if (p.value !== target) ops.push({ op: 'set', path: [...p.path, axis], value: target });
   return ops;
+}
+
+// --- Props (E7b) ---------------------------------------------------------------
+
+/** A prop instance as the scene holds it: `[x, y, z, yaw, scale]`. */
+export type PropInstance = [number, number, number, number, number];
+
+/** What a prop's `width`/`height` mean when absent (the schema's default). */
+const PROP_DEFAULT_SIZE = 32;
+
+const round4 = (value: number) => Math.round(value * 1e4) / 1e4;
+
+/** The up axis, for a yaw as a scene quaternion. */
+const UP = { x: 0, y: 1, z: 0 };
+
+/** The prop group at `['layers', l, 'props', p]`, checked. */
+function propGroup(doc: unknown, propPath: PathSegment[]): Record<string, unknown> & { instances: unknown[] } {
+  const group = valueAt(doc, propPath);
+  if (!isPlainObject(group) || !Array.isArray(group.instances)) throw new Error('not a prop group');
+  return group as Record<string, unknown> & { instances: unknown[] };
+}
+
+/**
+ * Plant instances into a prop group — a scatter stroke, as one op: the
+ * group's `instances` with the new tuples appended. One set, one step of
+ * undo per stroke.
+ */
+export function scatterProps(doc: unknown, propPath: PathSegment[], points: PropInstance[]): Op[] {
+  const group = propGroup(doc, propPath);
+  if (!points.length) return [];
+  const planted = points.map((tuple) => tuple.map(round4));
+  return [{ op: 'set', path: [...propPath, 'instances'], value: [...group.instances, ...planted] }];
+}
+
+/** Erase instances from a prop group by index, as one op. */
+export function erasePropInstances(doc: unknown, propPath: PathSegment[], indices: number[]): Op[] {
+  const group = propGroup(doc, propPath);
+  const gone = new Set(indices);
+  if (!gone.size) return [];
+  const kept = group.instances.filter((_, i) => !gone.has(i));
+  if (kept.length === group.instances.length) return [];
+  return [{ op: 'set', path: [...propPath, 'instances'], value: kept }];
+}
+
+/**
+ * Turn one prop instance into a placed object: the group's prefab at the
+ * instance's position, its yaw as a rotation, the group's size times the
+ * instance's scale, and — when the prefab draws a model — the scale
+ * carried onto `overrides.mesh.scale` so the model draws exactly where
+ * and how big it did. The instance leaves the group.
+ */
+export function promotePropInstance(doc: unknown, instancePath: PathSegment[], name?: string): { ops: Op[]; id: string } {
+  const propPath = instancePath.slice(0, 4);
+  const at = instancePath[instancePath.length - 1];
+  if (typeof at !== 'number' || instancePath[instancePath.length - 2] !== 'instances') throw new Error('not a prop instance');
+  const group = propGroup(doc, propPath);
+  const tuple = group.instances[at];
+  if (!Array.isArray(tuple)) throw new Error('not a prop instance');
+  const [x = 0, y = 0, z = 0, yaw = 0, scale = 1] = tuple as number[];
+  const prefabName = typeof group.prefab === 'string' ? group.prefab : '';
+  if (!prefabName) throw new Error('the prop group names no prefab');
+  const prefab = valueAt(doc, ['prefabs', prefabName]);
+  const id = uniqueId(doc, name ?? prefabName);
+  const size = (key: 'width' | 'height' | 'depth') => {
+    const own = typeof group[key] === 'number' ? group[key] as number : key === 'depth' ? (typeof group.width === 'number' ? group.width as number : PROP_DEFAULT_SIZE) : PROP_DEFAULT_SIZE;
+    return round4(own * scale);
+  };
+  const object: Record<string, unknown> = {
+    id, prefab: prefabName,
+    x: round4(x), y: round4(y), z: round4(z),
+    width: size('width'), height: size('height'), depth: size('depth')
+  };
+  if (yaw) object.rotation = forScene(fromAxisAngle(UP, yaw));
+  const mesh = isPlainObject(prefab) && isPlainObject(prefab.mesh) ? prefab.mesh : null;
+  if (mesh?.model && scale !== 1) {
+    const offset = isPlainObject(mesh.offset) ? mesh.offset as { x?: number; y?: number; z?: number } : null;
+    object.overrides = {
+      mesh: {
+        scale: round4(((typeof mesh.scale === 'number' ? mesh.scale : 1)) * scale),
+        ...(offset && { offset: { x: round4((offset.x ?? 0) * scale), y: round4((offset.y ?? 0) * scale), z: round4((offset.z ?? 0) * scale) } })
+      }
+    };
+  }
+  const layer = propPath[1] as number;
+  const objects = valueAt(doc, ['layers', layer, 'objects']);
+  const ops: Op[] = [
+    { op: 'remove', path: [...propPath, 'instances'], index: at },
+    { op: 'insert', path: ['layers', layer, 'objects'], index: Array.isArray(objects) ? objects.length : 0, value: object }
+  ];
+  return { ops, id };
+}
+
+/**
+ * Turn a placed object back into a prop instance: into a group of its
+ * prefab in its layer whose size matches (uniformly scaled, so the drawn
+ * thing does not change), or a new group at the object's size. Refused
+ * when the object carries overrides (an instance cannot hold them) or a
+ * rotation that is not a pure turn about the up axis.
+ */
+export function demoteObjectToProp(doc: unknown, objectPath: PathSegment[]): { ops: Op[]; group: string } {
+  const object = valueAt(doc, objectPath);
+  if (!isPlainObject(object) || typeof object.prefab !== 'string') throw new Error('not a placed object');
+  if (object.overrides !== undefined) throw new Error(`'${String(object.id)}' carries overrides, which an instance cannot hold`);
+  if (object.constraints !== undefined || object.properties !== undefined) {
+    throw new Error(`'${String(object.id)}' carries constraints or properties, which an instance cannot hold`);
+  }
+  let yaw = 0;
+  if (Array.isArray(object.rotation)) {
+    const q = object.rotation as Quaternion;
+    const { pitch, roll, yaw: turn } = toEuler(q);
+    if (Math.abs(pitch) > 1e-4 || Math.abs(roll) > 1e-4) {
+      throw new Error(`'${String(object.id)}' is tilted; an instance only turns about the up axis`);
+    }
+    yaw = turn;
+  }
+  const layer = objectPath[1] as number;
+  const layerValue = valueAt(doc, ['layers', layer]);
+  const props = isPlainObject(layerValue) && Array.isArray(layerValue.props) ? layerValue.props : [];
+  const sizes = ['width', 'height', 'depth'].map((key) => (typeof object[key] === 'number' ? object[key] as number : PROP_DEFAULT_SIZE));
+  // A group whose size is the object's under one uniform factor; exact size first.
+  let found: { index: number; scale: number } | null = null;
+  props.forEach((group, index) => {
+    if (!isPlainObject(group) || group.prefab !== object.prefab) return;
+    const own = [
+      typeof group.width === 'number' ? group.width : PROP_DEFAULT_SIZE,
+      typeof group.height === 'number' ? group.height : PROP_DEFAULT_SIZE,
+      typeof group.depth === 'number' ? group.depth : (typeof group.width === 'number' ? group.width : PROP_DEFAULT_SIZE)
+    ];
+    const factor = sizes[0]! / own[0]!;
+    if (factor <= 0) return;
+    const uniform = own.every((side, i) => Math.abs(side * factor - sizes[i]!) < 1e-3);
+    if (!uniform) return;
+    if (!found || (factor === 1 && found.scale !== 1)) found = { index, scale: round4(factor) };
+  });
+  const tuple = (scale: number): PropInstance => [
+    round4(typeof object.x === 'number' ? object.x : 0),
+    round4(typeof object.y === 'number' ? object.y : 0),
+    round4(typeof object.z === 'number' ? object.z : 0),
+    round4(yaw), scale
+  ];
+  const ops: Op[] = [];
+  let groupId: string;
+  if (found) {
+    const { index, scale } = found as { index: number; scale: number };
+    const group = props[index] as { id?: unknown; instances?: unknown[] };
+    groupId = typeof group.id === 'string' ? group.id : `props[${index}]`;
+    ops.push({ op: 'insert', path: ['layers', layer, 'props', index, 'instances'], index: Array.isArray(group.instances) ? group.instances.length : 0, value: tuple(scale) });
+  } else {
+    groupId = uniqueId(doc, `props-${object.prefab}`);
+    const group: Record<string, unknown> = {
+      id: groupId, prefab: object.prefab,
+      width: sizes[0], height: sizes[1], depth: sizes[2],
+      collider: 'bounds',
+      instances: [tuple(1)]
+    };
+    if (isPlainObject(layerValue) && Array.isArray(layerValue.props)) ops.push({ op: 'insert', path: ['layers', layer, 'props'], index: props.length, value: group });
+    else ops.push({ op: 'set', path: ['layers', layer, 'props'], value: [group] });
+  }
+  ops.push({ op: 'remove', path: objectPath.slice(0, 3), index: objectPath[3] as number });
+  return { ops, group: groupId };
 }
 
 // --- Scenes ------------------------------------------------------------------
