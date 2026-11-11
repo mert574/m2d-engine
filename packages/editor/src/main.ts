@@ -34,6 +34,7 @@ import {
 } from 'm2d-editor-core';
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
+import { ANCHOR_ORIGINS } from 'm2d-engine/core/ui/uiElement.js';
 import {
   loadProject, assetBase, loadDefinition, loadHooks, onHost, post, get, fetchDocument,
   type HostProject, type SceneEntry, type GameDefinition, type HooksModule
@@ -176,6 +177,26 @@ const tree = createTree(treePanel, (node, mode) => selectFromTree(node, mode), {
 });
 const inspector = createInspector(inspectorPanel, {
   edit: (path, value, label) => {
+    // Changing an element's anchor re-bases its offsets, so the element
+    // stays put and only the point it measures from moves (E9).
+    if (path.length === 3 && path[0] === 'elements' && path[2] === 'anchor' && typeof value === 'string') {
+      const element = at(path.slice(0, 2)) as { x?: number; y?: number; anchor?: string } | undefined;
+      const box = viewport.uiBox();
+      const from = ANCHOR_ORIGINS[element?.anchor ?? 'top-left'];
+      const to = ANCHOR_ORIGINS[value];
+      if (element && box && from && to) {
+        const r = (v: number) => Math.round(v * 100) / 100;
+        edit({
+          label: `Anchor to ${value}`,
+          ops: [
+            { op: 'set', path, value },
+            { op: 'set', path: [...path.slice(0, 2), 'x'], value: r((element.x ?? 0) + (from[0]! - to[0]!) * box.width) },
+            { op: 'set', path: [...path.slice(0, 2), 'y'], value: r((element.y ?? 0) + (from[1]! - to[1]!) * box.height) }
+          ]
+        });
+        return;
+      }
+    }
     // A model object's size is one size: resizing a side resizes the
     // model with it, and the other sides keep its shape (scaling.ts).
     const key = path[4];
@@ -223,6 +244,22 @@ const inspector = createInspector(inspectorPanel, {
       say(String((error as Error).message ?? error));
     }
   },
+  tokens: (hint) => {
+    const theme = (viewport.game as { theme?: { tokens?: Record<string, unknown> } } | null)?.theme;
+    if (!theme?.tokens) return [];
+    // Which subtree of the theme a hint draws from; 'text' and 'align' take no tokens.
+    const roots = hint === 'color' ? ['color'] : hint === 'size' ? ['font.size', 'space'] : hint === 'font' ? ['font'] : [];
+    const names: string[] = [];
+    const walk = (node: unknown, path: string): void => {
+      if (!isPlainObject(node)) { names.push(`$${path}`); return; }
+      for (const [key, child] of Object.entries(node)) walk(child, path ? `${path}.${key}` : key);
+    };
+    for (const root of roots) {
+      const node = root.split('.').reduce<unknown>((at, key) => (isPlainObject(at) ? at[key] : undefined), theme.tokens);
+      if (node !== undefined) walk(node, root);
+    }
+    return names;
+  },
   refs: (scope) => {
     const data = remote?.doc.data;
     const keys = (value: unknown) => (isPlainObject(value) ? Object.keys(value) : []);
@@ -243,6 +280,20 @@ const overlay = createOverlay(viewportPanel, viewport, {
   angleStep: Math.PI / 12,
   editable: () => !readOnly() && !playing,
   placed: (id) => {
+    // A UI element: the document's x/y are its offsets from its anchor.
+    const uiPath = elementPath(id);
+    if (uiPath) {
+      const element = at(uiPath) as Record<string, unknown>;
+      const number = (key: string) => (typeof element[key] === 'number' ? element[key] as number : undefined);
+      const properties = isPlainObject(element.properties) ? element.properties : {};
+      const propNumber = (key: string) => (typeof properties[key] === 'number' ? properties[key] as number : undefined);
+      return {
+        x: number('x'), y: number('y'),
+        width: element.type === 'rect' ? number('width') : propNumber('width'),
+        height: element.type === 'rect' ? number('height') : propNumber('height'),
+        uniform: false
+      };
+    }
     // A prop instance: the tuple is the document's word on where it stands.
     const tuplePath = instancePath(id);
     if (tuplePath) {
@@ -360,6 +411,14 @@ function instancePath(id: string): PathSegment[] | null {
   return Array.isArray(at(path)) ? path : null;
 }
 
+/** The document path of the UI element with this id, if the scene holds one. */
+function elementPath(id: string): PathSegment[] | null {
+  const elements = remote?.doc.data.elements;
+  if (!Array.isArray(elements)) return null;
+  const index = elements.findIndex((element) => isPlainObject(element) && element.id === id);
+  return index >= 0 ? ['elements', index] : null;
+}
+
 /** The id of the placed object a path is in, if it is in one. */
 function objectIdAt(path: PathSegment[]): string | null {
   if (path.length < 4 || path[0] !== 'layers' || path[2] !== 'objects') return null;
@@ -375,16 +434,19 @@ function selectionFor(path: PathSegment[]): typeof selection {
 const selectedIds = (): string[] => (selection && 'ids' in selection ? selection.ids : []);
 const selectedId = (): string | null => selectedIds()[0] ?? null;
 const selectedPath = (): PathSegment[] =>
-  (selection && 'ids' in selection ? objectPath(selection.ids[0]!) ?? instancePath(selection.ids[0]!) : selection?.path) ?? [];
+  (selection && 'ids' in selection
+    ? objectPath(selection.ids[0]!) ?? instancePath(selection.ids[0]!) ?? elementPath(selection.ids[0]!)
+    : selection?.path) ?? [];
 
 /** The tree row a selected thing sits under: an instance highlights its group. */
-const treePathOf = (id: string): PathSegment[] | null => objectPath(id) ?? instancePath(id)?.slice(0, 4) ?? null;
+const treePathOf = (id: string): PathSegment[] | null =>
+  objectPath(id) ?? elementPath(id) ?? instancePath(id)?.slice(0, 4) ?? null;
 
 function select(next: typeof selection): void {
   selection = next;
   // Selected things that no longer exist drop out; none left falls back to the scene.
   if (selection && 'ids' in selection) {
-    const ids = selection.ids.filter((id) => objectPath(id) || instancePath(id));
+    const ids = selection.ids.filter((id) => objectPath(id) || instancePath(id) || elementPath(id));
     selection = ids.length ? { ids } : null;
   }
   const others = selectedIds().slice(1).map(treePathOf).filter((path): path is PathSegment[] => !!path);
@@ -602,6 +664,30 @@ function commitGizmo(results: Array<{ id: string; result: GizmoResult }>): void 
   const round = (value: number) => Math.round(value * 1e4) / 1e4;
   let verb = 'Move';
   for (const { id, result } of results) {
+    // A UI element: a move writes its offsets, a resize its size where its
+    // kind keeps it (rect at the top level, the rest under properties).
+    const uiPath = elementPath(id);
+    if (uiPath) {
+      const element = at(uiPath) as { type?: string };
+      if (result.position) {
+        ops.push({ op: 'set', path: [...uiPath, 'x'], value: Math.round(result.position.x) });
+        ops.push({ op: 'set', path: [...uiPath, 'y'], value: Math.round(result.position.y) });
+      }
+      if (result.size && element.type !== 'text') {
+        if (element.type === 'rect') {
+          ops.push({ op: 'set', path: [...uiPath, 'width'], value: Math.round(result.size.x) });
+          ops.push({ op: 'set', path: [...uiPath, 'height'], value: Math.round(result.size.y) });
+        } else {
+          const properties = isPlainObject((element as Record<string, unknown>).properties)
+            ? { ...(element as { properties: Record<string, unknown> }).properties } : {};
+          properties.width = Math.round(result.size.x);
+          properties.height = Math.round(result.size.y);
+          ops.push({ op: 'set', path: [...uiPath, 'properties'], value: properties });
+        }
+      }
+      verb = result.size ? 'Resize' : 'Move';
+      continue;
+    }
     // A prop instance commits as its whole tuple: one set, and the props
     // rebuild in place when it lands.
     const tuplePath = instancePath(id);
@@ -649,11 +735,17 @@ function removeSelected(): void {
     entry.indices.push(path[5] as number);
     groups.set(key, entry);
   }
-  const ops = [
+  // Elements remove highest index first, so the earlier removals' paths hold.
+  const elementIndices = ids
+    .map((id) => elementPath(id)?.[1] as number | undefined)
+    .filter((index): index is number => typeof index === 'number')
+    .sort((a, b) => b - a);
+  const ops: Op[] = [
     ...structure.removeObjects(remote.doc.data, objectIds),
-    ...[...groups.values()].flatMap(({ path, indices }) => structure.erasePropInstances(remote!.doc.data, path, indices))
+    ...[...groups.values()].flatMap(({ path, indices }) => structure.erasePropInstances(remote!.doc.data, path, indices)),
+    ...elementIndices.map((index): Op => ({ op: 'remove', path: ['elements'], index }))
   ];
-  if (ops.length) edit({ label: `Delete ${ids.length === 1 ? (objectIds[0] ?? 'instance') : `${ids.length} things`}`, ops });
+  if (ops.length) edit({ label: `Delete ${ids.length === 1 ? (objectIds[0] ?? ids[0]) : `${ids.length} things`}`, ops });
 }
 
 /** Copies of the selected objects (or prop instances) beside them, selected after. */
@@ -661,6 +753,26 @@ function duplicateSelected(): void {
   const ids = selectedIds();
   if (!ids.length || !remote) return;
   const step = viewport.dimensions === 3 ? 1 : 16;
+  // UI elements copy beside themselves with fresh ids.
+  const elementPaths = ids.map(elementPath).filter((path): path is PathSegment[] => !!path);
+  if (elementPaths.length) {
+    const ops: Op[] = [];
+    const made: string[] = [];
+    const elements = remote.doc.data.elements as unknown[];
+    const scratch = JSON.parse(JSON.stringify(remote.doc.data)) as Record<string, unknown>;
+    elementPaths.forEach((path, i) => {
+      const copy = JSON.parse(JSON.stringify(at(path))) as Record<string, unknown>;
+      copy.id = uniqueId(scratch, typeof copy.id === 'string' ? copy.id : 'element');
+      if (typeof copy.x === 'number') copy.x += 16;
+      if (typeof copy.y === 'number') copy.y += 16;
+      (scratch.elements as unknown[]).push(copy);
+      ops.push({ op: 'insert', path: ['elements'], index: elements.length + i, value: copy });
+      made.push(copy.id as string);
+    });
+    edit({ label: `Duplicate ${made.length === 1 ? made[0] : `${made.length} elements`}`, ops });
+    select({ ids: made });
+    return;
+  }
   const instancePaths = ids.map(instancePath).filter((path): path is PathSegment[] => !!path);
   if (instancePaths.length) {
     const ops: Op[] = [];
@@ -823,6 +935,25 @@ function newPrefabOf(actor: string): void {
   select({ path: ['prefabs', name] });
 }
 
+/** Add a UI element of `kind`, valid from birth, and select it. */
+function addElementOf(kind: structure.ElementKind): void {
+  if (!remote) return;
+  try {
+    const assetsBlock = isPlainObject(remote.doc.data.assets) ? remote.doc.data.assets : {};
+    const sheets = Object.keys(isPlainObject(assetsBlock.spritesheets) ? assetsBlock.spritesheets : {});
+    const scene = project?.scenes.find((each) => each.name && each.path !== entry?.path)?.name ?? undefined;
+    const { ops, id } = structure.addElement(remote.doc.data, kind, { scene, sprite: sheets[0] });
+    edit({ label: `Add ${kind} ${id}`, ops });
+    select({ ids: [id] });
+  } catch (error) {
+    say(String((error as Error).message ?? error));
+  }
+}
+
+/** The element palette: one entry per kind the format holds. */
+const elementPalette = (): MenuItem[] =>
+  structure.ELEMENT_KINDS.map((kind) => ({ label: `Add ${kind}`, action: () => addElementOf(kind) }));
+
 /** What can be done with a tree node, by its kind. */
 function treeMenu(node: OutlineNode): MenuItem[] {
   if (!remote) return [];
@@ -922,6 +1053,21 @@ function treeMenu(node: OutlineNode): MenuItem[] {
     );
   } else if (node.kind === 'group' && node.path[0] === 'prefabs') {
     items.push({ label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } });
+  } else if (node.kind === 'element') {
+    const index = node.path[1] as number;
+    const elements = Array.isArray(data.elements) ? data.elements as unknown[] : [];
+    const id = (at(node.path) as { id?: string } | undefined)?.id;
+    items.push(
+      { label: 'Duplicate', hint: 'Ctrl+D', disabled: !id, action: () => { select({ ids: [id!] }); duplicateSelected(); } },
+      { label: 'Draw earlier', disabled: index === 0, action: () => edit({ label: `Reorder ${id ?? 'element'}`, ops: [{ op: 'remove', path: ['elements'], index }, { op: 'insert', path: ['elements'], index: index - 1, value: at(node.path) }] }) },
+      { label: 'Draw later', disabled: index >= elements.length - 1, action: () => edit({ label: `Reorder ${id ?? 'element'}`, ops: [{ op: 'remove', path: ['elements'], index }, { op: 'insert', path: ['elements'], index: index + 1, value: at(node.path) }] }) },
+      SEPARATOR,
+      { label: 'Delete', hint: 'Del', danger: true, action: () => edit({ label: `Delete ${id ?? 'element'}`, ops: [{ op: 'remove', path: ['elements'], index }] }) }
+    );
+  } else if (node.kind === 'group' && node.path[0] === 'elements') {
+    items.push(...elementPalette());
+  } else if (node.kind === 'scene' && data.type === 'ui') {
+    items.push(...elementPalette());
   } else if (node.kind === 'scene') {
     items.push(
       { label: 'New layer', action: () => { const name = prompt('Layer name', `layer-${layers.length + 1}`); if (name) edit({ label: `Add layer ${name}`, ops: structure.addLayer(data, name) }); } },

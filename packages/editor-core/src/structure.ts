@@ -483,6 +483,60 @@ export function demoteObjectToProp(doc: unknown, objectPath: PathSegment[]): { o
   return { ops, group: groupId };
 }
 
+// --- UI elements (E9) ------------------------------------------------------
+
+/** What each element kind starts as: a valid value the loader accepts whole. */
+export const ELEMENT_KINDS = ['button', 'text', 'image', 'rect'] as const;
+export type ElementKind = (typeof ELEMENT_KINDS)[number];
+
+/**
+ * Add a UI element of `kind` to the scene's `elements`, valid from birth:
+ * a unique id, a position, a centre anchor, and for a button one thing to
+ * do — `onClick` to `scene` when the project has a level to go to, else a
+ * named `action` for the game's `onAction` hook. An image needs a sprite;
+ * `sprite` names one (the caller usually passes the first sheet).
+ */
+export function addElement(
+  doc: unknown, kind: ElementKind, options: { scene?: string; sprite?: string } = {}
+): { ops: Op[]; id: string; index: number } {
+  const id = uniqueId(doc, kind);
+  const element: Record<string, unknown> = { type: kind, id, x: 0, y: 0, anchor: 'center' };
+  if (kind === 'button') {
+    element.properties = options.scene ? { text: 'Button', onClick: options.scene } : { text: 'Button', action: 'start' };
+  } else if (kind === 'text') {
+    element.properties = { text: 'Text' };
+  } else if (kind === 'image') {
+    if (!options.sprite) throw new Error('an image element needs a sprite sheet; add one to assets.spritesheets first');
+    element.sprite = options.sprite;
+  } else {
+    element.width = 200;
+    element.height = 100;
+    element.color = '$color.border';
+  }
+  const elements = valueAt(doc, ['elements']);
+  if (Array.isArray(elements)) {
+    return { ops: [{ op: 'insert', path: ['elements'], index: elements.length, value: element }], id, index: elements.length };
+  }
+  return { ops: [{ op: 'set', path: ['elements'], value: [element] }], id, index: 0 };
+}
+
+/**
+ * Change an element's kind, keeping what every kind shares — id, position,
+ * anchor — instead of wiping them the way a raw variant swap would.
+ */
+export function changeElementType(doc: unknown, elementPath: PathSegment[], kind: ElementKind, options: { scene?: string; sprite?: string } = {}): Op[] {
+  const element = valueAt(doc, elementPath);
+  if (!isPlainObject(element)) throw new Error('not a UI element');
+  const { ops } = addElement({ elements: [] }, kind, options);
+  const fresh = (ops[0] as { value: unknown }).value;
+  const starting = (Array.isArray(fresh) ? fresh[0] : fresh) as Record<string, unknown>;
+  const kept: Record<string, unknown> = {};
+  for (const key of ['id', 'x', 'y', 'anchor'] as const) {
+    if (element[key] !== undefined) kept[key] = element[key];
+  }
+  return [{ op: 'set', path: elementPath, value: { ...starting, ...kept, type: kind } }];
+}
+
 // --- Scenes ------------------------------------------------------------------
 
 /** A blank level or UI scene, the smallest the loader accepts, named. */

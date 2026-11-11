@@ -604,6 +604,8 @@ input[type='color'].colour {
 .arrange button { height: 22px; min-width: 22px; padding: 0 5px; border: 0; border-radius: 4px; background: none; color: var(--dim); font-size: 11px; }
 .arrange button:hover { background: var(--raise); color: var(--text); }
 .overlay .outline.also line { stroke: rgba(255, 197, 107, 0.55); stroke-dasharray: 3 3; }
+.overlay .anchors .anchor { fill: none; stroke: rgba(255, 255, 255, 0.35); }
+.overlay .anchors .anchor.active { fill: var(--accent); stroke: var(--accent); }
 .overlay .marquee rect { fill: rgba(61, 139, 253, 0.12); stroke: var(--select); stroke-width: 1; stroke-dasharray: 4 3; }
 
 /* The animation editor (E8): a sheet's animations made by clicking frames. */

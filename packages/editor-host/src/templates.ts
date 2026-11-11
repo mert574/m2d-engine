@@ -50,8 +50,11 @@ export async function createProject(folder: string, template: string, name?: str
   await writeFile(page, (await readFile(page, 'utf8')).replace(/<title>.*<\/title>/, `<title>${escapeHtml(title)}</title>`));
 
   // Scenes in canonical form, so the first save diffs only what changed.
-  const scene = join(root, 'scenes', 'level.json');
-  await writeFile(scene, writeScene(JSON.parse(await readFile(scene, 'utf8'))));
+  for (const file of await readdir(join(root, 'scenes'))) {
+    if (!file.endsWith('.json')) continue;
+    const scene = join(root, 'scenes', file);
+    await writeFile(scene, writeScene(JSON.parse(await readFile(scene, 'utf8'))));
+  }
   await writeFile(join(root, '.gitignore'), 'node_modules/\ndist/\nlibrary/sources/\n');
   return { root, name: title };
 }

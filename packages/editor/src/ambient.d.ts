@@ -65,6 +65,11 @@ declare module 'm2d-engine/core/viewport.js' {
   export function mapPointer(params: { clientX: number; clientY: number; rect: Rect; viewport: never }):
     { ui: { x: number; y: number }; view: { x: number; y: number }; inContent: boolean };
   export function viewToClient(params: { x: number; y: number; rect: Rect; viewport: never }): { x: number; y: number };
+  export function uiToView(params: { x: number; y: number; viewport: never }): { x: number; y: number };
+}
+
+declare module 'm2d-engine/core/ui/uiElement.js' {
+  export const ANCHOR_ORIGINS: Readonly<Record<string, readonly [number, number]>>;
 }
 
 declare module 'm2d-engine/core/entity.js' {

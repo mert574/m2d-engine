@@ -150,3 +150,40 @@ describe('scene switching', () => {
     expect(game.projection?.type).toBe('isometric');
   });
 });
+
+describe('UI scene element map and rebuild (E9)', () => {
+  beforeAll(stubDocumentListeners);
+
+  it('finds a built element by its document id, and rebuilds in place in edit mode', async () => {
+    installWindowStub();
+    const game = new M2D(displayCanvas(1280, 720), {
+      width: 1280, height: 720, renderer: new RecordingRenderer(), editMode: true
+    });
+    const scene = new Scene(game, {
+      type: 'ui', name: 'menu',
+      elements: [
+        { type: 'text', id: 'title', x: 0, y: -120, anchor: 'center', properties: { text: 'EMBER' } },
+        { type: 'button', id: 'start', x: 0, y: 40, anchor: 'center', properties: { text: 'Start', action: 'start' } }
+      ]
+    });
+    await scene.setupUIScene();
+    expect([...scene.uiById.keys()]).toEqual(['title', 'start']);
+    expect(scene.uiById.get('start').text).toBe('Start');
+
+    // The editor moved the button and renamed the title; the view follows.
+    scene.config.elements[1].x = 50;
+    scene.config.elements[0].properties.text = 'VALLEY';
+    scene.rebuildUIScene();
+    expect(scene.uiById.get('start').offsetX).toBe(50);
+    expect(scene.uiById.get('title').text).toBe('VALLEY');
+    expect(scene.ui.children).toHaveLength(2);
+  });
+
+  it('refuses the rebuild outside edit mode', async () => {
+    installWindowStub();
+    const game = new M2D(displayCanvas(640, 480), { width: 640, height: 480, renderer: new RecordingRenderer() });
+    const scene = new Scene(game, { type: 'ui', name: 'menu', elements: [] });
+    await scene.setupUIScene();
+    expect(() => scene.rebuildUIScene()).toThrow(/edit-mode/);
+  });
+});

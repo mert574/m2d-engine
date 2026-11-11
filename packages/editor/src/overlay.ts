@@ -215,12 +215,28 @@ export function createOverlay(container: HTMLElement, viewport: Viewport, option
       const other = viewport.placement(id);
       if (other) drawEdges(other.edges, el('g', { class: 'outline also' }));
     }
+    // A UI element shows the nine anchor points of the box it offsets
+    // from, its own filled: where x and y are measured from (E9).
+    if (placement.anchors) {
+      const marks = el('g', { class: 'anchors' });
+      for (const anchor of placement.anchors) {
+        const p = local(anchor.point);
+        el('rect', {
+          x: p.x - 3, y: p.y - 3, width: 6, height: 6,
+          class: `anchor${anchor.active ? ' active' : ''}`
+        }, marks);
+      }
+    }
     // Off the canvas there is nothing to grab; the clipped outline says where it went.
     if (!options.editable() || !placement.onScreen) return;
 
     const c = local(groupCentre(placement));
     const gizmo = el('g', { class: `gizmo mode-${mode}` });
     if (mode === 'rotate') {
+      if (placement.tools?.rotate === false) {
+        el('circle', { cx: c.x, cy: c.y, r: 3, class: 'pivot' }, gizmo);
+        return;
+      }
       if (placement.dimensions === 2) {
         el('circle', { cx: c.x, cy: c.y, r: RING, fill: 'none', class: 'handle ring', 'data-handle': 'rotate' }, gizmo);
       } else {
@@ -237,6 +253,10 @@ export function createOverlay(container: HTMLElement, viewport: Viewport, option
       return;
     }
     const scaling = mode === 'scale';
+    if (scaling && placement.tools?.scale === false) {
+      el('circle', { cx: c.x, cy: c.y, r: 3, class: 'pivot' }, gizmo);
+      return;
+    }
     for (const { axis, dir } of placement.axes) {
       if (!dir.x && !dir.y) continue;
       const end = { x: c.x + dir.x * ARM, y: c.y + dir.y * ARM };

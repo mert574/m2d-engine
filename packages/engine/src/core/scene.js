@@ -825,15 +825,37 @@ export class Scene {
   }
 
   async setupUIScene() {
+    this.#buildUIElements();
+  }
+
+  /**
+   * Build the editor's view of a UI scene again from the config, in
+   * place (E9): the elements clear and reconstruct, each findable by id.
+   * Edit mode only, like `replaceObject`.
+   */
+  rebuildUIScene() {
+    if (!this.game.editMode) throw new Error('Scene.rebuildUIScene is an edit-mode operation');
+    this.ui.clear();
+    this.#buildUIElements();
+    this.game.invalidate();
+  }
+
+  #buildUIElements() {
+    /**
+     * The built element per document id — how an editor's pick and gizmo
+     * find what a JSON element became. @type {Map<string, import('./ui/uiElement.js').UIElement>}
+     */
+    this.uiById = new Map();
     if (!this.config.elements) return;
 
     this.config.elements.forEach(element => {
       const common = { x: element.x, y: element.y, anchor: element.anchor };
       const properties = element.properties ?? {};
+      let made = null;
 
       switch (element.type) {
         case 'button':
-          this.ui.add(new UIButton({
+          made = new UIButton({
             ...common,
             width: properties.width ?? 200,
             height: properties.height ?? 44,
@@ -846,11 +868,11 @@ export class Scene {
             fontFamily: properties.fontFamily,
             fontWeight: properties.fontWeight,
             fontStyle: properties.fontStyle
-          }));
+          });
           break;
 
         case 'text':
-          this.ui.add(new UIText({
+          made = new UIText({
             ...common,
             text: properties.text,
             color: properties.color,
@@ -859,32 +881,35 @@ export class Scene {
             fontWeight: properties.fontWeight,
             fontStyle: properties.fontStyle,
             align: properties.align
-          }));
+          });
           break;
 
         case 'image':
           if (element.sprite) {
-            this.ui.add(new UIImage({
+            made = new UIImage({
               ...common,
               image: this.sprites.get(element.sprite),
               width: properties.width,
               height: properties.height,
               imageScale: properties.scale
-            }));
+            });
           }
           break;
 
         case 'rect':
-          this.ui.add(new UIRectangle({
+          made = new UIRectangle({
             ...common,
             width: element.width,
             height: element.height,
             color: element.color,
             fill: element.fill ?? false,
             interactive: properties.interactive ?? false
-          }));
+          });
           break;
       }
+      if (!made) return;
+      this.ui.add(made);
+      if (element.id) this.uiById.set(element.id, made);
     });
   }
 

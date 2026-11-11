@@ -121,8 +121,10 @@ export function sceneOutline(doc: unknown): OutlineNode {
     });
   }
 
+  // Shown even when empty: a blank UI scene's first element is added from
+  // this group's menu, which has to exist to be clicked.
   const elements = Array.isArray(data.elements) ? data.elements : [];
-  if (elements.length) {
+  if (elements.length || data.type === 'ui') {
     children.push({
       label: 'Elements',
       kind: 'group',

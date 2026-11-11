@@ -51,6 +51,12 @@ export interface InspectorOptions {
    * the scrub ends, before the write.
    */
   preview?: (path: PathSegment[], value: number | undefined) => void;
+  /**
+   * The `$token` names a style field of this hint may take ('color',
+   * 'size', 'font', 'align'), from the running game's theme. With it, a
+   * style field offers them as completions.
+   */
+  tokens?: (hint: string) => string[];
 }
 
 /** A constraint the shown entity carries, from the running game (see `Viewport.liveConstraints`). */
@@ -144,10 +150,22 @@ function currentAlternative(row: InspectedRow): number {
   return alternatives.findIndex((a) => typeof a.value === typeof value && (typeof value !== 'string' || a.value === value));
 }
 
+/**
+ * Style hints: fields the schema types loosely (`any`) so a `$token`
+ * passes, but hints the editor should draw an input for (E9).
+ */
+const STYLE_HINTS = ['text', 'size', 'font', 'color', 'align'];
+
+/** A loosely-typed style field: a literal or a `$token`, edited as text. */
+const isStyle = (row: InspectedRow): boolean =>
+  STYLE_HINTS.includes(row.editor ?? '') && (row.kind === 'any' || row.kind === 'unknown')
+  && !row.children?.length && !row.summary;
+
 /** Whether a row is a single value an input can hold. */
 function editableLeaf(row: InspectedRow): boolean {
   if (row.children?.length || row.summary) return false;
   if (['number', 'integer', 'boolean', 'enum', 'string', 'ref', 'id'].includes(row.kind)) return true;
+  if (isStyle(row)) return true;
   const value = row.present ? row.value : row.fallback;
   return row.kind === 'unknown' && row.present && (value === null || typeof value !== 'object');
 }
@@ -597,7 +615,17 @@ export function createInspector(container: HTMLElement, options: InspectorOption
     select.disabled = !editing();
     select.addEventListener('change', () => {
       const alternative = row.alternatives![Number(select.value)];
-      if (alternative) options.edit!(row.path, structuredClone(alternative.value), `Change ${labelOf(row).toLowerCase()}`);
+      if (!alternative) return;
+      const value = structuredClone(alternative.value);
+      // A tagged value keeps its identity through a variant change: a UI
+      // element's id, position and anchor survive becoming another kind.
+      const old = row.present ? row.value : undefined;
+      if (isPlainRecord(old) && isPlainRecord(value) && typeof value.type === 'string') {
+        for (const key of ['id', 'x', 'y', 'anchor'] as const) {
+          if (old[key] !== undefined) value[key] = old[key];
+        }
+      }
+      options.edit!(row.path, value, `Change ${labelOf(row).toLowerCase()}`);
     });
     return select;
   };
@@ -846,6 +874,25 @@ export function createInspector(container: HTMLElement, options: InspectorOption
     appendIssueLine(list, row);
   };
 
+  /** One datalist per style hint, holding the theme's token names; made on demand per render. */
+  const tokenListFor = (hint: string): string | null => {
+    if (!options.tokens) return null;
+    const id = `tokens-${hint}`;
+    if (!container.querySelector(`#${id}`)) {
+      const names = options.tokens(hint);
+      if (!names.length) return null;
+      const list = document.createElement('datalist');
+      list.id = id;
+      for (const name of names) {
+        const option = document.createElement('option');
+        option.value = name;
+        list.append(option);
+      }
+      container.append(list);
+    }
+    return id;
+  };
+
   /** The control for a leaf, appended to `host`. */
   const input = (row: InspectedRow, host: HTMLElement, { compact = false, resettable = true } = {}): HTMLElement => {
     const current = row.present ? row.value : undefined;
@@ -891,11 +938,17 @@ export function createInspector(container: HTMLElement, options: InspectorOption
       control = select;
     } else {
       const field = document.createElement('input');
-      const numeric = row.kind === 'number' || row.kind === 'integer' || (row.kind === 'unknown' && typeof shown === 'number');
+      const style = isStyle(row);
+      const numeric = !style && (row.kind === 'number' || row.kind === 'integer' || (row.kind === 'unknown' && typeof shown === 'number'));
       const { show, store, unit } = display(row);
       field.type = numeric ? 'number' : 'text';
       if (numeric) field.step = 'any';
       field.spellcheck = false;
+      if (style) {
+        // The theme's tokens for this hint, as completions a literal may ignore.
+        const list = tokenListFor(row.editor!);
+        if (list) field.setAttribute('list', list);
+      }
       field.value = row.present && current !== null && current !== undefined
         ? String(numeric && typeof current === 'number' ? show(current) : current) : '';
       if (!row.present) field.placeholder = shown === undefined ? '—' : format(numeric && typeof shown === 'number' ? show(shown) : shown);
@@ -908,6 +961,10 @@ export function createInspector(container: HTMLElement, options: InspectorOption
           const number = Number(text);
           if (!Number.isFinite(number)) return;
           value = store(number);
+        } else if (style) {
+          if (text === '') return;
+          // A $token stays a string; a bare number is a number; the rest is text.
+          value = text.startsWith('$') ? text : Number.isFinite(Number(text)) && /^-?[\d.]+$/.test(text) ? Number(text) : text;
         } else if (row.kind === 'unknown') {
           try { value = JSON.parse(text); } catch { value = text; }
         } else {

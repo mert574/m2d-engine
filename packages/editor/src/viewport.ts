@@ -26,7 +26,8 @@ import { Entity } from 'm2d-engine/core/entity.js';
 import { Constraint } from 'm2d-engine/core/constraint.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { initWebGPU, webgpuSupported } from 'm2d-engine/core/renderers/index.js';
-import { mapPointer, viewToClient } from 'm2d-engine/core/viewport.js';
+import { mapPointer, viewToClient, uiToView } from 'm2d-engine/core/viewport.js';
+import { ANCHOR_ORIGINS } from 'm2d-engine/core/ui/uiElement.js';
 import { isPlainObject, validateScene, rotation, type SceneDocument, type Op, type ValidationIssue, type Quaternion } from 'm2d-editor-core';
 import { attachCameraControls, type CameraControls } from './cameraControls.ts';
 import { rayShape, isBackdrop3D, bestHit, slopOffsets, type Hit, type Shape } from './picking.ts';
@@ -72,6 +73,10 @@ export interface Placement {
   rotation?: Quaternion;
   /** 3D: a ring per world axis, for the rotate gizmo, and whether that axis points at the viewer. */
   rings?: Array<{ axis: 'x' | 'y' | 'z'; normal: V3; points: Point[]; facing: boolean }>;
+  /** Which gizmos make sense here; absent means all of them (a UI element neither turns nor, for text, resizes). */
+  tools?: { rotate?: boolean; scale?: boolean };
+  /** A UI element's nine anchor points on its box, the element's own marked. */
+  anchors?: Array<{ name: string; point: Point; active: boolean }>;
 }
 
 /** A gizmo's in-flight pose for an object. */
@@ -126,18 +131,38 @@ interface SceneLike {
   meshMaterials?: Map<string, unknown>;
   /** 2D: the loaded sprite sheets by key. */
   spriteSheets?: Map<string, { defineAnimation?(name: string, frames: unknown[], options?: { fps?: number; loop?: boolean }): void }>;
-  /** The loaded document the scene was built from; props and tiles edit in place through it. */
+  /** The loaded document the scene was built from; props, tiles and elements edit in place through it. */
   config?: {
+    type?: string;
     layers?: Array<{ props?: PropGroupLike[] }>;
     prefabs?: Record<string, { mesh?: { model?: string; scale?: number; offset?: V3; shape?: string } }>;
     tileLayers?: unknown[];
     background?: unknown;
+    elements?: Array<{ type?: string; id?: string; x?: number; y?: number; anchor?: string }>;
   };
+  /** A UI scene's built elements by document id (E9). */
+  uiById?: Map<string, UIElementLike>;
+  /** The UI tree's root, whose hit test is the input router's own. */
+  ui?: { hitTest(x: number, y: number): UIElementLike | null };
   replaceObject(id: string | null, object: object | null, options?: { after?: string | null }): unknown;
   /** Rebuild every prop from the config in place (E7b); see the engine's SceneProps. */
   rebuildProps?(): void;
   /** Rebuild the background and every tile layer from the config in place (E8). */
   rebuildTileLayers?(): void;
+  /** Rebuild a UI scene's elements from the config in place (E9). */
+  rebuildUIScene?(): void;
+}
+
+/** The slice of a built UI element the editor reads and poses. */
+interface UIElementLike {
+  x: number;
+  y: number;
+  offsetX: number;
+  offsetY: number;
+  width?: number;
+  height?: number;
+  frame: { x: number; y: number; width: number; height: number };
+  parent?: UIElementLike | null;
 }
 
 /**
@@ -344,6 +369,14 @@ export class Viewport {
 
     const world = isPlainObject(doc.data.world) ? doc.data.world : {};
     const playing = !!options.play;
+    // A UI scene previews at the game's design size, letterboxed in the
+    // panel, so what is placed is what the game shows — not the panel's
+    // own proportions. A level fills whatever room the panels leave.
+    const uiScene = doc.data.type === 'ui';
+    const design = {
+      width: typeof options.definition?.GAME?.width === 'number' ? options.definition.GAME.width as number : 1280,
+      height: typeof options.definition?.GAME?.height === 'number' ? options.definition.GAME.height as number : 720
+    };
     const game = new M2D(this.canvas, {
       // The game's own simulation options first; the document and the
       // editor override what they must.
@@ -351,8 +384,8 @@ export class Viewport {
       ...options.presentation,
       dimensions,
       editMode: !playing,
-      width: this.canvas.clientWidth || 960,
-      height: this.canvas.clientHeight || 540,
+      width: uiScene ? design.width : this.canvas.clientWidth || 960,
+      height: uiScene ? design.height : this.canvas.clientHeight || 540,
       // Tile layers and bounds size themselves from the world, so the
       // document's say matters here.
       ...(typeof world.width === 'number' && { worldWidth: world.width }),
@@ -360,7 +393,7 @@ export class Viewport {
       ...(options.basePath && { basePath: options.basePath }),
       // The panels resize the canvas at will; the view fills whatever room
       // they leave rather than keep the shape it was made with.
-      aspectMode: 'expand',
+      aspectMode: uiScene ? 'letterbox' : 'expand',
       // The editor's own chrome is DOM; the engine draws the world only.
       performanceStats: false,
       devConsole: false
@@ -436,7 +469,8 @@ export class Viewport {
       camera.x = (typeof world.width === 'number' ? world.width : game.options.width as number) / 2;
       camera.y = (typeof world.height === 'number' ? world.height : game.options.height as number) / 2;
     }
-    this.#controls = attachCameraControls(game as never, this.canvas, () => this.#viewChanged());
+    // A UI scene ignores the camera: panning it would move nothing.
+    if (!uiScene) this.#controls = attachCameraControls(game as never, this.canvas, () => this.#viewChanged());
     this.#records = recordsOf(doc.data);
     this.#viewChanged();
     return true;
@@ -479,7 +513,7 @@ export class Viewport {
   apply(ops: readonly Op[], data: Record<string, unknown>): Applied {
     if (this.#playing) return { kind: 'rebuild' };
     const scene = this.#scene();
-    if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op) || tileLevel(op) || animationLevel(op))) return { kind: 'rebuild' };
+    if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op) || tileLevel(op) || animationLevel(op) || elementLevel(op))) return { kind: 'rebuild' };
     const result = validateScene(data, this.#game);
     if (!result.ok) return { kind: 'invalid', issues: result.issues };
 
@@ -513,6 +547,14 @@ export class Viewport {
         }
       }
       this.#viewChanged();
+    }
+
+    // A UI scene's elements rebuild from the config in place (E9).
+    if (ops.some(elementLevel)) {
+      if (!scene.config || !scene.rebuildUIScene || !isPlainObject(result.loaded)) return { kind: 'rebuild' };
+      scene.config.elements = (result.loaded as { elements?: unknown[] }).elements as never;
+      scene.rebuildUIScene();
+      propsChanged += ops.filter(elementLevel).length;
     }
 
     // Tile layers and the background rebuild from the config in place the
@@ -573,6 +615,21 @@ export class Viewport {
     const scene = this.#scene();
     if (!game || !scene) return null;
     const rect = this.canvas.getBoundingClientRect();
+
+    // A UI scene picks in UI space, through the tree's own hit test — the
+    // input router's path — then walks up to the element the document owns.
+    if (scene.config?.type === 'ui') {
+      const { ui } = mapPointer({ clientX, clientY, rect, viewport: game.viewport }) as unknown as { ui: { x: number; y: number } };
+      let hit = scene.ui?.hitTest(ui.x, ui.y) ?? null;
+      while (hit) {
+        for (const [id, element] of scene.uiById ?? []) {
+          if (element === hit) return id;
+        }
+        hit = hit.parent ?? null;
+      }
+      return null;
+    }
+
     const viewAt = (x: number, y: number) => mapPointer({ clientX: x, clientY: y, rect, viewport: game.viewport }).view;
     const hits: Hit[] = [];
 
@@ -701,6 +758,17 @@ export class Viewport {
    * the entity back when the drag is cancelled.
    */
   previewSize(id: string, size: { x: number; y: number; z?: number }): void {
+    const element = this.#scene()?.config?.type === 'ui' ? this.#scene()?.uiById?.get(id) : undefined;
+    if (element) {
+      if (!this.#sizePreviews.has(id)) {
+        const was = { width: element.width, height: element.height };
+        this.#sizePreviews.set(id, () => { element.width = was.width; element.height = was.height; });
+      }
+      element.width = size.x;
+      element.height = size.y;
+      this.#viewChanged();
+      return;
+    }
     if (decodeInstance(id)) { this.#viewChanged(); return; }
     const entity = this.#scene()?.entitiesById.get(id);
     if (!entity) return;
@@ -762,12 +830,18 @@ export class Viewport {
     return out;
   }
 
-  /** The ids of the placed objects whose on-screen centre a test accepts: what a marquee selects. */
+  /** The ids of the placed objects (or UI elements) whose on-screen centre a test accepts: what a marquee selects. */
   objectsWithin(test: (centre: ClientPoint) => boolean): string[] {
     const scene = this.#scene();
     const toClient = this.#toClient();
     if (this.#playing || !scene || !toClient) return [];
     const ids: string[] = [];
+    if (scene.config?.type === 'ui') {
+      for (const [id, element] of scene.uiById ?? []) {
+        if (test(toClient({ x: element.x, y: element.y }))) ids.push(id);
+      }
+      return ids;
+    }
     for (const [id, entity] of scene.entitiesById) {
       const centre = toClient(this.dimensions === 3 ? entity.position : entity.renderPosition);
       if (!centre.behind && test(centre)) ids.push(id);
@@ -778,6 +852,7 @@ export class Viewport {
   /** Where an object is on screen, for its outline and gizmo; null if it is not shown or is behind the eye. */
   placement(id: string): Placement | null {
     if (this.#playing) return null;
+    if (this.#scene()?.config?.type === 'ui') return this.#elementPlacement(id);
     if (decodeInstance(id)) return this.#instancePlacement(id);
     const entity = this.#scene()?.entitiesById.get(id);
     if (!entity) return null;
@@ -816,6 +891,69 @@ export class Viewport {
     return {
       id, dimensions: 2, center, edges, axes, size: { x: entity.size.x, y: entity.size.y }, onScreen: this.#onScreen(center),
       drawnAt: { x: drawn.x, y: drawn.y }, position: { x: ground.x, y: ground.y }, angle
+    };
+  }
+
+  /** The UI space's size, for anchor math; null off a UI scene. */
+  uiBox(): { width: number; height: number } | null {
+    if (this.#scene()?.config?.type !== 'ui') return null;
+    const ui = (this.#game as unknown as { uiRenderer?: { width: number; height: number } } | null)?.uiRenderer;
+    return ui ? { width: ui.width, height: ui.height } : null;
+  }
+
+  /** A UI point in client pixels; nothing in UI space is ever behind the eye. */
+  #uiToClient(): ((p: Point) => ClientPoint) | null {
+    const game = this.#game as unknown as { viewport: never } | null;
+    if (!game) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    return (p) => {
+      const view = uiToView({ x: p.x, y: p.y, viewport: game.viewport });
+      const client = viewToClient({ x: view.x, y: view.y, rect, viewport: game.viewport });
+      return { x: client.x, y: client.y, behind: false };
+    };
+  }
+
+  /**
+   * A UI element's placement (E9): its frame outlined in UI space mapped
+   * to the screen, screen-aligned axes, no rotation — an element does not
+   * turn — and the nine anchor points of the box it offsets from, the
+   * element's own marked. `position` is the document's `x`/`y`: an
+   * element's offsets from its anchor, exactly what a move writes back.
+   */
+  #elementPlacement(id: string): Placement | null {
+    const scene = this.#scene();
+    const live = scene?.uiById?.get(id);
+    const toClient = this.#uiToClient();
+    if (!live || !toClient) return null;
+    const f = live.frame;
+    const corners = [
+      { x: f.x, y: f.y }, { x: f.x + f.width, y: f.y },
+      { x: f.x + f.width, y: f.y + f.height }, { x: f.x, y: f.y + f.height }
+    ].map(toClient);
+    const edges = corners.map((point, i): [Point, Point] => [point, corners[(i + 1) % 4]!]);
+    const center = toClient({ x: live.x, y: live.y });
+    const axes: Placement['axes'] = [
+      axisOf('x', center, toClient({ x: live.x + 1, y: live.y })),
+      axisOf('y', center, toClient({ x: live.x, y: live.y + 1 }))
+    ];
+    const element = scene?.config?.elements?.find((each) => each?.id === id);
+    const anchor = element?.anchor ?? 'top-left';
+    const game = this.#game as unknown as { uiRenderer?: { width: number; height: number } } | null;
+    const box = { width: game?.uiRenderer?.width ?? 0, height: game?.uiRenderer?.height ?? 0 };
+    const anchors = Object.entries(ANCHOR_POINTS).map(([name, [fx, fy]]) => ({
+      name,
+      point: toClient({ x: fx * box.width, y: fy * box.height }),
+      active: name === anchor
+    }));
+    return {
+      id, dimensions: 2, center, edges, axes,
+      size: { x: f.width, y: f.height },
+      onScreen: this.#onScreen(center),
+      drawnAt: { x: live.x, y: live.y },
+      position: { x: live.offsetX, y: live.offsetY },
+      angle: 0,
+      tools: { rotate: false, scale: element?.type !== 'text' },
+      anchors
     };
   }
 
@@ -970,6 +1108,16 @@ export class Viewport {
    * stands may then look different there, which is the truth.
    */
   preview(id: string, pose: Pose): void {
+    // A UI element poses live: its offsets are exactly the document's x/y.
+    const element = this.#scene()?.config?.type === 'ui' ? this.#scene()?.uiById?.get(id) : undefined;
+    if (element) {
+      if (pose.position) {
+        element.offsetX = pose.position.x;
+        element.offsetY = pose.position.y;
+      }
+      this.#viewChanged();
+      return;
+    }
     if (decodeInstance(id)) {
       // The batch cannot move per frame (every shadow cube would re-render);
       // the pose moves the overlay's outline, and the commit rebuilds once.
@@ -1027,6 +1175,9 @@ export class Viewport {
    * from its depth in view space, and callers leave those out.
    */
   #toClient(): ((p: { x: number; y: number; z?: number }) => ClientPoint) | null {
+    // A UI scene's points are in UI space, not the world's: the camera
+    // never moves them, the letterbox does.
+    if (this.#scene()?.config?.type === 'ui') return this.#uiToClient();
     const game = this.#game as unknown as {
       viewport: never;
       camera: { worldToScreen(x: number, y: number, z?: number): Point; view?: Float32Array | number[]; near?: number };
@@ -1213,6 +1364,14 @@ function tileLevel(op: Op): boolean {
 function animationLevel(op: Op): boolean {
   return op.path[0] === 'assets' && op.path[1] === 'spritesheets' && typeof op.path[2] === 'string' && op.path[3] === 'animations';
 }
+
+/** Whether an op only touches a UI scene's elements: the in-place element rebuild covers it. */
+function elementLevel(op: Op): boolean {
+  return op.path[0] === 'elements';
+}
+
+/** The nine anchor origins, the engine's own. */
+const ANCHOR_POINTS: Readonly<Record<string, readonly [number, number]>> = ANCHOR_ORIGINS;
 
 /** Every sheet the loaded document's tile layers and background draw from. */
 function tileSheets(loaded: Record<string, unknown>): Set<string> {

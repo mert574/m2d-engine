@@ -236,3 +236,41 @@ describe('props', () => {
     expect(() => demoteObjectToProp(d, ['layers', 1, 'objects', 0])).toThrow(/tilted/);
   });
 });
+
+describe('UI elements', () => {
+  const ui = (): Record<string, unknown> => ({ version: 2, type: 'ui', name: 'menu', elements: [] });
+
+  it('adds each kind valid from birth', async () => {
+    const { addElement } = await import('../src/structure.ts');
+    const d = ui();
+    run(d, addElement(d, 'text').ops);
+    const button = addElement(d, 'button', { scene: 'level' });
+    run(d, button.ops);
+    const rect = addElement(d, 'rect');
+    run(d, rect.ops);
+    const elements = d.elements as Array<Record<string, unknown>>;
+    expect(elements[0]).toMatchObject({ type: 'text', id: 'text', x: 0, y: 0, anchor: 'center', properties: { text: 'Text' } });
+    expect(elements[1]!.properties).toMatchObject({ text: 'Button', onClick: 'level' });
+    expect(elements[2]).toMatchObject({ type: 'rect', width: 200, height: 100 });
+    // A second text gets a fresh id; a button with no scene gets an action instead.
+    run(d, addElement(d, 'text').ops);
+    expect((d.elements as Array<{ id: string }>)[3]!.id).toBe('text-2');
+    run(d, addElement(d, 'button').ops);
+    expect((d.elements as Array<{ properties?: { action?: string } }>)[4]!.properties?.action).toBe('start');
+    // An image needs a sprite to show.
+    expect(() => addElement(d, 'image')).toThrow(/sprite/);
+    run(d, addElement(d, 'image', { sprite: 'logo' }).ops);
+    expect((d.elements as Array<{ sprite?: string }>)[5]!.sprite).toBe('logo');
+  });
+
+  it('changes an element\'s kind keeping id, position and anchor', async () => {
+    const { addElement, changeElementType } = await import('../src/structure.ts');
+    const d = ui();
+    run(d, addElement(d, 'button', { scene: 'level' }).ops);
+    run(d, [{ op: 'set', path: ['elements', 0, 'x'], value: 120 }, { op: 'set', path: ['elements', 0, 'anchor'], value: 'bottom' }]);
+    run(d, changeElementType(d, ['elements', 0], 'text'));
+    const element = (d.elements as Array<Record<string, unknown>>)[0]!;
+    expect(element).toMatchObject({ type: 'text', id: 'button', x: 120, y: 0, anchor: 'bottom' });
+    expect(element.properties).toEqual({ text: 'Text' });
+  });
+});

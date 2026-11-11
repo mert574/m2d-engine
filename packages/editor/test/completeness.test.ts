@@ -155,6 +155,48 @@ describe('every kind has a control', () => {
     expect(writes.at(-1)?.value).toMatchObject({ type: 'button' });
   });
 
+  it('edits style fields as text or a $token, with the theme\'s names offered (E9)', () => {
+    const ui = {
+      version: SCENE_VERSION, type: 'ui', name: 'menu',
+      elements: [{ type: 'text', id: 'title', x: 0, y: -100, anchor: 'center', properties: { text: 'HI', fontSize: '$font.size.display', color: '#fff' } }]
+    };
+    const panel = createInspector(container, {
+      edit: (path, value) => writes.push({ path, value }),
+      tokens: (hint) => (hint === 'color' ? ['$color.text.primary', '$color.accent'] : hint === 'size' ? ['$font.size.display'] : [])
+    });
+    panel.show('title', inspectNode(ui, ['elements', 0]));
+    const text = container.querySelector<HTMLInputElement>('dd[data-key="text"] input.control')!;
+    expect(text).toBeTruthy();
+    expect(text.disabled).toBe(false);
+    text.value = 'EMBER';
+    text.dispatchEvent(new Event('change'));
+    expect(writes.at(-1)).toEqual({ path: ['elements', 0, 'properties', 'text'], value: 'EMBER' });
+    // A size takes a bare number as a number and a $token as a string.
+    const size = container.querySelector<HTMLInputElement>('dd[data-key="fontSize"] input.control')!;
+    size.value = '18';
+    size.dispatchEvent(new Event('change'));
+    expect(writes.at(-1)).toEqual({ path: ['elements', 0, 'properties', 'fontSize'], value: 18 });
+    size.value = '$font.size.title';
+    size.dispatchEvent(new Event('change'));
+    expect(writes.at(-1)).toEqual({ path: ['elements', 0, 'properties', 'fontSize'], value: '$font.size.title' });
+    // The colour field offers the theme's tokens as completions.
+    const colour = container.querySelector<HTMLInputElement>('dd[data-key="color"] input.control')!;
+    expect(colour.getAttribute('list')).toBe('tokens-color');
+    expect(container.querySelector('#tokens-color option[value="$color.accent"]')).toBeTruthy();
+  });
+
+  it('keeps an element\'s identity through a variant change', () => {
+    const ui = {
+      version: SCENE_VERSION, type: 'ui', name: 'menu',
+      elements: [{ type: 'rect', id: 'bg', x: 10, y: 20, anchor: 'bottom', width: 50, height: 5, color: '#111' }]
+    };
+    inspector().show('elements', inspectNode(ui, ['elements']));
+    const variant = container.querySelector<HTMLSelectElement>('[data-key="0"] select.variant, .card-head select.variant')!;
+    variant.value = '0';
+    variant.dispatchEvent(new Event('change'));
+    expect(writes.at(-1)?.value).toMatchObject({ type: 'button', id: 'bg', x: 10, y: 20, anchor: 'bottom' });
+  });
+
   it('leaves a free-form bag editable as values', () => {
     inspector().show('floor', inspectNode(level(), ['layers', 0, 'objects', 0]));
     // Properties under an undeclared actor: the key is shown with a control.
