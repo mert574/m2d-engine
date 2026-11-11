@@ -177,14 +177,20 @@ In order. Phases first, then the two items the owner added:
 1. ~~**E3: Assets.**~~ Done — `editor-e3-e5.md`.
 2. ~~**E4: Play and iterate.**~~ Done — `editor-e3-e5.md`.
 3. ~~**E5: Project and build.**~~ Done — `editor-e3-e5.md`.
-4. **Rebuild the lot properly** (owner, Nov 2026). `lot.json` today is
-   stuff placed around a yard: no sense of place, nothing fits together.
-   Recreate it as a complete, coherent scene — a designed layout with
-   streets, plots and purpose, props that belong where they stand — using
-   the editor and the seed script together, after the phases above give
-   the tools (assets, props, play-testing) it needs. Bright and
-   distinctive, per the demo direction. Props one by one (pick, move,
-   scatter individual instances) is the piece still missing for it.
+4. ~~**Rebuild the lot properly**~~ (owner, Nov 2026). Done, Nov 2026, in
+   the seed script: `lot.json` is now a town corner where two roads
+   cross — corner shops with the milk truck delivering, a terrace with
+   its front and back gardens, a works depot with a warehouse, office and
+   workshop, a park with a plaza and a jacaranda avenue, allotments,
+   noise-scattered woodland with a ruined fort, and meadow — streets,
+   plots and purpose, with nothing scattered onto a road or into a
+   garden. Buildings are primitive shells (a gable is a box turned 45
+   degrees about its ridge) dressed with scanned shutters and lamps; the
+   yard's physics toys each have a reason to be where they stand. The
+   modular kits are cut into single pieces by the compiler (`PIECES` in
+   `fetchPolyHaven.mjs`). Still open: props one by one in the editor
+   (pick, move, scatter individual instances), which the script cannot
+   give.
 5. **Resizable, toggleable sidebars and saved layouts** (owner, Nov
    2026). The simple half is done (`editor-e3-e5.md`, follow-up round):
    drag handles, toggles, remembered sizes. Still to do: predefined and

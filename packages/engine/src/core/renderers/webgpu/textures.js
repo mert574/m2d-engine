@@ -128,6 +128,9 @@ export class TextureCache3D {
     let texture = this.textures.get(image);
     if (texture) return texture;
     if (image.compressed) {
+      if (!image.mips) {
+        throw new Error('M2D: this texture\'s data was let go once it was on the GPU, and its texture has since been released; load the model again to draw it');
+      }
       texture = this.#uploadCompressed(image, srgb);
       this.textures.set(image, texture);
       return texture;
@@ -159,9 +162,10 @@ export class TextureCache3D {
 
   /**
    * Drop an uploaded image: its texture is destroyed and the bytes come
-   * off the total. The next `get` for the same image uploads it again,
-   * so this is safe to call on anything — it costs a re-upload, not
-   * correctness. Streaming uses it to let go of what is far away.
+   * off the total. The next `get` for the same image uploads a decoded
+   * image again; a transcoded KTX2 record's payload went at its upload,
+   * so `get` refuses it and its model has to be loaded again — which is
+   * what streaming, the one caller, does with what is far away.
    * @returns {boolean} Whether there was anything to release
    */
   release(image) {
@@ -185,6 +189,13 @@ export class TextureCache3D {
    * and WebGPU rejects a copy width that is not a multiple of the block
    * width. The transcoder pads those levels to a full block already, so
    * the bytes for a 4x4 copy are there.
+   *
+   * Once written, the payload is let go (`image.mips` becomes null): the
+   * GPU holds the texture, and keeping a CPU copy of every scan's mip
+   * chain is what filled a tab's heap — the lot held 2.7 GB of mips it
+   * would never read again. Nothing uploads the same record twice: a
+   * model whose textures are released is dropped by its scene, and
+   * coming back it is loaded afresh.
    */
   #uploadCompressed(image, srgb) {
     const base = COMPRESSED_FORMATS[image.base];
@@ -209,6 +220,7 @@ export class TextureCache3D {
       );
     }
     this.#count(image, image.mips.reduce((total, level) => total + level.byteLength, 0));
+    image.mips = null;
     return texture;
   }
 

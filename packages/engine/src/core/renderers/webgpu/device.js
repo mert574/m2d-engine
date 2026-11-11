@@ -51,7 +51,16 @@ export function initWebGPU({ powerPreference = 'high-performance' } = {}) {
       'timestamp-query', 'indirect-first-instance',
       'texture-compression-bc', 'texture-compression-etc2', 'texture-compression-astc'
     ].filter((f) => adapter.features.has(f));
-    device = await adapter.requestDevice({ requiredFeatures });
+    // The buffer limits the adapter offers rather than the spec's
+    // defaults: a resident scene of tens of thousands of props lays one
+    // record per drawn primitive into the instance buffer, which passes
+    // the default 128 MB storage binding long before the GPU runs out.
+    // The renderer reads `device.limits` and never grows a buffer past it.
+    const requiredLimits = {
+      maxBufferSize: adapter.limits.maxBufferSize,
+      maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize
+    };
+    device = await adapter.requestDevice({ requiredFeatures, requiredLimits });
     // Validation errors are asynchronous; without this they vanish silently.
     device.addEventListener('uncapturederror', (event) => {
       console.error(`M2D: WebGPU error: ${event.error.message}`);

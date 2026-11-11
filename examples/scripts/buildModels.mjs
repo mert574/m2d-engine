@@ -20,11 +20,11 @@
  * kept — and nothing here deletes a source; the directory is the cache.
  */
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { availableParallelism, totalmem } from 'node:os';
-import { ASSETS, HDRIS, TEXTURES, fetchAsset, fetchHDRI, fetchTexture, texturePath, HDRI_DIR } from './fetchPolyHaven.mjs';
-import { OUT_DIR, FORMAT } from './compileModel.mjs';
+import { ASSETS, PIECES, HDRIS, TEXTURES, TEXTURE_MAPS, fetchAsset, fetchHDRI, fetchTexture, texturePath, HDRI_DIR } from './fetchPolyHaven.mjs';
+import { OUT_DIR, FORMAT, sourceOf } from './compileModel.mjs';
 
 const args = process.argv.slice(2);
 const missingOnly = args.includes('--missing');
@@ -35,19 +35,38 @@ const ids = args.filter((a, i) => !a.startsWith('--') && (jobsArg < 0 || i !== j
 
 /** Downloads in flight at once: the CDN is the limit, two saturates it. */
 const DOWNLOADS = 2;
-/** Bytes a compile may need while a scan is cut; sizes the pool against RAM. */
-const COMPILE_BYTES = 4.5e9;
+/**
+ * Bytes a compile may need, measured on the largest scan (a tree, with its
+ * encoder threads): sizes the pool against RAM. Texture encoding is most
+ * of a compile and now runs on threads inside it, so a few compiles at
+ * once keep every core busy; more would only queue on the same cores.
+ */
+const COMPILE_BYTES = 3.5e9;
 const JOBS = Math.max(1, Number(
   jobsArg >= 0 ? args[jobsArg + 1]
     : process.env.M2D_BUILD_JOBS
-    ?? Math.min(availableParallelism(), Math.floor(totalmem() / COMPILE_BYTES))));
+    ?? Math.min(4, availableParallelism(), Math.floor(totalmem() / COMPILE_BYTES))));
+/** The cores shared out between the compiles, as each one's encoder threads. */
+const ENCODE_THREADS = Math.max(1, Math.ceil(availableParallelism() / JOBS));
 
 // A compiled model from an older format (say, WebP textures before KTX2)
 // exists but is stale; the stamp makes --missing rebuild the lot once.
 const stampPath = resolve(OUT_DIR, '.format');
 const stale = !existsSync(stampPath) || readFileSync(stampPath, 'utf8').trim() !== String(FORMAT);
-const wanted = (ids.length ? ids.filter((id) => !(id in HDRIS) && !(id in TEXTURES)) : Object.keys(ASSETS))
+// Every model key the scenes name: a source compiled whole, or a piece
+// cut from one (`PIECES`). The same kit may be wanted several times over;
+// a kit no scene places whole (the fort, the fence, the pine pair) is
+// downloaded for its pieces and never compiled whole, which is minutes
+// and a hundred megabytes nothing loads.
+const named = new Set();
+const SCENES_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'scenes');
+for (const file of readdirSync(SCENES_DIR).filter((f) => f.endsWith('.json'))) {
+  for (const [, id] of readFileSync(resolve(SCENES_DIR, file), 'utf8').matchAll(/models\/ph\/([\w-]+)\.glb/g)) named.add(id);
+}
+const wanted = (ids.length ? ids.filter((id) => !(id in HDRIS) && !(id in TEXTURES)) : [...Object.keys(ASSETS), ...Object.keys(PIECES)].filter((id) => named.has(id)))
   .filter((id) => !missingOnly || stale || !existsSync(resolve(OUT_DIR, `${id}.glb`)));
+/** The sources to download, each once however many pieces come out of it. */
+const sources = [...new Set(wanted.map(sourceOf))];
 
 // HDR panoramas: fetched, never compiled, so they are their own step
 // and the models' format stamp does not cover them. Only when named —
@@ -79,7 +98,7 @@ const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
 function compile(id) {
   return new Promise((done, fail) => {
     execFile(process.execPath, ['--max-old-space-size=4096', resolve(import.meta.dirname, 'compileModel.mjs'), id],
-      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, M2D_ENCODE_THREADS: process.env.M2D_ENCODE_THREADS ?? String(ENCODE_THREADS) } }, (error, stdout, stderr) => {
         if (error) {
           fail(new Error(`${id}: compile failed\n${stderr.split('\n').filter((l) => l && !/^(Slice|Mode|Encoding|Total slices|basis_compressor|Flipping|Processing)/.test(l)).slice(-12).join('\n')}`));
           return;
@@ -91,18 +110,22 @@ function compile(id) {
 
 // Textures the lot maps onto its roads and plinths: a megabyte each,
 // never compiled, and fetched with --missing because a scene names them.
+// Each with its colour, normal and occlusion-roughness-metal maps.
 const textures = (ids.length ? ids.filter((id) => id in TEXTURES) : Object.keys(TEXTURES))
-  .filter((id) => !missingOnly || !existsSync(texturePath(id, TEXTURES[id])));
+  .filter((id) => !missingOnly || TEXTURE_MAPS.some(([, suffix]) => !existsSync(texturePath(id, TEXTURES[id], suffix))));
 for (const id of textures) {
-  const { bytes, name, authors } = await fetchTexture(id, TEXTURES[id]);
-  console.log(`${id} (${name}, by ${authors.join(', ')}) at ${TEXTURES[id]}: ${(bytes / 1e6).toFixed(1)} MB`);
+  for (const map of TEXTURE_MAPS) {
+    if (missingOnly && existsSync(texturePath(id, TEXTURES[id], map[1]))) continue;
+    const { bytes, name, authors } = await fetchTexture(id, TEXTURES[id], map);
+    console.log(`${id} ${map[1]} (${name}, by ${authors.join(', ')}) at ${TEXTURES[id]}: ${(bytes / 1e6).toFixed(1)} MB`);
+  }
 }
 
 if (!wanted.length) {
   if (!hdris.length && !textures.length) console.log('Models are up to date');
 } else {
   const started = Date.now();
-  console.log(`Building ${wanted.length} model${wanted.length === 1 ? '' : 's'}: downloading ${DOWNLOADS} at a time, compiling ${JOBS} at a time (${availableParallelism()} cores, ${(totalmem() / 1e9).toFixed(0)} GB).`);
+  console.log(`Building ${wanted.length} model${wanted.length === 1 ? '' : 's'}: downloading ${DOWNLOADS} at a time, compiling ${JOBS} at a time with ${ENCODE_THREADS} encoder threads each (${availableParallelism()} cores, ${(totalmem() / 1e9).toFixed(0)} GB).`);
 
   // The compile pool is fed as downloads land, so the two stages overlap.
   // Each download resolves into a job the pool picks up; the pool itself
@@ -135,12 +158,12 @@ if (!wanted.length) {
     await Promise.all(compiles);
   })();
 
-  await pool(wanted, DOWNLOADS, async (id) => {
+  await pool(sources, DOWNLOADS, async (source) => {
     const t0 = Date.now();
-    const { bytes, name, fetched } = await fetchAsset(id, ASSETS[id] ?? '2k');
-    console.log(`  ${fetched ? 'fetched   ' : 'on disk   '}${id} (${name}, ${(bytes / 1e6).toFixed(0)} MB${fetched ? `, ${seconds(Date.now() - t0)}` : ''})`);
-    ready.push(id);
-    downloadsLeft--;
+    const { bytes, name, fetched } = await fetchAsset(source, ASSETS[source] ?? '2k');
+    console.log(`  ${fetched ? 'fetched   ' : 'on disk   '}${source} (${name}, ${(bytes / 1e6).toFixed(0)} MB${fetched ? `, ${seconds(Date.now() - t0)}` : ''})`);
+    // Every model this source yields is ready to compile.
+    for (const id of wanted) if (sourceOf(id) === source) { ready.push(id); downloadsLeft--; }
     kick();
   });
   await compiler;

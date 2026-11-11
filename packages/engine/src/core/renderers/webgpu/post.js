@@ -4,7 +4,7 @@ import {
   DOF_COMBINE_SHADER, MOTION_BLUR_SHADER,
   LUMINANCE_SHADER, ADAPT_SHADER, BLOOM_PREFILTER_SHADER, BLOOM_DOWNSAMPLE_SHADER, BLOOM_UPSAMPLE_SHADER,
   COMPOSITE_SHADER
-} from './shaders.js';
+} from './shaders/index.js';
 
 /**
  * The frame after the meshes.

@@ -197,8 +197,12 @@ async function buildModel(json, bin, { decodeImage, name }) {
     // specular factor; photoscanned foliage ships at 0.6 of glTF's 0.04.
     const ior = m.extensions?.KHR_materials_ior?.ior ?? 1.5;
     const specularFactor = m.extensions?.KHR_materials_specular?.specularFactor ?? 1;
+    // KHR_materials_clearcoat, by its factors: the compiler drops its textures.
+    const clearcoat = m.extensions?.KHR_materials_clearcoat;
     return {
       specularF0: Math.pow((ior - 1) / (ior + 1), 2) * specularFactor,
+      clearcoat: clearcoat?.clearcoatFactor ?? 0,
+      clearcoatRoughness: clearcoat?.clearcoatRoughnessFactor ?? 0,
       name: m.name,
       baseColor: pbr.baseColorFactor ?? [1, 1, 1, 1],
       metallic: pbr.metallicFactor ?? 1,
@@ -214,6 +218,13 @@ async function buildModel(json, bin, { decodeImage, name }) {
       /** `opaque`, `mask` (cut at `alphaCutoff`) or `blend`. */
       alphaMode: (m.alphaMode ?? 'OPAQUE').toLowerCase(),
       alphaCutoff: m.alphaCutoff ?? 0.5,
+      /**
+       * Leaves, needles and blades (`extras.m2d.foliage`, which the asset
+       * compiler writes for a tree's or ground cover's cut-outs): their
+       * cut-out keeps its coverage down the mip chain, where a fence's
+       * wire is left to thin as it should.
+       */
+      foliage: m.extras?.m2d?.foliage === true,
       doubleSided: m.doubleSided ?? false,
       /** Texture coordinates go through scale, rotation and offset, in that order. */
       uvTransform: transform
@@ -221,6 +232,11 @@ async function buildModel(json, bin, { decodeImage, name }) {
         : null
     };
   });
+
+  // A model that carries foliage sways in the wind, wood and leaves alike;
+  // only its cut-outs also flutter. Materials belong to their model, so
+  // marking them marks the model.
+  if (materials.some((m) => m.foliage)) for (const m of materials) m.sway = true;
 
   // Geometry per primitive, built once however many nodes instance the mesh.
   const geometryCache = new Map();
@@ -419,7 +435,7 @@ export const DEFAULT_MATERIAL = Object.freeze({
   name: 'default', baseColor: [1, 1, 1, 1], metallic: 1, roughness: 1, emissive: [0, 0, 0],
   baseColorTexture: null, metallicRoughnessTexture: null, emissiveTexture: null,
   normalTexture: null, normalScale: 1, occlusionTexture: null, occlusionStrength: 1,
-  alphaMode: 'opaque', alphaCutoff: 0.5, doubleSided: false, uvTransform: null, specularF0: 0.04
+  alphaMode: 'opaque', alphaCutoff: 0.5, foliage: false, sway: false, doubleSided: false, uvTransform: null, specularF0: 0.04, clearcoat: 0, clearcoatRoughness: 0
 });
 
 /**

@@ -19,12 +19,12 @@ import { sceneHooks } from './hooks.js';
  * jumps, T turns the afternoon to dusk and back, O opens settings, F3
  * shows the frame statistics.
  *
- * `?scene=lot` opens the lot instead: the yard at the centre of a grid of
- * lots laid out as a tech demo by `scripts/buildLotScene.mjs` — a
- * lighting lab, an orchard, a rock garden, a depot, a material gallery
- * along a boulevard, a lamp-lined avenue, and districts of forest,
- * orchards, industry and meadow beyond, thousands of props drawn as
- * resident instances the GPU culls. F3 shows what the frame draws.
+ * `?scene=lot` opens the lot instead: the corner of a small town where
+ * two roads cross, laid out as a place by `scripts/buildLotScene.mjs` —
+ * corner shops with the milk truck delivering, a terrace with its
+ * gardens, a works depot, a park with a plaza, allotments, woodland with
+ * a ruin, and meadow — thousands of props drawn as resident instances
+ * the GPU culls and streams. F3 shows what the frame draws.
  */
 
 const canvas = document.getElementById('screen');

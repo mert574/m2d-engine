@@ -23,21 +23,16 @@
  */
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { NodeIO } from '@gltf-transform/core';
+import { NodeIO, getBounds } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { cloneDocument, mergeDocuments, dedup, weld, simplify, prune, textureCompress, unpartition } from '@gltf-transform/functions';
+import { cloneDocument, mergeDocuments, dedup, weld, simplifyPrimitive, compactPrimitive, prune, textureCompress, unpartition } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
-import { ktx2 } from 'ktx2-encoder/gltf-transform';
+import { ktx2Parallel } from './ktx2Pool.mjs';
+import { cardsOf, foliageLevel } from './foliage.mjs';
 import sharp from 'sharp';
 
 /** Kinds of model, by their triangle budget. */
 export const KIND_NAMES = ['tree', 'ground', 'rock', 'prop'];
-
-/** The KTX2 encoder runs in Node, where it needs its images decoded for it. */
-const imageDecoder = async (buffer) => {
-  const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  return { data: new Uint8Array(data), width: info.width, height: info.height };
-};
 
 /**
  * Block-compressed formats need level-0 dimensions in whole 4px blocks;
@@ -59,10 +54,10 @@ function roundToBlock() {
 /**
  * Refuse to write a model whose textures did not survive the encoder.
  *
- * `ktx2()` catches its own failures and logs a warning, leaving the
- * source image on the texture — so a build can report success and ship
- * exactly what KTX2 was meant to replace. This turns that into the
- * error it is, naming what was left behind.
+ * The pool rejects an encode that fails, but a texture in a slot it does
+ * not know (a material extension's) is skipped and would ship as the
+ * source image — exactly what KTX2 was meant to replace. This turns that
+ * into the error it is, naming what was left behind.
  */
 function assertEncoded(document, id) {
   const left = document.getRoot().listTextures()
@@ -79,20 +74,112 @@ function assertEncoded(document, id) {
 }
 
 /** Triangles level 0 may keep, by what the model is; the levels after are fractions of it. */
-const BUDGET = { tree: 300_000, ground: 40_000, rock: 60_000, prop: 80_000 };
+// A tree at 150k: level 0 is only ever seen within a few metres of its scale times twelve, and at 300k a canopy's cost was in leaves smaller than a pixel.
+const BUDGET = { tree: 150_000, ground: 40_000, rock: 60_000, prop: 80_000 };
+
 /**
- * Each level after 0 as a share of level 0's triangles, the screen coverage
- * it takes over at, and the error (as a share of the mesh's extent) the
- * simplifier may introduce to get there. A scan's leaf cards are nearly
- * all border, so borders are not locked: a locked tree stays at two
- * million triangles.
+ * The levels of detail, by kind. `distance` is where a level takes over,
+ * in metres from a model at its own size under a 60-degree view; the
+ * compiler turns it into the screen coverage the renderer switches on, so
+ * a model placed twice as large switches twice as far. `ratio` is the
+ * share of level 0's triangles the wood, stone and everything opaque keep,
+ * at the simplifier's `error` (a share of the mesh's extent); `cards` the
+ * share of leaf cards kept, `quads` whether they become quads.
+ *
+ * Distances by kind, not one coverage for all: a barrel and a tree under
+ * the same coverage switch at three and forty metres, and the barrel's
+ * switch is right in front of the player. Foliage goes to quads first,
+ * at a distance where a leaf is a few pixels and the change is invisible,
+ * and is only thinned further out; the last level is a few thousand
+ * triangles, so a tree two hundred metres off costs what one should.
  */
-const LEVELS = [
-  { ratio: 1, coverage: 0, error: 0.01 },
-  { ratio: 0.3, coverage: 0.35, error: 0.03 },
-  { ratio: 0.08, coverage: 0.12, error: 0.08 },
-  { ratio: 0.02, coverage: 0.04, error: 0.2 }
-];
+const LEVELS = {
+  tree: [
+    { distance: 0, ratio: 1, error: 0.01, cards: 1 },
+    { distance: 12, ratio: 0.3, error: 0.02, cards: 1, quads: true },
+    { distance: 30, ratio: 0.1, error: 0.05, cards: 0.35, quads: true },
+    { distance: 70, ratio: 0.03, error: 0.12, cards: 0.12, quads: true },
+    { distance: 150, ratio: 0.01, error: 0.25, cards: 0.04, quads: true }
+  ],
+  ground: [
+    { distance: 0, ratio: 1, error: 0.01, cards: 1 },
+    { distance: 6, ratio: 0.35, error: 0.03, cards: 1, quads: true },
+    { distance: 15, ratio: 0.12, error: 0.08, cards: 0.4, quads: true },
+    { distance: 35, ratio: 0.04, error: 0.2, cards: 0.15, quads: true }
+  ],
+  rock: [
+    { distance: 0, ratio: 1, error: 0.01 },
+    { distance: 10, ratio: 0.3, error: 0.02 },
+    { distance: 25, ratio: 0.1, error: 0.05 },
+    { distance: 60, ratio: 0.03, error: 0.15 }
+  ],
+  prop: [
+    { distance: 0, ratio: 1, error: 0.01 },
+    { distance: 10, ratio: 0.3, error: 0.02 },
+    { distance: 25, ratio: 0.1, error: 0.05 },
+    { distance: 60, ratio: 0.03, error: 0.15 }
+  ]
+};
+/** tan(30 degrees): half the reference view's height at one metre. */
+const REFERENCE_TAN = Math.tan(Math.PI / 6);
+
+/**
+ * How much a surviving card may grow to stand in for the ones thinned
+ * around it. Coverage would want 1/sqrt(cards); past this a leaf reads
+ * as a paddle even at the distance its level is drawn at.
+ */
+const CARD_GROWTH = 3;
+
+/**
+ * The fewest cards thinning leaves a model with, across all its foliage.
+ * A tree has tens of thousands of leaves and loses most of them far off
+ * without looking thinner from there; a tuft of grass has a few hundred
+ * blades, and at the same share it would be a handful.
+ */
+const MIN_CARDS = 120;
+
+/** meshoptimizer, told to collapse across attribute seams and drop specks; see `reduceLevel`. */
+const SEAMLESS = {
+  ...MeshoptSimplifier,
+  ready: MeshoptSimplifier.ready,
+  simplify: (indices, positions, stride, target, error, flags = []) => MeshoptSimplifier.simplify(indices, positions, stride, target, error, [...flags, 'Permissive', 'Prune'])
+};
+
+/** Leaf, needle and blade cards: whatever a cut-out material draws. */
+const isFoliage = (prim) => prim.getMaterial()?.getAlphaMode() === 'MASK' && !!prim.getIndices();
+
+/**
+ * Bring one level to its share. Level 0 is the source cut to its budget;
+ * every level after is made from level 0, never from the source, so none
+ * can cost more than it. (From the source, a pine's 409,000 needles —
+ * which level 0's budget squeezes to 121,000 triangles in all — came back
+ * as 818,000 triangles of quads.) Wood, stone and everything opaque are
+ * simplified by `woodRatio` at the level's error; foliage is made by
+ * `foliageLevel` (quads, then thinning), and what stays triangles is
+ * reduced by `foliageRatio`, which past level 0 is 1: a leaf keeps the
+ * shape level 0 gave it.
+ */
+async function reduceLevel(doc, level, woodRatio, foliageRatio, level0Error) {
+  await MeshoptSimplifier.ready;
+  const prims = doc.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives().map((prim) => [mesh, prim]));
+  const cards = prims.filter(([, prim]) => isFoliage(prim)).reduce((total, [, prim]) => total + cardsOf(prim).length, 0);
+  const keep = Math.min(1, Math.max(level.cards ?? 1, MIN_CARDS / Math.max(cards, 1)));
+  const grow = keep < 1 ? Math.min(1 / Math.sqrt(keep), CARD_GROWTH) : 1;
+  for (const [mesh, prim] of prims) {
+    const foliage = isFoliage(prim);
+    if (foliage && (keep < 1 || level.quads)) foliageLevel(doc, mesh, prim, { keep, grow, quads: !!level.quads });
+    const ratio = foliage ? foliageRatio : woodRatio;
+    // Past level 0, wood and stone may collapse across their uv seams: a
+    // scan is cut into dozens of uv islands, every seam is a border the
+    // strict simplifier will not cross, and a branch or a boulder stopped
+    // at the same thirteen thousand triangles at every distance. Seen from
+    // where those levels draw, a stretched texel at a seam is invisible.
+    const simplifier = foliage || level.distance === 0 ? MeshoptSimplifier : SEAMLESS;
+    if (ratio < 1 && prim.getIndices()?.getCount()) simplifyPrimitive(prim, { simplifier, ratio, error: foliage ? level0Error : level.error });
+    if (!prim.getIndices() || prim.getIndices().getCount() === 0) { mesh.removePrimitive(prim); prim.dispose(); }
+  }
+  await doc.transform(prune());
+}
 /**
  * The largest texture written, in pixels a side.
  *
@@ -104,6 +191,15 @@ const LEVELS = [
  * three quarters of the source's side rather than half.
  */
 const TEXTURE_CAP = 3072;
+/**
+ * The largest side each kind of model keeps, under the cap. A tree's leaf
+ * atlas and a boulder's surface are seen up close and large; a bench, a
+ * bin or a tuft of grass covers a few hundred pixels at most. At 3072
+ * across the board the lot's eighty models held 2.8 GB of GPU textures
+ * (a fence gate alone 75 MB), enough to crash a tab; `textureSize`
+ * overrides this per model, for a big prop such as a fort's tower.
+ */
+export const TEXTURE_SIZE = { tree: 2048, rock: 2048, ground: 1024, prop: 1024 };
 
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 
@@ -141,18 +237,28 @@ function classifyAlpha(data) {
  * `*_alpha` (or `*_opacity`) PNG the fetcher puts beside the textures.
  * Fold that into the colour's alpha channel, as PNG, for the encoder to
  * carry into KTX2 — and set the alpha mode the map's own histogram
- * calls for, since the source marks cut-outs and glass alike.
+ * calls for, since the source marks cut-outs and glass alike. A map
+ * beside a material marked `OPAQUE` is read too: Pine Tree 01 ships its
+ * twig cards' cut-out but marks the material opaque, and drew as sheets.
  */
-async function foldAlpha(doc, dir) {
-  for (const material of doc.getRoot().listMaterials()) {
-    if (material.getAlphaMode() === 'OPAQUE') continue;
+export async function foldAlpha(doc, dir) {
+  const materials = doc.getRoot().listMaterials();
+  for (const material of materials) {
     const texture = material.getBaseColorTexture();
     if (!texture) continue;
+    // A material marked opaque takes an alpha map only when the colour
+    // texture is its alone. Where several share one atlas, the map is the
+    // marked one's: the street lamp's body, glass and bulb share a texture
+    // and its opacity map is the glass's, and the body read it as its own
+    // and drew the whole lamp blended.
+    // By the image, not the texture object: a source may name one image
+    // through two textures (the generator's body and glass do).
+    if (material.getAlphaMode() === 'OPAQUE' && materials.some((other) => other !== material && other.getBaseColorTexture()?.getURI() === texture.getURI())) continue;
     const uri = texture.getURI();
     const candidates = ['alpha', 'opacity'].map((kind) => resolve(dir, uri.replace(/_diff(_\dk)\.\w+$/, `_${kind}$1.png`)));
     const alphaPath = candidates.find((path) => existsSync(path));
     if (!alphaPath) {
-      console.warn(`${material.getName()}: ${material.getAlphaMode()} but no alpha map beside ${uri}; it will draw opaque`);
+      if (material.getAlphaMode() !== 'OPAQUE') console.warn(`${material.getName()}: ${material.getAlphaMode()} but no alpha map beside ${uri}; it will draw opaque`);
       continue;
     }
     // The map is an RGBA PNG with the mask in its colour. Interleave one
@@ -181,23 +287,84 @@ async function foldAlpha(doc, dir) {
     texture.setImage(png).setMimeType('image/png').setURI(uri.replace(/\.\w+$/, '.png'));
   }
 }
+/** Material extensions the renderer reads: the reflectance, from the factors only. */
+const READ_MATERIAL_EXTENSIONS = new Set(['KHR_materials_ior', 'KHR_materials_specular', 'KHR_materials_clearcoat']);
+
+/**
+ * Material data the renderer never reads goes. Specular and clearcoat
+ * textures go (the renderer reads `KHR_materials_specular` as one
+ * reflectance and `KHR_materials_clearcoat` as a strength and roughness,
+ * from their factors), and so does every other material extension with
+ * its maps: transmission, volume, sheen. They are bytes that draw
+ * nothing, and no encode pass covers their slots, so they would ship as
+ * PNG — Poly Haven's generator carries a specular map and its compost
+ * bags a transmission map.
+ */
+function dropUnreadMaterialData(doc) {
+  const dropped = new Set();
+  for (const material of doc.getRoot().listMaterials()) {
+    for (const extension of material.listExtensions()) {
+      const name = extension.extensionName;
+      if (name === 'KHR_materials_specular') extension.setSpecularTexture(null).setSpecularColorTexture(null);
+      else if (name === 'KHR_materials_clearcoat') extension.setClearcoatTexture(null).setClearcoatRoughnessTexture(null).setClearcoatNormalTexture(null);
+      else if (!READ_MATERIAL_EXTENSIONS.has(name)) { material.setExtension(name, null); dropped.add(name); }
+    }
+  }
+  for (const extension of doc.getRoot().listExtensionsUsed()) if (dropped.has(extension.extensionName)) extension.dispose();
+}
 const triangles = (doc) => doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives())
   .reduce((n, p) => n + (p.getIndices()?.getCount() ?? p.getAttribute('POSITION').getCount()) / 3, 0);
 
-export async function compileModel({ source, to, kind = 'prop', label, name, authors = [] }) {
+/**
+ * Cut one piece out of a kit.
+ *
+ * A modular source (a fence kit, a set of poles, a fort) lays its parts
+ * out side by side for display, so placing the whole file puts a gate,
+ * two corners and a loose bracket wherever a fence panel was wanted.
+ * `keep` names the root nodes that make one piece (strings, or regular
+ * expressions against the node name); the rest are dropped, and what is
+ * left is moved so the piece stands on its origin — the ground at y 0,
+ * centred in x and z — which is where a scene expects a prop to stand.
+ */
+function cutPiece(doc, keep, id) {
+  const scene = doc.getRoot().listScenes()[0];
+  const matches = (name) => keep.some((k) => (k instanceof RegExp ? k.test(name) : k === name));
+  const kept = [];
+  for (const node of scene.listChildren()) {
+    if (matches(node.getName())) kept.push(node);
+    else { scene.removeChild(node); node.dispose(); }
+  }
+  if (!kept.length) throw new Error(`${id}: no root node matches ${keep.map(String).join(', ')}`);
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (const node of kept) {
+    const b = getBounds(node);
+    for (let i = 0; i < 3; i++) { min[i] = Math.min(min[i], b.min[i]); max[i] = Math.max(max[i], b.max[i]); }
+  }
+  const shift = [-(min[0] + max[0]) / 2, -min[1], -(min[2] + max[2]) / 2];
+  for (const node of kept) {
+    const t = node.getTranslation();
+    node.setTranslation([t[0] + shift[0], t[1] + shift[1], t[2] + shift[2]]);
+  }
+}
+
+export async function compileModel({ source, to, kind = 'prop', label, name, authors = [], keep = null, textureSize = null }) {
+  const side = Math.min(TEXTURE_CAP, textureSize ?? TEXTURE_SIZE[kind] ?? TEXTURE_SIZE.prop);
   const id = label ?? source;
   if (!existsSync(source)) throw new Error(`${id}: no source at ${source}`);
   const started = performance.now();
   const base = await io.read(source);
+  if (keep) cutPiece(base, keep, id);
+  dropUnreadMaterialData(base);
   await foldAlpha(base, dirname(source));
   await base.transform(dedup(), weld());
   const sourceTriangles = triangles(base);
   const budget = BUDGET[kind] ?? BUDGET.prop;
 
-  // Each level from the welded source: level 0 to its budget, the rest to
-  // their share of level 0. The levels are folded into one document as they are made — level 0's
-  // scene, then each level's roots under a node named for it — so one
-  // copy of the source is alive at a time.
+  // Level 0 from the welded source, cut to its budget; every level after
+  // from level 0 (see `reduceLevel`). The levels are folded into one
+  // document as they are made — level 0's scene, then each level's roots
+  // under a node named for it.
   const lodInfo = [];
   const level0 = Math.min(sourceTriangles, budget);
   let out = null;
@@ -207,16 +374,21 @@ export async function compileModel({ source, to, kind = 'prop', label, name, aut
     for (const child of children) node.addChild(child);
     scene.addChild(node);
   };
-  for (const [i, level] of LEVELS.entries()) {
-    const doc = cloneDocument(base);
-    const target = level0 * level.ratio;
-    if (target < sourceTriangles) {
-      await doc.transform(simplify({ simplifier: MeshoptSimplifier, ratio: target / sourceTriangles, error: level.error }));
-    }
+  // The model's bounding sphere, which the renderer switches levels on.
+  const bounds = getBounds(base.getRoot().listScenes()[0]);
+  const radius = Math.hypot(...bounds.max.map((v, k) => v - bounds.min[k])) / 2;
+  const levels = LEVELS[kind] ?? LEVELS.prop;
+  let level0Doc = null;
+  for (const [i, level] of levels.entries()) {
+    const doc = cloneDocument(i === 0 ? base : level0Doc);
+    if (i === 0) await reduceLevel(doc, level, level0 / sourceTriangles, level0 / sourceTriangles, level.error);
+    else await reduceLevel(doc, level, level.ratio, 1, levels[0].error);
+    if (i === 0) level0Doc = cloneDocument(doc);
     const count = Math.round(triangles(doc));
-    // A level that saved nothing over the one before is not a level.
-    if (i > 0 && count >= lodInfo[lodInfo.length - 1].triangles * 0.9) break;
-    lodInfo.push({ triangles: count, coverage: level.coverage });
+    // A level that saved little over the one before is not a level: skip it,
+    // and the next, further out, may still save something.
+    if (i > 0 && count >= lodInfo[lodInfo.length - 1].triangles * 0.8) continue;
+    lodInfo.push({ triangles: count, coverage: i === 0 ? 0 : radius / (level.distance * REFERENCE_TAN) });
     if (i === 0) {
       out = doc;
       scene = out.getRoot().listScenes()[0];
@@ -227,31 +399,31 @@ export async function compileModel({ source, to, kind = 'prop', label, name, aut
     const merged = out.getRoot().listScenes().slice(1);
     const children = merged.flatMap((s) => s.listChildren());
     for (const s of merged) { for (const child of s.listChildren()) s.removeChild(child); s.dispose(); }
-    wrap(children, `LOD${i}`);
+    wrap(children, `LOD${lodInfo.length - 1}`);
   }
   // The textures and materials the copies share, folded back together.
   // The resize runs as lossless PNG; the KTX2 encode is the lossy step.
   await out.transform(
     dedup(),
-    textureCompress({ encoder: sharp, targetFormat: 'png', resize: [TEXTURE_CAP, TEXTURE_CAP] }),
+    textureCompress({ encoder: sharp, targetFormat: 'png', resize: [side, side] }),
     roundToBlock(),
-    // UASTC's quality level is its encoder effort, and it is the whole
-    // cost of a build: on a 3072 normal map the default (2) takes 46 s,
-    // level 1 takes 13 s and level 0 takes 3 s, for the same bytes out
-    // and a difference in error well under what a block format already
-    // costs. Normals get level 1, since a normal map shows banding first;
-    // roughness and occlusion, which the eye never sees directly, level 0.
-    ktx2({ slots: /normalTexture/, imageDecoder, generateMipmap: true, isUASTC: true, uastcLDRQualityLevel: 1, needSupercompression: true, isNormalMap: true, isPerceptual: false, isSetKTX2SRGBTransferFunc: false }),
-    ktx2({ slots: /metallicRoughnessTexture|occlusionTexture/, imageDecoder, generateMipmap: true, isUASTC: true, uastcLDRQualityLevel: 0, needSupercompression: true, isPerceptual: false, isSetKTX2SRGBTransferFunc: false }),
-    ktx2({ slots: /baseColorTexture|emissiveTexture/, imageDecoder, generateMipmap: true, isUASTC: false, qualityLevel: 192, isPerceptual: true, isSetKTX2SRGBTransferFunc: true }),
+    // On a pool of threads: see ktx2Pool.mjs for the settings by slot.
+    ktx2Parallel(),
     prune(),
     // The merged levels each brought a buffer; a .glb holds one.
     unpartition()
   );
   assertEncoded(out, id);
+  // A tree's and ground cover's cut-outs are foliage, which the renderer
+  // keeps from thinning with distance; a kit's chain-link is not.
+  if (kind === 'tree' || kind === 'ground') {
+    for (const material of out.getRoot().listMaterials()) {
+      if (material.getAlphaMode() === 'MASK') material.setExtras({ ...material.getExtras(), m2d: { ...material.getExtras()?.m2d, foliage: true } });
+    }
+  }
   out.getRoot().getAsset().extras = {
     ...out.getRoot().getAsset().extras,
-    m2d: { source: label ?? null, name: name ?? null, authors, sourceTriangles, lods: lodInfo }
+    m2d: { source: label ?? null, name: name ?? null, authors, sourceTriangles, lods: lodInfo, ...(keep && { piece: keep.map(String) }) }
   };
   const glb = await io.writeBinary(out);
   mkdirSync(dirname(to), { recursive: true });

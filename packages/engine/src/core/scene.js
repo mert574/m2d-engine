@@ -32,10 +32,19 @@ const UNIT = { x: 1, y: 1, z: 1 };
 const IDENTITY_Q = { x: 0, y: 0, z: 0, w: 1 };
 const WHITE = [1, 1, 1];
 
+/** A shape material's identity: its maps and its tile size, and the surface properties a shape sets beyond colour, metal and roughness. */
+const meshTextureKey = (texture) => `${texture.url}|${texture.size ?? 1}|${texture.normal ?? ''}|${texture.arm ?? ''}`;
+const meshSurfaceKey = (mesh) => `${mesh.opacity ?? 1}|${mesh.emissiveColor ?? ''}|${mesh.emissive ?? ''}|${mesh.clearcoat ?? 0}|${mesh.clearcoatRoughness ?? 0}|${mesh.specular ?? 1}`;
+/** Whether a mesh block asks for anything a bare instance record cannot carry. */
+const hasSurface = (mesh) => mesh && ((mesh.opacity !== undefined && mesh.opacity < 1) || mesh.emissiveColor || mesh.clearcoat || mesh.specular !== undefined);
+/** The emissive an instance record carries: none when the material's own colour glows instead. */
+const instanceEmissive = (mesh) => (mesh?.emissiveColor ? 0 : mesh?.emissive);
+
 export class Scene {
   /** @type {Set<string>} */ #streamable;
   /** @type {Set<string>} */ #wanted;
   /** @type {Map<string, Promise>} */ #loading;
+  /** @type {Set<string>} */ #failed;
   /** @type {Map<string, number[]>} */ #propSpots;
   /** Set once `setupProps` has run; before it there is nothing to add batches to. */ #propsReady = false;
   /** Set by `unload`, so a load still in the air knows not to land. */ #gone = false;
@@ -69,6 +78,13 @@ export class Scene {
     this.#wanted = new Set();
     /** In-flight loads by key, so two asks share one fetch. @type {Map<string, Promise>} */
     this.#loading = new Map();
+    /**
+     * Streamable models that failed to load, which are not asked for again
+     * this scene: the streamer runs every frame, and retrying a missing
+     * file each time is a fetch and a parse a frame for nothing.
+     * @type {Set<string>}
+     */
+    this.#failed = new Set();
     /** Every prop instance position per model key, as flat xyz, for the distance test. @type {Map<string, number[]>} */
     this.#propSpots = new Map();
     /** The props' static bodies, removed with the scene. */
@@ -251,8 +267,29 @@ export class Scene {
     }
   }
 
-  /** The 3D frame's lighting and post from `world.lighting` and `world.post`, before the scene's own `onRender`. */
+  /** `world.particles` as the frame takes them, converted once. */
+  #particleFields = null;
+
+  /** The 3D frame's lighting, post and particles from `world`, before the scene's own `onRender`. */
   #applyFrameLook(frame) {
+    const fields = this.config.world?.particles;
+    if (fields?.length) {
+      this.#particleFields ??= fields.map((f) => {
+        const [r, g, b] = f.color ? parseColor(f.color) : [1, 1, 1];
+        return {
+          kind: f.kind, count: f.count,
+          center: f.at ? [f.at.x ?? 0, f.at.y ?? 0, f.at.z ?? 0] : [0, 0, 0],
+          extent: f.extent ? [f.extent.x, f.extent.y, f.extent.z] : (f.kind === 'smoke' ? [0.6, 4, 0.6] : [16, 5, 16]),
+          radius: f.radius ?? (f.kind === 'smoke' ? 0.5 : 0.03),
+          color: [toLinear(r), toLinear(g), toLinear(b)],
+          opacity: f.opacity ?? (f.kind === 'smoke' ? 0.3 : 0.6),
+          emissive: f.emissive ?? 0,
+          speed: f.speed ?? (f.kind === 'smoke' ? 0.6 : 0.3),
+          follow: f.follow ?? true
+        };
+      });
+      frame.particles = this.#particleFields;
+    }
     const { lighting, post } = this.#currentLook();
     if (lighting) {
       const linear = (css) => { const [r, g, b] = parseColor(css); return [toLinear(r), toLinear(g), toLinear(b)]; };
@@ -271,6 +308,13 @@ export class Scene {
         };
       }
       if (lighting.fog) frame.fog = { color: lighting.fog.color ? linear(lighting.fog.color) : frame.fog.color, density: lighting.fog.density ?? frame.fog.density };
+      if (lighting.wind) {
+        frame.wind = {
+          direction: lighting.wind.direction ? [lighting.wind.direction.x ?? 0, lighting.wind.direction.z ?? 0] : frame.wind.direction,
+          strength: lighting.wind.strength ?? frame.wind.strength,
+          gust: lighting.wind.gust ?? frame.wind.gust
+        };
+      }
       if (lighting.exposure !== undefined) frame.exposure = lighting.exposure;
       if (lighting.shadowDistance !== undefined) frame.shadow.distance = lighting.shadowDistance;
     }
@@ -308,7 +352,7 @@ export class Scene {
     const wanted = new Map();
     const want = (texture) => {
       if (!texture) return;
-      const key = `${texture.url}|${texture.size ?? 1}`;
+      const key = meshTextureKey(texture);
       if (!wanted.has(key)) wanted.set(key, texture);
     };
     for (const prefab of Object.values(this.config.prefabs ?? {})) want(prefab.mesh?.texture);
@@ -316,14 +360,34 @@ export class Scene {
     for (const layer of this.config.layers ?? []) {
       for (const object of layer.objects ?? []) want(object.overrides?.mesh?.texture);
     }
+    // One decode per image, however many materials share it: two tile
+    // sizes of the same brick read one file.
+    const images = new Map();
+    const image = (url) => {
+      if (!images.has(url)) {
+        images.set(url, (async () => {
+          const response = await fetch(this.game.options.basePath + url);
+          if (!response.ok) throw new Error(`M2D: could not fetch texture ${url} (${response.status})`);
+          return createImageBitmap(await response.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+        })());
+      }
+      return images.get(url);
+    };
     await Promise.all([...wanted.entries()].map(async ([key, texture]) => {
-      const response = await fetch(this.game.options.basePath + texture.url);
-      if (!response.ok) throw new Error(`M2D: could not fetch texture ${texture.url} (${response.status})`);
-      const image = await createImageBitmap(await response.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+      const [base, normal, arm] = await Promise.all([image(texture.url), texture.normal && image(texture.normal), texture.arm && image(texture.arm)]);
       this.meshMaterials.set(key, {
         name: texture.url,
         baseColor: [1, 1, 1, 1],
-        baseColorTexture: image,
+        baseColorTexture: base,
+        // The normal map is tangent space in the planar mapping's own
+        // frame, which the shader builds from the axis it projects along.
+        normalTexture: normal || null,
+        normalScale: 1,
+        // An `arm` map is glTF's layout already: roughness in green and
+        // metal in blue for the metallic-roughness slot, occlusion in red.
+        metallicRoughnessTexture: arm || null,
+        occlusionTexture: arm || null,
+        occlusionStrength: 1,
         metallic: 1,
         roughness: 1,
         worldScale: texture.size ?? 1
@@ -331,11 +395,39 @@ export class Scene {
     }));
   }
 
-  /** The stable material for a mesh block's `texture`, or null without one. */
+  /**
+   * The stable material for a mesh block: its `texture`'s maps, and the
+   * surface it asks for beyond what an instance record carries (opacity,
+   * an emissive colour, a clearcoat, a reflectance). Null for a plain
+   * coloured shape. Stable per distinct block, since the renderer caches
+   * bind groups by the material's identity and groups instances by it.
+   */
   meshMaterial(mesh) {
     const texture = mesh?.texture;
-    if (!texture) return null;
-    return this.meshMaterials.get(`${texture.url}|${texture.size ?? 1}`) ?? null;
+    if (!texture && !hasSurface(mesh)) return null;
+    const key = `${texture ? meshTextureKey(texture) : ''}#${meshSurfaceKey(mesh)}`;
+    let material = this.meshMaterials.get(key);
+    if (material) return material;
+    const maps = texture ? this.meshMaterials.get(meshTextureKey(texture)) : null;
+    if (texture && !maps) return null;
+    const opacity = mesh.opacity ?? 1;
+    const glow = mesh.emissiveColor ? parseColor(mesh.emissiveColor).map((c) => toLinear(c) * (mesh.emissive ?? 1)) : [0, 0, 0];
+    material = {
+      name: `shape ${key}`,
+      baseColor: [1, 1, 1, opacity],
+      baseColorTexture: null, normalTexture: null, metallicRoughnessTexture: null, occlusionTexture: null,
+      metallic: 1, roughness: 1, normalScale: 1, occlusionStrength: 1, worldScale: 0,
+      ...maps,
+      emissive: glow,
+      alphaMode: opacity < 1 ? 'blend' : 'opaque',
+      // Glass is seen from both sides.
+      doubleSided: opacity < 1,
+      specularF0: 0.04 * (mesh.specular ?? 1),
+      clearcoat: mesh.clearcoat ?? 0,
+      clearcoatRoughness: mesh.clearcoatRoughness ?? 0
+    };
+    this.meshMaterials.set(key, material);
+    return material;
   }
 
   async #loadEnvironments() {
@@ -360,7 +452,16 @@ export class Scene {
     let loaded = 0;
     this.config.onLoadProgress?.({ loaded, total: required.length, name: null });
     await Promise.all(required.map(async ([key]) => {
-      await this.#loadModel(key);
+      try {
+        await this.#loadModel(key);
+      } catch (error) {
+        // A model only props draw is scenery: the level plays without it,
+        // its props simply absent, as a streamed model that fails mid-game
+        // is. One an entity wears is the level's to have, and stops it.
+        if (!this.#streamable.has(key)) throw error;
+        this.#failed.add(key);
+        console.warn(`M2D: model '${key}' failed to load; its props are not drawn: ${error.message}`);
+      }
       loaded++;
       this.config.onLoadProgress?.({ loaded, total: required.length, name: key });
     }));
@@ -445,8 +546,11 @@ export class Scene {
     }
     for (const key of this.#streamable) {
       if (this.#wanted.has(key)) {
-        if (!this.models.has(key) && !this.#loading.has(key) && this.#loading.size < this.streamBudget) {
-          this.#loadModel(key).catch((error) => console.warn(`M2D: streaming '${key}' failed: ${error.message}`));
+        if (!this.models.has(key) && !this.#loading.has(key) && !this.#failed.has(key) && this.#loading.size < this.streamBudget) {
+          this.#loadModel(key).catch((error) => {
+            this.#failed.add(key);
+            console.warn(`M2D: streaming '${key}' failed, and is not asked for again: ${error.message}`);
+          });
         }
       } else if (this.models.has(key)) {
         this.#dropModel(key);
@@ -794,7 +898,7 @@ export class Scene {
             position: { x, y, z }, rotation: Quat.fromAxisAngle(UP, yaw),
             scale: { x: shapeScale.x * scale, y: shapeScale.y * scale, z: shapeScale.z * scale },
             color: mesh.color, metallic: mesh.metallic, roughness: mesh.roughness,
-            emissive: mesh.emissive, checker: mesh.checker, castShadow
+            emissive: instanceEmissive(mesh), checker: mesh.checker, castShadow
           });
         }
       }
@@ -812,13 +916,19 @@ export class Scene {
     // Every level of detail gets every instance; the cull draws one
     // level per instance from the ranges the levels tile.
     const ranges = lodRanges(model);
+    // The model's sphere, in its own space: one per instance, for every part and level.
+    const { min, max } = model.bounds;
+    const centre = { x: (min.x + max.x) / 2, y: (min.y + max.y) / 2, z: (min.z + max.z) / 2 };
+    const radius = Math.hypot(max.x - min.x, max.y - min.y, max.z - min.z) / 2;
     for (const [x, y, z, yaw, scale] of prop.instances) {
       const base = mat4.fromTRS({ x, y, z }, Quat.fromAxisAngle(UP, yaw), { x: scale, y: scale, z: scale });
       mat4.multiply(base, local, base);
+      const at = mat4.transformPoint(base, centre);
+      const sphere = { x: at.x, y: at.y, z: at.z, radius: radius * scale * s };
       model.lods.forEach((level, i) => {
         for (const part of level.parts) {
           batchFor(part.geometry, part.material, ranges[i]).push({
-            model: mat4.multiply(base, part.matrix), material: part.material,
+            model: mat4.multiply(base, part.matrix), material: part.material, sphere,
             color: WHITE, metallic: 1, roughness: 1, emissive: mesh.emissive ?? 0, castShadow
           });
         }
@@ -1125,14 +1235,16 @@ export class Scene {
   /**
    * What the streamer is doing, for the debug readout and for a test:
    * which model keys may come and go, which the camera wants, which are
-   * in the air, and which are resident.
+   * in the air, which are resident, and which failed and are not asked
+   * for again.
    */
   get streaming() {
     return {
       streamable: [...this.#streamable],
       wanted: [...this.#wanted].filter((key) => this.#streamable.has(key)),
       loading: [...this.#loading.keys()],
-      resident: [...this.models.keys()]
+      resident: [...this.models.keys()],
+      failed: [...this.#failed]
     };
   }
 
@@ -1395,7 +1507,7 @@ export class Scene {
           color: mesh.color,
           metallic: mesh.metallic,
           roughness: mesh.roughness,
-          emissive: mesh.emissive,
+          emissive: instanceEmissive(mesh),
           checker: mesh.checker,
           castShadow: mesh.castShadow,
           material: this.meshMaterial(mesh),

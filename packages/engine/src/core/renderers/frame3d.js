@@ -43,6 +43,19 @@ export class Frame3D {
     this.sun = { direction: [0.4, -1, 0.3], color: [1, 0.96, 0.9], intensity: 3 };
     /** Hemisphere ambient: light from the sky above and the ground below. */
     this.ambient = { sky: [0.35, 0.45, 0.6], ground: [0.12, 0.1, 0.08], intensity: 1 };
+    /**
+     * The wind over the scene's foliage: `direction` along x and z,
+     * `strength` (0 is still air, 1 a stiff breeze; a ten-metre crown
+     * sways about half a metre), `gust` how much of it comes in waves.
+     */
+    this.wind = { direction: [1, 0], strength: 0, gust: 0.5 };
+    /**
+     * Particle fields, at most `MAX_PARTICLE_FIELDS`: `{ kind: 'motes' |
+     * 'smoke', count, center: [x, y, z], extent: [x, y, z] (half sizes;
+     * smoke: the column's spread and half its height), radius, color
+     * (linear), opacity, emissive, speed }`. Stateless: see PARTICLE_SHADER.
+     */
+    this.particles = [];
     /** Distance fog toward `color`; `density` 0 turns it off. */
     this.fog = { color: [0.55, 0.65, 0.8], density: 0.012 };
     /** Exposure applied before tonemapping. */
@@ -357,6 +370,16 @@ export function writeInstance(data, offset, geometry, instance) {
   const blended = instance.material?.alphaMode === 'blend';
   data[offset + 55] = (instance.castShadow === false || blended) ? 0 : 1;
 
+  // A sphere given in the world wins: every part and level of one model
+  // instance carries the model's, so the cull decides that instance's
+  // level once. Each part's own sphere would switch a trunk before its
+  // canopy, and two levels' slightly different spheres would leave a
+  // distance where both draw or neither does.
+  if (instance.sphere) {
+    data[offset + 56] = instance.sphere.x; data[offset + 57] = instance.sphere.y; data[offset + 58] = instance.sphere.z;
+    data[offset + 59] = instance.sphere.radius;
+    return model;
+  }
   // The geometry's bounding sphere carried through the model matrix.
   // A skinned mesh moves well outside its bind pose; give the sphere room.
   const sphere = boundingSphere(geometry);

@@ -244,6 +244,11 @@ const LIGHTING = s.object({
   ambientIntensity: s.number({ min: 0, label: 'Ambient intensity', description: '3D: scales sky and ground' }),
   fog: s.object({ color: colour({ label: 'Colour' }), density: s.number({ min: 0 }) }, { description: '3D' }),
   exposure: s.number({ positive: true, description: '3D' }),
+  wind: s.object({
+    direction: s.object({ x: s.number(), z: s.number() }, { description: 'Where it blows, along the ground' }),
+    strength: s.number({ min: 0, description: '0 still; 1 a stiff breeze, a ten-metre crown swaying half a metre' }),
+    gust: s.number({ min: 0, max: 1, description: 'How much of it comes in waves rolling downwind' })
+  }, { description: '3D: what sways the foliage (models whose cut-outs the compiler marked)' }),
   shadowDistance: s.number({ positive: true, unit: 'm', label: 'Shadow distance', description: '3D: how far the sun casts shadows' })
 }, { label: 'Lighting' });
 
@@ -313,6 +318,25 @@ const CYCLE = s.object({
   ease: s.number({ positive: true, initial: 1.5, description: 'How fast the phase approaches its target, per second' })
 }, { label: 'Cycle' });
 
+/**
+ * A field of particles in a 3D level: motes in the air around the
+ * camera, or smoke rising from a point. Stateless (each particle is a
+ * function of its index and the time) and drawn blended over the scene;
+ * see the renderer's particle fields.
+ */
+const PARTICLE_FIELD = s.object({
+  kind: s.enumOf(['motes', 'smoke'], { required: true, description: 'Motes drift on the wind through a box; smoke rises from a point' }),
+  count: s.number({ min: 0, required: true }),
+  at: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Smoke: its source. Motes: the box\'s centre when they do not follow the camera' }),
+  extent: s.object({ x: s.number({ positive: true }), y: s.number({ positive: true }), z: s.number({ positive: true }) }, { unit: 'm', description: 'Half sizes. Smoke: the column\'s spread, and half its height' }),
+  radius: s.number({ positive: true, unit: 'm' }),
+  color: colour({ label: 'Colour' }),
+  opacity: s.number({ min: 0, max: 1 }),
+  emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour: fireflies, embers' }),
+  speed: s.number({ min: 0, unit: 'm/s', description: 'Smoke: how fast it rises. Motes: how far each wanders' }),
+  follow: s.boolean({ description: 'Motes: the box stays centred on the camera (the default)' })
+}, { label: 'Particle field' });
+
 const WORLD = s.object({
   dimensions: s.enumOf(DIMENSIONS, {
     label: 'Dimensions',
@@ -337,6 +361,7 @@ const WORLD = s.object({
     volume: s.number({ min: 0, max: 1 })
   }, { label: 'Music', description: 'Played when the scene shows, stopped when it leaves' }),
   cycle: CYCLE,
+  particles: s.array(PARTICLE_FIELD, { label: 'Particles', description: '3D: fields of motes and smoke' }),
   killPlane: s.number({ label: 'Kill plane', unit: 'px', description: '2D: the player falling below this y fires the fall rules (game over without one); the world\'s height plus 50 by default' }),
   rules: s.array(RULE, { label: 'Rules', description: 'What happens when: see the guide' })
 });
@@ -481,12 +506,19 @@ const MESH = s.object({
   color: s.string({ label: 'Colour', description: 'CSS colour; sRGB' }),
   metallic: s.number({ min: 0, max: 1 }),
   roughness: s.number({ min: 0, max: 1 }),
-  emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour' }),
+  emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour (or of emissiveColor when set)' }),
+  emissiveColor: colour({ label: 'Emissive colour', description: 'The glow\'s own colour, apart from the surface\'s: a neon tube' }),
+  opacity: s.number({ min: 0, max: 1, description: 'Below 1 the shape is blended over what is behind it and casts no shadow: glass, water' }),
+  clearcoat: s.number({ min: 0, max: 1, description: 'A glossy lacquer over the surface: car paint, varnish' }),
+  clearcoatRoughness: s.number({ min: 0, max: 1, label: 'Clearcoat roughness' }),
+  specular: s.number({ min: 0, max: 2, description: 'Scales the dielectric reflectance (1 is glTF\'s 4%); 0 for a dead-matte surface, 2 for gemstone' }),
   checker: s.number({ min: 0, unit: 'm', description: 'A two-tone checker of this cell size; 0 for none' }),
   castShadow: s.boolean({ default: true, description: 'Off for a glowing shell around a light, which would otherwise shadow its own lamp' }),
   texture: s.object({
     url: s.string({ required: true, nonEmpty: true, description: 'An image, relative to the game\'s basePath' }),
-    size: s.number({ positive: true, initial: 1, unit: 'm', description: 'World metres per tile: mapped planar from the position, so a floor and a wall tile alike' })
+    size: s.number({ positive: true, initial: 1, unit: 'm', description: 'World metres per tile: mapped planar from the position, so a floor and a wall tile alike' }),
+    normal: s.string({ nonEmpty: true, description: 'A tangent-space normal map (OpenGL convention, +Y up), tiled as the colour is' }),
+    arm: s.string({ nonEmpty: true, description: 'Occlusion, roughness and metal in red, green and blue; the mesh\'s roughness and metallic scale it' })
   }, { description: 'A tiling texture over the shape, dev-grid style' }),
   animation: s.object({
     clip: s.string({ required: true, description: 'A clip in the model' }),

@@ -326,7 +326,7 @@ code and **confirmed fixed by the owner on the desktop** that afternoon. Three
 of the four had one root: the HDR targets are `rgba16float`, whose
 ceiling is 65504, and a mirror's sun glint or a grazing GGX lobe passes
 it and becomes an infinity in the texel. Every write to an HDR target is
-now clamped to 16384 (`clampHDR` in `shaders.js`), and the passes that
+now clamped to 16384 (`clampHDR` in `webgpu/shaders/chunks/frame.js`), and the passes that
 average texels clamp what they read as well.
 
 | Bug | What was seen | Cause and fix |

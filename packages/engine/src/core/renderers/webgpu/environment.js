@@ -1,4 +1,4 @@
-import { SKY_BAKE_SHADER, PREFILTER_SHADER, IRRADIANCE_SHADER, BRDF_LUT_SHADER } from './shaders.js';
+import { SKY_BAKE_SHADER, PREFILTER_SHADER, IRRADIANCE_SHADER, BRDF_LUT_SHADER } from './shaders/index.js';
 
 /**
  * The lighting environment: the sky as a cubemap, prefiltered for

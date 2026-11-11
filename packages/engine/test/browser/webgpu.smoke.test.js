@@ -962,6 +962,228 @@ describe('a textured primitive', () => {
     const again = at(2.5, 0.5);
     expect(again[0], `red again at x 2.5: ${again}`).toBeGreaterThan(again[2] + 40);
   });
+
+  it('lights a planar-mapped normal map in the projection\'s frame: a flat map changes nothing', async () => {
+    const W = 96, H = 72;
+    // A flat normal map, and one tilted toward +x: in the floor's frame,
+    // +x of the map is +x of the world.
+    const pixel = async (r, g, b, size = 4) => {
+      const paint = new OffscreenCanvas(size, size).getContext('2d');
+      paint.fillStyle = `rgb(${r}, ${g}, ${b})`; paint.fillRect(0, 0, size, size);
+      return createImageBitmap(paint.canvas, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+    };
+    const white = await pixel(255, 255, 255);
+    const shoot = async (normalTexture, sunX, height = 6) => {
+      const canvas = canvasInDocument(W, H);
+      const renderer = quiet(new WebGPURenderer());
+      renderer.init(canvas, { width: W, height: H });
+      cleanup.push(() => renderer.destroy());
+      const camera = cameraAt(W, H, { x: 0, y: height, z: height / 2 });
+      const material = { name: 'floor', baseColor: [1, 1, 1, 1], baseColorTexture: white, normalTexture, normalScale: 1, metallic: 1, roughness: 1, worldScale: 2 };
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [sunX, -1, 0], color: [1, 1, 1], intensity: 3 };
+      frame.ambient = { sky: [0, 0, 0], ground: [0, 0, 0], intensity: 0 };
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      // Shadows on, as a level has them: the lookup offsets along the shading normal.
+      frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.5, 0.5, 0.5], roughness: 1, material });
+      renderer.render(frame);
+      const pixels = await readPixels(renderer);
+      const p = camera.worldToScreen(0, 0, 0);
+      return luma(pixels.at(Math.round(p.x), Math.round(p.y)));
+    };
+    const plain = await shoot(null, 0.6);
+    const flat = await shoot(await pixel(128, 128, 255), 0.6);
+    expect(plain, 'the sun lights the floor').toBeGreaterThan(30);
+    expect(Math.abs(flat - plain), `flat map ${flat} vs none ${plain}`).toBeLessThan(6);
+    // Tilted toward +x, the floor faces a sun that comes from +x (it
+    // travels toward -x) more squarely, and one from -x less.
+    const tilted = await pixel(200, 128, 230);
+    const towards = await shoot(tilted, -0.8);
+    const away = await shoot(tilted, 0.8);
+    expect(towards, `tilted toward the sun ${towards} vs away ${away}`).toBeGreaterThan(away + 10);
+    // Seen from far off, a large map is read from its generated mips, which
+    // must still be a flat normal map: a linear texture's mip chain is data.
+    const big = await pixel(128, 128, 255, 512);
+    const far = await shoot(big, 0.6, 40);
+    const farPlain = await shoot(null, 0.6, 40);
+    expect(Math.abs(far - farPlain), `far, from the mips: ${far} vs none ${farPlain}`).toBeLessThan(6);
+  });
+});
+
+describe('render bundles', () => {
+  beforeAll(() => initWebGPU());
+
+  it('replays a pass\'s recorded draws while the groups stay the same, and records afresh when they change', async () => {
+    const W = 64, H = 48;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(W, H);
+    // One set of geometry for every frame, as a scene's resident props are.
+    const floor = plane(), cube = box(), ball = sphere();
+    const draw = async (extra) => {
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      frame.add(floor, { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.6, 0.6, 0.6], roughness: 1 });
+      frame.add(cube, { position: { x: 0, y: 0.5, z: 0 }, scale: { x: 1, y: 1, z: 1 }, color: [0.9, 0.1, 0.1], roughness: 0.5 });
+      if (extra) frame.add(ball, { position: { x: 2, y: 0.5, z: 0 }, scale: { x: 1, y: 1, z: 1 }, color: [0.1, 0.8, 0.2], roughness: 0.5 });
+      renderer.render(frame);
+      return readPixels(renderer);
+    };
+    const first = await draw(false);
+    const recorded = new Map([...renderer.bundles].map(([key, entry]) => [key, entry.bundle]));
+    expect(recorded.size).toBeGreaterThan(1);
+    const second = await draw(false);
+    // The same bundles, not recorded again, and the same picture from them.
+    for (const [key, bundle] of recorded) expect(renderer.bundles.get(key)?.bundle).toBe(bundle);
+    const centre = (p) => p.at(W >> 1, H >> 1).join();
+    expect(centre(second)).toBe(centre(first));
+    // A new group changes the layout: every pass records again, and the sphere is drawn.
+    const third = await draw(true);
+    for (const [key, bundle] of recorded) expect(renderer.bundles.get(key)?.bundle).not.toBe(bundle);
+    const p = camera.worldToScreen(2, 0.5, 0);
+    const green = third.at(Math.round(p.x), Math.round(p.y));
+    expect(green[1], `the new sphere is drawn: ${green}`).toBeGreaterThan(green[0] + 20);
+  });
+});
+
+describe('shadow pass draws', () => {
+  beforeAll(() => initWebGPU());
+
+  it('does not issue a shadow draw for a level of detail that only starts beyond the shadows', async () => {
+    const W = 64, H = 48;
+    const canvas = canvasInDocument(W, H);
+    const renderer = quiet(new WebGPURenderer());
+    renderer.init(canvas, { width: W, height: H });
+    cleanup.push(() => renderer.destroy());
+    const camera = cameraAt(W, H);
+    const floor = plane(), ball = sphere(), far = sphere();
+    const draws = (extra) => {
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+      frame.shadow.distance = 40;
+      frame.add(floor, { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.6, 0.6, 0.6], roughness: 1 });
+      extra?.(frame);
+      renderer.render(frame);
+      return renderer.stats.drawCalls;
+    };
+    const base = draws();
+    // Drawn at every distance: in the view and in every cascade.
+    const near = draws((f) => f.add(ball, { position: { x: 1, y: 0.5, z: 0 }, scale: { x: 1, y: 1, z: 1 }, color: [1, 1, 1] }));
+    expect(near - base, 'one draw per pass').toBeGreaterThan(2);
+    // Only below 1% coverage: a 1 m sphere that far is hundreds of metres out, past any cascade.
+    const distant = draws((f) => f.add(far, { position: { x: 1, y: 0.5, z: 0 }, scale: { x: 1, y: 1, z: 1 }, color: [1, 1, 1], lod: [0, 0.01] }));
+    expect(distant - base, 'the main pass only').toBe(1);
+  });
+
+  it('does not draw a group into a light\'s shadow when it stands outside the light\'s reach', async () => {
+    const W = 64, H = 48;
+    const floor = plane(), ball = sphere();
+    // A fresh renderer each time, so every cube face is drawn on its first frame.
+    const draws = (x) => {
+      const canvas = canvasInDocument(W, H);
+      const renderer = quiet(new WebGPURenderer());
+      renderer.init(canvas, { width: W, height: H });
+      cleanup.push(() => renderer.destroy());
+      const camera = cameraAt(W, H);
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [-0.8, -1, -0.3], color: [1, 1, 1], intensity: 3 };
+      frame.add(floor, { position: { x: 0, y: 0, z: 0 }, scale: { x: 20, y: 1, z: 20 }, color: [0.6, 0.6, 0.6], roughness: 1 });
+      frame.addLight({ position: { x: 0, y: 1.5, z: 0 }, color: [1, 1, 1], intensity: 20, range: 5 });
+      if (x !== null) frame.add(ball, { position: { x, y: 0.5, z: 0 }, scale: { x: 1, y: 1, z: 1 }, color: [1, 1, 1] });
+      renderer.render(frame);
+      return renderer.stats.drawCalls;
+    };
+    const base = draws(null);
+    const inside = draws(1) - base;
+    const outside = draws(30) - base;
+    // Inside the light's range the ball draws into its cube's faces too.
+    expect(inside - outside, `inside ${inside}, outside ${outside}`).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe('shape materials', () => {
+  beforeAll(() => initWebGPU());
+
+  it('blends a glass sphere over the floor, and a clearcoat brightens a matte sphere\'s highlight', async () => {
+    const W = 96, H = 72;
+    const shoot = async (material, color) => {
+      const canvas = canvasInDocument(W, H);
+      const renderer = quiet(new WebGPURenderer());
+      renderer.init(canvas, { width: W, height: H });
+      cleanup.push(() => renderer.destroy());
+      const camera = cameraAt(W, H, { x: 0, y: 2.5, z: 5 });
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      // The sun from behind the camera, so the sphere's highlight faces it.
+      frame.sun = { direction: [0, -0.6, -1], color: [1, 1, 1], intensity: 3 };
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 40, y: 1, z: 40 }, color: [0.9, 0.1, 0.1], roughness: 1 });
+      frame.add(sphere(), { position: { x: 0, y: 1, z: 0 }, scale: { x: 1, y: 1, z: 1 }, color, metallic: 0, roughness: 0.6, material });
+      renderer.device.pushErrorScope('validation');
+      renderer.render(frame);
+      const pixels = await readPixels(renderer);
+      const error = await renderer.device.popErrorScope();
+      expect(error?.message ?? null).toBe(null);
+      // The pixel at the sphere's front, and the brightest over the sphere.
+      const p = camera.worldToScreen(0, 1.2, 0.95);
+      const top = camera.worldToScreen(0, 2, 0), bottom = camera.worldToScreen(0, 0, 0);
+      let brightest = 0;
+      for (let y = Math.round(top.y); y <= Math.round(bottom.y); y++) for (let x = Math.round(p.x) - 14; x <= Math.round(p.x) + 14; x++) brightest = Math.max(brightest, luma(pixels.at(x, y)));
+      return { front: pixels.at(Math.round(p.x), Math.round(p.y)), brightest };
+    };
+    const base = { name: 'test', baseColor: [1, 1, 1, 1], metallic: 1, roughness: 1, emissive: [0, 0, 0], alphaMode: 'opaque', specularF0: 0.04, clearcoat: 0, clearcoatRoughness: 0 };
+    const opaque = await shoot({ ...base }, [0.2, 0.2, 0.9]);
+    const glass = await shoot({ ...base, baseColor: [1, 1, 1, 0.2], alphaMode: 'blend', doubleSided: true }, [0.2, 0.2, 0.9]);
+    // The red floor shows through the blue glass; the opaque sphere hides it.
+    expect(glass.front[0], `red through glass ${glass.front} vs opaque ${opaque.front}`).toBeGreaterThan(opaque.front[0] + 40);
+    const matte = await shoot({ ...base }, [0.4, 0.05, 0.05]);
+    // At 0.3: in a frame this small a mirror finish's highlight is under a pixel.
+    const coated = await shoot({ ...base, clearcoat: 1, clearcoatRoughness: 0.3 }, [0.4, 0.05, 0.05]);
+    expect(coated.brightest, `lacquer highlight ${coated.brightest} vs matte ${matte.brightest}`).toBeGreaterThan(matte.brightest + 15);
+  });
+});
+
+describe('particle fields', () => {
+  beforeAll(() => initWebGPU());
+
+  it('draws a smoke column over a dark floor where it rises, and nothing with no particles', async () => {
+    const W = 96, H = 72;
+    const shoot = async (count) => {
+      const canvas = canvasInDocument(W, H);
+      const renderer = quiet(new WebGPURenderer());
+      renderer.init(canvas, { width: W, height: H });
+      cleanup.push(() => renderer.destroy());
+      const camera = cameraAt(W, H, { x: 0, y: 2, z: 8 });
+      const frame = renderer.createFrame();
+      frame.setCamera(camera);
+      frame.sun = { direction: [0, -1, -0.2], color: [1, 1, 1], intensity: 3 };
+      frame.fog.density = 0;
+      frame.bloom.intensity = 0;
+      frame.add(plane(), { position: { x: 0, y: 0, z: 0 }, scale: { x: 40, y: 1, z: 40 }, color: [0.02, 0.02, 0.02], roughness: 1 });
+      frame.particles = [{ kind: 'smoke', count, center: [0, 0, 0], extent: [0.5, 1.5, 0.5], radius: 0.6, color: [1, 1, 1], opacity: 0.8, emissive: 1, speed: 0.5 }];
+      renderer.device.pushErrorScope('validation');
+      renderer.render(frame);
+      // Read before waiting on anything: the canvas's texture expires at the next task.
+      const pixels = await readPixels(renderer);
+      const error = await renderer.device.popErrorScope();
+      expect(error?.message ?? null).toBe(null);
+      const p = camera.worldToScreen(0, 1.5, 0);
+      return luma(pixels.at(Math.round(p.x), Math.round(p.y)));
+    };
+    const none = await shoot(0);
+    const smoke = await shoot(200);
+    expect(smoke, `smoke ${smoke} over the floor's ${none}`).toBeGreaterThan(none + 20);
+  });
 });
 
 describe('one frame, many geometry sizes', () => {
@@ -1216,6 +1438,12 @@ describe('KTX2 textures', () => {
     const error = await device.popErrorScope();
     expect(error?.message ?? null).toBe(null);
     expect(texture.mipLevelCount).toBe(5);
+    // The payload goes once it is on the GPU, and the cached texture still answers.
+    expect(image.mips).toBe(null);
+    expect(cache.get(image, { srgb: true })).toBe(texture);
+    // Released, the record cannot come back: its model is loaded again instead.
+    cache.release(image);
+    expect(() => cache.get(image, { srgb: true })).toThrow(/load the model again/);
   });
 
   it('draws a box whose texture is KTX2 (KHR_texture_basisu)', async () => {

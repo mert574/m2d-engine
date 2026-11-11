@@ -3,10 +3,10 @@ import { WebGLRenderer } from './webglRenderer.js';
 import { identityViewport } from '../viewport.js';
 import { webgpuDevice } from './webgpu/device.js';
 import {
-  SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER, CULL_SHADER,
+  SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER, CULL_SHADER, PARTICLE_SHADER, MAX_PARTICLE_FIELDS,
   LIGHT_CLUSTER_SHADER, FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES,
   MAX_SPOT_SHADOWS, MAX_POINT_SHADOWS, POINT_SHADOW_NEAR, MAX_CULL_PASSES, MAX_VIEWS, CLUSTER_COUNT, CLUSTER_CAPACITY
-} from './webgpu/shaders.js';
+} from './webgpu/shaders/index.js';
 import { TextureCache3D } from './webgpu/textures.js';
 import { initBasis, bestTranscodeTarget, transcodeKTX2 } from './webgpu/basis.js';
 import { setKTX2Decoder } from '../gltf.js';
@@ -74,6 +74,9 @@ import * as mat4 from './geometry/mat4.js';
 
 const SAMPLES = 4;
 const HDR_FORMAT = 'rgba16float';
+/** What a render bundle for each kind of pass must be recorded against: its attachments' formats. */
+const SHADOW_BUNDLE = Object.freeze({ colorFormats: [], depthStencilFormat: 'depth32float', sampleCount: 1 });
+const MAIN_BUNDLE = Object.freeze({ colorFormats: [HDR_FORMAT, HDR_FORMAT, HDR_FORMAT, 'rg16float'], depthStencilFormat: 'depth24plus', sampleCount: SAMPLES });
 
 /**
  * What the `r_shadows` setting buys: cascade count and size for the sun,
@@ -156,6 +159,15 @@ export class WebGPURenderer extends BaseRenderer {
     this.pointShadowFaces = [];
     /** Per cube slot, what it holds: the light's key and its casters' hash. */
     this.pointShadowCache = [];
+    /**
+     * Recorded draws, by pass: a render bundle per pass index, replayed
+     * while the frame's groups are the ones it was recorded over. See
+     * `#drawGroupsBundled`.
+     * @type {Map<string, {bundle: GPURenderBundle, binds: object[], draws: number, changes: number}>}
+     */
+    this.bundles = new Map();
+    /** What the bundles were recorded over: see `#layoutSignature`. */
+    this.bundleSignature = [];
     this.sunShadowLayers = [];
     this.spotShadowLayers = [];
     /** One 64-byte uniform and bind group per shadow pass, holding its light matrix. */
@@ -507,7 +519,8 @@ export class WebGPURenderer extends BaseRenderer {
     this.materialBindGroupLayout = device.createBindGroupLayout({
       label: 'material',
       entries: [
-        { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        // The vertex stage reads it too: how the wind moves the surface.
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
         { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
         { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
@@ -608,6 +621,36 @@ export class WebGPURenderer extends BaseRenderer {
     ];
     this.meshPipelines = meshSet(false);
     this.transparentPipelines = meshSet(true);
+    // A two-sided blended surface draws its back faces, then its front
+    // faces: in one draw with culling off they blend in triangle order, and
+    // a sphere's rings put the far side over the near one on some rows and
+    // under it on others, which reads as horizontal bands.
+    this.transparentBackPipelines = [
+      meshPipeline(MESH_SHADER, 'mesh blend back faces', vertexBuffers, 'front', true),
+      meshPipeline(MESH_SKINNED_SHADER, 'mesh skinned blend back faces', [...vertexBuffers, ...skinBuffers(4)], 'front', true)
+    ];
+
+    // Particle fields: one uniform of every field the frame draws, read by
+    // the vertex stage, which makes each particle from its index.
+    this.particleLayout = device.createBindGroupLayout({
+      label: 'particles',
+      entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } }]
+    });
+    this.particleUniform = device.createBuffer({
+      label: 'particles', size: 16 + MAX_PARTICLE_FIELDS * 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    this.particleData = new Float32Array(4 + MAX_PARTICLE_FIELDS * 16);
+    this.particleBindGroup = device.createBindGroup({ layout: this.particleLayout, entries: [{ binding: 0, resource: { buffer: this.particleUniform } }] });
+    const particles = device.createShaderModule({ code: PARTICLE_SHADER, label: 'particles' });
+    this.particlePipeline = device.createRenderPipeline({
+      label: 'particles',
+      layout: device.createPipelineLayout({ bindGroupLayouts: [this.sceneBindGroupLayout, this.particleLayout] }),
+      vertex: { module: particles, entryPoint: 'vs' },
+      fragment: { module: particles, entryPoint: 'fs', targets: TRANSPARENT_TARGETS },
+      primitive: { topology: 'triangle-list', cullMode: 'none' },
+      multisample: { count: SAMPLES },
+      depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'less' }
+    });
 
     this.#ensureInstanceBuffer(256);
   }
@@ -743,7 +786,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.jointBuffer?.destroy();
     this.jointBuffer = null;
     this.jointCapacity = 0;
-    for (const buffer of [this.cullParams, this.groupStartsBuffer, this.groupLodBuffer, this.argsBuffer, this.remapBuffer, this.timeBuffer]) buffer?.destroy();
+    for (const buffer of [this.cullParams, this.groupStartsBuffer, this.groupLodBuffer, this.argsBuffer, this.remapBuffer, this.timeBuffer, this.particleUniform]) buffer?.destroy();
     for (const slot of this.staging) slot.buffer.destroy();
     this.staging = [];
     this.querySet?.destroy();
@@ -829,6 +872,13 @@ export class WebGPURenderer extends BaseRenderer {
     this.#uploadJoints(frame);
     this.#uploadMorphs(frame);
     const layout = this.#assemble(frame, views.length + shadows.passes.length);
+    // Bundles hold buffers, bind groups and indirect offsets; a frame whose
+    // groups differ from the ones they were recorded over records afresh.
+    const signature = this.#layoutSignature(layout);
+    if (signature.length !== this.bundleSignature.length || signature.some((v, i) => v !== this.bundleSignature[i])) {
+      this.bundles.clear();
+      this.bundleSignature = signature;
+    }
     this.#writeCullParams(frame, shadows, layout);
     this.stats.instances = layout.total;
 
@@ -868,16 +918,14 @@ export class WebGPURenderer extends BaseRenderer {
     cull.end();
 
     for (let i = 0; i < shadows.passes.length; i++) {
-      const { view, matrix } = shadows.passes[i];
+      const { view, matrix, reach, sphere } = shadows.passes[i];
       device.queue.writeBuffer(this.shadowPassUniforms[i], 0, matrix);
       const pass = encoder.beginRenderPass({
         label: 'shadow',
         colorAttachments: [],
         depthStencilAttachment: { view, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' }
       });
-      pass.setBindGroup(0, primary.sceneBindGroup);
-      pass.setBindGroup(1, this.shadowPassGroups[i]);
-      this.#drawGroups(pass, layout, 'shadow', views.length + i);
+      this.#drawGroupsBundled(pass, layout, 'shadow', views.length + i, SHADOW_BUNDLE, [primary.sceneBindGroup, this.shadowPassGroups[i]], { reach, sphere });
       pass.end();
     }
 
@@ -913,6 +961,8 @@ export class WebGPURenderer extends BaseRenderer {
       console.error(`M2D: a frame was discarded (${error.message}); re-baking what it carried`);
       this.environment?.invalidate();
       this.pointShadowCache = [];
+      // A bundle recorded over something the error invalidated would fail every frame.
+      this.bundles.clear();
       for (const view of this.views) view.post.historyValid = false;
     }, () => {
       // The scope's promise rejects once the device is lost; `device.lost`
@@ -956,14 +1006,26 @@ export class WebGPURenderer extends BaseRenderer {
     pass.draw(3);
     this.stats.drawCalls++;
 
-    pass.setBindGroup(1, this.lightingBindGroup);
     this.stats.stateChanges += 2;
-    this.#drawGroups(pass, layout, 'main', passIndex);
+    this.#drawGroupsBundled(pass, layout, 'main', passIndex, MAIN_BUNDLE, [view.sceneBindGroup, this.lightingBindGroup]);
+    // A bundle leaves the pass with no state; the blended groups and the
+    // particles, drawn directly since their order changes every frame,
+    // need the frame's groups again.
+    pass.setBindGroup(0, view.sceneBindGroup);
+    pass.setBindGroup(1, this.lightingBindGroup);
     // Blended surfaces last, over the finished opaque depth, farthest
     // first. They share the view's cull and its indirect arguments, so
     // all this costs is a second walk of its groups.
     const transparent = this.#transparentOrder(layout, camera);
     if (transparent.length) this.#drawGroups(pass, layout, 'transparent', passIndex, transparent);
+    // Particles over everything, blended, tested against the opaque depth.
+    const particleCount = this.#writeParticles(frame, camera);
+    if (particleCount) {
+      pass.setPipeline(this.particlePipeline);
+      pass.setBindGroup(1, this.particleBindGroup);
+      pass.draw(6, particleCount);
+      this.stats.drawCalls++;
+    }
     pass.end();
 
     view.currentTexture = view.context.getCurrentTexture();
@@ -996,6 +1058,7 @@ export class WebGPURenderer extends BaseRenderer {
    */
   #assemble(frame, passCount) {
     const entries = [...frame.entries()];
+    const tanY = Math.tan((frame.camera?.fov ?? Math.PI / 3) / 2);
     let total = 0;
     for (const entry of entries) {
       total += entry.instances.length;
@@ -1032,6 +1095,8 @@ export class WebGPURenderer extends BaseRenderer {
       if (!gpu.colors) this.#ensureWhiteColors(gpu.vertices);
       groups.push({
         gpu,
+        near: nearestDraw(entry, tanY),
+        bounds: groupBounds(entry),
         material: this.#material(entry.material),
         doubleSided: !!entry.material?.doubleSided,
         transparent,
@@ -1400,7 +1465,53 @@ export class WebGPURenderer extends BaseRenderer {
    *
    * @param {number[]} [order] - Group indices to draw, in order; all of them by default
    */
-  #drawGroups(pass, layout, which, passIndex, order = null) {
+  /**
+   * Everything a pass's draws depend on but the indirect arguments the
+   * cull writes each frame: the indirect buffer, the shared vertex
+   * buffers, and each group's geometry, material and pipeline choice.
+   * While two frames' signatures match, a recorded bundle replays them.
+   */
+  #layoutSignature(layout) {
+    const out = [this.argsBuffer, this.whiteColorBuffer, this.emptyMorphGroup, layout.groups.length];
+    // Each group's nearest draw distance depends on it, and so does what a pass skips.
+    for (const group of layout.groups) out.push(group.near);
+    for (const group of layout.groups) out.push(group.gpu, group.gpu.morphGroup, group.material, group.transparent, group.doubleSided);
+    return out;
+  }
+
+  /**
+   * A pass's opaque draws from a render bundle: recorded the first time,
+   * replayed every frame after while the layout's signature and the bind
+   * groups the bundle set stay the same. Encoding ten thousand draws a
+   * frame — every group, in every shadow pass — was most of a frame's CPU
+   * time, and the draws only change when the groups do: the cull decides
+   * the instance counts on the GPU, and the bundle reads them from the
+   * indirect buffer like the direct draws did.
+   */
+  #drawGroupsBundled(pass, layout, which, passIndex, formats, binds, limits = NO_LIMITS) {
+    const key = `${which}:${passIndex}`;
+    // Which groups this pass can skip, as a hash: a pass that skips a
+    // different set records again.
+    let skipped = 0;
+    for (let g = 0; g < layout.groups.length; g++) if (outOfReach(layout.groups[g], limits)) skipped = Math.imul(skipped ^ (g + 1), 2654435761) | 0;
+    let entry = this.bundles.get(key);
+    if (!entry || entry.skipped !== skipped || entry.binds.some((b, i) => b !== binds[i])) {
+      const encoder = this.device.createRenderBundleEncoder({ label: key, ...formats });
+      binds.forEach((group, i) => encoder.setBindGroup(i, group));
+      const draws = this.stats.drawCalls, changes = this.stats.stateChanges;
+      this.#drawGroups(encoder, layout, which, passIndex, null, limits);
+      entry = { bundle: encoder.finish(), binds, skipped, draws: this.stats.drawCalls - draws, changes: this.stats.stateChanges - changes };
+      this.stats.drawCalls = draws;
+      this.stats.stateChanges = changes;
+      this.bundles.set(key, entry);
+    }
+    pass.executeBundles([entry.bundle]);
+    // The draws still happen on the GPU; the statistics count them as before.
+    this.stats.drawCalls += entry.draws;
+    this.stats.stateChanges += entry.changes;
+  }
+
+  #drawGroups(pass, layout, which, passIndex, order = null, limits = NO_LIMITS) {
     const { groups } = layout;
     let boundMaterial = null;
     let boundPipeline = null;
@@ -1410,41 +1521,50 @@ export class WebGPURenderer extends BaseRenderer {
       // The opaque pass skips blended groups; the transparent pass is
       // given exactly its own, so it never has to check.
       if (which === 'main' && group.transparent) continue;
+      // A group this pass cannot see has nothing to draw here; the cull
+      // would give it no instances, but the draw would still be issued.
+      if (outOfReach(group, limits)) continue;
       const gpu = group.gpu;
       // Skinned geometry takes the skinning pipeline and a two-sided
-      // material the uncull one; switch only on change.
-      const pipeline = which === 'shadow'
-        ? (gpu.skinned ? this.shadowSkinnedPipeline : this.shadowPipeline)
-        : (which === 'transparent' ? this.transparentPipelines : this.meshPipelines)[gpu.skinned ? 1 : 0][group.doubleSided ? 1 : 0];
-      if (pipeline !== boundPipeline) {
-        pass.setPipeline(pipeline);
-        boundPipeline = pipeline;
-        this.stats.stateChanges++;
+      // material the uncull one; switch only on change. A two-sided blended
+      // group is drawn twice, back faces then front faces (see
+      // `transparentBackPipelines`).
+      const pipelines = which === 'shadow'
+        ? [gpu.skinned ? this.shadowSkinnedPipeline : this.shadowPipeline]
+        : which === 'transparent' && group.doubleSided
+          ? [this.transparentBackPipelines[gpu.skinned ? 1 : 0], this.transparentPipelines[gpu.skinned ? 1 : 0][0]]
+          : [(which === 'transparent' ? this.transparentPipelines : this.meshPipelines)[gpu.skinned ? 1 : 0][group.doubleSided ? 1 : 0]];
+      for (const pipeline of pipelines) {
+        if (pipeline !== boundPipeline) {
+          pass.setPipeline(pipeline);
+          boundPipeline = pipeline;
+          this.stats.stateChanges++;
+        }
+        pass.setVertexBuffer(0, gpu.positions);
+        pass.setVertexBuffer(1, gpu.normals);
+        pass.setVertexBuffer(2, gpu.uvs);
+        // The shadow pass reads no tangents or colours, so its skin
+        // buffers sit earlier; the transparent pass runs the mesh shader
+        // and takes the mesh layout.
+        const mesh = which !== 'shadow';
+        if (mesh) {
+          pass.setVertexBuffer(3, gpu.tangents);
+          pass.setVertexBuffer(4, gpu.colors ?? this.whiteColorBuffer);
+        }
+        if (gpu.skinned) {
+          pass.setVertexBuffer(mesh ? 5 : 3, gpu.joints);
+          pass.setVertexBuffer(mesh ? 6 : 4, gpu.weights);
+        }
+        if (group.material !== boundMaterial) {
+          pass.setBindGroup(2, group.material);
+          boundMaterial = group.material;
+          this.stats.stateChanges++;
+        }
+        pass.setBindGroup(3, gpu.morphGroup ?? this.emptyMorphGroup);
+        pass.setIndexBuffer(gpu.index, gpu.format);
+        pass.drawIndexedIndirect(this.argsBuffer, (passIndex * groups.length + g) * ARGS_BYTES);
+        this.stats.drawCalls++;
       }
-      pass.setVertexBuffer(0, gpu.positions);
-      pass.setVertexBuffer(1, gpu.normals);
-      pass.setVertexBuffer(2, gpu.uvs);
-      // The shadow pass reads no tangents or colours, so its skin
-      // buffers sit earlier; the transparent pass runs the mesh shader
-      // and takes the mesh layout.
-      const mesh = which !== 'shadow';
-      if (mesh) {
-        pass.setVertexBuffer(3, gpu.tangents);
-        pass.setVertexBuffer(4, gpu.colors ?? this.whiteColorBuffer);
-      }
-      if (gpu.skinned) {
-        pass.setVertexBuffer(mesh ? 5 : 3, gpu.joints);
-        pass.setVertexBuffer(mesh ? 6 : 4, gpu.weights);
-      }
-      if (group.material !== boundMaterial) {
-        pass.setBindGroup(2, group.material);
-        boundMaterial = group.material;
-        this.stats.stateChanges++;
-      }
-      pass.setBindGroup(3, gpu.morphGroup ?? this.emptyMorphGroup);
-      pass.setIndexBuffer(gpu.index, gpu.format);
-      pass.drawIndexedIndirect(this.argsBuffer, (passIndex * groups.length + g) * ARGS_BYTES);
-      this.stats.drawCalls++;
     }
   }
 
@@ -1529,6 +1649,10 @@ export class WebGPURenderer extends BaseRenderer {
     data[20] = material?.specularF0 ?? 0.04;
     // Metres per texture tile for world-planar mapping; 0 keeps the mesh's own uvs.
     data[21] = material?.worldScale ?? 0;
+    data[22] = material?.foliage ? 1 : 0;
+    data[23] = material?.sway ? (material.foliage ? 2 : 1) : 0;
+    data[24] = material?.clearcoat ?? 0;
+    data[25] = material?.clearcoatRoughness ?? 0;
     const uniform = device.createBuffer({
       label: `material ${material?.name ?? 'default'}`,
       size: data.byteLength,
@@ -1545,17 +1669,47 @@ export class WebGPURenderer extends BaseRenderer {
         { binding: 1, resource: textures.sampler },
         { binding: 2, resource: texture(material?.baseColorTexture, textures.whiteSRGB, true) },
         { binding: 3, resource: texture(material?.metallicRoughnessTexture, textures.white, false) },
-        { binding: 4, resource: texture(material?.emissiveTexture, textures.black, true) },
+        // White, not black: a material with an emissive factor and no map glows by the factor, as glTF says.
+        { binding: 4, resource: texture(material?.emissiveTexture, textures.whiteSRGB, true) },
         { binding: 5, resource: texture(material?.normalTexture, textures.flatNormal, false) },
         { binding: 6, resource: texture(material?.occlusionTexture, textures.white, false) }
       ]
     });
   }
 
+  /**
+   * The frame's particle fields into their uniform; returns how many
+   * particles to draw. A field with `follow` (motes, by default) is
+   * centred on the camera, so the air around the viewer is always full.
+   */
+  #writeParticles(frame, camera) {
+    const fields = (frame.particles ?? []).slice(0, MAX_PARTICLE_FIELDS);
+    if (!fields.length) return 0;
+    const data = this.particleData;
+    data.fill(0);
+    let total = 0;
+    fields.forEach((f, k) => {
+      const o = 4 + k * 16;
+      const smoke = f.kind === 'smoke';
+      const at = !smoke && f.follow !== false && camera?.position ? [camera.position.x, camera.position.y, camera.position.z] : (f.center ?? [0, 0, 0]);
+      const count = Math.max(0, Math.floor(f.count ?? 0));
+      data.set([...at, smoke ? 1 : 0], o);
+      data.set([...(f.extent ?? [10, 4, 10]), count], o + 4);
+      data.set([...(f.color ?? [1, 1, 1]), f.opacity ?? 0.5], o + 8);
+      data.set([f.radius ?? 0.03, f.speed ?? 0.3, f.emissive ?? 0, total], o + 12);
+      total += count;
+    });
+    new Uint32Array(data.buffer, 0, 4)[0] = fields.length;
+    this.device.queue.writeBuffer(this.particleUniform, 0, data);
+    return total;
+  }
+
   /** An instance buffer for at least `count` instances, grown geometrically so frames settle on one. */
   #ensureInstanceBuffer(count) {
     if (this.instanceBuffer && this.instanceCapacity >= count) return;
-    const capacity = Math.max(count, 256, this.instanceCapacity * 2);
+    // Doubling must not step past the binding limit when `count` itself fits under it.
+    const limit = Math.floor(this.device.limits.maxStorageBufferBindingSize / (INSTANCE_FLOATS * 4));
+    const capacity = Math.max(count, Math.min(Math.max(256, this.instanceCapacity * 2), limit));
     this.instanceBuffer?.destroy();
     this.instanceBuffer = this.device.createBuffer({
       label: 'instances',
@@ -1728,6 +1882,12 @@ export class WebGPURenderer extends BaseRenderer {
     // Half a mip sharper on material lookups while TAA jitters; the
     // temporal filter averages the detail back to par instead of blurring.
     data[p + 25] = this.effects.taa ? -0.5 : 0;
+    const wind = frame.wind ?? {};
+    const [wx, wz] = wind.direction ?? [1, 0];
+    const wl = Math.hypot(wx, wz) || 1;
+    data[p + 28] = (wx / wl) * (wind.strength ?? 0);
+    data[p + 29] = (wz / wl) * (wind.strength ?? 0);
+    data[p + 30] = wind.gust ?? 0.5;
     data[p + 8] = post.motionBlur?.strength ?? 0;
     data[p + 9] = this.effects.film ? (post.vignette ?? 0) : 0;
     data[p + 10] = this.effects.film ? (post.grain ?? 0) : 0;
@@ -1809,7 +1969,8 @@ export class WebGPURenderer extends BaseRenderer {
         const projection = mat4.orthographic(-radius, radius, -radius, radius, 0.01, back + radius * 2);
         const matrix = mat4.multiply(projection, view);
         cascades.push({ matrix, split: end, radius });
-        passes.push({ view: this.sunShadowLayers[i], matrix });
+        // A caster reaches a cascade from up to the shadow distance beyond it, toward the sun.
+        passes.push({ view: this.sunShadowLayers[i], matrix, reach: far * 2 });
         start = end;
       }
     }
@@ -1850,7 +2011,7 @@ export class WebGPURenderer extends BaseRenderer {
         const layer = spots.length;
         spots.push({ matrix, index });
         frame.lights[index][14] = layer + 1;
-        passes.push({ view: this.spotShadowLayers[layer], matrix });
+        passes.push({ view: this.spotShadowLayers[layer], matrix, reach: distanceFrom(camera, p) + range, sphere: { x: p.x, y: p.y, z: p.z, r: range } });
       }
     }
 
@@ -1927,7 +2088,7 @@ export class WebGPURenderer extends BaseRenderer {
           const stale = !cached || cached.hashes[i] !== casters.hashes[i] || (casters.dirty & (1 << i));
           if (!stale) return;
           projection ??= mat4.perspective(Math.PI / 2, 1, POINT_SHADOW_NEAR, range);
-          passes.push({ view: this.pointShadowFaces[cube * 6 + i], matrix: mat4.multiply(projection, cubeFaceView(face, p)) });
+          passes.push({ view: this.pointShadowFaces[cube * 6 + i], matrix: mat4.multiply(projection, cubeFaceView(face, p)), reach: distanceFrom(camera, p) + range, sphere: { x: p.x, y: p.y, z: p.z, r: range } });
         });
         this.pointShadowCache[cube] = { key, hashes: casters.hashes, strength };
         points.push({ index, range });
@@ -2115,9 +2276,88 @@ function castersNear(frame, position, range) {
   return { hashes, dirty };
 }
 
-/** Straight (non-premultiplied) alpha over what is already there. */
+/** A pass that may see every group: the camera's own. */
+const NO_LIMITS = Object.freeze({ reach: Infinity, sphere: null });
+
+/**
+ * Whether a pass can see nothing of a group: its level of detail starts
+ * further from the camera than the pass's `reach`, or, for a light's
+ * pass, its instances all stand outside the light's `sphere`.
+ */
+function outOfReach(group, { reach = Infinity, sphere = null }) {
+  if (group.near > reach) return true;
+  if (!sphere) return false;
+  const { min, max } = group.bounds;
+  const dx = Math.max(min[0] - sphere.x, 0, sphere.x - max[0]);
+  const dy = Math.max(min[1] - sphere.y, 0, sphere.y - max[1]);
+  const dz = Math.max(min[2] - sphere.z, 0, sphere.z - max[2]);
+  return dx * dx + dy * dy + dz * dz > sphere.r * sphere.r;
+}
+
+/**
+ * The box every instance's bounding sphere in a group lies within. A
+ * batch's is kept on the batch with its version, as its smallest radius is.
+ */
+function groupBounds(entry) {
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  const grow = (data, o) => {
+    const r = data[o + 59];
+    for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], data[o + 56 + k] - r); max[k] = Math.max(max[k], data[o + 56 + k] + r); }
+  };
+  for (const record of entry.instances) grow(record, 0);
+  for (const batch of entry.batches) {
+    if (batch.boundsVersion !== batch.version) {
+      const b = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+      for (let i = 0; i < batch.count; i++) {
+        const o = i * INSTANCE_FLOATS, r = batch.data[o + 59];
+        for (let k = 0; k < 3; k++) { b.min[k] = Math.min(b.min[k], batch.data[o + 56 + k] - r); b.max[k] = Math.max(b.max[k], batch.data[o + 56 + k] + r); }
+      }
+      batch.bounds = b;
+      batch.boundsVersion = batch.version;
+    }
+    for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], batch.bounds.min[k]); max[k] = Math.max(max[k], batch.bounds.max[k]); }
+  }
+  return { min, max };
+}
+
+/** How far a point is from the camera's position. */
+function distanceFrom(camera, p) {
+  const c = camera?.position ?? ZERO;
+  return Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
+}
+
+/**
+ * The nearest camera distance at which a group draws anything: none of its
+ * instances covers less of the view than its level's upper bound until it
+ * is at least its own radius over that bound away. 0 for a group drawn at
+ * every distance. A batch's smallest radius is kept on the batch, whose
+ * records only change when its version does; a frame's own instances are
+ * read each frame.
+ */
+function nearestDraw(entry, tanY) {
+  const top = entry.lod?.[1];
+  if (!Number.isFinite(top) || top <= 0) return 0;
+  let radius = Infinity;
+  for (const record of entry.instances) radius = Math.min(radius, record[59]);
+  for (const batch of entry.batches) {
+    if (batch.minRadiusVersion !== batch.version) {
+      let r = Infinity;
+      for (let i = 0; i < batch.count; i++) r = Math.min(r, batch.data[i * INSTANCE_FLOATS + 59]);
+      batch.minRadius = r;
+      batch.minRadiusVersion = batch.version;
+    }
+    radius = Math.min(radius, batch.minRadius);
+  }
+  return Number.isFinite(radius) ? radius / (top * tanY) : 0;
+}
+
+/**
+ * Premultiplied alpha over what is already there: the source has already
+ * scaled what it covers with (see the mesh pass's output), and adds its
+ * reflection whole.
+ */
 const ALPHA_BLEND = Object.freeze({
-  color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+  color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
   alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
 });
 

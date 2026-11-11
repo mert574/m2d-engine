@@ -143,10 +143,13 @@ export async function fetchModel(id, resolution, dir, onProgress = () => {}) {
 }
 
 /** A texture's colour map, one JPEG, to `to`. */
-export async function fetchTexture(id, resolution, to) {
+export async function fetchTexture(id, resolution, to, map = 'Diffuse') {
   const files = await api(`/files/${id}`);
-  const entry = files.Diffuse?.[resolution]?.jpg;
-  if (!entry) throw new Error(`${id}: no diffuse JPEG at ${resolution} (have ${Object.keys(files.Diffuse ?? {}).join(', ')})`);
+  // `map` is the API's name for one of the texture's maps: `Diffuse`,
+  // `nor_gl` (an OpenGL-convention normal map), `arm` (occlusion,
+  // roughness and metal in red, green and blue, glTF's own layout).
+  const entry = files[map]?.[resolution]?.jpg;
+  if (!entry) throw new Error(`${id}: no ${map} JPEG at ${resolution} (have ${Object.keys(files[map] ?? {}).join(', ') || 'none'})`);
   const fetched = await download(entry.url, to, entry.md5) ? 1 : 0;
   const record = await info(id);
   return { fetched, bytes: entry.size, to, name: record.name, authors: Object.keys(record.authors ?? {}) };

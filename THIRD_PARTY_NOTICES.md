@@ -283,7 +283,7 @@ Hedgerow Court's two are also lightly colour-graded (the lawn warmed, the hedge 
 - Rigged Simple — © 2017 Cesium, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode), from the [Khronos glTF Sample Assets](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/RiggedSimple). Used as-is as a test fixture in `packages/engine/test/fixtures/models/`.
 ## Poly Haven models (CC0)
 
-The lot's trees, ground cover, rocks and props are photoscanned and modelled assets from [Poly Haven](https://polyhaven.com), all [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Fetched by `examples/scripts/fetchPolyHaven.mjs` and compiled by `examples/scripts/compileModel.mjs` into `examples/src/yard/models/ph/` as levels of detail with resized WebP textures; the compiled files are derived works of the sources below and carry the same CC0 dedication.
+The lot's trees, ground cover, rocks, street and garden furniture, depot stock, the shutters and lamps on its buildings, fences and ruin are photoscanned and modelled assets from [Poly Haven](https://polyhaven.com), all [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Fetched by `examples/scripts/fetchPolyHaven.mjs` and compiled by `examples/scripts/compileModel.mjs` into `examples/src/yard/models/ph/` as levels of detail with resized, re-encoded textures; some are single pieces cut from a modular kit (a fence panel, one pole, one bench, one shutter, the fort's tower). The compiled files are derived works of the sources below and carry the same CC0 dedication.
 
 | Asset | Name | Authors |
 | --- | --- | --- |
@@ -291,40 +291,97 @@ The lot's trees, ground cover, rocks and props are photoscanned and modelled ass
 | [barrel_03](https://polyhaven.com/a/barrel_03) | Barrel 03 | Serhii Khromov |
 | [boulder_01](https://polyhaven.com/a/boulder_01) | Boulder 01 | Rico Cilliers |
 | [cardboard_box_01](https://polyhaven.com/a/cardboard_box_01) | Cardboard Box 01 | Rahul Chaudhary |
+| [CoffeeCart_01](https://polyhaven.com/a/CoffeeCart_01) | Coffee Cart 01 | Joe Seabuhr |
+| [compost_bags](https://polyhaven.com/a/compost_bags) | Compost Bags | James Ray Cock |
 | [concrete_road_barrier](https://polyhaven.com/a/concrete_road_barrier) | Concrete Road Barrier | Amal Kumar |
 | [covered_car](https://polyhaven.com/a/covered_car) | Covered Car | MP |
 | [dandelion_01](https://polyhaven.com/a/dandelion_01) | Dandelion 01 | Rob Tuytel, Rico Cilliers |
+| [dead_tree_trunk](https://polyhaven.com/a/dead_tree_trunk) | Dead Tree Trunk | Rob Tuytel |
 | [dead_tree_trunk_02](https://polyhaven.com/a/dead_tree_trunk_02) | Dead Tree Trunk 02 | Jenelle van Heerden, Rico Cilliers |
+| [dry_branches_medium_01](https://polyhaven.com/a/dry_branches_medium_01) | Dry Branches Medium 01 | Rico Cilliers |
 | [fern_02](https://polyhaven.com/a/fern_02) | Fern 02 | Rob Tuytel, Rico Cilliers |
 | [fir_sapling_medium](https://polyhaven.com/a/fir_sapling_medium) | Fir Sapling Medium | Rob Tuytel, Rico Cilliers |
 | [fire_hydrant](https://polyhaven.com/a/fire_hydrant) | Fire Hydrant | Gonçalo Felício |
+| [flower_gazania](https://polyhaven.com/a/flower_gazania) | Flower Gazania | James Ray Cock, Jenelle van Heerden |
+| [garden_gnome](https://polyhaven.com/a/garden_gnome) | Garden Gnome | Bhargav Kubal |
+| [garden_hose_wall_mounted_01](https://polyhaven.com/a/garden_hose_wall_mounted_01) | Garden Hose Wall Mounted 01 | Kuutti Siitonen |
 | [grass_medium_01](https://polyhaven.com/a/grass_medium_01) | Grass Medium 01 | Rob Tuytel, Rico Cilliers |
+| [grass_medium_02](https://polyhaven.com/a/grass_medium_02) | Grass Medium 02 | Rico Cilliers |
 | [hand_truck](https://polyhaven.com/a/hand_truck) | Hand Truck | Mutanzom3D |
+| [industrial_storage_cart](https://polyhaven.com/a/industrial_storage_cart) | Industrial Storage Cart | Jule Bielitz |
+| [industrial_wall_lamp](https://polyhaven.com/a/industrial_wall_lamp) | Industrial Wall Lamp | Kuutti Siitonen |
+| [island_tree_01](https://polyhaven.com/a/island_tree_01) | Island Tree 01 | Rob Tuytel, Rico Cilliers |
 | [island_tree_02](https://polyhaven.com/a/island_tree_02) | Island Tree 02 | Rob Tuytel, Rico Cilliers |
+| [island_tree_03](https://polyhaven.com/a/island_tree_03) | Island Tree 03 | Rob Tuytel, Rico Cilliers |
 | [jacaranda_tree](https://polyhaven.com/a/jacaranda_tree) | Jacaranda Tree | Rob Tuytel, Rico Cilliers |
+| [large_iron_gate](https://polyhaven.com/a/large_iron_gate) | Large Iron Gate | Josh Dean |
+| [metal_trash_can](https://polyhaven.com/a/metal_trash_can) | Metal Trash Can | GurJas Studios |
 | [modular_chainlink_fence](https://polyhaven.com/a/modular_chainlink_fence) | Modular Chainlink Fence | James Ray Cock, Amal Kumar |
 | [modular_electricity_poles](https://polyhaven.com/a/modular_electricity_poles) | Modular Electricity Poles | James Ray Cock |
 | [modular_fort_01](https://polyhaven.com/a/modular_fort_01) | Modular Fort 01 | Rico Cilliers |
 | [modular_industrial_pipes_01](https://polyhaven.com/a/modular_industrial_pipes_01) | Modular Industrial Pipes 01 | Jorge Camacho |
+| [modular_street_seating](https://polyhaven.com/a/modular_street_seating) | Modular Street Seating | Stuart Attenborrow |
+| [moss_01](https://polyhaven.com/a/moss_01) | Moss 01 | Rob Tuytel |
 | [namaqualand_boulder_02](https://polyhaven.com/a/namaqualand_boulder_02) | Namaqualand Boulder 02 | Greg Zaal, Rico Cilliers |
 | [nettle_plant](https://polyhaven.com/a/nettle_plant) | Nettle Plant | Rob Tuytel, Rico Cilliers |
 | [old_tyre](https://polyhaven.com/a/old_tyre) | Old Tyre | MP |
+| [outdoor_table_chair_set_01](https://polyhaven.com/a/outdoor_table_chair_set_01) | Outdoor Table Chair Set 01 | James Ray Cock |
+| [painted_wooden_bench](https://polyhaven.com/a/painted_wooden_bench) | Painted Wooden Bench | Kirill Sannikov |
+| [periwinkle_plant](https://polyhaven.com/a/periwinkle_plant) | Periwinkle Plant | Amal Kumar |
+| [pine_tree_01](https://polyhaven.com/a/pine_tree_01) | Pine Tree 01 | Rob Tuytel, Rico Cilliers |
+| [planter_box_01](https://polyhaven.com/a/planter_box_01) | Planter Box 01 | James Ray Cock |
+| [planter_box_02](https://polyhaven.com/a/planter_box_02) | Planter Box 02 | James Ray Cock |
 | [plastic_crate_03](https://polyhaven.com/a/plastic_crate_03) | Plastic Crate 03 | Pacific Penguin |
+| [plastic_monobloc_chair_01](https://polyhaven.com/a/plastic_monobloc_chair_01) | Plastic Monobloc Chair 01 | Kuutti Siitonen |
+| [portable_generator](https://polyhaven.com/a/portable_generator) | Portable Generator | James Ray Cock |
+| [potted_plant_01](https://polyhaven.com/a/potted_plant_01) | Potted Plant 01 | Rico Cilliers |
+| [potted_plant_02](https://polyhaven.com/a/potted_plant_02) | Potted Plant 02 | Rico Cilliers |
 | [propane_tank](https://polyhaven.com/a/propane_tank) | Propane Tank | Slinc |
 | [rock_moss_set_01](https://polyhaven.com/a/rock_moss_set_01) | Rock Moss Set 01 | Kless Gyzen |
+| [rollershutter_door](https://polyhaven.com/a/rollershutter_door) | Rollershutter Door | MP |
+| [rollershutter_window_01](https://polyhaven.com/a/rollershutter_window_01) | Rollershutter Window 01 | MP |
 | [searsia_lucida](https://polyhaven.com/a/searsia_lucida) | Searsia Lucida | James Ray Cock, Jenelle van Heerden |
+| [security_light](https://polyhaven.com/a/security_light) | Security Light | Maximilian Schuster |
+| [shrub_01](https://polyhaven.com/a/shrub_01) | Shrub 01 | Rico Cilliers |
 | [shrub_02](https://polyhaven.com/a/shrub_02) | Shrub 02 | Rico Cilliers |
+| [shrub_03](https://polyhaven.com/a/shrub_03) | Shrub 03 | Rico Cilliers |
+| [stone_fire_pit](https://polyhaven.com/a/stone_fire_pit) | Stone Fire Pit | Sebastian Platen |
 | [street_lamp_01](https://polyhaven.com/a/street_lamp_01) | Street Lamp 01 | Josh Dean |
+| [street_lamp_02](https://polyhaven.com/a/street_lamp_02) | Street Lamp 02 | Josh Dean |
+| [tool_cart](https://polyhaven.com/a/tool_cart) | Tool Cart | Savva Zakharov |
 | [tree_small_02](https://polyhaven.com/a/tree_small_02) | Tree Small 02 | Rico Cilliers |
+| [tree_stump_01](https://polyhaven.com/a/tree_stump_01) | Tree Stump 01 | Rob Tuytel |
 | [utility_box_01](https://polyhaven.com/a/utility_box_01) | Utility Box 01 | James Ray Cock |
+| [water_manhole_cover](https://polyhaven.com/a/water_manhole_cover) | Water Manhole Cover | Raunox |
+| [weed_plant_02](https://polyhaven.com/a/weed_plant_02) | Weed Plant 02 | Rob Tuytel, Rico Cilliers |
 | [wooden_crate_01](https://polyhaven.com/a/wooden_crate_01) | Wooden Crate 01 | James Ray Cock |
+| [wooden_crate_02](https://polyhaven.com/a/wooden_crate_02) | Wooden Crate 02 | James Ray Cock, Jurita Burger |
+| [wooden_ladder](https://polyhaven.com/a/wooden_ladder) | Wooden Ladder | Miroslav Turura |
 | [wooden_picnic_table](https://polyhaven.com/a/wooden_picnic_table) | Wooden Picnic Table | Ulan Cabanilla |
 
 ## Poly Haven textures (CC0)
 
-The lot's roads, kerbs and plinths are primitive shapes mapped with textures from [Poly Haven](https://polyhaven.com), [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Fetched by `examples/scripts/buildModels.mjs` into `examples/src/yard/textures/` as their 1k colour maps; not committed.
+The lot's ground (lawn, leaf litter, gravel, paving, setts, dirt), roads, kerbs, walls, plinths, crates and buildings (brick, render, plaster, cladding, corrugated iron, roof tiles, roller doors) are primitive shapes mapped with textures from [Poly Haven](https://polyhaven.com), [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Fetched by `examples/scripts/buildModels.mjs` into `examples/src/yard/textures/` as their 1k colour, normal and occlusion-roughness-metal maps; not committed.
 
 | Asset | Name | Authors |
 | --- | --- | --- |
 | [asphalt_03](https://polyhaven.com/a/asphalt_03) | Asphalt 03 | Dario Barresi, Charlotte Baglioni |
+| [brick_wall_006](https://polyhaven.com/a/brick_wall_006) | Brick Wall 006 | Jan Burghardt |
+| [brown_planks_09](https://polyhaven.com/a/brown_planks_09) | Brown Planks 09 | Rob Tuytel |
+| [clay_roof_tiles](https://polyhaven.com/a/clay_roof_tiles) | Clay Roof Tiles | Amal Kumar |
+| [cobblestone_floor_04](https://polyhaven.com/a/cobblestone_floor_04) | Cobblestone Floor 04 | Rob Tuytel |
 | [concrete_floor_02](https://polyhaven.com/a/concrete_floor_02) | Concrete Floor 02 | Rob Tuytel |
+| [concrete_pavement_03](https://polyhaven.com/a/concrete_pavement_03) | Concrete Pavement 03 | Charlotte Baglioni |
+| [corrugated_iron_02](https://polyhaven.com/a/corrugated_iron_02) | Corrugated Iron 02 | Jenelle van Heerden, Sergej Majboroda |
+| [dirt_floor](https://polyhaven.com/a/dirt_floor) | Dirt Floor | eye-candy.xyz |
+| [exterior_wall_cladding](https://polyhaven.com/a/exterior_wall_cladding) | Exterior Wall Cladding | Charlotte Baglioni |
+| [factory_brick](https://polyhaven.com/a/factory_brick) | Factory Brick | Rob Tuytel |
+| [forest_leaves_03](https://polyhaven.com/a/forest_leaves_03) | Forest Leaves 03 | Rob Tuytel, Dimitrios Savva |
+| [gravel_floor_02](https://polyhaven.com/a/gravel_floor_02) | Gravel Floor 02 | Jenelle van Heerden, Dimitrios Savva |
+| [grey_roof_tiles](https://polyhaven.com/a/grey_roof_tiles) | Grey Roof Tiles | Rob Tuytel |
+| [herringbone_pavement](https://polyhaven.com/a/herringbone_pavement) | Herringbone Pavement | Charlotte Baglioni |
+| [leafy_grass](https://polyhaven.com/a/leafy_grass) | Leafy Grass | Charlotte Baglioni |
+| [painted_metal_shutter](https://polyhaven.com/a/painted_metal_shutter) | Painted Metal Shutter | Dario Barresi, Rico Cilliers, Charlotte Baglioni |
+| [red_brick_03](https://polyhaven.com/a/red_brick_03) | Red Brick 03 | Rob Tuytel |
+| [white_stucco](https://polyhaven.com/a/white_stucco) | White Stucco | Amal Kumar |
+| [yellow_plaster](https://polyhaven.com/a/yellow_plaster) | Yellow Plaster | Rob Tuytel |

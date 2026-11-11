@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initPhysics } from '../src/core/physics/index.js';
 import { parseGLB, setKTX2Decoder, DEFAULT_MATERIAL, lodFor } from '../src/core/gltf.js';
 import { Frame3D, StaticBatch, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from '../src/core/renderers/frame3d.js';
 import { Animator3D } from '../src/core/animator3d.js';
 import { Scene } from '../src/core/scene.js';
-import { lightFor, placeLight } from '../src/core/presentation3d.js';
+import { lightFor, placeLight, meshFor } from '../src/core/presentation3d.js';
 import { transferablesOf, workersAvailable } from '../src/core/modelLoader.js';
 import { Camera3D } from '../src/core/camera3d.js';
 import { box, boundingSphere } from '../src/core/renderers/geometry/primitives.js';
@@ -237,6 +237,31 @@ describe('materials and levels of detail', () => {
     expect(m.alphaCutoff).toBe(0.4);
     expect(m.doubleSided).toBe(true);
     expect(m.uvTransform).toEqual({ scale: [2, 2], offset: [0.1, 0.2], rotation: 0.5 });
+    // Not marked as foliage, so its cut-out thins with distance like a fence's.
+    expect(m.foliage).toBe(false);
+  });
+
+  it('reads the compiler\'s foliage mark off a cut-out material', async () => {
+    const model = await parseGLB(makeGLB({
+      asset: { version: '2.0' },
+      ...quad,
+      images: [png],
+      textures: [{ source: 0 }],
+      materials: [
+        { name: 'leaves', pbrMetallicRoughness: { baseColorTexture: { index: 0 } }, alphaMode: 'MASK', extras: { m2d: { foliage: true } } },
+        { name: 'bark', pbrMetallicRoughness: { baseColorTexture: { index: 0 } } }
+      ],
+      meshes: [{ primitives: [primitive, { ...primitive, material: 1 }] }],
+      nodes: [{ mesh: 0 }],
+      scenes: [{ nodes: [0] }]
+    }, quad.bin), { decodeImage: fakeDecode });
+    const [leaves, bark] = model.parts.map((part) => part.material);
+    expect(leaves.foliage).toBe(true);
+    expect(DEFAULT_MATERIAL.foliage).toBe(false);
+    // The wind bends the whole tree, or its leaves would drift off the branches;
+    // only the leaves are foliage, and flutter.
+    expect([leaves.sway, bark.sway, bark.foliage]).toEqual([true, true, false]);
+    expect(DEFAULT_MATERIAL.sway).toBe(false);
   });
 
   it('makes tangents from the texture coordinates when the file has none', async () => {
@@ -624,6 +649,124 @@ describe('props', () => {
     const steady = scene.streaming.resident.join();
     scene.streamModels({ x: 1000 - scene.streamOut + 1, y: 0, z: 0 });
     expect(scene.streaming.resident.join()).toBe(steady);
+  });
+
+  it('gives every part and level of one prop instance the model\'s sphere, so it switches level once', async () => {
+    const quad = quadBin();
+    const primitive = { attributes: { POSITION: 0, NORMAL: 1, TEXCOORD_0: 2 }, indices: 3, material: 0 };
+    // Two levels, the second's part translated: on its own sphere it would
+    // decide its level from somewhere else than the first's.
+    const tree = await parseGLB(makeGLB({
+      asset: { version: '2.0', extras: { m2d: { lods: [{ coverage: 0 }, { coverage: 0.3 }] } } }, ...quad,
+      materials: [{}],
+      meshes: [{ primitives: [primitive, primitive] }, { primitives: [primitive] }],
+      nodes: [{ name: 'LOD0', children: [2] }, { name: 'LOD1', children: [3] }, { mesh: 0 }, { mesh: 1, translation: [0, 0, 5] }],
+      scenes: [{ nodes: [0, 1] }]
+    }, quad.bin));
+    const config = loader().load(level({
+      assets: { models: { tree: { url: 'models/tree.glb' } } },
+      prefabs: { tree: { actor: 'Ground', mesh: { model: 'tree' } } },
+      layers: [{ name: 'main', objects: [], props: [{ id: 'one', prefab: 'tree', collider: 'none', instances: [[10, 0, -4, 1.2, 2]] }] }]
+    }));
+    const scene = new Scene({ headless: false, physics: { dimensions: 3 }, renderer: {} }, config);
+    scene.indexProps();
+    scene.models.set('tree', tree);
+    scene.setupProps();
+    const spheres = scene.batches.flatMap((batch) => Array.from({ length: batch.count }, (_, i) => [...batch.records.subarray(i * INSTANCE_FLOATS + 56, i * INSTANCE_FLOATS + 60)]));
+    expect(spheres.length).toBeGreaterThanOrEqual(3);
+    for (const sphere of spheres) expect(sphere).toEqual(spheres[0]);
+    // The model's sphere, scaled by the instance and centred where it stands.
+    const { min, max } = tree.bounds;
+    expect(spheres[0][3]).toBeCloseTo(Math.hypot(max.x - min.x, max.y - min.y, max.z - min.z), 4);
+    expect(spheres[0][0]).toBeGreaterThan(5);
+  });
+
+  it('makes one stable material for a shape that asks for glass, a lacquer or a glow, and none for a plain colour', () => {
+    const config = loader().load(level({
+      prefabs: {
+        plain: { actor: 'Ground', mesh: { color: '#ff0000', roughness: 0.3 } },
+        glass: { actor: 'Ground', mesh: { color: '#88aaff', opacity: 0.3, specular: 1.5 } },
+        paint: { actor: 'Ground', mesh: { color: '#a0101a', clearcoat: 1, clearcoatRoughness: 0.1 } },
+        neon: { actor: 'Ground', mesh: { color: '#ff2a9a', emissiveColor: '#ff2a9a', emissive: 6 } }
+      },
+      layers: [{ name: 'main', objects: [] }]
+    }));
+    const scene = new Scene({ headless: false, physics: { dimensions: 3 }, renderer: {} }, config);
+    const mesh = (name) => meshFor(config.prefabs[name].mesh);
+    expect(scene.meshMaterial(mesh('plain'))).toBe(null);
+    const glass = scene.meshMaterial(mesh('glass'));
+    expect(glass.alphaMode).toBe('blend');
+    expect(glass.baseColor[3]).toBeCloseTo(0.3);
+    expect(glass.doubleSided).toBe(true);
+    expect(glass.specularF0).toBeCloseTo(0.06);
+    // The same block gives the same object, which is what the renderer caches by.
+    expect(scene.meshMaterial(mesh('glass'))).toBe(glass);
+    const paint = scene.meshMaterial(mesh('paint'));
+    expect([paint.clearcoat, paint.clearcoatRoughness, paint.alphaMode]).toEqual([1, 0.1, 'opaque']);
+    const neon = scene.meshMaterial(mesh('neon'));
+    // The glow is the material's, in linear light times the strength; the instance record then carries none.
+    expect(neon.emissive[0]).toBeCloseTo(6, 3);
+    expect(neon.emissive[1]).toBeLessThan(0.2);
+  });
+
+  it('reads KHR_materials_clearcoat by its factors', async () => {
+    const quad = quadBin();
+    const primitive = { attributes: { POSITION: 0, NORMAL: 1, TEXCOORD_0: 2 }, indices: 3, material: 0 };
+    const model = await parseGLB(makeGLB({
+      asset: { version: '2.0' }, ...quad,
+      materials: [{ extensions: { KHR_materials_clearcoat: { clearcoatFactor: 0.8, clearcoatRoughnessFactor: 0.2 } } }],
+      meshes: [{ primitives: [primitive] }], nodes: [{ mesh: 0 }], scenes: [{ nodes: [0] }]
+    }, quad.bin));
+    const m = model.parts[0].material;
+    expect([m.clearcoat, m.clearcoatRoughness]).toEqual([0.8, 0.2]);
+    expect(DEFAULT_MATERIAL.clearcoat).toBe(0);
+  });
+
+  it('loads a level whose prop-only model fails, without it, and refuses one whose worn model fails', async () => {
+    const bytes = readFileSync(new URL('./fixtures/models/BoxTextured.glb', import.meta.url));
+    // What a dev server answers for a file that is not there: its page, with a 200.
+    const page = new TextEncoder().encode('<!doctype html><html></html>');
+    const broken = new Set();
+    const asked = [];
+    vi.stubGlobal('fetch', async (url) => {
+      asked.push(String(url));
+      const body = broken.has(String(url)) ? page : bytes;
+      return new Response(body, { status: 200 });
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const make = () => new Scene({
+        headless: false, physics: { dimensions: 3 }, options: { basePath: '' }, soundManager: null
+      }, loader().load(level({
+        assets: { models: { scenery: { url: 'models/scenery.glb' }, worn: { url: 'models/worn.glb' } } },
+        prefabs: { scenery: { actor: 'Ground', mesh: { model: 'scenery' } }, hero: { actor: 'Ground', mesh: { model: 'worn' } } },
+        layers: [{
+          name: 'main',
+          objects: [{ id: 'hero', prefab: 'hero', x: 0, y: 0, z: 0 }],
+          props: [{ id: 'by-the-door', prefab: 'scenery', collider: 'none', instances: [[1, 0, 0, 0, 1]] }]
+        }]
+      })));
+
+      broken.add('models/scenery.glb');
+      const scene = make();
+      await scene.loadAssets();
+      expect(scene.models.has('worn')).toBe(true);
+      expect(scene.models.has('scenery')).toBe(false);
+      expect(warn.mock.calls.some(([message]) => /'scenery' failed to load/.test(message))).toBe(true);
+      // The streamer runs every frame; a model that failed is not fetched again.
+      expect(scene.streaming.failed).toEqual(['scenery']);
+      const before = asked.length;
+      for (let frame = 0; frame < 5; frame++) scene.streamModels({ x: 1, y: 0, z: 0 });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(asked.length).toBe(before);
+
+      broken.clear();
+      broken.add('models/worn.glb');
+      await expect(make().loadAssets()).rejects.toThrow(/not a \.glb/);
+    } finally {
+      vi.unstubAllGlobals();
+      warn.mockRestore();
+    }
   });
 
   it('builds one resident batch per geometry and material, shapes and model parts alike', async () => {

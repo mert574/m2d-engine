@@ -43,7 +43,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { compileModel as compile } from 'm2d-editor-host/pipeline/compile.mjs';
-import { SOURCE_DIR, ASSETS } from './fetchPolyHaven.mjs';
+import { SOURCE_DIR, ASSETS, PIECES } from './fetchPolyHaven.mjs';
 
 /** Where the compiled lot models go; ignored by git, rebuilt by `buildModels.mjs`. */
 export const OUT_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'models', 'ph');
@@ -51,36 +51,58 @@ export const OUT_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'models
 /**
  * Bumped when what this script writes changes shape (texture format, LOD
  * layout); `buildModels.mjs` rebuilds every model whose stamp disagrees.
+ * 5: foliage levels thin whole cards, and cut-outs carry `m2d.foliage`.
+ * 6: textures sized by kind (`TEXTURE_SIZE` in the compiler), not all at 3072.
+ * 7: levels switch at distances by kind; far foliage is quads, a tree's last level a few thousand triangles.
+ * 8: a tree's level 0 is 150k triangles, not 300k; clearcoat factors are kept.
  */
-export const FORMAT = 4;
+export const FORMAT = 8;
+
+/**
+ * Models whose textures outgrow their kind's size: the fort's pieces are
+ * props, but a tower thirteen metres tall is seen across it.
+ */
+const TEXTURE_SIZES = { fort_tower: 2048, fort_wall: 2048, fort_corner: 2048, fort_gate: 2048 };
 
 /** What kind of thing each source is, which sets its triangle budget. */
 export const KINDS = {
   jacaranda_tree: 'tree', island_tree_02: 'tree', tree_small_02: 'tree', searsia_lucida: 'tree',
   fir_sapling_medium: 'tree', dead_tree_trunk_02: 'tree',
+  island_tree_01: 'tree', island_tree_03: 'tree', pine_tree_01: 'tree', dead_tree_trunk: 'tree', tree_stump_01: 'tree',
+  fir_sapling: 'tree', pine_tree: 'tree', pine_tree_b: 'tree', shrub_large: 'ground',
   grass_medium_01: 'ground', fern_02: 'ground', shrub_02: 'ground', nettle_plant: 'ground', dandelion_01: 'ground',
-  boulder_01: 'rock', rock_moss_set_01: 'rock', namaqualand_boulder_02: 'rock'
+  shrub_01: 'ground', shrub_03: 'ground', grass_medium_02: 'ground', flower_gazania: 'ground', moss_01: 'ground',
+  weed_plant_02: 'ground', periwinkle_plant: 'ground', dry_branches_medium_01: 'ground',
+  boulder_01: 'rock', rock_moss_set_01: 'rock', namaqualand_boulder_02: 'rock',
+  potted_plant_01: 'ground', potted_plant_02: 'ground'
 };
+
+/** The Poly Haven source a model key compiles from: itself, or the kit a piece is cut from. */
+export const sourceOf = (id) => PIECES[id]?.from ?? id;
 
 /**
  * One of the lot's sources into `OUT_DIR`. The compiler itself is the
  * editor host's (`m2d-editor-host/pipeline/compile.mjs`), which the
  * editor's library import runs too; this names the lot's paths and kinds.
+ * A key in `PIECES` compiles its kit with only the piece's nodes kept.
  */
 export async function compileModel(id) {
-  const info = JSON.parse(readFileSync(resolve(SOURCE_DIR, id, 'info.json'), 'utf8'));
+  const source = sourceOf(id);
+  const info = JSON.parse(readFileSync(resolve(SOURCE_DIR, source, 'info.json'), 'utf8'));
   return compile({
-    source: resolve(SOURCE_DIR, id, `${id}.gltf`),
+    source: resolve(SOURCE_DIR, source, `${source}.gltf`),
     to: resolve(OUT_DIR, `${id}.glb`),
     kind: KINDS[id] ?? 'prop',
-    label: `polyhaven:${id}`,
+    label: `polyhaven:${source}`,
     name: info.name,
-    authors: Object.keys(info.authors ?? {})
+    authors: Object.keys(info.authors ?? {}),
+    keep: PIECES[id]?.keep ?? null,
+    textureSize: TEXTURE_SIZES[id] ?? null
   });
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
-  const ids = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(ASSETS);
+  const ids = process.argv.slice(2).length ? process.argv.slice(2) : [...Object.keys(ASSETS), ...Object.keys(PIECES)];
   let total = 0;
   for (const id of ids) {
     const r = await compileModel(id);
