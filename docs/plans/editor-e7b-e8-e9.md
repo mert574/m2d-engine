@@ -305,3 +305,23 @@ hairline rule, Start and Settings styled by `$tokens` — and starts on it.
 spot-direction handle, the camera gizmo, bookmarks, isolate), keyboard
 focus for JSON menus, the F15 element kinds (stack, menu-item,
 backdrop), and composition — in that order.
+
+**Verified in a real browser, 11 Nov 2026** (headless Chrome on the
+Windows GPU over CDP, driven by Playwright with real pointer input, on
+an NVIDIA adapter): on the lot — WebGPU load, click-picks an instance,
+the gizmo's free move commits one `Move` tuple edit, the single yaw
+ring, promote-to-object, a scatter stroke planting 21 instances as one
+edit, undo to clean. On Ember Valley — paint mode with grid and palette,
+a three-cell stroke as one `Paint 3 cells` edit, the animation editor
+appending and removing a frame by clicking the sheet, undo to clean. On
+a fresh 2D template — the menu letterboxed at design size, element pick,
+nine anchor markers, no rotate ring, integer `Move` commits, the label
+typed into the style field with the token datalist, an anchor change
+re-based with zero drift, `Add text` valid from birth, and in Play the
+Start button entering the level. Two findings fixed on the way: the
+problems validator (editor and MCP) now registers the project's scene
+names, and Ember Valley's art became machine-local seeds
+(`buildPlatformerArt.mjs`, seed-once) after the first pass wrongly
+assumed images could be committed — `.gitignore` takes every `*.png`,
+and the local sheets had been hand-swapped, which the scene now matches
+(16px coin, 8×2 tile grid).
