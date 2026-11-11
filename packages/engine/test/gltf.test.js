@@ -651,6 +651,69 @@ describe('props', () => {
     expect(scene.streaming.resident.join()).toBe(steady);
   });
 
+  it('rebuilds props in place from the config: bodies, lights and batches follow an edit', async () => {
+    const game = game3D();
+    game.registerActor('Ground', Ground);
+    const config = new SceneLoader(game).load(level({
+      prefabs: {
+        tree: { actor: 'Ground', mesh: { color: '#3f6b2f', shape: 'sphere' } },
+        lantern: { actor: 'Ground', mesh: { color: '#ffd9a0' }, light: { type: 'point', color: '#ffc473', intensity: 30 } }
+      },
+      layers: [{
+        name: 'main', objects: [],
+        props: [
+          { id: 'trees', prefab: 'tree', width: 4, height: 4, collider: { shape: 'cylinder', width: 0.6, height: 3 }, instances: [[5, 0, 5, 0, 1]] },
+          { id: 'lanterns', prefab: 'lantern', width: 0.2, height: 0.2, collider: 'none', instances: [[10, 0, -4, 0, 1]] }
+        ]
+      }]
+    }));
+    const scene = new Scene(game, config);
+    scene.setupProps();
+    expect(scene.propBodies).toHaveLength(1);
+    expect(scene.propLights).toHaveLength(1);
+    const before = scene.propBodies[0];
+    const removed = [];
+    const remove = game.physics.remove.bind(game.physics);
+    game.physics.remove = (body) => { removed.push(body); remove(body); };
+
+    // The editor moved the tree, planted another, and erased the lantern.
+    config.layers[0].props[0].instances = [[7, 0, 5, 0, 1], [1, 0, 1, 0, 2]];
+    config.layers[0].props[1].instances = [];
+    scene.rebuildProps();
+
+    expect(removed).toEqual([before]);
+    expect(scene.propBodies).toHaveLength(2);
+    expect(scene.propBodies[0].position).toEqual({ x: 7, y: 1.5, z: 5 });
+    expect(scene.propBodies[1].position.y).toBeCloseTo(3, 6);
+    expect(scene.propLights).toHaveLength(0);
+  });
+
+  it('rebuilds a resident model\'s batches and its streaming index with the edit', async () => {
+    const box = await parseGLB(fixture('BoxTextured'), { decodeImage: fakeDecode });
+    const config = loader().load(level({
+      assets: { models: { crate: { url: 'models/crate.glb' } } },
+      prefabs: { crate: { actor: 'Ground', mesh: { model: 'crate' } } },
+      layers: [{
+        name: 'main', objects: [],
+        props: [{ id: 'crates', prefab: 'crate', collider: 'none', instances: [[0, 0, 0, 0, 1], [2, 0, 0, 0, 1]] }]
+      }]
+    }));
+    const scene = new Scene({ headless: false, physics: { dimensions: 3 }, renderer: {} }, config);
+    scene.indexProps();
+    scene.models.set('crate', box);
+    scene.setupProps();
+    const count = (batches) => batches.reduce((sum, batch) => sum + batch.count, 0);
+    const drawn = count(scene.batches);
+    expect(drawn).toBeGreaterThan(0);
+
+    // One crate erased: half the instances, and the spot index follows so
+    // the streamer measures against what is actually placed.
+    config.layers[0].props[0].instances = [[2, 0, 0, 0, 1]];
+    scene.rebuildProps();
+    expect(count(scene.batches)).toBe(drawn / 2);
+    expect(scene.streaming.resident).toEqual(['crate']);
+  });
+
   it('gives every part and level of one prop instance the model\'s sphere, so it switches level once', async () => {
     const quad = quadBin();
     const primitive = { attributes: { POSITION: 0, NORMAL: 1, TEXCOORD_0: 2 }, indices: 3, material: 0 };

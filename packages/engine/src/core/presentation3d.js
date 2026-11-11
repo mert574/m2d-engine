@@ -66,3 +66,6 @@ export function placeLight(light, position, yaw = 0, scale = 1) {
 const ZERO = Object.freeze({ x: 0, y: 0, z: 0 });
 
 export const toLinear = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+
+/** The emissive an instance record carries: none when the material's own colour glows instead. */
+export const instanceEmissive = (mesh) => (mesh?.emissiveColor ? 0 : mesh?.emissive);
