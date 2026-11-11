@@ -26,6 +26,10 @@ export interface AssetFileEntry {
   kind: 'model' | 'image' | 'environment' | 'audio';
   bytes: number;
   credit?: { name: string; authors: string[]; license: string; page: string; source: string; id: string };
+  /** A rendered thumbnail's project path, when one exists; see thumbnails.ts. */
+  thumb?: string;
+  /** The key a thumbnail for this file is stored under (path, size and mtime). */
+  thumbKey: string;
 }
 
 export interface LibraryCard {
@@ -68,6 +72,12 @@ export interface AssetsPanelOptions {
   dragging?(item: Placeable | null): void;
   /** The scene's dimension, which decides what can be placed. */
   dimensions(): 2 | 3;
+  /**
+   * Make a thumbnail for a file that has none (a model, an environment);
+   * resolves to its project path, or null when the page cannot. The panel
+   * asks for the shown cards one by one.
+   */
+  thumbnail?(file: AssetFileEntry): Promise<string | null>;
 }
 
 /** The drag payload's type. */
@@ -172,6 +182,9 @@ export function createAssetsPanel(container: HTMLElement, options: AssetsPanelOp
     else renderLibrary();
   }
 
+  /** Thumbnails asked for this session, by file key, so a re-render asks once. */
+  const requested = new Set<string>();
+
   function renderProject(): void {
     const dims = options.dimensions();
     const matches = (text: string) => !query || text.toLowerCase().includes(query);
@@ -198,15 +211,31 @@ export function createAssetsPanel(container: HTMLElement, options: AssetsPanelOp
       grid.append(heading(title, tip));
       for (const file of group) {
         const placeable = kind === 'image' || ((kind === 'model' || kind === 'environment') && dims === 3);
-        grid.append(card({
+        const element = card({
           title: file.credit?.name ?? file.path.split('/').pop()!,
           detail: `${file.path} · ${size(file.bytes)}`,
           glyph: kind === 'image' ? null : kind === 'model' ? KIND_ICONS.object! : KIND_ICONS.world!,
-          image: kind === 'image' ? options.fileUrl(file.path) : undefined,
+          image: kind === 'image' ? options.fileUrl(file.path) : file.thumb ? options.fileUrl(file.thumb) : undefined,
           item: placeable ? { kind: 'file', path: file.path, url: file.url, type: kind } : null,
           tip: file.credit ? `${file.credit.name} by ${file.credit.authors.join(', ')} (${file.credit.license})` : file.path,
           badge: file.credit ? file.credit.license : undefined
-        }));
+        });
+        grid.append(element);
+        // No picture yet: render one, and put it on the card when it lands.
+        if (!file.thumb && kind !== 'image' && options.thumbnail && !requested.has(file.thumbKey)) {
+          requested.add(file.thumbKey);
+          void options.thumbnail(file).then((thumb) => {
+            if (!thumb) return;
+            file.thumb = thumb;
+            const holder = element.querySelector('.thumb');
+            if (!holder) return;
+            const img = document.createElement('img');
+            img.src = options.fileUrl(thumb);
+            img.alt = '';
+            img.draggable = false;
+            holder.replaceChildren(img);
+          });
+        }
       }
     }
     if (!grid.children.length) {

@@ -98,7 +98,15 @@ The Components tab lists every actor and constraint the game registers and every
 
 An object edit rebuilds that object in place. Other edits rebuild the scene with the camera held.
 
-Edits are kept by the editor's host process until you save. Save writes the scene in the canonical form. A scene with a `generator` field is read-only until you detach it from its script.
+Edits are kept by the editor's host until you save — and journaled beside the project (`.m2d/journal/`, ignored by git), so a host that stops and starts again picks them up, history and all, as long as the file is still the one they were made on. Save writes the scene in the canonical form. A scene with a `generator` field is read-only until you detach it from its script.
+
+## View helpers
+
+Four switches on the viewport's toolbar, each with a key. **Grid and axes** (G): a ground grid about the camera's target in 3D — metres, brighter every five — with the X and Z axes through the origin; in 2D a world-unit grid stepped to stay readable at the zoom, through the projection. **Light icons** (L): a bulb at every light the scene carries, an entity's and a prop's; a spot's direction is an arm whose tip drags to aim it, writing the object's `overrides.light.direction`. **Camera** (C): what `world.camera` declares — the bounds it clamps to and the view the player sees at start in 2D, the orbit eye and its target in 3D. **Isolate** (I): only the selection shows, props included in what hides, until I again or the selection is cleared. Shift+1…9 saves the editor's camera for this scene; 1…9 returns to it.
+
+## Layouts
+
+Drag a panel's edge to resize it, double-click to reset, Alt+1/2/3 to hide and show the tree, dock and inspector. The layout menu at the bar's right puts the dock below the viewport or beside it, mirrors the side panels (inspector left, tree right), and saves the whole arrangement under a name in this browser — sizes, what is hidden, the dock's side and tab — to return to in one step, with a reset to the defaults.
 
 ## Problems
 
@@ -119,6 +127,8 @@ Project lists the scene's prefabs and the project's models, images and environme
 | An environment (3D scenes) | The level's `world.environment`: it lights the scene and is its sky |
 
 A placed model or image gets the engine's `Prop` actor when the game registers it.
+
+A model or an environment card shows a **thumbnail** the editor renders itself — a model turned three-quarters under the default sky, a panorama as the sky it lights — the first time the card is seen, kept by the host under `library/thumbs/` per file state so every tab shares it. Images show themselves.
 
 Library searches Poly Haven's free CC0 models, textures and HDRIs. Import fetches the files with their checksums into `library/sources/` (which is ignored by git) and compiles a model into a `.glb` with levels of detail and compressed textures in `library/models/`. It records the import in `library.json` and rewrites `CREDITS.md` from it. The import runs in the background. When it is done, Place puts it at the centre of the view.
 

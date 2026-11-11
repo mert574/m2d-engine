@@ -325,3 +325,31 @@ names, and Ember Valley's art became machine-local seeds
 assumed images could be committed — `.gitignore` takes every `*.png`,
 and the local sheets had been hand-swapped, which the scene now matches
 (16px coin, 8×2 tile grid).
+
+## The carried work closed, 11 Nov 2026
+
+Everything the record above still carried, except more library sources
+(dropped from editor scope by the owner), landed in one round:
+
+- **Composition** — `layers[].scenes[]`, `SCENE_VERSION` 3, the loader
+  composing after validation, the scene manager prefetching what a level
+  instances, the editor's instance nodes, menu and sibling-document cache;
+  the 3D template's three rooms. Verified in Chrome: 12 composed entities,
+  the tree's three nodes, a click on a composed crate selecting its room,
+  an inspector move carrying the crate with it.
+- **Keyboard focus for JSON menus** — the scene's own `FocusManager`.
+- **The host journal** — `.m2d/journal/`, serialized atomic writes,
+  replay on open, dropped on save or when the file changed underneath.
+- **Layouts** — the dock below or beside the viewport, mirrored side
+  panels, named layouts; verified in Chrome.
+- **View helpers** — grid and axes, light icons with a spot's handle,
+  the camera gizmo, isolate, camera bookmarks; verified in Chrome on the
+  lot (54 lights iconed, isolate hiding 53 of 54 entities and the props).
+- **Thumbnails** — rendered in the editor's tab, stored by the host;
+  26 of the lot's models thumbnailed in the first minute of the drive.
+- **The Facility's WebGL warning** — not reproducible: played in the
+  editor directly on Chrome 157 with the GPU, four seconds of frames
+  logged nothing. Closed as such; reopen with a repro.
+
+Deferred creator work is listed in the roadmap ("Deferred creator work,
+noted 11 Nov 2026"); the GUI-reach F-items are parked beside it.

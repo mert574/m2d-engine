@@ -306,6 +306,13 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
             json(res, { files: await assets.list(), library: await assets.library(), jobs: assets.jobs });
             return;
           }
+          if (url.pathname === '/__thumb' && req.method === 'POST') {
+            // The editor rendered a thumbnail (it has the GPU; the host does not): keep it by the file's key.
+            const body = await readBody(req) as { key?: string; png?: string };
+            if (!body.key || !body.png) throw new Error('a thumbnail is { key, png } (png as base64)');
+            json(res, { thumb: await companion.assets.storeThumbnail(body.key, Buffer.from(body.png, 'base64')) });
+            return;
+          }
           if (url.pathname === '/__asset-info') {
             json(res, await companion.assets.info(url.searchParams.get('path') ?? ''));
             return;

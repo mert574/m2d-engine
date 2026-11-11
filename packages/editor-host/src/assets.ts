@@ -18,6 +18,7 @@
 
 import { readdir, readFile, stat, writeFile, mkdir } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join, relative, sep, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +36,14 @@ export interface AssetFile {
   bytes: number;
   /** The library record it came from, when it was imported. */
   credit?: LibraryRecord;
+  /**
+   * A rendered thumbnail's project-relative path, when the editor has made
+   * one for this file as it stands (keyed by path, size and mtime); see
+   * `storeThumbnail`.
+   */
+  thumb?: string;
+  /** The key a thumbnail for this file is stored under. */
+  thumbKey: string;
 }
 
 export interface LibraryRecord {
@@ -68,9 +77,12 @@ const KINDS: Record<string, AssetKind> = {
 };
 
 /** Folders that are never a project's assets: dependencies, builds, fetched sources. */
-const SKIP = new Set(['node_modules', 'dist', 'site', 'sources', 'assets-src', '.m2d']);
+const SKIP = new Set(['node_modules', 'dist', 'site', 'sources', 'assets-src', '.m2d', 'thumbs']);
 
 const COMPILE_JOB = fileURLToPath(new URL('./pipeline/compileJob.mjs', import.meta.url));
+
+/** Where rendered thumbnails live, project-relative; `.gitignore` takes every png. */
+const THUMBS = 'library/thumbs';
 
 export class Assets {
   readonly project: Project;
@@ -117,7 +129,14 @@ export class Assets {
         const path = relative(this.project.root, full).split(sep).join('/');
         const url = relative(this.project.resolve(basePath), full).split(sep).join('/');
         const record = byFile.get(path);
-        found.push({ path, url, kind, bytes: (await stat(full)).size, ...(record && { credit: record }) });
+        const info = await stat(full);
+        const thumbKey = createHash('sha1').update(`${path}|${info.size}|${info.mtimeMs}`).digest('hex');
+        const thumb = `${THUMBS}/${thumbKey}.png`;
+        found.push({
+          path, url, kind, bytes: info.size, thumbKey,
+          ...(record && { credit: record }),
+          ...(existsSync(this.project.resolve(thumb)) && { thumb })
+        });
       }
     };
     await walk(this.project.root);
@@ -150,6 +169,20 @@ export class Assets {
       return { width: meta.width, height: meta.height };
     }
     return {};
+  }
+
+  /**
+   * Keep a thumbnail the editor rendered for a file: a PNG under
+   * `library/thumbs/` by the file's key, so it is drawn once per file
+   * state and shared by every tab. Images are built, never committed.
+   */
+  async storeThumbnail(thumbKey: string, png: Buffer): Promise<string> {
+    if (!/^[0-9a-f]{40}$/.test(thumbKey)) throw new Error('a thumbnail key is a sha1');
+    const path = `${THUMBS}/${thumbKey}.png`;
+    const full = this.project.resolve(path);
+    await mkdir(join(full, '..'), { recursive: true });
+    await writeFile(full, png);
+    return path;
   }
 
   /** The project's library records. */

@@ -106,3 +106,7 @@ declare module 'm2d-engine/core/renderers/index.js' {
   export function initWebGPU(): Promise<unknown>;
   export function webgpuSupported(): boolean;
 }
+
+declare module 'm2d-engine/actors/prop.js' {
+  export class Prop { constructor(body: unknown, sprite: unknown, game: unknown, options?: unknown); }
+}

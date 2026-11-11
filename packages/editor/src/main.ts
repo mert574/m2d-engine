@@ -45,6 +45,7 @@ import { createPropBrush } from './propBrush.ts';
 import { createTilePaint } from './tilePaint.ts';
 import { createAnimationEditor } from './animationEditor.ts';
 import { createViewHelpers, type Helper } from './viewHelpers.ts';
+import { renderThumbnail } from './thumbnails.ts';
 import { createTree, type SelectMode } from './tree.ts';
 import { showMenu, SEPARATOR, type MenuItem } from './menu.ts';
 import { buildCatalog, type CatalogEntry } from './catalog.ts';
@@ -415,7 +416,8 @@ const assets = createAssetsPanel($<HTMLElement>('#assets'), {
   import: async (type, id) => { await post('/__library/import', { source: 'polyhaven', type, id, resolution: '2k' }); },
   place: (item, point) => { void place(item, point); },
   dragging: (item) => { dragItem = item; if (item?.kind === 'file') void assetInfo(item.path); if (!item) overlay.ghost(null); },
-  dimensions: () => viewport.dimensions
+  dimensions: () => viewport.dimensions,
+  thumbnail: (file) => (project ? renderThumbnail(file, assetBase(project)) : Promise.resolve(null))
 });
 
 // --- Selection -----------------------------------------------------------
