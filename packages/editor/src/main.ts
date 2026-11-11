@@ -631,6 +631,13 @@ async function buildValidator(): Promise<void> {
     await initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
     const game = new M2D(null, { ...options, headless: true });
     definition.register(game);
+    // The project's scene names, so a button's onClick or a rule's switch
+    // naming a sibling scene checks as registered — the viewport's game
+    // knows them the same way.
+    const manager = (game as { sceneManager?: { addScene(name: string, scene: object): void } }).sceneManager;
+    for (const scene of project?.scenes ?? []) {
+      if (scene.name) manager?.addScene(scene.name, { fetch: async () => ({}) });
+    }
     validator = game;
   } catch (error) {
     say(`Problems are checked without the game's classes: ${String((error as Error).message ?? error)}`);

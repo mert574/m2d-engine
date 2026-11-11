@@ -179,6 +179,14 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
     await loaded.physics.initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
     const made = new loaded.engine.M2D(null, { ...options, headless: true });
     loaded.definition.register?.(made);
+    // The project's scene names, so cross-scene refs (a button's onClick,
+    // a rule's switch) check as registered in validate_scene too.
+    try {
+      const manager = (made as unknown as { sceneManager?: { addScene(name: string, scene: object): void } }).sceneManager;
+      for (const scene of await companion.project.scenes()) {
+        if (scene.name) manager?.addScene(scene.name, { fetch: async () => ({}) });
+      }
+    } catch { /* names are a convenience; validation still runs without them */ }
     return made;
   };
   let validatorGame: Promise<HeadlessGame | null> | null = null;
