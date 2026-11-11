@@ -75,6 +75,7 @@ const problemCount = $<HTMLElement>('#problem-count');
 const historyCount = $<HTMLElement>('#history-count');
 const consoleCount = $<HTMLElement>('#console-count');
 const dockToggle = $<HTMLButtonElement>('#dock-toggle');
+const layoutMenuButton = $<HTMLButtonElement>('#layout-menu');
 const statProblems = $<HTMLButtonElement>('#stat-problems');
 const statDraw = $<HTMLElement>('#stat-draw');
 const statDim = $<HTMLElement>('#stat-dim');
@@ -1923,6 +1924,34 @@ for (const button of document.querySelectorAll<HTMLElement>('[data-toggle]')) {
   });
 }
 statProblems.addEventListener('click', () => showDock('problems'));
+
+/** The layout menu: where the dock sits, mirrored side panels, and arrangements saved by name in this browser. */
+function layoutMenu(): MenuItem[] {
+  const currentTab = settings.get('dock.tab', 'assets');
+  const open = (tab: string | undefined) => { if (tab && DOCK_TABS.includes(tab as DockTab)) showDock(tab as DockTab); syncDockToggle(); overlay.refresh(); };
+  const saved = layout.saved();
+  return [
+    { label: layout.dockSide === 'bottom' ? '✓ Dock below the viewport' : 'Dock below the viewport', action: () => layout.setDockSide('bottom') },
+    { label: layout.dockSide === 'right' ? '✓ Dock beside the viewport' : 'Dock beside the viewport', action: () => layout.setDockSide('right') },
+    { label: layout.mirrored ? '✓ Mirrored (inspector left, tree right)' : 'Mirrored (inspector left, tree right)', action: () => layout.setMirrored(!layout.mirrored) },
+    SEPARATOR,
+    ...saved.map((name): MenuItem => ({
+      label: name,
+      children: [
+        { label: 'Use', action: () => { open(layout.load(name)); say(`Layout ${name}`); } },
+        { label: 'Overwrite with the current', action: () => { layout.save(name, currentTab); say(`Saved layout ${name}`); } },
+        { label: 'Delete', danger: true, action: () => { layout.remove(name); say(`Deleted layout ${name}`); } }
+      ]
+    })),
+    { label: 'Save layout as…', action: () => { const name = prompt('Layout name', saved.length ? `layout-${saved.length + 1}` : 'my layout'); if (name) { layout.save(name, currentTab); say(`Saved layout ${name}`); } } },
+    SEPARATOR,
+    { label: 'Reset to the default layout', action: () => { layout.reset(); open('assets'); } }
+  ];
+}
+layoutMenuButton.addEventListener('click', () => {
+  const box = layoutMenuButton.getBoundingClientRect();
+  showMenu(layoutMenu(), { x: box.right - 260, y: box.bottom + 4 });
+});
 
 powerBox.checked = settings.get('power', '1') === '1';
 powerBox.addEventListener('change', () => {

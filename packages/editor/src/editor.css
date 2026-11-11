@@ -365,6 +365,13 @@ input[type='color'].colour {
   position: relative;
 }
 .editor.dock-hidden .center { grid-template-rows: minmax(0, 1fr) 33px; }
+/* The dock beside the viewport instead: one row, the dock a column at --dock-width. */
+.editor.dock-right .center { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) var(--dock-width, 320px); }
+.editor.dock-right.dock-hidden .center { grid-template-columns: minmax(0, 1fr) 33px; }
+.editor.dock-right .dock { min-width: 0; }
+.editor.dock-right .tabs { flex-wrap: wrap; height: auto; min-height: 32px; }
+/* Mirrored: the inspector on the left, the tree on the right. */
+.editor.mirrored { grid-template-columns: var(--inspector-width, 340px) minmax(0, 1fr) var(--tree-width, 260px); grid-template-areas: 'bar bar bar' 'inspector center tree' 'status status status'; }
 
 /*
  * The viewport is the engine's. It is positioned because the 3D renderer
@@ -768,6 +775,11 @@ input[type='color'].colour {
 .splitter-left::after, .splitter-right::after { top: 0; bottom: 0; left: 3px; width: 2px; }
 .splitter-dock { left: 0; right: 0; height: 7px; bottom: calc(var(--dock-height, 216px) - 3px); cursor: row-resize; }
 .splitter-dock::after { left: 0; right: 0; top: 3px; height: 2px; }
+.editor.dock-right .splitter-dock { left: auto; bottom: 0; top: 0; height: auto; width: 7px; right: calc(var(--dock-width, 320px) - 3px); cursor: col-resize; }
+.editor.dock-right .splitter-dock::after { top: 0; bottom: 0; left: 3px; right: auto; width: 2px; height: auto; }
+/* Mirrored, the side splitters trade edges. */
+.editor.mirrored .splitter-left { left: auto; right: -4px; }
+.editor.mirrored .splitter-right { right: auto; left: -4px; }
 .editor.tree-hidden .splitter-left, .editor.inspector-hidden .splitter-right, .editor.dock-hidden .splitter-dock { display: none; }
 .editor.resizing, .editor.resizing * { user-select: none; }
 .editor.resizing .viewport canvas { pointer-events: none; }

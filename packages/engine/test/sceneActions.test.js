@@ -187,3 +187,53 @@ describe('UI scene element map and rebuild (E9)', () => {
     expect(() => scene.rebuildUIScene()).toThrow(/edit-mode/);
   });
 });
+
+describe('a JSON menu is navigable from the keyboard (E9)', () => {
+  beforeAll(stubDocumentListeners);
+
+  async function menuGame() {
+    installWindowStub();
+    const game = new M2D(displayCanvas(1280, 720), { width: 1280, height: 720, renderer: new RecordingRenderer() });
+    const clicked = [];
+    game.sceneManager.addScene('level', { fetch: async () => ({}) });
+    game.sceneManager.addScene('menu', {
+      fetch: async () => ({
+        version: SCENE_VERSION, type: 'ui', name: 'menu',
+        elements: [
+          { type: 'text', id: 'title', x: 0, y: -120, anchor: 'center', properties: { text: 'MENU' } },
+          { type: 'button', id: 'start', x: 0, y: -20, anchor: 'center', properties: { text: 'Start', action: 'start' } },
+          { type: 'button', id: 'settings', x: 0, y: 40, anchor: 'center', properties: { text: 'Settings', action: 'settings' } }
+        ]
+      }),
+      onAction: (action) => clicked.push(action)
+    });
+    await game.sceneManager.switchTo('menu');
+    const press = (code, extra = {}) => {
+      game.input.push({ kind: 'keydown', code, key: code, time: 1000, ...extra });
+      game.input.beginFrame(1000);
+      game.input.endFrame();
+    };
+    return { game, scene: game.sceneManager.getCurrentScene(), clicked, press };
+  }
+
+  it('focuses the first control on entry, moves with the arrows and Tab, and activates with Enter', async () => {
+    const { scene, clicked, press } = await menuGame();
+    expect(scene.focus.focused).toBe(scene.uiById.get('start'));
+    press('ArrowDown');
+    expect(scene.focus.focused).toBe(scene.uiById.get('settings'));
+    press('ArrowUp');
+    expect(scene.focus.focused).toBe(scene.uiById.get('start'));
+    press('Tab');
+    expect(scene.focus.focused).toBe(scene.uiById.get('settings'));
+    press('Enter');
+    expect(clicked).toEqual(['settings']);
+  });
+
+  it('lets the focus go with the scene', async () => {
+    const { game, scene } = await menuGame();
+    scene.unload();
+    expect(scene.focus).toBeNull();
+    game.input.push({ kind: 'keydown', code: 'Tab', key: 'Tab', time: 1000 });
+    expect(() => { game.input.beginFrame(1000); game.input.endFrame(); }).not.toThrow();
+  });
+});

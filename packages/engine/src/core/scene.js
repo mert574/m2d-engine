@@ -16,6 +16,7 @@ import { Quat } from './math.js';
 import * as mat4 from './renderers/geometry/mat4.js';
 import { presentationGuard } from './headless.js';
 import { Container } from './ui/container.js';
+import { FocusManager } from './ui/focus.js';
 import { MovingPlatform } from '../actors/movingPlatform.js';
 import { UIButton } from './ui/button.js';
 import { UIText } from './ui/text.js';
@@ -95,6 +96,7 @@ export class Scene {
     } else {
       console.debug('Setting up UI scene');
       await this.setupUIScene();
+      if (!headless && !this.game.editMode) this.#attachMenuFocus();
     }
 
     this.game.markSceneBuilt?.();
@@ -913,6 +915,50 @@ export class Scene {
     });
   }
 
+  /** The listeners `#attachMenuFocus` registered, dropped on unload. */
+  #focusOff = [];
+
+  /**
+   * Keyboard and gamepad navigation over a JSON UI scene (E9): a menu
+   * made of elements is usable without a pointer, as a `UIScreen` is.
+   * The scene owns a `FocusManager` over its container; Tab and the
+   * arrows move, Enter and Space activate, a pointer landing on a control
+   * moves focus there, and the first control is focused on entry so a
+   * controller can start at once. Not in edit mode: nothing there is
+   * pressed. Events are heard through the input manager's own bus, after
+   * the router, so a screen on the stack still takes them first.
+   */
+  #attachMenuFocus() {
+    const input = this.game.input;
+    if (!input?.on) return;
+    this.focus = new FocusManager(this.ui);
+    this.#focusOff.push(input.on('keydown', (event) => {
+      if (event.consumed) return;
+      switch (event.code) {
+        case 'Tab':
+          this.focus.advance(event.modifiers?.shift ? -1 : 1);
+          event.consume();
+          break;
+        case 'ArrowUp': case 'ArrowDown': case 'ArrowLeft': case 'ArrowRight':
+          this.focus.move(event.code.replace('Arrow', '').toLowerCase());
+          event.consume();
+          break;
+        case 'Enter': case 'Space':
+          if (this.focus.activate((type, extra) => input.makeSyntheticEvent(type, extra))) event.consume();
+          break;
+        default:
+      }
+    }));
+    this.#focusOff.push(input.on('pointerdown', (event) => {
+      const target = event.target;
+      if (target?.focusable && this.ui.children.includes(target)) {
+        this.focus.keyboardMode = false;
+        this.focus.focus(target);
+      }
+    }));
+    this.focus.focusFirst();
+  }
+
   /** Whether this is a level a server simulates for this replica. */
   get #serverRuns() {
     return this.game.replica && this.config.type === 'level';
@@ -965,6 +1011,9 @@ export class Scene {
     this.sprites.clear();
     this.spriteSheets.clear();
     this.ui.clear();
+    for (const off of this.#focusOff) off();
+    this.#focusOff = [];
+    this.focus = null;
 
     // Reset cursor style
     this.game.renderer.setCursor('default');
@@ -1046,6 +1095,7 @@ export class Scene {
    */
   updateUI(deltaTime) {
     this.ui.updateTree(deltaTime);
+    this.focus?.prune();
   }
 
   draw(deltaTime) {

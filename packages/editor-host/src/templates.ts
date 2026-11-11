@@ -55,7 +55,7 @@ export async function createProject(folder: string, template: string, name?: str
     const scene = join(root, 'scenes', file);
     await writeFile(scene, writeScene(JSON.parse(await readFile(scene, 'utf8'))));
   }
-  await writeFile(join(root, '.gitignore'), 'node_modules/\ndist/\nlibrary/sources/\n');
+  await writeFile(join(root, '.gitignore'), 'node_modules/\ndist/\nlibrary/sources/\n.m2d/\n');
   return { root, name: title };
 }
 

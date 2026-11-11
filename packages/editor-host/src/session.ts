@@ -14,8 +14,25 @@
  * never needs the host's undo stack, only the sequence of changes.
  */
 
+import { createHash } from 'node:crypto';
 import { SceneDocument, EditCommand, type Edit, type Op } from 'm2d-editor-core';
 import type { Project } from './project.ts';
+
+/**
+ * Where unsaved edits survive the host: `.m2d/journal/<scene path>.json`
+ * under the project, one file per open document, rewritten after every
+ * change and removed on save. A journal holds the applied edits (label,
+ * ops, origin) over a hash of the file they were applied to; opening the
+ * scene again with the same file on disk replays them, history and all.
+ * A file that changed underneath makes the journal moot, and it is dropped.
+ */
+export const JOURNAL_DIR = '.m2d/journal';
+
+interface Journal {
+  /** The sha1 of the file text the edits were applied to. */
+  base: string;
+  edits: Array<{ label: string; ops: Op[]; origin: string }>;
+}
 
 /** What every client shows about a document besides its data. */
 export interface DocState {
@@ -61,12 +78,18 @@ interface Open {
   revision: number;
   /** The file's text as this session last read or wrote it; tells an echo from a change. */
   disk: string;
+  /** The applied edits, oldest first, as the journal records them (undone ones drop off). */
+  applied: Array<{ label: string; ops: Op[]; origin: string }>;
+  /** How many of `applied` an undo took back and a redo may bring back. */
+  undone: Array<{ label: string; ops: Op[]; origin: string }>;
 }
 
 export class Session {
   readonly project: Project;
   #open = new Map<string, Open>();
   #loading = new Map<string, Promise<Open>>();
+  /** Journal writes per path, in order: two in flight at once would interleave on disk. */
+  #journalling = new Map<string, Promise<void>>();
   #listeners = new Set<(event: ChangeEvent) => void>();
 
   constructor(project: Project) {
@@ -108,6 +131,9 @@ export class Session {
     const label = who.origin === 'editor' ? edit.label : `${edit.label} (${who.origin})`;
     const command = new EditCommand({ label, ops: edit.ops }, who.origin);
     open.doc.run(command);
+    open.applied.push({ label, ops: edit.ops, origin: who.origin });
+    open.undone = [];
+    void this.#journal(path, open);
     return this.#emit(path, open, { kind: 'edit', ops: command.lastOps, label, ...who });
   }
 
@@ -123,6 +149,10 @@ export class Session {
   async save(path: string, who: Origin): Promise<ChangeEvent> {
     const open = await this.#get(path);
     open.disk = await this.project.saveScene(open.doc);
+    // Saved: the journal has nothing left to carry.
+    open.applied = [];
+    open.undone = [];
+    await this.#dropJournal(path);
     return this.#emit(path, open, { kind: 'saved', ...who }, false);
   }
 
@@ -144,7 +174,11 @@ export class Session {
     }
     if (text === open.disk) return null;
     open.disk = text;
-    if (open.doc.dirty) return this.#emit(path, open, { kind: 'conflict', origin: 'disk' }, false);
+    if (open.doc.dirty) {
+      // The edits now ride over a different file; the journal says which.
+      void this.#journal(path, open);
+      return this.#emit(path, open, { kind: 'conflict', origin: 'disk' }, false);
+    }
     try {
       open.doc = SceneDocument.parse(text, path);
     } catch {
@@ -176,9 +210,78 @@ export class Session {
     const stack = open.doc.commands;
     const command = (kind === 'undo' ? stack.top : stack.next) as EditCommand | null;
     if (!command) return null;
-    if (kind === 'undo') stack.undo();
-    else stack.redo();
+    if (kind === 'undo') {
+      stack.undo();
+      const last = open.applied.pop();
+      if (last) open.undone.push(last);
+    } else {
+      stack.redo();
+      const back = open.undone.pop();
+      if (back) open.applied.push(back);
+    }
+    void this.#journal(path, open);
     return this.#emit(path, open, { kind, ops: command.lastOps, label: command.label, ...who });
+  }
+
+  /**
+   * Write the document's unsaved edits beside the project, or remove the
+   * file when there are none. Serialized per path and written whole (a
+   * temp file renamed into place), so a reader never sees half a journal
+   * and a later write never lands under an earlier, longer one.
+   */
+  #journal(path: string, open: Open): Promise<void> {
+    const snapshot: Journal | null = open.applied.length || open.undone.length
+      ? { base: hashOf(open.disk), edits: [...open.applied] }
+      : null;
+    const previous = this.#journalling.get(path) ?? Promise.resolve();
+    const next = previous.then(async () => {
+      try {
+        if (!snapshot) {
+          await this.project.removeFile(journalPath(path));
+          return;
+        }
+        const file = journalPath(path);
+        await this.project.writeText(`${file}.tmp`, JSON.stringify(snapshot));
+        await this.project.moveFile(`${file}.tmp`, file);
+      } catch (error) {
+        console.warn(`m2d-editor: could not journal ${path}: ${(error as Error).message}`);
+      }
+    });
+    this.#journalling.set(path, next);
+    return next;
+  }
+
+  async #dropJournal(path: string): Promise<void> {
+    const previous = this.#journalling.get(path) ?? Promise.resolve();
+    const next = previous.then(() => this.project.removeFile(journalPath(path)).catch(() => undefined));
+    this.#journalling.set(path, next);
+    await next;
+  }
+
+  /**
+   * Replay a journal left by an earlier host over a freshly read file, when
+   * the file is still the one the edits were made on. The edits go through
+   * the document's stack as commands, so undo covers them as it did.
+   */
+  async #restore(path: string, open: Open): Promise<void> {
+    let journal: Journal;
+    try {
+      journal = JSON.parse(await this.project.readText(journalPath(path))) as Journal;
+    } catch {
+      return;
+    }
+    if (journal.base !== hashOf(open.disk) || !Array.isArray(journal.edits)) {
+      await this.#dropJournal(path);
+      return;
+    }
+    for (const entry of journal.edits) {
+      try {
+        open.doc.run(new EditCommand({ label: entry.label, ops: entry.ops }, entry.origin));
+        open.applied.push(entry);
+      } catch (error) {
+        console.warn(`m2d-editor: a journaled edit of ${path} no longer applies (${(error as Error).message}); the rest are kept`);
+      }
+    }
   }
 
   #emit(path: string, open: Open, change: Omit<ChangeEvent, 'path' | 'revision' | 'state'>, changesData = true): ChangeEvent {
@@ -197,7 +300,8 @@ export class Session {
       loading = (async () => {
         const disk = await this.project.readText(path);
         const doc = SceneDocument.parse(disk, path);
-        const fresh: Open = { doc, revision: 0, disk };
+        const fresh: Open = { doc, revision: 0, disk, applied: [], undone: [] };
+        await this.#restore(path, fresh);
         this.#open.set(path, fresh);
         return fresh;
       })().finally(() => this.#loading.delete(path));
@@ -215,4 +319,13 @@ function stateOf(doc: SceneDocument): DocState {
     undo: doc.commands.top?.label ?? null,
     redo: doc.commands.next?.label ?? null
   };
+}
+
+/** The journal file for a scene path: `.m2d/journal/scenes__level.json`. */
+function journalPath(path: string): string {
+  return `${JOURNAL_DIR}/${path.replace(/[\\/]/g, '__')}`;
+}
+
+function hashOf(text: string): string {
+  return createHash('sha1').update(text).digest('hex');
 }

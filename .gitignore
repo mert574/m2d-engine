@@ -25,6 +25,9 @@ dist/
 *.webp
 *.ico
 
+# The editor host's journal of unsaved edits, per project
+.m2d/
+
 # Self-signed certificate for the HTTPS dev server (per machine; `npm run dev:lan`)
 /examples/.certs/
 

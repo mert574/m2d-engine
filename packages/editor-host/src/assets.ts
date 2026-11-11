@@ -68,7 +68,7 @@ const KINDS: Record<string, AssetKind> = {
 };
 
 /** Folders that are never a project's assets: dependencies, builds, fetched sources. */
-const SKIP = new Set(['node_modules', 'dist', 'site', 'sources', 'assets-src']);
+const SKIP = new Set(['node_modules', 'dist', 'site', 'sources', 'assets-src', '.m2d']);
 
 const COMPILE_JOB = fileURLToPath(new URL('./pipeline/compileJob.mjs', import.meta.url));
 

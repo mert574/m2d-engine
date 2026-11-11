@@ -302,3 +302,64 @@ describe('templates', () => {
     await rm(folder, { recursive: true, force: true });
   });
 });
+
+describe('the journal of unsaved edits', () => {
+  it('survives the host: a new session over the same files replays the edits, history and all, until a save', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'm2d-editor-journal-'));
+    try {
+      await mkdir(join(dir, 'scenes'), { recursive: true });
+      await writeFile(join(dir, 'scenes', 'room.json'), level());
+      const first = new Companion({ root: dir });
+      await first.session.edit('scenes/room.json', { label: 'Move floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: 40 }] }, { origin: 'editor' });
+      await first.session.edit('scenes/room.json', { label: 'Lift floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'y'], value: 9 }] }, { origin: 'agent' });
+      await first.session.undo('scenes/room.json', { origin: 'editor' });
+      // Give the journal write a tick; it is fire-and-forget behind the event.
+      await new Promise((done) => setTimeout(done, 50));
+      first.close();
+
+      // The host died. The next one finds the journal and starts where the last left off.
+      const second = new Companion({ root: dir });
+      const snapshot = await second.session.snapshot('scenes/room.json');
+      expect(snapshot.state.dirty).toBe(true);
+      expect(snapshot.state.history).toEqual(['Move floor']);
+      expect((snapshot.data.layers as Array<{ objects: Array<{ x: number; y: number }> }>)[0]!.objects[0]).toMatchObject({ x: 40, y: 0 });
+      // The replayed edit undoes like any other.
+      await second.session.undo('scenes/room.json', { origin: 'editor' });
+      expect(second.session.isDirty('scenes/room.json')).toBe(false);
+      await second.session.redo('scenes/room.json', { origin: 'editor' });
+      await second.session.save('scenes/room.json', { origin: 'editor' });
+      await new Promise((done) => setTimeout(done, 50));
+      second.close();
+
+      // Saved: nothing journaled, and a third host opens a clean document.
+      const third = new Companion({ root: dir });
+      const clean = await third.session.snapshot('scenes/room.json');
+      expect(clean.state.dirty).toBe(false);
+      expect(clean.state.history).toEqual([]);
+      expect((clean.data.layers as Array<{ objects: Array<{ x: number }> }>)[0]!.objects[0]!.x).toBe(40);
+      third.close();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('is dropped when the file changed underneath it', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'm2d-editor-journal-'));
+    try {
+      await mkdir(join(dir, 'scenes'), { recursive: true });
+      await writeFile(join(dir, 'scenes', 'room.json'), level());
+      const first = new Companion({ root: dir });
+      await first.session.edit('scenes/room.json', { label: 'Move floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: 40 }] }, { origin: 'editor' });
+      await new Promise((done) => setTimeout(done, 50));
+      first.close();
+      await writeFile(join(dir, 'scenes', 'room.json'), level({ title: 'edited elsewhere' }));
+      const second = new Companion({ root: dir });
+      const snapshot = await second.session.snapshot('scenes/room.json');
+      expect(snapshot.state.dirty).toBe(false);
+      expect(snapshot.state.history).toEqual([]);
+      second.close();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

@@ -147,6 +147,23 @@ export class Project {
   }
 
   /** A project file's text. */
+  /** Write a text file under the project, making its folders. */
+  async writeText(path: string, text: string): Promise<void> {
+    const full = this.resolve(path);
+    await mkdir(dirname(full), { recursive: true });
+    await writeFile(full, text);
+  }
+
+  /** Move a file under the project over another, atomically on one volume. */
+  async moveFile(from: string, to: string): Promise<void> {
+    await rename(this.resolve(from), this.resolve(to));
+  }
+
+  /** Remove a file under the project; nothing happens when it is not there. */
+  async removeFile(path: string): Promise<void> {
+    await rm(this.resolve(path), { force: true });
+  }
+
   async readText(path: string): Promise<string> {
     return readFile(this.resolve(path), 'utf8');
   }
