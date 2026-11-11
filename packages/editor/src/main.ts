@@ -41,6 +41,8 @@ import {
 import { RemoteDocument, type ReplicaChange } from './remote.ts';
 import { Viewport, encodeInstance, decodeInstance } from './viewport.ts';
 import { createPropBrush } from './propBrush.ts';
+import { createTilePaint } from './tilePaint.ts';
+import { createAnimationEditor } from './animationEditor.ts';
 import { createTree, type SelectMode } from './tree.ts';
 import { showMenu, SEPARATOR, type MenuItem } from './menu.ts';
 import { buildCatalog, type CatalogEntry } from './catalog.ts';
@@ -165,6 +167,8 @@ const readOnly = () => !!remote?.state.generator;
 
 const tree = createTree(treePanel, (node, mode) => selectFromTree(node, mode), {
   activate: (node) => {
+    if (node.kind === 'sheet') { animations.open(String(node.path[2])); return; }
+    if (node.kind === 'tileLayer') { tilePaint.start(node.path); return; }
     const id = objectIdAt(node.path);
     if (id) viewport.frame(id);
   },
@@ -264,6 +268,33 @@ const brush = createPropBrush(viewportPanel, viewport, {
   ghost: (edges, caption) => overlay.ghost(edges, caption),
   say,
   changed: () => updateArrange()
+});
+const tilePaint = createTilePaint(viewportPanel, viewport, {
+  doc: () => remote?.doc.data ?? null,
+  edit: (label, ops) => edit({ label, ops }),
+  say,
+  sheetUrl: (sheet) => {
+    const sheets = (remote?.doc.data.assets as { spritesheets?: Record<string, { url?: string }> } | undefined)?.spritesheets;
+    const url = sheets?.[sheet]?.url;
+    return url && project ? assetBase(project) + url : null;
+  },
+  projected: () => !!(viewport.game as { projection?: unknown } | null)?.projection,
+  worldSize: () => {
+    const options = (viewport.game as { options?: { worldWidth?: number; worldHeight?: number } } | null)?.options;
+    return { width: options?.worldWidth ?? 960, height: options?.worldHeight ?? 540 };
+  },
+  changed: () => updateArrange()
+});
+const animations = createAnimationEditor({
+  doc: () => remote?.doc.data ?? null,
+  edit: (label, ops) => edit({ label, ops }),
+  say,
+  sheetUrl: (sheet) => {
+    const sheets = (remote?.doc.data.assets as { spritesheets?: Record<string, { url?: string }> } | undefined)?.spritesheets;
+    const url = sheets?.[sheet]?.url;
+    return url && project ? assetBase(project) + url : null;
+  },
+  readOnly: () => readOnly() || playing
 });
 const components = createComponentsPanel($<HTMLElement>('#components'), {
   catalog: () => buildCatalog(viewport.registries),
@@ -857,6 +888,26 @@ function treeMenu(node: OutlineNode): MenuItem[] {
         }
       } }
     );
+  } else if (node.kind === 'sheet') {
+    const key = String(node.path[2]);
+    items.push(
+      { label: 'Animations…', action: () => animations.open(key) },
+      { label: 'Rename', action: () => { const to = prompt('Sheet name', key); if (to && to !== key) { try { edit({ label: `Rename ${key} to ${to}`, ops: structure.renameEntry(data, ['assets', 'spritesheets'], key, to) }); select({ path: ['assets', 'spritesheets', to] }); } catch (error) { say(String((error as Error).message ?? error)); } } } },
+      SEPARATOR,
+      { label: 'Delete sheet', danger: true, action: () => { if (confirm(`Delete sprite sheet ${key}? Prefabs and tile layers that draw it will fail until re-pointed.`)) edit({ label: `Delete sheet ${key}`, ops: structure.removeEntry(data, ['assets', 'spritesheets'], key) }); } }
+    );
+  } else if (node.kind === 'tileLayer') {
+    const index = node.path[1] as number;
+    const tiles = Array.isArray(data.tileLayers) ? data.tileLayers as unknown[] : [];
+    items.push(
+      { label: 'Paint…', action: () => tilePaint.start(node.path) },
+      SEPARATOR,
+      { label: 'Delete tile layer', danger: true, action: () => {
+        if (confirm(`Delete ${node.label}?`)) {
+          edit({ label: `Delete ${node.label}`, ops: tiles.length > 1 ? [{ op: 'remove', path: ['tileLayers'], index }] : [{ op: 'set', path: ['tileLayers'] }] });
+        }
+      } }
+    );
   } else if (node.kind === 'prefab') {
     const name = String(node.path[1]);
     const uses = structure.objectsOfPrefab(data, name).length;
@@ -876,6 +927,24 @@ function treeMenu(node: OutlineNode): MenuItem[] {
       { label: 'New layer', action: () => { const name = prompt('Layer name', `layer-${layers.length + 1}`); if (name) edit({ label: `Add layer ${name}`, ops: structure.addLayer(data, name) }); } },
       { label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } }
     );
+    if (viewport.dimensions === 2 && data.type === 'level') {
+      items.push({ label: 'New tile layer…', action: () => {
+        const assetsBlock = isPlainObject(data.assets) ? data.assets : {};
+        const sheets = Object.keys(isPlainObject(assetsBlock.spritesheets) ? assetsBlock.spritesheets : {});
+        if (!sheets.length) { say('Add a sprite sheet first — drop an image into the scene'); return; }
+        const tiles = Array.isArray(data.tileLayers) ? data.tileLayers as unknown[] : [];
+        const name = prompt('Tile layer name', `tiles-${tiles.length + 1}`);
+        if (!name) return;
+        const value = { name, spritesheet: sheets[0], cells: [] };
+        edit({
+          label: `Add tile layer ${name}`,
+          ops: Array.isArray(data.tileLayers)
+            ? [{ op: 'insert', path: ['tileLayers'], index: tiles.length, value }]
+            : [{ op: 'set', path: ['tileLayers'], value: [value] }]
+        });
+        tilePaint.start(['tileLayers', tiles.length]);
+      } });
+    }
   }
   return items;
 }
@@ -1086,6 +1155,7 @@ async function materialize(keepView: boolean): Promise<void> {
 async function open(next: SceneEntry): Promise<void> {
   if (!project) return;
   brush.stop();
+  tilePaint.stop();
   remote?.close();
   remote = null;
   selection = null;
@@ -1389,6 +1459,7 @@ async function place(item: Placeable, point?: { x: number; y: number }): Promise
 async function startPlay(): Promise<void> {
   if (!project || !remote) return;
   brush.stop();
+  tilePaint.stop();
   if (!playing) editCamera = viewport.captureCamera();
   playing = true;
   editorFrame.classList.add('playing');

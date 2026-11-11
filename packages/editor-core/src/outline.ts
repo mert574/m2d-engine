@@ -16,7 +16,7 @@ export interface OutlineNode {
   label: string;
   /** Muted text beside it: the actor, a count. */
   detail?: string;
-  kind: 'scene' | 'world' | 'background' | 'group' | 'prefab' | 'layer' | 'object' | 'props' | 'tileLayer' | 'element';
+  kind: 'scene' | 'world' | 'background' | 'group' | 'prefab' | 'layer' | 'object' | 'props' | 'tileLayer' | 'element' | 'sheet';
   /** Into the document, for the inspector; empty for the scene itself. */
   path: PathSegment[];
   children?: OutlineNode[];
@@ -45,6 +45,20 @@ export function sceneOutline(doc: unknown): OutlineNode {
     }));
     if (prefabs.length) {
       children.push({ label: 'Prefabs', kind: 'group', path: ['prefabs'], children: prefabs });
+    }
+  }
+
+  // Sprite sheets as nodes of their own: the animation editor (E8) opens
+  // from them, and their frames and animations inspect in place.
+  const assets = isPlainObject(data.assets) ? data.assets : {};
+  if (isPlainObject(assets.spritesheets)) {
+    const sheets = Object.keys(assets.spritesheets).map((name): OutlineNode => ({
+      label: name,
+      kind: 'sheet',
+      path: ['assets', 'spritesheets', name]
+    }));
+    if (sheets.length) {
+      children.push({ label: 'Sprite sheets', kind: 'group', path: ['assets', 'spritesheets'], children: sheets });
     }
   }
 

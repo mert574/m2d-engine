@@ -125,15 +125,19 @@ interface SceneLike {
   /** 3D: the materials made for `mesh.texture` blocks, by `url|size`. */
   meshMaterials?: Map<string, unknown>;
   /** 2D: the loaded sprite sheets by key. */
-  spriteSheets?: Map<string, unknown>;
-  /** The loaded document the scene was built from; props edit in place through it. */
+  spriteSheets?: Map<string, { defineAnimation?(name: string, frames: unknown[], options?: { fps?: number; loop?: boolean }): void }>;
+  /** The loaded document the scene was built from; props and tiles edit in place through it. */
   config?: {
     layers?: Array<{ props?: PropGroupLike[] }>;
     prefabs?: Record<string, { mesh?: { model?: string; scale?: number; offset?: V3; shape?: string } }>;
+    tileLayers?: unknown[];
+    background?: unknown;
   };
   replaceObject(id: string | null, object: object | null, options?: { after?: string | null }): unknown;
   /** Rebuild every prop from the config in place (E7b); see the engine's SceneProps. */
   rebuildProps?(): void;
+  /** Rebuild the background and every tile layer from the config in place (E8). */
+  rebuildTileLayers?(): void;
 }
 
 /**
@@ -475,7 +479,7 @@ export class Viewport {
   apply(ops: readonly Op[], data: Record<string, unknown>): Applied {
     if (this.#playing) return { kind: 'rebuild' };
     const scene = this.#scene();
-    if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op))) return { kind: 'rebuild' };
+    if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op) || tileLevel(op) || animationLevel(op))) return { kind: 'rebuild' };
     const result = validateScene(data, this.#game);
     if (!result.ok) return { kind: 'invalid', issues: result.issues };
 
@@ -493,6 +497,35 @@ export class Viewport {
       this.#instancePoses.clear();
       scene.rebuildProps();
       propsChanged = ops.filter(propsLevel).length;
+    }
+
+    // An edited animation redefines itself on the loaded sheet (E8): the
+    // animation editor must not rebuild the game per tweak.
+    if (ops.some(animationLevel)) {
+      const loadedAssets = isPlainObject(result.loaded) && isPlainObject((result.loaded as { assets?: unknown }).assets)
+        ? (result.loaded as { assets: { spritesheets?: Record<string, { animations?: Record<string, { frames: unknown[]; fps?: number; loop?: boolean }> }> } }).assets
+        : null;
+      for (const key of new Set(ops.filter(animationLevel).map((op) => String(op.path[2])))) {
+        const sheet = scene.spriteSheets?.get(key);
+        if (!sheet?.defineAnimation) return { kind: 'rebuild' };
+        for (const [name, animation] of Object.entries(loadedAssets?.spritesheets?.[key]?.animations ?? {})) {
+          sheet.defineAnimation(name, animation.frames, { fps: animation.fps ?? 0, loop: animation.loop ?? true });
+        }
+      }
+      this.#viewChanged();
+    }
+
+    // Tile layers and the background rebuild from the config in place the
+    // same way (E8): a painted cell must never rebuild the game.
+    if (ops.some(tileLevel)) {
+      if (!scene.config || !scene.rebuildTileLayers || !isPlainObject(result.loaded)) return { kind: 'rebuild' };
+      // A layer naming a sheet the scene has not loaded is a real rebuild.
+      const sheets = tileSheets(result.loaded);
+      if (![...sheets].every((sheet) => scene.spriteSheets?.has(sheet))) return { kind: 'rebuild' };
+      scene.config.tileLayers = (result.loaded as { tileLayers?: unknown[] }).tileLayers as never;
+      scene.config.background = (result.loaded as { background?: unknown }).background as never;
+      scene.rebuildTileLayers();
+      propsChanged += ops.filter(tileLevel).length;
     }
 
     const next = recordsOf(data);
@@ -887,6 +920,13 @@ export class Viewport {
     return this.#toClient()?.(p) ?? null;
   }
 
+  /** A 2D ground point on screen, through the game's projection when it has one — the inverse of `worldPoint`. */
+  groundToClient(x: number, y: number): ClientPoint | null {
+    if (this.dimensions !== 2) return null;
+    const toClient = this.#toClient();
+    return toClient ? this.#plane(x, y, toClient) : null;
+  }
+
   /** A 2D ground point on the render plane, through the game's projection when it has one. */
   #renderPlane(x: number, y: number): Point {
     const projection = (this.#game as unknown as { projection?: { toScreen(x: number, y: number): Point } }).projection;
@@ -1162,6 +1202,26 @@ function objectLevel(op: Op): boolean {
 function propsLevel(op: Op): boolean {
   const [layers, index, props] = op.path;
   return layers === 'layers' && typeof index === 'number' && props === 'props';
+}
+
+/** Whether an op only touches the tile layers or the background: the in-place layer rebuild covers it. */
+function tileLevel(op: Op): boolean {
+  return op.path[0] === 'tileLayers' || op.path[0] === 'background';
+}
+
+/** Whether an op only touches a sheet's animations: redefining them on the loaded sheet covers it. */
+function animationLevel(op: Op): boolean {
+  return op.path[0] === 'assets' && op.path[1] === 'spritesheets' && typeof op.path[2] === 'string' && op.path[3] === 'animations';
+}
+
+/** Every sheet the loaded document's tile layers and background draw from. */
+function tileSheets(loaded: Record<string, unknown>): Set<string> {
+  const sheets = new Set<string>();
+  for (const layer of Array.isArray(loaded.tileLayers) ? loaded.tileLayers : []) {
+    if (isPlainObject(layer) && typeof layer.spritesheet === 'string') sheets.add(layer.spritesheet);
+  }
+  if (isPlainObject(loaded.background) && typeof loaded.background.spritesheet === 'string') sheets.add(loaded.background.spritesheet);
+  return sheets;
 }
 
 /** A vector turned about the up axis, the way the engine turns a prop by its yaw. */

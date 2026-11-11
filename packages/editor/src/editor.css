@@ -606,6 +606,63 @@ input[type='color'].colour {
 .overlay .outline.also line { stroke: rgba(255, 197, 107, 0.55); stroke-dasharray: 3 3; }
 .overlay .marquee rect { fill: rgba(61, 139, 253, 0.12); stroke: var(--select); stroke-width: 1; stroke-dasharray: 4 3; }
 
+/* The animation editor (E8): a sheet's animations made by clicking frames. */
+#animations {
+  width: min(720px, 90vw); max-height: 85vh; padding: 14px;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: 9px;
+  font-size: 12px;
+}
+#animations::backdrop { background: rgba(0, 0, 0, 0.55); }
+#animations .anim-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+#animations .anim-head h2 { margin: 0; font-size: 14px; }
+#animations .anim-slice { display: flex; gap: 12px; margin-bottom: 10px; color: var(--dim); }
+#animations .anim-slice label { display: inline-flex; align-items: center; gap: 6px; }
+#animations input[type="number"] { width: 64px; height: 22px; padding: 0 5px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--panel-2); color: var(--text); }
+#animations .anim-body { display: grid; grid-template-columns: 1fr 240px; gap: 12px; }
+#animations .anim-sheet { position: relative; overflow: auto; max-height: 55vh; border: 1px solid var(--line-2); border-radius: 6px; }
+#animations .anim-sheet img { display: block; width: 100%; image-rendering: pixelated; cursor: crosshair; background: repeating-conic-gradient(#1c2025 0 25%, #16191d 0 50%) 0 0 / 16px 16px; }
+#animations .anim-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(to right, rgba(255,255,255,0.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.14) 1px, transparent 1px); }
+#animations .anim-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+#animations .anim-list { display: flex; flex-wrap: wrap; gap: 4px; }
+#animations .anim-list button { height: 22px; padding: 0 8px; border: 0; border-radius: 4px; background: var(--raise); color: var(--dim); font-size: 11px; }
+#animations .anim-list button[aria-pressed="true"] { background: var(--select-bg); color: var(--select); }
+#animations .anim-frames { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; max-height: 150px; overflow: auto; }
+#animations .anim-frame { display: inline-flex; align-items: center; gap: 2px; padding: 1px 4px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--panel-2); font-size: 11px; }
+#animations .anim-frame button { border: 0; background: none; color: var(--dim); padding: 0 2px; cursor: pointer; }
+#animations .anim-frame button:hover { color: var(--text); }
+#animations .anim-tune { display: flex; align-items: center; gap: 10px; color: var(--dim); }
+#animations .anim-tune label { display: inline-flex; align-items: center; gap: 5px; }
+#animations .anim-tune > button { height: 22px; padding: 0 8px; border: 0; border-radius: 4px; background: var(--danger-bg); color: var(--danger); font-size: 11px; }
+#animations .anim-preview { width: 128px; height: auto; image-rendering: pixelated; border: 1px solid var(--line-2); border-radius: 6px; background: repeating-conic-gradient(#1c2025 0 25%, #16191d 0 50%) 0 0 / 16px 16px; }
+#animations .anim-head button, #animations .anim-add { height: 24px; padding: 0 10px; border: 0; border-radius: 4px; background: var(--raise); color: var(--text); font-size: 11px; }
+#animations .muted { color: var(--faint); }
+
+/* The tile paint tool (E8): the strip, the palette and the grid. */
+#paint {
+  position: absolute; top: 44px; left: 170px; z-index: 3;
+  display: flex; align-items: center; gap: 4px; padding: 3px 8px;
+  background: rgba(22, 25, 29, 0.88); border: 1px solid var(--line-2); border-radius: 7px; backdrop-filter: blur(6px);
+  font-size: 11px; color: var(--dim);
+}
+#paint .label { color: var(--text); font-weight: 600; padding-right: 4px; }
+#paint button { height: 22px; padding: 0 8px; border: 0; border-radius: 4px; background: none; color: var(--dim); font-size: 11px; }
+#paint button:hover { background: var(--raise); color: var(--text); }
+#paint button[aria-pressed="true"] { background: var(--select-bg); color: var(--select); }
+#palette {
+  position: absolute; top: 44px; right: 10px; z-index: 3; width: 280px; max-height: 60%;
+  overflow: auto; padding: 8px;
+  background: rgba(22, 25, 29, 0.92); border: 1px solid var(--line-2); border-radius: 7px; backdrop-filter: blur(6px);
+  font-size: 11px; color: var(--dim);
+}
+#palette .palette-head { margin-bottom: 6px; color: var(--text); font-weight: 600; }
+#palette .palette-sheet { position: relative; }
+#palette .palette-sheet img { display: block; width: 100%; image-rendering: pixelated; cursor: crosshair; background: repeating-conic-gradient(#1c2025 0 25%, #16191d 0 50%) 0 0 / 16px 16px; }
+#palette .palette-pick { position: absolute; border: 2px solid var(--accent); pointer-events: none; box-shadow: 0 0 0 1px #000; }
+.tilegrid .grid line { stroke: rgba(255, 255, 255, 0.09); stroke-width: 1; }
+.tilegrid .hover { fill: rgba(61, 139, 253, 0.28); stroke: var(--select); stroke-width: 1; }
+.tilegrid .stroke .painted { fill: rgba(103, 208, 140, 0.32); }
+.tilegrid .stroke .erased { fill: rgba(255, 107, 107, 0.28); }
+
 /* The prop brush strip (E7b): the scatter and erase settings over the viewport. */
 #brush {
   position: absolute; top: 44px; left: 170px; z-index: 3;

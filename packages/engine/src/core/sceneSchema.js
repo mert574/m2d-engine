@@ -671,6 +671,19 @@ const PARALLAX = s.union([
     { match: value => typeof value === 'object' && value !== null })
 ], { message: 'must be a number or { "x", "y" }' });
 
+/**
+ * One cell of a tile layer: `[column, row]` draws the layer's own
+ * `tileX, tileY`; `[column, row, tileX, tileY]` picks its frame on the
+ * sheet, which is what a painted layer holds (E8). Additive — every
+ * two-entry cell means what it always did.
+ */
+const TILE_CELL = s.union([
+  s.tuple([s.integer({ label: 'Column' }), s.integer({ label: 'Row' })],
+    { match: value => Array.isArray(value) && value.length === 2, message: 'must be a [column, row] pair of integers' }),
+  s.tuple([s.integer({ label: 'Column' }), s.integer({ label: 'Row' }), s.integer({ label: 'Tile X' }), s.integer({ label: 'Tile Y' })],
+    { match: value => Array.isArray(value) && value.length === 4, message: 'must be a [column, row, tileX, tileY] tuple of integers' })
+], { message: 'must be [column, row] or [column, row, tileX, tileY]' });
+
 const TILE_LAYER = s.object({
   name: s.string({ required: true, nonEmpty: true }),
   spritesheet: s.ref('spritesheet', { required: true }),
@@ -682,10 +695,7 @@ const TILE_LAYER = s.object({
   tileSize: s.number({ positive: true, unit: 'px' }),
   scale: s.number({ positive: true }),
   stretch: s.boolean(),
-  cells: s.array(
-    s.tuple([s.integer(), s.integer()], { message: 'must be an [column, row] pair of integers' }),
-    { message: 'must be an array of [column, row] pairs' }
-  )
+  cells: s.array(TILE_CELL, { message: 'must be an array of [column, row] or [column, row, tileX, tileY] cells' })
 });
 
 const BACKGROUND = s.object({

@@ -552,10 +552,38 @@ export class Scene {
     if (cells) {
       // Only the listed cells exist; the rest of the grid is empty. A
       // dungeon's floor stops at its walls rather than filling the rock.
-      const keep = new Set(cells.map(([i, j]) => i * tileCountY + j));
-      built.tiles = built.tiles.map((tile, index) => (keep.has(index) ? tile : null));
+      // A four-entry cell picks its own frame on the sheet (a painted
+      // layer, E8); a two-entry one draws the layer's `tileX, tileY`.
+      const frames = new Map();
+      const frameAnim = (tx, ty) => {
+        if (tx === undefined) return anim;
+        const key = `${anim}:${tx},${ty}`;
+        if (!frames.has(key)) {
+          spriteSheet.define(key, tx, ty);
+          frames.set(key, key);
+        }
+        return key;
+      };
+      const keep = new Map(cells.map(([i, j, tx, ty]) => [i * tileCountY + j, frameAnim(tx, ty)]));
+      built.tiles = built.tiles.map((tile, index) => (keep.has(index) ? { ...tile, anim: keep.get(index) } : null));
     }
     this.game.layers.addLayer(name, built, { zIndex, parallax, repeat, scale, stretch });
+  }
+
+  /**
+   * Build the background and every tile layer again from the config, in
+   * place: the editor's path for a painted cell, a reparallaxed layer, a
+   * renamed one (E8) — never a game rebuild. Edit mode only: a played
+   * scene's layers may include what game code added, which only it could
+   * put back.
+   */
+  rebuildTileLayers() {
+    if (!this.game.editMode) throw new Error('Scene.rebuildTileLayers is an edit-mode operation');
+    if (this.game.headless) return;
+    this.game.layers.clear();
+    if (this.config.background) this.setupBackground(this.config.background);
+    for (const layer of this.config.tileLayers ?? []) this.setupTileLayer(layer);
+    this.game.invalidate();
   }
 
   async setupLevelScene() {

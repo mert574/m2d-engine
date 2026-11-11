@@ -47,7 +47,8 @@ export const KIND_ICONS: Record<string, string> = {
   object: svg('<rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/>', 14),
   props: svg('<circle cx="5" cy="5" r="2"/><circle cx="11" cy="6" r="2"/><circle cx="7" cy="11" r="2"/>', 14),
   tileLayer: svg('<path d="M2.5 2.5h11v11h-11zM2.5 8h11M8 2.5v11"/>', 14),
-  element: svg('<rect x="2.5" y="4.5" width="11" height="7" rx="1.5"/><path d="M5 8h6"/>', 14)
+  element: svg('<rect x="2.5" y="4.5" width="11" height="7" rx="1.5"/><path d="M5 8h6"/>', 14),
+  sheet: svg('<rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M2.5 8h11M8 2.5v11"/><circle cx="5.25" cy="5.25" r="1"/>', 14)
 };
 
 /** An element from markup the editor itself wrote (never document text). */
