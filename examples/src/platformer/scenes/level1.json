@@ -43,12 +43,32 @@
       { "when": { "event": "death", "object": "player" }, "then": [{ "do": "gameOver" }] }
     ]
   },
-  "assets": { "spritesheets": {} },
+  "assets": {
+    "spritesheets": {
+      "tiles": { "url": "assets/tiles.png", "frameWidth": 70, "frameHeight": 70 },
+      "coin": {
+        "url": "assets/coin.png",
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "animations": {
+          "spin": {
+            "frames": [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0]],
+            "fps": 12
+          }
+        }
+      }
+    }
+  },
   "prefabs": {
     "player": { "actor": "Player", "physics": { "bodyType": "dynamic", "friction": 5, "frictionAir": 0.001 } },
     "platform": { "actor": "Platform", "physics": { "bodyType": "static", "friction": 1 } },
     "movingPlatform": { "actor": "MovingPlatform", "physics": { "bodyType": "kinematic", "friction": 1 } },
-    "coin": { "actor": "Coin", "physics": { "bodyType": "static", "isSensor": true } },
+    "coin": {
+      "actor": "Coin",
+      "spritesheet": "coin",
+      "defaultAnimation": "spin",
+      "physics": { "bodyType": "static", "isSensor": true }
+    },
     "bee": {
       "actor": "Bee",
       "physics": { "bodyType": "dynamic", "lockRotation": true, "friction": 0.1, "frictionAir": 0.01 }
@@ -127,6 +147,29 @@
           "width": 192,
           "properties": { "visible": true, "triggers": "levelComplete", "active": true }
         }
+      ]
+    }
+  ],
+  "tileLayers": [
+    {
+      "name": "ground",
+      "spritesheet": "tiles",
+      "tileX": 1,
+      "tileY": 1,
+      "cells": [
+        [0, 20, 0, 1],
+        [1, 20],
+        [2, 20],
+        [3, 20],
+        [4, 20],
+        [5, 20],
+        [6, 20],
+        [7, 20],
+        [8, 20, 0, 1],
+        [2, 19, 0, 2],
+        [4, 19, 2, 1],
+        [5, 19, 2, 2],
+        [7, 19, 3, 2]
       ]
     }
   ],

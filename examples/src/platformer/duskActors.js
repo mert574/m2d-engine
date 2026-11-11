@@ -564,6 +564,30 @@ export class GlowCoin extends Coin {
     const renderer = this.game.renderer;
     const pos = this.renderPosition;
     const r = this.size.x / 2;
+
+    // A prefab that declares a sprite sheet wins over the drawn disc: the
+    // scene's own animation spins the coin (E8), and only the dusk glow
+    // stays code's. Drawn without the Hover's angle — the frames carry the
+    // turn, and the body's spin would wheel them.
+    if (this.sprite?.width) {
+      renderer.drawArc({
+        x: pos.x, y: pos.y, radius: r * 1.7,
+        fillStyle: {
+          type: 'radial', x: pos.x, y: pos.y, r0: 0, r1: r * 1.7,
+          stops: [
+            { offset: 0, color: 'rgba(255, 206, 110, 0.3)' },
+            { offset: 1, color: 'rgba(255, 206, 110, 0)' }
+          ]
+        },
+        blend: this.blend
+      });
+      this.sprite.draw(this.currentAnim, pos.x, pos.y, { width: this.size.x, height: this.size.y, frame: this.animFrame });
+      if (this.lit) {
+        renderer.drawLight({ x: pos.x, y: pos.y, radius: 70, color: '#ffce6e', intensity: 0.4 });
+      }
+      for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
+      return;
+    }
     // The Hover constraint's spin becomes a flip: the disc foreshortens
     // through its turn instead of rotating in the plane like a wheel.
     const face = Math.abs(Math.cos(this.renderAngleOffset));
