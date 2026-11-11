@@ -904,6 +904,84 @@ export class Viewport {
     };
   }
 
+  /**
+   * Every light the shown scene carries, for the view helpers: an
+   * entity's (3D: placed by its offset; 2D: at its body), by its scene id,
+   * and a prop's (no id — a prop instance's light is the group's). A
+   * spot carries its direction.
+   */
+  lights(): Array<{ id: string | null; position: { x: number; y: number; z?: number }; spot: boolean; direction?: V3; range?: number }> {
+    const scene = this.#scene() as (SceneLike & { propLights?: Array<{ position: V3; type?: string; direction?: V3; range?: number }> }) | null;
+    if (!scene || this.#playing) return [];
+    const out: Array<{ id: string | null; position: { x: number; y: number; z?: number }; spot: boolean; direction?: V3; range?: number }> = [];
+    for (const [id, entity] of scene.entitiesById) {
+      const light = (entity as { light?: { type?: string; offset?: { x?: number; y?: number; z?: number }; direction?: V3; range?: number } | null }).light;
+      if (!light) continue;
+      const o = light.offset ?? {};
+      const position = this.dimensions === 3
+        ? { x: (entity.position.x) + (o.x ?? 0), y: (entity.position.y) + (o.y ?? 0), z: (entity.position.z ?? 0) + (o.z ?? 0) }
+        : { x: entity.renderPosition.x + (o.x ?? 0), y: entity.renderPosition.y + (o.y ?? 0) };
+      out.push({ id, position, spot: light.type === 'spot', direction: light.direction, range: light.range });
+    }
+    for (const light of scene.propLights ?? []) {
+      out.push({ id: null, position: light.position, spot: light.type === 'spot', direction: light.direction, range: light.range });
+    }
+    return out;
+  }
+
+  /** The 2D camera's visible rectangle on the render plane, or null. */
+  visibleArea(): { left: number; top: number; right: number; bottom: number } | null {
+    const camera = (this.#game as unknown as { camera?: { getVisibleArea?(): { left: number; top: number; right: number; bottom: number } } } | null)?.camera;
+    return this.dimensions === 2 ? camera?.getVisibleArea?.() ?? null : null;
+  }
+
+  /** The 3D camera's look-at point, or the 2D camera's centre. */
+  cameraTarget(): V3 | null {
+    const camera = (this.#game as unknown as { camera?: { lookAt?: V3; x?: number; y?: number } } | null)?.camera;
+    if (!camera) return null;
+    if (this.dimensions === 3) return camera.lookAt ? { ...camera.lookAt } : null;
+    return { x: camera.x ?? 0, y: camera.y ?? 0, z: 0 };
+  }
+
+  /** The world size the shown game was built with. */
+  worldSize(): { width: number; height: number } {
+    const options = (this.#game as unknown as { options?: { worldWidth?: number; worldHeight?: number } } | null)?.options;
+    return { width: options?.worldWidth ?? 960, height: options?.worldHeight ?? 540 };
+  }
+
+  /** Whether the game draws through a 2D projection (isometric, belt). */
+  get projected(): boolean {
+    return !!(this.#game as unknown as { projection?: unknown } | null)?.projection;
+  }
+
+  /** What `isolate` hid, to show again. */
+  #isolated: Array<() => void> = [];
+
+  /**
+   * Isolate: show only the objects named (and nothing of the props), or
+   * everything again with null. Visibility only — nothing is rebuilt.
+   */
+  isolate(ids: string[] | null): void {
+    for (const restore of this.#isolated) restore();
+    this.#isolated = [];
+    const scene = this.#scene() as (SceneLike & { props?: { hidden: boolean } }) | null;
+    if (!scene || !ids) { this.#viewChanged(); return; }
+    const keep = new Set(ids);
+    for (const [id, entity] of scene.entitiesById) {
+      if (keep.has(id)) continue;
+      const was = entity.visible;
+      entity.visible = false;
+      this.#isolated.push(() => { entity.visible = was; });
+    }
+    if (scene.props) {
+      const props = scene.props;
+      const was = props.hidden;
+      props.hidden = true;
+      this.#isolated.push(() => { props.hidden = was; });
+    }
+    this.#viewChanged();
+  }
+
   /** The UI space's size, for anchor math; null off a UI scene. */
   uiBox(): { width: number; height: number } | null {
     if (this.#scene()?.config?.type !== 'ui') return null;
@@ -1222,6 +1300,7 @@ export class Viewport {
     this.#playing = false;
     this.#records.clear();
     this.#instancePoses.clear();
+    this.#isolated = [];
     this.#controls?.detach();
     this.#controls = null;
     this.#game?.destroy();

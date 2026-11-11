@@ -33,7 +33,10 @@ export const ICONS = {
   build: svg('<path d="M8 1.5 14 5v6L8 14.5 2 11V5z"/><path d="M2 5l6 3.5L14 5M8 8.5v6"/>'),
   panelLeft: svg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M6 3v10"/><path d="M3.5 5.5h1M3.5 7.5h1" />', 14),
   panelRight: svg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M10 3v10"/><path d="M11.5 5.5h1M11.5 7.5h1" />', 14),
-  panelBottom: svg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 9.5h12"/>', 14)
+  panelBottom: svg('<rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 9.5h12"/>', 14),
+  bulb: svg('<path d="M5.5 10.5a3.5 3.5 0 1 1 5 0v1.5h-5z"/><path d="M6.5 14h3"/>', 14),
+  camera: svg('<rect x="2" y="4.5" width="8.5" height="7" rx="1.5"/><path d="m10.5 7 3.5-2v6l-3.5-2"/>', 14),
+  isolate: svg('<rect x="5" y="5" width="6" height="6" rx="1"/><path d="M2.5 2.5h3M10.5 2.5h3M2.5 13.5h3M10.5 13.5h3M2.5 2.5v3M13.5 2.5v3M2.5 13.5v-3M13.5 13.5v-3"/>', 14)
 } as const;
 
 /** A glyph per outline kind, for the tree. */

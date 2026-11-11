@@ -1202,8 +1202,10 @@ export class Scene {
     frame.setCamera(game.camera);
 
     if (this.config.type === 'level') {
-      for (const batch of this.batches) frame.addBatch(batch);
-      for (const light of this.propLights) frame.addLight(light);
+      if (!this.props.hidden) {
+        for (const batch of this.batches) frame.addBatch(batch);
+        for (const light of this.propLights) frame.addLight(light);
+      }
       for (const entity of game.entities) {
         const mesh = entity.mesh;
         if (!mesh || mesh.visible === false || !entity.visible || entity.dead) continue;

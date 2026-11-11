@@ -75,6 +75,8 @@ export class SceneProps {
     this.ready = false;
     /** Set by `unload`, so a load still in the air knows not to land. */
     this.gone = false;
+    /** The editor's isolate mode: true leaves every prop out of the frame. */
+    this.hidden = false;
   }
 
   /**

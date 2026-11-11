@@ -646,6 +646,17 @@ input[type='color'].colour {
 #animations .anim-head button, #animations .anim-add { height: 24px; padding: 0 10px; border: 0; border-radius: 4px; background: var(--raise); color: var(--text); font-size: 11px; }
 #animations .muted { color: var(--faint); }
 
+/* The view helpers: grid and axes, light icons with a spot's handle, the game camera. */
+.helpers .lights .bulb { fill: rgba(255, 220, 120, 0.9); stroke: rgba(0, 0, 0, 0.5); }
+.helpers .lights .ray { stroke: rgba(255, 220, 120, 0.8); stroke-width: 1.5; }
+.helpers .lights .prop .bulb { fill: rgba(255, 220, 120, 0.45); }
+.helpers .lights .prop .ray { stroke: rgba(255, 220, 120, 0.35); }
+.helpers .lights .arm { stroke: rgba(255, 197, 107, 0.8); stroke-width: 2; }
+.helpers .spot-handle { fill: var(--accent); stroke: rgba(0, 0, 0, 0.55); pointer-events: all; cursor: grab; }
+.helpers .spot-handle:hover { filter: brightness(1.3); }
+.helpers .camera .cam { fill: rgba(255, 197, 107, 0.25); stroke: rgba(255, 197, 107, 0.9); }
+.helpers .caption { fill: var(--text); font: 11px system-ui, sans-serif; paint-order: stroke; stroke: rgba(15, 17, 20, 0.85); stroke-width: 3px; }
+
 /* The tile paint tool (E8): the strip, the palette and the grid. */
 #paint {
   position: absolute; top: 44px; left: 170px; z-index: 3;

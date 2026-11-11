@@ -44,6 +44,7 @@ import { Viewport, encodeInstance, decodeInstance } from './viewport.ts';
 import { createPropBrush } from './propBrush.ts';
 import { createTilePaint } from './tilePaint.ts';
 import { createAnimationEditor } from './animationEditor.ts';
+import { createViewHelpers, type Helper } from './viewHelpers.ts';
 import { createTree, type SelectMode } from './tree.ts';
 import { showMenu, SEPARATOR, type MenuItem } from './menu.ts';
 import { buildCatalog, type CatalogEntry } from './catalog.ts';
@@ -84,6 +85,12 @@ const moveTool = $<HTMLButtonElement>('#mode-move');
 const rotateTool = $<HTMLButtonElement>('#mode-rotate');
 const scaleTool = $<HTMLButtonElement>('#mode-scale');
 const frameTool = $<HTMLButtonElement>('#frame');
+const helperTools: Record<Helper | 'isolate', HTMLButtonElement> = {
+  grid: $<HTMLButtonElement>('#helper-grid'),
+  lights: $<HTMLButtonElement>('#helper-lights'),
+  camera: $<HTMLButtonElement>('#helper-camera'),
+  isolate: $<HTMLButtonElement>('#helper-isolate')
+};
 const viewportPanel = $<HTMLElement>('#viewport');
 const treePanel = $<HTMLElement>('[data-region="tree"]');
 const inspectorPanel = $<HTMLElement>('[data-region="inspector"]');
@@ -371,6 +378,17 @@ const animations = createAnimationEditor({
   },
   readOnly: () => readOnly() || playing
 });
+const helpers = createViewHelpers(viewportPanel, viewport, {
+  doc: () => remote?.doc.data ?? null,
+  objectPath,
+  edit: (path, value, label) => edit({ label, ops: [setDeep(path, value)] }),
+  store: settings
+});
+for (const helper of ['grid', 'lights', 'camera'] as const) {
+  helperTools[helper].setAttribute('aria-pressed', String(helpers.isOn(helper)));
+  helperTools[helper].addEventListener('click', () => toggleHelper(helper));
+}
+helperTools.isolate.addEventListener('click', toggleIsolate);
 const components = createComponentsPanel($<HTMLElement>('#components'), {
   catalog: () => buildCatalog(viewport.registries),
   target: () => {
@@ -488,6 +506,11 @@ function select(next: typeof selection): void {
   const others = selectedIds().slice(1).map(treePathOf).filter((path): path is PathSegment[] => !!path);
   tree.select(selectedId() ? treePathOf(selectedId()!) ?? [] : selectedPath(), others);
   overlay.select(playing ? [] : selectedIds());
+  if (isolating) {
+    // The isolated set follows the selection; nothing selected shows everything again.
+    if (!selectedIds().length) { isolating = false; helperTools.isolate.setAttribute('aria-pressed', 'false'); }
+    viewport.isolate(isolating ? selectedIds() : null);
+  }
   frameTool.disabled = !selectedId() || playing;
   updateArrange();
   components.refresh();
@@ -1231,6 +1254,7 @@ function changed(change: ReplicaChange): void {
     return;
   }
   const applied = viewport.apply(change.ops, remote.doc.data);
+  helpers.refresh();
   if (applied.kind === 'invalid') {
     say(`Not drawn: the scene has ${applied.issues.length} problem${applied.issues.length === 1 ? '' : 's'} — see Problems`);
   } else {
@@ -1362,6 +1386,7 @@ async function materialize(keepView: boolean): Promise<void> {
   }
   viewport.drawOnDemand = powerBox.checked;
   if (keepView) viewport.restoreCamera(camera);
+  if (isolating) viewport.isolate(selectedIds());
   showPlate(null);
   updateBar();
   // The registries are the game's now; resolve the inspector against them.
@@ -1815,6 +1840,42 @@ function updateWhere(): void {
 
 // --- Chrome --------------------------------------------------------------
 
+function toggleHelper(helper: Helper): void {
+  const on = helpers.toggle(helper);
+  helperTools[helper].setAttribute('aria-pressed', String(on));
+  say(`${helper === 'grid' ? 'Grid and axes' : helper === 'lights' ? 'Light icons' : 'Camera gizmo'} ${on ? 'on' : 'off'}`);
+}
+
+/** Isolate: only the selection shows (and no props); off again with the key, or when the selection is cleared. */
+let isolating = false;
+function toggleIsolate(): void {
+  const ids = selectedIds();
+  if (!isolating && !ids.length) { say('Select something to isolate'); return; }
+  isolating = !isolating;
+  viewport.isolate(isolating ? ids : null);
+  helperTools.isolate.setAttribute('aria-pressed', String(isolating));
+  say(isolating ? `Isolating ${ids.length === 1 ? ids[0] : `${ids.length} objects`} — I to show everything` : 'Showing everything');
+}
+
+/** Camera bookmarks: Shift+1…9 remembers the editor's camera for this scene, 1…9 returns to it. */
+function cameraBookmark(slot: number, save: boolean): void {
+  if (!remote) return;
+  const key = `camera.${remote.path}.${slot}`;
+  if (save) {
+    const state = viewport.captureCamera();
+    if (!state) return;
+    settings.set(key, JSON.stringify(state));
+    say(`Camera ${slot} saved`);
+    return;
+  }
+  const raw = settings.get(key, '');
+  if (!raw) { say(`No camera ${slot} yet — Shift+${slot} saves one`); return; }
+  viewport.restoreCamera(JSON.parse(raw) as Record<string, unknown>);
+  viewport.game?.invalidate();
+  overlay.refresh();
+  say(`Camera ${slot}`);
+}
+
 function setMode(mode: GizmoMode): void {
   overlay.setMode(mode);
   moveTool.setAttribute('aria-pressed', String(mode === 'move'));
@@ -2083,6 +2144,16 @@ document.addEventListener('keydown', (event) => {
     setMode('rotate');
   } else if (!mod && event.code === 'KeyR') {
     setMode('scale');
+  } else if (!mod && event.code === 'KeyG') {
+    toggleHelper('grid');
+  } else if (!mod && event.code === 'KeyL') {
+    toggleHelper('lights');
+  } else if (!mod && event.code === 'KeyC') {
+    toggleHelper('camera');
+  } else if (!mod && event.code === 'KeyI') {
+    toggleIsolate();
+  } else if (!mod && /^Digit[1-9]$/.test(event.code)) {
+    cameraBookmark(Number(event.code.slice(-1)), event.shiftKey);
   }
 });
 
