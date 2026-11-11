@@ -45,7 +45,7 @@ describe('SceneDocument', () => {
 
   it('writes canonical text and tracks whether it has changed', () => {
     const doc = new SceneDocument(level());
-    expect(doc.text).toContain('"version": 2');
+    expect(doc.text).toContain('"version": 3');
     expect(doc.dirty).toBe(false);
 
     doc.run(setField('title', 'The Room'));

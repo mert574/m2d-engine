@@ -135,6 +135,24 @@ Asked for after E7 shipped, in the order they bite while editing. Each is small 
 | ~~Live geometry while dragging~~ | — | **Done, Nov 2026**: `Viewport.previewSize` rescales the drawn shape, model or sprite every frame of a scale drag (the body waits for the release), and the inspector's Position and Size labels preview while scrubbed |
 | Game logic the GUI cannot reach | An audit of the seven example projects (below) found gameplay and presentation that lives only in code: day and night cycles, the sun and sky, camera framing, music, HUD, spawners, win conditions, actor tunables as constants | Each item below is either declared (actor `static properties`), moved into a scene field, or given a new scene field with engine support; the editor shows every one. The rule going forward: **a demo's tunables live in the scene or in declared properties, never in a constant**, checked by the audit being rerun before each demo ships |
 
+#### Deferred creator work, noted 11 Nov 2026
+
+Proposed after E7b–E9 shipped and parked by the owner, to be picked up after the carried editor work closes. Not scheduled; listed so nothing is lost. The GUI-reach F-items above (F4, F6, F8, F11, F12, F14, F15 and the per-project rows) are parked the same way. **More library sources** (ambientCG, Kenney, OpenGameArt adapters) are dropped from editor scope altogether: lowest priority, and not enablement work.
+
+| Idea | What it is |
+| --- | --- |
+| GUI test harness | `scripts/driveEditor.mjs`: headless Chrome with the GPU over CDP driving the real editor with pointer input, as the E7b–E9 verification was done by hand; a small suite per phase |
+| Prefab isolation stage | A prefab on its own stage with its constraints ticking; prefab variants and inheritance once it exists |
+| Play-from-here, settle | Start a playtest with the player at the camera; a toggle that lets physics rest before a save |
+| Paths and splines | Patrol routes, moving-platform paths and roads as scene data with an on-canvas spline editor |
+| Particle and cycle editors | A live-preview particle panel for `world.particles`; a gradient and curve widget for `world.cycle` |
+| Search and audit | Find every use of a prefab or asset across scenes; flag unused and missing assets |
+| Presence | Who (person or agent) has a scene open and what they have selected, over the host's one history |
+| Terrain | A coarse heightfield with raise and lower brushes for 3D levels |
+| Agent vision | An MCP `screenshot_scene` through the same Chrome-with-GPU path, so an agent sees what it edited |
+| Export targets | An itch-ready zip, a PWA manifest; F14's settings panel absorbing input bindings |
+| Online from the editor | After headless server mode (networking plan): a host-a-session button and a replica inspector |
+
 #### The GUI-reach audit, 10 Nov 2026
 
 Every file of the seven editor projects (Ash Row, Salvage Run, Cinder Keep, Hollow Grove, Ember Valley, The Facility, The Yard) and the shared modules they import was read against the scene schema. The scene document covers placement, prefabs, assets, tile layers and the world's size, gravity, sort, projection and (3D) environment, and nothing else. Everything below is invisible to the editor today. The one day/night cycle is the yard's (`hooks.js`: key T eases afternoon to dusk); Ember Valley's `dusk.js` is a fixed palette.
@@ -181,7 +199,7 @@ Order: F1, F2 and F5 first, since they are the same `onEnter` block in all seven
 | Work | Done when |
 | --- | --- |
 | Visibility culling | `Camera.isVisible` is used. `Scene.draw` skips entities outside the view. The showcase reports the saved primitives. A test pins that an off-screen entity emits no draw calls. Culling must not change what is visible at any aspect mode or render resolution. (`LayerManager` already skips off-screen tiles, pinned by `test/perspectives.test.js`) |
-| Tilemap layers | A level defines a tile layer as per-tile indices in scene JSON. Tiles draw batched and culled, the loader validates indices against the sheet and one example uses a real map. Depends on culling |
+| ~~Tilemap layers~~ | **Done, Nov 2026** (E8): a cell may be `[column, row, tileX, tileY]`, Ember Valley paints a real map, the editor has the paint tool. Still open: validating indices against the sheet (the loader cannot see the image), and batching the tile draws |
 | Named input actions | Games bind actions such as `jump` and `attack` instead of key codes. Bindings can be listed and rebound, and the settings menu grows a rebinding row using `keyLabel`. An action binds pointer buttons and gestures too. The raw key and event API stays |
 | Gamepad | A fourth source behind `game.input`. Axes feed `axis` and `vector`, buttons feed `isDown` and `justPressed`, hot-plugging works. Pairs with named actions |
 | Web Audio mixing | A Web Audio graph with master, music and effects gain nodes replaces the audio elements. Volume rows in the settings menu, persisted with the other settings. Overlapping effects stop cutting each other off |

@@ -26,8 +26,11 @@ export class SceneManager {
 
       // Validate and apply defaults before anything tries to build the scene,
       // so a bad reference names itself instead of surfacing as a half-built
-      // level. Throws SceneValidationError; see sceneLoader.js.
-      const loadedScene = this.loader.load(fetched, sceneName);
+      // level. Throws SceneValidationError; see sceneLoader.js. The scenes
+      // this one instances are fetched first, so the loader can compose
+      // them in.
+      const scenes = await this.#fetchInstanced(fetched);
+      const loadedScene = this.loader.load(fetched, sceneName, { scenes });
 
       // Keep registered hooks, including the platformer's music transitions.
       this.scenes.set(sceneName, new Scene(this.game, { ...sceneConfig, ...loadedScene }));
@@ -115,6 +118,30 @@ export class SceneManager {
     await scene.load();
     
     return scene;
+  }
+
+  /**
+   * The raw documents of every scene `data` instances (`layers[].scenes`),
+   * and of what those instance in turn, by name — what the loader composes
+   * from. Always the registered `fetch`, never a loaded scene's config: a
+   * loaded config is already composed, and composing it again would nest
+   * its ids twice. A name that is not registered is left to the loader,
+   * which reports it against the field.
+   */
+  async #fetchInstanced(data, found = {}) {
+    for (const layer of Array.isArray(data?.layers) ? data.layers : []) {
+      for (const instance of Array.isArray(layer?.scenes) ? layer.scenes : []) {
+        const name = instance?.scene;
+        if (typeof name !== 'string' || name in found) continue;
+        const entry = this.scenes.get(name)?.config ?? this.scenesToLoad.find((s) => s.name === name)?.scene;
+        if (!entry?.fetch) continue;
+        const raw = await entry.fetch();
+        if (!raw) continue;
+        found[name] = raw;
+        await this.#fetchInstanced(raw, found);
+      }
+    }
+    return found;
   }
 
   getCurrentScene() {

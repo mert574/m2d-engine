@@ -14,7 +14,7 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "type": "level",
   "name": "level1",
   "world": { "gravity": { "x": 0, "y": 1000 } },
@@ -72,7 +72,7 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
 
 | Field | Purpose |
 | --- | --- |
-| `version` | Always the number `1` |
+| `version` | The scene format version this engine reads, `3`; see the reference's version table |
 | `world.gravity` | Gravity in px/s². `{ "x": 0, "y": 1000 }` is a normal downward pull. Use `0` for top-down games |
 | `assets.spritesheets` | Images, their frame size and named animations. See [Sprites and animation](./sprites) |
 | `background` | One frame of a sprite sheet tiled across the whole world, behind everything else |
@@ -116,7 +116,7 @@ The scene names the uids it wants, binds them to short local names, and reads as
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "type": "level",
   "name": "row",
   "uses": { "zombie": "prefab-zombie", "goblin": "prefab-goblin" },
@@ -129,13 +129,31 @@ The scene names the uids it wants, binds them to short local names, and reads as
 
 An asset's identity is its uid, not its name and not its path, so renaming the texture or relabelling the creature changes the manifest and nothing else. Inline and used assets mix freely in one scene; a name declared both ways is an error.
 
+## Composing scenes
+
+A level can place another level scene whole, the way a Godot scene is instanced: a `scenes` array on a layer names a registered scene and where its origin lands, and the loader brings the scene's prefabs, objects and props in under the instance's id — the room's `crate` becomes `room-1/crate`. `overrides` writes fields over inner objects before placement, so one of three identical rooms can hold its crate higher; `yaw` (3D) or `angle` (2D) turns the whole instance. Register the instanced scene with the game like any other, with a `fetch` that returns its JSON; it is never switched to.
+
+```json
+"layers": [{
+  "name": "main",
+  "objects": [],
+  "scenes": [
+    { "id": "room-1", "scene": "room", "x": -9, "y": 0, "z": -12 },
+    { "id": "room-2", "scene": "room", "x": 0, "y": 0, "z": -12, "overrides": { "crate": { "y": 2.5 } } },
+    { "id": "room-3", "scene": "room", "x": 9, "y": 0, "z": -12, "yaw": 0.785 }
+  ]
+}]
+```
+
+The inner scene's tile layers, background, HUD, rules, camera and look stay with it; the level that is played owns those. See the reference for the fields.
+
 ## UI scenes
 
 A UI scene has `"type": "ui"` and an `elements` array instead of layers. Element types are `button`, `text`, `image` and `rect`.
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "type": "ui",
   "name": "mainMenu",
   "elements": [

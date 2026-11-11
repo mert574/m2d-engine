@@ -72,7 +72,7 @@ Anything the scene format can hold can be made here. A record (prefabs, constrai
 
 Right-click in the scene tree. A layer: new layer below, rename, move up or down, delete. An object: frame, duplicate, copy, move to a layer, bring forward or send backward in its draw order, select all of its prefab, make a prefab of it (its overrides folded into a prefab of its own), make a prop instance of it (3D), delete. A prefab: duplicate, rename (carried into every object), select its instances, delete. A sprite sheet: open its animations, rename, delete. The scene itself: new layer, new prefab, and in a 2D level a new tile layer.
 
-The scene picker's menu makes a new 2D level, 3D level or UI scene, duplicates, renames or deletes the current one. Files are made in the project's scenes folder; a rename waits until the scene is saved.
+A layer's menu also offers **Instance a scene**: another level of the project placed whole (composition), shown in the tree as one node — click any of its objects in the viewport and the instance is what you select; its position, turn and per-object overrides edit in the inspector. The scene picker's menu makes a new 2D level, 3D level or UI scene, duplicates, renames or deletes the current one. Files are made in the project's scenes folder; a rename waits until the scene is saved.
 
 ## Props
 

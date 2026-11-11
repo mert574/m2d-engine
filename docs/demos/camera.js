@@ -23,7 +23,7 @@ class Mover extends Entity {
 }
 
 const scene = {
-  version: 2, type: 'level', name: 'main',
+  version: 3, type: 'level', name: 'main',
   world: { gravity: { x: 0, y: 0 } },
   prefabs: { mover: { actor: 'Mover', physics: { bodyType: 'kinematic' } } },
   layers: [{ name: 'main', objects: [

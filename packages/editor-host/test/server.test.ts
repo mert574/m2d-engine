@@ -18,7 +18,7 @@ let companion: Companion;
 let client: Client;
 
 const level = (fields: Record<string, unknown> = {}) => JSON.stringify({
-  version: 2, type: 'level', name: 'room',
+  version: 3, type: 'level', name: 'room',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: { wall: { actor: 'Block', physics: { bodyType: 'static' } } },
   layers: [{ name: 'main', objects: [{ id: 'floor', prefab: 'wall', x: 0, y: 0 }] }],
@@ -31,7 +31,7 @@ beforeAll(async () => {
   await mkdir(join(root, 'node_modules', 'junk'), { recursive: true });
   await writeFile(join(root, 'scenes', 'room.json'), level());
   await writeFile(join(root, 'scenes', 'menu.json'), JSON.stringify({
-    version: 2, type: 'ui', name: 'menu',
+    version: 3, type: 'ui', name: 'menu',
     elements: [{ type: 'rect', id: 'background', fill: true, color: '#111' }]
   }, null, 2));
   await writeFile(join(root, 'scenes', 'lot.json'), level({ name: 'lot', generator: 'scripts/buildLot.mjs' }));
@@ -84,7 +84,7 @@ describe('the MCP server', () => {
   it('reads a scene as canonical text', async () => {
     const text = textOf(await client.callTool({ name: 'read_scene', arguments: { path: 'scenes/room.json' } }));
     expect(JSON.parse(text).name).toBe('room');
-    expect(text).toContain('"version": 2');
+    expect(text).toContain('"version": 3');
   });
 
   it('validates, and reports a problem with its field path', async () => {
@@ -294,7 +294,7 @@ describe('templates', () => {
     expect(await readFile(join(made.root, 'index.html'), 'utf8')).toContain('<title>Sunny Hop</title>');
     const project = new Project(made.root);
     const scenes = await project.scenes();
-    expect(scenes.map((scene) => scene.path)).toEqual(['scenes/level.json']);
+    expect(scenes.map((scene) => scene.path).sort()).toEqual(['scenes/level.json', 'scenes/room.json']);
     const doc = await project.openScene('scenes/level.json');
     expect(doc.validate().ok).toBe(true);
     await expect(createProject(made.root, '2d')).rejects.toThrow(/not empty/);

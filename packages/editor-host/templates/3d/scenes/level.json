@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "name": "level",
   "type": "level",
   "world": { "dimensions": 3, "gravity": { "x": 0, "y": -9.81, "z": 0 } },
@@ -90,6 +90,18 @@
           "height": 1,
           "depth": 1
         }
+      ],
+      "scenes": [
+        { "id": "room-1", "scene": "room", "x": -9, "y": 0, "z": -12 },
+        {
+          "id": "room-2",
+          "scene": "room",
+          "x": 0,
+          "y": 0,
+          "z": -12,
+          "overrides": { "crate": { "y": 2.5 } }
+        },
+        { "id": "room-3", "scene": "room", "x": 9, "y": 0, "z": -12, "yaw": 0.7853982 }
       ]
     }
   ]

@@ -30,7 +30,7 @@ import { PROJECTION_TYPES } from './projection.js';
  * the version it was written for, and anything else is refused rather than
  * half-understood.
  */
-export const SCENE_VERSION = 2;
+export const SCENE_VERSION = 3;
 
 /**
  * What an `id` may look like: letters, digits, `-`, `_` and `.`, starting
@@ -656,11 +656,36 @@ const PROP = s.object({
   instances: s.array(PROP_INSTANCE, { required: true, message: 'must be an array of [x, y, z, yaw, scale] tuples' })
 });
 
+/**
+ * Another level scene placed whole inside this one (composition, the
+ * Godot model). The instance's id prefixes every object and prop it
+ * brings — `room-1/crate` — so a composed thing can never collide with an
+ * authored one (an id cannot hold a slash). `overrides` writes fields over
+ * the inner objects by their own ids before the instance's placement is
+ * applied, so an override's `x` is still relative to the room. The inner
+ * scene's tile layers, background, HUD and rules are not carried: those
+ * belong to the level that is played.
+ */
+const SCENE_INSTANCE = s.object({
+  id: identity('Id'),
+  scene: s.ref('scene', { required: true, label: 'Scene' }),
+  x: s.number({ required: true, unit: 'px' }),
+  y: s.number({ required: true, unit: 'px' }),
+  z: s.number({ unit: 'px', description: 'Three-dimensional levels only' }),
+  angle: s.number({ unit: 'rad', description: 'Two-dimensional levels: the instance turned about its origin' }),
+  yaw: s.number({ unit: 'rad', description: 'Three-dimensional levels: the instance turned about the up axis' }),
+  overrides: s.record(s.any({ label: 'Fields' }), {
+    label: 'Overrides',
+    description: 'By inner object id: fields written over that object, in the instance\'s own frame'
+  })
+}, { label: 'Scene instance' });
+
 const LAYER = s.object({
   name: s.string(),
   type: s.string(),
   objects: s.array(OBJECT, { required: true }),
-  props: s.array(PROP, { description: 'Three-dimensional levels only' })
+  props: s.array(PROP, { description: 'Three-dimensional levels only' }),
+  scenes: s.array(SCENE_INSTANCE, { label: 'Scene instances', description: 'Other level scenes placed whole; see composition' })
 });
 
 // === Tile layers ===
@@ -944,7 +969,8 @@ export const LEVEL_SCHEMA = s.object({
     checkUniqueIds(
       (level.layers ?? []).flatMap((layer, li) => [
         ...layer.objects.map((object, oi) => ({ id: object.id, path: `layers[${li}].objects[${oi}].id` })),
-        ...(layer.props ?? []).map((prop, pi) => ({ id: prop.id, path: `layers[${li}].props[${pi}].id` }))
+        ...(layer.props ?? []).map((prop, pi) => ({ id: prop.id, path: `layers[${li}].props[${pi}].id` })),
+        ...(layer.scenes ?? []).map((instance, si) => ({ id: instance.id, path: `layers[${li}].scenes[${si}].id` }))
       ]),
       fail);
 

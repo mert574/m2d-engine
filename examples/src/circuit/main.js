@@ -163,7 +163,7 @@ for (const map of MAPS) {
 
   game.sceneManager.addScene(map.name, {
     fetch: async () => ({
-      version: 2, name: map.name, type: 'level', title: map.title,
+      version: 3, name: map.name, type: 'level', title: map.title,
       world: { gravity: { x: 0, y: 0 } },
       prefabs: {}, layers: []
     }),

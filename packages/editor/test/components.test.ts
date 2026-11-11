@@ -84,7 +84,7 @@ describe('the components panel', () => {
 
 describe('the tree', () => {
   const doc = {
-    version: 2, type: 'level', name: 'room', prefabs: { wall: { actor: 'Wall' } },
+    version: 3, type: 'level', name: 'room', prefabs: { wall: { actor: 'Wall' } },
     layers: [{ name: 'main', objects: [{ id: 'a', prefab: 'wall', x: 0, y: 0 }, { id: 'b', prefab: 'wall', x: 1, y: 0 }, { id: 'c', prefab: 'wall', x: 2, y: 0 }] }]
   };
   it('reports the click\'s mode, highlights a set, and opens a menu on right click', () => {

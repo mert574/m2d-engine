@@ -42,7 +42,7 @@ const pegRow = (y, xs) => xs.map(x =>
 
 game.sceneManager.addScene('physics', {
   fetch: async () => ({
-    version: 2, name: 'physics', type: 'level', gameType: 'sideScroll',
+    version: 3, name: 'physics', type: 'level', gameType: 'sideScroll',
     world: { width: 960, height: 720, gravity: { x: 0, y: 1000 } },
     assets: { spritesheets: {} },
     prefabs: {

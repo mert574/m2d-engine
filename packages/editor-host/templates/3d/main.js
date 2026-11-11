@@ -4,6 +4,7 @@ import { initWebGPU, webgpuSupported } from 'm2d-engine/core/renderers/index.js'
 import { GAME, register } from './game.js';
 import { sceneHooks } from './hooks.js';
 import level from './scenes/level.json';
+import room from './scenes/room.json';
 
 // The page: a canvas, the game's definition, its scenes with their hooks.
 if (!webgpuSupported()) {
@@ -19,6 +20,9 @@ if (!webgpuSupported()) {
   });
   register(game);
   const hooks = sceneHooks(game);
+  // The room is never switched to: the level instances it three times
+  // (layers[0].scenes), and the loader composes it in from this fetch.
+  game.sceneManager.addScene('room', { fetch: async () => room });
   game.sceneManager.addScene('level', { fetch: async () => level, ...hooks.level });
   await game.start();
 }

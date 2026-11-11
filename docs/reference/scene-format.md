@@ -220,6 +220,7 @@ An array of layers.
 | `type` | no | Free text |
 | `objects` | yes | Array of placed objects |
 | `props` | no | Scenery placed many times, below. 3D levels only |
+| `scenes` | no | Other level scenes placed whole, below |
 
 ### `layers[].objects[]`
 
@@ -261,6 +262,21 @@ A prefab placed many times as scenery, in a 3D level. A prop is presentation and
 Props stream. A model that only props use is loaded when the camera comes near one of its instances and released when it goes away again; see [streaming](./renderer#three-dimensions). The instances' colliders are built once at load and stay, so what a prop blocks does not depend on where the camera is.
 
 In a 2D level `props` is an error. The yard example's lot (`?scene=lot`) is laid out this way by `examples/scripts/buildLotScene.mjs`.
+
+### `layers[].scenes[]`
+
+Composition: another level scene placed whole inside this one, the way a Godot scene is instanced. The named scene must be registered with the game (and, for the loader to expand it, registered with a `fetch` that returns its JSON: the scene manager fetches what a level instances before loading it).
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `id` | yes | Identity, unique with the objects and props. It prefixes everything the instance brings: the room's `crate` becomes `room-1/crate`, so a composed thing can never collide with an authored one (an id cannot hold a slash) |
+| `scene` | yes | The scene's registered name. A level of the same dimension; a scene may not contain itself |
+| `x`, `y`, `z` | `x`, `y` | Where the inner scene's origin lands |
+| `angle` | no | 2D: the instance turned about its origin, in radians |
+| `yaw` | no | 3D: the instance turned about the up axis, in radians; composed objects' `rotation` and props' yaw turn with it |
+| `overrides` | no | By inner object id, fields written over that object before placement — `"crate": { "y": 2.5, "width": 2 }`. An override's `x` and `y` stay relative to the instance |
+
+The inner scene's prefabs and assets join the level under the same prefix (`room-1/crate` the prefab, `room-1/crate` its model), its objects and props are placed and turned, and each composed object carries `composed: "<instance id>"` in the loaded scene. The inner scene's tile layers, background, HUD, rules, camera and look are **not** carried: those belong to the level that is played. Instances nest (a room can hold a cupboard scene).
 
 ## `overrides`
 
@@ -445,7 +461,12 @@ M2D scene 'yard': the scene is 3D but the game runs 2D physics — construct M2D
 A scene declares the format version it was written for, and the loader accepts exactly the one this engine reads. Anything else is refused rather than half-understood:
 
 ```
-Scene 'level1' at version: scene format 3 is newer than this engine understands (2); upgrade m2d-engine
+Scene 'level1' at version: scene format 4 is newer than this engine understands (3); upgrade m2d-engine
 ```
 
 There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and rewriting the scenes, which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.
+
+| Version | Change |
+| --- | --- |
+| 3 | `layers[].scenes[]`: scene instances (composition). Nov 2026 |
+| 2 | The format the editor was built against |

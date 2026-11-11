@@ -48,7 +48,7 @@ const FOLIAGE = ['flowerballs', 'seedheads', 'flowerspikes', 'cattails', 'brambl
 export function laneScene(game, { assetUrl = () => '', onReached } = {}) {
   return {
     fetch: async () => ({
-      version: 2, name: 'lane', type: 'level', gameType: 'autoScroller',
+      version: 3, name: 'lane', type: 'level', gameType: 'autoScroller',
       world: { width: LENGTH, height: HEIGHT, gravity: { x: 0, y: 0 } },
       assets: { spritesheets: Object.fromEntries(
         FOLIAGE.map(name => [name, { url: assetUrl(name), frameWidth: 256, frameHeight: 256 }])

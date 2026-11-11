@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { M2D } from '../src/core/m2d.js';
+import { Entity } from '../src/core/entity.js';
+import { initPhysics } from '../src/core/physics/index.js';
 import { SceneLoader, SceneValidationError, SCENE_VERSION } from '../src/core/sceneLoader.js';
 
 /**
@@ -350,5 +353,101 @@ describe('SceneLoader.check: every problem, not the first', () => {
   it('stops at what precedes the schema: the version', () => {
     const { issues } = new SceneLoader(null).check({ ...scene(), version: 0 });
     expect(issues.map(issue => issue.path)).toEqual(['version']);
+  });
+});
+
+describe('composition: a level instances other levels', () => {
+  const room = {
+    version: SCENE_VERSION, type: 'level', name: 'room',
+    world: { dimensions: 3, gravity: { x: 0, y: -9.81, z: 0 } },
+    assets: { models: { crate: { url: 'crate.glb' } } },
+    prefabs: {
+      wall: { actor: 'Ground', physics: { bodyType: 'static' }, mesh: { color: '#888' } },
+      crate: { actor: 'Ground', physics: { bodyType: 'static' }, mesh: { model: 'crate' } }
+    },
+    layers: [{
+      name: 'main',
+      objects: [
+        { id: 'floor', prefab: 'wall', x: 0, y: -0.5, z: 0, width: 4, height: 1, depth: 4 },
+        { id: 'crate', prefab: 'crate', x: 1, y: 0.5, z: 0, width: 1, height: 1, depth: 1 }
+      ],
+      props: [{ id: 'grass', prefab: 'wall', collider: 'none', instances: [[2, 0, 0, 0, 1]] }]
+    }]
+  };
+  const composedLevel = (instances) => ({
+    version: SCENE_VERSION, type: 'level', name: 'level',
+    world: { dimensions: 3, gravity: { x: 0, y: -9.81, z: 0 } },
+    prefabs: { ground: { actor: 'Ground', physics: { bodyType: 'static' }, mesh: { color: '#9fc' } } },
+    layers: [{ name: 'main', objects: [{ id: 'ground', prefab: 'ground', x: 0, y: -1, z: 0, width: 40, height: 1, depth: 40 }], scenes: instances }]
+  });
+  class Ground extends Entity { name = 'Ground'; }
+  beforeAll(async () => { await initPhysics({ dimensions: 3 }); });
+  const loader3D = () => {
+    const game = new M2D(null, { headless: true, dimensions: 3, worldWidth: 40, worldHeight: 40, seed: 1 });
+    game.registerActor('Ground', Ground);
+    game.sceneManager.addScene('room', { fetch: async () => room });
+    game.sceneManager.addScene('level', { fetch: async () => ({}) });
+    return { game, loader: new SceneLoader(game) };
+  };
+
+  it('expands an instance under its id, placed and turned, with overrides applied first', () => {
+    const { loader } = loader3D();
+    const loaded = loader.load(composedLevel([
+      { id: 'room-1', scene: 'room', x: 10, y: 0, z: 0 },
+      { id: 'room-2', scene: 'room', x: 0, y: 0, z: 10, yaw: Math.PI / 2, overrides: { crate: { y: 2.5, width: 2 } } }
+    ]), 'level', { scenes: { room } });
+    const objects = loaded.layers[0].objects;
+    expect(objects.map((o) => o.id)).toEqual(['ground', 'room-1/floor', 'room-1/crate', 'room-2/floor', 'room-2/crate']);
+    // Placed: the crate at local (1, 0.5, 0) lands at (11, 0.5, 0) in room-1.
+    const crate1 = objects.find((o) => o.id === 'room-1/crate');
+    expect([crate1.x, crate1.y, crate1.z]).toEqual([11, 0.5, 0]);
+    expect(crate1.prefab).toBe('room-1/crate');
+    expect(crate1.composed).toBe('room-1');
+    // Turned a quarter about the up axis: local x becomes world -z, around the instance's origin.
+    const crate2 = objects.find((o) => o.id === 'room-2/crate');
+    expect(crate2.x).toBeCloseTo(0, 6);
+    expect(crate2.z).toBeCloseTo(9, 6);
+    // The override wrote over the inner object before placement; the yaw became its rotation.
+    expect(crate2.y).toBe(2.5);
+    expect(crate2.width).toBe(2);
+    expect(crate2.rotation[1]).toBeCloseTo(Math.SQRT1_2, 5);
+    // Prefabs and assets come along under the prefix, the model renamed with them.
+    expect(loaded.prefabs['room-2/crate'].mesh.model).toBe('room-2/crate');
+    expect(loaded.assets.models['room-2/crate'].url).toBe('crate.glb');
+    // Props too, their tuples placed and turned.
+    const grass = loaded.layers[0].props.find((p) => p.id === 'room-2/grass');
+    expect(grass.instances[0][0]).toBeCloseTo(0, 6);
+    expect(grass.instances[0][2]).toBeCloseTo(8, 6);
+    expect(grass.instances[0][3]).toBeCloseTo(Math.PI / 2, 6);
+  });
+
+  it('refuses a cycle, a UI scene, a dimension mismatch and a document not at hand', () => {
+    const { loader } = loader3D();
+    const selfish = { ...room, layers: [{ ...room.layers[0], scenes: [{ id: 'again', scene: 'room', x: 0, y: 0 }] }] };
+    expect(() => loader.load(composedLevel([{ id: 'r', scene: 'room', x: 0, y: 0 }]), 'level', { scenes: { room: selfish } })).toThrow(/would contain itself/);
+    expect(() => loader.load(composedLevel([{ id: 'r', scene: 'room', x: 0, y: 0 }]), 'level', { scenes: {} })).toThrow(/not at hand to compose/);
+    const flat = { ...room, world: { gravity: { x: 0, y: 900 } }, prefabs: { wall: { actor: 'Ground', physics: { bodyType: 'static' } } }, assets: undefined,
+      layers: [{ name: 'main', objects: [{ id: 'floor', prefab: 'wall', x: 0, y: 0 }] }] };
+    expect(() => loader.load(composedLevel([{ id: 'r', scene: 'room', x: 0, y: 0 }]), 'level', { scenes: { room: flat } })).toThrow(/2D and this level is 3D/);
+    // Without a library the instances are checked, not expanded.
+    const bare = loader.load(composedLevel([{ id: 'r', scene: 'room', x: 0, y: 0 }]), 'level');
+    expect(bare.layers[0].objects).toHaveLength(1);
+    expect(bare.layers[0].scenes[0].scene).toBe('room');
+  });
+
+  it('is fetched and built by the scene manager: a room instanced three times stands in the level', async () => {
+    const game = new M2D(null, { headless: true, dimensions: 3, worldWidth: 40, worldHeight: 40, seed: 1 });
+    game.registerActor('Ground', Ground);
+    game.sceneManager.addScene('room', { fetch: async () => room });
+    game.sceneManager.addScene('level', { fetch: async () => composedLevel([
+      { id: 'a', scene: 'room', x: -8, y: 0, z: -10 },
+      { id: 'b', scene: 'room', x: 0, y: 0, z: -10 },
+      { id: 'c', scene: 'room', x: 8, y: 0, z: -10, overrides: { crate: { y: 3 } } }
+    ]) });
+    await game.sceneManager.switchTo('level');
+    const scene = game.sceneManager.getCurrentScene();
+    expect([...scene.entitiesById.keys()].filter((id) => id.endsWith('/crate'))).toEqual(['a/crate', 'b/crate', 'c/crate']);
+    expect(scene.entitiesById.get('c/crate').body.position.y).toBeCloseTo(3, 6);
+    expect(scene.entitiesById.get('a/crate').body.position.x).toBeCloseTo(-7, 6);
   });
 });

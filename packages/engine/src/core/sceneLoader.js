@@ -32,6 +32,7 @@
 
 import { validate } from './schema.js';
 import { SCENE_VERSION, schemaForType } from './sceneSchema.js';
+import { Quat } from './math.js';
 
 export { SCENE_VERSION };
 
@@ -72,8 +73,8 @@ export class SceneLoader {
    * @returns {Object} The same scene with defaults applied
    * @throws {SceneValidationError} On anything the schema does not allow
    */
-  load(data, sceneName = data?.name ?? 'unknown') {
-    return this.#load(data, sceneName, null);
+  load(data, sceneName = data?.name ?? 'unknown', options = {}) {
+    return this.#load(data, sceneName, null, options);
   }
 
   /**
@@ -88,7 +89,7 @@ export class SceneLoader {
    * @returns {{loaded: Object|null, issues: SceneValidationError[]}}
    *   `loaded` is the normalized scene when there are no issues, else null.
    */
-  check(data, sceneName = data?.name ?? 'unknown') {
+  check(data, sceneName = data?.name ?? 'unknown', options = {}) {
     const issues = [];
     const collect = (error) => {
       if (!(error instanceof SceneValidationError)) return false;
@@ -97,14 +98,24 @@ export class SceneLoader {
     };
     let loaded = null;
     try {
-      loaded = this.#load(data, sceneName, collect);
+      loaded = this.#load(data, sceneName, collect, options);
     } catch (error) {
       if (!collect(error)) throw error;
     }
     return { loaded: issues.length ? null : loaded, issues };
   }
 
-  #load(data, sceneName, collect) {
+  /**
+   * @param {object} data
+   * @param {string} sceneName
+   * @param {((error: unknown) => boolean)|null} collect
+   * @param {{scenes?: Record<string, object>, chain?: string[]}} [options] -
+   *   `scenes`: the raw documents of the scenes this one may instance, by
+   *   name (the scene manager fetches them; see `composition`); without it
+   *   an instance is checked but not expanded. `chain`: the scenes being
+   *   composed above this one, for the cycle check.
+   */
+  #load(data, sceneName, collect, options = {}) {
     const fail = (path, message) => { throw new SceneValidationError(sceneName, path, message); };
 
     if (!data || typeof data !== 'object') fail('', 'scene data is not an object');
@@ -131,7 +142,7 @@ export class SceneLoader {
     // schema, `Scene`, the sprite loader — sees one kind of scene.
     scene = this.#resolveUses(scene, fail);
 
-    return validate(schema, scene, {
+    const loaded = validate(schema, scene, {
       fail,
       collect: collect ?? undefined,
       refs: this.#refs(scene),
@@ -142,6 +153,116 @@ export class SceneLoader {
         actors: this.game?.actors ?? null
       }
     });
+    // Composition expands after the document validates on its own terms,
+    // and only when the instanced scenes are at hand; a structural check
+    // with no library leaves the instances as entries.
+    if (options.scenes && hasInstances(loaded)) {
+      return this.#compose(loaded, sceneName, fail, options);
+    }
+    return loaded;
+  }
+
+  /**
+   * Expand a level's scene instances (`layers[].scenes[]`): each named
+   * scene is loaded through this loader (so it validates, takes its
+   * defaults and composes its own instances), then its prefabs, assets,
+   * objects and props join this level under the instance's id as a
+   * prefix, placed by the instance's position and turn, with the
+   * instance's `overrides` written over its objects first. One format
+   * comes out: what `Scene` builds is a level with more objects in it.
+   */
+  #compose(scene, sceneName, fail, options) {
+    const chain = options.chain ?? [sceneName];
+    const dimensions = scene.world?.dimensions ?? 2;
+    const assets = {
+      ...scene.assets,
+      spritesheets: { ...scene.assets?.spritesheets },
+      models: { ...scene.assets?.models },
+      environments: { ...scene.assets?.environments }
+    };
+    const prefabs = { ...scene.prefabs };
+    const layers = scene.layers.map((layer) => ({ ...layer, objects: [...layer.objects], ...(layer.props && { props: [...layer.props] }) }));
+
+    layers.forEach((layer, li) => {
+      (layer.scenes ?? []).forEach((instance, si) => {
+        const where = `layers[${li}].scenes[${si}]`;
+        if (chain.includes(instance.scene)) {
+          fail(`${where}.scene`, `scene '${instance.scene}' would contain itself (${[...chain, instance.scene].join(' > ')})`);
+        }
+        const raw = options.scenes[instance.scene];
+        if (!raw) {
+          fail(`${where}.scene`, `scene '${instance.scene}' is registered but its document is not at hand to compose; ` +
+            'register it with a fetch that returns its JSON');
+        }
+        const inner = this.#load(raw, instance.scene, null, { ...options, chain: [...chain, instance.scene] });
+        if (inner.type !== 'level') fail(`${where}.scene`, `'${instance.scene}' is a ${inner.type} scene; only a level can be instanced`);
+        if ((inner.world?.dimensions ?? 2) !== dimensions) {
+          fail(`${where}.scene`, `'${instance.scene}' is ${inner.world?.dimensions ?? 2}D and this level is ${dimensions}D`);
+        }
+        const prefix = `${instance.id}/`;
+        const turn = dimensions === 3 ? (instance.yaw ?? 0) : (instance.angle ?? 0);
+        const place = (x, y, z) => {
+          // A 2D angle turns in the plane; a 3D yaw turns about the up axis.
+          const c = Math.cos(turn);
+          const sn = Math.sin(turn);
+          if (dimensions === 3) {
+            return { x: instance.x + c * x + sn * (z ?? 0), y: instance.y + y, z: (instance.z ?? 0) - sn * x + c * (z ?? 0) };
+          }
+          return { x: instance.x + c * x - sn * y, y: instance.y + sn * x + c * y };
+        };
+        const round = (value) => Math.round(value * 1e6) / 1e6;
+
+        for (const [key, sheet] of Object.entries(inner.assets?.spritesheets ?? {})) assets.spritesheets[prefix + key] = sheet;
+        for (const [key, model] of Object.entries(inner.assets?.models ?? {})) assets.models[prefix + key] = model;
+        for (const [key, environment] of Object.entries(inner.assets?.environments ?? {})) assets.environments[prefix + key] = environment;
+        for (const [key, prefab] of Object.entries(inner.prefabs ?? {})) {
+          prefabs[prefix + key] = {
+            ...prefab,
+            ...(prefab.spritesheet && { spritesheet: prefix + prefab.spritesheet }),
+            ...(prefab.mesh?.model && { mesh: { ...prefab.mesh, model: prefix + prefab.mesh.model } })
+          };
+        }
+        for (const innerLayer of inner.layers ?? []) {
+          for (const source of innerLayer.objects) {
+            const object = { ...source, ...instance.overrides?.[source.id] };
+            const at = place(object.x, object.y, object.z);
+            const composed = {
+              ...object,
+              id: prefix + source.id,
+              prefab: prefix + object.prefab,
+              x: round(at.x), y: round(at.y),
+              ...(dimensions === 3 && { z: round(at.z) }),
+              composed: instance.id
+            };
+            if (composed.overrides?.spritesheet) composed.overrides = { ...composed.overrides, spritesheet: prefix + composed.overrides.spritesheet };
+            if (composed.overrides?.mesh?.model) composed.overrides = { ...composed.overrides, mesh: { ...composed.overrides.mesh, model: prefix + composed.overrides.mesh.model } };
+            if (turn) {
+              if (dimensions === 3) {
+                const q = Quat.multiply(Quat.fromAxisAngle({ x: 0, y: 1, z: 0 }, turn), quaternionOf(object.rotation));
+                composed.rotation = [round(q.x), round(q.y), round(q.z), round(q.w)];
+              } else {
+                composed.angle = round((object.angle ?? 0) + turn);
+              }
+            }
+            layer.objects.push(composed);
+          }
+          for (const prop of innerLayer.props ?? []) {
+            layer.props ??= [];
+            layer.props.push({
+              ...prop,
+              id: prefix + prop.id,
+              prefab: prefix + prop.prefab,
+              composed: instance.id,
+              instances: prop.instances.map(([x, y, z, yaw = 0, scale = 1]) => {
+                const at = place(x, y, z);
+                return [round(at.x), round(at.y), round(at.z), round(yaw + turn), scale];
+              })
+            });
+          }
+        }
+      });
+    });
+    return { ...scene, assets, prefabs, layers };
   }
 
   /**
@@ -311,4 +432,14 @@ export class SceneLoader {
     if (!manager) return null;
     return [...manager.scenes.keys(), ...manager.scenesToLoad.map(s => s.name)];
   }
+}
+
+/** Whether any layer of a level instances another scene. */
+function hasInstances(scene) {
+  return (scene?.layers ?? []).some((layer) => layer.scenes?.length);
+}
+
+/** A scene's `[x, y, z, w]` rotation as a quaternion object, identity when absent. */
+function quaternionOf(rotation) {
+  return Array.isArray(rotation) ? { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] } : { x: 0, y: 0, z: 0, w: 1 };
 }

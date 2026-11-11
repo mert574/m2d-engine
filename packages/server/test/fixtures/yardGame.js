@@ -21,7 +21,7 @@ export class Hero extends Entity {
 }
 
 export const SCENE = {
-  version: 2, type: 'level', name: 'yard',
+  version: 3, type: 'level', name: 'yard',
   world: { dimensions: 3, gravity: { x: 0, y: -9.81, z: 0 } },
   prefabs: {
     ground: { actor: 'Ground', physics: { bodyType: 'static' } },

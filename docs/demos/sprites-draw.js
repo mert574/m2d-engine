@@ -25,7 +25,7 @@ function makeSheet() {
   return image;
 }
 
-const scene = { version: 2, type: 'level', name: 'main', world: { gravity: { x: 0, y: 0 } } };
+const scene = { version: 3, type: 'level', name: 'main', world: { gravity: { x: 0, y: 0 } } };
 
 export default async function start(canvas) {
   await initPhysics();

@@ -16,7 +16,7 @@ export interface OutlineNode {
   label: string;
   /** Muted text beside it: the actor, a count. */
   detail?: string;
-  kind: 'scene' | 'world' | 'background' | 'group' | 'prefab' | 'layer' | 'object' | 'props' | 'tileLayer' | 'element' | 'sheet';
+  kind: 'scene' | 'world' | 'background' | 'group' | 'prefab' | 'layer' | 'object' | 'props' | 'tileLayer' | 'element' | 'sheet' | 'sceneInstance';
   /** Into the document, for the inspector; empty for the scene itself. */
   path: PathSegment[];
   children?: OutlineNode[];
@@ -85,6 +85,16 @@ export function sceneOutline(doc: unknown): OutlineNode {
         detail: `${str(prop.prefab) ?? '?'} ×${count}`,
         kind: 'props',
         path: ['layers', index, 'props', propIndex]
+      });
+    });
+    const instances = Array.isArray(layer.scenes) ? layer.scenes : [];
+    instances.forEach((instance, instanceIndex) => {
+      if (!isPlainObject(instance)) return;
+      rows.push({
+        label: str(instance.id) ?? `#${instanceIndex}`,
+        detail: str(instance.scene) ? `scene ${str(instance.scene)}` : 'scene',
+        kind: 'sceneInstance',
+        path: ['layers', index, 'scenes', instanceIndex]
       });
     });
     children.push({

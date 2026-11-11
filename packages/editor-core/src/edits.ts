@@ -182,7 +182,7 @@ export function uniqueId(doc: unknown, base: string): string {
   const data = isPlainObject(doc) ? doc : {};
   for (const layer of Array.isArray(data.layers) ? data.layers : []) {
     if (!isPlainObject(layer)) continue;
-    for (const list of [layer.objects, layer.props]) {
+    for (const list of [layer.objects, layer.props, layer.scenes]) {
       for (const entry of Array.isArray(list) ? list : []) {
         if (isPlainObject(entry) && typeof entry.id === 'string') taken.add(entry.id);
       }

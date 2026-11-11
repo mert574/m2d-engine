@@ -41,7 +41,7 @@ class Goal extends Entity {
 
 // A UI scene: screen-space elements, positioned against anchors.
 const menu = {
-  version: 2, type: 'ui', name: 'mainMenu',
+  version: 3, type: 'ui', name: 'mainMenu',
   elements: [
     { type: 'rect', id: 'background', fill: true, color: '#1b2a38' },
     { type: 'text', id: 'title', anchor: 'center', x: 0, y: -90,
@@ -58,7 +58,7 @@ const menu = {
 // A level scene: prefabs placed in layers. The ball rolls down the ramp
 // into the goal.
 const level = {
-  version: 2, type: 'level', name: 'level',
+  version: 3, type: 'level', name: 'level',
   world: { gravity: { x: 0, y: 900 } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.4 } },

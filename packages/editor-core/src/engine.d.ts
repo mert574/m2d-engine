@@ -112,7 +112,7 @@ declare module 'm2d-engine/core/sceneLoader.js' {
   }
   export class SceneLoader {
     constructor(game: unknown);
-    load(data: unknown): Record<string, unknown>;
-    check(data: unknown): { loaded: Record<string, unknown> | null; issues: SceneValidationError[] };
+    load(data: unknown, name?: string, options?: { scenes?: Record<string, unknown> }): Record<string, unknown>;
+    check(data: unknown, name?: string, options?: { scenes?: Record<string, unknown> }): { loaded: Record<string, unknown> | null; issues: SceneValidationError[] };
   }
 }

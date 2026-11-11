@@ -39,10 +39,12 @@ export interface ValidationResult {
  * @param doc - A parsed scene document
  * @param game - A game whose registries resolve actor, constraint and
  *   scene references; omit for the structural pass
+ * @param options - `scenes`: the raw documents of the scenes this one may
+ *   instance, by name, so composition expands (see the loader)
  */
-export function validateScene(doc: unknown, game: unknown = null): ValidationResult {
+export function validateScene(doc: unknown, game: unknown = null, options: { scenes?: Record<string, unknown> } = {}): ValidationResult {
   try {
-    const { loaded, issues } = new SceneLoader(game).check(doc);
+    const { loaded, issues } = new SceneLoader(game).check(doc, undefined, options);
     return {
       ok: issues.length === 0,
       loaded,

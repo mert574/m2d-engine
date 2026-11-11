@@ -228,6 +228,29 @@ export function moveObject(doc: unknown, objectPath: PathSegment[], toLayer: num
   return ops;
 }
 
+// --- Scene instances (composition) ----------------------------------------------
+
+/**
+ * Place another level scene whole into a layer (composition): an instance
+ * entry under a unique id, at a position. The scene must be one the game
+ * registers; the loader expands it when the level loads.
+ */
+export function addSceneInstance(
+  doc: unknown, layer: number, scene: string, position: { x: number; y: number; z?: number }
+): { ops: Op[]; id: string } {
+  if (!scene) throw new Error('an instance needs a scene');
+  const layers = valueAt(doc, ['layers']);
+  if (!Array.isArray(layers) || !isPlainObject(layers[layer])) throw new Error(`there is no layer ${layer}`);
+  const id = uniqueId(doc, scene);
+  const entry: Record<string, unknown> = { id, scene, x: position.x, y: position.y };
+  if (position.z !== undefined) entry.z = position.z;
+  const existing = (layers[layer] as Record<string, unknown>).scenes;
+  const ops: Op[] = Array.isArray(existing)
+    ? [{ op: 'insert', path: ['layers', layer, 'scenes'], index: existing.length, value: entry }]
+    : [{ op: 'set', path: ['layers', layer, 'scenes'], value: [entry] }];
+  return { ops, id };
+}
+
 // --- Objects, in bulk ---------------------------------------------------------
 
 /** The path of the placed object with this id, if there is one. */

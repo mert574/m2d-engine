@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "name": "level1",
   "type": "level",
   "world": { "gravity": { "x": 0, "y": 1400 } },

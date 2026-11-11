@@ -1,0 +1,70 @@
+{
+  "version": 3,
+  "name": "room",
+  "type": "level",
+  "world": { "dimensions": 3, "gravity": { "x": 0, "y": -9.81, "z": 0 } },
+  "prefabs": {
+    "slab": {
+      "actor": "Prop",
+      "physics": { "bodyType": "static", "friction": 0.8 },
+      "mesh": { "color": "#b9b1a4", "roughness": 0.9 }
+    },
+    "wall": {
+      "actor": "Prop",
+      "physics": { "bodyType": "static" },
+      "mesh": { "color": "#e7dfd2", "roughness": 0.85 }
+    },
+    "crate": {
+      "actor": "Prop",
+      "physics": { "bodyType": "dynamic", "density": 400 },
+      "mesh": { "color": "#c98a4b", "roughness": 0.7 }
+    }
+  },
+  "layers": [
+    {
+      "name": "main",
+      "objects": [
+        {
+          "id": "floor",
+          "prefab": "slab",
+          "x": 0,
+          "y": 0.1,
+          "z": 0,
+          "width": 6,
+          "height": 0.2,
+          "depth": 6
+        },
+        {
+          "id": "back",
+          "prefab": "wall",
+          "x": 0,
+          "y": 1.45,
+          "z": -2.85,
+          "width": 6,
+          "height": 2.5,
+          "depth": 0.3
+        },
+        {
+          "id": "side",
+          "prefab": "wall",
+          "x": -2.85,
+          "y": 1.45,
+          "z": 0,
+          "width": 0.3,
+          "height": 2.5,
+          "depth": 6
+        },
+        {
+          "id": "crate",
+          "prefab": "crate",
+          "x": 1,
+          "y": 0.7,
+          "z": -1,
+          "width": 1,
+          "height": 1,
+          "depth": 1
+        }
+      ]
+    }
+  ]
+}

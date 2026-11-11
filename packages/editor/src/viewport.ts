@@ -288,8 +288,14 @@ export interface ShowOptions {
   basePath?: string;
   /** M2D options for the game's look, from its hooks module (`OPTIONS`). */
   presentation?: Record<string, unknown>;
-  /** Other scene names the document may refer to (buttons, triggers). */
-  sceneNames?: string[];
+  /**
+   * The project's other scenes, each with a fetch of its document: a
+   * button or a trigger naming one validates, and a layer that instances
+   * one (composition) loads it. Never switched to while editing.
+   */
+  scenes?: Array<{ name: string; fetch: () => Promise<unknown> }>;
+  /** The raw documents of those scenes, by name, as far as they are known: what in-place validation composes from. */
+  library?: Record<string, unknown>;
   /**
    * Play rather than edit: a game without `editMode`, so the simulation
    * runs, hooks fire and input reaches it. `hooks` builds each scene's
@@ -328,6 +334,8 @@ export class Viewport {
   #drawOnDemand = true;
   /** Each placed object's document record as last built, by id; see `apply`. */
   #records = new Map<string, ObjectRecord>();
+  /** The project's other scene documents by name, for composing in place; see `ShowOptions.library`. */
+  #library: Record<string, unknown> = {};
   /** In-flight gizmo poses for prop instances: the outline moves, the batch waits for the commit. */
   #instancePoses = new Map<string, { position?: V3; yaw?: number }>();
   #viewListeners = new Set<() => void>();
@@ -431,11 +439,13 @@ export class Viewport {
       };
     } else {
       // The rest of the project's scenes, so a button or a trigger that
-      // names one validates; they are never switched to.
-      for (const other of options.sceneNames ?? []) {
-        if (other !== name) game.sceneManager.addScene(other, { fetch: async () => ({}) });
+      // names one validates and a layer that instances one composes; they
+      // are never switched to.
+      for (const other of options.scenes ?? []) {
+        if (other.name !== name) game.sceneManager.addScene(other.name, { fetch: other.fetch });
       }
     }
+    this.#library = options.library ?? {};
     // The game is not the viewport's until its scene is in: a close in the
     // meantime must not destroy it mid-load, so this show disposes of it
     // itself when it settles, whichever way it settles.
@@ -514,7 +524,7 @@ export class Viewport {
     if (this.#playing) return { kind: 'rebuild' };
     const scene = this.#scene();
     if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op) || tileLevel(op) || animationLevel(op) || elementLevel(op))) return { kind: 'rebuild' };
-    const result = validateScene(data, this.#game);
+    const result = validateScene(data, this.#game, { scenes: this.#library });
     if (!result.ok) return { kind: 'invalid', issues: result.issues };
 
     // Props edit in place as a whole: the loaded groups go into the shown

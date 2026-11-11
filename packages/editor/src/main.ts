@@ -158,6 +158,29 @@ let loadError: string | null = null;
 let playing = false;
 /** Camera to return to when play stops. */
 let editCamera: Record<string, unknown> | null = null;
+/**
+ * The project's other scene documents by name, as last fetched: what the
+ * problems check and the viewport compose from when a layer instances a
+ * scene. Refreshed when a scene opens and when a scene file changes.
+ */
+const siblings: Record<string, unknown> = {};
+
+async function refreshSiblings(): Promise<void> {
+  if (!project) return;
+  for (const key of Object.keys(siblings)) delete siblings[key];
+  await Promise.all(project.scenes.map(async (scene) => {
+    if (!scene.name) return;
+    try {
+      siblings[scene.name] = (await fetchDocument(scene.path)).data;
+    } catch { /* a scene that does not parse is not composed; its own problems say why */ }
+  }));
+}
+
+/** The project's scenes as the viewport registers them: by name, fetching through the host (unsaved edits included). */
+const projectScenes = () => (project?.scenes ?? []).flatMap((scene) => (scene.name ? [{
+  name: scene.name,
+  fetch: async () => (siblings[scene.name!] = (await fetchDocument(scene.path)).data)
+}] : []));
 
 const say = (text: string) => { status.textContent = text; };
 const showPlate = (text: string | null) => {
@@ -419,6 +442,18 @@ function elementPath(id: string): PathSegment[] | null {
   return index >= 0 ? ['elements', index] : null;
 }
 
+/** The path of the scene instance with this id (`layers[l].scenes[i]`), if there is one. */
+function instancePathOf(id: string): PathSegment[] | null {
+  const layers = remote?.doc.data.layers;
+  if (!Array.isArray(layers)) return null;
+  for (const [l, layer] of layers.entries()) {
+    const scenes = isPlainObject(layer) && Array.isArray(layer.scenes) ? layer.scenes : [];
+    const index = scenes.findIndex((instance) => isPlainObject(instance) && instance.id === id);
+    if (index >= 0) return ['layers', l, 'scenes', index];
+  }
+  return null;
+}
+
 /** The id of the placed object a path is in, if it is in one. */
 function objectIdAt(path: PathSegment[]): string | null {
   if (path.length < 4 || path[0] !== 'layers' || path[2] !== 'objects') return null;
@@ -586,7 +621,7 @@ function showInspector(): void {
 /** Check the document and show what is wrong, everywhere it is shown. */
 function checkProblems(): void {
   if (!remote) return;
-  issues = validateScene(remote.doc.data, validator).issues;
+  issues = validateScene(remote.doc.data, validator, { scenes: siblings }).issues;
   if (loadError && !issues.length) issues = [{ path: '', message: `The scene did not load: ${loadError}` }];
   tree.setProblems(issues.map((issue) => parsePath(issue.path)));
   problemCount.textContent = String(issues.length);
@@ -1001,8 +1036,34 @@ function treeMenu(node: OutlineNode): MenuItem[] {
       SEPARATOR,
       { label: many ? `Delete ${ids.length}` : 'Delete', hint: 'Del', danger: true, action: removeSelected }
     );
+  } else if (node.kind === 'sceneInstance') {
+    const instance = at(node.path) as { id?: string; scene?: string } | undefined;
+    items.push(
+      { label: `Open scene ${instance?.scene ?? ''}`.trim(), disabled: !instance?.scene, action: () => { const next = project?.scenes.find((scene) => scene.name === instance?.scene); if (next) enqueue(() => open(next)); } },
+      SEPARATOR,
+      { label: 'Delete instance', hint: 'Del', danger: true, action: () => edit({ label: `Delete ${instance?.id ?? 'instance'}`, ops: [{ op: 'remove', path: node.path.slice(0, 3), index: node.path[3] as number }] }) }
+    );
   } else if (node.kind === 'layer') {
     const index = node.path[1] as number;
+    const others = (project?.scenes ?? []).filter((scene) => scene.name && scene.type === 'level' && scene.path !== entry?.path);
+    items.push(
+      {
+        label: 'Instance a scene',
+        disabled: !others.length,
+        children: others.map((scene) => ({
+          label: scene.name!,
+          action: () => {
+            const where = dropPoint() ?? { x: 0, y: 0 };
+            try {
+              const { ops, id } = structure.addSceneInstance(data, index, scene.name!, viewport.dimensions === 3 ? { x: where.x, y: 0, z: where.z ?? 0 } : { x: where.x, y: where.y });
+              edit({ label: `Instance ${scene.name} as ${id}`, ops });
+              select({ path: ['layers', index, 'scenes', (Array.isArray((layers[index] as { scenes?: unknown[] }).scenes) ? ((layers[index] as { scenes: unknown[] }).scenes.length) : 0)] });
+            } catch (error) { say(String((error as Error).message ?? error)); }
+          }
+        }))
+      },
+      SEPARATOR
+    );
     items.push(
       { label: 'New layer below', action: () => { const name = prompt('Layer name', `layer-${layers.length + 1}`); if (name) edit({ label: `Add layer ${name}`, ops: structure.addLayer(data, name, index + 1) }); } },
       { label: 'Rename', action: () => { const name = prompt('Layer name', layerName(index)); if (name) edit({ label: `Rename layer to ${name}`, ops: [{ op: 'set', path: ['layers', index, 'name'], value: name }] }); } },
@@ -1276,7 +1337,8 @@ async function materialize(keepView: boolean): Promise<void> {
       definition,
       presentation: hooksModule?.OPTIONS,
       basePath: assetBase(project),
-      sceneNames: project.scenes.flatMap((scene) => (scene.name ? [scene.name] : []))
+      scenes: projectScenes(),
+      library: siblings
     });
     if (!shown) return;
   } catch (error) {
@@ -1338,6 +1400,7 @@ async function open(next: SceneEntry): Promise<void> {
     return null;
   });
   await buildValidator();
+  await refreshSiblings();
   outline = sceneOutline(remote.doc.data);
   outlineIndex = indexOutline(outline);
   tree.show(outline);
@@ -1905,6 +1968,9 @@ viewportPanel.addEventListener('pointerup', (event) => {
   }
   if (moved > 4) return;
   const id = viewport.pick(event.clientX, event.clientY);
+  // A composed object (`room-1/crate`) belongs to its scene instance: that is what gets selected.
+  const owner = id?.includes('/') ? instancePathOf(id.split('/')[0]!) : null;
+  if (owner) { select({ path: owner }); return; }
   if (start.ctrl && id) toggleSelected(id);
   else select(id ? { ids: [id] } : null);
 });
@@ -1973,7 +2039,10 @@ document.addEventListener('keydown', (event) => {
     event.preventDefault();
     selectAllOfPrefab();
   } else if (event.code === 'Delete' || event.code === 'Backspace') {
-    removeSelected();
+    const path = selection && 'path' in selection ? selection.path : null;
+    if (path && path.length === 4 && path[2] === 'scenes') {
+      edit({ label: `Delete ${(at(path) as { id?: string } | undefined)?.id ?? 'instance'}`, ops: [{ op: 'remove', path: path.slice(0, 3), index: path[3] as number }] });
+    } else removeSelected();
   } else if (event.code === 'Escape') {
     select(null);
   } else if (!mod && event.code === 'KeyF') {
@@ -2002,8 +2071,10 @@ const refreshListing = settled(() => {
   void loadProject().then((fresh) => { project = fresh; listScenes(); }).catch(() => {});
 }, 250);
 const assetsChanged = settled(() => { void assets.refresh().catch(() => {}); }, 300);
+const siblingsChanged = settled(() => { void refreshSiblings().then(() => problemsSoon()); }, 300);
 onHost<{ path: string }>('m2d:file', ({ path }) => {
   if (path.endsWith('.json') && !project?.scenes.some((scene) => scene.path === path)) refreshListing();
+  if (path.endsWith('.json') && project?.scenes.some((scene) => scene.path === path && scene.path !== entry?.path)) siblingsChanged();
   if (/\.(glb|gltf|png|jpe?g|webp|hdr|wav|mp3|ogg)$/i.test(path)) assetsChanged();
 });
 onHost<{ path: string; client?: string; message: string }>('m2d:error', ({ message }) => { say(message); });
