@@ -239,22 +239,24 @@ named for its role, e.g. `far-grass-a.png`, `seedheads.png`, `bramble-b.png`.
 
 # Sprites: Kenney Platformer Art Deluxe, and the Spinning Gold Coin
 
-Ember Valley's painted tile layer (`examples/src/platformer/assets/tiles.png`)
-is built from the **Platformer Art Deluxe** pack by [Kenney](https://kenney.nl),
-dedicated to the public domain under
-[Creative Commons Zero 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
-Twelve tiles (grass, dirt, fence, bridge, bush, rock, plant, mushroom) were
-composed onto one 70px grid and tinted darker through the valley's dusk
-palette at asset time.
+Ember Valley's painted tile layer and coin are machine-local files (images
+are built, never committed); `examples/scripts/buildPlatformerArt.mjs`
+seeds them on a fresh checkout and never overwrites art swapped in by
+hand. What it builds:
+
+`assets/tiles.png` is twelve tiles of the **Platformer Art Deluxe** pack
+by [Kenney](https://kenney.nl), dedicated to the public domain under
+[Creative Commons Zero 1.0](https://creativecommons.org/publicdomain/zero/1.0/),
+composed onto the 8×2 grid of 70px cells the scene's painted layer
+addresses.
 
 - Pack page: https://kenney.nl/assets/platformer-art-deluxe
 - Obtained from the mirror: https://opengameart.org/content/platformer-art-deluxe (`platformerGraphicsDeluxe_Updated.zip`)
 
-Its coin (`examples/src/platformer/assets/coin.png`) is the **Spinning Gold
-Coin** by MedicineStorm, released under
-[Creative Commons Attribution 3.0](https://creativecommons.org/licenses/by/3.0/).
-The nine 32px frames were composed into one strip, otherwise unchanged; the
-glow around it is drawn by the demo's own code.
+`assets/coin.png` is the **Spinning Gold Coin** by MedicineStorm, released
+under [Creative Commons Attribution 3.0](https://creativecommons.org/licenses/by/3.0/),
+its nine frames resized to 16px in one strip; the glow around it is drawn
+by the demo's own code.
 
 - Source: https://opengameart.org/content/spinning-gold-coin
 
