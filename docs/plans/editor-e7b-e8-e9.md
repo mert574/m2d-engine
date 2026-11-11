@@ -233,3 +233,75 @@ biggest daily pain and its renderer seam (`#dropModel` /
 could run in parallel with it after the shared selection groundwork. The
 view-helpers grid arrives inside E8's paint tool; the rest of the view
 helpers and composition stay carried, in that order.
+
+## What shipped, 11 Nov 2026 — all three phases
+
+The user-facing description is `docs/guide/editor.md` (Props, Painting
+tiles, Animations, UI scenes). Departures from the plan above, and what
+each phase landed:
+
+**The shared groundwork** came out simpler than planned. Selection stayed
+a set of id strings: a prop instance is addressed as
+`props:<layer>:<prop>:<index>` — a form no object id can take, since ids
+cannot hold a colon — so the whole selection, overlay and gizmo machinery
+carried instances without a path-selection model; UI elements have real
+ids already. Each area got its in-place apply: `Viewport.apply` maps
+props ops onto `Scene.rebuildProps()`, tile and background ops onto
+`rebuildTileLayers()`, element ops onto `rebuildUIScene()`, and a sheet's
+animation ops onto `defineAnimation` on the loaded sheet — nothing the
+three phases edit rebuilds the game.
+
+**E7b.** The props system moved out of `Scene` into
+`core/sceneProps.js` (`SceneProps`), Scene keeping its surface by
+delegation; `rebuild()` tears down and remakes batches, bodies, lights
+and the streaming index from the config — coarser than the planned
+per-key rebuild and simpler for it: the full lot rebuilds in ~70 ms
+headless, once per gesture, with drags previewed on the overlay outline
+(a per-frame batch write would re-render every shadow cube). Picking
+casts the same slop-ring rays at instance volumes (model bounds × mesh
+scale × instance scale, or the group's primitive), ranked with the
+objects. The gizmo is the tuple's: ground-and-y move, the one yaw ring, a
+uniform scale. `structure.ts`: `scatterProps`, `erasePropInstances`,
+`promotePropInstance` (exact for a pure yaw; a model's instance scale
+rides `overrides.mesh.scale`), `demoteObjectToProp` (a size-matched group
+under one uniform factor, else a new group with `collider: 'bounds'`).
+The brushes are `propBrush.ts`: a mode that owns the pointer, a settings
+strip, one op per stroke. The instance tuple's positions carry labels
+(X, Y, Z, Turn, Scale), so the inspector shows a labelled row.
+
+**E8.** `cells` took the per-cell form as a union — `[c, r]` as ever, or
+`[c, r, tileX, tileY]` — no version bump; `setupTileLayer` defines one
+sheet frame per distinct index. The paint tool (`tilePaint.ts`) draws
+the grid through the projection, offers brush, fill and erase and a
+palette over the layer's sheet, and writes one `set` of `cells` per
+stroke, short where a cell draws the layer's own frame. Sprite sheets
+became tree nodes; double-click opens the animation editor
+(`animationEditor.ts`): frames clicked on the sheet, reorder, fps, loop,
+a preview on its own clock, and slicing (`frameWidth`/`frameHeight`).
+The milestone content: Ember Valley's `ground` layer (dirt underlay,
+caps, a fence, a bush, a plant, a mushroom) and a nine-frame coin at
+12 fps, in `level1.json`; the art is Kenney's Platformer Art Deluxe
+(CC0) tinted to the dusk palette and MedicineStorm's Spinning Gold Coin
+(CC BY 3.0), credited in `THIRD_PARTY_NOTICES.md`; `GlowCoin` defers its
+disc to a declared sheet, keeping the glow.
+
+**E9.** Style fields edit as text — a bare number writes a number, a
+`$token` stays a string — with the running theme's token names as
+completions per hint (a `<datalist>`, not a dropdown, so a literal still
+types). A tagged value keeps `id`, `x`, `y` and `anchor` through a
+variant change. `structure.addElement` makes each kind valid from birth;
+the palette is the Elements group's context menu (shown even empty) and
+the scene's. The engine keeps `uiById` and `rebuildUIScene()`. A UI
+scene previews at the game's design size, letterboxed, no camera;
+picking goes through `scene.ui.hitTest`; the element gizmo moves the
+live element's offsets per frame (they are exactly the document's
+`x`/`y`), resizes where the kind keeps size (rect at the top level,
+text not at all — `Placement.tools` hides the useless handles), and the
+overlay draws the nine anchor origins. An anchor change in the inspector
+re-bases the offsets. The 2D template gained `scenes/menu.json` — title,
+hairline rule, Start and Settings styled by `$tokens` — and starts on it.
+
+**Still carried:** the remaining view helpers (light icons and the
+spot-direction handle, the camera gizmo, bookmarks, isolate), keyboard
+focus for JSON menus, the F15 element kinds (stack, menu-item,
+backdrop), and composition — in that order.

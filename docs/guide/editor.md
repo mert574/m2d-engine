@@ -70,9 +70,27 @@ Anything the scene format can hold can be made here. A record (prefabs, constrai
 
 ## Structure
 
-Right-click in the scene tree. A layer: new layer below, rename, move up or down, delete. An object: frame, duplicate, copy, move to a layer, bring forward or send backward in its draw order, select all of its prefab, make a prefab of it (its overrides folded into a prefab of its own), delete. A prefab: duplicate, rename (carried into every object), select its instances, delete. The scene itself: new layer, new prefab.
+Right-click in the scene tree. A layer: new layer below, rename, move up or down, delete. An object: frame, duplicate, copy, move to a layer, bring forward or send backward in its draw order, select all of its prefab, make a prefab of it (its overrides folded into a prefab of its own), make a prop instance of it (3D), delete. A prefab: duplicate, rename (carried into every object), select its instances, delete. A sprite sheet: open its animations, rename, delete. The scene itself: new layer, new prefab, and in a 2D level a new tile layer.
 
 The scene picker's menu makes a new 2D level, 3D level or UI scene, duplicates, renames or deletes the current one. Files are made in the project's scenes folder; a rename waits until the scene is saved.
+
+## Props
+
+In a 3D level, a layer's props are scenery placed many times from one prefab — the lot's grass is thousands of instances in a handful of groups. Click one in the viewport to select it: the gizmo moves it along the ground and up, turns it about the up axis (its one ring) and scales it as a whole; the outline follows the drag and the scene's batches rebuild once, on release. Delete and Ctrl+D act on instances too, and a strip over the viewport offers **To object**, which turns the instance into a placed object without moving a pixel — a model's scale rides its overrides — and the object menu's *Make a prop instance* is its inverse, into a group whose size matches or a new one.
+
+Right-click a prop group in the tree for the **brushes**. Scatter plants instances in a circle as you drag — so many per stamp, a random turn, a jittered scale, at the height the group lives at — and Erase takes out every instance of the group the stroke covers. Each stroke is one step of undo. Esc or Done leaves the brush.
+
+## Painting tiles
+
+A 2D level's tile layers paint. Double-click one in the tree (or right-click, Paint…): the grid draws over the world at the layer's tile size — through the projection, so an isometric floor paints on diamonds — and a palette shows the layer's sheet. Pick a tile, then drag to paint; Fill floods the region under the click; Erase clears. A stroke is one step of undo. A cell may carry its own frame, so one layer holds many tiles; a cell painted with the layer's own `tileX, tileY` is written short, as every older document already reads.
+
+## Animations
+
+Double-click a sprite sheet in the tree for the animation editor. The sheet draws with its frame grid; click frames to append them to the open animation, nudge them earlier or later, set the fps and whether it loops, and watch the preview, which runs on its own clock (an edited scene never animates). The same dialog slices the sheet: set the frame width and height and the grid follows. Every change is one step of undo, shared with any agent editing beside you.
+
+## UI scenes
+
+A UI scene previews at the game's design size, letterboxed. Right-click the Elements group (or the scene) to add a button, a text, an image or a rect, each valid from birth — a button arrives with something to do. Click an element to select it; the gizmo moves it by its offsets, resizes the kinds that keep a size (a text measures itself), and the nine anchor points of the screen draw over the view with the element's own filled. Changing the anchor in the inspector moves only the point the offsets measure from — the element stays put. Style fields (a label, a size, a colour, a font) take a literal or a `$token` from the game's theme, offered as completions; changing an element's kind with the shape picker keeps its id, position and anchor. A button's `onClick` names a scene and switches to it in Play; an `action` goes to the scene's `onAction` hook, with `settings` opening the settings menu.
 
 ## Components
 

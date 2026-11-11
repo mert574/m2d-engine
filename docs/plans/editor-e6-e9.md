@@ -136,7 +136,7 @@ every object of the selection's prefab.
 
 **Not done, carried:** E7b (props by hand), E8, E9, the view helpers and
 composition, in that order. The plan for E7b, E8 and E9 is
-`editor-e7b-e8-e9.md`.
+`editor-e7b-e8-e9.md` — **shipped, Nov 2026**; see its record.
 
 ## The follow-up round, same day
 
