@@ -99,14 +99,14 @@ A prefab draws a model by naming it in its [`mesh`](#mesh) block.
 
 ## `hud`
 
-A level's overlay, drawn over the world and shown in the editor: a list of elements like a UI scene's, with three more that read the running game. Every element has an `id`, an `anchor` and `x`, `y` from it.
+A level's overlay, drawn over the world and shown in the editor: a list of elements like a UI scene's, with three more that read the running game. Every element has an `id`, an `anchor` and `x`, `y` from it. Game code reaches them through `scene.hud.elements`, a map by id — how a hook rewrites an objective line the scene laid out.
 
 | `type` | Fields |
 | --- | --- |
-| `text` | `properties.text`, `fontSize`, `color`, `align`, …; a rule's `objective` action rewrites it |
+| `text` | `properties.text`, `fontSize`, `color`, `align`, `letterSpacing`, `outlineColor`, `outlineWidth`, …; a rule's `objective` action rewrites it |
 | `notice` | A text that is hidden until a rule's `notice` action shows it, and fades after `properties.seconds` (2.5) |
-| `meter` | A bar: `width`, `height`, `bind { object, constraint, current, max }`, the player's `health` slot's `currentHealth` over `maxHealth` by default; an empty `constraint` reads the entity's own fields; `properties.label`, `color`, `background` |
-| `minimap` | `size` (width; the height follows the world's shape, or `bounds`), `plot`: prefab name to dot colour |
+| `meter` | A bar: `width`, `height`, `bind { object, constraint, current, max }`, the player's `health` slot's `currentHealth` over `maxHealth` by default; an empty `constraint` reads the entity's own fields; `properties.label`, `color`, `background`, and `low` with `lowBelow` (0.35) for the bar under the low mark |
+| `minimap` | `size` (width; the height follows the world's shape, or `bounds`), `plot`: prefab name to a dot colour or `{ shape: dot\|ring, color, size }` |
 | `image`, `rect` | As in a UI scene |
 
 ## `assets.sounds`, `assets.music`
