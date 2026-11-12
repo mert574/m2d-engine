@@ -26,11 +26,13 @@ const sheet = (game, name) => game.sceneManager.getCurrentScene()?.spriteSheets.
 export class Laser extends Projectile {
   name = 'Laser';
 
+  /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  get lit() { return this.game.renderer.supports('lights'); }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, { speed: 900, damage: 12, maxLifetime: 1.6, destroyOnWallHit: true, ...options });
     this.tint = options.tint ?? '#7fd4ff';
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
-    this.lit = game.renderer.supports('lights');
   }
 
   onHitTarget(entity) {
@@ -81,6 +83,9 @@ export class Bound extends Platform {
 export class Ship extends Entity {
   name = 'Player';
 
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: CollisionCategories.player });
@@ -88,8 +93,6 @@ export class Ship extends Entity {
     this.spriteFit = true;
     this.spriteSize = { x: 84, y: 56 };
     this.renderAngleOffset = SPRITE_UP;
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.heading = body.angle;
     this.fireWait = 0;
     this.shieldFlash = 0;
@@ -201,6 +204,8 @@ export class Meteor extends Entity {
 
   static SIZES = { big: { next: 'med', health: 60, sheets: ['brownMed1', 'greyMed2'], size: 70 }, med: { next: 'small', health: 30, sheets: ['brownSmall1', 'greySmall2'], size: 43 }, small: { next: null, health: 14 } };
 
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     this.spriteFit = true;
@@ -215,7 +220,6 @@ export class Meteor extends Entity {
     }));
     this.getConstraint('health').draw = () => {};
     this.flash = 0;
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.onShatter = null;
   }
 
@@ -267,13 +271,14 @@ export class Meteor extends Entity {
 export class Drone extends Entity {
   name = 'Drone';
 
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: CollisionCategories.enemy });
     this.spriteFit = true;
     this.renderAngleOffset = SPRITE_UP;
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.facing = -Math.PI / 2;
     this.fireWait = 1 + game.rng.next();
     this.hurt = 0;
@@ -330,12 +335,13 @@ export class Drone extends Entity {
 export class Salvage extends Entity {
   name = 'Salvage';
 
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game) {
     super(body, sprite, game);
     this.spriteFit = true;
     this.spriteSize = { x: 26, y: 40 };
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     const hover = new Hover(this, { amplitude: 0, spin: 1.4 });
     hover.angle = game.rng.next() * Math.PI * 2;
     this.addConstraint('spin', hover);
@@ -368,11 +374,12 @@ export class Salvage extends Entity {
 
 /** The jump gate: a ring of light that opens when every pod is aboard. */
 export class Gate extends Trigger {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.sealed = true;
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.time = 0;
     this.beacon = sprite;
   }
@@ -410,12 +417,13 @@ export class Gate extends Trigger {
 export class Sky extends Entity {
   name = 'Sky';
 
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: 0, mask: 0 });
     this.zIndex = -2;
     this.depth = -Infinity;
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     const seed = options.seed ?? 5;
     let s = seed * 7919 + 13;
     const rand = () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };

@@ -70,7 +70,6 @@ export function sceneHooks(game) {
         // minimap plots by class with live colours, so both stay here.
         const ui = scene.ui;
         const objective = scene.hud?.elements.get('objective') ?? { text: '' };
-        const notice = scene.hud?.elements.get('notice') ?? { text: '' };
         ui.add(new UIMeter(() => { const c = game.player?.getConstraint('control'); return c ? (c.boosting ? 1 : 1 - c.boostWait / c.boostCooldown) : null; }, { x: 20, y: 76, width: 200, height: 6, color: k => (k >= 1 ? '#ffd66e' : '#6a7a9a'), label: 'BOOST · C' }));
         const minimap = ui.add(new UIMinimap(game, {
           size: 200, bounds: layout.world, background: 'rgba(8, 10, 22, 0.88)', borderColor: 'rgba(127, 212, 255, 0.45)',
@@ -84,31 +83,14 @@ export function sceneHooks(game) {
         }));
         minimap.target = gate ?? null;
 
-        let noticeTimer = null;
-        const say = (text) => {
-          notice.text = text;
-          noticeTimer?.cancel();
-          noticeTimer = game.time.after(2.6, () => { notice.text = ''; }, { unscaled: true });
-        };
-        const refresh = () => {
-          objective.text = taken < pods.length ? `SALVAGE · ${taken} / ${pods.length} · THE GATE IS SEALED` : 'THE GATE IS OPEN · FLY THROUGH';
-        };
-        refresh();
+        // The gate opening, its warning while sealed and the jump out are
+        // world.rules in field.json; only the running count is code.
+        const count = () => { objective.text = `SALVAGE · ${taken} / ${pods.length} · THE GATE IS SEALED`; };
+        count();
         for (const pod of pods) {
           pod.onTaken = () => {
             taken++;
-            refresh();
-            if (taken === pods.length && gate) { gate.sealed = false; game.soundManager.playSound('gate'); say('THE GATE OPENS'); }
-          };
-        }
-        if (gate) {
-          let done = false;
-          gate.onEnter = () => {
-            if (done) return;
-            if (gate.sealed) { say('SEALED · BRING THE SALVAGE'); return; }
-            done = true;
-            say('JUMP');
-            game.time.after(2.5, () => game.sceneManager.switchTo('mainMenu'), { unscaled: true });
+            if (taken < pods.length) count();
           };
         }
 

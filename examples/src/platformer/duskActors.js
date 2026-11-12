@@ -46,10 +46,12 @@ const RIM = 'rgba(255, 190, 110, 0.6)';
  * a real source.
  */
 export class EmberPlayer extends Player {
+  /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.clock = 0;
 
     // The swing is the ember's own light thrown forward; a hit on the
@@ -204,10 +206,11 @@ export class EmberPlayer extends Player {
 }
 
 export class DuskPlatform extends Platform {
+  get lit() { return this.game.renderer.supports('lights'); }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.sway = 0;
-    this.lit = game.renderer.supports('lights');
 
     const w = this.size.x;
     const h = this.size.y;
@@ -457,11 +460,12 @@ export class DuskPlatform extends Platform {
 }
 
 export class DuskMovingPlatform extends MovingPlatform {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.sway = 0;
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
   }
 
   draw(deltaTime) {
@@ -545,10 +549,11 @@ export class DuskMovingPlatform extends MovingPlatform {
 }
 
 export class GlowCoin extends Coin {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
 
     // Stagger the inherited bob and spin, or every coin on screen flips in
     // lockstep like a slot machine.
@@ -650,11 +655,12 @@ export class GlowCoin extends Coin {
 }
 
 export class DuskBee extends Bee {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.menace = makeRng(seedFrom(body.position))() * Math.PI * 2;
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     // The stock actor's flat red tint is a readable default, not a look;
     // the burst below replaces it and the sprite flashes pale instead.
     this.flash = this.constraints.get('damageFlash');
@@ -748,11 +754,12 @@ export class DuskBee extends Bee {
  * only mean "this is the way out".
  */
 export class ValleyGate extends Trigger {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.shimmer = 0;
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
   }
 
   draw(deltaTime) {

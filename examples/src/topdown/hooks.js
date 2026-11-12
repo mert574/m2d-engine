@@ -18,7 +18,7 @@ export function sceneHooks(game) {
         // The camera, the light, the music and the sounds are the scene's
         // (level1.json). The post pass stays in code: it tears with the
         // player's hurt, every frame.
-        backdrop = new FacilityBackdrop(game, game.sceneManager.getCurrentScene().spriteSheets.get('floor'));
+        backdrop = new FacilityBackdrop(game);
         backdrop.applyAtmosphere();
       },
       onExit() {
@@ -27,9 +27,6 @@ export function sceneHooks(game) {
       },
       onUpdate(deltaTime) {
         backdrop?.update(deltaTime);
-      },
-      onDrawBackground() {
-        backdrop?.drawBackground();
       },
       onDraw() {
         backdrop?.drawForeground();

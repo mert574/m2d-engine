@@ -48,12 +48,14 @@ export class Tree extends Platform {
     seed: s.number({ description: 'Fixes the sway; the position decides when unset' })
   };
 
+  /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
+  get lit() { return this.game.renderer.supports('lights'); }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     const rng = makeRng(options.seed ?? seedFrom(body.position));
     this.phase = range(rng, 0, Math.PI * 2);
     this.rate = range(rng, 0.5, 0.8);
-    this.lit = game.renderer.supports('lights');
     this.time = 0;
   }
 
@@ -169,10 +171,11 @@ export class Pond extends Platform {
  * and light, footsteps, and the three abilities with their effects.
  */
 export class Wanderer extends ObliquePlayer {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     /** Effects the abilities leave behind, and the ward's remaining time. */
     this.effects = { flashes: [], wardLeft: 0 };
     this.addConstraint('swing', new AttackSwing(this, { color: '#ffe3b0', reach: 60 }));
@@ -232,10 +235,11 @@ export class Wanderer extends ObliquePlayer {
 
 /** A wisp: a cold light that drifts and hunts. */
 export class Wisp extends Ghost {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     const rng = makeRng(seedFrom(body.position));
     this.phase = range(rng, 0, Math.PI * 2);
     this.time = 0;
@@ -310,10 +314,11 @@ export class Wisp extends Ghost {
 
 /** A lantern on a post: the pickup. It lights the ground until it is taken. */
 export class Lantern extends Coin {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     const rng = makeRng(seedFrom(body.position));
     const hover = this.constraints.get('hover');
     hover.amplitude = 0;
@@ -360,10 +365,11 @@ export class Lantern extends Coin {
  * sealed by a ward until the quest opens it.
  */
 export class Clearing extends Trigger {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     const rng = makeRng(seedFrom(body.position));
     this.stones = Array.from({ length: 9 }, (_, i) => {
       const a = (i / 9) * Math.PI * 2 + range(rng, -0.2, 0.2);
@@ -434,13 +440,14 @@ export class GroundDetail extends Entity {
     seed: s.number({ initial: 11, description: 'Fixes the scatter of grass and flowers' })
   };
 
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  get tint() { return this.game.renderer.supports('tint') ? '#c9b48e' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: 0, mask: 0 });
     this.zIndex = -1;
     this.depth = -Infinity;
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
-    this.tint = game.renderer.supports('tint') ? '#c9b48e' : undefined;
     const rng = makeRng(options.seed ?? 11);
     const w = game.options.worldWidth;
     const h = game.options.worldHeight;

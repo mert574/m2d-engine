@@ -8,6 +8,7 @@ import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { AttackSwing, HitBurst } from '../shared/effects.js';
 import { makeRng, range } from '../shared/rng.js';
 import { tileTexture } from '../shared/textures.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 /**
  * The facility's cast, drawn instead of tiled.
@@ -113,10 +114,12 @@ export class FacilityWall extends Platform {
 }
 
 export class SpecterGhost extends Ghost {
+  /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.drift = makeRng(seedFrom(body.position))() * Math.PI * 2;
     this.wisp = 0;
     this.constraints.delete('damageFlash');
@@ -258,10 +261,11 @@ class PhantomBolt extends Rocket {
 }
 
 export class SentryTurret extends Turret {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.idleScan = makeRng(seedFrom(body.position))() * Math.PI * 2;
     this.clock = 0;
   }
@@ -383,10 +387,11 @@ export class SentryTurret extends Turret {
 }
 
 export class DataCore extends Coin {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
 
     const rng = makeRng(seedFrom(body.position));
     const hover = this.constraints.get('hover');
@@ -450,10 +455,11 @@ export class DataCore extends Coin {
 
 /** The exit as an extraction pad: a beacon, not a debug rectangle. */
 export class ExtractionPad extends Trigger {
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.beacon = 0;
   }
 
@@ -509,10 +515,18 @@ export class ExtractionPad extends Trigger {
 }
 
 export class ScannerAgent extends TopDownPlayer {
+  static properties = {
+    sonarPeriod: s.number({ initial: 3.2, positive: true, unit: 's', label: 'Sonar period', description: 'Seconds between echoes' }),
+    sonarRange: s.number({ initial: 460, positive: true, unit: 'px', label: 'Sonar range', description: 'How far an echo reaches' })
+  };
+
+  get lit() { return this.game.renderer.supports('lights'); }
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
+    this.sonarPeriod = options.sonarPeriod ?? 3.2;
+    this.sonarRange = options.sonarRange ?? 460;
     /** Smoothed heading, so the lamp does not snap on a tap of a key. */
     this.heading = -Math.PI / 2;
     /** 1 on a hit, decaying to 0: drives the feed's glitch in the backdrop. */

@@ -28,7 +28,40 @@
         "contrast": 1.05
       }
     },
-    "music": { "track": "game" }
+    "music": { "track": "game" },
+    "rules": [
+      {
+        "id": "salvaged",
+        "when": { "event": "collected", "prefab": "salvage" },
+        "then": [
+          { "do": "unseal", "object": "gate-1" },
+          { "do": "sound", "key": "gate" },
+          { "do": "notice", "text": "THE GATE OPENS", "seconds": 2.6, "element": "notice" },
+          { "do": "objective", "text": "THE GATE IS OPEN · FLY THROUGH" }
+        ]
+      },
+      {
+        "when": { "event": "enter", "object": "gate-1" },
+        "then": [
+          {
+            "do": "notice",
+            "text": "SEALED · BRING THE SALVAGE",
+            "seconds": 2.6,
+            "element": "notice"
+          }
+        ],
+        "once": false,
+        "before": ["salvaged"]
+      },
+      {
+        "when": { "event": "enter", "object": "gate-1" },
+        "then": [
+          { "do": "notice", "text": "JUMP", "seconds": 2.6, "element": "notice" },
+          { "do": "switch", "scene": "mainMenu", "after": 2.5 }
+        ],
+        "after": ["salvaged"]
+      }
+    ]
   },
   "assets": {
     "spritesheets": {
@@ -2624,13 +2657,12 @@
       "properties": { "label": "HULL", "color": "#7fd4ff", "low": "#ff6a5a" }
     },
     {
-      "type": "text",
+      "type": "notice",
       "id": "notice",
       "x": 0,
       "y": -120,
       "anchor": "center",
       "properties": {
-        "text": "",
         "fontSize": "30px",
         "fontWeight": "600",
         "color": "#e8f0ff",
