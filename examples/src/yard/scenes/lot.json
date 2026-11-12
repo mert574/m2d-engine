@@ -239,15 +239,6 @@
         }
       }
     },
-    "pillar": {
-      "actor": "Ground",
-      "physics": { "bodyType": "static", "shape": "cylinder" },
-      "mesh": {
-        "color": "#efe9df",
-        "roughness": 0.6,
-        "texture": { "url": "textures/dev_grid.png", "size": 1 }
-      }
-    },
     "crate": {
       "actor": "Crate",
       "physics": { "bodyType": "dynamic", "friction": 0.6, "density": 400 },
@@ -274,17 +265,6 @@
       },
       "mesh": { "color": "#c8ccd2", "metallic": 1, "roughness": 0.25 }
     },
-    "copper": {
-      "actor": "Crate",
-      "physics": {
-        "bodyType": "dynamic",
-        "shape": "sphere",
-        "friction": 0.4,
-        "restitution": 0.3,
-        "density": 7800
-      },
-      "mesh": { "color": "#d57a3f", "metallic": 1, "roughness": 0.4 }
-    },
     "ball": {
       "actor": "Crate",
       "physics": {
@@ -300,47 +280,6 @@
       "actor": "Crate",
       "physics": { "bodyType": "dynamic", "shape": "cylinder", "friction": 0.5, "density": 600 },
       "mesh": { "color": "#2f5f9e", "metallic": 0.3, "roughness": 0.45 }
-    },
-    "lamp": {
-      "actor": "Ground",
-      "physics": { "bodyType": "static", "shape": "sphere", "isSensor": true },
-      "mesh": { "color": "#ffd58a", "roughness": 1, "emissive": 6, "castShadow": false },
-      "light": { "type": "point", "color": "#ffc473", "intensity": 40, "range": 16 }
-    },
-    "neon": {
-      "actor": "Ground",
-      "physics": { "bodyType": "static", "shape": "box", "isSensor": true },
-      "mesh": { "color": "#ff2d95", "roughness": 0.4, "emissive": 9, "castShadow": false },
-      "light": {
-        "type": "spot",
-        "color": "#ff2d95",
-        "intensity": 110,
-        "range": 26,
-        "direction": { "x": 0.2, "y": -1, "z": -0.15 },
-        "innerCone": 0.55,
-        "outerCone": 0.95
-      }
-    },
-    "wheel": {
-      "actor": "Ground",
-      "physics": { "bodyType": "static", "isSensor": true },
-      "mesh": { "model": "colorSphere", "scale": 2 }
-    },
-    "breather": {
-      "actor": "Ground",
-      "physics": { "bodyType": "static", "isSensor": true },
-      "mesh": { "model": "morphBlob", "scale": 2, "animation": { "clip": "pulse" } }
-    },
-    "mirror": {
-      "actor": "Crate",
-      "physics": {
-        "bodyType": "dynamic",
-        "shape": "sphere",
-        "friction": 0.4,
-        "restitution": 0.3,
-        "density": 7800
-      },
-      "mesh": { "color": "#f2f2f2", "metallic": 1, "roughness": 0.05 }
     },
     "hero": {
       "actor": "Hero",

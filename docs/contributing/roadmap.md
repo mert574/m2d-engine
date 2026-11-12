@@ -193,24 +193,36 @@ The F-items that survive this cut are listed at the end.
   the (a) columns of the audit below still stand; they are declarations,
   not features. **Still to do.**
 
-**Per project, the rewrites worth doing** (no new engine work):
+**Per project, the rewrites** — **mostly done, 12 Nov 2026**:
 
 | Project | Rewrite with existing features |
 | --- | --- |
-| Ash Row | The wave machinery hand-builds thugs from prefab data (`createEntity` in `hooks.js`) and tracks deaths in closures. Place each section's thugs in the scene sealed, `enter` rules unseal them by section, `collected` rules fire the release notice and sound, and the door trigger's hand-wired `onEnter` becomes `enter` → notice/sound/switch rules. The thugs then exist in the editor, and the one thing left in code is the camera lock stepping forward (see the surviving items) |
-| Salvage Run | Pods opening the gate is `collected` → `unseal` + `sound` + `notice`, and the gate's exit is `enter` → `switch`, both hand-wired callbacks today. The minimap in code plots by `instanceof`; the `hud` minimap plots by prefab and covers it once chunks split by prefab (below). Escape-to-menu stays code until input maps (F14) |
-| The Facility | The floor is drawn procedurally every frame from the `floor` sheet the scene already declares — paint it once as `tileLayers` (E8) and keep only the stains/vent accents as code if wanted. The lamp grid becomes placed lamp objects with 2D `prefab.light` (F10, shipped); the sonar's period and reach become declared constraint params |
-| Ember Valley | The four `textures/forest/*.png` are orphans of a replaced backdrop — delete them. The ridge backdrop could be baked to seed-once images on parallax `tileLayers` (the engine has had per-layer parallax all along), leaving only fireflies and leaves as code |
-| Hollow Grove | Already on `Quest`/`Npc`/`UIDialogue`; its lighting/post/HUD move as above. The quest stages and lines as JS constants wired to the engine's `Quest` *is* a standard shape — F8 (quests as assets) is optional, not owed |
-| Cinder Keep | Same: `UIAbilityBar` and the satchel are engine UI plus game code; the duplicated `tradeRadius` (120 in one file, 140 in another) is exactly what a declared property removes |
-| The Yard | `yard.json` declares seven prefabs nothing places (pillar, copper, lamp, neon, wheel, breather, …) — leftovers of the lot rebuild, found by the audit; delete them. Seven files (a spare sky HDR, dev models, loose textures) are named by no scene and no code |
+| ~~Ash Row~~ | **Done**: the waves are placed thugs, `sealed` (unseen, untouchable, still) until their section's zone calls them; the locks, the GO sign and the door are rules. This needed three small, general rules features rather than code: rule `id`s with `after`/`before`, `death` over a group of `objects`, and a `camera` action moving bound edges. `hooks.js` is down to the camera's height and Escape. A headless playthrough test covers the chain |
+| ~~Salvage Run~~ | **Done**: the gate's opening, its warning while sealed and the jump out are rules; only the running salvage count is code. Still code, as noted: the `instanceof` minimap and Escape (F14) |
+| ~~The Facility~~ | **Done**: the concrete is the scene's `background` layer (tile layers draw after the hook's background pass, so the accents moved into a seeded `FloorMarks` object drawn just above it); the lamp grid is 35 placed `CeilingLamp`s with their prefab's light, `live` and `flicker` declared; the player's light is its prefab's; the sonar's period and range are declared on the player. Play looks the same |
+| Ember Valley | The four `textures/forest/*.png` orphans are deleted. Still open: baking the ridge backdrop to seed-once images on parallax `tileLayers`, leaving only fireflies and leaves as code |
+| Hollow Grove | Already on `Quest`/`Npc`/`UIDialogue`; its light, post and HUD moved. The quest stages and lines as JS constants wired to the engine's `Quest` *is* a standard shape — F8 (quests as assets) is optional, not owed |
+| Cinder Keep | `UIAbilityBar` and the satchel are engine UI plus game code; the duplicated `tradeRadius` belongs to the declarations pass |
+| ~~The Yard~~ | **Done**: `lot.json` declared seven prefabs nothing placed (pillar, copper, lamp, neon, wheel, breather, mirror), leftovers of the lot rebuild; deleted |
 
-**True orphans the audit found** (nothing names them, code included):
-Ember Valley's `textures/forest/*` (4), The Facility's `bg-new.webp`,
-the yard's seven files above. Ash Row's character sheets
-(`textures/characters/*`) are named by `row.json` via its prefabs — the
-belt rows listed unused are its old texture experiments (`bricks.jpg`,
-`facade-*.jpg`, …), worth a pass before deleting.
+**Found on the way, fixed:** the engine's `Trigger` had a placeholder
+`onEnter` that switched to `mainMenu` on touch, which cut off Ember
+Valley's and The Facility's exit rules (their notice and three-second
+delay never showed); it is gone. Ash Row, Salvage Run, Hollow Grove,
+Ember Valley and The Facility read the renderer in actor constructors,
+which a headless game refuses (Ash Row's were dead fields); they read it
+when drawing now, as Cinder Keep's actors always did. Hollow Grove's
+scene named a music file that `.gitignore` (`*.mp3`) had kept out of the
+repository; it is tracked now, and `sceneAudio.test.js` holds every scene
+to naming only tracked sounds and tracks.
+
+**Left for the owner** (untracked local files, so not deleted here): the
+yard's spare sky (`environments/kloofendal_43d_clear_puresky_2k.hdr`) and
+three textures (`aerial_grass_rock_diff_1k.jpg`, `forrest_ground_01_diff_1k.jpg`,
+`polyhaven/dirty_carpet.jpg`). Files the audit lists as unused but code
+loads (ability icons, Salvage Run's runtime effect sheets, Ash Row's old
+`bricks.jpg`/`facade-*.jpg` experiments) are not orphans; the effect
+sheets want moving into `assets.spritesheets`.
 
 **What genuinely needs engine work** (the F-items that survive):
 
