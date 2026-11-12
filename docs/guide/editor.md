@@ -140,6 +140,12 @@ Library searches Poly Haven's free CC0 models, textures and HDRIs. Import fetche
 
 Play (F5) runs the scene as it stands, unsaved edits included, in a fresh game with the project's hooks. The other scenes load for real, so a door into the next level opens. The keyboard belongs to the game while it plays. If the game switches to a scene its page builds in code (a main menu), play stops and the status line says so. F5 or Stop returns to editing with the document as it was and the camera where it was. A code change during play starts the play again on the new code.
 
+**Play from here** (Shift+F5, or the scene's menu) starts the player at the middle of the view: the view's centre in 2D, the camera's target in 3D. The player is the object `world.player` names, or else the first whose actor is `Player`.
+
+**Stage it**, on a prefab's menu in the tree, plays that prefab alone on a floor in the scene's world and look, without the level's other objects, HUD, rules or player. The staged instance copies the scene's first placed one of that prefab (its size, properties and constraints), so a moving platform rides its route. While a prefab is staged, prefabs and assets stay editable and each edit restarts the stage; everything else waits for Stop. In 2D the floor has no sprite, so it holds things up without being drawn.
+
+**Settle physics**, on the scene's menu, runs the scene briefly in the editor's host and writes where its dynamic bodies came to rest (position, and angle or rotation) as one step of undo. Crates stacked by hand stop floating. With objects selected it settles only those. It leaves the player alone and the objects composed from another scene. The body type is the one the game built, so an actor that makes its body kinematic is not settled. If the run logs an error, nothing is written.
+
 The Console tab shows what the game logs and anything thrown and not caught. Its input line runs the engine's console commands and cvars on the live game. Type `help` to list them.
 
 ## Hot reload
@@ -156,7 +162,7 @@ With Power saving on (the default), the viewport draws when something changes an
 
 ## Agents
 
-The running editor serves MCP at `/mcp` on its port. An agent there edits the same documents as the window, and its edits appear in the history marked as an agent's. `npm run editor:mcp <folder>` serves the same tools over stdio when no editor is running. `run_scene`, `screenshot_scene` and `build_project` need the running editor.
+The running editor serves MCP at `/mcp` on its port. An agent there edits the same documents as the window, and its edits appear in the history marked as an agent's. `npm run editor:mcp <folder>` serves the same tools over stdio when no editor is running. `run_scene`, `settle_scene`, `screenshot_scene` and `build_project` need the running editor.
 
 | Tool | Does |
 | --- | --- |
@@ -169,8 +175,9 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `list_assets`, `search_library`, `import_asset` | The project's asset files, a Poly Haven search, an import with its credit |
 | `create_scene`, `rename_scene`, `delete_scene` | Scene files: a blank level or UI scene or a copy, a new name, gone |
 | `list_components` | The actors and constraints the game registers, with their fields, as the Components tab shows them |
-| `run_scene` | Step the scene headless for some seconds and report where each object ended up |
-| `screenshot_scene` | A picture of the scene as the editor holds it, unsaved edits included: the viewport alone or the whole window, optionally framed on one object or after some seconds of play |
+| `run_scene` | Step the scene headless for some seconds and report where each object ended up, with its body type and angle or rotation. `from` starts the player elsewhere and `prefab` runs a prefab's stage, as the editor's Play from here and Stage it do |
+| `settle_scene` | The editor's Settle physics: write where dynamic bodies came to rest, as one step of undo, optionally only some `ids` |
+| `screenshot_scene` | A picture of the scene as the editor holds it, unsaved edits included: the viewport alone or the whole window, optionally framed on one object or after some seconds of play. Takes `from` and `prefab` as `run_scene` does |
 | `build_project` | Build the game into `dist/` |
 
 The host has no GPU, so `screenshot_scene` opens the editor in a Chrome that has one, started on the first call and closed after five idle minutes or with the editor. It uses the Chrome named by `M2D_CHROME`; under WSL, the Windows Chrome, which needs mirrored networking so both sides share `localhost`; otherwise Playwright's Chromium, which may draw without a GPU. Each launch gets a debugging port from the OS and a profile folder of its own, so several editors can share one machine and one Chrome install.

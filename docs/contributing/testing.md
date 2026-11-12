@@ -120,7 +120,7 @@ sudo apt-get install libnspr4 libnss3 libasound2t64
 `scripts/driveEditor.mjs` (`npm run test:editor`) drives the real editor. It starts an editor host for each suite, opens it in a Chrome with the GPU, and uses real pointer input: click to pick, a gizmo drag that must commit one edit, isolate, play and stop, and undo back to clean. It saves nothing. The example projects are driven in place, and unsaved edits only touch the git-ignored `.m2d/journal/`. A suite refuses a scene that opens with unsaved edits, such as a journal replayed from an earlier session, because undoing back to clean would walk into them and the host would then drop the journal. The template suite makes a fresh project in a temp folder.
 
 ```bash
-npm run test:editor                       # every suite: lot, platformer, paths, template2d
+npm run test:editor                       # every suite: lot, platformer, paths, playtest, settle, template2d
 node scripts/driveEditor.mjs lot --headed # one suite, with the window shown
 node scripts/driveEditor.mjs --out shots  # keep the screenshots somewhere known
 ```

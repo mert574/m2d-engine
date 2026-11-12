@@ -29,8 +29,8 @@
  */
 
 import {
-  sceneOutline, inspectNode, uniqueId, isPlainObject, validateScene, parsePath, structure, paths, rotation,
-  type OutlineNode, type PathSegment, type Op, type Edit, type ValidationIssue, type Quaternion
+  sceneOutline, inspectNode, uniqueId, isPlainObject, validateScene, parsePath, structure, paths, rotation, stage, SceneDocument,
+  type Variant, type OutlineNode, type PathSegment, type Op, type Edit, type ValidationIssue, type Quaternion
 } from 'm2d-editor-core';
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
@@ -166,6 +166,8 @@ let issues: ValidationIssue[] = [];
 let loadError: string | null = null;
 /** Whether the viewport is playing the scene rather than editing it. */
 let playing = false;
+/** What the running play is, when not the scene as written: from a point, or a prefab's stage. */
+let playVariant: Variant | null = null;
 /** Camera to return to when play stops. */
 let editCamera: Record<string, unknown> | null = null;
 /**
@@ -198,6 +200,8 @@ const showPlate = (text: string | null) => {
   plate.classList.toggle('gone', text === null);
 };
 const readOnly = () => !!remote?.state.generator;
+/** While a prefab is staged, prefabs and assets stay editable: each edit restarts the stage. */
+const stagedEdit = (path: PathSegment[]) => playing && !!playVariant?.prefab && (path[0] === 'prefabs' || path[0] === 'assets');
 
 const tree = createTree(treePanel, (node, mode) => selectFromTree(node, mode), {
   activate: (node) => {
@@ -663,7 +667,7 @@ function showInspector(): void {
   }
   const kind = node?.kind ?? (path.length === 2 && path[0] === 'prefabs' ? 'prefab' : 'scene');
   inspector.show(heading, rows, {
-    readOnly: readOnly() || playing,
+    readOnly: readOnly() || (playing && !stagedEdit(path)),
     issues: here,
     kind: instance ? 'instance' : node ? (node.detail && node.kind === 'object' ? node.detail : node.kind) : 'scene',
     groups: groupsFor(kind, viewport.dimensions),
@@ -739,8 +743,8 @@ async function buildValidator(): Promise<void> {
 /** Every edit from this tab goes here: the replica applies it and tells the panels. */
 function edit(change: Edit): void {
   if (!remote) return;
-  if (playing) {
-    say('Playing — stop (F5) to edit');
+  if (playing && !change.ops.every((op) => stagedEdit(op.path))) {
+    say(playVariant?.prefab ? 'Staging a prefab — only prefabs and assets edit; stop (F5) for the rest' : 'Playing — stop (F5) to edit');
     return;
   }
   if (readOnly() && !change.ops.every((op) => op.path[0] === 'generator')) {
@@ -1167,6 +1171,7 @@ function treeMenu(node: OutlineNode): MenuItem[] {
     const uses = structure.objectsOfPrefab(data, name).length;
     items.push(
       { label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } },
+      { label: 'Stage it', hint: 'play it alone', action: () => { select({ path: ['prefabs', name] }); enqueue(() => startPlay({ prefab: name })); } },
       { label: 'Duplicate', action: () => { const { ops, name: copy } = structure.duplicatePrefab(data, name); edit({ label: `Duplicate prefab ${name}`, ops }); select({ path: ['prefabs', copy] }); } },
       { label: 'Rename', action: () => { const to = prompt('Prefab name', name); if (to && to !== name) { try { edit({ label: `Rename ${name} to ${to}`, ops: structure.renameEntry(data, ['prefabs'], name, to) }); select({ path: ['prefabs', to] }); } catch (error) { say(String((error as Error).message ?? error)); } } } },
       SEPARATOR,
@@ -1206,7 +1211,10 @@ function treeMenu(node: OutlineNode): MenuItem[] {
     items.push(
       { label: 'New layer', action: () => { const name = prompt('Layer name', `layer-${layers.length + 1}`); if (name) edit({ label: `Add layer ${name}`, ops: structure.addLayer(data, name) }); } },
       { label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } },
-      { label: 'New path', action: newPath }
+      { label: 'New path', action: newPath },
+      SEPARATOR,
+      { label: 'Play from here', hint: 'Shift+F5', action: playFromHere },
+      { label: selectedIds().length ? `Settle physics (${selectedIds().length} selected)` : 'Settle physics', action: () => { void settlePhysics(); } }
     );
     if (viewport.dimensions === 2 && data.type === 'level') {
       items.push({ label: 'New tile layer…', action: () => {
@@ -1302,6 +1310,8 @@ function changed(change: ReplicaChange): void {
     say(`Not drawn: the scene has ${applied.issues.length} problem${applied.issues.length === 1 ? '' : 's'} — see Problems`);
   } else {
     if (applied.kind === 'rebuild') enqueue(() => materialize(true));
+    // After the rebuild's enqueue, which it replaces: the queue keeps the last job.
+    if (playing && playVariant?.prefab && change.ops.some((op) => op.path[0] === 'prefabs' || op.path[0] === 'assets')) enqueue(() => startPlay());
     if (change.label) say(`${change.label}${change.origin && change.origin !== 'editor' ? ` — by ${change.origin}` : ''}`);
   }
   select(selection);
@@ -1311,8 +1321,8 @@ function changed(change: ReplicaChange): void {
 
 function updateBar(): void {
   const state = remote?.state;
-  undoButton.disabled = !state?.undo || playing;
-  redoButton.disabled = !state?.redo || playing;
+  undoButton.disabled = !state?.undo || (playing && !playVariant?.prefab);
+  redoButton.disabled = !state?.redo || (playing && !playVariant?.prefab);
   undoButton.title = state?.undo ? `Undo ${state.undo} (Ctrl+Z)` : 'Nothing to undo';
   redoButton.title = state?.redo ? `Redo ${state.redo} (Ctrl+Shift+Z)` : 'Nothing to redo';
   const dirty = remote?.dirty ?? false;
@@ -1752,8 +1762,9 @@ async function place(item: Placeable, point?: { x: number; y: number }): Promise
 // --- Play ----------------------------------------------------------------
 
 /** Play the scene as the document stands, unsaved edits included, with the game's hooks. */
-async function startPlay(): Promise<void> {
+async function startPlay(variant: Variant | null = playVariant): Promise<void> {
   if (!project || !remote) return;
+  playVariant = variant;
   brush.stop();
   tilePaint.stop();
   if (!playing) editCamera = viewport.captureCamera();
@@ -1764,7 +1775,8 @@ async function startPlay(): Promise<void> {
   const current = remote;
   const others = project.scenes.filter((scene) => scene.name && scene.path !== current.path);
   try {
-    const shown = await viewport.show(current.doc, {
+    const played = variant ? new SceneDocument(stage.variantOf(current.doc.data, variant), current.path) : current.doc;
+    const shown = await viewport.show(played, {
       definition,
       presentation: hooksModule?.OPTIONS,
       basePath: assetBase(project),
@@ -1781,7 +1793,8 @@ async function startPlay(): Promise<void> {
     if (!shown) return;
     showPlate(null);
     const bare = hooksModule?.sceneHooks ? '' : ' (no hooks module declared: the bare scene)';
-    say(`Playing ${current.doc.name ?? current.path}${bare} — F5 or Stop to return`);
+    const what = variant?.prefab ? `prefab ${variant.prefab} on its stage (edits to it restart the stage)` : `${current.doc.name ?? current.path}${variant?.from ? ' from here' : ''}${bare}`;
+    say(`Playing ${what} — F5 or Stop to return`);
   } catch (error) {
     consolePanel.print(`Play failed: ${String((error as Error).message ?? error)}`, 'error');
     playing = false;
@@ -1797,6 +1810,7 @@ async function startPlay(): Promise<void> {
 function stopPlay(): void {
   if (!playing) return;
   playing = false;
+  playVariant = null;
   editorFrame.classList.remove('playing');
   updateBar();
   enqueue(async () => {
@@ -1810,7 +1824,32 @@ function stopPlay(): void {
 function togglePlay(): void {
   if (!remote) return;
   if (playing) stopPlay();
-  else enqueue(startPlay);
+  else enqueue(() => startPlay(null));
+}
+
+/** Play with the player at the middle of the view: the camera's target in 3D, the view's centre in 2D. */
+function playFromHere(): void {
+  if (!remote || playing) return;
+  const area = viewport.dimensions === 2 ? viewport.visibleArea() : null;
+  const target = viewport.dimensions === 3 ? viewport.cameraTarget() : null;
+  const from = area
+    ? { x: Math.round((area.left + area.right) / 2), y: Math.round((area.top + area.bottom) / 2) }
+    : target && { x: target.x, y: target.y + 1, z: target.z };
+  if (!from) return;
+  enqueue(() => startPlay({ from }));
+}
+
+/** Run the physics briefly in the host and write where dynamic bodies came to rest: the selection's, or every one. */
+async function settlePhysics(): Promise<void> {
+  if (!remote || playing || readOnly()) return;
+  const ids = selectedIds();
+  say('Settling…');
+  try {
+    const { settled } = await post<{ settled: { moved: string[] } | null }>('/__settle', { path: remote.path, ...(ids.length && { ids }) });
+    say(settled ? `Settled ${settled.moved.length} object${settled.moved.length === 1 ? '' : 's'}` : 'Nothing moved: no dynamic body was out of rest');
+  } catch (error) {
+    say(`Settle failed: ${String((error as Error).message ?? error)}`);
+  }
 }
 
 function updatePlayButton(): void {
@@ -1821,7 +1860,7 @@ function updatePlayButton(): void {
   text.className = 'text';
   text.textContent = playing ? 'Stop' : 'Play';
   playButton.append(text);
-  playButton.title = playing ? 'Stop and return to editing (F5)' : 'Play the scene as it stands, unsaved edits included (F5)';
+  playButton.title = playing ? 'Stop and return to editing (F5)' : 'Play the scene as it stands, unsaved edits included (F5; Shift+F5 from the middle of the view)';
 }
 
 // --- Build ---------------------------------------------------------------
@@ -2152,7 +2191,8 @@ document.addEventListener('keydown', (event) => {
   const mod = event.ctrlKey || event.metaKey;
   if (event.code === 'F5') {
     event.preventDefault();
-    togglePlay();
+    if (event.shiftKey && !playing) playFromHere();
+    else togglePlay();
     return;
   }
   // Alt+1, 2, 3: the scene tree, the dock, the inspector.
@@ -2263,6 +2303,12 @@ try {
 Object.assign(window, {
   m2dEditor: {
     viewport, place, togglePlay, select, selectedIds, selectedPath, edit, idle,
+    /** Play a variant (from a point, or a prefab's stage), or the scene as written; resolves once it runs. */
+    async play(variant: Variant = {}) {
+      await idle();
+      enqueue(() => startPlay(variant.from || variant.prefab ? variant : null));
+      await idle();
+    },
     /** Open a scene by path; resolves once it is shown (or failed: see `loadError`). */
     async openScene(path: string) {
       const next = project?.scenes.find((scene) => scene.path === path);

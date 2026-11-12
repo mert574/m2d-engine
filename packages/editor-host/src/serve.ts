@@ -37,6 +37,7 @@ import { Companion } from './companion.ts';
 import { PROJECT_FILE, type ProjectConfig } from './project.ts';
 import { createProject, TEMPLATES } from './templates.ts';
 import { SceneCamera } from './shots.ts';
+import { settle, type RunScene } from './playtest.ts';
 import { engineAlias, buildProject, previewProject, closePreview } from './build.ts';
 import { spawn } from 'node:child_process';
 import { openSync } from 'node:fs';
@@ -154,7 +155,7 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
   type Engine = { M2D: new (canvas: null, options: object) => HeadlessGame };
   type HeadlessGame = {
     registerActor(name: string, actor: unknown): void;
-    sceneManager: { addScene(name: string, config: object): void; switchTo(name: string): Promise<unknown>; getCurrentScene(): { entitiesById: Map<string, { position: { x: number; y: number; z?: number }; dead?: boolean }> } };
+    sceneManager: { addScene(name: string, config: object): void; switchTo(name: string): Promise<unknown>; getCurrentScene(): { entitiesById: Map<string, { position: { x: number; y: number; z?: number }; dead?: boolean; body?: { bodyType?: string; angle?: number; rotation?: { x: number; y: number; z: number; w: number } } }> } };
     step(ticks: number): number;
     entities: Set<{ sceneId?: string }>;
   };
@@ -180,52 +181,62 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
     await loaded.physics.initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
     const made = new loaded.engine.M2D(null, { ...options, headless: true });
     loaded.definition.register?.(made);
-    // The project's scene names, so cross-scene refs (a button's onClick,
-    // a rule's switch) check as registered in validate_scene too.
+    // The project's scenes as the session holds them: cross-scene refs (a
+    // button's onClick, a rule's switch) check as registered, and a level
+    // that instances another composes from its real document.
     try {
       const manager = (made as unknown as { sceneManager?: { addScene(name: string, scene: object): void } }).sceneManager;
       for (const scene of await companion.project.scenes()) {
-        if (scene.name) manager?.addScene(scene.name, { fetch: async () => ({}) });
+        if (scene.name) manager?.addScene(scene.name, { fetch: async () => structuredClone((await companion.session.document(scene.path)).data) });
       }
     } catch { /* names are a convenience; validation still runs without them */ }
     return made;
   };
   let validatorGame: Promise<HeadlessGame | null> | null = null;
+  const runScene: RunScene = async (data, ticks) => {
+    const made = await makeGame();
+    if (!made) throw new Error("the game's code did not load in the host");
+    const errors: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => { errors.push(args.map(String).join(' ').slice(0, 300)); };
+    const started = performance.now();
+    try {
+      // Its own name: the project's copy of this scene is registered under
+      // the scene's name already, and the first registration is the one loaded.
+      const name = `${typeof data.name === 'string' ? data.name : 'scene'}:run`;
+      made.sceneManager.addScene(name, { fetch: async () => structuredClone(data) });
+      await made.sceneManager.switchTo(name);
+      const scene = made.sceneManager.getCurrentScene();
+      const start = new Map([...scene.entitiesById].map(([id, entity]) => [id, { ...entity.position }]));
+      const placed = made.entities.size;
+      let ran = 0;
+      while (ran < ticks) {
+        const stepped = made.step(Math.min(60, ticks - ran));
+        ran += stepped;
+        if (!stepped) break;
+      }
+      const r = (v: number) => Math.round(v * 1000) / 1000;
+      const objects = [...scene.entitiesById].filter(([, entity]) => !entity.dead).map(([id, entity]) => {
+        const p = entity.position;
+        const s = start.get(id) ?? p;
+        const body = entity.body;
+        const q = p.z !== undefined ? body?.rotation : undefined;
+        return {
+          id, bodyType: body?.bodyType ?? 'dynamic', x: r(p.x), y: r(p.y), ...(p.z !== undefined && { z: r(p.z) }),
+          ...(q ? { rotation: [q.x, q.y, q.z, q.w] as [number, number, number, number] } : body?.angle !== undefined && { angle: body.angle }),
+          moved: r(Math.hypot(p.x - s.x, p.y - s.y, (p.z ?? 0) - (s.z ?? 0)))
+        };
+      });
+      const removed = [...start.keys()].filter((id) => !scene.entitiesById.has(id) || scene.entitiesById.get(id)?.dead);
+      const spawned = Math.max(0, made.entities.size - placed + removed.length);
+      return { ticks: ran, seconds: r((performance.now() - started) / 1000), objects, removed, spawned, errors };
+    } finally {
+      console.error = original;
+    }
+  };
   companion.provide({
     game: () => (validatorGame ??= makeGame()),
-    async runScene(data, ticks) {
-      const made = await makeGame();
-      if (!made) throw new Error("the game's code did not load in the host");
-      const errors: string[] = [];
-      const original = console.error;
-      console.error = (...args: unknown[]) => { errors.push(args.map(String).join(' ').slice(0, 300)); };
-      const started = performance.now();
-      try {
-        const name = typeof data.name === 'string' ? data.name : 'scene';
-        made.sceneManager.addScene(name, { fetch: async () => JSON.parse(JSON.stringify(data)) as unknown });
-        await made.sceneManager.switchTo(name);
-        const scene = made.sceneManager.getCurrentScene();
-        const start = new Map([...scene.entitiesById].map(([id, entity]) => [id, { ...entity.position }]));
-        const placed = made.entities.size;
-        let ran = 0;
-        while (ran < ticks) {
-          const stepped = made.step(Math.min(60, ticks - ran));
-          ran += stepped;
-          if (!stepped) break;
-        }
-        const r = (v: number) => Math.round(v * 1000) / 1000;
-        const objects = [...scene.entitiesById].filter(([, entity]) => !entity.dead).map(([id, entity]) => {
-          const p = entity.position;
-          const s = start.get(id) ?? p;
-          return { id, x: r(p.x), y: r(p.y), ...(p.z !== undefined && { z: r(p.z) }), moved: r(Math.hypot(p.x - s.x, p.y - s.y, (p.z ?? 0) - (s.z ?? 0))) };
-        });
-        const removed = [...start.keys()].filter((id) => !scene.entitiesById.has(id) || scene.entitiesById.get(id)?.dead);
-        const spawned = Math.max(0, made.entities.size - placed + removed.length);
-        return { ticks: ran, seconds: r((performance.now() - started) / 1000), objects, removed, spawned, errors };
-      } finally {
-        console.error = original;
-      }
-    },
+    runScene,
     build: () => buildProject(companion.project, companion.assets),
     screenshot: (shot) => camera.shoot(shot)
   });
@@ -306,6 +317,12 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
           if (url.pathname === '/__assets') {
             const assets = companion.assets;
             json(res, { files: await assets.list(), library: await assets.library(), jobs: assets.jobs });
+            return;
+          }
+          if (url.pathname === '/__settle' && req.method === 'POST') {
+            const body = await readBody(req) as { path?: string; seconds?: number; ids?: string[]; client?: string };
+            if (!body.path) throw new Error('a settle needs a scene path');
+            json(res, { settled: await settle(session, runScene, body.path, { seconds: body.seconds, ids: body.ids }, { origin: 'editor', client: body.client }) });
             return;
           }
           if (url.pathname === '/__thumb' && req.method === 'POST') {

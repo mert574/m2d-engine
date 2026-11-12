@@ -4,6 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { settle } from '../src/playtest.ts';
+import type { RunReport } from '../src/server.ts';
+import { structure, type Rest } from 'm2d-editor-core';
 import { Companion, Project, renderCredits } from '../src/index.ts';
 import { createProject } from '../src/templates.ts';
 
@@ -64,7 +67,7 @@ describe('the MCP server', () => {
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'build_project', 'create_scene', 'delete_scene', 'edit_scene', 'import_asset', 'inspect_node', 'list_assets',
       'list_components', 'list_scenes', 'outline_scene', 'read_scene', 'redo', 'rename_entry', 'rename_scene', 'run_scene', 'save_scene',
-      'screenshot_scene', 'search_library', 'undo', 'validate_scene'
+      'screenshot_scene', 'search_library', 'settle_scene', 'undo', 'validate_scene'
     ]);
     // Every tool says what it is for: the description is the agent's
     // only documentation.
@@ -277,6 +280,8 @@ describe('what only the serving host can do', () => {
     expect(textOf(run)).toMatch(/running editor/);
     const build = await client.callTool({ name: 'build_project', arguments: {} });
     expect(textOf(build)).toMatch(/running editor/);
+    const settled = await client.callTool({ name: 'settle_scene', arguments: { path: 'scenes/room.json' } });
+    expect(textOf(settled)).toMatch(/running editor/);
     const shot = await client.callTool({ name: 'screenshot_scene', arguments: { path: 'scenes/room.json' } });
     expect(shot.isError).toBe(true);
     expect(textOf(shot)).toMatch(/running editor/);
@@ -386,5 +391,28 @@ describe('the journal of unsaved edits', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('settling', () => {
+  const report = (objects: Rest[], errors: string[] = []): RunReport => ({ ticks: 120, seconds: 0, objects, removed: [], spawned: 0, errors });
+  const crate = (fields: Partial<Rest> = {}): Rest => ({ id: 'floor', bodyType: 'dynamic', x: 5, y: 42, moved: 42, ...fields });
+
+  it('writes where the run left dynamic bodies, as one labelled edit, and nothing when nothing moved', async () => {
+    const path = 'scenes/room.json';
+    const before = (await companion.session.snapshot(path)).state.undo;
+    let asked = 0;
+    const run = async (_data: Record<string, unknown>, ticks: number) => { asked = ticks; return report([crate()]); };
+    const settled = await settle(companion.session, run, path, { seconds: 1 }, { origin: 'agent' });
+    expect(asked).toBe(60);
+    expect(settled?.moved).toEqual(['floor']);
+    const doc = await companion.session.document(path);
+    expect(structure.valueAt(doc.data, ['layers', 0, 'objects', 0])).toMatchObject({ x: 5, y: 42 });
+    expect((await companion.session.snapshot(path)).state.undo).toBe('Settle 1 object (agent)');
+    await companion.session.undo(path, { origin: 'agent' });
+
+    expect(await settle(companion.session, async () => report([crate({ bodyType: 'static' })]), path, {}, { origin: 'agent' })).toBeNull();
+    await expect(settle(companion.session, async () => report([crate()], ['boom']), path, {}, { origin: 'agent' })).rejects.toThrow(/logged errors.*boom/);
+    expect((await companion.session.snapshot(path)).state.undo).toBe(before);
   });
 });

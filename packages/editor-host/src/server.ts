@@ -17,11 +17,13 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { sceneOutline, inspectNode, validateScene, structure, SCENE_VERSION, type Op } from 'm2d-editor-core';
+import { sceneOutline, inspectNode, validateScene, structure, SCENE_VERSION, type Op, type Rest } from 'm2d-editor-core';
 import type { Session, ChangeEvent } from './session.ts';
 import type { Assets } from './assets.ts';
 // Type-only: the stdio server never loads shots.ts (or playwright) at runtime.
 import type { Shot, ShotOptions } from './shots.ts';
+import { stage } from 'm2d-editor-core';
+import { settle } from './playtest.ts';
 
 export const SERVER_NAME = 'm2d-editor';
 export const SERVER_VERSION = '0.2.0';
@@ -54,8 +56,8 @@ export interface ServerOptions {
 export interface RunReport {
   ticks: number;
   seconds: number;
-  /** Each placed object still in the world, where it is now. */
-  objects: Array<{ id: string; x: number; y: number; z?: number; moved: number }>;
+  /** Each placed object still in the world: where it is now, its body as built, how far it went. */
+  objects: Rest[];
   /** Placed objects the run removed (collected, killed). */
   removed: string[];
   /** Entities the run spawned that the scene did not place. */
@@ -80,6 +82,11 @@ const summary = (event: ChangeEvent | null) => event
   : text('nothing to do');
 
 const AGENT = { origin: 'agent' };
+const AT = z.object({ x: z.number(), y: z.number(), z: z.number().optional() });
+const VARIANT = {
+  from: AT.optional().describe("Start the player here instead (world units; z in 3D): the editor's Play from here"),
+  prefab: z.string().optional().describe("Run this prefab alone on a floor instead of the scene: the editor's Stage")
+};
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /**
@@ -406,13 +413,36 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       'things fall, land and stay where they should.',
     inputSchema: {
       path: scenePath,
-      seconds: z.number().positive().max(60).optional().describe('How long to run, default 3')
+      seconds: z.number().positive().max(60).optional().describe('How long to run, default 3'),
+      ...VARIANT
     }
-  }, async ({ path: file, seconds }) => {
+  }, async ({ path: file, seconds, from, prefab }) => {
     if (!options.runScene) return text('run_scene needs the running editor (npm run editor <project>); the stdio server cannot load the game', true);
     try {
       const doc = await session.document(file);
-      return json(await options.runScene(doc.data, Math.round((seconds ?? 3) * 60)));
+      return json(await options.runScene(stage.variantOf(doc.data, { from, prefab }), Math.round((seconds ?? 3) * 60)));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('settle_scene', {
+    title: 'Settle physics',
+    description:
+      'Run the scene headless for some seconds and write where its dynamic bodies came to rest ' +
+      '(position, and angle or rotation) as one step of undo: crates stacked by hand stop ' +
+      'floating, a toppled barrel lies as it fell. The player and objects composed from another ' +
+      'scene are left alone. Nothing is written if the run logs errors. The editor\'s Settle does the same.',
+    inputSchema: {
+      path: scenePath,
+      seconds: z.number().positive().max(30).optional().describe('How long bodies get to settle, default 2'),
+      ids: z.array(z.string()).optional().describe('Settle only these objects; default every dynamic body')
+    }
+  }, async ({ path: file, seconds, ids }) => {
+    if (!options.runScene) return text('settle_scene needs the running editor (npm run editor <project>)', true);
+    try {
+      const settled = await settle(session, options.runScene, file, { seconds, ids }, AGENT);
+      return settled ? json(settled) : text('nothing moved; nothing was written');
     } catch (error) {
       return failure(error);
     }
@@ -428,17 +458,18 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       'runs the game for that many seconds first. The first call starts the browser (a few seconds).',
     inputSchema: {
       path: scenePath,
-      play: z.number().min(0).max(30).optional().describe('Seconds to play before the shot; 0 or absent: the edit view'),
+      play: z.number().min(0).max(30).optional().describe('Seconds to play before the shot; 0 or absent: the edit view (from or prefab play for 1s by default)'),
       focus: z.string().optional().describe('An object id to frame first, as F does in the editor'),
       view: z.enum(['scene', 'editor']).optional().describe('Default scene'),
       width: z.number().int().min(320).max(2560).optional().describe('Window width in px, default 1280'),
-      height: z.number().int().min(240).max(1600).optional().describe('Window height in px, default 800')
+      height: z.number().int().min(240).max(1600).optional().describe('Window height in px, default 800'),
+      ...VARIANT
     }
-  }, async ({ path: file, play, focus, view, width, height }) => {
+  }, async ({ path: file, play, focus, view, width, height, from, prefab }) => {
     if (!options.screenshot) return text('screenshot_scene needs the running editor (npm run editor <project>)', true);
     try {
-      await session.document(file);
-      const shot = await options.screenshot({ path: file, play, focus, view, width, height });
+      stage.variantOf((await session.document(file)).data, { from, prefab });
+      const shot = await options.screenshot({ path: file, play, focus, view, width, height, from, prefab });
       return {
         content: [
           { type: 'image' as const, data: shot.png.toString('base64'), mimeType: 'image/png' },

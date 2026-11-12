@@ -324,6 +324,70 @@ const SUITES = {
       await undoToClean(page, report);
     }),
 
+  /** Ember Valley: play from the middle of the view, a prefab on its stage restarting on an edit. */
+  playtest: (context, report, out) =>
+    drive(context, report, join(repo, 'examples/src/platformer'), 'scenes/level1.json', async (page) => {
+      const centre = await page.evaluate(() => {
+        const area = window.m2dEditor.viewport.visibleArea();
+        return { x: (area.left + area.right) / 2, y: (area.top + area.bottom) / 2 };
+      });
+      await page.keyboard.press('Shift+F5');
+      await until(page, () => window.m2dEditor.playing);
+      await page.evaluate(() => window.m2dEditor.idle());
+      const player = await page.evaluate(() => ({ ...window.m2dEditor.viewport.game.player.body.position }));
+      report.check('Shift+F5 starts the player at the middle of the view', Math.abs(player.x - centre.x) < 2, `player x ${player.x.toFixed(1)}, view ${centre.x.toFixed(1)}`);
+      await page.keyboard.press('F5');
+      await until(page, () => !window.m2dEditor.playing);
+      await page.evaluate(() => window.m2dEditor.idle());
+
+      await page.click('.tree button.row[data-path=\'["prefabs","movingPlatform"]\']', { button: 'right' });
+      await page.click('.menu .menu-item:has-text("Stage it")');
+      await until(page, () => window.m2dEditor.playing);
+      await page.evaluate(() => window.m2dEditor.idle());
+      const staged = await page.evaluate(() => [...window.m2dEditor.viewport.game.sceneManager.getCurrentScene().entitiesById.keys()]);
+      report.check('Stage it plays the prefab alone on a floor', staged.join() === 'stage-floor,stage', staged.join());
+      await page.waitForTimeout(800);
+      await shoot(page, out, 'playtest-stage', report);
+
+      await page.evaluate(() => { window.__stagedGame = window.m2dEditor.viewport.game; });
+      await page.evaluate(() => window.m2dEditor.edit({ label: 'Grip', ops: [{ op: 'set', path: ['prefabs', 'movingPlatform', 'physics', 'friction'], value: 0.5 }] }));
+      await until(page, () => window.m2dEditor.playing && window.m2dEditor.viewport.game && window.m2dEditor.viewport.game !== window.__stagedGame);
+      report.ok('an edit to the prefab restarts the stage');
+      report.check('undo stays available while staging', !(await page.isDisabled('#undo')));
+      await page.click('#undo');
+      await page.waitForTimeout(200);
+      await page.keyboard.press('F5');
+      await until(page, () => !window.m2dEditor.playing);
+      await page.evaluate(() => window.m2dEditor.idle());
+      await undoToClean(page, report);
+    }),
+
+  /** A fresh 3D template: a crate lifted into the air, settled from the scene's menu. */
+  async settle(context, report, out) {
+    const folder = await mkdtemp(join(tmpdir(), 'm2d-drive-settle-'));
+    try {
+      const project = join(folder, 'game');
+      await createProject(project, '3d');
+      await drive(context, report, project, 'scenes/room.json', async (page) => {
+        const crate = await page.evaluate(() => {
+          const layers = window.m2dEditor.remote.doc.data.layers;
+          for (const [l, layer] of layers.entries()) for (const [o, object] of layer.objects.entries()) if (object.prefab === 'crate') return { l, o, y: object.y };
+          return null;
+        });
+        await page.evaluate(({ l, o, y }) => window.m2dEditor.edit({ label: 'Lift', ops: [{ op: 'set', path: ['layers', l, 'objects', o, 'y'], value: y + 3 }] }), crate);
+        await page.click('.tree button.row[data-path="[]"]', { button: 'right' });
+        await page.click('.menu .menu-item:has-text("Settle physics")');
+        await until(page, () => window.m2dEditor.remote.state.undo?.startsWith('Settle'), 30000);
+        const y = await page.evaluate(({ l, o }) => window.m2dEditor.remote.doc.data.layers[l].objects[o].y, crate);
+        report.check('Settle physics brings the lifted crate back to rest', Math.abs(y - crate.y) < 0.05, `y ${y} (placed at ${crate.y}, lifted to ${crate.y + 3})`);
+        await shoot(page, out, 'settled', report);
+        await undoToClean(page, report);
+      });
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  },
+
   /** A fresh 2D template: the menu UI scene and its elements. */
   async template2d(context, report, out) {
     const folder = await mkdtemp(join(tmpdir(), 'm2d-drive-template-'));

@@ -23,6 +23,9 @@ export interface ShotOptions {
   view?: 'scene' | 'editor';
   width?: number;
   height?: number;
+  /** Play from here, or a prefab's stage: see `playtest.ts`. */
+  from?: { x: number; y: number; z?: number };
+  prefab?: string;
 }
 
 export interface Shot {
@@ -37,6 +40,7 @@ interface EditorHook {
   openScene(path: string): Promise<void>;
   idle(): Promise<void>;
   togglePlay(): void;
+  play(variant: { from?: ShotOptions['from']; prefab?: string }): Promise<void>;
   readonly playing: boolean;
   readonly loadError: string | null;
   readonly scenePath: string | null;
@@ -128,16 +132,15 @@ export class SceneCamera {
         }, options.focus);
         notes.push(found ? `framed ${options.focus}` : `no object '${options.focus}' on screen; not framed`);
       }
-      if (options.play) {
-        await page.evaluate(async () => {
-          const editor = (globalThis as unknown as Hooked).m2dEditor!;
-          editor.togglePlay();
-          await editor.idle();
-        });
+      const plays = Boolean(options.play || options.prefab || options.from);
+      if (plays) {
+        await page.evaluate(async (variant) => {
+          await (globalThis as unknown as Hooked).m2dEditor!.play(variant);
+        }, { from: options.from, prefab: options.prefab });
         const playing = await page.evaluate(() => (globalThis as unknown as Hooked).m2dEditor!.playing);
         if (!playing) throw new Error('play did not start; the game probably threw on load (see errors)');
-        await page.waitForTimeout(options.play * 1000);
-        notes.push(`after ${options.play}s of play`);
+        await page.waitForTimeout((options.play || 1) * 1000);
+        notes.push(`${options.prefab ? `prefab ${options.prefab} on its stage, ` : ''}after ${options.play || 1}s of play${options.from ? ' from the given point' : ''}`);
       } else {
         // A few frames for streaming textures and the post stack to settle.
         await page.waitForTimeout(700);
@@ -145,7 +148,7 @@ export class SceneCamera {
       const png = options.view === 'editor'
         ? await page.screenshot()
         : await page.locator('#screen').screenshot();
-      if (options.play) {
+      if (plays) {
         await page.evaluate(async () => {
           const editor = (globalThis as unknown as Hooked).m2dEditor!;
           if (editor.playing) { editor.togglePlay(); await editor.idle(); }
