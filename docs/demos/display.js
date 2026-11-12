@@ -23,7 +23,7 @@ function drawDetail(target, cx, cy, title) {
   target.drawText({ x: cx, y: cy + 10, text: SAMPLE, fillStyle: '#ffe082', fontSize: '12px', textAlign: 'center', textBaseline: 'middle' });
 }
 
-const scene = { version: 3, type: 'level', name: 'main', world: { gravity: { x: 0, y: 0 } } };
+const scene = { version: 4, type: 'level', name: 'main', world: { gravity: { x: 0, y: 0 } } };
 
 export default async function start(canvas) {
   await initPhysics();

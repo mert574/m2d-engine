@@ -801,3 +801,9 @@ input[type='color'].colour {
 }
 .panel-toggle:hover { background: var(--raise); color: var(--text); }
 .panel-toggle[aria-pressed='true'] { color: var(--text); }
+
+.overlay.paths .path-line { fill: none; stroke: rgba(98, 166, 255, 0.45); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.overlay.paths .path-line.active { stroke: #62a6ff; stroke-width: 2.5; stroke-dasharray: none; }
+.overlay.paths .path-point { fill: #62a6ff; stroke: rgba(0, 0, 0, 0.6); stroke-width: 1; pointer-events: all; cursor: grab; }
+.overlay.paths .path-point.first { fill: #fff; }
+.overlay.paths .path-point:hover { filter: brightness(1.3); }

@@ -178,7 +178,7 @@ function directional(columns) {
 }
 
 const scene = {
-  version: 3, name: 'keep', type: 'level', gameType: 'isometric',
+  version: 4, name: 'keep', type: 'level', gameType: 'isometric',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth', projection: 'isometric' },
   assets: {
     spritesheets: {

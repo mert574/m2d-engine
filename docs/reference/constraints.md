@@ -201,11 +201,15 @@ Does nothing while `game.player` is `null`. Draws its range, wander target and p
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `points` | `[]` | `{ x, y }` array, visited in order and repeated. Fewer than two means stay put |
+| `path` | | The name of one of the scene's [`paths`](./scene-format#paths). Wins over `points` |
+| `stopAtPoints` | `true` | With `path`: pause at every point of the path, or only at an open path's ends |
 | `speed` * | `3` | Cruise speed, px/s |
-| `waitTime` | `1000` | Pause at each point, in milliseconds |
+| `waitTime` | `1000` | Pause at each point, in milliseconds, in the constructor and in a scene's retune alike |
 | `acceleration` | `speed * 2` | px/s² |
 
-The body is placed at the first point on construction.
+With `points`, the body is placed at the first point on construction and returns from the last to the first in a straight line.
+
+With `path`, the body travels along the path's line by arc length, curves included. It starts from the point on the path nearest to where it was placed, so the placement chooses where along the route it begins. It goes round a closed path and back and forth along an open one. The travel state is in public fields, so `game.snapshot()` and `game.restore()` carry it.
 
 ## Hover
 

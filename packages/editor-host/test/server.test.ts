@@ -18,7 +18,7 @@ let companion: Companion;
 let client: Client;
 
 const level = (fields: Record<string, unknown> = {}) => JSON.stringify({
-  version: 3, type: 'level', name: 'room',
+  version: 4, type: 'level', name: 'room',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: { wall: { actor: 'Block', physics: { bodyType: 'static' } } },
   layers: [{ name: 'main', objects: [{ id: 'floor', prefab: 'wall', x: 0, y: 0 }] }],
@@ -31,7 +31,7 @@ beforeAll(async () => {
   await mkdir(join(root, 'node_modules', 'junk'), { recursive: true });
   await writeFile(join(root, 'scenes', 'room.json'), level());
   await writeFile(join(root, 'scenes', 'menu.json'), JSON.stringify({
-    version: 3, type: 'ui', name: 'menu',
+    version: 4, type: 'ui', name: 'menu',
     elements: [{ type: 'rect', id: 'background', fill: true, color: '#111' }]
   }, null, 2));
   await writeFile(join(root, 'scenes', 'lot.json'), level({ name: 'lot', generator: 'scripts/buildLot.mjs' }));
@@ -63,7 +63,7 @@ describe('the MCP server', () => {
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'build_project', 'create_scene', 'delete_scene', 'edit_scene', 'import_asset', 'inspect_node', 'list_assets',
-      'list_components', 'list_scenes', 'outline_scene', 'read_scene', 'redo', 'rename_scene', 'run_scene', 'save_scene',
+      'list_components', 'list_scenes', 'outline_scene', 'read_scene', 'redo', 'rename_entry', 'rename_scene', 'run_scene', 'save_scene',
       'screenshot_scene', 'search_library', 'undo', 'validate_scene'
     ]);
     // Every tool says what it is for: the description is the agent's
@@ -84,7 +84,7 @@ describe('the MCP server', () => {
   it('reads a scene as canonical text', async () => {
     const text = textOf(await client.callTool({ name: 'read_scene', arguments: { path: 'scenes/room.json' } }));
     expect(JSON.parse(text).name).toBe('room');
-    expect(text).toContain('"version": 3');
+    expect(text).toContain('"version": 4');
   });
 
   it('validates, and reports a problem with its field path', async () => {
@@ -177,6 +177,28 @@ describe('agents edit through the session', () => {
     const tamed = JSON.parse(textOf(await client.callTool({ name: 'create_scene', arguments: { name: '../escape' } })));
     expect(tamed.path).toBe('scenes/escape.json');
     await client.callTool({ name: 'delete_scene', arguments: { path: tamed.path } });
+  });
+
+  it('builds a path and renames it with its followers, in steps an agent can take', async () => {
+    const path = 'scenes/room.json';
+    const call = (name: string, args: Record<string, unknown>) => client.callTool({ name, arguments: { path, ...args } });
+    await call('edit_scene', { label: 'Add a route', ops: [
+      { op: 'set', path: ['paths'], value: { beat: { points: [{ x: 0, y: 0 }, { x: 100, y: 0 }] } } },
+      { op: 'set', path: ['layers', 0, 'objects', 0, 'constraints'], value: { patrol: { type: 'PathFollow', params: { path: 'beat' } } } }
+    ] });
+    await call('edit_scene', { label: 'Bend it', ops: [{ op: 'insert', path: ['paths', 'beat', 'points'], index: 1, value: { x: 50, y: 40 } }] });
+    expect(textOf(await call('outline_scene', {}))).toContain('beat');
+
+    const renamed = await call('rename_entry', { kind: 'paths', from: 'beat', to: 'round' });
+    expect(JSON.parse(textOf(renamed))).toMatchObject({ undo: 'Rename beat to round (agent)' });
+    const doc = JSON.parse(textOf(await call('read_scene', {}))) as { paths: Record<string, { points: unknown[] }>; layers: Array<{ objects: Array<{ constraints: { patrol: { params: { path: string } } } }> }> };
+    expect(Object.keys(doc.paths)).toEqual(['round']);
+    expect(doc.paths.round!.points).toHaveLength(3);
+    expect(doc.layers[0]!.objects[0]!.constraints.patrol.params.path).toBe('round');
+    expect((await call('rename_entry', { kind: 'paths', from: 'nope', to: 'x' })).isError).toBe(true);
+
+    for (let i = 0; i < 3; i++) await call('undo', {});
+    expect(companion.session.isDirty(path)).toBe(false);
   });
 
   it('refuses a malformed edit whole, saying where', async () => {

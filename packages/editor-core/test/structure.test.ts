@@ -12,7 +12,7 @@ import {
 
 function doc(): Record<string, unknown> {
   return {
-    version: 3, type: 'level', name: 'room',
+    version: 4, type: 'level', name: 'room',
     world: { dimensions: 3, gravity: { x: 0, y: -9.81, z: 0 } },
     assets: { spritesheets: { hero: { url: 'hero.png', frameWidth: 32, frameHeight: 32 } }, models: { crate: { url: 'crate.glb' } } },
     prefabs: {
@@ -160,8 +160,8 @@ describe('layers and objects', () => {
 
 describe('scenes', () => {
   it('makes a blank level or UI scene', () => {
-    expect(blankScene('new', 'level', 3, 3)).toMatchObject({ version: 3, type: 'level', world: { dimensions: 3 }, layers: [{ name: 'main', objects: [] }] });
-    expect(blankScene('menu', 'ui', 3)).toEqual({ version: 3, name: 'menu', type: 'ui', elements: [] });
+    expect(blankScene('new', 'level', 4, 3)).toMatchObject({ version: 4, type: 'level', world: { dimensions: 3 }, layers: [{ name: 'main', objects: [] }] });
+    expect(blankScene('menu', 'ui', 4)).toEqual({ version: 4, name: 'menu', type: 'ui', elements: [] });
   });
 });
 
@@ -173,7 +173,7 @@ describe('inspector rows', () => {
     expect(projection.alternatives?.map((a) => a.label)).toEqual(expect.arrayContaining(['isometric', '{ type, ratio }']));
     expect(projection.alternatives?.find((a) => a.label === '{ type, ratio }')?.value).toEqual({ type: expect.any(String) });
 
-    const ui = { version: 3, type: 'ui', elements: [{ type: 'rect', id: 'bg', fill: true }] };
+    const ui = { version: 4, type: 'ui', elements: [{ type: 'rect', id: 'bg', fill: true }] };
     const [element] = inspectNode(ui, ['elements']);
     expect(element!.alternatives?.map((a) => a.label)).toEqual(['button', 'text', 'image', 'rect']);
     expect(element!.alternatives?.find((a) => a.label === 'button')?.value).toMatchObject({ type: 'button' });
@@ -238,7 +238,7 @@ describe('props', () => {
 });
 
 describe('UI elements', () => {
-  const ui = (): Record<string, unknown> => ({ version: 3, type: 'ui', name: 'menu', elements: [] });
+  const ui = (): Record<string, unknown> => ({ version: 4, type: 'ui', name: 'menu', elements: [] });
 
   it('adds each kind valid from birth', async () => {
     const { addElement } = await import('../src/structure.ts');

@@ -16,7 +16,7 @@ export interface OutlineNode {
   label: string;
   /** Muted text beside it: the actor, a count. */
   detail?: string;
-  kind: 'scene' | 'world' | 'background' | 'group' | 'prefab' | 'layer' | 'object' | 'props' | 'tileLayer' | 'element' | 'sheet' | 'sceneInstance';
+  kind: 'scene' | 'world' | 'background' | 'group' | 'prefab' | 'layer' | 'object' | 'props' | 'tileLayer' | 'element' | 'sheet' | 'sceneInstance' | 'path';
   /** Into the document, for the inspector; empty for the scene itself. */
   path: PathSegment[];
   children?: OutlineNode[];
@@ -105,6 +105,15 @@ export function sceneOutline(doc: unknown): OutlineNode {
       children: rows
     });
   });
+
+  if (isPlainObject(data.paths)) {
+    const paths = Object.entries(data.paths).map(([name, path]): OutlineNode => {
+      const count = isPlainObject(path) && Array.isArray(path.points) ? path.points.length : 0;
+      const shape = isPlainObject(path) ? [path.smooth === true && 'smooth', path.closed === true && 'closed'].filter(Boolean).join(', ') : '';
+      return { label: name, detail: `${count} points${shape ? `, ${shape}` : ''}`, kind: 'path', path: ['paths', name] };
+    });
+    if (paths.length) children.push({ label: 'Paths', kind: 'group', path: ['paths'], children: paths });
+  }
 
   const tileLayers = Array.isArray(data.tileLayers) ? data.tileLayers : [];
   tileLayers.forEach((layer, index) => {

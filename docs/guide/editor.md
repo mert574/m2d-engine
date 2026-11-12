@@ -84,6 +84,10 @@ Right-click a prop group in the tree for the **brushes**. Scatter plants instanc
 
 A 2D level's tile layers paint. Double-click one in the tree (or right-click, Paint…): the grid draws over the world at the layer's tile size — through the projection, so an isometric floor paints on diamonds — and a palette shows the layer's sheet. Pick a tile, then drag to paint; Fill floods the region under the click; Erase clears. A stroke is one step of undo. A cell may carry its own frame, so one layer holds many tiles; a cell painted with the layer's own `tileX, tileY` is written short, as every older document already reads.
 
+## Paths
+
+A level's named `paths` draw over the world as faint dashed lines; click one to select it, or pick it under Paths in the tree. A selected path, and the routes a selected object follows (a named path it or its prefab refers to, or a `points` list of its own), draw solid with a handle on each point, the first one white. Drag a point to move it, double-click the line to add a point there, and Alt-click a point to remove it; a path keeps at least two. Each is one step of undo, and Snap applies to drags. The line drawn is the engine's own, so a smooth path shows the curve a follower travels. New path (on the scene, or the Paths group) lays one across the middle of the view; Rename carries every `path` that names it, and Delete says how many followers use it first.
+
 ## Animations
 
 Double-click a sprite sheet in the tree for the animation editor. The sheet draws with its frame grid; click frames to append them to the open animation, nudge them earlier or later, set the fps and whether it loops, and watch the preview, which runs on its own clock (an edited scene never animates). The same dialog slices the sheet: set the frame width and height and the grid follows. Every change is one step of undo, shared with any agent editing beside you.
@@ -159,6 +163,7 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `list_scenes`, `read_scene`, `outline_scene` | List the scenes, read one as canonical JSON, show its tree with paths |
 | `inspect_node` | The inspector's rows for one node |
 | `edit_scene` | Apply a list of set, insert and remove ops as one labelled step |
+| `rename_entry` | Rename a prefab, sprite sheet, model, environment or path along with every reference to it, as the editor's Rename does |
 | `undo`, `redo`, `save_scene` | Step the history, write the scene |
 | `validate_scene` | Every problem, with its path |
 | `list_assets`, `search_library`, `import_asset` | The project's asset files, a Poly Haven search, an import with its credit |

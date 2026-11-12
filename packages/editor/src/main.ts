@@ -29,7 +29,7 @@
  */
 
 import {
-  sceneOutline, inspectNode, uniqueId, isPlainObject, validateScene, parsePath, structure, rotation,
+  sceneOutline, inspectNode, uniqueId, isPlainObject, validateScene, parsePath, structure, paths, rotation,
   type OutlineNode, type PathSegment, type Op, type Edit, type ValidationIssue, type Quaternion
 } from 'm2d-editor-core';
 import { M2D } from 'm2d-engine/core/m2d.js';
@@ -45,6 +45,7 @@ import { createPropBrush } from './propBrush.ts';
 import { createTilePaint } from './tilePaint.ts';
 import { createAnimationEditor } from './animationEditor.ts';
 import { createViewHelpers, type Helper } from './viewHelpers.ts';
+import { createPathTool } from './pathEditor.ts';
 import { renderThumbnail } from './thumbnails.ts';
 import { createTree, type SelectMode } from './tree.ts';
 import { showMenu, SEPARATOR, type MenuItem } from './menu.ts';
@@ -306,9 +307,10 @@ const inspector = createInspector(inspectorPanel, {
     return [];
   }
 });
+const snapStep = (dimensions: 2 | 3): number => (dimensions === 3 ? 0.25 : 8);
 const overlay = createOverlay(viewportPanel, viewport, {
   snapping: () => snapBox.checked,
-  snapStep: (dimensions) => (dimensions === 3 ? 0.25 : 8),
+  snapStep,
   angleStep: Math.PI / 12,
   editable: () => !readOnly() && !playing,
   placed: (id) => {
@@ -384,6 +386,16 @@ const helpers = createViewHelpers(viewportPanel, viewport, {
   objectPath,
   edit: (path, value, label) => edit({ label, ops: [setDeep(path, value)] }),
   store: settings
+});
+const pathTool = createPathTool(viewportPanel, viewport, {
+  doc: () => remote?.doc.data ?? null,
+  selected: () => (selection ? selectedPath() : null),
+  select: (path) => select({ path }),
+  apply: (ops, label) => edit({ label, ops }),
+  editable: () => !readOnly() && !playing,
+  snapping: () => snapBox.checked,
+  snapStep,
+  say
 });
 for (const helper of ['grid', 'lights', 'camera'] as const) {
   helperTools[helper].setAttribute('aria-pressed', String(helpers.isOn(helper)));
@@ -508,6 +520,7 @@ function select(next: typeof selection): void {
   const others = selectedIds().slice(1).map(treePathOf).filter((path): path is PathSegment[] => !!path);
   tree.select(selectedId() ? treePathOf(selectedId()!) ?? [] : selectedPath(), others);
   overlay.select(playing ? [] : selectedIds());
+  pathTool.refresh();
   if (isolating) {
     // The isolated set follows the selection; nothing selected shows everything again.
     if (!selectedIds().length) { isolating = false; helperTools.isolate.setAttribute('aria-pressed', 'false'); }
@@ -543,6 +556,22 @@ function toggleSelected(id: string): void {
 }
 
 /** Select every object of a prefab: the one asked for, else the primary's. */
+/** A new path across the middle of the view, selected so its points can be dragged at once. */
+function newPath(): void {
+  if (!remote) return;
+  const area = viewport.dimensions === 2 ? viewport.visibleArea() : null;
+  const target = viewport.dimensions === 3 ? viewport.cameraTarget() : null;
+  const r = (value: number) => Math.round(value * 1000) / 1000;
+  const start = area
+    ? { x: Math.round((area.left * 3 + area.right) / 4), y: Math.round((area.top + area.bottom) / 2) }
+    : { x: r((target?.x ?? 0) - 2), y: r(target?.y ?? 0), z: r(target?.z ?? 0) };
+  const span = area ? Math.round((area.right - area.left) / 2) : 4;
+  const { ops, name } = structure.addPath(remote.doc.data, 'path', start, span);
+  edit({ label: `New path ${name}`, ops });
+  select({ path: ['paths', name] });
+  say(`Drag ${name}'s points; double-click its line to add one, Alt-click a point to remove it`);
+}
+
 function selectAllOfPrefab(prefab?: string): void {
   if (!remote) return;
   const name = prefab ?? (() => { const id = selectedId(); const path = id ? objectPath(id) : null; const object = path ? at(path) as { prefab?: unknown } : null; return typeof object?.prefab === 'string' ? object.prefab : null; })();
@@ -1145,6 +1174,17 @@ function treeMenu(node: OutlineNode): MenuItem[] {
       SEPARATOR,
       { label: 'Delete prefab', danger: true, action: () => { if (!uses || confirm(`${uses} object${uses === 1 ? ' uses' : 's use'} ${name}; delete it anyway? They will fail to load until re-pointed.`)) edit({ label: `Delete prefab ${name}`, ops: structure.removeEntry(data, ['prefabs'], name) }); } }
     );
+  } else if (node.kind === 'path') {
+    const name = String(node.path[1]);
+    const users = paths.pathUsers(data, name);
+    items.push(
+      { label: 'New path', action: newPath },
+      { label: 'Rename', action: () => { const to = prompt('Path name', name); if (to && to !== name) { try { edit({ label: `Rename ${name} to ${to}`, ops: structure.renameEntry(data, ['paths'], name, to) }); select({ path: ['paths', to] }); } catch (error) { say(String((error as Error).message ?? error)); } } } },
+      SEPARATOR,
+      { label: 'Delete path', danger: true, action: () => { if (!users || confirm(`${users} follower${users === 1 ? ' uses' : 's use'} ${name}; delete it anyway? They will fail to load until re-pointed.`)) edit({ label: `Delete path ${name}`, ops: structure.removeEntry(data, ['paths'], name) }); } }
+    );
+  } else if (node.kind === 'group' && node.path[0] === 'paths') {
+    items.push({ label: 'New path', action: newPath });
   } else if (node.kind === 'group' && node.path[0] === 'prefabs') {
     items.push({ label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } });
   } else if (node.kind === 'element') {
@@ -1165,7 +1205,8 @@ function treeMenu(node: OutlineNode): MenuItem[] {
   } else if (node.kind === 'scene') {
     items.push(
       { label: 'New layer', action: () => { const name = prompt('Layer name', `layer-${layers.length + 1}`); if (name) edit({ label: `Add layer ${name}`, ops: structure.addLayer(data, name) }); } },
-      { label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } }
+      { label: 'New prefab…', action: () => { showDock('components'); say('Pick an actor in Components and press New prefab'); } },
+      { label: 'New path', action: newPath }
     );
     if (viewport.dimensions === 2 && data.type === 'level') {
       items.push({ label: 'New tile layer…', action: () => {
@@ -2075,7 +2116,14 @@ viewportPanel.addEventListener('pointerup', (event) => {
   const owner = id?.includes('/') ? instancePathOf(id.split('/')[0]!) : null;
   if (owner) { select({ path: owner }); return; }
   if (start.ctrl && id) toggleSelected(id);
-  else select(id ? { ids: [id] } : null);
+  else if (id) select({ ids: [id] });
+  else if (!pathTool.onSelectedLine(event.clientX, event.clientY)) {
+    const path = pathTool.pathAt(event.clientX, event.clientY);
+    select(path ? { path: ['paths', path] } : null);
+  }
+});
+viewportPanel.addEventListener('dblclick', (event) => {
+  if (event.target instanceof HTMLCanvasElement) pathTool.addPointAt(event.clientX, event.clientY);
 });
 
 // Drop an asset card on the viewport to place it.
@@ -2214,7 +2262,7 @@ try {
 // viewport and the open replica. Read-only by convention.
 Object.assign(window, {
   m2dEditor: {
-    viewport, place, togglePlay, select, selectedIds, edit, idle,
+    viewport, place, togglePlay, select, selectedIds, selectedPath, edit, idle,
     /** Open a scene by path; resolves once it is shown (or failed: see `loadError`). */
     async openScene(path: string) {
       const next = project?.scenes.find((scene) => scene.path === path);

@@ -141,10 +141,10 @@ Proposed after E7b–E9 shipped and parked by the owner, to be picked up after t
 
 | Idea | What it is |
 | --- | --- |
-| ~~GUI test harness~~ | **Done, 12 Nov 2026**: `scripts/driveEditor.mjs` (`npm run test:editor`). Suites: lot (3D), platformer (2D, play), template2d (UI scene). Still to add: suites for scatter, tile paint, the animation editor and composition |
+| ~~GUI test harness~~ | **Done, 12 Nov 2026**: `scripts/driveEditor.mjs` (`npm run test:editor`). Suites: lot (3D), platformer (2D, play), paths (select, drag, add, remove points), template2d (UI scene). Still to add: suites for scatter, tile paint, the animation editor and composition |
 | Prefab isolation stage | A prefab on its own stage with its constraints ticking; prefab variants and inheritance once it exists |
 | Play-from-here, settle | Start a playtest with the player at the camera; a toggle that lets physics rest before a save |
-| Paths and splines | Patrol routes, moving-platform paths and roads as scene data with an on-canvas spline editor |
+| ~~Paths and splines~~ | **Done, 12 Nov 2026**: `paths` (format 4) with straight or smooth, open or closed lines; `PathFollow` follows one by name along its arc length; the editor draws every path and edits points on the canvas. Still to do: roads (a mesh or sprite strip drawn along a path) and following a path's tangent (a turning cart) |
 | Particle and cycle editors | A live-preview particle panel for `world.particles`; a gradient and curve widget for `world.cycle` |
 | Search and audit | Find every use of a prefab or asset across scenes; flag unused and missing assets |
 | Presence | Who (person or agent) has a scene open and what they have selected, over the host's one history |

@@ -135,7 +135,7 @@ add('gate', GATE.x, GATE.y, 220, 220, { visible: true, triggers: 'levelComplete'
 add('player', START.x, START.y, 60, 60);
 
 const scene = {
-  version: 3, name: 'field', type: 'level', gameType: 'rotatingTopDown',
+  version: 4, name: 'field', type: 'level', gameType: 'rotatingTopDown',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth' },
   assets: { spritesheets },
   // The far star field, barely moving; the Sky entity draws the nearer

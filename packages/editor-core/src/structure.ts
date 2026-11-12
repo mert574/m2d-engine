@@ -10,21 +10,15 @@
  * applies them.
  */
 
-import { isPlainObject, type PathSegment } from './descriptors.ts';
+import { isPlainObject, valueAt, type PathSegment } from './descriptors.ts';
+import { renamePathReferences, type PathPoint } from './paths.ts';
 import { uniqueId, type Op } from './edits.ts';
 import { fromAxisAngle, forScene, toEuler, type Quaternion } from './rotation.ts';
 
 /** A deep copy of plain JSON data; this package's `lib` has no DOM, so no `structuredClone`. */
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-/** The data at a path. */
-export function valueAt(doc: unknown, path: PathSegment[]): unknown {
-  let value = doc;
-  for (const segment of path) {
-    value = isPlainObject(value) || Array.isArray(value) ? (value as Record<string, unknown>)[segment as never] : undefined;
-  }
-  return value;
-}
+export { valueAt };
 
 /** An op that sets `value` at `path`, creating the first missing container on the way. */
 export function setDeep(doc: unknown, path: PathSegment[], value: unknown): Op {
@@ -67,7 +61,8 @@ export function removeEntry(doc: unknown, path: PathSegment[], key: string): Op[
  * Rename a record entry, carrying its references: a prefab's name lives
  * in every object and prop that uses it, a sprite sheet's in the prefabs
  * and tile layers that draw it, a model's and an environment's in the
- * mesh blocks and the world that name them.
+ * mesh blocks and the world that name them, a path's in every `path`
+ * field of the objects and prefabs that follow it.
  */
 export function renameEntry(doc: unknown, path: PathSegment[], from: string, to: string): Op[] {
   if (!to) throw new Error('an entry needs a name');
@@ -114,8 +109,18 @@ export function renameEntry(doc: unknown, path: PathSegment[], from: string, to:
     });
   } else if (key === 'assets.environments') {
     if (isPlainObject(data.world) && data.world.environment === from) ops.push({ op: 'set', path: ['world', 'environment'], value: to });
+  } else if (key === 'paths') {
+    ops.push(...renamePathReferences(doc, from, to));
   }
   return ops;
+}
+
+// --- Paths -------------------------------------------------------------------
+
+/** A new named path from `start` to a point `span` world units along x. */
+export function addPath(doc: unknown, base: string, start: PathPoint, span: number): { ops: Op[]; name: string } {
+  const name = uniqueKey(doc, ['paths'], base);
+  return { ops: addEntry(doc, ['paths'], name, { points: [start, { ...start, x: start.x + span }] }), name };
 }
 
 // --- Prefabs -----------------------------------------------------------------

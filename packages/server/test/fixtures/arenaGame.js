@@ -30,7 +30,7 @@ export const intents = defineIntents({
 });
 
 export const SCENE = {
-  version: 3, type: 'level', name: 'arena',
+  version: 4, type: 'level', name: 'arena',
   world: { gravity: { x: 0, y: 900 } },
   prefabs: {
     floor: { actor: 'Platform', physics: { bodyType: 'static', friction: 0.6 } },

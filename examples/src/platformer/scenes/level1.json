@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "name": "level1",
   "type": "level",
   "gameType": "sideScroll",
@@ -101,13 +101,7 @@
           "x": 1230,
           "y": 1120,
           "width": 128,
-          "properties": {
-            "path": {
-              "points": [{ "x": 1230, "y": 1120 }, { "x": 1560, "y": 1120 }],
-              "speed": 180,
-              "waitTime": 900
-            }
-          }
+          "properties": { "path": { "path": "ferry", "speed": 180, "waitTime": 900 } }
         },
         {
           "id": "movingPlatform-2",
@@ -115,13 +109,7 @@
           "x": 950,
           "y": 700,
           "width": 128,
-          "properties": {
-            "path": {
-              "points": [{ "x": 950, "y": 700 }, { "x": 950, "y": 430 }],
-              "speed": 160,
-              "waitTime": 900
-            }
-          }
+          "properties": { "path": { "path": "lift", "speed": 160, "waitTime": 900 } }
         },
         { "id": "coin-1", "prefab": "coin", "x": 870, "y": 1240, "width": 24, "height": 24 },
         { "id": "coin-2", "prefab": "coin", "x": 1395, "y": 1030, "width": 24, "height": 24 },
@@ -171,6 +159,10 @@
       ]
     }
   ],
+  "paths": {
+    "ferry": { "points": [{ "x": 1230, "y": 1120 }, { "x": 1560, "y": 1120 }] },
+    "lift": { "points": [{ "x": 950, "y": 700 }, { "x": 950, "y": 430 }] }
+  },
   "hud": [
     {
       "type": "text",

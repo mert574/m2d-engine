@@ -475,7 +475,7 @@ for (const mapConfig of MAPS) {
 
   game.sceneManager.addScene(mapConfig.scene, {
     fetch: async () => ({
-      version: 3, name: mapConfig.scene, type: 'level', gameType: 'topDown',
+      version: 4, name: mapConfig.scene, type: 'level', gameType: 'topDown',
       world: { width: built().width, height: built().height, gravity: { x: 0, y: 0 } },
       assets: { spritesheets: {
         lawn: { url: lawnTexture, frameWidth: 512, frameHeight: 512 },

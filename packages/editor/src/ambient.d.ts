@@ -110,3 +110,15 @@ declare module 'm2d-engine/core/renderers/index.js' {
 declare module 'm2d-engine/actors/prop.js' {
   export class Prop { constructor(body: unknown, sprite: unknown, game: unknown, options?: unknown); }
 }
+
+declare module 'm2d-engine/core/path.js' {
+  type PathPoint = { x: number; y: number; z?: number };
+  export class Path {
+    constructor(spec: { points: PathPoint[]; closed?: boolean; smooth?: boolean });
+    readonly line: PathPoint[];
+    readonly stops: number[];
+    readonly length: number;
+    pointAt(distance: number): PathPoint;
+    nearest(point: PathPoint): number;
+  }
+}

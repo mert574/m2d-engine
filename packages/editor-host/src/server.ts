@@ -199,6 +199,33 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
     }
   });
 
+  const RECORDS = {
+    prefabs: ['prefabs'], spritesheets: ['assets', 'spritesheets'], models: ['assets', 'models'],
+    environments: ['assets', 'environments'], paths: ['paths']
+  } as const;
+  server.registerTool('rename_entry', {
+    title: 'Rename a prefab, asset or path',
+    description:
+      'Rename an entry of a scene\'s prefabs, sprite sheets, models, environments or paths, and ' +
+      'every reference to it in the same step of undo: the objects that use a prefab, the prefabs ' +
+      'and tile layers that draw a sheet, the followers that name a path. The editor\'s Rename does ' +
+      'exactly this; use it instead of edit_scene, which would leave the references dangling.',
+    inputSchema: {
+      path: scenePath,
+      kind: z.enum(['prefabs', 'spritesheets', 'models', 'environments', 'paths']),
+      from: z.string().min(1),
+      to: z.string().min(1)
+    }
+  }, async ({ path: file, kind, from, to }) => {
+    try {
+      const doc = await session.document(file);
+      const ops = structure.renameEntry(doc.data, [...RECORDS[kind]], from, to);
+      return summary(await session.edit(file, { label: `Rename ${from} to ${to}`, ops }, AGENT));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
   server.registerTool('undo', {
     title: 'Undo',
     description: 'Undo the newest step of a scene\'s history — whoever made it, the person included.',

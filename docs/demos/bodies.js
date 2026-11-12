@@ -83,7 +83,7 @@ class Walker extends Block {
 }
 
 const SCENE = {
-  version: 3, name: 'bodies', type: 'level',
+  version: 4, name: 'bodies', type: 'level',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.6 } },

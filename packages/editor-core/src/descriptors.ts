@@ -33,6 +33,15 @@ export interface ResolveContext {
   };
 }
 
+/** The data at a path, or undefined where it leads nowhere. */
+export function valueAt(doc: unknown, path: PathSegment[]): unknown {
+  let value = doc;
+  for (const segment of path) {
+    value = isPlainObject(value) || Array.isArray(value) ? (value as Record<string, unknown>)[segment as never] : undefined;
+  }
+  return value;
+}
+
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

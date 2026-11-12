@@ -261,7 +261,7 @@ for (const [x, y] of [[1500, 700], [2200, 1600], [700, 800], [2700, 1250], [1300
 add('player', SPAWN.x, SPAWN.y - CHARACTER_FRAME / 2, CHARACTER_FRAME, CHARACTER_FRAME, { spriteOffsetY: Math.round(CHARACTER_FRAME * CHARACTER_FEET) });
 
 const scene = {
-  version: 3, name: 'grove', type: 'level', gameType: 'oblique',
+  version: 4, name: 'grove', type: 'level', gameType: 'oblique',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth' },
   assets: { spritesheets },
   tileLayers: [{ name: 'ground', spritesheet: 'grass', zIndex: -1 }],

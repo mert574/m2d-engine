@@ -265,6 +265,65 @@ const SUITES = {
       report.check('stop leaves the document clean', !(await history(page)).dirty);
     }),
 
+  /** Ember Valley's named paths: select by clicking the line, drag, add and remove points. */
+  paths: (context, report, out) =>
+    drive(context, report, join(repo, 'examples/src/platformer'), 'scenes/level1.json', async (page) => {
+      const selected = () => page.evaluate(() => {
+        const path = window.m2dEditor.selectedPath?.();
+        return path ? path.join('.') : null;
+      });
+      const lines = page.locator('svg.paths .path-line');
+      report.check('both paths drawn', await lines.count() === 2, `${await lines.count()} lines`);
+
+      const platform = await page.evaluate(() => window.m2dEditor.viewport.placement('movingPlatform-2').center);
+      await page.mouse.click(platform.x, platform.y);
+      await page.waitForTimeout(200);
+      report.check('a click on a follower selects it, not its path', (await page.evaluate(() => window.m2dEditor.selectedIds())).join() === 'movingPlatform-2');
+      report.check("the follower's route shows its handles", await page.locator('svg.paths .path-point').count() === 2);
+
+      const lift = await page.evaluate(() => {
+        const { viewport } = window.m2dEditor;
+        const a = viewport.groundToClient(950, 700);
+        const b = viewport.groundToClient(950, 430);
+        return a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null;
+      });
+      await page.evaluate(() => window.m2dEditor.select(null));
+      await page.mouse.click(lift.x, lift.y);
+      await page.waitForTimeout(200);
+      report.check('a click on the line selects the path', await selected() === 'paths.lift', String(await selected()));
+
+      const points = page.locator('svg.paths .path-point');
+      report.check('its points have handles', await points.count() === 2);
+      const box = await points.nth(1).boundingBox();
+      const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      for (let step = 1; step <= 8; step++) await page.mouse.move(from.x + step * 8, from.y);
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+      report.check('a drag commits one edit', (await history(page)).undo === 'Move point 2 of lift', (await history(page)).undo);
+      const moved = await page.evaluate(() => window.m2dEditor.remote.doc.data.paths.lift.points[1]);
+      report.check('the point moved right in whole pixels', moved.x > 950 && moved.y === 430 && Number.isInteger(moved.x), JSON.stringify(moved));
+
+      const mid = await page.evaluate(() => {
+        const { viewport, remote } = window.m2dEditor;
+        const [a, b] = remote.doc.data.paths.lift.points.map((p) => viewport.groundToClient(p.x, p.y));
+        return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      });
+      await page.mouse.dblclick(mid.x, mid.y);
+      await page.waitForTimeout(300);
+      report.check('a double-click adds a point', await points.count() === 3 && (await history(page)).undo === 'Add a point to lift', (await history(page)).undo);
+      await shoot(page, out, 'paths-edited', report);
+
+      const added = await points.nth(1).boundingBox();
+      await page.keyboard.down('Alt');
+      await page.mouse.click(added.x + added.width / 2, added.y + added.height / 2);
+      await page.keyboard.up('Alt');
+      await page.waitForTimeout(300);
+      report.check('an alt-click removes it', await points.count() === 2, `${await points.count()} points`);
+      await undoToClean(page, report);
+    }),
+
   /** A fresh 2D template: the menu UI scene and its elements. */
   async template2d(context, report, out) {
     const folder = await mkdtemp(join(tmpdir(), 'm2d-drive-template-'));

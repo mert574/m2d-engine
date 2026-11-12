@@ -30,7 +30,7 @@ class ProgressBar extends UIElement {
 
 // Scene JSON positions elements against anchors.
 const scene = {
-  version: 3, type: 'ui', name: 'main',
+  version: 4, type: 'ui', name: 'main',
   elements: [
     { type: 'rect', id: 'background', fill: true, color: '#1b2a38' },
     { type: 'text', id: 'title', anchor: 'top', x: 0, y: 16,

@@ -165,7 +165,7 @@ export class SceneLoader {
   /**
    * Expand a level's scene instances (`layers[].scenes[]`): each named
    * scene is loaded through this loader (so it validates, takes its
-   * defaults and composes its own instances), then its prefabs, assets,
+   * defaults and composes its own instances), then its prefabs, assets, paths,
    * objects and props join this level under the instance's id as a
    * prefix, placed by the instance's position and turn, with the
    * instance's `overrides` written over its objects first. One format
@@ -181,6 +181,7 @@ export class SceneLoader {
       environments: { ...scene.assets?.environments }
     };
     const prefabs = { ...scene.prefabs };
+    const paths = { ...scene.paths };
     const layers = scene.layers.map((layer) => ({ ...layer, objects: [...layer.objects], ...(layer.props && { props: [...layer.props] }) }));
 
     layers.forEach((layer, li) => {
@@ -220,6 +221,15 @@ export class SceneLoader {
             ...prefab,
             ...(prefab.spritesheet && { spritesheet: prefix + prefab.spritesheet }),
             ...(prefab.mesh?.model && { mesh: { ...prefab.mesh, model: prefix + prefab.mesh.model } })
+          };
+        }
+        for (const [key, path] of Object.entries(inner.paths ?? {})) {
+          paths[prefix + key] = {
+            ...path,
+            points: path.points.map((point) => {
+              const at = place(point.x, point.y, point.z);
+              return dimensions === 3 ? { x: round(at.x), y: round(at.y), z: round(at.z) } : { x: round(at.x), y: round(at.y) };
+            })
           };
         }
         for (const innerLayer of inner.layers ?? []) {
@@ -262,7 +272,7 @@ export class SceneLoader {
         }
       });
     });
-    return { ...scene, assets, prefabs, layers };
+    return { ...scene, assets, prefabs, layers, ...(Object.keys(paths).length && { paths }) };
   }
 
   /**
@@ -403,7 +413,9 @@ export class SceneLoader {
       model: scope(Object.keys(data.assets?.models ?? {}),
         (name, known) => `no model named '${name}' (declared: ${known.join(', ') || 'none'})`),
       environment: scope(Object.keys(data.assets?.environments ?? {}),
-        (name, known) => `no environment named '${name}' (declared: ${known.join(', ') || 'none'})`)
+        (name, known) => `no environment named '${name}' (declared: ${known.join(', ') || 'none'})`),
+      path: scope(Object.keys(data.paths ?? {}),
+        (name, known) => `no path named '${name}' (declared: ${known.join(', ') || 'none'})`)
     };
 
     if (this.game?.assets) {

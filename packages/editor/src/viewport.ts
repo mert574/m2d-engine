@@ -137,6 +137,7 @@ interface SceneLike {
     layers?: Array<{ props?: PropGroupLike[] }>;
     prefabs?: Record<string, { mesh?: { model?: string; scale?: number; offset?: V3; shape?: string } }>;
     tileLayers?: unknown[];
+    paths?: unknown;
     background?: unknown;
     elements?: Array<{ type?: string; id?: string; x?: number; y?: number; anchor?: string }>;
   };
@@ -151,6 +152,8 @@ interface SceneLike {
   rebuildTileLayers?(): void;
   /** Rebuild a UI scene's elements from the config in place (E9). */
   rebuildUIScene?(): void;
+  /** Rebuild the named paths from the config. */
+  rebuildPaths?(): void;
 }
 
 /** The slice of a built UI element the editor reads and poses. */
@@ -523,7 +526,7 @@ export class Viewport {
   apply(ops: readonly Op[], data: Record<string, unknown>): Applied {
     if (this.#playing) return { kind: 'rebuild' };
     const scene = this.#scene();
-    if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op) || tileLevel(op) || animationLevel(op) || elementLevel(op))) return { kind: 'rebuild' };
+    if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op) || tileLevel(op) || animationLevel(op) || elementLevel(op) || pathLevel(op))) return { kind: 'rebuild' };
     const result = validateScene(data, this.#game, { scenes: this.#library });
     if (!result.ok) return { kind: 'invalid', issues: result.issues };
 
@@ -565,6 +568,13 @@ export class Viewport {
       scene.config.elements = (result.loaded as { elements?: unknown[] }).elements as never;
       scene.rebuildUIScene();
       propsChanged += ops.filter(elementLevel).length;
+    }
+
+    // Nothing follows a path in edit mode, so a path edit is the map alone.
+    if (ops.some(pathLevel)) {
+      if (!scene.config || !scene.rebuildPaths || !isPlainObject(result.loaded)) return { kind: 'rebuild' };
+      scene.config.paths = (result.loaded as { paths?: unknown }).paths;
+      scene.rebuildPaths();
     }
 
     // Tile layers and the background rebuild from the config in place the
@@ -1452,6 +1462,10 @@ function tileLevel(op: Op): boolean {
 /** Whether an op only touches a sheet's animations: redefining them on the loaded sheet covers it. */
 function animationLevel(op: Op): boolean {
   return op.path[0] === 'assets' && op.path[1] === 'spritesheets' && typeof op.path[2] === 'string' && op.path[3] === 'animations';
+}
+
+function pathLevel(op: Op): boolean {
+  return op.path[0] === 'paths';
 }
 
 /** Whether an op only touches a UI scene's elements: the in-place element rebuild covers it. */

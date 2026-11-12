@@ -26,7 +26,7 @@ class Floor extends Entity {
 
 // A scene names the actors it uses as prefabs and places them in layers.
 const scene = {
-  version: 3, type: 'level', name: 'main',
+  version: 4, type: 'level', name: 'main',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: {
     floor: { actor: 'Floor', physics: { bodyType: 'static' } },

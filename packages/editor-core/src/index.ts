@@ -36,4 +36,6 @@ export type { Quaternion, Euler } from './rotation.ts';
 export { inspectNode, startingValue, type InspectedRow, type InspectOptions } from './inspect.ts';
 export { descriptorAt, resolveDescriptor, isPlainObject, type PathSegment, type ResolveContext } from './descriptors.ts';
 export * as structure from './structure.ts';
+export * as paths from './paths.ts';
+export type { PointList, PathPoint } from './paths.ts';
 export { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';

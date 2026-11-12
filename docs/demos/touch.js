@@ -72,7 +72,7 @@ class Wall extends Entity {
 }
 
 const scene = {
-  version: 3, type: 'level', name: 'main',
+  version: 4, type: 'level', name: 'main',
   world: { gravity: { x: 0, y: 0 } },
   prefabs: {
     wall: { actor: 'Wall', physics: { bodyType: 'static' } },

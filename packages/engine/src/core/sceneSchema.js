@@ -30,7 +30,7 @@ import { PROJECTION_TYPES } from './projection.js';
  * the version it was written for, and anything else is refused rather than
  * half-understood.
  */
-export const SCENE_VERSION = 3;
+export const SCENE_VERSION = 4;
 
 /**
  * What an `id` may look like: letters, digits, `-`, `_` and `.`, starting
@@ -688,6 +688,24 @@ const LAYER = s.object({
   scenes: s.array(SCENE_INSTANCE, { label: 'Scene instances', description: 'Other level scenes placed whole; see composition' })
 });
 
+// === Paths ===
+
+/**
+ * A named line through the level: a patrol route, a platform's track, a
+ * road's centre. `PathFollow` follows one by its `path`. Smooth paths
+ * curve through their points (centripetal Catmull-Rom); closed ones join
+ * the last point back to the first.
+ */
+const PATH = s.object({
+  points: s.array(s.object({
+    x: s.number({ required: true }),
+    y: s.number({ required: true }),
+    z: s.number()
+  }), { required: true, minLength: 2, label: 'Points' }),
+  closed: s.boolean({ initial: false, label: 'Closed', description: 'Join the last point back to the first' }),
+  smooth: s.boolean({ initial: false, label: 'Smooth', description: 'Curve through the points instead of straight segments' })
+});
+
 // === Tile layers ===
 
 const PARALLAX = s.union([
@@ -924,6 +942,13 @@ function checkDimension(level, fail) {
     });
     return;
   }
+  for (const [name, path] of Object.entries(level.paths ?? {})) {
+    (path.points ?? []).forEach((point, i) => {
+      if (point?.z !== undefined) {
+        fail(`paths.${name}.points[${i}].z`, "'z' needs a third axis, and this level is 2D (set world.dimensions to 3)");
+      }
+    });
+  }
   if (level.world?.environment !== undefined) {
     fail('world.environment', 'an environment lights a 3D level, and this level is 2D ' +
       '(set world.dimensions to 3)');
@@ -959,6 +984,7 @@ export const LEVEL_SCHEMA = s.object({
   layers: s.array(LAYER),
   background: BACKGROUND,
   tileLayers: s.array(TILE_LAYER),
+  paths: s.record(PATH, { label: 'Paths', description: 'Named lines objects follow by name' }),
   hud: s.array(HUD_ELEMENTS, { label: 'HUD', description: 'The overlay drawn over the level: texts, meters, notices, a minimap' })
 }, {
   refine(level, { fail }) {
@@ -985,6 +1011,14 @@ export const LEVEL_SCHEMA = s.object({
         }
       });
     });
+
+    // A composed path is prefixed with its instance's id and a slash, so a
+    // name of its own may not hold one.
+    for (const name of Object.keys(level.paths ?? {})) {
+      if (!ID_PATTERN.test(name)) {
+        fail(`paths.${name}`, `'${name}' is not a valid path name: letters, digits, '-', '_' and '.', starting with a letter or digit`);
+      }
+    }
 
     // A tile layer is addressed by name, so two with the same one means the
     // second silently replaces the first.

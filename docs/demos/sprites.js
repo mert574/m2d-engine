@@ -86,7 +86,7 @@ export default async function start(canvas) {
 
   game.sceneManager.addScene('main', {
     fetch: async () => ({
-      version: 3, type: 'level', name: 'main',
+      version: 4, type: 'level', name: 'main',
       world: { gravity: { x: 0, y: 0 } },
       assets: { spritesheets: {
         walker: { url: makeWalkerSheet(), frameWidth: FRAME, frameHeight: FRAME, animations: { walk: { frames: [[0, 0]] } } },

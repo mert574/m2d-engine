@@ -26,7 +26,7 @@ class Block extends Entity {
 }
 
 const scene = {
-  version: 3, type: 'level', name: 'main',
+  version: 4, type: 'level', name: 'main',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.5 } },

@@ -8,6 +8,7 @@ import { parseColor } from './renderers/geometry/color.js';
 import { SceneRules } from './rules.js';
 import { SceneHud } from './hud.js';
 import { SceneProps } from './sceneProps.js';
+import { Path } from './path.js';
 import { cycleLook, advanceCycle } from './look.js';
 import { lodFor } from './gltf.js';
 import { loadHDR } from './hdr.js';
@@ -52,6 +53,8 @@ export class Scene {
     this.meshMaterials = new Map();
     /** The level's props, their batches, colliders, lights and streaming; see sceneProps.js. */
     this.props = new SceneProps(this);
+    /** The level's `paths`, by name. @type {Map<string, Path>} */
+    this.paths = pathsOf(config);
     /**
      * Entities placed by the scene file, by their object `id`. Lets one
      * placed object refer to another — the gate a lever opens, the point a
@@ -586,6 +589,24 @@ export class Scene {
     if (this.config.background) this.setupBackground(this.config.background);
     for (const layer of this.config.tileLayers ?? []) this.setupTileLayer(layer);
     this.game.invalidate();
+  }
+
+  /**
+   * A path by the name an entity's scene object used for it. A composed
+   * object (`room-1/cart`) names the paths of the scene it came from,
+   * which composition put under the same prefix.
+   * @returns {Path|null}
+   */
+  pathFor(entity, name) {
+    const id = entity?.sceneId ?? '';
+    const prefix = id.includes('/') ? id.slice(0, id.lastIndexOf('/') + 1) : '';
+    return this.paths.get(prefix + name) ?? null;
+  }
+
+  /** The editor's path for an edited `paths` block: the map again, from the config. Edit mode only. */
+  rebuildPaths() {
+    if (!this.game.editMode) throw new Error('Scene.rebuildPaths is an edit-mode operation');
+    this.paths = pathsOf(this.config);
   }
 
   async setupLevelScene() {
@@ -1320,4 +1341,8 @@ export class Scene {
 /** A scene's `[x, y, z, w]` rotation as the 3D physics takes it. */
 function quaternion([x, y, z, w]) {
   return { x, y, z, w };
+}
+
+function pathsOf(config) {
+  return new Map(Object.entries(config?.paths ?? {}).map(([name, spec]) => [name, new Path(spec)]));
 }

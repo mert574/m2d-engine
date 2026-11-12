@@ -6,7 +6,7 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 
 | Key | Scene types | Required | Meaning |
 | --- | --- | --- | --- |
-| `version` | both | yes | The format version the scene is written for. The current one is `2` |
+| `version` | both | yes | The format version the scene is written for. The current one is `4` |
 | `type` | both | yes | `"level"` or `"ui"` |
 | `name` | both | no | Free text. Error messages use the registered name |
 | `title` | both | no | Free text, unused by the engine |
@@ -19,6 +19,7 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `layers` | level | no | See below |
 | `background` | level | no | See below |
 | `tileLayers` | level | no | See below |
+| `paths` | level | no | See below |
 | `elements` | ui | yes | See below |
 
 ## `world`
@@ -355,6 +356,27 @@ An array of tiled layers: one spritesheet frame repeated across the world, each 
 | `cells` | no | all | `[column, row]` pairs; only these cells are drawn |
 | `stretch` | no | `false` | Under a projection, fit the frame to each tile's projected box rather than drawing it at its own size, for a flat texture used as the ground |
 
+## `paths`
+
+Named lines through the level, by name: a patrol route, a platform's track. A `PathFollow` follows one by naming it in its `path` option, so several objects can share one route and the editor draws and edits it once.
+
+| Key | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `points` | yes | | Two or more `{ x, y }` points, `{ x, y, z }` in a 3D level. A 2D level refuses a `z` |
+| `closed` | no | `false` | Join the last point back to the first |
+| `smooth` | no | `false` | Curve through the points (centripetal Catmull-Rom) instead of joining them with straight segments |
+
+```json
+"paths": {
+  "lift": { "points": [{ "x": 950, "y": 700 }, { "x": 950, "y": 430 }] }
+},
+"layers": [{ "name": "main", "objects": [
+  { "id": "lift-1", "prefab": "movingPlatform", "x": 950, "y": 700, "properties": { "path": { "path": "lift", "speed": 160 } } }
+] }]
+```
+
+A path name follows the rules of an `id`. A `path` naming a path the scene does not declare is an error at load, with the names it does declare. An instanced scene's paths compose under the instance's prefix (`room-1/lift`), placed and turned with it, and its objects still name them as `lift`.
+
 ## `elements`
 
 An array of UI elements. Every element accepts these keys.
@@ -461,12 +483,13 @@ M2D scene 'yard': the scene is 3D but the game runs 2D physics — construct M2D
 A scene declares the format version it was written for, and the loader accepts exactly the one this engine reads. Anything else is refused rather than half-understood:
 
 ```
-Scene 'level1' at version: scene format 4 is newer than this engine understands (3); upgrade m2d-engine
+Scene 'level1' at version: scene format 5 is newer than this engine understands (4); upgrade m2d-engine
 ```
 
 There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and rewriting the scenes, which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.
 
 | Version | Change |
 | --- | --- |
+| 4 | `paths`: named lines a `PathFollow` follows. Nov 2026 |
 | 3 | `layers[].scenes[]`: scene instances (composition). Nov 2026 |
 | 2 | The format the editor was built against |
