@@ -21,14 +21,7 @@ import { menuBackdrop } from './menuBackdrop.js';
 import { Ship, Bound, Sky } from './fieldActors.js';
 import { register } from './game.js';
 import { sceneHooks } from './hooks.js';
-import { symmetricalTree, redux, audioOption } from '../shared/audio.js';
-import laserSound from './sounds/laser1.ogg';
-import droneLaserSound from './sounds/laser2.ogg';
-import zapSound from './sounds/zap.ogg';
-import hitSound from './sounds/shieldDown.ogg';
-import salvageSound from './sounds/shieldUp.ogg';
-import gateSound from './sounds/twoTone.ogg';
-import loseSound from './sounds/lose.ogg';
+import { symmetricalTree, audioOption } from '../shared/audio.js';
 import layout from './layout.json';
 
 const canvas = document.getElementById('screen');
@@ -42,13 +35,9 @@ const game = new M2D(canvas, {
   worldWidth: layout.world.width,
   worldHeight: layout.world.height,
   basePath: import.meta.env.BASE_URL + 'drift/',
-  sounds: {
-    laser: { src: laserSound, volume: 0.35 }, droneLaser: { src: droneLaserSound, volume: 0.3 },
-    zap: { src: zapSound, volume: 0.5 }, hit: { src: hitSound, volume: 0.6 },
-    salvage: { src: salvageSound, volume: 0.6 }, gate: { src: gateSound, volume: 0.7 },
-    lose: { src: loseSound, volume: 0.7 }, boost: { src: salvageSound, volume: 0.3 }
-  },
-  music: { menu: { src: symmetricalTree, volume: 0.6 }, game: { src: redux, volume: 0.55 } }
+  // The level's sounds and music are the scene's (assets.sounds, assets.music
+  // in field.json); the menu is a code screen, so its track stays here.
+  music: { menu: { src: symmetricalTree, volume: 0.6 } }
 });
 
 register(game);

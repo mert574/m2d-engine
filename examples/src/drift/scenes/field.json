@@ -3,7 +3,33 @@
   "name": "field",
   "type": "level",
   "gameType": "rotatingTopDown",
-  "world": { "width": 7000, "height": 7000, "gravity": { "x": 0, "y": 0 }, "sort": "depth" },
+  "world": {
+    "width": 7000,
+    "height": 7000,
+    "gravity": { "x": 0, "y": 0 },
+    "sort": "depth",
+    "player": "player-1",
+    "camera": {
+      "lerp": 0.1,
+      "bounds": "world",
+      "followRotation": true,
+      "rotationLerp": 0.03,
+      "rotationMaxRate": 1.1
+    },
+    "lighting": { "ambient": "#eceef6" },
+    "post": {
+      "bloom": { "threshold": 0.6, "strength": 0.55, "blur": 26 },
+      "vignette": { "strength": 0.35, "start": 0.65 },
+      "grade": {
+        "shadows": "#10142a",
+        "highlights": "#e8f0ff",
+        "amount": 0.25,
+        "saturation": 1.1,
+        "contrast": 1.05
+      }
+    },
+    "music": { "track": "game" }
+  },
   "assets": {
     "spritesheets": {
       "starsFar": { "url": "textures/backgrounds/stars-far.png", "frameWidth": 256, "frameHeight": 256 },
@@ -22,7 +48,18 @@
       "greyMed2": { "url": "textures/meteors/grey-med2.png", "frameWidth": 45, "frameHeight": 40 },
       "brownSmall1": { "url": "textures/meteors/brown-small1.png", "frameWidth": 28, "frameHeight": 28 },
       "greySmall2": { "url": "textures/meteors/grey-small2.png", "frameWidth": 29, "frameHeight": 26 }
-    }
+    },
+    "sounds": {
+      "laser": { "url": "sounds/laser1.ogg", "volume": 0.35 },
+      "droneLaser": { "url": "sounds/laser2.ogg", "volume": 0.3 },
+      "zap": { "url": "sounds/zap.ogg", "volume": 0.5 },
+      "hit": { "url": "sounds/shieldDown.ogg", "volume": 0.6 },
+      "salvage": { "url": "sounds/shieldUp.ogg", "volume": 0.6 },
+      "gate": { "url": "sounds/twoTone.ogg", "volume": 0.7 },
+      "lose": { "url": "sounds/lose.ogg", "volume": 0.7 },
+      "boost": { "url": "sounds/shieldUp.ogg", "volume": 0.3 }
+    },
+    "music": { "game": { "url": "music/halogen-redux.ogg", "volume": 0.55 } }
   },
   "prefabs": {
     "player": {
@@ -2567,5 +2604,52 @@
       ]
     }
   ],
-  "tileLayers": [{ "name": "starsFar", "spritesheet": "starsFar", "zIndex": -3, "parallax": 0.12 }]
+  "tileLayers": [{ "name": "starsFar", "spritesheet": "starsFar", "zIndex": -3, "parallax": 0.12 }],
+  "hud": [
+    {
+      "type": "text",
+      "id": "objective",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": { "text": "", "fontSize": "15px", "color": "#ffd66e", "align": "left", "letterSpacing": 1 }
+    },
+    {
+      "type": "meter",
+      "id": "hull",
+      "x": 20,
+      "y": 44,
+      "anchor": "top-left",
+      "width": 200,
+      "properties": { "label": "HULL", "color": "#7fd4ff", "low": "#ff6a5a" }
+    },
+    {
+      "type": "text",
+      "id": "notice",
+      "x": 0,
+      "y": -120,
+      "anchor": "center",
+      "properties": {
+        "text": "",
+        "fontSize": "30px",
+        "fontWeight": "600",
+        "color": "#e8f0ff",
+        "align": "center",
+        "letterSpacing": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": -20,
+      "y": -16,
+      "anchor": "bottom-right",
+      "properties": {
+        "text": "Arrows steer and thrust · Down brakes · X fires · C boosts · the view turns with you",
+        "fontSize": "13px",
+        "color": "rgba(220, 228, 255, 0.55)",
+        "align": "right"
+      }
+    }
+  ]
 }

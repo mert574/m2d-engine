@@ -1,4 +1,3 @@
-import { UIText } from 'm2d-engine/core/ui/text.js';
 import { UIMeter } from 'm2d-engine/core/ui/meter.js';
 import { UIMinimap } from 'm2d-engine/core/ui/minimap.js';
 import { SpriteSheet } from 'm2d-engine/core/spriteSheet.js';
@@ -52,40 +51,27 @@ export function sceneHooks(game) {
         game.player.flame = extraSheets.flame;
         game.player.flameBoost = extraSheets.flameBoost;
         game.player.shieldSprite = extraSheets.shield;
-        game.soundManager.playMusic('game');
-
-        game.camera.bounds = { left: 0, top: 0, right: layout.world.width, bottom: layout.world.height };
-        game.camera.lerp = 0.1;
-        game.camera.followRotation = true;
-        // Slow and capped: the field drifts round rather than whipping.
-        game.camera.rotationLerp = 0.03;
-        game.camera.rotationMaxRate = 1.1;
+        // The camera's follow, bounds and rotation are the scene's
+        // (world.camera in field.json); only the first frame's pose is
+        // snapped here, so entering the field never swings the view.
         game.camera.zoom = 1;
         const start = game.player.renderAnchor;
         game.camera.x = start.x;
         game.camera.y = start.y;
         game.camera.rotation = game.player.body.angle - Math.PI / 2;
 
-        // Space is lit by nothing, so the sprites carry their own light: a near
-        // white ambient, and the lights pass only for glow and bloom.
-        game.renderer.setAmbientLight('#eceef6');
-        game.renderer.setPostEffects({
-          bloom: { threshold: 0.6, strength: 0.55, blur: 26 },
-          vignette: { strength: 0.35, start: 0.65 },
-          grade: { shadows: '#10142a', highlights: '#e8f0ff', amount: 0.25, saturation: 1.1, contrast: 1.05 }
-        });
-
         const entities = [...game.entities];
         const pods = entities.filter(e => e instanceof Salvage);
         const gate = entities.find(e => e instanceof Gate);
         let taken = 0;
 
+        // The HUD's static parts are the scene's (hud in field.json). The
+        // boost meter computes its fill from the control constraint and the
+        // minimap plots by class with live colours, so both stay here.
         const ui = scene.ui;
-        const objective = ui.add(new UIText({ x: 20, y: 16, anchor: 'top-left', align: 'left', text: '', fontSize: '15px', letterSpacing: 1, color: '#ffd66e' }));
-        ui.add(new UIMeter(() => { const h = game.player?.getConstraint('health'); return h ? { current: h.currentHealth, max: h.maxHealth } : null; }, { x: 20, y: 44, width: 200, color: k => (k > 0.35 ? '#7fd4ff' : '#ff6a5a'), label: 'HULL' }));
+        const objective = scene.hud?.elements.get('objective') ?? { text: '' };
+        const notice = scene.hud?.elements.get('notice') ?? { text: '' };
         ui.add(new UIMeter(() => { const c = game.player?.getConstraint('control'); return c ? (c.boosting ? 1 : 1 - c.boostWait / c.boostCooldown) : null; }, { x: 20, y: 76, width: 200, height: 6, color: k => (k >= 1 ? '#ffd66e' : '#6a7a9a'), label: 'BOOST · C' }));
-        const notice = ui.add(new UIText({ x: 0, y: -120, anchor: 'center', align: 'center', text: '', fontSize: '30px', fontWeight: '600', letterSpacing: 3, color: '#e8f0ff' }));
-        ui.add(new UIText({ x: -20, y: -16, anchor: 'bottom-right', align: 'right', text: 'Arrows steer and thrust · Down brakes · X fires · C boosts · the view turns with you', fontSize: '13px', color: 'rgba(220, 228, 255, 0.55)' }));
         const minimap = ui.add(new UIMinimap(game, {
           size: 200, bounds: layout.world, background: 'rgba(8, 10, 22, 0.88)', borderColor: 'rgba(127, 212, 255, 0.45)',
           plot(entity) {
@@ -151,8 +137,7 @@ export function sceneHooks(game) {
       onExit() {
         for (const stop of unsubscribe) stop();
         unsubscribe = [];
-        game.renderer.setAmbientLight(null);
-        game.renderer.setPostEffects(null);
+        game.camera.rotation = 0;
       }
     }
   };

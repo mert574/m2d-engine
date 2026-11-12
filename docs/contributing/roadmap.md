@@ -166,24 +166,32 @@ helpers (Quest, Npc, UIDialogue, UIMinimap, UIAbilityBar, UIBackdrop)
 from the engine** — and only then a hook for what truly has no home.
 The F-items that survive this cut are listed at the end.
 
-**Every project** still sets what the scene can already say:
+**Every project** still set what the scene can already say — **done,
+12 Nov 2026**, in one round:
 
-- Ash Row, Salvage Run, Cinder Keep and Hollow Grove set the ambient
-  light and the post pass in `onEnter` — `world.lighting` and
-  `world.post` shipped (F2) and Ember Valley and The Facility already
-  migrated. Same move, four more times.
-- Every project's sounds and music are page imports under `main.js`
-  (Ash Row even imports Hollow Grove's footstep files across projects).
-  `assets.sounds`, `assets.music` and `world.music` shipped (F5): move
-  the files into each project and name them in the scene. The audit's
-  "unused files" today are mostly these, invisible to the scenes.
-- Every 2D project builds its HUD in `onEnter` from `UIText`/`UIMeter`:
-  the `hud` block (F6) covers the objective line, the health meter, the
-  notice and the controls hint as data. What remains code is the odd
-  computed meter (Salvage Run's boost fraction) and blinking signs.
+- The light and the post pass moved into `world.lighting` and
+  `world.post` for Ash Row, Salvage Run, Cinder Keep and Hollow Grove
+  (Ember Valley and The Facility had them); the keep's and the drift's
+  cameras moved into `world.camera` on the way, with `bounds: "world"`
+  taught to project (an isometric camera clamps to the projected
+  ground). Hooks no longer clear any of it: the scene set it, the
+  engine clears it.
+- Every level's sounds and music are its scene's (`assets.sounds`,
+  `assets.music`, `world.music`), the files copied into each project —
+  Ash Row and Cinder Keep had imported Hollow Grove's footstep files
+  across projects. The menus are still code screens, so each menu's
+  track stays a page registration until F15.
+- The HUDs' static parts are `hud` blocks: the objective line, the
+  health meter, the notice, the hint, the yard's titles. The hud text
+  gained `letterSpacing` and an outline, the meter a `low` colour, the
+  minimap plot `{ shape, color, size }`, so nothing dimmed in the move.
+  Still code, deliberately: Salvage Run's boost meter (computed fill),
+  the `instanceof` minimaps with live colours, the keep's ability bar
+  and satchel, the grove's dialogue, and the hooks that write into the
+  HUD's elements by id.
 - Actor tunables as module constants (`static properties` instead) —
   the (a) columns of the audit below still stand; they are declarations,
-  not features.
+  not features. **Still to do.**
 
 **Per project, the rewrites worth doing** (no new engine work):
 

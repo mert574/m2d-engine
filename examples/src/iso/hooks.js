@@ -1,18 +1,8 @@
-import { UIText } from 'm2d-engine/core/ui/text.js';
 import { UIMinimap } from 'm2d-engine/core/ui/minimap.js';
-import { UIMeter } from 'm2d-engine/core/ui/meter.js';
 import { UIAbilityBar } from 'm2d-engine/core/ui/abilityBar.js';
 import { Wall, Ember, Stair, Creature, Quartermaster } from './keepActors.js';
 import { WORLD, keepScene } from './game.js';
 import { SatchelBar, SatchelScreen, ShopScreen } from './satchelUI.js';
-import {
-  attackSound, damageSound, coinSound, levelCompleteSound, gameOverSound,
-  spawnSound, solvedSound, november
-} from '../shared/audio.js';
-import step1 from '../oblique/sounds/footstep-grass-1.wav';
-import step2 from '../oblique/sounds/footstep-grass-2.wav';
-import step3 from '../oblique/sounds/footstep-grass-3.wav';
-import step4 from '../oblique/sounds/footstep-grass-4.wav';
 import cleaveIcon from './textures/icons/cleave.png';
 import dashIcon from './textures/icons/dash.png';
 import shieldIcon from './textures/icons/emberShield.png';
@@ -42,16 +32,6 @@ export const OPTIONS = { textureFilter: 'nearest' };
  * @param {() => void} [options.leave] - Out of the keep, on Escape or after descending: back to the menu, unless the page has a match to leave
  */
 export function sceneHooks(game, { leave = () => game.sceneManager.switchTo('mainMenu') } = {}) {
-  const sounds = game.soundManager;
-  for (const [key, file] of Object.entries({
-    attack: attackSound, damage: damageSound, coin: coinSound,
-    levelComplete: levelCompleteSound, gameOver: gameOverSound,
-    dash: spawnSound, shield: solvedSound,
-    step1: { src: step1, volume: 0.5 }, step2: { src: step2, volume: 0.5 },
-    step3: { src: step3, volume: 0.5 }, step4: { src: step4, volume: 0.5 }
-  })) sounds.loadSound(key, file);
-  sounds.loadMusic('game', { src: november, volume: 0.6 });
-
   const icons = { cleave: loadImage(cleaveIcon), dash: loadImage(dashIcon), emberShield: loadImage(shieldIcon) };
 
   let unsubscribe = [];
@@ -70,24 +50,13 @@ export function sceneHooks(game, { leave = () => game.sceneManager.switchTo('mai
       ...simulation,
       onShow() {
         const scene = game.sceneManager.getCurrentScene();
-        game.soundManager.playMusic('game');
-
-        // The camera moves on the render plane, so its bounds are the
-        // projected extent of the ground.
-        const bounds = game.projection.boundsOf(0, 0, WORLD.width, WORLD.height);
-        game.camera.bounds = bounds;
-        game.camera.lerp = 0.1;
+        // The camera, light, post pass, music and the HUD's static parts are
+        // the scene's (world and hud in keep.json); the first frame's pose is
+        // snapped here so entering the keep never swings the view.
         game.camera.zoom = 1;
         const start = game.player.renderAnchor;
         game.camera.x = start.x;
         game.camera.y = start.y;
-
-        game.renderer.setAmbientLight('#575062');
-        game.renderer.setPostEffects({
-          bloom: { threshold: 0.65, strength: 0.4, blur: 22 },
-          vignette: { strength: 0.5, start: 0.55 },
-          grade: { shadows: '#1a1422', highlights: '#ffd9b0', amount: 0.3, saturation: 1.05, contrast: 1.06 }
-        });
 
         const entities = [...game.entities];
         const stair = entities.find(e => e instanceof Stair);
@@ -95,17 +64,10 @@ export function sceneHooks(game, { leave = () => game.sceneManager.switchTo('mai
         const local = game.players.local;
 
         const ui = scene.ui;
-        const objective = ui.add(new UIText({ x: 20, y: 16, anchor: 'top-left', align: 'left', text: '', fontSize: '15px', letterSpacing: 1, color: '#ffc890' }));
-        ui.add(new UIMeter(() => {
-          const health = game.player?.getConstraint('health');
-          return health ? { current: health.currentHealth, max: health.maxHealth } : null;
-        }, { x: 20, y: 44, color: k => (k > 0.35 ? '#e0905a' : '#ff5a4e') }));
-        const notice = ui.add(new UIText({ x: 0, y: -120, anchor: 'center', align: 'center', text: '', fontSize: '30px', fontWeight: '600', letterSpacing: 3, color: '#ffe9cc' }));
-        ui.add(new UIText({
-          x: -20, y: -16, anchor: 'bottom-right', align: 'right',
-          text: 'Click to walk · Arrows move along the screen · X swings · 1 2 3 abilities · I satchel · E trades · Wheel zooms',
-          fontSize: '13px', color: 'rgba(240, 230, 220, 0.55)'
-        }));
+        const objective = scene.hud?.elements.get('objective') ?? { text: '' };
+        const notice = scene.hud?.elements.get('notice') ?? { text: '' };
+        // The minimap plots by class with live colours, and the ability bar
+        // and satchel are the keep's own screens: they stay here.
         const minimap = ui.add(new UIMinimap(game, {
           size: 220, bounds: WORLD, background: 'rgba(14, 12, 18, 0.9)', borderColor: 'rgba(255, 200, 140, 0.45)',
           plot(entity) {
@@ -190,8 +152,6 @@ export function sceneHooks(game, { leave = () => game.sceneManager.switchTo('mai
         quartermaster = null;
         hud = null;
         for (const name of ['satchel', 'shop', 'itemOptions']) game.ui.get(name)?.close();
-        game.renderer.setAmbientLight(null);
-        game.renderer.setPostEffects(null);
       }
     }
   };

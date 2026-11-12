@@ -8,7 +8,21 @@
     "height": 3072,
     "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
-    "projection": "isometric"
+    "projection": "isometric",
+    "camera": { "lerp": 0.1, "bounds": "world" },
+    "lighting": { "ambient": "#575062" },
+    "post": {
+      "bloom": { "threshold": 0.65, "strength": 0.4, "blur": 22 },
+      "vignette": { "strength": 0.5, "start": 0.55 },
+      "grade": {
+        "shadows": "#1a1422",
+        "highlights": "#ffd9b0",
+        "amount": 0.3,
+        "saturation": 1.05,
+        "contrast": 1.06
+      }
+    },
+    "music": { "track": "game" }
   },
   "assets": {
     "spritesheets": {
@@ -203,7 +217,21 @@
           "run": { "frames": [[2, 6], [3, 6]], "fps": 6 }
         }
       }
-    }
+    },
+    "sounds": {
+      "attack": { "url": "sounds/minimize_008.ogg" },
+      "damage": { "url": "sounds/error_008.ogg" },
+      "coin": { "url": "sounds/confirmation_001.ogg" },
+      "levelComplete": { "url": "sounds/maximize_008.ogg" },
+      "gameOver": { "url": "sounds/error_006.ogg" },
+      "dash": { "url": "sounds/drop_003.ogg" },
+      "shield": { "url": "sounds/maximize_006.ogg" },
+      "step1": { "url": "sounds/footstep-grass-1.wav", "volume": 0.5 },
+      "step2": { "url": "sounds/footstep-grass-2.wav", "volume": 0.5 },
+      "step3": { "url": "sounds/footstep-grass-3.wav", "volume": 0.5 },
+      "step4": { "url": "sounds/footstep-grass-4.wav", "volume": 0.5 }
+    },
+    "music": { "game": { "url": "music/chaoticpulse-november.ogg", "volume": 0.6 } }
   },
   "prefabs": {
     "player": {
@@ -7048,6 +7076,52 @@
         [61, 16],
         [61, 17]
       ]
+    }
+  ],
+  "hud": [
+    {
+      "type": "text",
+      "id": "objective",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": { "text": "", "fontSize": "15px", "color": "#ffc890", "align": "left", "letterSpacing": 1 }
+    },
+    {
+      "type": "meter",
+      "id": "health",
+      "x": 20,
+      "y": 44,
+      "anchor": "top-left",
+      "properties": { "color": "#e0905a", "low": "#ff5a4e" }
+    },
+    {
+      "type": "text",
+      "id": "notice",
+      "x": 0,
+      "y": -120,
+      "anchor": "center",
+      "properties": {
+        "text": "",
+        "fontSize": "30px",
+        "fontWeight": "600",
+        "color": "#ffe9cc",
+        "align": "center",
+        "letterSpacing": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": -20,
+      "y": -16,
+      "anchor": "bottom-right",
+      "properties": {
+        "text": "Click to walk · Arrows move along the screen · X swings · 1 2 3 abilities · I satchel · E trades · Wheel zooms",
+        "fontSize": "13px",
+        "color": "rgba(240, 230, 220, 0.55)",
+        "align": "right"
+      }
     }
   ]
 }

@@ -12581,5 +12581,37 @@
         }
       ]
     }
+  ],
+  "hud": [
+    {
+      "type": "text",
+      "id": "title",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": {
+        "text": "THE LOT",
+        "fontSize": "15px",
+        "color": "rgba(255, 248, 236, 0.9)",
+        "letterSpacing": 2,
+        "outlineColor": "rgba(0, 0, 0, 0.35)",
+        "outlineWidth": 2
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": -20,
+      "y": -16,
+      "anchor": "bottom-right",
+      "properties": {
+        "text": "Drag orbits · Scroll zooms · WASD walks the fox · Space jumps · T dusk · O settings · F3 stats · ` console (noclip)",
+        "fontSize": "13px",
+        "color": "rgba(255, 248, 236, 0.75)",
+        "align": "right",
+        "outlineColor": "rgba(0, 0, 0, 0.3)",
+        "outlineWidth": 2
+      }
+    }
   ]
 }

@@ -1,14 +1,14 @@
-import { UIText } from 'm2d-engine/core/ui/text.js';
-import { UIMeter } from 'm2d-engine/core/ui/meter.js';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
 import layout from './layout.json';
 
 /**
- * Ash Row's presentation hooks: the camera locked to each section, the
- * noon light, the HUD, and the waves the sections spawn and release. Kept
- * out of the definition (`game.js`) so a headless game never loads them;
- * `main.js` and the editor's play mode both build them here. See
- * m2d.project.json.
+ * Ash Row's presentation hooks: the camera locked to each section and the
+ * waves the sections spawn and release. The light, the post pass, the music
+ * and the HUD are the scene's (`world.lighting`, `world.post`,
+ * `world.music`, `hud` in row.json); this only writes into the HUD's
+ * elements by id. Kept out of the definition (`game.js`) so a headless
+ * game never loads them; `main.js` and the editor's play mode both build
+ * them here. See m2d.project.json.
  */
 export function sceneHooks(game) {
   let unsubscribe = [];
@@ -17,7 +17,6 @@ export function sceneHooks(game) {
     row: {
       onEnter() {
         const scene = game.sceneManager.getCurrentScene();
-        game.soundManager.playMusic('game');
         const proj = game.projection;
         const lane = layout.lane;
         // The street is drawn in the lower part of the view, the wall above it.
@@ -36,23 +35,10 @@ export function sceneHooks(game) {
         const setLock = (right) => { game.camera.bounds = { left: 0, top: cameraY - 10, right, bottom: cameraY + 10 }; };
         setLock(layout.sections[0].lock + game.camera.width / 2);
 
-        // High noon: the lights pass only sweetens the lamps' glass.
-        game.renderer.setAmbientLight('#f2ecdf');
-        game.renderer.setPostEffects({
-          bloom: { threshold: 0.85, strength: 0.2, blur: 18 },
-          vignette: { strength: 0.18, start: 0.72 },
-          grade: { shadows: '#3a3a52', highlights: '#fff2d8', amount: 0.22, saturation: 1.12, contrast: 1.04 }
-        });
-
-        const ui = scene.ui;
-        const objective = ui.add(new UIText({ x: 20, y: 16, anchor: 'top-left', align: 'left', text: 'WALK THE ROW', fontSize: '15px', letterSpacing: 1, color: '#5a3416', outlineColor: 'rgba(255, 250, 240, 0.7)', outlineWidth: 2 }));
-        ui.add(new UIMeter(() => {
-          const health = game.player?.getConstraint('health');
-          return health ? { current: health.currentHealth, max: health.maxHealth } : null;
-        }, { x: 20, y: 44, color: k => (k > 0.35 ? '#e0905a' : '#ff5a4e') }));
-        const goSign = ui.add(new UIText({ x: -40, y: 0, anchor: 'right', align: 'right', text: '', fontSize: '34px', fontWeight: '700', letterSpacing: 4, color: '#c84a1e' }));
-        const notice = ui.add(new UIText({ x: 0, y: -120, anchor: 'center', align: 'center', text: '', fontSize: '30px', fontWeight: '600', letterSpacing: 3, color: '#3a2a16', outlineColor: 'rgba(255, 250, 240, 0.8)', outlineWidth: 3 }));
-        ui.add(new UIText({ x: -20, y: -16, anchor: 'bottom-right', align: 'right', text: 'Arrows move · Space jumps · X chains punches, the third launches · C sweeps the crowd · air X drop-kicks', fontSize: '13px', color: 'rgba(30, 26, 22, 0.75)' }));
+        // The HUD is the scene's; the waves write into its elements.
+        const objective = scene.hud?.elements.get('objective') ?? { text: '' };
+        const goSign = scene.hud?.elements.get('go') ?? { text: '' };
+        const notice = scene.hud?.elements.get('notice') ?? { text: '' };
 
         // Waves. Each section locks the camera at its `lock` and spawns its
         // thugs off the right edge; when they are down the lock lifts.
@@ -149,8 +135,6 @@ export function sceneHooks(game) {
       onExit() {
         for (const stop of unsubscribe) stop();
         unsubscribe = [];
-        game.renderer.setAmbientLight(null);
-        game.renderer.setPostEffects(null);
       }
     }
   };

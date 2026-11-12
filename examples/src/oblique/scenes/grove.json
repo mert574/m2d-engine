@@ -3,7 +3,26 @@
   "name": "grove",
   "type": "level",
   "gameType": "oblique",
-  "world": { "width": 3200, "height": 2400, "gravity": { "x": 0, "y": 0 }, "sort": "depth" },
+  "world": {
+    "width": 3200,
+    "height": 2400,
+    "gravity": { "x": 0, "y": 0 },
+    "sort": "depth",
+    "camera": { "lerp": 0.08, "bounds": "world" },
+    "lighting": { "ambient": "#5a6078" },
+    "post": {
+      "bloom": { "threshold": 0.7, "strength": 0.35, "blur": 20 },
+      "vignette": { "strength": 0.4, "start": 0.6 },
+      "grade": {
+        "shadows": "#1c2a3a",
+        "highlights": "#ffe2b8",
+        "amount": 0.25,
+        "saturation": 1.08,
+        "contrast": 1.04
+      }
+    },
+    "music": { "track": "game" }
+  },
   "assets": {
     "spritesheets": {
       "grass": { "url": "textures/grass.jpg", "frameWidth": 512, "frameHeight": 512 },
@@ -272,7 +291,23 @@
       "tree_dead": { "url": "textures/trees/dead.png", "frameWidth": 162, "frameHeight": 134 },
       "decor_log": { "url": "textures/trees/log.png", "frameWidth": 220, "frameHeight": 150 },
       "decor_stump": { "url": "textures/trees/stump.png", "frameWidth": 92, "frameHeight": 115 }
-    }
+    },
+    "sounds": {
+      "attack": { "url": "sounds/minimize_008.ogg" },
+      "damage": { "url": "sounds/error_008.ogg" },
+      "coin": { "url": "sounds/confirmation_001.ogg" },
+      "jump": { "url": "sounds/bong_001.ogg" },
+      "levelComplete": { "url": "sounds/maximize_008.ogg" },
+      "gameOver": { "url": "sounds/error_006.ogg" },
+      "flare": { "url": "sounds/maximize_006.ogg" },
+      "blink": { "url": "sounds/drop_003.ogg" },
+      "ward": { "url": "sounds/minimize_006.ogg" },
+      "step1": { "url": "sounds/footstep-grass-1.wav", "volume": 0.7 },
+      "step2": { "url": "sounds/footstep-grass-2.wav", "volume": 0.7 },
+      "step3": { "url": "sounds/footstep-grass-3.wav", "volume": 0.7 },
+      "step4": { "url": "sounds/footstep-grass-4.wav", "volume": 0.7 }
+    },
+    "music": { "game": { "url": "music/matthewpablo-woodland-fantasy.mp3", "volume": 0.5 } }
   },
   "prefabs": {
     "player": {
@@ -2205,5 +2240,59 @@
       ]
     }
   ],
-  "tileLayers": [{ "name": "ground", "spritesheet": "grass", "zIndex": -1 }]
+  "tileLayers": [{ "name": "ground", "spritesheet": "grass", "zIndex": -1 }],
+  "hud": [
+    {
+      "type": "text",
+      "id": "objective",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": { "text": "", "fontSize": "15px", "color": "#ffd9a0", "align": "left", "letterSpacing": 1 }
+    },
+    {
+      "type": "text",
+      "id": "lanterns",
+      "x": 20,
+      "y": 40,
+      "anchor": "top-left",
+      "properties": { "text": "", "fontSize": "13px", "color": "rgba(240, 236, 220, 0.75)", "align": "left" }
+    },
+    {
+      "type": "meter",
+      "id": "health",
+      "x": 20,
+      "y": 62,
+      "anchor": "top-left",
+      "properties": { "color": "#e0905a", "low": "#ff5a4e" }
+    },
+    {
+      "type": "text",
+      "id": "notice",
+      "x": 0,
+      "y": -120,
+      "anchor": "center",
+      "properties": {
+        "text": "",
+        "fontSize": "30px",
+        "fontWeight": "600",
+        "color": "#eef5dc",
+        "align": "center",
+        "letterSpacing": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": -20,
+      "y": -16,
+      "anchor": "bottom-right",
+      "properties": {
+        "text": "Arrows move · Space hops · X swings · 1 2 3 abilities · E talks · Wheel zooms",
+        "fontSize": "13px",
+        "color": "rgba(230, 236, 220, 0.55)",
+        "align": "right"
+      }
+    }
+  ]
 }

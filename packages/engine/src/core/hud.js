@@ -67,10 +67,13 @@ export class SceneHud {
     let made = null;
     switch (element.type) {
       case 'text':
-        made = new UIText({ ...common, text: properties.text, color: properties.color, fontSize: properties.fontSize, fontFamily: properties.fontFamily, fontWeight: properties.fontWeight, fontStyle: properties.fontStyle, align: properties.align });
+        made = new UIText({ ...common, ...textLook(properties), text: properties.text });
         break;
       case 'notice':
-        made = new UINotice({ ...common, text: '', color: properties.color, fontSize: properties.fontSize ?? '28px', fontWeight: properties.fontWeight ?? '600', align: properties.align ?? 'center', seconds: properties.seconds });
+        made = new UINotice({
+          ...common, ...textLook(properties), text: '',
+          fontSize: properties.fontSize ?? '28px', fontWeight: properties.fontWeight ?? '600', align: properties.align ?? 'center', seconds: properties.seconds
+        });
         made.visible = false;
         if (!this.firstNotice) this.firstNotice = made;
         break;
@@ -88,7 +91,10 @@ export class SceneHud {
           if (typeof current !== 'number') return null;
           return typeof max === 'number' ? { current, max } : current;
         };
-        made = new UIMeter(read, { ...common, width: element.width ?? 180, height: element.height ?? 12, label: properties.label, color: properties.color, background: properties.background });
+        const colour = properties.low
+          ? (k) => (k < (properties.lowBelow ?? 0.35) ? properties.low : properties.color)
+          : properties.color;
+        made = new UIMeter(read, { ...common, width: element.width ?? 180, height: element.height ?? 12, label: properties.label, color: colour, background: properties.background });
         break;
       }
       case 'minimap': {
@@ -131,4 +137,13 @@ export class SceneHud {
     const target = this.elements.get(elementId);
     if (target) target.text = text;
   }
+}
+
+/** A HUD text's look, as `UIText` takes it. */
+function textLook(properties) {
+  return {
+    color: properties.color, fontSize: properties.fontSize, fontFamily: properties.fontFamily,
+    fontWeight: properties.fontWeight, fontStyle: properties.fontStyle, align: properties.align,
+    letterSpacing: properties.letterSpacing, outlineColor: properties.outlineColor, outlineWidth: properties.outlineWidth
+  };
 }

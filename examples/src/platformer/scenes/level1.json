@@ -24,6 +24,7 @@
       "distortion": { "strength": 0.012 },
       "grain": { "strength": 0.035 }
     },
+    "music": { "track": "game" },
     "rules": [
       {
         "when": { "event": "collected", "prefab": "coin" },
@@ -55,7 +56,16 @@
           "collect": { "frames": [[8, 0], [9, 0], [10, 0]], "fps": 18, "loop": false }
         }
       }
-    }
+    },
+    "sounds": {
+      "jump": { "url": "sounds/bong_001.ogg" },
+      "coin": { "url": "sounds/confirmation_001.ogg" },
+      "gameOver": { "url": "sounds/error_006.ogg" },
+      "levelComplete": { "url": "sounds/maximize_008.ogg" },
+      "attack": { "url": "sounds/minimize_008.ogg" },
+      "damage": { "url": "sounds/error_008.ogg" }
+    },
+    "music": { "game": { "url": "music/theget-perfect-union.ogg" } }
   },
   "prefabs": {
     "player": { "actor": "Player", "physics": { "bodyType": "dynamic", "friction": 5, "frictionAir": 0.001 } },

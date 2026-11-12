@@ -235,7 +235,13 @@ export class Scene {
         else camera[key] = value;
       }
       if (bounds === 'world') {
-        camera.bounds = { left: 0, top: 0, right: world.width ?? this.game.options.worldWidth, bottom: world.height ?? this.game.options.worldHeight };
+        const width = world.width ?? this.game.options.worldWidth;
+        const height = world.height ?? this.game.options.worldHeight;
+        // The camera moves on the render plane, so a projected level's
+        // bounds are the projected extent of the ground.
+        camera.bounds = this.game.projection
+          ? this.game.projection.boundsOf(0, 0, width, height)
+          : { left: 0, top: 0, right: width, bottom: height };
       } else if (bounds) {
         camera.bounds = { ...bounds };
       }

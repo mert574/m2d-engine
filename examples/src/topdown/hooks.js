@@ -15,10 +15,9 @@ export function sceneHooks(game) {
   return {
     level1: {
       onEnter() {
-        // The camera's bounds and the ambient light are the scene's
-        // (`world.camera`, `world.lighting` in level1.json). The post pass
-        // stays in code: it tears with the player's hurt, every frame.
-        game.soundManager.playMusic('game');
+        // The camera, the light, the music and the sounds are the scene's
+        // (level1.json). The post pass stays in code: it tears with the
+        // player's hurt, every frame.
         backdrop = new FacilityBackdrop(game, game.sceneManager.getCurrentScene().spriteSheets.get('floor'));
         backdrop.applyAtmosphere();
       },

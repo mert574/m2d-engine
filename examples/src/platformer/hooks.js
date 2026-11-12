@@ -15,11 +15,8 @@ export function sceneHooks(game) {
   return {
     level1: {
       onEnter() {
-        // The camera's bounds, the ambient light and the post pass are the
-        // scene's (`world.camera`, `world.lighting`, `world.post` in
-        // level1.json), so the editor shows and edits them. The music stays
-        // here: its file is the page's import, not a scene asset.
-        game.soundManager.playMusic('game');
+        // The camera, the light, the post pass, the music and the sounds are
+        // the scene's (level1.json); only the valley's drawn backdrop stays.
         backdrop = new DuskLevelBackdrop(game);
       },
       onExit() {

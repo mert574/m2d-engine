@@ -1,9 +1,7 @@
 import { Npc } from 'm2d-engine/actors/npc.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
 import { UIDialogue } from 'm2d-engine/core/ui/dialogue.js';
 import { UIMinimap } from 'm2d-engine/core/ui/minimap.js';
 import { UIAbilityBar } from 'm2d-engine/core/ui/abilityBar.js';
-import { UIMeter } from 'm2d-engine/core/ui/meter.js';
 import { Tree, Pond, Wisp, Lantern, Clearing, GroundDetail } from './groveActors.js';
 import { WORLD } from './game.js';
 import { GroveQuest } from './quest.js';
@@ -38,19 +36,9 @@ export function sceneHooks(game) {
     grove: {
       onEnter() {
         const scene = game.sceneManager.getCurrentScene();
-        game.soundManager.playMusic('game');
-
-        game.camera.bounds = { left: 0, top: 0, right: WORLD.width, bottom: WORLD.height };
-        game.camera.lerp = 0.08;
+        // The camera, the dusk light, the post pass, the music and the HUD's
+        // static parts are the scene's (world and hud in grove.json).
         game.camera.zoom = 1;
-
-        // Dusk: a cool ambient, warm lanterns against it, and a soft grade.
-        game.renderer.setAmbientLight('#5a6078');
-        game.renderer.setPostEffects({
-          bloom: { threshold: 0.7, strength: 0.35, blur: 20 },
-          vignette: { strength: 0.4, start: 0.6 },
-          grade: { shadows: '#1c2a3a', highlights: '#ffe2b8', amount: 0.25, saturation: 1.08, contrast: 1.04 }
-        });
 
         const entities = [...game.entities];
         const ground = entities.find(e => e instanceof GroundDetail);
@@ -59,20 +47,11 @@ export function sceneHooks(game) {
         const npcs = entities.filter(e => e instanceof Npc);
         const clearing = entities.find(e => e instanceof Clearing);
 
-        // HUD, from the engine's components.
+        // The dialogue, minimap and ability bar read the live game: they stay.
         const ui = scene.ui;
-        const objective = ui.add(new UIText({ x: 20, y: 16, anchor: 'top-left', align: 'left', text: '', fontSize: '15px', letterSpacing: 1, color: '#ffd9a0' }));
-        const counter = ui.add(new UIText({ x: 20, y: 40, anchor: 'top-left', align: 'left', text: '', fontSize: '13px', color: 'rgba(240, 236, 220, 0.75)' }));
-        ui.add(new UIMeter(() => {
-          const health = game.player?.getConstraint('health');
-          return health ? { current: health.currentHealth, max: health.maxHealth } : null;
-        }, { x: 20, y: 62, color: k => (k > 0.35 ? '#e0905a' : '#ff5a4e') }));
-        const notice = ui.add(new UIText({ x: 0, y: -120, anchor: 'center', align: 'center', text: '', fontSize: '30px', fontWeight: '600', letterSpacing: 3, color: '#eef5dc' }));
-        ui.add(new UIText({
-          x: -20, y: -16, anchor: 'bottom-right', align: 'right',
-          text: 'Arrows move · Space hops · X swings · 1 2 3 abilities · E talks · Wheel zooms',
-          fontSize: '13px', color: 'rgba(230, 236, 220, 0.55)'
-        }));
+        const objective = scene.hud?.elements.get('objective') ?? { text: '' };
+        const counter = scene.hud?.elements.get('lanterns') ?? { text: '' };
+        const notice = scene.hud?.elements.get('notice') ?? { text: '' };
         const dialogue = ui.add(new UIDialogue({ borderColor: 'rgba(255, 210, 140, 0.45)', nameColor: '#ffd27a', clock: () => game.time.elapsed }));
         const minimap = ui.add(new UIMinimap(game, {
           size: 220, bounds: WORLD, paths: ground ? [ground.segments] : [],
@@ -177,8 +156,6 @@ export function sceneHooks(game) {
         for (const stop of unsubscribe) stop();
         unsubscribe = [];
         rules = null;
-        game.renderer.setAmbientLight(null);
-        game.renderer.setPostEffects(null);
       }
     }
   };

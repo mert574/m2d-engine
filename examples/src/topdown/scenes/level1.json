@@ -10,6 +10,7 @@
     "player": "player-1",
     "camera": { "bounds": "world" },
     "lighting": { "ambient": "#e4e6ec" },
+    "music": { "track": "game" },
     "rules": [
       {
         "when": { "event": "collected", "prefab": "coin" },
@@ -33,7 +34,15 @@
     "spritesheets": {
       "floor": { "url": "textures/concrete.jpg", "frameWidth": 256, "frameHeight": 256 },
       "wall": { "url": "textures/steel.jpg", "frameWidth": 256, "frameHeight": 256 }
-    }
+    },
+    "sounds": {
+      "attack": { "url": "sounds/minimize_008.ogg" },
+      "damage": { "url": "sounds/error_008.ogg" },
+      "coin": { "url": "sounds/confirmation_001.ogg" },
+      "levelComplete": { "url": "sounds/maximize_008.ogg" },
+      "gameOver": { "url": "sounds/error_006.ogg" }
+    },
+    "music": { "game": { "url": "music/chaoticpulse-november.ogg" } }
   },
   "prefabs": {
     "player": { "actor": "TopDownPlayer", "physics": { "bodyType": "character", "frictionAir": 0.2 } },

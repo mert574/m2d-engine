@@ -835,9 +835,17 @@ const ELEMENTS = s.tagged('type', {
 });
 
 /** A level's HUD: the UI scene's elements plus the three that read the game. */
+const HUD_TEXT_LOOK = {
+  fontSize: styled('size'), fontFamily: styled('font'), fontWeight: styled('font'), fontStyle: styled('font'),
+  color: styled('color'), align: styled('align'),
+  letterSpacing: s.number({ min: 0, unit: 'px', label: 'Letter spacing' }),
+  outlineColor: colour({ label: 'Outline colour', description: 'A halo behind the glyphs, for text over the world' }),
+  outlineWidth: s.number({ positive: true, unit: 'px', label: 'Outline width' })
+};
+
 const HUD_ELEMENTS = s.tagged('type', {
-  text: s.object({ ...ELEMENT_COMMON, properties: s.object({ text: styled('text'), fontSize: styled('size'), fontFamily: styled('font'), fontWeight: styled('font'), fontStyle: styled('font'), color: styled('color'), align: styled('align') }) }),
-  notice: s.object({ ...ELEMENT_COMMON, properties: s.object({ fontSize: styled('size'), fontWeight: styled('font'), color: styled('color'), align: styled('align'), seconds: s.number({ positive: true, initial: 2.5, unit: 's' }) }) }),
+  text: s.object({ ...ELEMENT_COMMON, properties: s.object({ text: styled('text'), ...HUD_TEXT_LOOK }) }),
+  notice: s.object({ ...ELEMENT_COMMON, properties: s.object({ ...HUD_TEXT_LOOK, seconds: s.number({ positive: true, initial: 2.5, unit: 's' }) }) }),
   meter: s.object({
     ...ELEMENT_COMMON,
     width: s.number({ positive: true, unit: 'px', initial: 180 }),
@@ -848,13 +856,23 @@ const HUD_ELEMENTS = s.tagged('type', {
       current: s.string({ initial: 'currentHealth' }),
       max: s.string({ initial: 'maxHealth' })
     }, { label: 'Binding' }),
-    properties: s.object({ label: styled('text'), color: styled('color'), background: styled('color') })
+    properties: s.object({
+      label: styled('text'),
+      color: styled('color'),
+      background: styled('color'),
+      low: colour({ label: 'Low colour', description: 'The bar below the low mark: health in the red' }),
+      lowBelow: s.number({ min: 0, max: 1, initial: 0.35, label: 'Low mark' })
+    })
   }),
   minimap: s.object({
     ...ELEMENT_COMMON,
     size: s.number({ positive: true, unit: 'px', initial: 160 }),
     bounds: s.object({ width: s.number({ required: true, positive: true }), height: s.number({ required: true, positive: true }) }, { description: 'The world area mapped; the world\'s size when unset' }),
-    plot: s.record(s.string({ editor: 'color' }), { label: 'Plot', description: 'Prefab name to dot colour' }),
+    plot: s.record(s.union([
+      s.string({ editor: 'color', match: value => typeof value === 'string' }),
+      s.object({ shape: s.enumOf(['dot', 'ring']), color: s.string({ required: true, editor: 'color' }), size: s.number({ positive: true }) },
+        { match: value => typeof value === 'object' && value !== null })
+    ], { message: 'must be a colour or { shape, color, size }' }), { label: 'Plot', description: 'Prefab name to a dot colour, or { shape, color, size }' }),
     properties: s.object({ background: styled('color') })
   }),
   image: s.object({ ...ELEMENT_COMMON, sprite: s.string({ required: true, editor: 'asset' }), properties: s.object({ width: styled('size'), height: styled('size'), scale: styled('size') }) }),

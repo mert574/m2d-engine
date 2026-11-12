@@ -9,10 +9,7 @@ import {
   EmberPlayer, DuskPlatform, DuskMovingPlatform, GlowCoin, DuskBee, ValleyGate
 } from './duskActors.js';
 
-import {
-  jumpSound, coinSound, gameOverSound, levelCompleteSound,
-  attackSound, damageSound, starsAtDawn, perfectUnion, audioOption
-} from '../shared/audio.js';
+import { starsAtDawn, audioOption } from '../shared/audio.js';
 
 const canvas = document.getElementById('screen');
 // Compile Rapier's WASM module before anything builds a physics world.
@@ -30,18 +27,9 @@ const game = new M2D(canvas, {
   // vite.config.js), so deriving the prefix from it keeps both in step with
   // however the site is actually served, instead of hardcoding each one.
   basePath: import.meta.env.BASE_URL + 'platformer/',
-  sounds: {
-    jump: jumpSound,
-    coin: coinSound,
-    gameOver: gameOverSound,
-    levelComplete: levelCompleteSound,
-    attack: attackSound,
-    damage: damageSound
-  },
-  music: {
-    menu: starsAtDawn,
-    game: perfectUnion
-  }
+  // The level's sounds and music are the scene's (assets.sounds, assets.music
+  // in level1.json); the menu is a code screen, so its track stays here.
+  music: { menu: starsAtDawn }
 });
 
 // Register actors. The scene JSON names the stock actors; what answers to

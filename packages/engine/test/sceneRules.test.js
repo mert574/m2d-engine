@@ -168,6 +168,25 @@ describe('the HUD', () => {
     expect(notice.visible).toBe(false);
     game.destroy();
   });
+
+  it('takes a text\'s outline and spacing, a meter\'s low colour and a plot with a shape', async () => {
+    const { game, scene } = await make(level({}, {
+      hud: [
+        { type: 'text', id: 'hint', x: -20, y: -16, anchor: 'bottom-right', properties: { text: 'X swings', letterSpacing: 2, outlineColor: 'rgba(0,0,0,0.5)', outlineWidth: 3 } },
+        { type: 'meter', id: 'health', x: 20, y: 40, anchor: 'top-left', properties: { color: '#7fd4ff', low: '#ff5a4e', lowBelow: 0.5 } },
+        { type: 'minimap', id: 'map', x: -16, y: 16, anchor: 'top-right', plot: { coin: { shape: 'ring', color: '#ffd700', size: 5 } } }
+      ]
+    }), { headless: false });
+    const hint = scene.hud.elements.get('hint');
+    expect(hint.letterSpacing).toBe(2);
+    expect(hint.outlineColor).toBe('rgba(0,0,0,0.5)');
+    const meter = scene.hud.elements.get('health');
+    expect(meter.color(0.6)).toBe('#7fd4ff');
+    expect(meter.color(0.4)).toBe('#ff5a4e');
+    const map = scene.hud.elements.get('map');
+    expect(map.plot(scene.entitiesById.get('coin-1'))).toEqual({ shape: 'ring', color: '#ffd700', size: 5 });
+    game.destroy();
+  });
 });
 
 describe('a 2D light block and collision categories', () => {

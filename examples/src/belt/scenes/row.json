@@ -9,7 +9,20 @@
     "height": 400,
     "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
-    "projection": { "type": "belt", "ratio": 0.5 }
+    "projection": { "type": "belt", "ratio": 0.5 },
+    "lighting": { "ambient": "#f2ecdf" },
+    "post": {
+      "bloom": { "threshold": 0.85, "strength": 0.2, "blur": 18 },
+      "vignette": { "strength": 0.18, "start": 0.72 },
+      "grade": {
+        "shadows": "#3a3a52",
+        "highlights": "#fff2d8",
+        "amount": 0.22,
+        "saturation": 1.12,
+        "contrast": 1.04
+      }
+    },
+    "music": { "track": "game" }
   },
   "assets": {
     "spritesheets": {
@@ -98,7 +111,20 @@
           }
         }
       }
-    }
+    },
+    "sounds": {
+      "attack": { "url": "sounds/minimize_008.ogg" },
+      "damage": { "url": "sounds/error_008.ogg" },
+      "jump": { "url": "sounds/bong_001.ogg" },
+      "levelComplete": { "url": "sounds/maximize_008.ogg" },
+      "gameOver": { "url": "sounds/error_006.ogg" },
+      "go": { "url": "sounds/maximize_006.ogg" },
+      "step1": { "url": "sounds/footstep-grass-1.wav", "volume": 0.4 },
+      "step2": { "url": "sounds/footstep-grass-2.wav", "volume": 0.4 },
+      "step3": { "url": "sounds/footstep-grass-3.wav", "volume": 0.4 },
+      "step4": { "url": "sounds/footstep-grass-4.wav", "volume": 0.4 }
+    },
+    "music": { "game": { "url": "music/gbsr-g2-cockboymattt-remix.ogg", "volume": 0.6 } }
   },
   "prefabs": {
     "player": {
@@ -171,5 +197,76 @@
       ]
     }
   ],
-  "tileLayers": [{ "name": "street", "spritesheet": "paving", "zIndex": -1, "tileSize": 200, "stretch": true }]
+  "tileLayers": [{ "name": "street", "spritesheet": "paving", "zIndex": -1, "tileSize": 200, "stretch": true }],
+  "hud": [
+    {
+      "type": "text",
+      "id": "objective",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": {
+        "text": "WALK THE ROW",
+        "fontSize": "15px",
+        "color": "#5a3416",
+        "align": "left",
+        "letterSpacing": 1,
+        "outlineColor": "rgba(255, 250, 240, 0.7)",
+        "outlineWidth": 2
+      }
+    },
+    {
+      "type": "meter",
+      "id": "health",
+      "x": 20,
+      "y": 44,
+      "anchor": "top-left",
+      "properties": { "color": "#e0905a", "low": "#ff5a4e" }
+    },
+    {
+      "type": "text",
+      "id": "go",
+      "x": -40,
+      "y": 0,
+      "anchor": "right",
+      "properties": {
+        "text": "",
+        "fontSize": "34px",
+        "fontWeight": "700",
+        "color": "#c84a1e",
+        "align": "right",
+        "letterSpacing": 4
+      }
+    },
+    {
+      "type": "text",
+      "id": "notice",
+      "x": 0,
+      "y": -120,
+      "anchor": "center",
+      "properties": {
+        "text": "",
+        "fontSize": "30px",
+        "fontWeight": "600",
+        "color": "#3a2a16",
+        "align": "center",
+        "letterSpacing": 3,
+        "outlineColor": "rgba(255, 250, 240, 0.8)",
+        "outlineWidth": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": -20,
+      "y": -16,
+      "anchor": "bottom-right",
+      "properties": {
+        "text": "Arrows move · Space jumps · X chains punches, the third launches · C sweeps the crowd · air X drop-kicks",
+        "fontSize": "13px",
+        "color": "rgba(30, 26, 22, 0.75)",
+        "align": "right"
+      }
+    }
+  ]
 }

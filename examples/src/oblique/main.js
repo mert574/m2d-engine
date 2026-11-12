@@ -27,20 +27,10 @@ import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
 import { WORLD, register } from './game.js';
 import { sceneHooks } from './hooks.js';
-import {
-  attackSound, damageSound, coinSound, jumpSound, levelCompleteSound, gameOverSound,
-  solvedSound, spawnSound, removeSound,
-  woodlandFantasy, enchantedFestival, audioOption
-} from '../shared/audio.js';
-import step1 from './sounds/footstep-grass-1.wav';
-import step2 from './sounds/footstep-grass-2.wav';
-import step3 from './sounds/footstep-grass-3.wav';
-import step4 from './sounds/footstep-grass-4.wav';
+import { enchantedFestival, audioOption } from '../shared/audio.js';
 
 const canvas = document.getElementById('screen');
 await initPhysics();
-
-const STEP_VOLUME = 0.7;
 
 const game = new M2D(canvas, {
   pointerLock: false,
@@ -50,27 +40,11 @@ const game = new M2D(canvas, {
   worldWidth: WORLD.width,
   worldHeight: WORLD.height,
   basePath: import.meta.env.BASE_URL + 'oblique/',
-  sounds: {
-    attack: attackSound,
-    damage: damageSound,
-    coin: coinSound,
-    jump: jumpSound,
-    levelComplete: levelCompleteSound,
-    gameOver: gameOverSound,
-    flare: solvedSound,
-    blink: spawnSound,
-    ward: removeSound,
-    step1: { src: step1, volume: STEP_VOLUME },
-    step2: { src: step2, volume: STEP_VOLUME },
-    step3: { src: step3, volume: STEP_VOLUME },
-    step4: { src: step4, volume: STEP_VOLUME }
-  },
+  // The grove's sounds and its music are the scene's (assets.sounds,
+  // assets.music in grove.json); the menu's track stays with its code screen.
   // The tracks are mastered hot for a game that plays under speech, so
   // they come in at half the engine's music volume.
-  music: {
-    menu: { src: enchantedFestival, volume: 0.5 },
-    game: { src: woodlandFantasy, volume: 0.5 }
-  }
+  music: { menu: { src: enchantedFestival, volume: 0.5 } }
 });
 
 // The scene JSON names the stock actors; the grove's cast answers.

@@ -1,9 +1,9 @@
-import { UIText } from 'm2d-engine/core/ui/text.js';
 import { loadAmbience, Footsteps } from './ambience.js';
 
 /**
- * The yard's and the lot's presentation hooks: the camera, the light and
- * its turn to dusk, the wind, the HUD. Kept out of the definition
+ * The yard's and the lot's presentation hooks: the turn to dusk and the
+ * wind. The camera, the light and the HUD are the scenes'; see the
+ * scene files. Kept out of the definition
  * (`game.js`) so a headless game never loads them; `main.js` and the
  * editor's play mode both build them here. See m2d.project.json.
  */
@@ -11,7 +11,7 @@ export function sceneHooks(game) {
   loadAmbience(game.soundManager);
 
   let unsubscribe = [];
-  const hooksFor = (title) => ({
+  const hooksFor = () => ({
     onEnter() {
       // The player and the orbit camera are the scene's (`world.player`,
       // `world.camera`), so the editor shows them; the scene set them before
@@ -40,17 +40,6 @@ export function sceneHooks(game) {
           event.consume();
         }
       }));
-
-      const ui = game.sceneManager.getCurrentScene().ui;
-      ui.add(new UIText({
-        x: 20, y: 16, anchor: 'top-left', text: title, fontSize: '15px', letterSpacing: 2,
-        color: 'rgba(255, 248, 236, 0.9)', outlineColor: 'rgba(0, 0, 0, 0.35)', outlineWidth: 2
-      }));
-      ui.add(new UIText({
-        x: -20, y: -16, anchor: 'bottom-right', align: 'right',
-        text: 'Drag orbits · Scroll zooms · WASD walks the fox · Space jumps · T dusk · O settings · F3 stats · ` console (noclip)',
-        fontSize: '13px', color: 'rgba(255, 248, 236, 0.75)', outlineColor: 'rgba(0, 0, 0, 0.3)', outlineWidth: 2
-      }));
     },
 
     onHide() {
@@ -63,5 +52,5 @@ export function sceneHooks(game) {
     // T flips the cycle's target above. Nothing to render here.
   });
 
-  return { yard: hooksFor('THE YARD'), lot: hooksFor('THE LOT') };
+  return { yard: hooksFor(), lot: hooksFor() };
 }

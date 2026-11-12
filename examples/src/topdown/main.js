@@ -8,10 +8,7 @@ import { sceneHooks } from './hooks.js';
 import {
   FacilityWall, SpecterGhost, SentryTurret, DataCore, ExtractionPad, ScannerAgent
 } from './facilityActors.js';
-import {
-  attackSound, damageSound, coinSound, levelCompleteSound, gameOverSound,
-  lastTransmission, november, audioOption
-} from '../shared/audio.js';
+import { lastTransmission, audioOption } from '../shared/audio.js';
 
 const canvas = document.getElementById('screen');
 // Compile Rapier's WASM module before anything builds a physics world.
@@ -29,17 +26,9 @@ const game = new M2D(canvas, {
   // vite.config.js), so deriving the prefix from it keeps both in step with
   // however the site is actually served, instead of hardcoding each one.
   basePath: import.meta.env.BASE_URL + 'topdown/',
-  sounds: {
-    attack: attackSound,
-    damage: damageSound,
-    coin: coinSound,
-    levelComplete: levelCompleteSound,
-    gameOver: gameOverSound
-  },
-  music: {
-    menu: lastTransmission,
-    game: november
-  }
+  // The level's sounds and music are the scene's (assets.sounds, assets.music
+  // in level1.json); the menu is a code screen, so its track stays here.
+  music: { menu: lastTransmission }
 });
 
 // Register actors. The scene JSON names the stock actors; what answers to
