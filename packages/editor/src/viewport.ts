@@ -138,6 +138,7 @@ interface SceneLike {
     prefabs?: Record<string, { mesh?: { model?: string; scale?: number; offset?: V3; shape?: string } }>;
     tileLayers?: unknown[];
     paths?: unknown;
+    world?: Record<string, unknown>;
     background?: unknown;
     elements?: Array<{ type?: string; id?: string; x?: number; y?: number; anchor?: string }>;
   };
@@ -154,6 +155,10 @@ interface SceneLike {
   rebuildUIScene?(): void;
   /** Rebuild the named paths from the config. */
   rebuildPaths?(): void;
+  /** Rebuild the lighting, post, cycle and particles from the config. */
+  rebuildLook?(): void;
+  /** Show the cycle at a phase without writing it. */
+  previewCycle?(phase: number): void;
 }
 
 /** The slice of a built UI element the editor reads and poses. */
@@ -526,7 +531,7 @@ export class Viewport {
   apply(ops: readonly Op[], data: Record<string, unknown>): Applied {
     if (this.#playing) return { kind: 'rebuild' };
     const scene = this.#scene();
-    if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op) || tileLevel(op) || animationLevel(op) || elementLevel(op) || pathLevel(op))) return { kind: 'rebuild' };
+    if (!scene || !ops.every((op) => objectLevel(op) || propsLevel(op) || tileLevel(op) || animationLevel(op) || elementLevel(op) || pathLevel(op) || lookLevel(op))) return { kind: 'rebuild' };
     const result = validateScene(data, this.#game, { scenes: this.#library });
     if (!result.ok) return { kind: 'invalid', issues: result.issues };
 
@@ -575,6 +580,13 @@ export class Viewport {
       if (!scene.config || !scene.rebuildPaths || !isPlainObject(result.loaded)) return { kind: 'rebuild' };
       scene.config.paths = (result.loaded as { paths?: unknown }).paths;
       scene.rebuildPaths();
+    }
+
+    if (ops.some(lookLevel)) {
+      if (!scene.config || !scene.rebuildLook || !isPlainObject(result.loaded) || !isPlainObject(result.loaded.world)) return { kind: 'rebuild' };
+      scene.config.world = result.loaded.world;
+      scene.rebuildLook();
+      this.#viewChanged();
     }
 
     // Tile layers and the background rebuild from the config in place the
@@ -1199,6 +1211,24 @@ export class Viewport {
     return game.camera.screenToWorld(view.x, view.y, y);
   }
 
+  /** Show particle fields that are not yet in the document, while a slider drags; the edit on release replaces them. */
+  previewParticles(fields: unknown[]): void {
+    const scene = this.#scene();
+    if (this.#playing || !scene?.config || !scene.rebuildLook) return;
+    scene.config.world = { ...scene.config.world, particles: fields };
+    scene.rebuildLook();
+    this.#viewChanged();
+  }
+
+  /** Show the lighting cycle at `phase`, or back at the document's own with null; nothing is written. */
+  previewPhase(phase: number | null): void {
+    const scene = this.#scene();
+    if (this.#playing || !scene?.previewCycle) return;
+    const cycle = scene.config?.world?.cycle as { phase?: number } | undefined;
+    scene.previewCycle(phase ?? cycle?.phase ?? 0);
+    this.#viewChanged();
+  }
+
   /**
    * Show an object somewhere it is not yet in the document, while a gizmo
    * drags it: the body moves, nothing is rebuilt. The edit on release
@@ -1462,6 +1492,10 @@ function tileLevel(op: Op): boolean {
 /** Whether an op only touches a sheet's animations: redefining them on the loaded sheet covers it. */
 function animationLevel(op: Op): boolean {
   return op.path[0] === 'assets' && op.path[1] === 'spritesheets' && typeof op.path[2] === 'string' && op.path[3] === 'animations';
+}
+
+function lookLevel(op: Op): boolean {
+  return op.path[0] === 'world' && ['lighting', 'post', 'cycle', 'particles'].includes(String(op.path[1]));
 }
 
 function pathLevel(op: Op): boolean {

@@ -17,12 +17,12 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { sceneOutline, inspectNode, validateScene, structure, SCENE_VERSION, type Op, type Rest } from 'm2d-editor-core';
+import { sceneOutline, inspectNode, validateScene, structure, SCENE_VERSION, type Op, type Edit, type Rest } from 'm2d-editor-core';
 import type { Session, ChangeEvent } from './session.ts';
 import type { Assets } from './assets.ts';
 // Type-only: the stdio server never loads shots.ts (or playwright) at runtime.
 import type { Shot, ShotOptions } from './shots.ts';
-import { stage } from 'm2d-editor-core';
+import { stage, look } from 'm2d-editor-core';
 import { settle } from './playtest.ts';
 
 export const SERVER_NAME = 'm2d-editor';
@@ -228,6 +228,70 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       const doc = await session.document(file);
       const ops = structure.renameEntry(doc.data, [...RECORDS[kind]], from, to);
       return summary(await session.edit(file, { label: `Rename ${from} to ${to}`, ops }, AGENT));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('look_at', {
+    title: 'Read the look at a phase',
+    description:
+      'The level\'s lighting and post as the engine blends them at a phase of its world.cycle ' +
+      '(the resting look without a cycle), with the cycle\'s states and the colours a strip of it ' +
+      'shows. The editor\'s Look tab scrubber previews the same blend.',
+    inputSchema: {
+      path: scenePath,
+      phase: z.number().min(0).optional().describe('Default the cycle\'s own start phase')
+    }
+  }, async ({ path: file, phase }) => {
+    try {
+      const data = (await session.document(file)).data;
+      const world = (data.world ?? {}) as { cycle?: { phase?: number; states?: Array<{ name?: string }> } };
+      const at = phase ?? world.cycle?.phase ?? 0;
+      return json({
+        phase: at,
+        states: (world.cycle?.states ?? []).map((state, i) => state.name ?? `state ${i + 1}`),
+        ...look.lookAt(data, at),
+        strip: look.cycleColours(data, 9)
+      });
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('edit_look', {
+    title: 'Edit the lighting cycle or particles',
+    description:
+      'The Look tab\'s actions, as one step of undo each: startCycle (two states from the resting ' +
+      'look), addState (the blended look at phase, inserted as a state named name), removeState ' +
+      '(index; the start phase stays on the state it named), addParticles (a 3D field of kind ' +
+      'motes or smoke at a point). Tune fields afterwards with edit_scene under world.cycle and ' +
+      'world.particles.',
+    inputSchema: {
+      path: scenePath,
+      action: z.enum(['startCycle', 'addState', 'removeState', 'addParticles']),
+      phase: z.number().min(0).optional().describe('addState'),
+      name: z.string().min(1).optional().describe('addState'),
+      index: z.number().int().nonnegative().optional().describe('removeState'),
+      kind: z.enum(['motes', 'smoke']).optional().describe('addParticles'),
+      at: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional().describe('addParticles: where it stands, metres')
+    }
+  }, async ({ path: file, action, phase, name, index, kind, at }) => {
+    try {
+      const data = (await session.document(file)).data;
+      const need = <T>(value: T | undefined, what: string): T => {
+        if (value === undefined) throw new Error(`${action} needs ${what}`);
+        return value;
+      };
+      const edit = ((): Edit => {
+        switch (action) {
+          case 'startCycle': return { label: 'Start a lighting cycle', ops: look.startCycle(data) };
+          case 'addState': return { label: `Add cycle state ${name}`, ops: look.addStateAt(data, need(phase, 'a phase'), need(name, 'a name')) };
+          case 'removeState': return { label: `Remove cycle state ${need(index, 'an index') + 1}`, ops: look.removeState(data, index!) };
+          case 'addParticles': return { label: `Add ${need(kind, 'a kind')}`, ops: look.addParticleField(data, kind!, at ?? { x: 0, y: 0, z: 0 }) };
+        }
+      })();
+      return summary(await session.edit(file, edit, AGENT));
     } catch (error) {
       return failure(error);
     }
@@ -463,13 +527,14 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       view: z.enum(['scene', 'editor']).optional().describe('Default scene'),
       width: z.number().int().min(320).max(2560).optional().describe('Window width in px, default 1280'),
       height: z.number().int().min(240).max(1600).optional().describe('Window height in px, default 800'),
+      phase: z.number().min(0).optional().describe('The edit view at this phase of world.cycle, as the Look tab\'s scrubber shows it; nothing is written'),
       ...VARIANT
     }
-  }, async ({ path: file, play, focus, view, width, height, from, prefab }) => {
+  }, async ({ path: file, play, focus, view, width, height, from, prefab, phase }) => {
     if (!options.screenshot) return text('screenshot_scene needs the running editor (npm run editor <project>)', true);
     try {
       stage.variantOf((await session.document(file)).data, { from, prefab });
-      const shot = await options.screenshot({ path: file, play, focus, view, width, height, from, prefab });
+      const shot = await options.screenshot({ path: file, play, focus, view, width, height, from, prefab, phase });
       return {
         content: [
           { type: 'image' as const, data: shot.png.toString('base64'), mimeType: 'image/png' },

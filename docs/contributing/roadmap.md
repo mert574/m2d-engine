@@ -141,11 +141,11 @@ Proposed after E7b–E9 shipped and parked by the owner, to be picked up after t
 
 | Idea | What it is |
 | --- | --- |
-| ~~GUI test harness~~ | **Done, 12 Nov 2026**: `scripts/driveEditor.mjs` (`npm run test:editor`). Suites: lot (3D), platformer (2D, play), paths (select, drag, add, remove points), playtest (play from here, a prefab's stage), settle (3D template), template2d (UI scene). Still to add: suites for scatter, tile paint, the animation editor and composition |
+| ~~GUI test harness~~ | **Done, 12 Nov 2026**: `scripts/driveEditor.mjs` (`npm run test:editor`). Suites: lot (3D), platformer (2D, play), paths (select, drag, add, remove points), playtest (play from here, a prefab's stage), settle (3D template), look (cycle scrub, particles), template2d (UI scene). Still to add: suites for scatter, tile paint, the animation editor and composition |
 | ~~Prefab isolation stage~~ | **Done, 12 Nov 2026**: Stage it plays a prefab alone on a floor in the scene's world, restarting on each prefab edit; `run_scene` and `screenshot_scene` take `prefab`. Still to do: a sprite for the 2D floor; prefab variants and inheritance |
 | ~~Play-from-here, settle~~ | **Done, 12 Nov 2026**: Shift+F5 and `run_scene`/`screenshot_scene` `from`; Settle physics and `settle_scene` write resting poses as one edit, both through `playtest.ts`. Settling is an action rather than a toggle on save: a save that silently moves things is a save nobody can trust |
 | ~~Paths and splines~~ | **Done, 12 Nov 2026**: `paths` (format 4) with straight or smooth, open or closed lines; `PathFollow` follows one by name along its arc length; the editor draws every path and edits points on the canvas. Still to do: roads (a mesh or sprite strip drawn along a path) and following a path's tangent (a turning cart) |
-| Particle and cycle editors | A live-preview particle panel for `world.particles`; a gradient and curve widget for `world.cycle` |
+| ~~Particle and cycle editors~~ | **Done, 12 Nov 2026**: the Look tab (cycle strip, phase scrubber, states from a phase; particle sliders previewing until release), look edits in place (`Scene.rebuildLook`), particle defaults in one engine module; `look_at`, `edit_look` and `screenshot_scene` `phase` for agents. Still to do: 2D particles (the format is 3D only); a curve per value across the cycle rather than states blended pairwise |
 | Search and audit | Find every use of a prefab or asset across scenes; flag unused and missing assets |
 | Presence | Who (person or agent) has a scene open and what they have selected, over the host's one history |
 | Terrain | A coarse heightfield with raise and lower brushes for 3D levels |

@@ -88,6 +88,14 @@ A 2D level's tile layers paint. Double-click one in the tree (or right-click, Pa
 
 A level's named `paths` draw over the world as faint dashed lines; click one to select it, or pick it under Paths in the tree. A selected path, and the routes a selected object follows (a named path it or its prefab refers to, or a `points` list of its own), draw solid with a handle on each point, the first one white. Drag a point to move it, double-click the line to add a point there, and Alt-click a point to remove it; a path keeps at least two. Each is one step of undo, and Snap applies to drags. The line drawn is the engine's own, so a smooth path shows the curve a follower travels. New path (on the scene, or the Paths group) lays one across the middle of the view; Rename carries every `path` that names it, and Delete says how many followers use it first.
 
+## Look
+
+The Look tab in the dock holds a level's lighting cycle and particle fields. Edits to the lighting, post effects, cycle or particles redraw in place, without rebuilding the level.
+
+**Cycle.** A strip shows the colours the cycle moves through (ambient, sky, ground, sun and fog, wherever its states set them), from the engine's own blend. Drag the scrubber to preview any phase in the viewport; it writes nothing. Click a state's name to jump to it. Set as start writes the phase shown as `world.cycle.phase`, Add state here inserts the look shown as a new state, and × removes a state, keeping at least two. The start phase stays on the state it named. Back to the document returns the view to the written phase. A level without a cycle offers Start a cycle, two states copied from its resting look.
+
+**Particles** (3D). Each field of `world.particles` shows its count, radius, opacity, speed, glow and colour, with what it leaves out shown at the value it draws with. A slider previews while it is held and writes one step of undo on release. Add motes and Add smoke place a new field at the camera's target.
+
 ## Animations
 
 Double-click a sprite sheet in the tree for the animation editor. The sheet draws with its frame grid; click frames to append them to the open animation, nudge them earlier or later, set the fps and whether it loops, and watch the preview, which runs on its own clock (an edited scene never animates). The same dialog slices the sheet: set the frame width and height and the grid follows. Every change is one step of undo, shared with any agent editing beside you.
@@ -170,6 +178,8 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `inspect_node` | The inspector's rows for one node |
 | `edit_scene` | Apply a list of set, insert and remove ops as one labelled step |
 | `rename_entry` | Rename a prefab, sprite sheet, model, environment or path along with every reference to it, as the editor's Rename does |
+| `look_at` | The lighting and post at a phase of the cycle, as the engine blends them, with the states and the strip's colours |
+| `edit_look` | The Look tab's actions: start a cycle, add a state from a phase, remove a state, add a particle field |
 | `undo`, `redo`, `save_scene` | Step the history, write the scene |
 | `validate_scene` | Every problem, with its path |
 | `list_assets`, `search_library`, `import_asset` | The project's asset files, a Poly Haven search, an import with its credit |
@@ -177,7 +187,7 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `list_components` | The actors and constraints the game registers, with their fields, as the Components tab shows them |
 | `run_scene` | Step the scene headless for some seconds and report where each object ended up, with its body type and angle or rotation. `from` starts the player elsewhere and `prefab` runs a prefab's stage, as the editor's Play from here and Stage it do |
 | `settle_scene` | The editor's Settle physics: write where dynamic bodies came to rest, as one step of undo, optionally only some `ids` |
-| `screenshot_scene` | A picture of the scene as the editor holds it, unsaved edits included: the viewport alone or the whole window, optionally framed on one object or after some seconds of play. Takes `from` and `prefab` as `run_scene` does |
+| `screenshot_scene` | A picture of the scene as the editor holds it, unsaved edits included: the viewport alone or the whole window, optionally framed on one object or after some seconds of play. Takes `from` and `prefab` as `run_scene` does, and `phase` for the edit view at a phase of the cycle |
 | `build_project` | Build the game into `dist/` |
 
 The host has no GPU, so `screenshot_scene` opens the editor in a Chrome that has one, started on the first call and closed after five idle minutes or with the editor. It uses the Chrome named by `M2D_CHROME`; under WSL, the Windows Chrome, which needs mirrored networking so both sides share `localhost`; otherwise Playwright's Chromium, which may draw without a GPU. Each launch gets a debugging port from the OS and a profile folder of its own, so several editors can share one machine and one Chrome install.

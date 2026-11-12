@@ -116,3 +116,13 @@ declare module 'm2d-engine/core/sceneLoader.js' {
     check(data: unknown, name?: string, options?: { scenes?: Record<string, unknown> }): { loaded: Record<string, unknown> | null; issues: SceneValidationError[] };
   }
 }
+
+declare module 'm2d-engine/core/look.js' {
+  type Look = { lighting?: Record<string, unknown>; post?: Record<string, unknown> };
+  export function cycleLook(cycle: unknown, phase: number, resting?: Look): Look;
+}
+
+declare module 'm2d-engine/core/particles.js' {
+  export const PARTICLE_DEFAULTS: Readonly<Record<'motes' | 'smoke', Readonly<Record<string, unknown> & { count: number }>>>;
+  export function withParticleDefaults(field: Record<string, unknown>): Record<string, unknown>;
+}

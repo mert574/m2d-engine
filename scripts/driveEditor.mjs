@@ -388,6 +388,43 @@ const SUITES = {
     }
   },
 
+  /** The lot's Look tab: scrub the cycle without writing, add smoke, drag a slider to one edit. */
+  look: (context, report, out) =>
+    drive(context, report, join(repo, 'examples/src/yard'), 'scenes/lot.json', async (page) => {
+      await page.click('.tab[data-tab="look"]');
+      const bands = page.locator('#look .cycle-band');
+      report.check('the cycle strip draws its colours', await bands.count() > 0, `${await bands.count()} bands`);
+      const canvas = () => page.locator('#screen').screenshot();
+      await page.waitForTimeout(800);
+      const resting = await canvas();
+      const scrub = page.locator('#look .cycle-scrub input[type=range]');
+      await scrub.fill(String(await scrub.getAttribute('max') - 0.5));
+      await page.waitForTimeout(800);
+      const scrubbed = await canvas();
+      await shoot(page, out, 'look-scrubbed', report);
+      report.check('scrubbing changes the picture', !resting.equals(scrubbed));
+      report.check('scrubbing writes nothing', !(await history(page)).dirty);
+
+      const fieldsBefore = await page.evaluate(() => window.m2dEditor.remote.doc.data.world.particles?.length ?? 0);
+      await page.click('#look button:has-text("Add smoke")');
+      await page.waitForTimeout(300);
+      const fields = await page.evaluate(() => window.m2dEditor.remote.doc.data.world.particles);
+      report.check('Add smoke appends a field', fields.length === fieldsBefore + 1 && fields.at(-1).kind === 'smoke', JSON.stringify(fields.at(-1)));
+
+      const radius = page.locator('#look .particle-card').last().locator('label:has-text("Radius") input');
+      const box = await radius.boundingBox();
+      const undoBefore = (await history(page)).undo;
+      await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2);
+      await page.mouse.down();
+      for (let step = 1; step <= 6; step++) await page.mouse.move(box.x + box.width * (0.25 + step * 0.08), box.y + box.height / 2);
+      report.check('a slider previews without writing while held', (await history(page)).undo === undoBefore);
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+      report.check('its release writes one edit', (await history(page)).undo === 'Particles: radius', (await history(page)).undo);
+      await shoot(page, out, 'look-smoke', report);
+      await undoToClean(page, report);
+    }),
+
   /** A fresh 2D template: the menu UI scene and its elements. */
   async template2d(context, report, out) {
     const folder = await mkdtemp(join(tmpdir(), 'm2d-drive-template-'));

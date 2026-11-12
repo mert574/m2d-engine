@@ -26,6 +26,8 @@ export interface ShotOptions {
   /** Play from here, or a prefab's stage: see `playtest.ts`. */
   from?: { x: number; y: number; z?: number };
   prefab?: string;
+  /** The edit view at this phase of the lighting cycle. */
+  phase?: number;
 }
 
 export interface Shot {
@@ -44,7 +46,7 @@ interface EditorHook {
   readonly playing: boolean;
   readonly loadError: string | null;
   readonly scenePath: string | null;
-  viewport: { frame(id: string): void; placement(id: string): unknown };
+  viewport: { frame(id: string): void; placement(id: string): unknown; previewPhase(phase: number | null): void };
 }
 type Hooked = { m2dEditor?: EditorHook };
 
@@ -133,6 +135,10 @@ export class SceneCamera {
         notes.push(found ? `framed ${options.focus}` : `no object '${options.focus}' on screen; not framed`);
       }
       const plays = Boolean(options.play || options.prefab || options.from);
+      if (options.phase !== undefined && !plays) {
+        await page.evaluate((phase) => { (globalThis as unknown as Hooked).m2dEditor!.viewport.previewPhase(phase); }, options.phase);
+        notes.push(`at cycle phase ${options.phase}`);
+      }
       if (plays) {
         await page.evaluate(async (variant) => {
           await (globalThis as unknown as Hooked).m2dEditor!.play(variant);

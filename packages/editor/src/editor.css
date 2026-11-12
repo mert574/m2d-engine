@@ -807,3 +807,22 @@ input[type='color'].colour {
 .overlay.paths .path-point { fill: #62a6ff; stroke: rgba(0, 0, 0, 0.6); stroke-width: 1; pointer-events: all; cursor: grab; }
 .overlay.paths .path-point.first { fill: #fff; }
 .overlay.paths .path-point:hover { filter: brightness(1.3); }
+
+.look-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; padding: 10px; overflow: auto; }
+.look-panel .hint { color: var(--muted, #8b93a1); margin: 4px 0 8px; }
+.look-section h3 { font-size: 12px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted, #8b93a1); }
+.cycle-strip { display: grid; gap: 3px; margin-bottom: 8px; }
+.cycle-row { display: grid; grid-template-columns: 56px 1fr; align-items: center; gap: 6px; font-size: 11px; }
+.cycle-band { height: 14px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.12); }
+.cycle-scrub { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin-left: 62px; }
+.cycle-readout { font-variant-numeric: tabular-nums; font-size: 11px; min-width: 140px; }
+.cycle-states { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+.cycle-states .chip { display: inline-flex; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; overflow: hidden; }
+.cycle-states .chip.start { border-color: var(--accent); }
+.cycle-states .chip button { background: none; border: 0; color: inherit; padding: 2px 8px; font-size: 11px; }
+.cycle-states .chip-remove { opacity: 0.6; padding-left: 2px !important; }
+.look-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.particle-card { border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+.particle-card h4 { margin: 0 0 6px; font-size: 12px; text-transform: capitalize; }
+.particle-card .slider { display: grid; grid-template-columns: 64px 1fr 48px; gap: 6px; align-items: center; font-size: 11px; }
+.particle-card .value { font-variant-numeric: tabular-nums; text-align: right; }

@@ -9,6 +9,7 @@ import { SceneRules } from './rules.js';
 import { SceneHud } from './hud.js';
 import { SceneProps } from './sceneProps.js';
 import { Path } from './path.js';
+import { withParticleDefaults } from './particles.js';
 import { cycleLook, advanceCycle } from './look.js';
 import { lodFor } from './gltf.js';
 import { loadHDR } from './hdr.js';
@@ -163,10 +164,7 @@ export class Scene {
    */
   #applyLevelLogic() {
     const world = this.config.world ?? {};
-    if (world.cycle) {
-      const states = world.cycle.states ?? [];
-      this.cycle = { phase: world.cycle.phase ?? 0, target: world.cycle.phase ?? 0, period: world.cycle.period ?? 0, ease: world.cycle.ease ?? 1.5, count: states.length };
-    }
+    if (world.cycle) this.cycle = cycleState(world.cycle);
     if (world.player) {
       const player = this.entitiesById.get(world.player);
       if (player && !this.game.player) this.game.player = player;
@@ -260,18 +258,19 @@ export class Scene {
   #applyFrameLook(frame) {
     const fields = this.config.world?.particles;
     if (fields?.length) {
-      this.#particleFields ??= fields.map((f) => {
-        const [r, g, b] = f.color ? parseColor(f.color) : [1, 1, 1];
+      this.#particleFields ??= fields.map((given) => {
+        const f = withParticleDefaults(given);
+        const [r, g, b] = parseColor(f.color);
         return {
           kind: f.kind, count: f.count,
-          center: f.at ? [f.at.x ?? 0, f.at.y ?? 0, f.at.z ?? 0] : [0, 0, 0],
-          extent: f.extent ? [f.extent.x, f.extent.y, f.extent.z] : (f.kind === 'smoke' ? [0.6, 4, 0.6] : [16, 5, 16]),
-          radius: f.radius ?? (f.kind === 'smoke' ? 0.5 : 0.03),
+          center: [f.at.x ?? 0, f.at.y ?? 0, f.at.z ?? 0],
+          extent: [f.extent.x, f.extent.y, f.extent.z],
+          radius: f.radius,
           color: [toLinear(r), toLinear(g), toLinear(b)],
-          opacity: f.opacity ?? (f.kind === 'smoke' ? 0.3 : 0.6),
-          emissive: f.emissive ?? 0,
-          speed: f.speed ?? (f.kind === 'smoke' ? 0.6 : 0.3),
-          follow: f.follow ?? true
+          opacity: f.opacity,
+          emissive: f.emissive,
+          speed: f.speed,
+          follow: f.follow
         };
       });
       frame.particles = this.#particleFields;
@@ -601,6 +600,35 @@ export class Scene {
     const id = entity?.sceneId ?? '';
     const prefix = id.includes('/') ? id.slice(0, id.lastIndexOf('/') + 1) : '';
     return this.paths.get(prefix + name) ?? null;
+  }
+
+  /**
+   * The editor's path for an edited look — `world.lighting`, `post`,
+   * `cycle` or `particles` — from the config, in place: a slider dragged
+   * over a particle field must not rebuild the level. Edit mode only.
+   */
+  rebuildLook() {
+    if (!this.game.editMode) throw new Error('Scene.rebuildLook is an edit-mode operation');
+    this.#particleFields = null;
+    this.#lastLook = null;
+    const cycle = this.config.world?.cycle;
+    this.cycle = cycle ? cycleState(cycle) : null;
+    if (this.#lookApplied) {
+      this.game.renderer.setAmbientLight(null);
+      this.game.renderer.setPostEffects(null);
+      this.#lookApplied = false;
+    }
+    if (!this.game.headless) this.#applyLook();
+    this.game.invalidate();
+  }
+
+  /** Show the cycle at `phase` without writing it: the editor's scrubber. Edit mode only. */
+  previewCycle(phase) {
+    if (!this.game.editMode) throw new Error('Scene.previewCycle is an edit-mode operation');
+    if (!this.cycle) return;
+    this.cycle.phase = phase;
+    if (!this.game.headless) this.#applyLook();
+    this.game.invalidate();
   }
 
   /** The editor's path for an edited `paths` block: the map again, from the config. Edit mode only. */
@@ -1345,4 +1373,8 @@ function quaternion([x, y, z, w]) {
 
 function pathsOf(config) {
   return new Map(Object.entries(config?.paths ?? {}).map(([name, spec]) => [name, new Path(spec)]));
+}
+
+function cycleState(cycle) {
+  return { phase: cycle.phase ?? 0, target: cycle.phase ?? 0, period: cycle.period ?? 0, ease: cycle.ease ?? 1.5, count: cycle.states?.length ?? 0 };
 }

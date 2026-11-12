@@ -92,3 +92,38 @@ describe('the world\'s presentation fields', () => {
     game.destroy();
   });
 });
+
+describe('the look in edit mode, in place', () => {
+  const cycle = {
+    states: [{ name: 'day', lighting: { ambient: '#ffffff' } }, { name: 'night', lighting: { ambient: '#000000' } }],
+    phase: 0
+  };
+
+  it('previews a phase of the cycle without touching the document', async () => {
+    const { game, ambient } = await show({ cycle }, { editMode: true });
+    const scene = game.sceneManager.getCurrentScene();
+    scene.previewCycle(0.5);
+    expect(ambient).toHaveBeenLastCalledWith('rgb(128, 128, 128)');
+    expect(scene.config.world.cycle.phase).toBe(0);
+    game.destroy();
+  });
+
+  it('rebuilds from an edited config, and clears what an edit took away', async () => {
+    const { game, ambient, post } = await show({ lighting: { ambient: '#336699' }, post: { grain: { strength: 0.2 } } }, { editMode: true });
+    const scene = game.sceneManager.getCurrentScene();
+    scene.config.world = { ...scene.config.world, lighting: undefined, post: undefined, cycle };
+    scene.rebuildLook();
+    expect(ambient).toHaveBeenCalledWith(null);
+    expect(post).toHaveBeenLastCalledWith(null);
+    expect(ambient).toHaveBeenLastCalledWith('#ffffff');
+    expect(scene.cycle).toMatchObject({ phase: 0, count: 2 });
+    game.destroy();
+  });
+
+  it('is refused outside edit mode', async () => {
+    const { game } = await show({ cycle });
+    expect(() => game.sceneManager.getCurrentScene().rebuildLook()).toThrow(/edit-mode/);
+    expect(() => game.sceneManager.getCurrentScene().previewCycle(1)).toThrow(/edit-mode/);
+    game.destroy();
+  });
+});

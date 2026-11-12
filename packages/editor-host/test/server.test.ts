@@ -65,8 +65,8 @@ describe('the MCP server', () => {
   it('advertises its tools to a client', async () => {
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
-      'build_project', 'create_scene', 'delete_scene', 'edit_scene', 'import_asset', 'inspect_node', 'list_assets',
-      'list_components', 'list_scenes', 'outline_scene', 'read_scene', 'redo', 'rename_entry', 'rename_scene', 'run_scene', 'save_scene',
+      'build_project', 'create_scene', 'delete_scene', 'edit_look', 'edit_scene', 'import_asset', 'inspect_node', 'list_assets',
+      'list_components', 'list_scenes', 'look_at', 'outline_scene', 'read_scene', 'redo', 'rename_entry', 'rename_scene', 'run_scene', 'save_scene',
       'screenshot_scene', 'search_library', 'settle_scene', 'undo', 'validate_scene'
     ]);
     // Every tool says what it is for: the description is the agent's
@@ -202,6 +202,31 @@ describe('agents edit through the session', () => {
 
     for (let i = 0; i < 3; i++) await call('undo', {});
     expect(companion.session.isDirty(path)).toBe(false);
+  });
+
+  it('works a lighting cycle and particles through the Look tab\'s actions', async () => {
+    const path = 'scenes/room.json';
+    const before = (await companion.session.snapshot(path)).state.undo;
+    const call = (name: string, args: Record<string, unknown>) => client.callTool({ name, arguments: { path, ...args } });
+    await call('edit_scene', { label: 'Light', ops: [{ op: 'set', path: ['world', 'lighting'], value: { ambient: '#ffffff' } }] });
+    await call('edit_look', { action: 'startCycle' });
+    await call('edit_scene', { label: 'Night', ops: [{ op: 'set', path: ['world', 'cycle', 'states', 1, 'lighting', 'ambient'], value: '#000000' }] });
+
+    const halfway = JSON.parse(textOf(await call('look_at', { phase: 0.5 })));
+    expect(halfway).toMatchObject({ phase: 0.5, states: ['day', 'night'], lighting: { ambient: 'rgb(128, 128, 128)' } });
+    expect(halfway.strip).toHaveLength(9);
+
+    await call('edit_look', { action: 'addState', phase: 0.5, name: 'dusk' });
+    expect(JSON.parse(textOf(await call('look_at', {}))).states).toEqual(['day', 'dusk', 'night']);
+    await call('edit_scene', { label: 'Start at night', ops: [{ op: 'set', path: ['world', 'cycle', 'phase'], value: 2 }] });
+    await call('edit_look', { action: 'removeState', index: 0 });
+    const after = JSON.parse(textOf(await call('look_at', {})));
+    expect(after).toMatchObject({ phase: 1, states: ['dusk', 'night'] });
+    expect((await call('edit_look', { action: 'removeState', index: 0 })).isError).toBe(true);
+    expect(textOf(await call('edit_look', { action: 'addState' }))).toMatch(/addState needs a phase/);
+
+    for (let i = 0; i < 6; i++) await call('undo', {});
+    expect((await companion.session.snapshot(path)).state.undo).toBe(before);
   });
 
   it('refuses a malformed edit whole, saying where', async () => {
