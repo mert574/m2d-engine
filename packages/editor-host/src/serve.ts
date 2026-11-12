@@ -36,6 +36,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Companion } from './companion.ts';
 import { PROJECT_FILE, type ProjectConfig } from './project.ts';
 import { createProject, TEMPLATES } from './templates.ts';
+import { SceneCamera } from './shots.ts';
 import { engineAlias, buildProject, previewProject, closePreview } from './build.ts';
 import { spawn } from 'node:child_process';
 import { openSync } from 'node:fs';
@@ -129,7 +130,7 @@ function readBody(req: AsyncIterable<unknown>): Promise<unknown> {
 }
 
 /** The project endpoints, the edit channel and MCP, as a Vite plugin. */
-function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string, port: number): Plugin {
+function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string, port: number, camera: SceneCamera): Plugin {
   let server: ViteDevServer | null = null;
   // Vite reports files with forward slashes on every platform.
   const slash = (path: string) => path.split(sep).join('/');
@@ -225,7 +226,8 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
         console.error = original;
       }
     },
-    build: () => buildProject(companion.project, companion.assets)
+    build: () => buildProject(companion.project, companion.assets),
+    screenshot: (shot) => camera.shoot(shot)
   });
 
   return {
@@ -458,6 +460,8 @@ if (!(await companion.project.declared())) {
 const appRoot = fileURLToPath(new URL('../../editor', import.meta.url));
 const port = Number(process.env.PORT) || await freePort();
 const config = await companion.project.config();
+// screenshot_scene's browser, started on the first shot.
+const camera = new SceneCamera(`http://localhost:${port}/`);
 
 const server = await createServer({
   configFile: false,
@@ -475,7 +479,7 @@ const server = await createServer({
   // a project outside the repository has no node_modules of its own here,
   // and one inside it must share the app's engine, not load a second.
   resolve: { alias: engineAlias() },
-  plugins: [hostPlugin(companion, config, appRoot, port)]
+  plugins: [hostPlugin(companion, config, appRoot, port, camera)]
 });
 
 await server.listen();
@@ -486,6 +490,6 @@ console.log(`            MCP: http://localhost:${port}/mcp`);
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     companion.close();
-    void closePreview().then(() => server.close()).then(() => process.exit(0));
+    void Promise.all([closePreview(), camera.close()]).then(() => server.close()).then(() => process.exit(0));
   });
 }

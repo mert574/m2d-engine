@@ -141,7 +141,7 @@ Proposed after E7b–E9 shipped and parked by the owner, to be picked up after t
 
 | Idea | What it is |
 | --- | --- |
-| GUI test harness | `scripts/driveEditor.mjs`: headless Chrome with the GPU over CDP driving the real editor with pointer input, as the E7b–E9 verification was done by hand; a small suite per phase |
+| ~~GUI test harness~~ | **Done, 12 Nov 2026**: `scripts/driveEditor.mjs` (`npm run test:editor`). Suites: lot (3D), platformer (2D, play), template2d (UI scene). Still to add: suites for scatter, tile paint, the animation editor and composition |
 | Prefab isolation stage | A prefab on its own stage with its constraints ticking; prefab variants and inheritance once it exists |
 | Play-from-here, settle | Start a playtest with the player at the camera; a toggle that lets physics rest before a save |
 | Paths and splines | Patrol routes, moving-platform paths and roads as scene data with an on-canvas spline editor |
@@ -149,7 +149,7 @@ Proposed after E7b–E9 shipped and parked by the owner, to be picked up after t
 | Search and audit | Find every use of a prefab or asset across scenes; flag unused and missing assets |
 | Presence | Who (person or agent) has a scene open and what they have selected, over the host's one history |
 | Terrain | A coarse heightfield with raise and lower brushes for 3D levels |
-| Agent vision | An MCP `screenshot_scene` through the same Chrome-with-GPU path, so an agent sees what it edited |
+| ~~Agent vision~~ | **Done, 12 Nov 2026**: MCP `screenshot_scene` (`shots.ts`), with unsaved edits, framing, play and the whole window as options |
 | Export targets | An itch-ready zip, a PWA manifest; F14's settings panel absorbing input bindings |
 | Online from the editor | After headless server mode (networking plan): a host-a-session button and a replica inspector |
 

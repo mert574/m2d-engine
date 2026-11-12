@@ -152,7 +152,7 @@ With Power saving on (the default), the viewport draws when something changes an
 
 ## Agents
 
-The running editor serves MCP at `/mcp` on its port. An agent there edits the same documents as the window, and its edits appear in the history marked as an agent's. `npm run editor:mcp <folder>` serves the same tools over stdio when no editor is running. `run_scene` and `build_project` need the running editor.
+The running editor serves MCP at `/mcp` on its port. An agent there edits the same documents as the window, and its edits appear in the history marked as an agent's. `npm run editor:mcp <folder>` serves the same tools over stdio when no editor is running. `run_scene`, `screenshot_scene` and `build_project` need the running editor.
 
 | Tool | Does |
 | --- | --- |
@@ -165,7 +165,10 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `create_scene`, `rename_scene`, `delete_scene` | Scene files: a blank level or UI scene or a copy, a new name, gone |
 | `list_components` | The actors and constraints the game registers, with their fields, as the Components tab shows them |
 | `run_scene` | Step the scene headless for some seconds and report where each object ended up |
+| `screenshot_scene` | A picture of the scene as the editor holds it, unsaved edits included: the viewport alone or the whole window, optionally framed on one object or after some seconds of play |
 | `build_project` | Build the game into `dist/` |
+
+The host has no GPU, so `screenshot_scene` opens the editor in a Chrome that has one, started on the first call and closed after five idle minutes or with the editor. It uses the Chrome named by `M2D_CHROME`; under WSL, the Windows Chrome, which needs mirrored networking so both sides share `localhost`; otherwise Playwright's Chromium, which may draw without a GPU. Each launch gets a debugging port from the OS and a profile folder of its own, so several editors can share one machine and one Chrome install.
 
 ## Keyboard
 

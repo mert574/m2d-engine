@@ -25,7 +25,8 @@
     "test": "npm run typecheck && npm run test --workspaces --if-present",
     "test:watch": "npm run test:watch --workspace packages/engine",
     "test:node": "npm run test:node --workspace packages/engine",
-    "test:browser": "npm run test:browser --workspace packages/engine"
+    "test:browser": "npm run test:browser --workspace packages/engine",
+    "test:editor": "node scripts/driveEditor.mjs"
   },
   "author": "Mert Yildiz",
   "license": "MIT",

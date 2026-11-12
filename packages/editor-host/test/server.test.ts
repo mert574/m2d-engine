@@ -64,7 +64,7 @@ describe('the MCP server', () => {
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'build_project', 'create_scene', 'delete_scene', 'edit_scene', 'import_asset', 'inspect_node', 'list_assets',
       'list_components', 'list_scenes', 'outline_scene', 'read_scene', 'redo', 'rename_scene', 'run_scene', 'save_scene',
-      'search_library', 'undo', 'validate_scene'
+      'screenshot_scene', 'search_library', 'undo', 'validate_scene'
     ]);
     // Every tool says what it is for: the description is the agent's
     // only documentation.
@@ -255,6 +255,9 @@ describe('what only the serving host can do', () => {
     expect(textOf(run)).toMatch(/running editor/);
     const build = await client.callTool({ name: 'build_project', arguments: {} });
     expect(textOf(build)).toMatch(/running editor/);
+    const shot = await client.callTool({ name: 'screenshot_scene', arguments: { path: 'scenes/room.json' } });
+    expect(shot.isError).toBe(true);
+    expect(textOf(shot)).toMatch(/running editor/);
   });
 });
 

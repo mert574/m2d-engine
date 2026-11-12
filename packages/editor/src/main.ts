@@ -1332,6 +1332,8 @@ function updateDrawStat(): void {
  */
 let waiting: (() => Promise<void>) | null = null;
 let running = false;
+/** Who waits for the queue to drain (automation's `idle()`). */
+let drained: Array<() => void> = [];
 function enqueue(job: () => Promise<void>): void {
   waiting = job;
   if (running) return;
@@ -1343,7 +1345,16 @@ function enqueue(job: () => Promise<void>): void {
       await next().catch((error: unknown) => { showPlate(String((error as Error).message ?? error)); });
     }
     running = false;
+    const waiters = drained;
+    drained = [];
+    for (const resume of waiters) resume();
   })();
+}
+
+/** Resolves once nothing is queued or running: a scene opened, a play started, a rebuild done. */
+function idle(): Promise<void> {
+  if (!running && !waiting) return Promise.resolve();
+  return new Promise((resume) => { drained.push(resume); });
 }
 
 /** File events arrive in bursts; they settle briefly before they queue. */
@@ -2203,7 +2214,21 @@ try {
 // viewport and the open replica. Read-only by convention.
 Object.assign(window, {
   m2dEditor: {
-    viewport, place, togglePlay, select, selectedIds, edit,
+    viewport, place, togglePlay, select, selectedIds, edit, idle,
+    /** Open a scene by path; resolves once it is shown (or failed: see `loadError`). */
+    async openScene(path: string) {
+      const next = project?.scenes.find((scene) => scene.path === path);
+      if (!next) throw new Error(`no scene at ${path}`);
+      await idle();
+      enqueue(() => open(next));
+      await idle();
+      // The queue coalesces: a job enqueued while this one waited (a hot
+      // reload, a file event) replaces it. Showing the wrong scene is an
+      // error here, not in the editor.
+      if (entry?.path !== path) throw new Error(`the open of ${path} was superseded; ${entry?.path ?? 'nothing'} is showing`);
+    },
+    get scenePath() { return entry?.path ?? null; },
+    get loadError() { return loadError; },
     get remote() { return remote; }, get issues() { return issues; }, get playing() { return playing; }
   }
 });

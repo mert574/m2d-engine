@@ -5,6 +5,7 @@ npm test               # all suites plus example scene validation
 npm run test:node      # engine Node suite, about half a second
 npm run test:browser   # engine browser suite in headless Chromium
 npm run test:watch     # Node suite, re-run on change
+npm run test:editor    # the editor's GUI, driven in a Chrome with the GPU
 ```
 
 The engine's tests are two Vitest projects declared in `packages/engine/vitest.config.js`.
@@ -113,6 +114,18 @@ sudo npx playwright install-deps chromium
 # or on Ubuntu 24.04
 sudo apt-get install libnspr4 libnss3 libasound2t64
 ```
+
+## The editor's GUI
+
+`scripts/driveEditor.mjs` (`npm run test:editor`) drives the real editor. It starts an editor host for each suite, opens it in a Chrome with the GPU, and uses real pointer input: click to pick, a gizmo drag that must commit one edit, isolate, play and stop, and undo back to clean. It saves nothing. The example projects are driven in place, and unsaved edits only touch the git-ignored `.m2d/journal/`. A suite refuses a scene that opens with unsaved edits, such as a journal replayed from an earlier session, because undoing back to clean would walk into them and the host would then drop the journal. The template suite makes a fresh project in a temp folder.
+
+```bash
+npm run test:editor                       # every suite: lot, platformer, template2d
+node scripts/driveEditor.mjs lot --headed # one suite, with the window shown
+node scripts/driveEditor.mjs --out shots  # keep the screenshots somewhere known
+```
+
+Each suite writes screenshots and a `report.json` to `--out`, a temp folder by default. The exit code is non-zero when a check fails. The browser comes from `packages/editor-host/src/chrome.ts`, the same launcher as the MCP `screenshot_scene`. It uses `M2D_CHROME`, then the Windows Chrome under WSL, then Playwright's Chromium. Each launch asks for debugging port 0 and reads the port Chrome took from its own profile. A port picked in advance could be taken by another agent's Chrome, and the harness would then drive and close that browser. The launcher also reaps its browser synchronously when the process exits, because a graceful close can lose the shutdown race: Vite installs its own SIGTERM handler and exits as soon as its server has closed.
 
 The Canvas backend's conformance run is repeated in the browser project so the suite's tolerances are proven against Chromium's rasterizer. A test that fails only there is a tolerance problem.
 

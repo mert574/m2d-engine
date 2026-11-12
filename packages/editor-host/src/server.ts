@@ -20,6 +20,8 @@ import { z } from 'zod';
 import { sceneOutline, inspectNode, validateScene, structure, SCENE_VERSION, type Op } from 'm2d-editor-core';
 import type { Session, ChangeEvent } from './session.ts';
 import type { Assets } from './assets.ts';
+// Type-only: the stdio server never loads shots.ts (or playwright) at runtime.
+import type { Shot, ShotOptions } from './shots.ts';
 
 export const SERVER_NAME = 'm2d-editor';
 export const SERVER_VERSION = '0.2.0';
@@ -42,6 +44,11 @@ export interface ServerOptions {
   runScene?: (data: Record<string, unknown>, ticks: number) => Promise<RunReport>;
   /** Build the project into a static site; the serving host only. */
   build?: () => Promise<unknown>;
+  /**
+   * Render a scene in a GPU browser and return the PNG — the serving host
+   * only, and only where it can start a Chrome (`shots.ts`).
+   */
+  screenshot?: (options: ShotOptions) => Promise<Shot>;
 }
 
 export interface RunReport {
@@ -379,6 +386,38 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
     try {
       const doc = await session.document(file);
       return json(await options.runScene(doc.data, Math.round((seconds ?? 3) * 60)));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('screenshot_scene', {
+    title: 'Screenshot a scene',
+    description:
+      'See a scene: the editor draws it, as the editor holds it (unsaved edits included), in a ' +
+      'Chrome with the GPU, and this returns the picture. Use it after an edit to check what it ' +
+      'looks like — placement, lighting, scale — which run_scene cannot tell you. view "scene" is ' +
+      'the viewport alone; "editor" the whole window with panels and the selection gizmo. play ' +
+      'runs the game for that many seconds first. The first call starts the browser (a few seconds).',
+    inputSchema: {
+      path: scenePath,
+      play: z.number().min(0).max(30).optional().describe('Seconds to play before the shot; 0 or absent: the edit view'),
+      focus: z.string().optional().describe('An object id to frame first, as F does in the editor'),
+      view: z.enum(['scene', 'editor']).optional().describe('Default scene'),
+      width: z.number().int().min(320).max(2560).optional().describe('Window width in px, default 1280'),
+      height: z.number().int().min(240).max(1600).optional().describe('Window height in px, default 800')
+    }
+  }, async ({ path: file, play, focus, view, width, height }) => {
+    if (!options.screenshot) return text('screenshot_scene needs the running editor (npm run editor <project>)', true);
+    try {
+      await session.document(file);
+      const shot = await options.screenshot({ path: file, play, focus, view, width, height });
+      return {
+        content: [
+          { type: 'image' as const, data: shot.png.toString('base64'), mimeType: 'image/png' },
+          { type: 'text' as const, text: shot.notes.join('\n') }
+        ]
+      };
     } catch (error) {
       return failure(error);
     }
