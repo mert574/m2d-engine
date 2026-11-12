@@ -51,6 +51,12 @@ export class Constraint {
 
   constructor(entity) {
     this.entity = entity;
+    /**
+     * Set, the entity skips this constraint's ticks (it still draws): a
+     * stun, a repel, a cutscene holding an actor still without detaching
+     * what it was doing.
+     */
+    this.suspended = false;
   }
 
   /**

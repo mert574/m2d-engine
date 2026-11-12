@@ -46,12 +46,18 @@ export class Lamp extends Entity {
  */
 export class Thug extends Ghost {
   static properties = {
-    sealed: s.boolean({ initial: false, description: 'Out of play until a rule unseals it: unseen, untouchable and still — a wave waiting for its section' })
+    sealed: s.boolean({ initial: false, description: 'Out of play until a rule unseals it: unseen, untouchable and still — a wave waiting for its section' }),
+    windup: s.number({ initial: 0.45, positive: true, unit: 's', description: 'Raised arms before a strike lands: the tell' }),
+    reach: s.number({ initial: 90, positive: true, unit: 'px', description: 'How close the rogue must be for a windup to start' }),
+    hitLift: s.number({ initial: 260, min: 0, unit: 'px/s', label: 'Hit lift', description: 'How high a hit pops it' })
   };
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.sealed = options.sealed === true;
+    this.windupTime = options.windup ?? 0.45;
+    this.reach = options.reach ?? 90;
+    this.hitLift = options.hitLift ?? 260;
     /** The collision mask to restore on unsealing (a sealed thug collides with nothing); public, so a snapshot keeps it. */
     this.sealedMask = null;
     if (this.sealed) {
@@ -86,7 +92,7 @@ export class Thug extends Ghost {
     const onDamage = health.onDamage;
     health.onDamage = (amount) => {
       onDamage?.(amount);
-      this.lift = 260;
+      this.lift = this.hitLift;
     };
     this.onDeath = null;
     const onDeath = health.onDeath;
@@ -125,8 +131,8 @@ export class Thug extends Ghost {
       }
     } else if (player && !player.dead && this.strikeWait <= 0 && this.elevation === 0) {
       const dist = Math.hypot(player.position.x - this.position.x, player.position.y - this.position.y);
-      if (dist < 90) {
-        this.windup = 0.45;
+      if (dist < this.reach) {
+        this.windup = this.windupTime;
         this.animTime = 0;
       }
     }
@@ -171,7 +177,7 @@ export class Thug extends Ghost {
     // The tell: a ring tightening at the feet through the windup, and a
     // flash along the blow when it lands.
     if (this.windup > 0) {
-      const k = this.windup / 0.45;
+      const k = this.windup / this.windupTime;
       renderer.pushTransform({ x: a.x, y: a.y, scaleX: 1, scaleY: 0.4 });
       renderer.drawArc({ x: 0, y: 0, radius: 30 + 50 * k, strokeStyle: `rgba(255, 120, 80, ${0.9 - 0.5 * k})`, lineWidth: 3 });
       renderer.popTransform();

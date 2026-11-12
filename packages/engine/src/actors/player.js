@@ -4,17 +4,22 @@ import { Attack } from '../constraints/attack.js';
 import { Debug } from '../constraints/debug.js';
 import { KeyboardControl } from '../constraints/keyboardControl.js';
 import { WallSlip } from '../constraints/wallSlip.js';
+import { s } from '../core/schema.js';
 
 export class Player extends Entity {
   static description = 'The side-view platformer player';
   name = 'Player';
+
+  static properties = {
+    jumpVelocity: s.number({ initial: 720, positive: true, unit: 'px/s', label: 'Jump velocity' })
+  };
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
 
     body.setMass(1);
 
-    this.jumpVelocity = 720; // px/s
+    this.jumpVelocity = options.jumpVelocity ?? 720;
     this.facingDirection = 1;
     this.setAnimation('idle');
 

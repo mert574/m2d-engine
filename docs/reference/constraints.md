@@ -31,6 +31,8 @@ What a scene may set is the class's `static params`, the constraint's data. Call
 
 Writing a constraint of your own? Give it a `static params` of schema descriptors, one per tunable, named after the field it sets. A tunable missing from `params` cannot be set from a scene, and tooling cannot see it. Record a default as `initial`, never as a schema `default`: an override that filled in defaults would reset every param the author did not mention. Override `configure(params)` when a value is not stored as given: when another field is derived from it, or a map should merge instead of replace.
 
+Any constraint can be `suspended`: while it is, its entity skips its `fixedUpdate` and `update` (it still draws), and nothing it was doing is lost. A stun, a repel or a conversation holds an actor this way, instead of re-implementing the entity's tick to leave one constraint out. Hollow Grove's warded wisp suspends its `chase`; its walker, talking, suspends everything but `abilities` and `health` for the tick.
+
 ## Health
 
 `constraints/health.js`. Hit points, invulnerability after a hit and a health bar above the entity.

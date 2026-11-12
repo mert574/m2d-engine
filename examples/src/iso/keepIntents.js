@@ -53,7 +53,7 @@ export function creditEmber(collector) {
   purseOf(collector).embers += 1;
 }
 
-const VENDOR = entity({ actor: 'Quartermaster', within: 140 });
+const VENDOR = entity({ actor: 'Quartermaster', within: (vendor) => vendor.tradeRadius });
 
 export const keepIntents = defineIntents({
   buy: {

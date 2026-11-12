@@ -190,9 +190,13 @@ export class Stair extends Trigger {
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
+  static properties = {
+    sealed: s.boolean({ initial: true, description: 'Closed until a rule unseals it' })
+  };
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.sealed = true;
+    this.sealed = options.sealed ?? true;
     this.time = 0;
   }
 
@@ -350,12 +354,17 @@ export class Quartermaster extends Entity {
   name = 'Quartermaster';
   static replicated = ['stock'];
 
+  static properties = {
+    tradeRadius: s.number({ initial: 140, positive: true, unit: 'px', label: 'Trade radius', description: 'How close a knight trades: the prompt shows within it and the server allows a trade within it' })
+  };
+
   get lit() { return this.game.renderer.supports('lights'); }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: 0, mask: 0 });
-    this.addConstraint('prompt', new ProximityPrompt(this, { radius: 120, text: 'E · Trade', color: '#ffe3b0' }));
+    this.tradeRadius = options.tradeRadius ?? 140;
+    this.addConstraint('prompt', new ProximityPrompt(this, { radius: this.tradeRadius, text: 'E · Trade', color: '#ffe3b0' }));
     /** What is left of each ware. Simulation state: the `buy` intent spends it. */
     this.stock = newStock();
     const rng = makeRng(Math.round(body.position.x * 3 + body.position.y * 5));

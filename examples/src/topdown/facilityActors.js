@@ -264,8 +264,13 @@ export class SentryTurret extends Turret {
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
+  static properties = {
+    boltLifetime: s.number({ initial: 6, positive: true, unit: 's', label: 'Bolt lifetime' })
+  };
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
+    this.boltLifetime = options.boltLifetime ?? 6;
     this.idleScan = makeRng(seedFrom(body.position))() * Math.PI * 2;
     this.clock = 0;
   }
@@ -287,7 +292,7 @@ export class SentryTurret extends Turret {
       speed: this.rocketSpeed,
       damage: this.rocketDamage,
       direction: { ...this.aimDirection },
-      maxLifetime: 6
+      maxLifetime: this.boltLifetime
     });
     this.game.entities.add(bolt);
     this.game.physics.add(rocketBody);
@@ -517,7 +522,9 @@ export class ExtractionPad extends Trigger {
 export class ScannerAgent extends TopDownPlayer {
   static properties = {
     sonarPeriod: s.number({ initial: 3.2, positive: true, unit: 's', label: 'Sonar period', description: 'Seconds between echoes' }),
-    sonarRange: s.number({ initial: 460, positive: true, unit: 'px', label: 'Sonar range', description: 'How far an echo reaches' })
+    sonarRange: s.number({ initial: 460, positive: true, unit: 'px', label: 'Sonar range', description: 'How far an echo reaches' }),
+    lampReach: s.number({ initial: 240, positive: true, unit: 'px', label: 'Hand lamp reach' }),
+    lampSpread: s.number({ initial: 0.42, positive: true, unit: 'rad', label: 'Hand lamp spread', description: 'Half the cone\'s width' })
   };
 
   get lit() { return this.game.renderer.supports('lights'); }
@@ -527,6 +534,8 @@ export class ScannerAgent extends TopDownPlayer {
     super(body, sprite, game, options);
     this.sonarPeriod = options.sonarPeriod ?? 3.2;
     this.sonarRange = options.sonarRange ?? 460;
+    this.lampReach = options.lampReach ?? 240;
+    this.lampSpread = options.lampSpread ?? 0.42;
     /** Smoothed heading, so the lamp does not snap on a tap of a key. */
     this.heading = -Math.PI / 2;
     /** 1 on a hit, decaying to 0: drives the feed's glitch in the backdrop. */
@@ -563,8 +572,8 @@ export class ScannerAgent extends TopDownPlayer {
     const heading = this.heading;
 
     // The hand lamp: a cone of attention ahead of the agent.
-    const reach = 240;
-    const spread = 0.42;
+    const reach = this.lampReach;
+    const spread = this.lampSpread;
     renderer.drawPath({
       points: [
         { x: pos.x, y: pos.y },

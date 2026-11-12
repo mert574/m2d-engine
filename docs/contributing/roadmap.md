@@ -189,9 +189,31 @@ The F-items that survive this cut are listed at the end.
   the `instanceof` minimaps with live colours, the keep's ability bar
   and satchel, the grove's dialogue, and the hooks that write into the
   HUD's elements by id.
-- Actor tunables as module constants (`static properties` instead) —
-  the (a) columns of the audit below still stand; they are declarations,
-  not features. **Still to do.**
+- Actor tunables as module constants — **done for the gameplay numbers,
+  12 Nov 2026**. The line drawn: an actor's *own* numbers become
+  `static properties` (the yard hero's speeds, turn rate, gaits and clips;
+  Salvage Run's ship guns and ram formula, the drone's fire range and
+  cadence, the meteors' spin, drift and size class the scene already set,
+  the sky's seed; Ash Row's thug windup, reach and hit lift; the wisp's
+  height and repel speed; the turret's bolt lifetime; the agent's hand
+  lamp; `sealed` on the gate, stair and clearing; and the engine's own
+  `Player.jumpVelocity`). Numbers an actor sets on its *constraints*
+  (chase speeds, contact damage, thrust) stay in its constructor: the
+  editor's Running constraints card already shows and retunes them by
+  slot, which is the standard shape. Cinder Keep's trade radius was two
+  numbers (120 for the prompt, 140 on the server); it is one declared
+  `tradeRadius`, which the intent reads (`entity({ within })` takes a
+  function of the target). Left as is, deliberately: drawing constants
+  internal to a look (skyline periods, reed counts, glow radii) — the
+  actor-drawn glows want `prefab.light` (F10's remainder), not
+  properties.
+- **Two bugs the pass found, fixed**: Hollow Grove's walker, "frozen" in
+  conversation, still ticked its movement and attack constraints and
+  ticked its cooldowns and health twice a tick; its warded wisp still
+  chased (so the ward pushed it half as far) and double-ticked too. Both
+  re-implemented the entity's tick to leave a constraint out; the engine
+  now has `Constraint.suspended` for that, and `groveTicks.test.js`
+  pins both down.
 
 **Per project, the rewrites** — **mostly done, 12 Nov 2026**:
 
@@ -202,7 +224,7 @@ The F-items that survive this cut are listed at the end.
 | ~~The Facility~~ | **Done**: the concrete is the scene's `background` layer (tile layers draw after the hook's background pass, so the accents moved into a seeded `FloorMarks` object drawn just above it); the lamp grid is 35 placed `CeilingLamp`s with their prefab's light, `live` and `flicker` declared; the player's light is its prefab's; the sonar's period and range are declared on the player. Play looks the same |
 | Ember Valley | The four `textures/forest/*.png` orphans are deleted. Still open: baking the ridge backdrop to seed-once images on parallax `tileLayers`, leaving only fireflies and leaves as code |
 | Hollow Grove | Already on `Quest`/`Npc`/`UIDialogue`; its light, post and HUD moved. The quest stages and lines as JS constants wired to the engine's `Quest` *is* a standard shape — F8 (quests as assets) is optional, not owed |
-| Cinder Keep | `UIAbilityBar` and the satchel are engine UI plus game code; the duplicated `tradeRadius` belongs to the declarations pass |
+| ~~Cinder Keep~~ | **Done**: `UIAbilityBar` and the satchel are engine UI plus game code, which is the standard shape; the trade radius is one declared property both the prompt and the server read |
 | ~~The Yard~~ | **Done**: `lot.json` declared seven prefabs nothing placed (pillar, copper, lamp, neon, wheel, breather, mirror), leftovers of the lot rebuild; deleted |
 
 **Found on the way, fixed:** the engine's `Trigger` had a placeholder

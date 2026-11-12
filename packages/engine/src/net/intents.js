@@ -153,11 +153,15 @@ export function list(type, max) {
  * @param {object} [rules]
  * @param {string|string[]} [rules.actor] - The entity's `name` must be one of these.
  * @param {boolean} [rules.owned=false] - The sender must own it (`entity.playerId`).
- * @param {number} [rules.within] - At most this far, in px, from the sender's avatar.
+ * @param {number|((target: object) => number)} [rules.within] - At most this
+ *   far, in px, from the sender's avatar: a number, or the target's own reach
+ *   read off it on the server (`(vendor) => vendor.tradeRadius`).
  */
 export function entity({ actor, owned = false, within } = {}) {
   const actors = actor === undefined ? null : new Set(Array.isArray(actor) ? actor : [actor]);
-  if (within !== undefined && !(Number.isFinite(within) && within >= 0)) throw new Error('M2D intents: entity({ within }) needs a non-negative number');
+  if (within !== undefined && typeof within !== 'function' && !(Number.isFinite(within) && within >= 0)) {
+    throw new Error('M2D intents: entity({ within }) needs a non-negative number or a function of the target');
+  }
   return {
     kind: 'entity',
     check: (v) => (safeInt(v) && v >= 1 ? null : 'an entity id'),
@@ -169,9 +173,11 @@ export function entity({ actor, owned = false, within } = {}) {
       if (within !== undefined) {
         const avatar = player.avatar;
         if (!avatar) return reject('no-avatar');
+        const reach = typeof within === 'function' ? within(target) : within;
+        if (!(Number.isFinite(reach) && reach >= 0)) return reject('too-far');
         const dx = target.position.x - avatar.position.x;
         const dy = target.position.y - avatar.position.y;
-        if (dx * dx + dy * dy > within * within) return reject('too-far');
+        if (dx * dx + dy * dy > reach * reach) return reject('too-far');
       }
       return { ok: true, value: target };
     }

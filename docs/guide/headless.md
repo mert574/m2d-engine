@@ -185,7 +185,7 @@ An intent runs at the start of a tick, before entities update, in a deterministi
 | `str(maxLength)` | A string of at most that many characters |
 | `oneOf(values)` | One of a fixed list of strings or numbers |
 | `list(type, max)` | An array of at most `max` items of `type` |
-| `entity({ actor, owned, within })` | A network id, resolved to the live entity when the intent runs. `actor` is a name or a list of names the entity must have, `owned` requires `entity.playerId` to be the sender's, `within` is the most pixels it may be from the sender's avatar. Fails with `no-such-entity`, `wrong-entity`, `not-owned`, `no-avatar` or `too-far` |
+| `entity({ actor, owned, within })` | A network id, resolved to the live entity when the intent runs. `actor` is a name or a list of names the entity must have, `owned` requires `entity.playerId` to be the sender's, `within` is the most pixels it may be from the sender's avatar: a number, or a function of the entity that reads its own reach on the server (`within: (vendor) => vendor.tradeRadius`), so the reach a prompt shows and the reach the server allows are one declared value. Fails with `no-such-entity`, `wrong-entity`, `not-owned`, `no-avatar` or `too-far` |
 
 A message is `{ seq, name, args }`. `seq` counts up per connection. `IntentSet.decode(message)` checks it statically and never throws: a plain object with exactly those fields, a whole `seq` from 1 up, a declared name, exactly the declared argument fields, each of its type. An `IntentQueue` is one player's queue:
 

@@ -189,15 +189,16 @@ export class Wanderer extends ObliquePlayer {
 
   fixedUpdate(dt) {
     if (this.frozen) {
+      // Cooldowns, health and the ward keep running; movement and attacks
+      // do not. Suspended for this tick only, so their effects still draw.
       this.body.setVelocity({ x: 0, y: 0 });
-      // Cooldowns and the ward keep running; movement and attacks do not.
+      const held = [...this.constraints].filter(([slot]) => slot !== 'abilities' && slot !== 'health').map(([, constraint]) => constraint);
+      for (const constraint of held) constraint.suspended = true;
       Entity.prototype.fixedUpdate.call(this, dt);
-      this.getConstraint('abilities').fixedUpdate(dt);
-      this.getConstraint('health').fixedUpdate(dt);
-      tickWard(this, this.effects, dt);
-      return;
+      for (const constraint of held) constraint.suspended = false;
+    } else {
+      super.fixedUpdate(dt);
     }
-    super.fixedUpdate(dt);
     tickWard(this, this.effects, dt);
   }
 
@@ -235,6 +236,11 @@ export class Wanderer extends ObliquePlayer {
 
 /** A wisp: a cold light that drifts and hunts. */
 export class Wisp extends Ghost {
+  static properties = {
+    elevation: s.number({ initial: 28, min: 0, unit: 'px', description: 'How high it floats' }),
+    repelSpeed: s.number({ initial: 260, positive: true, unit: 'px/s', label: 'Repel speed', description: 'How fast the walker\'s ward drives it off' })
+  };
+
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
@@ -249,13 +255,17 @@ export class Wisp extends Ghost {
     chase.idleSpeed = 40;
     chase.detectionRange = 420;
     chase.wanderRadius = 160;
-    this.elevation = 28;
+    this.elevation = options.elevation ?? 28;
+    this.repelSpeed = options.repelSpeed ?? 260;
     /** Seconds left of the walker's ward pushing this one away. */
     this.repelled = 0;
   }
 
   fixedUpdate(dt) {
     if (this.dead) return;
+    // Driven off by the ward: the chase is suspended, everything else ticks.
+    const chase = this.getConstraint('chase');
+    chase.suspended = this.repelled > 0;
     if (this.repelled > 0) {
       this.repelled -= dt;
       const player = this.game.player;
@@ -263,12 +273,8 @@ export class Wisp extends Ghost {
         const dx = this.position.x - player.position.x;
         const dy = this.position.y - player.position.y;
         const d = Math.hypot(dx, dy) || 1;
-        this.body.setVelocity({ x: (dx / d) * 260, y: (dy / d) * 260 });
+        this.body.setVelocity({ x: (dx / d) * this.repelSpeed, y: (dy / d) * this.repelSpeed });
       }
-      Entity.prototype.fixedUpdate.call(this, dt);
-      // Health and flash still tick; the chase does not.
-      for (const [name, c] of this.constraints) if (name !== 'chase') c.fixedUpdate(dt);
-      return;
     }
     super.fixedUpdate(dt);
   }
@@ -368,6 +374,10 @@ export class Clearing extends Trigger {
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
+  static properties = {
+    sealed: s.boolean({ initial: true, description: 'Closed until a rule unseals it' })
+  };
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     const rng = makeRng(seedFrom(body.position));
@@ -375,7 +385,7 @@ export class Clearing extends Trigger {
       const a = (i / 9) * Math.PI * 2 + range(rng, -0.2, 0.2);
       return { a, r: range(rng, 8, 14), h: range(rng, 22, 40), out: range(rng, 0.9, 1.05) };
     });
-    this.sealed = true;
+    this.sealed = options.sealed ?? true;
     this.time = 0;
   }
 

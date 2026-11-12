@@ -1,4 +1,5 @@
 import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { Projectile } from 'm2d-engine/core/projectile.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
@@ -83,6 +84,16 @@ export class Bound extends Platform {
 export class Ship extends Entity {
   name = 'Player';
 
+  static properties = {
+    fireInterval: s.number({ initial: 0.17, positive: true, unit: 's', label: 'Fire interval' }),
+    laserDamage: s.number({ initial: 12, min: 0, label: 'Laser damage' }),
+    laserSpeed: s.number({ initial: 900, positive: true, unit: 'px/s', label: 'Laser speed' }),
+    gunSpread: s.number({ initial: 14, min: 0, unit: 'px', label: 'Gun spread', description: 'How far each gun sits from the nose' }),
+    ramFree: s.number({ initial: 120, min: 0, unit: 'px/s', label: 'Free ram speed', description: 'A meteor met slower than this costs nothing' }),
+    ramDamage: s.number({ initial: 0.12, min: 0, label: 'Ram damage', description: 'Hull lost per px/s above the free speed' }),
+    ramMax: s.number({ initial: 40, min: 0, label: 'Ram cap' })
+  };
+
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
@@ -96,6 +107,13 @@ export class Ship extends Entity {
     this.heading = body.angle;
     this.fireWait = 0;
     this.shieldFlash = 0;
+    this.fireInterval = options.fireInterval ?? 0.17;
+    this.laserDamage = options.laserDamage ?? 12;
+    this.laserSpeed = options.laserSpeed ?? 900;
+    this.gunSpread = options.gunSpread ?? 14;
+    this.ramFree = options.ramFree ?? 120;
+    this.ramDamage = options.ramDamage ?? 0.12;
+    this.ramMax = options.ramMax ?? 40;
     this.damageSheets = [1, 2, 3].map(n => sheet(game, `playerDamage${n}`));
     this.flame = sheet(game, 'flame');
     this.flameBoost = sheet(game, 'flameBoost');
@@ -120,13 +138,13 @@ export class Ship extends Entity {
 
   fire() {
     if (this.fireWait > 0) return;
-    this.fireWait = 0.17;
+    this.fireWait = this.fireInterval;
     const angle = this.body.angle;
     // Two guns, one each side of the nose.
     for (const side of [-1, 1]) {
-      const px = Math.cos(angle + SPRITE_UP) * 14 * side;
-      const py = Math.sin(angle + SPRITE_UP) * 14 * side;
-      const laser = fireLaser(this, angle, { sheetName: 'laserBlue', tint: '#7fd4ff', targetNames: ['Meteor', 'Drone'], damage: 12 });
+      const px = Math.cos(angle + SPRITE_UP) * this.gunSpread * side;
+      const py = Math.sin(angle + SPRITE_UP) * this.gunSpread * side;
+      const laser = fireLaser(this, angle, { sheetName: 'laserBlue', tint: '#7fd4ff', targetNames: ['Meteor', 'Drone'], damage: this.laserDamage, speed: this.laserSpeed });
       laser.body.setPosition({ x: laser.position.x + px, y: laser.position.y + py });
     }
     this.game.soundManager.playSound('laser');
@@ -151,7 +169,7 @@ export class Ship extends Entity {
       const v = this.velocity;
       const u = other.velocity;
       const closing = Math.hypot(v.x - u.x, v.y - u.y);
-      const damage = Math.round(Math.min(40, Math.max(0, closing - 120) * 0.12));
+      const damage = Math.round(Math.min(this.ramMax, Math.max(0, closing - this.ramFree) * this.ramDamage));
       if (damage > 0) this.getConstraint('health').takeDamage(damage);
     }
   }
@@ -201,6 +219,12 @@ export class Ship extends Entity {
  */
 export class Meteor extends Entity {
   name = 'Meteor';
+
+  static properties = {
+    sizeClass: s.enumOf(['big', 'med', 'small'], { label: 'Size class', description: 'What it shatters into; from its width when unset' }),
+    spin: s.number({ initial: 0.3, unit: 'rad/s' }),
+    drift: s.tuple([s.number(), s.number()], { unit: 'px/s', description: 'Its starting velocity, x and y' })
+  };
 
   static SIZES = { big: { next: 'med', health: 60, sheets: ['brownMed1', 'greyMed2'], size: 70 }, med: { next: 'small', health: 30, sheets: ['brownSmall1', 'greySmall2'], size: 43 }, small: { next: null, health: 14 } };
 
@@ -274,12 +298,23 @@ export class Drone extends Entity {
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
+  static properties = {
+    fireRange: s.number({ initial: 700, positive: true, unit: 'px', label: 'Fire range' }),
+    fireInterval: s.number({ initial: 1.4, positive: true, unit: 's', label: 'Fire interval', description: 'Plus up to 0.6 s at random, so a pack does not fire in unison' }),
+    laserDamage: s.number({ initial: 9, min: 0, label: 'Laser damage' }),
+    laserSpeed: s.number({ initial: 620, positive: true, unit: 'px/s', label: 'Laser speed' })
+  };
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: CollisionCategories.enemy });
     this.spriteFit = true;
     this.renderAngleOffset = SPRITE_UP;
     this.facing = -Math.PI / 2;
+    this.fireRange = options.fireRange ?? 700;
+    this.fireInterval = options.fireInterval ?? 1.4;
+    this.laserDamage = options.laserDamage ?? 9;
+    this.laserSpeed = options.laserSpeed ?? 620;
     this.fireWait = 1 + game.rng.next();
     this.hurt = 0;
     this.addConstraint('chase', new Chase(this, { speed: 170, idleSpeed: 60, detectionRange: 1100, wanderRadius: 220, wanderInterval: 2.5 }));
@@ -304,9 +339,9 @@ export class Drone extends Entity {
     this.facing = Math.atan2(dy, dx);
     this.body.setAngle(this.facing);
     this.fireWait -= dt;
-    if (dist < 700 && this.fireWait <= 0) {
-      this.fireWait = 1.4 + this.game.rng.next() * 0.6;
-      fireLaser(this, this.facing, { sheetName: 'laserRed', tint: '#ff8a6a', targetNames: ['Player'], damage: 9, speed: 620, offset: 50 });
+    if (dist < this.fireRange && this.fireWait <= 0) {
+      this.fireWait = this.fireInterval + this.game.rng.next() * 0.6;
+      fireLaser(this, this.facing, { sheetName: 'laserRed', tint: '#ff8a6a', targetNames: ['Player'], damage: this.laserDamage, speed: this.laserSpeed, offset: 50 });
       this.game.soundManager.playSound('droneLaser');
     }
   }
@@ -377,9 +412,13 @@ export class Gate extends Trigger {
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
+  static properties = {
+    sealed: s.boolean({ initial: true, description: 'Closed until a rule unseals it' })
+  };
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.sealed = true;
+    this.sealed = options.sealed ?? true;
     this.time = 0;
     this.beacon = sprite;
   }
@@ -417,6 +456,11 @@ export class Gate extends Trigger {
 export class Sky extends Entity {
   name = 'Sky';
 
+  static properties = {
+    seed: s.number({ initial: 5, description: 'Fixes where the stars fall' }),
+    stars: s.integer({ initial: 900, min: 0 })
+  };
+
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
@@ -434,7 +478,7 @@ export class Sky extends Entity {
       { x: 5400, y: 1200, r: 1200, colour: '70, 170, 210' }, { x: 2200, y: 2600, r: 800, colour: '210, 120, 170' },
       { x: 5800, y: 5400, r: 1300, colour: '90, 130, 220' }
     ];
-    this.stars = Array.from({ length: 900 }, () => ({
+    this.stars = Array.from({ length: options.stars ?? 900 }, () => ({
       x: rand() * w * 1.4 - w * 0.2, y: rand() * h * 1.4 - h * 0.2,
       size: 6 + rand() * 12, sheet: ['star1', 'star2', 'star3'][Math.floor(rand() * 3)], phase: rand() * 6.28, rate: 0.6 + rand() * 1.6
     }));

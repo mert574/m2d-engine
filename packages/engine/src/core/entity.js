@@ -255,7 +255,7 @@ export class Entity {
     this._previousElevation = this.elevation;
 
     for (const constraint of this.constraints.values()) {
-      constraint.fixedUpdate(dt);
+      if (!constraint.suspended) constraint.fixedUpdate(dt);
     }
   }
 
@@ -271,7 +271,7 @@ export class Entity {
 
     this.animTime += deltaTime;
     for (const constraint of this.constraints.values()) {
-      constraint.update(deltaTime);
+      if (!constraint.suspended) constraint.update(deltaTime);
     }
   }
 

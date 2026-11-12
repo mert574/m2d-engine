@@ -40,7 +40,7 @@ The rules, all of which match constraints:
 
 - Expects a `dynamic` body. It moves by friction and tumbles. Sets its mass to 1.
 - Uses animations `idle`, `run`, `jump`, `attackLeft` and `attackRight` when the sheet has them.
-- Constraints: `Health` (100), `Attack` (65 damage, 50 range, 22.5 cooldown), `KeyboardControl` (acceleration 3000, max speed 180, no vertical movement), `WallSlip`, `Debug`. Jumps at 720 px/s when on the ground.
+- Constraints: `Health` (100), `Attack` (65 damage, 50 range, 22.5 cooldown), `KeyboardControl` (acceleration 3000, max speed 180, no vertical movement), `WallSlip`, `Debug`. Jumps at `jumpVelocity` (a declared property, 720 px/s) when on the ground.
 - Calls `game.gameOver()` on death. Plays the `jump`, `attack`, `damage` and `coin` sounds when loaded.
 
 ## TopDownPlayer

@@ -276,6 +276,16 @@ describe('IntentQueue', () => {
       expect(me.state.dropped).toBe(21);
     });
 
+    it('takes the reach off the target when within is a function', () => {
+      const rule = entity({ within: (target) => target.reach });
+      const at = (x, reach) => ({ name: 'Vendor', position: { x, y: 0 }, reach });
+      const player = { id: 'a', avatar: { position: { x: 0, y: 0 } } };
+      const resolve = (target) => rule.resolve(1, { game: { entityById: () => target }, player });
+      expect(resolve(at(130, 140)).ok).toBe(true);
+      expect(resolve(at(130, 120))).toMatchObject({ reason: 'too-far' });
+      expect(resolve(at(10, undefined))).toMatchObject({ reason: 'too-far' });
+    });
+
     it('a distance rule needs an avatar', () => {
       game.add(10, 'Vendor', 0, 0).price = 1;
       me.avatar = null;

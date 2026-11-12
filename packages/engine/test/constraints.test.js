@@ -30,6 +30,25 @@ function play(game, entity, seconds) {
   for (let i = 0; i < ticks; i++) tick(game, entity);
 }
 
+describe('a suspended constraint', () => {
+  it('skips its ticks until resumed', () => {
+    const game = makeTestGame();
+    const entity = new Entity(makeBody(game, 0, 0, 10, 10), null, game);
+    const calls = { fixed: 0, update: 0 };
+    const constraint = { suspended: false, fixedUpdate: () => calls.fixed++, update: () => calls.update++, draw() {} };
+    entity.addConstraint('probe', constraint);
+    entity.fixedUpdate(1 / 60);
+    entity.update(1 / 60);
+    constraint.suspended = true;
+    entity.fixedUpdate(1 / 60);
+    entity.update(1 / 60);
+    expect(calls).toEqual({ fixed: 1, update: 1 });
+    constraint.suspended = false;
+    entity.fixedUpdate(1 / 60);
+    expect(calls.fixed).toBe(2);
+  });
+});
+
 describe('PathFollow', () => {
   function patroller(options) {
     const game = makeTestGame();
