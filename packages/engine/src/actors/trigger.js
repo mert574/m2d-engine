@@ -88,9 +88,4 @@ export class Trigger extends Entity {
   setVisible(visible) {
     this.visible = visible;
   }
-
-  onEnter(entity, data) {
-    console.log('onEnter', entity, data);
-    this.game.sceneManager.switchTo('mainMenu');
-  }
 }

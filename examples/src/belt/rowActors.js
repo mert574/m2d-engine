@@ -1,3 +1,4 @@
+import { s } from 'm2d-engine/core/schema.js';
 import { Entity } from 'm2d-engine/core/entity.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
 import { ObliquePlayer } from 'm2d-engine/actors/obliquePlayer.js';
@@ -7,7 +8,6 @@ import { Attack } from 'm2d-engine/constraints/attack.js';
 import { CollisionCategories } from 'm2d-engine/core/constants.js';
 import { drawGroundShadow, shadowForLift } from 'm2d-engine/core/renderers/shadows.js';
 import { AttackSwing, HitBurst } from '../shared/effects.js';
-import { makeRng, range } from '../shared/rng.js';
 
 /**
  * Ash Row's cast. Everything stands on the ground plane: x along the
@@ -24,15 +24,6 @@ export class Bound extends Platform {
 /** A street lamp on the back kerb, unlit under the midday sun. */
 export class Lamp extends Entity {
   name = 'Lamp';
-
-  constructor(body, sprite, game) {
-    super(body, sprite, game);
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
-    const rng = makeRng(Math.round(body.position.x));
-    this.flicker = range(rng, 0, Math.PI * 2);
-    this.time = 0;
-  }
 
   draw() {
     if (this.dead || !this.visible) return;
@@ -54,8 +45,21 @@ export class Lamp extends Entity {
  * popped into the air when hit and faded out when it dies.
  */
 export class Thug extends Ghost {
+  static properties = {
+    sealed: s.boolean({ initial: false, description: 'Out of play until a rule unseals it: unseen, untouchable and still — a wave waiting for its section' })
+  };
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
+    this.sealed = options.sealed === true;
+    /** The collision mask to restore on unsealing (a sealed thug collides with nothing); public, so a snapshot keeps it. */
+    this.sealedMask = null;
+    if (this.sealed) {
+      // The editor shows a wave where it waits; only play hides it.
+      this.visible = game.editMode === true;
+      this.sealedMask = this.body.collisionFilter.mask;
+      this.body.setCollisionFilter({ mask: 0 });
+    }
     this.spriteFit = true;
     this.spriteSize = { x: 190, y: 190 };
     this.renderOffset.y = -54;
@@ -89,7 +93,17 @@ export class Thug extends Ghost {
     health.onDeath = () => { onDeath?.(); this.onDeath?.(this); };
   }
 
+  onUnseal() {
+    this.visible = true;
+    if (this.sealedMask !== null) this.body.setCollisionFilter({ mask: this.sealedMask });
+    this.sealedMask = null;
+  }
+
   fixedUpdate(dt) {
+    if (this.sealed) {
+      this.body.setVelocity({ x: 0, y: 0 });
+      return;
+    }
     super.fixedUpdate(dt);
     if (this.dead) return;
     // The swing: wind up in reach, strike at the end of the windup.
@@ -191,8 +205,6 @@ export class Rogue extends ObliquePlayer {
     // The thugs' strikes target the player category; without this the
     // rogue sits in the default one and their blows pass through.
     body.setCollisionFilter({ category: CollisionCategories.player });
-    this.lit = game.renderer.supports('lights');
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.heading = 0;
     const control = this.getConstraint('control');
     control.maxSpeed = 230;

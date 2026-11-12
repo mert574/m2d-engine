@@ -5,10 +5,15 @@
  * actions it takes once (or every time, with `once: false`). The events are
  * the ones every level has had in code so far: the scene starting, every
  * object of a prefab collected, the player entering an object, an object
- * (or the player) dying, the player falling below the kill plane. The
- * actions are the things those hooks did: a notice on the HUD, a sound,
- * unsealing a gate, removing an object, a scene switch or game over after
- * a moment, turning the lighting cycle, setting a field on an object.
+ * (or the player, or every one of a group) dying, the player falling below
+ * the kill plane. The actions are the things those hooks did: a notice on
+ * the HUD, a sound, unsealing a gate, removing an object, a scene switch
+ * or game over after a moment, turning the lighting cycle, setting a field
+ * on an object, moving the camera's bounds.
+ *
+ * Rules chain by id: `after` waits for the named rules to have fired, and
+ * `before` stops a rule once they have — a wave arming only once the one
+ * before it is cleared, a sealed door saying so until it opens.
  *
  * Simulation, so it runs headless and on a server, and in play; never in
  * edit mode, where nothing moves. Presentation actions (a notice, a sound)
@@ -25,6 +30,8 @@ export class SceneRules {
     this.scene = scene;
     this.game = scene.game;
     this.rules = rules.map((rule) => ({ ...rule, fired: false }));
+    /** The rules with an id, for after and before. */
+    this.byId = new Map(this.rules.filter((rule) => rule.id).map((rule) => [rule.id, rule]));
     this.started = false;
     /** Set by the kill plane check, read once. */
     this.fell = false;
@@ -61,6 +68,7 @@ export class SceneRules {
         return false;
       }
       case 'death':
+        if (when.objects) return when.objects.every((id) => this.#gone(this.#entity(id)));
         return this.#gone(this.#entity(when.object));
       case 'fall':
         return this.fell;
@@ -69,11 +77,17 @@ export class SceneRules {
     }
   }
 
-  /** One tick: fire every rule whose event holds. */
+  /** Whether a rule's place in its chain lets it fire now. */
+  #ready(rule) {
+    const fired = (id) => this.byId.get(id)?.fired === true;
+    return (rule.after ?? []).every(fired) && !(rule.before ?? []).some(fired);
+  }
+
+  /** One tick: fire every rule whose event holds, in order, so a chain can run through in one tick. */
   fixedUpdate() {
     for (const rule of this.rules) {
       if (rule.fired && rule.once !== false) continue;
-      if (!this.#holds(rule.when)) continue;
+      if (!this.#ready(rule) || !this.#holds(rule.when)) continue;
       rule.fired = true;
       for (const action of rule.then ?? []) this.#run(action);
     }
@@ -123,6 +137,14 @@ export class SceneRules {
       case 'gameOver':
         after(action.after, () => game.gameOver());
         break;
+      case 'camera': {
+        // Presentation: a headless game and a server have no view to bound.
+        if (game.headless || !game.camera) break;
+        const edges = ['left', 'top', 'right', 'bottom'].filter((key) => typeof action[key] === 'number');
+        if (!edges.length) break;
+        game.camera.bounds = { ...(game.camera.bounds ?? {}), ...Object.fromEntries(edges.map((key) => [key, action[key]])) };
+        break;
+      }
       case 'cycle': {
         const cycle = this.scene.cycle;
         if (!cycle) break;

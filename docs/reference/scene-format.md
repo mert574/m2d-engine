@@ -69,12 +69,14 @@ A prefab draws a model by naming it in its [`mesh`](#mesh) block.
 
 `world.rules` is a list of `{ "when", "then", "once" }`. `when` names an event the scene watches for; `then` is the actions it takes, in order, the first tick the event holds (`once: false` fires every tick it holds).
 
+Rules chain through an optional `id`: `after: [ids]` keeps a rule from firing until every named rule has fired, and `before: [ids]` stops it once any of them has. Rules run in list order each tick, so a chain can complete in one tick. A chained rule needs an event that keeps holding (`enter` while the player stands in it, `death` once gone); `start` holds only on the first tick, so `start` with `after` never fires. Ids are unique, and every `after` and `before` must name one.
+
 | `when.event` | Holds when |
 | --- | --- |
 | `start` | The scene's first tick |
 | `collected` | No object of `prefab` is left (and the scene placed some) |
 | `enter` | The player touches `object` (an id): a sensor or a body |
-| `death` | `object` (an id, or `"player"`, the default) is dead or gone |
+| `death` | `object` (an id, or `"player"`, the default) is dead or gone; with `objects` (a list of placed ids), once every one is: a wave cleared |
 | `fall` | The player crossed `world.killPlane` this tick |
 
 | `then[].do` | Does |
@@ -88,12 +90,23 @@ A prefab draws a model by naming it in its [`mesh`](#mesh) block.
 | `switch` | Switches to `scene`, `after` seconds; the scene may be one the page builds in code |
 | `gameOver` | Ends the game, `after` seconds |
 | `cycle` | Moves `world.cycle`: `target` to ease to, `phase` to jump to, `ease` |
+| `camera` | Moves the edges it names (`left`, `top`, `right`, `bottom`) of the camera's bounds and keeps the rest: a locked section opening. Nothing headless |
 
 ```json
 "rules": [
   { "when": { "event": "collected", "prefab": "coin" }, "then": [{ "do": "unseal", "object": "gate" }, { "do": "notice", "text": "THE GATE OPENS" }] },
   { "when": { "event": "enter", "object": "gate" }, "then": [{ "do": "sound", "key": "levelComplete" }, { "do": "switch", "scene": "mainMenu", "after": 3 }] },
   { "when": { "event": "death" }, "then": [{ "do": "gameOver" }] }
+]
+```
+
+A wave, as Ash Row writes one: its thugs are placed sealed, a zone calls them only once the wave before is cleared, and the door turns the player back until the whole row is.
+
+```json
+"rules": [
+  { "id": "arm-2", "when": { "event": "enter", "object": "zone-2" }, "after": ["clear-1"], "then": [{ "do": "unseal", "object": "s2-goblin-1" }] },
+  { "id": "clear-2", "when": { "event": "death", "objects": ["s2-goblin-1"] }, "after": ["arm-2"], "then": [{ "do": "camera", "right": 3540 }] },
+  { "when": { "event": "enter", "object": "door-1" }, "once": false, "before": ["clear-2"], "then": [{ "do": "notice", "text": "NOT YET" }] }
 ]
 ```
 

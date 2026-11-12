@@ -10,6 +10,7 @@
     "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
     "projection": { "type": "belt", "ratio": 0.5 },
+    "camera": { "lerp": 0.12, "followAxes": { "x": true, "y": false } },
     "lighting": { "ambient": "#f2ecdf" },
     "post": {
       "bloom": { "threshold": 0.85, "strength": 0.2, "blur": 18 },
@@ -22,7 +23,159 @@
         "contrast": 1.04
       }
     },
-    "music": { "track": "game" }
+    "music": { "track": "game" },
+    "rules": [
+      {
+        "when": { "event": "start" },
+        "then": [
+          { "do": "objective", "text": "SECTION 1 / 5 · 2 THUGS" },
+          { "do": "camera", "right": 1540 }
+        ]
+      },
+      {
+        "id": "clear-1",
+        "when": { "event": "death", "objects": ["s1-zombie-1", "s1-zombie-2"] },
+        "then": [
+          { "do": "sound", "key": "go" },
+          { "do": "notice", "text": "GO  →", "seconds": 2, "element": "go" },
+          { "do": "camera", "right": 2540 },
+          { "do": "objective", "text": "GO →" }
+        ]
+      },
+      {
+        "id": "arm-2",
+        "when": { "event": "enter", "object": "zone-2" },
+        "then": [
+          { "do": "unseal", "object": "s2-goblin-1" },
+          { "do": "unseal", "object": "s2-goblin-2" },
+          { "do": "unseal", "object": "s2-goblin-3" },
+          { "do": "objective", "text": "SECTION 2 / 5 · 3 THUGS" }
+        ],
+        "after": ["clear-1"]
+      },
+      {
+        "id": "clear-2",
+        "when": { "event": "death", "objects": ["s2-goblin-1", "s2-goblin-2", "s2-goblin-3"] },
+        "then": [
+          { "do": "sound", "key": "go" },
+          { "do": "notice", "text": "GO  →", "seconds": 2, "element": "go" },
+          { "do": "camera", "right": 3540 },
+          { "do": "objective", "text": "GO →" }
+        ],
+        "after": ["arm-2"]
+      },
+      {
+        "id": "arm-3",
+        "when": { "event": "enter", "object": "zone-3" },
+        "then": [
+          { "do": "unseal", "object": "s3-zombie-1" },
+          { "do": "unseal", "object": "s3-zombie-2" },
+          { "do": "unseal", "object": "s3-skeleton-1" },
+          { "do": "unseal", "object": "s3-skeleton-2" },
+          { "do": "objective", "text": "SECTION 3 / 5 · 4 THUGS" }
+        ],
+        "after": ["clear-2"]
+      },
+      {
+        "id": "clear-3",
+        "when": {
+          "event": "death",
+          "objects": ["s3-zombie-1", "s3-zombie-2", "s3-skeleton-1", "s3-skeleton-2"]
+        },
+        "then": [
+          { "do": "sound", "key": "go" },
+          { "do": "notice", "text": "GO  →", "seconds": 2, "element": "go" },
+          { "do": "camera", "right": 4540 },
+          { "do": "objective", "text": "GO →" }
+        ],
+        "after": ["arm-3"]
+      },
+      {
+        "id": "arm-4",
+        "when": { "event": "enter", "object": "zone-4" },
+        "then": [
+          { "do": "unseal", "object": "s4-goblin-1" },
+          { "do": "unseal", "object": "s4-goblin-2" },
+          { "do": "unseal", "object": "s4-skeleton-1" },
+          { "do": "unseal", "object": "s4-skeleton-2" },
+          { "do": "unseal", "object": "s4-zombie-1" },
+          { "do": "unseal", "object": "s4-zombie-2" },
+          { "do": "objective", "text": "SECTION 4 / 5 · 6 THUGS" }
+        ],
+        "after": ["clear-3"]
+      },
+      {
+        "id": "clear-4",
+        "when": {
+          "event": "death",
+          "objects": [
+            "s4-goblin-1",
+            "s4-goblin-2",
+            "s4-skeleton-1",
+            "s4-skeleton-2",
+            "s4-zombie-1",
+            "s4-zombie-2"
+          ]
+        },
+        "then": [
+          { "do": "sound", "key": "go" },
+          { "do": "notice", "text": "GO  →", "seconds": 2, "element": "go" },
+          { "do": "camera", "right": 5440 },
+          { "do": "objective", "text": "GO →" }
+        ],
+        "after": ["arm-4"]
+      },
+      {
+        "id": "arm-5",
+        "when": { "event": "enter", "object": "zone-5" },
+        "then": [
+          { "do": "unseal", "object": "s5-skeleton-1" },
+          { "do": "unseal", "object": "s5-skeleton-2" },
+          { "do": "unseal", "object": "s5-skeleton-3" },
+          { "do": "unseal", "object": "s5-skeleton-4" },
+          { "do": "unseal", "object": "s5-zombie-1" },
+          { "do": "unseal", "object": "s5-zombie-2" },
+          { "do": "objective", "text": "SECTION 5 / 5 · 6 THUGS" }
+        ],
+        "after": ["clear-4"]
+      },
+      {
+        "id": "clear-5",
+        "when": {
+          "event": "death",
+          "objects": [
+            "s5-skeleton-1",
+            "s5-skeleton-2",
+            "s5-skeleton-3",
+            "s5-skeleton-4",
+            "s5-zombie-1",
+            "s5-zombie-2"
+          ]
+        },
+        "then": [
+          { "do": "sound", "key": "go" },
+          { "do": "notice", "text": "GO  →", "seconds": 2, "element": "go" },
+          { "do": "camera", "right": 5200 },
+          { "do": "objective", "text": "THE DOOR IS OPEN" }
+        ],
+        "after": ["arm-5"]
+      },
+      {
+        "when": { "event": "enter", "object": "door-1" },
+        "then": [{ "do": "notice", "text": "NOT YET · CLEAR THE ROW", "seconds": 2, "element": "notice" }],
+        "once": false,
+        "before": ["clear-5"]
+      },
+      {
+        "when": { "event": "enter", "object": "door-1" },
+        "then": [
+          { "do": "notice", "text": "YOU MADE IT OUT", "seconds": 60, "element": "notice" },
+          { "do": "sound", "key": "levelComplete" },
+          { "do": "switch", "scene": "mainMenu", "after": 3 }
+        ],
+        "after": ["clear-5"]
+      }
+    ]
   },
   "assets": {
     "spritesheets": {
@@ -137,7 +290,8 @@
     "street": { "actor": "Street", "physics": { "bodyType": "static", "isSensor": true } },
     "foreground": { "actor": "Foreground", "physics": { "bodyType": "static", "isSensor": true } },
     "bound": { "actor": "Bound", "physics": { "bodyType": "static" } },
-    "door": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } }
+    "door": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
+    "zone": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } }
   },
   "layers": [
     {
@@ -193,6 +347,215 @@
           "width": 28,
           "height": 24,
           "properties": { "spriteSize": 200, "spriteOffsetY": -56 }
+        },
+        { "id": "s1-zombie-1", "prefab": "zombie", "x": 1620, "y": 80, "width": 30, "height": 30 },
+        { "id": "s1-zombie-2", "prefab": "zombie", "x": 1690, "y": 230, "width": 30, "height": 30 },
+        {
+          "id": "s2-goblin-1",
+          "prefab": "goblin",
+          "x": 2620,
+          "y": 80,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s2-goblin-2",
+          "prefab": "goblin",
+          "x": 2690,
+          "y": 230,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s2-goblin-3",
+          "prefab": "goblin",
+          "x": 2760,
+          "y": 140,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s3-zombie-1",
+          "prefab": "zombie",
+          "x": 3620,
+          "y": 80,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s3-zombie-2",
+          "prefab": "zombie",
+          "x": 3690,
+          "y": 230,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s3-skeleton-1",
+          "prefab": "skeleton",
+          "x": 3620,
+          "y": 186,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s3-skeleton-2",
+          "prefab": "skeleton",
+          "x": 3690,
+          "y": 96,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s4-goblin-1",
+          "prefab": "goblin",
+          "x": 4620,
+          "y": 80,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s4-goblin-2",
+          "prefab": "goblin",
+          "x": 4690,
+          "y": 230,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s4-skeleton-1",
+          "prefab": "skeleton",
+          "x": 4620,
+          "y": 186,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s4-skeleton-2",
+          "prefab": "skeleton",
+          "x": 4690,
+          "y": 96,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s4-zombie-1",
+          "prefab": "zombie",
+          "x": 4620,
+          "y": 292,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s4-zombie-2",
+          "prefab": "zombie",
+          "x": 4690,
+          "y": 202,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s5-skeleton-1",
+          "prefab": "skeleton",
+          "x": 5040,
+          "y": 80,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s5-skeleton-2",
+          "prefab": "skeleton",
+          "x": 4980,
+          "y": 230,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s5-skeleton-3",
+          "prefab": "skeleton",
+          "x": 4920,
+          "y": 140,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s5-skeleton-4",
+          "prefab": "skeleton",
+          "x": 4860,
+          "y": 290,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s5-zombie-1",
+          "prefab": "zombie",
+          "x": 5040,
+          "y": 292,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "s5-zombie-2",
+          "prefab": "zombie",
+          "x": 4980,
+          "y": 202,
+          "width": 30,
+          "height": 30,
+          "properties": { "sealed": true }
+        },
+        {
+          "id": "zone-2",
+          "prefab": "zone",
+          "x": 2060,
+          "y": 200,
+          "width": 960,
+          "height": 320,
+          "properties": { "active": true }
+        },
+        {
+          "id": "zone-3",
+          "prefab": "zone",
+          "x": 3060,
+          "y": 200,
+          "width": 960,
+          "height": 320,
+          "properties": { "active": true }
+        },
+        {
+          "id": "zone-4",
+          "prefab": "zone",
+          "x": 4060,
+          "y": 200,
+          "width": 960,
+          "height": 320,
+          "properties": { "active": true }
+        },
+        {
+          "id": "zone-5",
+          "prefab": "zone",
+          "x": 4960,
+          "y": 200,
+          "width": 960,
+          "height": 320,
+          "properties": { "active": true }
         }
       ]
     }
@@ -224,13 +587,12 @@
       "properties": { "color": "#e0905a", "low": "#ff5a4e" }
     },
     {
-      "type": "text",
+      "type": "notice",
       "id": "go",
       "x": -40,
       "y": 0,
       "anchor": "right",
       "properties": {
-        "text": "",
         "fontSize": "34px",
         "fontWeight": "700",
         "color": "#c84a1e",
@@ -239,13 +601,12 @@
       }
     },
     {
-      "type": "text",
+      "type": "notice",
       "id": "notice",
       "x": 0,
       "y": -120,
       "anchor": "center",
       "properties": {
-        "text": "",
         "fontSize": "30px",
         "fontWeight": "600",
         "color": "#3a2a16",

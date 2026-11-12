@@ -278,7 +278,11 @@ const RULE_WHEN = s.tagged('event', {
   start: s.object({ event: s.string({ required: true }) }),
   collected: s.object({ event: s.string({ required: true }), prefab: s.ref('prefab', { required: true, description: 'Fires when no object of this prefab is left' }) }),
   enter: s.object({ event: s.string({ required: true }), object: s.string({ required: true, description: 'The object the player touches; "player" is not allowed here' }) }),
-  death: s.object({ event: s.string({ required: true }), object: s.string({ initial: 'player', description: 'The object that died, or "player"' }) }),
+  death: s.object({
+    event: s.string({ required: true }),
+    object: s.string({ initial: 'player', description: 'The object that died, or "player"' }),
+    objects: s.array(s.string(), { description: 'Fires once every one of these objects is gone: a wave cleared. Wins over object' })
+  }),
   fall: s.object({ event: s.string({ required: true }) })
 }, { label: 'When', message: value => `unknown event ${JSON.stringify(value)} (known: start, collected, enter, death, fall)` });
 
@@ -292,13 +296,20 @@ const RULE_ACTION = s.tagged('do', {
   set: s.object({ do: s.string({ required: true }), object: s.string({ required: true }), property: s.string({ required: true }), value: s.any() }),
   switch: s.object({ do: s.string({ required: true }), scene: s.string({ required: true, nonEmpty: true, description: 'A scene by name: one of the project\'s, or one the game\'s page builds in code (a menu)' }), after: s.number({ min: 0, unit: 's' }) }),
   gameOver: s.object({ do: s.string({ required: true }), after: s.number({ min: 0, unit: 's' }) }),
-  cycle: s.object({ do: s.string({ required: true }), target: s.number({ min: 0, description: 'The lighting state to ease to' }), phase: s.number({ min: 0, description: 'Jump to this state' }), ease: s.number({ positive: true }) })
-}, { label: 'Action', message: value => `unknown action ${JSON.stringify(value)} (known: notice, objective, sound, unseal, remove, set, switch, gameOver, cycle)` });
+  cycle: s.object({ do: s.string({ required: true }), target: s.number({ min: 0, description: 'The lighting state to ease to' }), phase: s.number({ min: 0, description: 'Jump to this state' }), ease: s.number({ positive: true }) }),
+  camera: s.object({
+    do: s.string({ required: true }),
+    left: s.number({ unit: 'px' }), top: s.number({ unit: 'px' }), right: s.number({ unit: 'px' }), bottom: s.number({ unit: 'px' })
+  }, { description: 'Move these edges of the camera\'s bounds, keeping the rest: a locked section opening' })
+}, { label: 'Action', message: value => `unknown action ${JSON.stringify(value)} (known: notice, objective, sound, unseal, remove, set, switch, gameOver, cycle, camera)` });
 
 const RULE = s.object({
+  id: s.string({ pattern: ID_PATTERN, description: 'A name other rules sequence against with after and before' }),
   when: RULE_WHEN,
   then: s.array(RULE_ACTION, { required: true }),
-  once: s.boolean({ default: true, description: 'Fire once, or every tick the event holds' })
+  once: s.boolean({ default: true, description: 'Fire once, or every tick the event holds' }),
+  after: s.array(s.string(), { description: 'Rule ids that must have fired before this one can' }),
+  before: s.array(s.string(), { description: 'Rule ids whose firing ends this one' })
 }, { refine(rule, { path, fail }) { if (!rule.when) fail(`${path}.when`, 'a rule needs an event to watch for'); } });
 
 /**
@@ -1028,6 +1039,31 @@ export const LEVEL_SCHEMA = s.object({
             `prefab '${prop.prefab}' has no mesh, and a prop is drawn by its mesh alone`);
         }
       });
+    });
+
+    // Rules sequence by id: each named once, and every after or before
+    // naming one that exists, or the chain would wait forever.
+    const rules = level.world?.rules ?? [];
+    const ruleIds = new Set();
+    rules.forEach((rule, i) => {
+      if (rule.id === undefined) return;
+      if (ruleIds.has(rule.id)) fail(`world.rules[${i}].id`, `duplicate rule id '${rule.id}'`);
+      ruleIds.add(rule.id);
+    });
+    // A group's member that is not placed would count as gone from the
+    // first tick and fire the rule at once.
+    const placed = new Set((level.layers ?? []).flatMap((layer) => layer.objects.map((object) => object.id)));
+    rules.forEach((rule, i) => {
+      (rule.when?.objects ?? []).forEach((id, j) => {
+        if (!placed.has(id)) fail(`world.rules[${i}].when.objects[${j}]`, `no placed object with id '${id}'`);
+      });
+    });
+    rules.forEach((rule, i) => {
+      for (const key of ['after', 'before']) {
+        (rule[key] ?? []).forEach((id, j) => {
+          if (!ruleIds.has(id)) fail(`world.rules[${i}].${key}[${j}]`, `no rule with id '${id}' (ids: ${[...ruleIds].join(', ') || 'none'})`);
+        });
+      }
     });
 
     // A composed path is prefixed with its instance's id and a slash, so a

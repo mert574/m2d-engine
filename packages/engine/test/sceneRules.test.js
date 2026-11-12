@@ -142,6 +142,66 @@ describe('rules', () => {
   });
 });
 
+describe('rule chains, groups and the camera', () => {
+  const kill = (scene, game, id) => { const entity = scene.entitiesById.get(id); entity.dead = true; game.entities.delete(entity); };
+
+  it('fire after the rules they wait for, stop once the rules before them fire, and clear a group', async () => {
+    const { game, scene } = await make(level({ rules: [
+      { id: 'cleared', when: { event: 'death', objects: ['coin-1', 'lamp'] }, then: [{ do: 'set', object: 'gate', property: 'cleared', value: true }] },
+      { when: { event: 'death', object: 'coin-1' }, after: ['cleared'], then: [{ do: 'unseal', object: 'gate' }] },
+      { when: { event: 'death', object: 'coin-1' }, once: false, before: ['cleared'], then: [{ do: 'set', object: 'gate', property: 'waiting', value: true }] }
+    ] }));
+    const gate = scene.entitiesById.get('gate');
+    kill(scene, game, 'coin-1');
+    game.step(1);
+    expect(gate.waiting).toBe(true);
+    expect(gate.cleared).toBeUndefined();
+    expect(gate.sealed).toBe(true);
+    kill(scene, game, 'lamp');
+    gate.waiting = false;
+    game.step(1);
+    expect(gate.cleared).toBe(true);
+    expect(gate.sealed).toBe(false);
+    expect(gate.waiting).toBe(false);
+    game.step(3);
+    expect(gate.waiting).toBe(false);
+    game.destroy();
+  });
+
+  it('leave an active trigger to the rules: touching one switches nothing by itself', async () => {
+    const { game, scene } = await make(level({}, {
+      prefabs: { ...level().prefabs, pad: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } } },
+      layers: [{ name: 'main', objects: [
+        { id: 'hero', prefab: 'hero', x: 50, y: 50, width: 10, height: 10 },
+        { id: 'pad', prefab: 'pad', x: 50, y: 50, width: 40, height: 40, properties: { active: true } }
+      ] }]
+    }));
+    const switched = vi.spyOn(game.sceneManager, 'switchTo');
+    expect(game.step(5)).toBe(5);
+    expect(switched).not.toHaveBeenCalled();
+    expect(scene.entitiesById.get('pad').onEnter).toBeUndefined();
+    game.destroy();
+  });
+
+  it('move the camera\'s edges they name, keeping the rest', async () => {
+    const { game } = await make(level({ camera: { bounds: { left: 0, top: 0, right: 200, bottom: 300 } }, rules: [
+      { when: { event: 'start' }, then: [{ do: 'camera', right: 400 }] }
+    ] }), { headless: false });
+    game.step(1);
+    expect(game.camera.bounds).toEqual({ left: 0, top: 0, right: 400, bottom: 300 });
+    game.destroy();
+  });
+
+  it('refuse a repeated id, a chain to nowhere and a group member that is not placed', async () => {
+    const { SceneLoader } = await import('../src/core/sceneLoader.js');
+    const loader = new SceneLoader(null);
+    const start = { event: 'start' };
+    expect(() => loader.load(level({ rules: [{ id: 'a', when: start, then: [] }, { id: 'a', when: start, then: [] }] }))).toThrow(/duplicate rule id 'a'/);
+    expect(() => loader.load(level({ rules: [{ when: start, after: ['ghost'], then: [] }] }))).toThrow(/no rule with id 'ghost'/);
+    expect(() => loader.load(level({ rules: [{ when: { event: 'death', objects: ['coin-1', 'coin-9'] }, then: [] }] }))).toThrow(/objects\[1\].*no placed object with id 'coin-9'/s);
+  });
+});
+
 describe('the HUD', () => {
   it('builds its elements, binds a meter to the player\'s health, and shows a rule\'s notice', async () => {
     const { game, scene } = await make(level({ rules: [{ when: { event: 'collected', prefab: 'coin' }, then: [{ do: 'notice', text: 'ALL COINS', seconds: 1 }, { do: 'objective', text: 'Find the gate' }] }] }, {
