@@ -430,6 +430,7 @@ const consolePanel = createConsolePanel($<HTMLElement>('#console'), () => viewpo
 });
 const assets = createAssetsPanel($<HTMLElement>('#assets'), {
   load: () => get<{ files: AssetFileEntry[]; jobs: JobState[] }>('/__assets'),
+  audit: () => get<{ unusedFiles: string[]; missingFiles: Array<{ scene: string; url: string; at: string }> }>('/__audit').catch(() => null),
   prefabs: () => {
     const prefabs = remote?.doc.data.prefabs;
     return isPlainObject(prefabs)
@@ -569,6 +570,18 @@ function toggleSelected(id: string): void {
 }
 
 /** Select every object of a prefab: the one asked for, else the primary's. */
+/** Say where a prefab or path is used, across every scene of the project. */
+async function sayUses(scope: 'prefab' | 'path', name: string): Promise<void> {
+  try {
+    const uses = await get<{ scenes: Array<{ scene: string; at: string[] }>; count: number }>(`/__uses?scope=${scope}&name=${encodeURIComponent(name)}`);
+    if (!uses.count) { say(`Nothing uses ${name}`); return; }
+    const where = uses.scenes.map((entry) => `${entry.scene.split('/').pop()} ×${entry.at.length}`).join(', ');
+    say(`${name}: ${uses.count} use${uses.count === 1 ? '' : 's'} — ${where}`);
+  } catch (error) {
+    say(String((error as Error).message ?? error));
+  }
+}
+
 /** A new path across the middle of the view, selected so its points can be dragged at once. */
 function newPath(): void {
   if (!remote) return;
@@ -1185,6 +1198,7 @@ function treeMenu(node: OutlineNode): MenuItem[] {
       { label: 'Rename', action: () => { const to = prompt('Prefab name', name); if (to && to !== name) { try { edit({ label: `Rename ${name} to ${to}`, ops: structure.renameEntry(data, ['prefabs'], name, to) }); select({ path: ['prefabs', to] }); } catch (error) { say(String((error as Error).message ?? error)); } } } },
       SEPARATOR,
       { label: `Select instances (${uses})`, disabled: !uses, action: () => selectAllOfPrefab(name) },
+      { label: 'Where is it used?', action: () => { void sayUses('prefab', name); } },
       SEPARATOR,
       { label: 'Delete prefab', danger: true, action: () => { if (!uses || confirm(`${uses} object${uses === 1 ? ' uses' : 's use'} ${name}; delete it anyway? They will fail to load until re-pointed.`)) edit({ label: `Delete prefab ${name}`, ops: structure.removeEntry(data, ['prefabs'], name) }); } }
     );
@@ -1194,6 +1208,7 @@ function treeMenu(node: OutlineNode): MenuItem[] {
     items.push(
       { label: 'New path', action: newPath },
       { label: 'Rename', action: () => { const to = prompt('Path name', name); if (to && to !== name) { try { edit({ label: `Rename ${name} to ${to}`, ops: structure.renameEntry(data, ['paths'], name, to) }); select({ path: ['paths', to] }); } catch (error) { say(String((error as Error).message ?? error)); } } } },
+      { label: 'Where is it used?', action: () => { void sayUses('path', name); } },
       SEPARATOR,
       { label: 'Delete path', danger: true, action: () => { if (!users || confirm(`${users} follower${users === 1 ? ' uses' : 's use'} ${name}; delete it anyway? They will fail to load until re-pointed.`)) edit({ label: `Delete path ${name}`, ops: structure.removeEntry(data, ['paths'], name) }); } }
     );

@@ -141,17 +141,87 @@ Proposed after E7b–E9 shipped and parked by the owner, to be picked up after t
 
 | Idea | What it is |
 | --- | --- |
-| ~~GUI test harness~~ | **Done, 12 Nov 2026**: `scripts/driveEditor.mjs` (`npm run test:editor`). Suites: lot (3D), platformer (2D, play), paths (select, drag, add, remove points), playtest (play from here, a prefab's stage), settle (3D template), look (cycle scrub, particles), template2d (UI scene). Still to add: suites for scatter, tile paint, the animation editor and composition |
+| ~~GUI test harness~~ | **Done, 12 Nov 2026**: `scripts/driveEditor.mjs` (`npm run test:editor`). Suites: lot (3D), platformer (2D, play), paths (select, drag, add, remove points), playtest (play from here, a prefab's stage), settle (3D template), look (cycle scrub, particles), search (unused badge, where-used), template2d (UI scene). Still to add: suites for scatter, tile paint, the animation editor and composition |
 | ~~Prefab isolation stage~~ | **Done, 12 Nov 2026**: Stage it plays a prefab alone on a floor in the scene's world, restarting on each prefab edit; `run_scene` and `screenshot_scene` take `prefab`. Still to do: a sprite for the 2D floor; prefab variants and inheritance |
 | ~~Play-from-here, settle~~ | **Done, 12 Nov 2026**: Shift+F5 and `run_scene`/`screenshot_scene` `from`; Settle physics and `settle_scene` write resting poses as one edit, both through `playtest.ts`. Settling is an action rather than a toggle on save: a save that silently moves things is a save nobody can trust |
 | ~~Paths and splines~~ | **Done, 12 Nov 2026**: `paths` (format 4) with straight or smooth, open or closed lines; `PathFollow` follows one by name along its arc length; the editor draws every path and edits points on the canvas. Still to do: roads (a mesh or sprite strip drawn along a path) and following a path's tangent (a turning cart) |
 | ~~Particle and cycle editors~~ | **Done, 12 Nov 2026**: the Look tab (cycle strip, phase scrubber, states from a phase; particle sliders previewing until release), look edits in place (`Scene.rebuildLook`), particle defaults in one engine module; `look_at`, `edit_look` and `screenshot_scene` `phase` for agents. Still to do: 2D particles (the format is 3D only); a curve per value across the cycle rather than states blended pairwise |
-| Search and audit | Find every use of a prefab or asset across scenes; flag unused and missing assets |
+| ~~Search and audit~~ | **Done, 12 Nov 2026**: the schema walk reports every reference (`validate`'s `onRef`), `audit.ts` builds uses and the project audit on it; the Assets tab marks unused and missing files, the tree answers Where is it used, agents get `find_uses` and `audit_project`. File uses read the loaded document, so a sheet bound through `uses` counts. A rule's `switch` stays a string (it may name a page-built scene) and is collected by hand |
 | Presence | Who (person or agent) has a scene open and what they have selected, over the host's one history |
 | Terrain | A coarse heightfield with raise and lower brushes for 3D levels |
 | ~~Agent vision~~ | **Done, 12 Nov 2026**: MCP `screenshot_scene` (`shots.ts`), with unsaved edits, framing, play and the whole window as options |
 | Export targets | An itch-ready zip, a PWA manifest; F14's settings panel absorbing input bindings |
 | Online from the editor | After headless server mode (networking plan): a host-a-session button and a replica inspector |
+
+#### Rework the examples on what the engine already has, noted 12 Nov 2026
+
+A second pass over the seven editor projects, with a different lens than
+the GUI-reach audit below. That audit read every code-only behaviour as a
+missing format feature (the F-items). Re-read against the engine as it
+stands, most of them are not: the code predates features that have since
+shipped, or ignores primitives the engine always had. The standard m2d
+shape is: **tunables in declared properties, placement and look in the
+scene, behaviour in constraints, outcomes in rules, UI in HUD elements,
+helpers (Quest, Npc, UIDialogue, UIMinimap, UIAbilityBar, UIBackdrop)
+from the engine** — and only then a hook for what truly has no home.
+The F-items that survive this cut are listed at the end.
+
+**Every project** still sets what the scene can already say:
+
+- Ash Row, Salvage Run, Cinder Keep and Hollow Grove set the ambient
+  light and the post pass in `onEnter` — `world.lighting` and
+  `world.post` shipped (F2) and Ember Valley and The Facility already
+  migrated. Same move, four more times.
+- Every project's sounds and music are page imports under `main.js`
+  (Ash Row even imports Hollow Grove's footstep files across projects).
+  `assets.sounds`, `assets.music` and `world.music` shipped (F5): move
+  the files into each project and name them in the scene. The audit's
+  "unused files" today are mostly these, invisible to the scenes.
+- Every 2D project builds its HUD in `onEnter` from `UIText`/`UIMeter`:
+  the `hud` block (F6) covers the objective line, the health meter, the
+  notice and the controls hint as data. What remains code is the odd
+  computed meter (Salvage Run's boost fraction) and blinking signs.
+- Actor tunables as module constants (`static properties` instead) —
+  the (a) columns of the audit below still stand; they are declarations,
+  not features.
+
+**Per project, the rewrites worth doing** (no new engine work):
+
+| Project | Rewrite with existing features |
+| --- | --- |
+| Ash Row | The wave machinery hand-builds thugs from prefab data (`createEntity` in `hooks.js`) and tracks deaths in closures. Place each section's thugs in the scene sealed, `enter` rules unseal them by section, `collected` rules fire the release notice and sound, and the door trigger's hand-wired `onEnter` becomes `enter` → notice/sound/switch rules. The thugs then exist in the editor, and the one thing left in code is the camera lock stepping forward (see the surviving items) |
+| Salvage Run | Pods opening the gate is `collected` → `unseal` + `sound` + `notice`, and the gate's exit is `enter` → `switch`, both hand-wired callbacks today. The minimap in code plots by `instanceof`; the `hud` minimap plots by prefab and covers it once chunks split by prefab (below). Escape-to-menu stays code until input maps (F14) |
+| The Facility | The floor is drawn procedurally every frame from the `floor` sheet the scene already declares — paint it once as `tileLayers` (E8) and keep only the stains/vent accents as code if wanted. The lamp grid becomes placed lamp objects with 2D `prefab.light` (F10, shipped); the sonar's period and reach become declared constraint params |
+| Ember Valley | The four `textures/forest/*.png` are orphans of a replaced backdrop — delete them. The ridge backdrop could be baked to seed-once images on parallax `tileLayers` (the engine has had per-layer parallax all along), leaving only fireflies and leaves as code |
+| Hollow Grove | Already on `Quest`/`Npc`/`UIDialogue`; its lighting/post/HUD move as above. The quest stages and lines as JS constants wired to the engine's `Quest` *is* a standard shape — F8 (quests as assets) is optional, not owed |
+| Cinder Keep | Same: `UIAbilityBar` and the satchel are engine UI plus game code; the duplicated `tradeRadius` (120 in one file, 140 in another) is exactly what a declared property removes |
+| The Yard | `yard.json` declares seven prefabs nothing places (pillar, copper, lamp, neon, wheel, breather, …) — leftovers of the lot rebuild, found by the audit; delete them. Seven files (a spare sky HDR, dev models, loose textures) are named by no scene and no code |
+
+**True orphans the audit found** (nothing names them, code included):
+Ember Valley's `textures/forest/*` (4), The Facility's `bg-new.webp`,
+the yard's seven files above. Ash Row's character sheets
+(`textures/characters/*`) are named by `row.json` via its prefabs — the
+belt rows listed unused are its old texture experiments (`bricks.jpg`,
+`facade-*.jpg`, …), worth a pass before deleting.
+
+**What genuinely needs engine work** (the F-items that survive):
+
+- F4 backdrop layers as data — but smaller than written: parallax image
+  layers already exist (`tileLayers`); what is missing is a sky
+  gradient/`clearColor` and seeded scatter (stars, clouds, motes) in 2D.
+- A `camera` rule action (set bounds/lock) — the one piece of Ash Row's
+  sections that has no data form; small, and it also covers Salvage
+  Run's arena shrink if it ever wants one.
+- A `spawn` rule action would remove the last hand spawning anywhere —
+  worth weighing against placing-sealed-objects, which covers the
+  shipped demos.
+- 2D particle fields (the format is 3D-only) — fireflies, leaves, rain.
+- F8 quest/dialogue/ability/item tables as assets — optional; the code
+  shape on the engine's helpers is acceptable m2d.
+- F14 project settings (input maps, starting scene), F15 menus as UI
+  scenes (`UIBackdrop` becomes a backdrop element) — unchanged.
+- F1/F2 leftovers as recorded: wheel-zoom limits, speed zoom, 2D tint,
+  `clearColor`; F10's flicker; F11's spawn points.
 
 #### The GUI-reach audit, 10 Nov 2026
 

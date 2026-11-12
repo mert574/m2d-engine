@@ -20,7 +20,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -425,6 +425,31 @@ const SUITES = {
       await undoToClean(page, report);
     }),
 
+  /** A fresh 3D template with an orphan image: the audit marks it, and Where is it used answers. */
+  async search(context, report, out) {
+    const folder = await mkdtemp(join(tmpdir(), 'm2d-drive-search-'));
+    try {
+      const project = join(folder, 'game');
+      await createProject(project, '3d');
+      await writeFile(join(project, 'orphan.png'), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+      await drive(context, report, project, 'scenes/room.json', async (page) => {
+        await page.click('.tab[data-tab="assets"]');
+        const badge = page.locator('.asset-card:has-text("orphan") .thumb-badge', { hasText: 'unused' });
+        await badge.waitFor({ timeout: 15000 });
+        report.ok('the assets panel marks the file no scene names');
+        await shoot(page, out, 'search-unused', report);
+
+        await page.click('.tree button.row[data-path=\'["prefabs","crate"]\']', { button: 'right' });
+        await page.click('.menu .menu-item:has-text("Where is it used?")');
+        await until(page, () => document.getElementById('status').textContent.includes('crate:'), 15000);
+        const status = await page.evaluate(() => document.getElementById('status').textContent);
+        report.check('Where is it used answers across scenes', /crate: \d+ uses? — /.test(status), status);
+      });
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  },
+
   /** A fresh 2D template: the menu UI scene and its elements. */
   async template2d(context, report, out) {
     const folder = await mkdtemp(join(tmpdir(), 'm2d-drive-template-'));
@@ -456,6 +481,7 @@ if (unknown.length) {
   process.exit(2);
 }
 const out = option('--out') ? resolve(option('--out')) : await mkdtemp(join(tmpdir(), 'm2d-drive-'));
+await mkdir(out, { recursive: true });
 
 const chrome = await launchGpuChrome({ headed: flag('--headed') });
 console.log(`Chrome: ${chrome.binary} on port ${chrome.port}; screenshots in ${out}`);

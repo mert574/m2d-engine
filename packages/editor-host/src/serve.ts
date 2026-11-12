@@ -38,6 +38,7 @@ import { PROJECT_FILE, type ProjectConfig } from './project.ts';
 import { createProject, TEMPLATES } from './templates.ts';
 import { SceneCamera } from './shots.ts';
 import { settle, type RunScene } from './playtest.ts';
+import { runAudit, findUses } from './search.ts';
 import { engineAlias, buildProject, previewProject, closePreview } from './build.ts';
 import { spawn } from 'node:child_process';
 import { openSync } from 'node:fs';
@@ -317,6 +318,16 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
           if (url.pathname === '/__assets') {
             const assets = companion.assets;
             json(res, { files: await assets.list(), library: await assets.library(), jobs: assets.jobs });
+            return;
+          }
+          if (url.pathname === '/__audit') {
+            json(res, await runAudit(session, companion.assets, await (validatorGame ??= makeGame())));
+            return;
+          }
+          if (url.pathname === '/__uses') {
+            const scope = url.searchParams.get('scope') ?? '';
+            const name = url.searchParams.get('name') ?? '';
+            json(res, await findUses(session, scope, name, await (validatorGame ??= makeGame())));
             return;
           }
           if (url.pathname === '/__settle' && req.method === 'POST') {

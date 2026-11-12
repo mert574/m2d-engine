@@ -65,7 +65,7 @@ describe('the MCP server', () => {
   it('advertises its tools to a client', async () => {
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
-      'build_project', 'create_scene', 'delete_scene', 'edit_look', 'edit_scene', 'import_asset', 'inspect_node', 'list_assets',
+      'audit_project', 'build_project', 'create_scene', 'delete_scene', 'edit_look', 'edit_scene', 'find_uses', 'import_asset', 'inspect_node', 'list_assets',
       'list_components', 'list_scenes', 'look_at', 'outline_scene', 'read_scene', 'redo', 'rename_entry', 'rename_scene', 'run_scene', 'save_scene',
       'screenshot_scene', 'search_library', 'settle_scene', 'undo', 'validate_scene'
     ]);
@@ -104,6 +104,34 @@ describe('the MCP server', () => {
     const result = await client.callTool({ name: 'read_scene', arguments: { path: '../../etc/passwd' } });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toMatch(/outside the project/);
+  });
+});
+
+describe('search and audit', () => {
+  it('finds uses across scenes and flags the missing and the unused', async () => {
+    await writeFile(join(root, 'orphan.png'), Buffer.from([137, 80, 78, 71]));
+    await writeFile(join(root, 'scenes', 'woods.json'), level({
+      name: 'woods',
+      assets: { spritesheets: { bark: { url: 'art/bark.png', frameWidth: 8, frameHeight: 8 } } },
+      prefabs: { tree: { actor: 'Block', spritesheet: 'bark', physics: { bodyType: 'static' } }, stump: { actor: 'Block', physics: { bodyType: 'static' } } },
+      layers: [{ name: 'main', objects: [{ id: 'tree-1', prefab: 'tree', x: 0, y: 0 }], scenes: [{ id: 'room-1', scene: 'room', x: 0, y: 0 }] }]
+    }));
+    try {
+      const uses = JSON.parse(textOf(await client.callTool({ name: 'find_uses', arguments: { scope: 'scene', name: 'room' } })));
+      expect(uses).toEqual({ scenes: [{ scene: 'scenes/woods.json', at: ['layers[0].scenes[0].scene'] }], count: 1 });
+      const sheet = JSON.parse(textOf(await client.callTool({ name: 'find_uses', arguments: { scope: 'spritesheet', name: 'bark' } })));
+      expect(sheet.count).toBe(1);
+
+      const audit = JSON.parse(textOf(await client.callTool({ name: 'audit_project', arguments: {} })));
+      expect(audit.missingFiles).toEqual([{ scene: 'scenes/woods.json', url: 'art/bark.png', at: 'assets.spritesheets.bark.url' }]);
+      expect(audit.unusedFiles).toEqual(['orphan.png']);
+      expect(audit.unusedPrefabs).toContainEqual({ scene: 'scenes/woods.json', prefab: 'stump' });
+      expect(audit.sceneUses).toEqual([{ scene: 'scenes/woods.json', to: 'room', count: 1 }]);
+    } finally {
+      await rm(join(root, 'orphan.png'));
+      await rm(join(root, 'scenes', 'woods.json'));
+      companion.session.forget('scenes/woods.json');
+    }
   });
 });
 

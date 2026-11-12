@@ -105,6 +105,10 @@ declare module 'm2d-engine/core/constraint.js' {
 }
 
 declare module 'm2d-engine/core/sceneLoader.js' {
+  export interface LoadOptions {
+    scenes?: Record<string, unknown>;
+    onRef?: (scope: string, name: string, path: string) => void;
+  }
   export const SCENE_VERSION: number;
   export class SceneValidationError extends Error {
     path: string;
@@ -112,8 +116,8 @@ declare module 'm2d-engine/core/sceneLoader.js' {
   }
   export class SceneLoader {
     constructor(game: unknown);
-    load(data: unknown, name?: string, options?: { scenes?: Record<string, unknown> }): Record<string, unknown>;
-    check(data: unknown, name?: string, options?: { scenes?: Record<string, unknown> }): { loaded: Record<string, unknown> | null; issues: SceneValidationError[] };
+    load(data: unknown, name?: string, options?: LoadOptions): Record<string, unknown>;
+    check(data: unknown, name?: string, options?: LoadOptions): { loaded: Record<string, unknown> | null; issues: SceneValidationError[] };
   }
 }
 

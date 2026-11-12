@@ -826,3 +826,6 @@ input[type='color'].colour {
 .particle-card h4 { margin: 0 0 6px; font-size: 12px; text-transform: capitalize; }
 .particle-card .slider { display: grid; grid-template-columns: 64px 1fr 48px; gap: 6px; align-items: center; font-size: 11px; }
 .particle-card .value { font-variant-numeric: tabular-nums; text-align: right; }
+
+.asset-grid .audit-line { grid-column: 1 / -1; margin: 2px 0; font-size: 11.5px; }
+.asset-grid .audit-line.problem { color: #ff9c9c; }

@@ -72,6 +72,8 @@ export interface AssetsPanelOptions {
   dragging?(item: Placeable | null): void;
   /** The scene's dimension, which decides what can be placed. */
   dimensions(): 2 | 3;
+  /** The project audit, for the unused and missing marks; null when the host cannot say. */
+  audit?(): Promise<{ unusedFiles: string[]; missingFiles: Array<{ scene: string; url: string; at: string }> } | null>;
   /**
    * Make a thumbnail for a file that has none (a model, an environment);
    * resolves to its project path, or null when the page cannot. The panel
@@ -93,6 +95,7 @@ export interface AssetsPanelHandle {
 export function createAssetsPanel(container: HTMLElement, options: AssetsPanelOptions): AssetsPanelHandle {
   let view: 'project' | 'library' = 'project';
   let files: AssetFileEntry[] = [];
+  let auditState: { unusedFiles: string[]; missingFiles: Array<{ scene: string; url: string; at: string }> } | null = null;
   let query = '';
   let libraryType = 'models';
   let results: LibraryCard[] = [];
@@ -187,6 +190,13 @@ export function createAssetsPanel(container: HTMLElement, options: AssetsPanelOp
 
   function renderProject(): void {
     const dims = options.dimensions();
+    if (auditState?.missingFiles.length) {
+      const line = document.createElement('p');
+      line.className = 'audit-line problem';
+      const shown = auditState.missingFiles.slice(0, 3).map((miss) => `${miss.url} (${miss.scene.split('/').pop()})`).join(', ');
+      line.textContent = `${auditState.missingFiles.length} missing file${auditState.missingFiles.length === 1 ? '' : 's'}: ${shown}${auditState.missingFiles.length > 3 ? ', …' : ''}`;
+      grid.append(line);
+    }
     const matches = (text: string) => !query || text.toLowerCase().includes(query);
     const prefabs = options.prefabs().filter((prefab) => matches(`${prefab.name} ${prefab.actor ?? ''}`));
     if (prefabs.length) grid.append(heading('Prefabs', 'Drag one into the scene to place another'));
@@ -199,6 +209,7 @@ export function createAssetsPanel(container: HTMLElement, options: AssetsPanelOp
         tip: `Place a ${prefab.name}`
       }));
     }
+    const unused = new Set(auditState?.unusedFiles ?? []);
     const shown = files.filter((file) => matches(`${file.path} ${file.credit?.name ?? ''}`) && file.kind !== 'audio');
     const groups: Array<[string, AssetFileEntry['kind'], string]> = [
       ['Models', 'model', dims === 3 ? 'Drag one in: it gets a prefab sized to its mesh' : 'Models are for 3D scenes'],
@@ -217,8 +228,8 @@ export function createAssetsPanel(container: HTMLElement, options: AssetsPanelOp
           glyph: kind === 'image' ? null : kind === 'model' ? KIND_ICONS.object! : KIND_ICONS.world!,
           image: kind === 'image' ? options.fileUrl(file.path) : file.thumb ? options.fileUrl(file.thumb) : undefined,
           item: placeable ? { kind: 'file', path: file.path, url: file.url, type: kind } : null,
-          tip: file.credit ? `${file.credit.name} by ${file.credit.authors.join(', ')} (${file.credit.license})` : file.path,
-          badge: file.credit ? file.credit.license : undefined
+          tip: unused.has(file.url) ? `${file.path} — no scene names it` : file.credit ? `${file.credit.name} by ${file.credit.authors.join(', ')} (${file.credit.license})` : file.path,
+          badge: unused.has(file.url) ? 'unused' : file.credit ? file.credit.license : undefined
         });
         grid.append(element);
         // No picture yet: render one, and put it on the card when it lands.
@@ -368,6 +379,11 @@ export function createAssetsPanel(container: HTMLElement, options: AssetsPanelOp
     async refresh() {
       const loaded = await options.load();
       files = loaded.files;
+      void options.audit?.().then((found) => {
+        if (!found) return;
+        auditState = found;
+        if (view === 'project') render();
+      }).catch(() => {});
       for (const job of loaded.jobs) if (!jobs.has(job.id)) jobs.set(job.id, job);
       render();
     },

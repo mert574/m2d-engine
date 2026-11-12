@@ -145,6 +145,7 @@ export class SceneLoader {
     const loaded = validate(schema, scene, {
       fail,
       collect: collect ?? undefined,
+      onRef: options.onRef,
       refs: this.#refs(scene),
       context: {
         spritesheets: scene.assets?.spritesheets ?? {},

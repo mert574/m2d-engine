@@ -144,6 +144,10 @@ A model or an environment card shows a **thumbnail** the editor renders itself â
 
 Library searches Poly Haven's free CC0 models, textures and HDRIs. Import fetches the files with their checksums into `library/sources/` (which is ignored by git) and compiles a model into a `.glb` with levels of detail and compressed textures in `library/models/`. It records the import in `library.json` and rewrites `CREDITS.md` from it. The import runs in the background. When it is done, Place puts it at the centre of the view.
 
+## Search and audit
+
+The Assets tab marks what the project audit finds: a file no scene names carries an **unused** badge (game code may still load it â€” the mark means the scenes don't), and a line at the top names any file a scene asks for that is not on disk. **Where is it used?**, on a prefab's or a path's menu in the tree, answers across every scene of the project, counting each field that names it.
+
 ## Play
 
 Play (F5) runs the scene as it stands, unsaved edits included, in a fresh game with the project's hooks. The other scenes load for real, so a door into the next level opens. The keyboard belongs to the game while it plays. If the game switches to a scene its page builds in code (a main menu), play stops and the status line says so. F5 or Stop returns to editing with the document as it was and the camera where it was. A code change during play starts the play again on the new code.
@@ -178,6 +182,8 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `inspect_node` | The inspector's rows for one node |
 | `edit_scene` | Apply a list of set, insert and remove ops as one labelled step |
 | `rename_entry` | Rename a prefab, sprite sheet, model, environment or path along with every reference to it, as the editor's Rename does |
+| `find_uses` | Each scene using a named prefab, sheet, model, environment, path, actor, constraint, scene or file, with the fields that use it |
+| `audit_project` | Missing files, files no scene names, prefabs and paths their own scene never uses, and which scene uses which |
 | `look_at` | The lighting and post at a phase of the cycle, as the engine blends them, with the states and the strip's colours |
 | `edit_look` | The Look tab's actions: start a cycle, add a state from a phase, remove a state, add a particle field |
 | `undo`, `redo`, `save_scene` | Step the history, write the scene |

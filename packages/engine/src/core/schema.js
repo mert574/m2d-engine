@@ -168,6 +168,10 @@ function join(path, key) {
  *   `s.ref`. A scope that is absent is not checked, which is how a loader
  *   with nothing to cross-reference against skips the check.
  * @param {object} [ctx.context] - Carried through to every `refine`.
+ * @param {(scope: string, name: string, path: string) => void} [ctx.onRef] -
+ *   Called at every `s.ref` that holds a string, resolved or not: how a
+ *   tool finds each reference a document makes without knowing where the
+ *   format keeps them.
  * @param {(error: unknown) => boolean} [ctx.collect] - Report every problem,
  *   not just the first: each child of an object, record, array or tuple
  *   (and each refine) is checked on its own, and an error thrown by `fail`
@@ -234,6 +238,7 @@ export function validate(desc, value, ctx) {
 
     case 'ref': {
       if (typeof value !== 'string' || !value) reject(expected(desc, key));
+      ctx.onRef?.(desc.scope, value, path);
       const scope = ctx.refs?.[desc.scope];
       if (scope && !scope.has(value)) fail(path, scope.describe(value));
       return value;

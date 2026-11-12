@@ -24,6 +24,7 @@ import type { Assets } from './assets.ts';
 import type { Shot, ShotOptions } from './shots.ts';
 import { stage, look } from 'm2d-editor-core';
 import { settle } from './playtest.ts';
+import { runAudit, findUses } from './search.ts';
 
 export const SERVER_NAME = 'm2d-editor';
 export const SERVER_VERSION = '0.2.0';
@@ -228,6 +229,40 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       const doc = await session.document(file);
       const ops = structure.renameEntry(doc.data, [...RECORDS[kind]], from, to);
       return summary(await session.edit(file, { label: `Rename ${from} to ${to}`, ops }, AGENT));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('find_uses', {
+    title: 'Find uses',
+    description:
+      'Each scene using a named thing, with the fields that use it. scope file takes an asset ' +
+      'file\'s url. Path and property references resolve through the game\'s classes, so the ' +
+      'running editor sees more than the stdio server.',
+    inputSchema: {
+      scope: z.enum(['prefab', 'spritesheet', 'model', 'environment', 'path', 'scene', 'actor', 'constraint', 'file']),
+      name: z.string().min(1)
+    }
+  }, async ({ scope, name }) => {
+    try {
+      return json(await findUses(session, scope, name, (await options.game?.()) ?? null));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('audit_project', {
+    title: 'Audit the project',
+    description:
+      'The whole project checked across its scenes: file urls nothing on disk answers to, files no ' +
+      'scene names, prefabs and paths their own scene never uses, and which scene uses which. ' +
+      'Unsaved edits count. validate_scene stays the per-scene check.',
+    inputSchema: {}
+  }, async () => {
+    if (!assets) return text('audit_project needs the editor\'s asset pipeline', true);
+    try {
+      return json(await runAudit(session, assets, (await options.game?.()) ?? null));
     } catch (error) {
       return failure(error);
     }
