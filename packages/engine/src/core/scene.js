@@ -802,7 +802,10 @@ export class Scene {
           ...(object.rotation && { rotation: quaternion(object.rotation) })
         }
         : prefab.physics,
-      options: this.#resolveAssetProperties(prefab.actor, object.properties)
+      // The prefab's properties are what every one of its objects starts
+      // with; a placed object's own win, field by field.
+      options: this.#resolveAssetProperties(prefab.actor,
+        prefab.properties ? { ...prefab.properties, ...object.properties } : object.properties)
     });
     if (!entity) return null;
 

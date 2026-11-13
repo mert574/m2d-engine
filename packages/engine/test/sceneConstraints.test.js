@@ -33,10 +33,22 @@ class Prop extends Entity {
   name = 'Prop';
 }
 
+/** An actor whose numbers a prefab may set for all its objects. */
+class Tunable extends Entity {
+  static properties = { amount: s.number({ initial: 0 }), label: s.string() };
+  name = 'Tunable';
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    this.amount = options.amount ?? 0;
+    this.label = options.label ?? '';
+  }
+}
+
 function makeGame() {
   const game = new M2D(null, { headless: true, worldWidth: 640, worldHeight: 480, seed: 1 });
   game.registerActor('Guard', Guard);
   game.registerActor('Prop', Prop);
+  game.registerActor('Tunable', Tunable);
   game.registerConstraint('Chase', Chase);
   game.registerConstraint('Hover', Hover);
   game.registerConstraint('KeyboardControl', KeyboardControl);
@@ -293,6 +305,23 @@ describe('a constraint as an editor sees it', () => {
     const constraint = new Tunable({});
     constraint.configure({ size: 9 });
     expect(constraint.size).toBe(9);
+  });
+});
+
+describe('a prefab\'s own properties', () => {
+  it('are what each of its objects starts with, and a placed one overrides them field by field', async () => {
+    const config = level();
+    config.prefabs.thing.actor = 'Tunable';
+    config.prefabs.thing.properties = { amount: 5, label: 'from the prefab' };
+    config.layers[0].objects[0].properties = { amount: 9 };
+    const game = makeGame();
+    game.registerActor('Tunable', Tunable);
+    game.sceneManager.addScene('level1', { fetch: async () => config });
+    await game.sceneManager.switchTo('level1');
+    const entity = game.sceneManager.getCurrentScene().entitiesById.get('thing-1');
+    expect(entity.amount).toBe(9);
+    expect(entity.label).toBe('from the prefab');
+    game.destroy();
   });
 });
 

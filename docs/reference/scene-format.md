@@ -201,6 +201,7 @@ A map from prefab name to prefab.
 | `mesh` | no | How a 3D level draws it, below. 3D levels only |
 | `light` | no | A light it carries, below |
 | `constraints` | no | Behaviours to attach, below |
+| `properties` | no | What every object of this prefab starts with, checked against the actor's `static properties`. A placed object's own `properties` override them field by field, so a prefab placed a hundred times says which art and which numbers it is made of once |
 
 ### `prefabs.*.physics`
 
@@ -416,7 +417,7 @@ Named lines through the level, by name: a patrol route, a platform's track. A `P
 
 | Key | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `points` | yes | | Two or more `{ x, y }` points, `{ x, y, z }` in a 3D level. A 2D level refuses a `z` |
+| `points` | yes | | Two or more `{ x, y }` points, `{ x, y, z }` in a 3D level. A 2D level refuses a `z`. A point may also carry `w`, a half-width: the engine only carries it, and a game that draws a place along the path — a road, a river — reads it off `scene.paths.get(name).points` |
 | `closed` | no | `false` | Join the last point back to the first |
 | `smooth` | no | `false` | Curve through the points (centripetal Catmull-Rom) instead of joining them with straight segments |
 

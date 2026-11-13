@@ -132,6 +132,19 @@ const actorProperties = s.dynamic((value, ctx) => {
 });
 
 /**
+ * A prefab's own `properties`: what every object of it starts with, which
+ * a placed object's own override one by one. A prefab placed a hundred
+ * times says which art and which numbers it is made of once.
+ */
+const prefabProperties = s.dynamic((value, ctx) => {
+  const ActorClass = ctx.parent?.actor ? ctx.context?.actors?.get(ctx.parent.actor) : null;
+  return actorPropertyFields(ActorClass) ? actorPropertiesSchema(ActorClass) : null;
+}, {
+  label: 'Properties',
+  description: "Defaults for every object of this prefab; a placed object's own win"
+});
+
+/**
  * A property an editor should draw with a particular widget but whose value
  * the engine accepts loosely — a size that may also be a `$token` theme
  * reference. Validated as "anything", hinted for the inspector.
@@ -731,7 +744,8 @@ const PREFAB = s.object({
   physics: PHYSICS,
   mesh: MESH,
   light: LIGHT,
-  constraints: CONSTRAINTS
+  constraints: CONSTRAINTS,
+  properties: prefabProperties
 }, {
   // An animation belongs to *this* prefab's sheet, so it cannot be a plain
   // `ref` — the namespace depends on a sibling field.
@@ -879,7 +893,8 @@ const PATH = s.object({
   points: s.array(s.object({
     x: s.number({ required: true }),
     y: s.number({ required: true }),
-    z: s.number()
+    z: s.number(),
+    w: s.number({ positive: true, unit: 'px', label: 'Half-width', description: 'For a path that is a place rather than a line: a road, a river. The engine carries it; the game reads it off the path\'s points' })
   }), { required: true, minLength: 2, label: 'Points' }),
   closed: s.boolean({ initial: false, label: 'Closed', description: 'Join the last point back to the first' }),
   smooth: s.boolean({ initial: false, label: 'Smooth', description: 'Curve through the points instead of straight segments' })
