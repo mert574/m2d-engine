@@ -1,0 +1,598 @@
+{
+  "version": 4,
+  "name": "court1",
+  "type": "level",
+  "title": "The East Lawn",
+  "gameType": "topDown",
+  "world": {
+    "width": 1344,
+    "height": 960,
+    "gravity": { "x": 0, "y": 0 },
+    "player": "player-1",
+    "camera": {
+      "mode": "rooms",
+      "lerp": 0.12,
+      "roomSize": { "width": 672, "height": 480 },
+      "bounds": "world"
+    },
+    "lighting": { "ambient": "#fffdf2" },
+    "post": {
+      "bloom": { "threshold": 0.82, "strength": 0.32, "blur": 18 },
+      "vignette": { "strength": 0.13, "start": 0.64 },
+      "grade": {
+        "shadows": "#8aa381",
+        "highlights": "#fff8e2",
+        "amount": 0.32,
+        "saturation": 1.08,
+        "contrast": 1.02
+      },
+      "grain": { "strength": 0.03 }
+    },
+    "music": { "track": "game" },
+    "counters": { "beds": { "initial": 0, "max": 32 }, "bedsTotal": { "prefab": "bed", "count": "placed" } },
+    "rules": [
+      {
+        "id": "title",
+        "when": { "event": "start" },
+        "then": [{ "do": "notice", "text": "The East Lawn", "seconds": 3 }]
+      },
+      {
+        "id": "tend",
+        "when": { "event": "emit", "name": "tended" },
+        "then": [{ "do": "count", "counter": "beds", "add": 1 }, { "do": "sound", "key": "bloom" }],
+        "once": false
+      },
+      {
+        "id": "all-tended",
+        "when": { "event": "count", "counter": "beds", "atLeast": 32 },
+        "then": [{ "do": "notice", "text": "Every bed in bloom", "seconds": 2.2 }]
+      },
+      {
+        "id": "walked",
+        "when": { "event": "notify", "name": "fountain" },
+        "then": [
+          { "do": "sound", "key": "solved" },
+          {
+            "do": "notice",
+            "text": "The east lawn is yours. On to the long borders...",
+            "seconds": 2.5
+          },
+          { "do": "switch", "scene": "court2", "after": 1.8 }
+        ]
+      },
+      {
+        "id": "menu",
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
+      }
+    ]
+  },
+  "assets": {
+    "spritesheets": {
+      "hedge": { "url": "textures/hedge.jpg", "frameWidth": 512, "frameHeight": 512 },
+      "fountain": { "url": "textures/fountain.png", "frameWidth": 256, "frameHeight": 256 }
+    },
+    "images": { "lawn": { "url": "textures/lawn.jpg" }, "plaza": { "url": "textures/plaza.png" } },
+    "sounds": {
+      "solved": { "url": "sounds/maximize_006.ogg" },
+      "bloom": { "url": "sounds/confirmation_001.ogg", "volume": 0.5 }
+    },
+    "music": { "game": { "url": "music/halogen-redux.ogg" } }
+  },
+  "prefabs": {
+    "player": {
+      "actor": "Gardener",
+      "physics": { "bodyType": "character", "shape": "circle", "frictionAir": 0.2 },
+      "constraints": { "movement": { "type": "GlideControl", "params": { "speed": 230, "grid": 32 } } }
+    },
+    "hedge": { "actor": "Platform", "spritesheet": "hedge", "physics": { "bodyType": "static" } },
+    "fountain": {
+      "actor": "Fountain",
+      "spritesheet": "fountain",
+      "physics": { "bodyType": "static", "isSensor": true }
+    },
+    "bed": { "actor": "FlowerBed", "physics": { "bodyType": "static", "isSensor": true } },
+    "garden": { "actor": "GardenBackdrop", "physics": { "bodyType": "static", "isSensor": true } }
+  },
+  "layers": [
+    {
+      "name": "garden",
+      "objects": [
+        {
+          "id": "garden-1",
+          "prefab": "garden",
+          "x": 672,
+          "y": 480,
+          "width": 16,
+          "height": 16,
+          "properties": { "layer": "lawn", "lawnTexture": "lawn", "plazaTexture": "plaza" }
+        },
+        {
+          "id": "garden-2",
+          "prefab": "garden",
+          "x": 672,
+          "y": 480,
+          "width": 16,
+          "height": 16,
+          "properties": { "layer": "sky" }
+        },
+        { "id": "player-1", "prefab": "player", "x": 48, "y": 48, "width": 26, "height": 26 },
+        { "id": "fountain-1", "prefab": "fountain", "x": 1040, "y": 720, "width": 36, "height": 36 },
+        {
+          "id": "bed-1",
+          "prefab": "bed",
+          "x": 624,
+          "y": 48,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 646 }
+        },
+        {
+          "id": "bed-2",
+          "prefab": "bed",
+          "x": 720,
+          "y": 48,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 739 }
+        },
+        {
+          "id": "bed-3",
+          "prefab": "bed",
+          "x": 1296,
+          "y": 48,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 300 }
+        },
+        {
+          "id": "bed-4",
+          "prefab": "bed",
+          "x": 240,
+          "y": 112,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 388 }
+        },
+        {
+          "id": "bed-5",
+          "prefab": "bed",
+          "x": 1040,
+          "y": 112,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 166 }
+        },
+        {
+          "id": "bed-6",
+          "prefab": "bed",
+          "x": 1168,
+          "y": 112,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 290 }
+        },
+        {
+          "id": "bed-7",
+          "prefab": "bed",
+          "x": 112,
+          "y": 176,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 378 }
+        },
+        {
+          "id": "bed-8",
+          "prefab": "bed",
+          "x": 784,
+          "y": 176,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 32 }
+        },
+        {
+          "id": "bed-9",
+          "prefab": "bed",
+          "x": 304,
+          "y": 240,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 678 }
+        },
+        {
+          "id": "bed-10",
+          "prefab": "bed",
+          "x": 1232,
+          "y": 240,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 580 }
+        },
+        {
+          "id": "bed-11",
+          "prefab": "bed",
+          "x": 496,
+          "y": 304,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 978 }
+        },
+        {
+          "id": "bed-12",
+          "prefab": "bed",
+          "x": 624,
+          "y": 304,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 105 }
+        },
+        {
+          "id": "bed-13",
+          "prefab": "bed",
+          "x": 176,
+          "y": 368,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 782 }
+        },
+        {
+          "id": "bed-14",
+          "prefab": "bed",
+          "x": 1040,
+          "y": 368,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 622 }
+        },
+        {
+          "id": "bed-15",
+          "prefab": "bed",
+          "x": 1168,
+          "y": 368,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 746 }
+        },
+        {
+          "id": "bed-16",
+          "prefab": "bed",
+          "x": 432,
+          "y": 432,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 147 }
+        },
+        {
+          "id": "bed-17",
+          "prefab": "bed",
+          "x": 1296,
+          "y": 432,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 984 }
+        },
+        {
+          "id": "bed-18",
+          "prefab": "bed",
+          "x": 48,
+          "y": 528,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 943 }
+        },
+        {
+          "id": "bed-19",
+          "prefab": "bed",
+          "x": 560,
+          "y": 528,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 442 }
+        },
+        {
+          "id": "bed-20",
+          "prefab": "bed",
+          "x": 720,
+          "y": 528,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 597 }
+        },
+        {
+          "id": "bed-21",
+          "prefab": "bed",
+          "x": 1168,
+          "y": 528,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 34 }
+        },
+        {
+          "id": "bed-22",
+          "prefab": "bed",
+          "x": 240,
+          "y": 592,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 246 }
+        },
+        {
+          "id": "bed-23",
+          "prefab": "bed",
+          "x": 784,
+          "y": 592,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 773 }
+        },
+        {
+          "id": "bed-24",
+          "prefab": "bed",
+          "x": 976,
+          "y": 592,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 959 }
+        },
+        {
+          "id": "bed-25",
+          "prefab": "bed",
+          "x": 1296,
+          "y": 592,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 272 }
+        },
+        {
+          "id": "bed-26",
+          "prefab": "bed",
+          "x": 112,
+          "y": 656,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 236 }
+        },
+        {
+          "id": "bed-27",
+          "prefab": "bed",
+          "x": 496,
+          "y": 784,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 836 }
+        },
+        {
+          "id": "bed-28",
+          "prefab": "bed",
+          "x": 48,
+          "y": 848,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 516 }
+        },
+        {
+          "id": "bed-29",
+          "prefab": "bed",
+          "x": 368,
+          "y": 848,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 826 }
+        },
+        {
+          "id": "bed-30",
+          "prefab": "bed",
+          "x": 560,
+          "y": 912,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 129 }
+        },
+        {
+          "id": "bed-31",
+          "prefab": "bed",
+          "x": 720,
+          "y": 912,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 284 }
+        },
+        {
+          "id": "bed-32",
+          "prefab": "bed",
+          "x": 1104,
+          "y": 912,
+          "width": 26,
+          "height": 26,
+          "properties": { "seed": 656 }
+        },
+        { "id": "hedge-1", "prefab": "hedge", "x": 672, "y": 16, "width": 1344 },
+        { "id": "hedge-2", "prefab": "hedge", "x": 672, "y": 48, "width": 64 },
+        { "id": "hedge-3", "prefab": "hedge", "x": 144, "y": 80, "width": 160 },
+        { "id": "hedge-4", "prefab": "hedge", "x": 640, "y": 80, "width": 384 },
+        { "id": "hedge-5", "prefab": "hedge", "x": 1008, "y": 80, "width": 160 },
+        { "id": "hedge-6", "prefab": "hedge", "x": 1168, "y": 80, "width": 96 },
+        { "id": "hedge-7", "prefab": "hedge", "x": 80, "y": 144, "width": 160 },
+        { "id": "hedge-8", "prefab": "hedge", "x": 240, "y": 144, "width": 96 },
+        { "id": "hedge-9", "prefab": "hedge", "x": 400, "y": 144, "width": 160 },
+        { "id": "hedge-10", "prefab": "hedge", "x": 560, "y": 144, "width": 96 },
+        { "id": "hedge-11", "prefab": "hedge", "x": 672, "y": 144, "width": 64 },
+        { "id": "hedge-12", "prefab": "hedge", "x": 848, "y": 144, "width": 224 },
+        { "id": "hedge-13", "prefab": "hedge", "x": 1232, "y": 144, "width": 224 },
+        { "id": "hedge-14", "prefab": "hedge", "x": 672, "y": 176, "width": 64 },
+        { "id": "hedge-15", "prefab": "hedge", "x": 144, "y": 208, "width": 160 },
+        { "id": "hedge-16", "prefab": "hedge", "x": 672, "y": 208, "width": 64 },
+        { "id": "hedge-17", "prefab": "hedge", "x": 944, "y": 208, "width": 160 },
+        { "id": "hedge-18", "prefab": "hedge", "x": 1168, "y": 208, "width": 224 },
+        { "id": "hedge-19", "prefab": "hedge", "x": 672, "y": 240, "width": 64 },
+        { "id": "hedge-20", "prefab": "hedge", "x": 208, "y": 272, "width": 288 },
+        { "id": "hedge-21", "prefab": "hedge", "x": 672, "y": 272, "width": 64 },
+        { "id": "hedge-22", "prefab": "hedge", "x": 944, "y": 272, "width": 416 },
+        { "id": "hedge-23", "prefab": "hedge", "x": 1232, "y": 272, "width": 96 },
+        { "id": "hedge-24", "prefab": "hedge", "x": 672, "y": 304, "width": 64 },
+        { "id": "hedge-25", "prefab": "hedge", "x": 48, "y": 336, "width": 96 },
+        { "id": "hedge-26", "prefab": "hedge", "x": 336, "y": 336, "width": 160 },
+        { "id": "hedge-27", "prefab": "hedge", "x": 496, "y": 336, "width": 96 },
+        { "id": "hedge-28", "prefab": "hedge", "x": 832, "y": 336, "width": 512 },
+        { "id": "hedge-29", "prefab": "hedge", "x": 672, "y": 368, "width": 64 },
+        { "id": "hedge-30", "prefab": "hedge", "x": 208, "y": 400, "width": 288 },
+        { "id": "hedge-31", "prefab": "hedge", "x": 432, "y": 400, "width": 96 },
+        { "id": "hedge-32", "prefab": "hedge", "x": 560, "y": 400, "width": 96 },
+        { "id": "hedge-33", "prefab": "hedge", "x": 672, "y": 400, "width": 64 },
+        { "id": "hedge-34", "prefab": "hedge", "x": 912, "y": 400, "width": 352 },
+        { "id": "hedge-35", "prefab": "hedge", "x": 1168, "y": 400, "width": 96 },
+        { "id": "hedge-36", "prefab": "hedge", "x": 672, "y": 432, "width": 64 },
+        { "id": "hedge-37", "prefab": "hedge", "x": 112, "y": 464, "width": 224 },
+        { "id": "hedge-38", "prefab": "hedge", "x": 576, "y": 464, "width": 640 },
+        { "id": "hedge-39", "prefab": "hedge", "x": 1136, "y": 464, "width": 416 },
+        { "id": "hedge-40", "prefab": "hedge", "x": 112, "y": 496, "width": 224 },
+        { "id": "hedge-41", "prefab": "hedge", "x": 576, "y": 496, "width": 640 },
+        { "id": "hedge-42", "prefab": "hedge", "x": 1136, "y": 496, "width": 416 },
+        { "id": "hedge-43", "prefab": "hedge", "x": 672, "y": 528, "width": 64 },
+        { "id": "hedge-44", "prefab": "hedge", "x": 48, "y": 560, "width": 96 },
+        { "id": "hedge-45", "prefab": "hedge", "x": 240, "y": 560, "width": 96 },
+        { "id": "hedge-46", "prefab": "hedge", "x": 560, "y": 560, "width": 96 },
+        { "id": "hedge-47", "prefab": "hedge", "x": 736, "y": 560, "width": 192 },
+        { "id": "hedge-48", "prefab": "hedge", "x": 1008, "y": 560, "width": 160 },
+        { "id": "hedge-49", "prefab": "hedge", "x": 1168, "y": 560, "width": 96 },
+        { "id": "hedge-50", "prefab": "hedge", "x": 672, "y": 592, "width": 64 },
+        { "id": "hedge-51", "prefab": "hedge", "x": 112, "y": 624, "width": 96 },
+        { "id": "hedge-52", "prefab": "hedge", "x": 304, "y": 624, "width": 224 },
+        { "id": "hedge-53", "prefab": "hedge", "x": 576, "y": 624, "width": 256 },
+        { "id": "hedge-54", "prefab": "hedge", "x": 848, "y": 624, "width": 224 },
+        { "id": "hedge-55", "prefab": "hedge", "x": 1104, "y": 624, "width": 96 },
+        { "id": "hedge-56", "prefab": "hedge", "x": 1264, "y": 624, "width": 160 },
+        { "id": "hedge-57", "prefab": "hedge", "x": 672, "y": 656, "width": 64 },
+        { "id": "hedge-58", "prefab": "hedge", "x": 432, "y": 688, "width": 96 },
+        { "id": "hedge-59", "prefab": "hedge", "x": 560, "y": 688, "width": 96 },
+        { "id": "hedge-60", "prefab": "hedge", "x": 672, "y": 688, "width": 64 },
+        { "id": "hedge-61", "prefab": "hedge", "x": 896, "y": 688, "width": 192 },
+        { "id": "hedge-62", "prefab": "hedge", "x": 1184, "y": 688, "width": 192 },
+        { "id": "hedge-63", "prefab": "hedge", "x": 144, "y": 752, "width": 160 },
+        { "id": "hedge-64", "prefab": "hedge", "x": 464, "y": 752, "width": 160 },
+        { "id": "hedge-65", "prefab": "hedge", "x": 736, "y": 752, "width": 192 },
+        { "id": "hedge-66", "prefab": "hedge", "x": 960, "y": 752, "width": 64 },
+        { "id": "hedge-67", "prefab": "hedge", "x": 1200, "y": 752, "width": 160 },
+        { "id": "hedge-68", "prefab": "hedge", "x": 672, "y": 784, "width": 64 },
+        { "id": "hedge-69", "prefab": "hedge", "x": 48, "y": 816, "width": 96 },
+        { "id": "hedge-70", "prefab": "hedge", "x": 240, "y": 816, "width": 96 },
+        { "id": "hedge-71", "prefab": "hedge", "x": 368, "y": 816, "width": 96 },
+        { "id": "hedge-72", "prefab": "hedge", "x": 496, "y": 816, "width": 96 },
+        { "id": "hedge-73", "prefab": "hedge", "x": 672, "y": 816, "width": 64 },
+        { "id": "hedge-74", "prefab": "hedge", "x": 848, "y": 816, "width": 224 },
+        { "id": "hedge-75", "prefab": "hedge", "x": 1104, "y": 816, "width": 224 },
+        { "id": "hedge-76", "prefab": "hedge", "x": 672, "y": 848, "width": 64 },
+        { "id": "hedge-77", "prefab": "hedge", "x": 176, "y": 880, "width": 96 },
+        { "id": "hedge-78", "prefab": "hedge", "x": 400, "y": 880, "width": 160 },
+        { "id": "hedge-79", "prefab": "hedge", "x": 560, "y": 880, "width": 96 },
+        { "id": "hedge-80", "prefab": "hedge", "x": 672, "y": 880, "width": 64 },
+        { "id": "hedge-81", "prefab": "hedge", "x": 944, "y": 880, "width": 160 },
+        { "id": "hedge-82", "prefab": "hedge", "x": 1168, "y": 880, "width": 224 },
+        { "id": "hedge-83", "prefab": "hedge", "x": 672, "y": 912, "width": 64 },
+        { "id": "hedge-84", "prefab": "hedge", "x": 672, "y": 944, "width": 1344 },
+        { "id": "hedge-85", "prefab": "hedge", "x": 16, "y": 80, "height": 96 },
+        { "id": "hedge-86", "prefab": "hedge", "x": 16, "y": 240, "height": 160 },
+        { "id": "hedge-87", "prefab": "hedge", "x": 16, "y": 400, "height": 96 },
+        { "id": "hedge-88", "prefab": "hedge", "x": 16, "y": 528 },
+        { "id": "hedge-89", "prefab": "hedge", "x": 16, "y": 688, "height": 224 },
+        { "id": "hedge-90", "prefab": "hedge", "x": 16, "y": 880, "height": 96 },
+        { "id": "hedge-91", "prefab": "hedge", "x": 80, "y": 48 },
+        { "id": "hedge-92", "prefab": "hedge", "x": 80, "y": 688, "height": 96 },
+        { "id": "hedge-93", "prefab": "hedge", "x": 80, "y": 864, "height": 64 },
+        { "id": "hedge-94", "prefab": "hedge", "x": 144, "y": 176 },
+        { "id": "hedge-95", "prefab": "hedge", "x": 144, "y": 336, "height": 96 },
+        { "id": "hedge-96", "prefab": "hedge", "x": 144, "y": 560, "height": 96 },
+        { "id": "hedge-97", "prefab": "hedge", "x": 144, "y": 672, "height": 64 },
+        { "id": "hedge-98", "prefab": "hedge", "x": 144, "y": 816, "height": 96 },
+        { "id": "hedge-99", "prefab": "hedge", "x": 208, "y": 112 },
+        { "id": "hedge-100", "prefab": "hedge", "x": 208, "y": 352, "height": 64 },
+        { "id": "hedge-101", "prefab": "hedge", "x": 208, "y": 688, "height": 96 },
+        { "id": "hedge-102", "prefab": "hedge", "x": 272, "y": 96, "height": 64 },
+        { "id": "hedge-103", "prefab": "hedge", "x": 272, "y": 208, "height": 96 },
+        { "id": "hedge-104", "prefab": "hedge", "x": 272, "y": 592 },
+        { "id": "hedge-105", "prefab": "hedge", "x": 272, "y": 736, "height": 128 },
+        { "id": "hedge-106", "prefab": "hedge", "x": 272, "y": 880, "height": 96 },
+        { "id": "hedge-107", "prefab": "hedge", "x": 336, "y": 64, "height": 64 },
+        { "id": "hedge-108", "prefab": "hedge", "x": 336, "y": 208, "height": 96 },
+        { "id": "hedge-109", "prefab": "hedge", "x": 336, "y": 544, "height": 64 },
+        { "id": "hedge-110", "prefab": "hedge", "x": 336, "y": 720, "height": 160 },
+        { "id": "hedge-111", "prefab": "hedge", "x": 336, "y": 848 },
+        { "id": "hedge-112", "prefab": "hedge", "x": 400, "y": 96, "height": 64 },
+        { "id": "hedge-113", "prefab": "hedge", "x": 400, "y": 256, "height": 128 },
+        { "id": "hedge-114", "prefab": "hedge", "x": 400, "y": 368 },
+        { "id": "hedge-115", "prefab": "hedge", "x": 400, "y": 432 },
+        { "id": "hedge-116", "prefab": "hedge", "x": 400, "y": 576, "height": 64 },
+        { "id": "hedge-117", "prefab": "hedge", "x": 464, "y": 240, "height": 160 },
+        { "id": "hedge-118", "prefab": "hedge", "x": 464, "y": 576, "height": 64 },
+        { "id": "hedge-119", "prefab": "hedge", "x": 464, "y": 656 },
+        { "id": "hedge-120", "prefab": "hedge", "x": 464, "y": 848 },
+        { "id": "hedge-121", "prefab": "hedge", "x": 528, "y": 240, "height": 160 },
+        { "id": "hedge-122", "prefab": "hedge", "x": 528, "y": 368 },
+        { "id": "hedge-123", "prefab": "hedge", "x": 528, "y": 528 },
+        { "id": "hedge-124", "prefab": "hedge", "x": 528, "y": 720 },
+        { "id": "hedge-125", "prefab": "hedge", "x": 528, "y": 784 },
+        { "id": "hedge-126", "prefab": "hedge", "x": 528, "y": 912 },
+        { "id": "hedge-127", "prefab": "hedge", "x": 592, "y": 256, "height": 128 },
+        { "id": "hedge-128", "prefab": "hedge", "x": 592, "y": 800, "height": 128 },
+        { "id": "hedge-129", "prefab": "hedge", "x": 752, "y": 208, "height": 96 },
+        { "id": "hedge-130", "prefab": "hedge", "x": 752, "y": 704, "height": 64 },
+        { "id": "hedge-131", "prefab": "hedge", "x": 752, "y": 896, "height": 64 },
+        { "id": "hedge-132", "prefab": "hedge", "x": 816, "y": 192, "height": 64 },
+        { "id": "hedge-133", "prefab": "hedge", "x": 816, "y": 592 },
+        { "id": "hedge-134", "prefab": "hedge", "x": 816, "y": 864, "height": 64 },
+        { "id": "hedge-135", "prefab": "hedge", "x": 880, "y": 80, "height": 96 },
+        { "id": "hedge-136", "prefab": "hedge", "x": 880, "y": 544, "height": 64 },
+        { "id": "hedge-137", "prefab": "hedge", "x": 880, "y": 752, "height": 96 },
+        { "id": "hedge-138", "prefab": "hedge", "x": 944, "y": 592 },
+        { "id": "hedge-139", "prefab": "hedge", "x": 1008, "y": 144, "height": 96 },
+        { "id": "hedge-140", "prefab": "hedge", "x": 1008, "y": 624, "height": 96 },
+        { "id": "hedge-141", "prefab": "hedge", "x": 1008, "y": 784 },
+        { "id": "hedge-142", "prefab": "hedge", "x": 1008, "y": 848 },
+        { "id": "hedge-143", "prefab": "hedge", "x": 1072, "y": 144, "height": 96 },
+        { "id": "hedge-144", "prefab": "hedge", "x": 1072, "y": 368 },
+        { "id": "hedge-145", "prefab": "hedge", "x": 1072, "y": 656 },
+        { "id": "hedge-146", "prefab": "hedge", "x": 1072, "y": 912 },
+        { "id": "hedge-147", "prefab": "hedge", "x": 1136, "y": 112 },
+        { "id": "hedge-148", "prefab": "hedge", "x": 1136, "y": 336, "height": 96 },
+        { "id": "hedge-149", "prefab": "hedge", "x": 1136, "y": 528 },
+        { "id": "hedge-150", "prefab": "hedge", "x": 1136, "y": 592 },
+        { "id": "hedge-151", "prefab": "hedge", "x": 1200, "y": 336, "height": 96 },
+        { "id": "hedge-152", "prefab": "hedge", "x": 1264, "y": 64, "height": 64 },
+        { "id": "hedge-153", "prefab": "hedge", "x": 1264, "y": 240 },
+        { "id": "hedge-154", "prefab": "hedge", "x": 1264, "y": 384, "height": 128 },
+        { "id": "hedge-155", "prefab": "hedge", "x": 1264, "y": 576, "height": 64 },
+        { "id": "hedge-156", "prefab": "hedge", "x": 1264, "y": 816, "height": 96 },
+        { "id": "hedge-157", "prefab": "hedge", "x": 1328, "y": 80, "height": 96 },
+        { "id": "hedge-158", "prefab": "hedge", "x": 1328, "y": 304, "height": 288 },
+        { "id": "hedge-159", "prefab": "hedge", "x": 1328, "y": 560, "height": 96 },
+        { "id": "hedge-160", "prefab": "hedge", "x": 1328, "y": 784, "height": 288 }
+      ]
+    }
+  ],
+  "hud": [
+    {
+      "type": "text",
+      "id": "beds",
+      "x": -20,
+      "y": 14,
+      "anchor": "top-right",
+      "properties": {
+        "text": "BEDS {beds} / {bedsTotal}",
+        "fontSize": "14px",
+        "color": "#f2e6b8",
+        "align": "right",
+        "letterSpacing": 2,
+        "outlineColor": "rgba(30, 44, 20, 0.6)",
+        "outlineWidth": 2
+      }
+    },
+    {
+      "type": "notice",
+      "id": "banner",
+      "x": 0,
+      "y": 60,
+      "anchor": "top",
+      "properties": { "fontSize": "22px", "fontWeight": "700", "color": "#8ee6a0", "align": "center" }
+    }
+  ]
+}

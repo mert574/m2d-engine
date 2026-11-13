@@ -1,0 +1,14 @@
+{
+  "name": "Hedgerow Court",
+  "definition": "game.js",
+  "initialScene": "mainMenu",
+  "display": {
+    "width": 672,
+    "height": 480
+  },
+  "input": {
+    "actions": {
+      "menu": ["Escape"]
+    }
+  }
+}

@@ -1,3 +1,5 @@
+import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { makeRng, range } from '../shared/rng.js';
 import { tileTexture } from '../shared/textures.js';
 
@@ -10,10 +12,11 @@ import { tileTexture } from '../shared/textures.js';
  * through the gates, and sends cloud shadows and butterflies across the
  * whole thing. The hedges shade themselves (see `HedgeWall`).
  *
- * Two passes wired to the scene hooks, plus persistent atmosphere:
- *
- *   drawBackground   lawn, stripes, clover, beds, stones — before entities
- *   drawForeground   cloud shadows, butterflies, sun — after them
+ * It is scenery placed in the court, twice: the `lawn` layer draws the
+ * turf, its stripes, the clover and the fountain's plaza under everything,
+ * and the `sky` layer the cloud shadows, butterflies and sun over it. The
+ * court's warm grade and the morning light are `world.lighting` and
+ * `world.post`, so the editor shows the garden as it plays.
  *
  * Everything here is presentation: it reads the clock and the camera and
  * writes nothing the simulation sees.
@@ -21,28 +24,31 @@ import { tileTexture } from '../shared/textures.js';
 
 const BUTTERFLIES = ['#fef6ef', '#f3d35a', '#eb9a54'];
 
-export class GardenBackdrop {
-  /**
-   * @param {import('m2d-engine/core/m2d.js').M2D} game
-   * @param {Object} lawnSheet - The scene's `lawn` sheet
-   * @param {Object} map - The built map (see courtyards.js)
-   * @param {Object} [plazaSheet] - The scene's `plaza` sheet, for the
-   *   fountain's stone circle
-   */
-  constructor(game, lawnSheet, map, plazaSheet) {
-    this.game = game;
-    this.renderer = game.renderer;
-    this.lawn = lawnSheet?.image ?? null;
-    this.plaza = plazaSheet?.image ?? null;
-    this.map = map;
+export class GardenBackdrop extends Entity {
+  static properties = {
+    layer: s.enumOf(['lawn', 'sky'], { initial: 'lawn', description: 'lawn: the turf under everything; sky: the cloud shadows and sun over it' }),
+    lawnTexture: s.ref('image', { description: 'The mown turf, tiled' }),
+    plazaTexture: s.ref('image', { description: 'The travertine circle the fountain stands on' }),
+    seed: s.integer({ min: 0, initial: 0xb100, description: 'Which scatter of clover and clouds' })
+  };
+
+  name = 'GardenBackdrop';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    // Scenery: drawn, never touched.
+    body.setCollisionFilter({ category: 0, mask: 0 });
+    this.layer = options.layer ?? 'lawn';
+    this.zIndex = this.layer === 'sky' ? 1000 : -1000;
+    this.depth = this.layer === 'sky' ? Infinity : -Infinity;
+
+    this.lawn = options.lawnTexture ?? null;
+    this.plaza = options.plazaTexture ?? null;
     this.time = 0;
+    const map = { width: game.options.worldWidth, height: game.options.worldHeight };
+    this.map = map;
 
-    this.features = {
-      lights: game.renderer.supports('lights'),
-      blendModes: game.renderer.supports('blendModes')
-    };
-
-    const rng = makeRng(0xb100);
+    const rng = makeRng(options.seed ?? 0xb100);
     this.clover = Array.from({ length: Math.round(map.width * map.height / 36000) }, () => ({
       x: range(rng, 0, map.width),
       y: range(rng, 0, map.height),
@@ -50,21 +56,8 @@ export class GardenBackdrop {
       alpha: range(rng, 0.08, 0.18)
     }));
 
-    // A few butterflies, each tied loosely to a flower bed (the beds
-    // themselves are entities — see FlowerBed in main.js) and wandering
-    // around it on its own pair of slow sine curves.
-    const picks = map.flowerBeds.length ? map.flowerBeds : [{ x: map.width / 2, y: map.height / 2 }];
-    this.butterflies = Array.from({ length: Math.min(6, 2 + Math.floor(picks.length / 4)) }, (_, i) => {
-      const bed = picks[(i * 7) % picks.length];
-      return {
-        anchor: bed,
-        color: BUTTERFLIES[i % BUTTERFLIES.length],
-        fx: 0.21 + 0.04 * (i % 3),
-        fy: 0.17 + 0.05 * ((i + 1) % 3),
-        phase: i * 1.7,
-        reach: 70 + 22 * (i % 4)
-      };
-    });
+    /** Butterflies, each tied to a flower bed; the beds are placed, so this waits for the first frame. */
+    this.butterflies = null;
 
     // Two clouds crossing the garden, large and soft and slow.
     this.clouds = [
@@ -73,25 +66,31 @@ export class GardenBackdrop {
     ];
   }
 
-  applyAtmosphere() {
-    // Morning. The sun does the work; the grade keeps it warm and the
-    // bloom only catches the water and the brightest petals.
-    this.renderer.setAmbientLight('#fffdf2');
-    this.renderer.setPostEffects({
-      bloom: { threshold: 0.82, strength: 0.32, blur: 18 },
-      vignette: { strength: 0.13, start: 0.64 },
-      grade: { shadows: '#8aa381', highlights: '#fff8e2', amount: 0.32, saturation: 1.08, contrast: 1.02 },
-      grain: { strength: 0.03 }
-    });
-  }
-
-  clearAtmosphere() {
-    this.renderer.setAmbientLight(null);
-    this.renderer.setPostEffects(null);
-  }
-
   update(deltaTime) {
+    super.update(deltaTime);
     this.time += deltaTime;
+  }
+
+  draw() {
+    if (this.dead || !this.visible) return;
+    if (this.layer === 'lawn') this.drawLawn();
+    else this.drawSky();
+  }
+
+  /** The beds this court placed, as the butterflies' anchors. */
+  #anchors() {
+    if (this.butterflies) return this.butterflies;
+    const beds = [...this.game.entities].filter((entity) => entity.prefab === 'bed');
+    const picks = beds.length ? beds.map((bed) => bed.position) : [{ x: this.map.width / 2, y: this.map.height / 2 }];
+    this.butterflies = Array.from({ length: Math.min(6, 2 + Math.floor(picks.length / 4)) }, (_, i) => ({
+      anchor: picks[(i * 7) % picks.length],
+      color: BUTTERFLIES[i % BUTTERFLIES.length],
+      fx: 0.21 + 0.04 * (i % 3),
+      fy: 0.17 + 0.05 * ((i + 1) % 3),
+      phase: i * 1.7,
+      reach: 70 + 22 * (i % 4)
+    }));
+    return this.butterflies;
   }
 
   #view() {
@@ -104,9 +103,9 @@ export class GardenBackdrop {
     };
   }
 
-  /** The lawn and everything planted in it. Before the entities. */
-  drawBackground() {
-    const renderer = this.renderer;
+  /** The lawn and everything planted in it. Under the entities. */
+  drawLawn() {
+    const renderer = this.game.renderer;
     const view = this.#view();
     const rect = { x: view.left - 4, y: view.top - 4, width: view.width + 8, height: view.height + 8 };
     const onScreen = (x, y, margin) =>
@@ -137,20 +136,24 @@ export class GardenBackdrop {
     }
 
     // The fountain's plaza: a worn travertine circle the hedges were
-    // cleared for (baked in textures/plaza.png).
-    const goal = this.map.goal;
-    if (this.plaza && this.plaza.width && onScreen(goal.x, goal.y, 120)) {
+    // cleared for (baked in textures/plaza.png), laid under whichever
+    // fountain this court placed.
+    if (!this.plaza?.width) return;
+    for (const entity of this.game.entities) {
+      if (entity.prefab !== 'fountain') continue;
+      const at = entity.position;
+      if (!onScreen(at.x, at.y, 120)) continue;
       renderer.drawSprite({
-        image: this.plaza, x: goal.x, y: goal.y,
+        image: this.plaza, x: at.x, y: at.y,
         tileWidth: this.plaza.width, tileHeight: this.plaza.height,
         width: 94, height: 94
       });
     }
   }
 
-  /** What the sky does to the garden. After the entities. */
-  drawForeground() {
-    const renderer = this.renderer;
+  /** What the sky does to the garden. Over the entities. */
+  drawSky() {
+    const renderer = this.game.renderer;
     const view = this.#view();
 
     // Cloud shadows: the one thing that moves on the whole lawn, and the
@@ -174,7 +177,7 @@ export class GardenBackdrop {
 
     // Butterflies over everything, wings flicking as two dots that trade
     // widths.
-    for (const b of this.butterflies) {
+    for (const b of this.#anchors()) {
       const t = this.time + b.phase;
       const x = b.anchor.x + Math.sin(t * b.fx * Math.PI * 2) * b.reach;
       const y = b.anchor.y + Math.sin(t * b.fy * Math.PI * 2 + 1.3) * b.reach * 0.8;
@@ -186,7 +189,7 @@ export class GardenBackdrop {
       renderer.drawArc({ x: x + 1.6 * (0.4 + 0.6 * Math.abs(-flap)), y, radius: 2.2, fillStyle: b.color });
     }
 
-    if (!this.features.lights) return;
+    if (!renderer.supports('lights')) return;
 
     // The sun: one broad warm light over the view. Morning, not noon — the
     // grade above does the colour, this adds the glow.

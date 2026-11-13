@@ -59,11 +59,6 @@ const ALLOWED = {
   iso: [
     'hooks: input — exception: the satchel and the shop are the keep\'s own screens, opened by the satchel and trade actions'
   ],
-  // Hedgerow Court
-  maze: [
-    'project-file — phase 3: the courts baked into scene files, an editor project',
-    'boot — phase 3: bootProject'
-  ],
   // Hollow Grove
   oblique: [
     'hooks: budget — exception: the quest, JS on the engine\'s Quest, and the talking that moves it on',

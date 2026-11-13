@@ -166,11 +166,12 @@ A side-scrolling level with a dynamic-body player, moving platforms, a chasing e
 
 [Play](https://mert574.github.io/m2d-engine/examples/maze/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/maze)
 
-The single-screen, room-based perspective: a hedge-maze garden in three maps, each a grid of walled courts, and each court exactly one screen. The camera's `rooms` mode holds the court the gardener stands in and glides through the hedge when they take a gate, the classic room transition. Movement is the engine's `GlideControl`: tap a direction and the gardener keeps walking, the same key stops them, and a turn pressed a beat early or late is buffered and taken at the junction. Every court is its own seeded maze, connected along a spanning tree with a loop or two, and a test pins that every map stays solvable. Dead ends are flower beds to tend: walk through one and its buds open, counted on the HUD. Daisies bloom along the walked path, butterflies work the beds, cloud shadows cross the lawn and the travertine fountain at the far end opens the next map. The scene is built in code; the lawn, hedge and fountain stone are CC0 materials from ambientCG.
+The single-screen, room-based perspective: a hedge-maze garden in three maps, each a grid of walled courts, and each court exactly one screen. The camera's `rooms` mode holds the court the gardener stands in and glides through the hedge when they take a gate, the classic room transition. Movement is the engine's `GlideControl`: tap a direction and the gardener keeps walking, the same key stops them, and a turn pressed a beat early or late is buffered and taken at the junction. Every court is its own seeded maze, connected along a spanning tree with a loop or two, carved once into a scene file the editor opens, and a test pins that every map stays solvable. Dead ends are flower beds to tend: walk through one and its buds open, counted on the HUD. Daisies bloom along the walked path, butterflies work the beds, cloud shadows cross the lawn and the travertine fountain at the far end opens the next map. The lawn, hedge and fountain stone are CC0 materials from ambientCG.
 
 | Key | Action |
 | --- | --- |
 | Arrow keys | Tap to set off; the same key stops, a new one turns |
+| `Escape` | Main menu |
 
 ### Beeline
 

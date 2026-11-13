@@ -1,4 +1,4 @@
-import { generateMaze } from './generateMaze.js';
+import { generateMaze } from '../src/maze/generateMaze.js';
 
 /**
  * A garden of walled courts.

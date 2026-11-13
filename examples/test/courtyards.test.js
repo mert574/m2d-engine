@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MAPS, COURT, TILE, buildMap, wallObjects } from '../src/maze/courtyards.js';
+import { MAPS, COURT, TILE, buildMap, wallObjects } from '../scripts/courtyards.mjs';
 
 /**
  * Hedgerow Court's maps are generated, so solvability is a property of the

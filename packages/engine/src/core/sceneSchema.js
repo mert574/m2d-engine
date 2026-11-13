@@ -214,6 +214,8 @@ const CAMERA = s.object({
   followAxes: s.object({ x: s.boolean(), y: s.boolean() }, { label: 'Follow axes', description: '2D: which axes follow the target' }),
   scrollVelocity: s.object({ x: s.number({ unit: 'px/s' }), y: s.number({ unit: 'px/s' }) },
     { label: 'Scroll velocity', description: '2D scroll mode: how fast the view travels on its own, held inside bounds' }),
+  roomSize: s.object({ width: s.number({ positive: true, unit: 'px' }), height: s.number({ positive: true, unit: 'px' }) },
+    { label: 'Room size', description: '2D rooms mode: the room the view snaps to; the view\'s own size by default' }),
   bounds: s.union([
     s.enumOf(['world'], { match: value => typeof value === 'string' }),
     s.object({ left: s.number({ required: true }), top: s.number({ required: true }), right: s.number({ required: true }), bottom: s.number({ required: true }) },
