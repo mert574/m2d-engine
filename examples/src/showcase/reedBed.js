@@ -85,6 +85,15 @@ export class ReedBed {
   /**
    * @param {number} deltaTime - Seconds since the last frame
    */
+  /**
+   * How hard the wind is pushing, -1 to 1. The bed leans into it and
+   * works harder; at zero it only breathes.
+   * @param {number} wind
+   */
+  setWind(wind) {
+    this.wind = wind;
+  }
+
   update(deltaTime) {
     this.time += deltaTime;
   }
@@ -96,7 +105,10 @@ export class ReedBed {
     const tinted = this.features.tint;
 
     for (const reed of this.reeds) {
-      const angle = Math.sin(this.time * reed.speed + reed.phase) * reed.amplitude;
+      const wind = this.wind ?? 0;
+      // A lean the wind holds them at, with their own sway on top of it.
+      const angle = wind * 0.38 + Math.sin(this.time * reed.speed * (1 + wind) + reed.phase)
+        * reed.amplitude * (1 + wind * 1.2);
       const half = reed.height / 2;
 
       // drawSprite rotates about the sprite centre. Placing the centre at

@@ -43,6 +43,8 @@ export class RainEmitter {
     /** Wind as a horizontal drift per unit of fall. */
     this.wind = 0.18;
     this.slant = Math.atan(this.wind);
+    /** How much of the fall is visible: 0 dry, 1 the full downpour. */
+    this.opacity = 1;
     this.data = new Float32Array(0);
     this.params = new Float32Array(0);
     this.count = 0;
@@ -91,6 +93,19 @@ export class RainEmitter {
   /**
    * @param {number} deltaTime - Seconds since the last frame
    */
+  /**
+   * Set how hard it is raining and which way.
+   * @param {number} wind - Horizontal drift per unit of fall
+   * @param {number} opacity - 0 dry, 1 the full downpour. The drops are
+   *   always all there: a comparison harness may not quietly draw fewer
+   *   of them because the weather turned.
+   */
+  setWeather(wind, opacity) {
+    this.wind = wind;
+    this.slant = Math.atan(wind);
+    this.opacity = opacity;
+  }
+
   update(deltaTime) {
     this.time += deltaTime;
 
@@ -110,7 +125,7 @@ export class RainEmitter {
       data[d + 1] = fall - 20;
       data[d + 2] = params[p + 3];
       // Fade in over the first stretch so respawns do not pop at the top.
-      data[d + 7] = params[p + 4] * Math.min(1, fall / 80);
+      data[d + 7] = params[p + 4] * Math.min(1, fall / 80) * this.opacity;
     }
   }
 

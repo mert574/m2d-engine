@@ -119,4 +119,10 @@ game.input.on('keydown', (event) => {
 const RESOLUTIONS = ['native', { width: 1280, height: 720 }, { width: 854, height: 480 }, { width: 426, height: 240 }];
 new SettingsMenu(game, { resolutions: RESOLUTIONS }).addOption(audioOption(game));
 
+// `?debug` exposes the engine and the director for poking at from the
+// console or a harness — stepping the weather, say, without waiting for it.
+if (new URLSearchParams(location.search).has('debug')) {
+  window.showcase = { game, director: () => showcase };
+}
+
 game.start();

@@ -1,6 +1,6 @@
 # Knowledge base
 
-The repository's memory: decisions, learnings and working preferences, plus the plans and records of big projects. It is not documentation (that is `docs/`) and not a work log (that is git). It works as an Obsidian vault: notes link with `[[note-name]]`, and file names are unique across the folder so every link resolves.
+The repository's memory — the only one an agent has, and the place to write anything worth keeping. It holds decisions, learnings and working preferences, plus the plans and records of big projects. It is not documentation (that is `docs/`) and not a work log (that is git). It works as an Obsidian vault: notes link with `[[note-name]]`, and file names are unique across the folder so every link resolves.
 
 ## Map
 

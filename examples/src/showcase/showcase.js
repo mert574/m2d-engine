@@ -7,7 +7,7 @@ import { RainEmitter } from './rainEmitter.js';
 import { Lanterns } from './lanterns.js';
 import { Backdrop } from './backdrop.js';
 import { Hud } from './hud.js';
-import { Beats } from './beats.js';
+import { Weather } from './weather.js';
 import { Gulls } from './gulls.js';
 
 /**
@@ -162,8 +162,8 @@ export class Showcase {
       shoreY
     });
 
-    /** The programme of frame-wide effects over the stress layers. */
-    this.beats = new Beats(game);
+    /** The front crossing the harbour, and the hour it crosses in. */
+    this.weather = new Weather(game);
 
     this.hud = new Hud(game, this);
     this.waterline = waterline;
@@ -179,7 +179,7 @@ export class Showcase {
       { name: 'rain', enabled: true, target: this.rain },
       { name: 'lights', enabled: true, target: this.lanterns },
       { name: 'post', enabled: true, target: { count: '' } },
-      { name: 'beats', enabled: true, target: { count: '' } }
+      { name: 'weather', enabled: true, target: { count: '' } }
     ];
 
     this.applyLoad();
@@ -265,7 +265,7 @@ export class Showcase {
    */
   applyEffects() {
     const renderer = this.game.renderer;
-    const look = this.beats.look();
+    const look = this.weather.look();
     renderer.setAmbientLight(this.showing('lights') ? look.lighting?.ambient ?? null : null);
     renderer.setPostEffects(this.showing('post') ? look.post ?? null : null);
   }
@@ -307,12 +307,17 @@ export class Showcase {
   update(deltaTime) {
     this.time += deltaTime;
 
-    // The programme runs on the wall clock, so its own slow-motion beat
-    // cannot slow it down and both backends are at the same beat.
-    this.beats.enabled = this.showing('beats');
-    this.beats.update(this.game.time?.unscaledDelta ?? deltaTime);
-    // The light and the post stack turn with the hour, every frame.
+    // The weather runs on the wall clock, so both backends are in the
+    // same weather at the same moment whatever their frame rate.
+    this.weather.enabled = this.showing('weather');
+    this.weather.update(this.game.time?.unscaledDelta ?? deltaTime);
+    // The light and the post stack follow the hour and the front.
     this.applyEffects();
+    // What the harbour does about the wind. None of it changes how many
+    // drops or reeds there are — only how they stand and how they read.
+    const wind = this.weather.wind;
+    this.reeds.setWind(wind);
+    this.rain.setWeather(0.18 + wind * 0.7, 0.12 + 0.88 * this.weather.strength);
 
     if (!this.cameraPaused) {
       this.panCamera();
@@ -340,11 +345,14 @@ export class Showcase {
     const spanX = Math.max(0, this.bounds.width - camera.width) / 2;
     const spanY = Math.max(0, this.bounds.height - camera.height) / 2;
 
-    camera.x = marginX + spanX + Math.sin(this.time * 0.51) * spanX + this.beats.offset.x;
-    camera.y = marginY + spanY + Math.sin(this.time * 0.33) * spanY + this.beats.offset.y;
-    // Zoom and roll are the programme's; the pan is the harness's.
-    camera.zoom = this.beats.zoom;
-    camera.rotation = this.beats.rotation;
+    // The pan is the harness's fixed path; the swell and a strike's knock
+    // are the weather's, and both are small enough that the same amount of
+    // world stays on screen.
+    const sea = this.weather.camera();
+    camera.x = marginX + spanX + Math.sin(this.time * 0.51) * spanX + sea.offset.x;
+    camera.y = marginY + spanY + Math.sin(this.time * 0.33) * spanY + sea.offset.y;
+    camera.zoom = sea.zoom;
+    camera.rotation = sea.rotation;
   }
 
   /**

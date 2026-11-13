@@ -75,7 +75,7 @@ export class Hud extends UIElement {
       `shapes      ${stats.shapesDrawn.toLocaleString()}`,
       '',
       `load        ${this.showcase.loadLabel()}   ([ or ] to change)`,
-      `programme   ${this.showcase.beats.beat.name} · ${this.showcase.beats.hour}`,
+      `harbour     ${this.showcase.weather.name} · ${this.showcase.weather.hour}`,
       '',
       'display',
       `world res   ${this.resolutionLabel()}`,

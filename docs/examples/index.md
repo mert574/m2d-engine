@@ -139,16 +139,16 @@ The engine's first 3D scene, on the WebGPU renderer. The yard is primitive shape
 
 A batching stress test and a side-by-side comparison of the two renderer backends. The scene is a harbour at night. It has thousands of batched sprites, a reed bank with per-sprite tint, a text storm, a flock playing an animated sheet across three bands of parallax, and a lighthouse beam built from nested clips. Rain is a packed particle buffer, the lanterns are lights with bloom and a chart nests clips in screen space. The engine's own backdrop sits behind it all — a sky, seeded star and cloud layers at their own parallax, and fireflies and sparks as 2D particle fields.
 
-Over that steady load runs a programme of beats on a 28-second loop: a knock that shakes the camera and splits the colour, a zoom in, a stretch of slow motion that blurs the frame, and a roll. The light turns from dusk through night to first light on its own cycle, and the post stack — bloom, vignette, colour grade, chromatic aberration and blur — moves with it. The lighthouse beam is a shadowed spot light, so the lantern posts throw shadows that swing as it sweeps. The overlay names the beat and the hour, which is what lets two backends be compared at the same moment of the programme.
+Over that steady load the weather turns. A front crosses the harbour every two and a half minutes: the wind gets up and leans the rain and the reed bank, the sea breathes in a slow camera zoom and a fraction of a degree of roll, the colour goes cold and grainy behind the rain, and lightning flashes the frame and knocks the camera. The light runs on its own longer cycle, dusk through night to first light, and the full post stack — bloom, vignette, colour grade, chromatic aberration, grain and blur — moves with both. The lighthouse beam is a shadowed spot light, so the lantern posts throw shadows that swing as it sweeps. The overlay names the weather and the hour, which is what lets two backends be compared at the same moment.
 
 The overlay reports frames per second, primitives, draw calls and state changes. It also lists the optional capabilities the active backend supports. On WebGL2 the scene collapses into a handful of draw calls. On Canvas each primitive is one call, and tint, particles, lights and post effects drop out.
 
-The scene is deterministic. Layers are built from a seeded random generator, the camera pans a fixed path, and the programme runs on the wall clock — so both backends run the same workload and reach the same beat at the same time. A beat only ever sets camera or renderer state; none of them changes how many primitives a layer draws.
+The scene is deterministic. Layers are built from a seeded random generator, the camera pans a fixed path, and the weather runs on the wall clock — so both backends run the same workload and are in the same weather at the same moment. The weather changes how the harbour looks, never how much of it there is: no count moves with it.
 
 | Key | Action |
 | --- | --- |
 | `[` and `]` | Decrease and increase load |
-| `1` to `9` | Toggle layers: drift, reeds, labels, flock, chart, rain, lights, post, beats |
+| `1` to `9` | Toggle layers: drift, reeds, labels, flock, chart, rain, lights, post, weather |
 | `P` | Pause the camera pan |
 | `H` | Hide the overlay |
 
