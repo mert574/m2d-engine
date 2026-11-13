@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { AssetDatabase } from 'm2d-engine/core/assets.js';
+import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS, Registry } from 'm2d-engine/core/builtins.js';
 
 /**
  * Shared machinery for the tests that sweep every shipped scene:
@@ -26,6 +27,7 @@ export const DEMO_ACTORS = {
   belt: ['ObliquePlayer', 'Ghost', 'Lamp', 'Bound', 'Trigger', 'Street', 'Foreground'],
   drift: ['Ship', 'Meteor', 'Drone', 'Salvage', 'Gate', 'Bound', 'Sky'],
   yard: ['Hero', 'Ground', 'Crate'],
+  physics: ['Ball', 'Box', 'Housing', 'Girder', 'Peg', 'Spout', 'WorkshopBackdrop'],
   'first-game': ['Hero', 'Platform']
 };
 
@@ -37,12 +39,17 @@ export const DEMO_CONSTRAINTS = {
 
 /** A game stub exposing only what the loader cross-references. */
 export function makeGame({ actors = [], scenes = [], constraints = [], manifest = null } = {}) {
-  const actorMap = new Map(actors.map(name => [name, class {}]));
+  // Registries, not plain maps: a scene may name an engine actor or
+  // constraint the game never registered, exactly as it may in play.
+  const actorMap = new Registry(BUILTIN_ACTORS);
+  for (const name of actors) actorMap.set(name, class {});
+  const constraintMap = new Registry(BUILTIN_CONSTRAINTS);
+  for (const name of constraints) constraintMap.set(name, CONSTRAINT_CLASSES[name]);
   const assets = new AssetDatabase();
   if (manifest) assets.load(manifest, { actors: actorMap });
   return {
     actors: actorMap,
-    constraintTypes: new Map(constraints.map(name => [name, CONSTRAINT_CLASSES[name]])),
+    constraintTypes: constraintMap,
     assets,
     sceneManager: { scenes: new Map(), scenesToLoad: scenes.map(name => ({ name })) }
   };

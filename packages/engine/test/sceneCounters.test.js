@@ -111,10 +111,65 @@ describe('counters', () => {
     game.destroy();
   });
 
+  it('hold a plain counter between its min and max, however it is set', async () => {
+    const { game, scene } = await make(level({
+      counters: { dial: { initial: 1000, min: 0, max: 3000 } },
+      rules: [{ when: { event: 'start' }, then: [{ do: 'count', counter: 'dial', add: 5000 }] }]
+    }));
+    game.step(1);
+    expect(scene.counters.get('dial')).toBe(3000);
+    scene.counters.add('dial', -9000);
+    expect(scene.counters.get('dial')).toBe(0);
+    game.destroy();
+  });
+
+  it('start a counter inside its range even when the initial is outside it', async () => {
+    const { game, scene } = await make(level({ counters: { dial: { initial: -40, min: 0 } } }));
+    expect(scene.counters.get('dial')).toBe(0);
+    game.destroy();
+  });
+
   it('refuse a rule that names an undeclared counter', () => {
     const loader = new SceneLoader(null);
     expect(() => loader.load(level({ rules: [{ when: { event: 'count', counter: 'nope', atLeast: 1 }, then: [] }] }), 'count'))
       .toThrow(/no counter named 'nope'/);
+  });
+});
+
+describe('gravity bound to a counter', () => {
+  it('opens at the counter and follows what a rule does to it', async () => {
+    const { game, scene } = await make(level({
+      gravity: { x: 0, y: 1000 },
+      counters: { pull: { initial: 400, min: 0, max: 900 } },
+      gravityBind: [{ counter: 'pull', axis: 'y' }],
+      rules: [{ when: { event: 'action', action: 'heavier' }, once: false, then: [{ do: 'count', counter: 'pull', add: 300 }] }]
+    }), { actions: { heavier: ['KeyH'] } });
+
+    // The level opens at what the counter says, not at world.gravity.
+    expect(game.physics.gravity.y).toBe(400);
+
+    let pressed = [];
+    game.input.setSnapshotSource(() => InputSnapshot.from({ pressed }));
+    pressed = ['KeyH'];
+    game.step(1);
+    expect(game.physics.gravity.y).toBe(700);
+    // And it stops at the counter's own ceiling rather than running on.
+    game.step(1);
+    game.step(1);
+    expect(game.physics.gravity.y).toBe(900);
+    // The axis nobody bound is left where the world put it.
+    expect(game.physics.gravity.x).toBe(0);
+    game.destroy();
+  });
+
+  it('leaves gravity alone when the counter it names is not declared', async () => {
+    const { game } = await make(level({
+      gravity: { x: 0, y: 1000 },
+      gravityBind: [{ counter: 'pull', axis: 'y' }]
+    }));
+    game.step(1);
+    expect(game.physics.gravity.y).toBe(1000);
+    game.destroy();
   });
 });
 

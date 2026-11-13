@@ -1,9 +1,10 @@
 /**
  * A level's counters — `world.counters` — by name.
  *
- * Two kinds. A plain counter starts at its `initial` and changes only
- * when a rule says so (`{ do: 'count', counter, add }`): a score, keys
- * found. A tally names a prefab and is read off the world each time it is
+ * Two kinds. A plain counter starts at its `initial`, is held between its
+ * `min` and `max` where it declares them, and changes only when a rule
+ * says so (`{ do: 'count', counter, add }`): a score, keys found, a dial
+ * a key turns. A tally names a prefab and is read off the world each time it is
  * asked: how many of its objects the scene `placed`, how many are
  * `remaining`, or how many are gone (`taken`, the default). A tally keeps
  * no state, so it cannot drift from what is there, and it reads the same
@@ -18,7 +19,7 @@
 export class SceneCounters {
   /**
    * @param {import('./scene.js').Scene} scene
-   * @param {Record<string, {initial?: number, prefab?: string, count?: string}>} [declared]
+   * @param {Record<string, {initial?: number, min?: number, max?: number, prefab?: string, count?: string}>} [declared]
    */
   constructor(scene, declared = {}) {
     this.scene = scene;
@@ -28,7 +29,7 @@ export class SceneCounters {
     /** How many objects of each tallied prefab the scene placed. @type {Map<string, number>} */
     this.placed = new Map();
     for (const [name, counter] of Object.entries(declared)) {
-      if (counter.prefab === undefined) this.values.set(name, counter.initial ?? 0);
+      if (counter.prefab === undefined) this.set(name, counter.initial ?? 0);
       else if (!this.placed.has(counter.prefab)) this.placed.set(counter.prefab, placedCount(scene.config, counter.prefab));
     }
   }
@@ -49,9 +50,19 @@ export class SceneCounters {
     return counter.count === 'remaining' ? remaining : placed - remaining;
   }
 
-  /** Set a plain counter. A tally is the world's to say and is left alone. */
+  /**
+   * Set a plain counter, held to its `min` and `max` where it declares
+   * them — so a score cannot go negative and a dial a rule turns stops at
+   * the end of its travel, without every rule that moves it saying so. A
+   * tally is the world's to say and is left alone.
+   */
   set(name, value) {
-    if (this.declared[name] && this.declared[name].prefab === undefined) this.values.set(name, value);
+    const counter = this.declared[name];
+    if (!counter || counter.prefab !== undefined) return;
+    let held = value;
+    if (counter.min !== undefined) held = Math.max(held, counter.min);
+    if (counter.max !== undefined) held = Math.min(held, counter.max);
+    this.values.set(name, held);
   }
 
   add(name, amount) {

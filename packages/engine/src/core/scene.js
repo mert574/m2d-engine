@@ -1,6 +1,6 @@
 import { SpriteSheet } from './spriteSheet.js';
 import { validate } from './schema.js';
-import { constraintParamsSchema, actorPropertyFields } from './sceneSchema.js';
+import { constraintParamsSchema, actorPropertyFields, DEFAULT_OBJECT_SIZE } from './sceneSchema.js';
 import { Projection } from './projection.js';
 import { geometryFor } from './renderers/geometry/primitives.js';
 import { placeLight, instanceEmissive, toLinear } from './presentation3d.js';
@@ -199,6 +199,9 @@ export class Scene {
         load: (values) => { this.counters.values = new Map(values); }
       });
     }
+    // Before the first tick, so the level opens at the gravity its
+    // counter says rather than at `world.gravity` for one step.
+    this.#applyGravityBindings();
     // On a client the server runs the rules; only the notify rules, which
     // answer what the server tells this player, run here.
     if (!this.game.editMode && world.rules?.length) this.rules = new SceneRules(this, world.rules, { simulate: !this.#serverRuns });
@@ -821,6 +824,47 @@ export class Scene {
   }
 
   /**
+   * Put one more of a prefab into the running level: the way a spawner
+   * drops what the scene already describes.
+   *
+   * `game.spawn` takes an actor and a body spec, so code that adds a
+   * prefab's object at run time ends up restating the prefab — the
+   * collider, the sprite, the constraints — and drifts from it. This
+   * builds the object the scene file's prefab describes, so a ball
+   * dropped by a spout is the same ball, grab and all, as the ones the
+   * level opened with.
+   *
+   * The new object gets a scene id of its own (`ball-7`), so rules and
+   * the HUD can find it and a tally counts it, and nothing is written
+   * back to the scene file: it is a spawn, not an edit.
+   *
+   * @param {string} prefab - A key of the scene's `prefabs`
+   * @param {object} where - `{ x, y, z, width, height, depth, angle, properties, id }`;
+   *   a size left out is the placed object's default, as in a scene file
+   * @returns {import('./entity.js').Entity|null} The entity, or null for an unknown prefab
+   */
+  spawnPrefab(prefab, where = {}) {
+    if (!this.config.prefabs?.[prefab]) {
+      console.error(`Prefab not found: ${prefab}`);
+      return null;
+    }
+    return this.materializeObject({
+      ...where,
+      prefab,
+      id: where.id ?? this.#spawnId(prefab),
+      width: where.width ?? DEFAULT_OBJECT_SIZE,
+      height: where.height ?? where.width ?? DEFAULT_OBJECT_SIZE
+    });
+  }
+
+  /** A scene id no object of this prefab has taken yet. */
+  #spawnId(prefab) {
+    let n = this.entitiesById.size + 1;
+    while (this.entitiesById.has(`${prefab}-${n}`)) n++;
+    return `${prefab}-${n}`;
+  }
+
+  /**
    * A placed object's properties with the asset names resolved: a property
    * the actor declares as `s.ref('spritesheet')` arrives as the scene's
    * loaded `SpriteSheet`, one declared `s.ref('image')` as the image. An
@@ -1299,6 +1343,9 @@ export class Scene {
       // add them (a spawner), and the set must not change under the loop.
       for (const entity of [...this.game.entities]) entity.fixedUpdate(dt);
       this.rules?.fixedUpdate(dt);
+      // After the rules, so a counter a rule just turned is the gravity
+      // this tick's physics step runs with.
+      this.#applyGravityBindings();
     }
 
     // Scene-level simulation that is not an entity: a director spawning
@@ -1306,6 +1353,28 @@ export class Scene {
     if (this.config.onFixedUpdate) {
       this.config.onFixedUpdate(dt);
     }
+  }
+
+  /**
+   * `world.gravityBind`: each bound axis of gravity set from its counter,
+   * leaving the others where the world put them. Simulation, so it runs
+   * headless and on a server too; the physics world is only told when a
+   * number actually changed.
+   */
+  #applyGravityBindings() {
+    const bindings = this.config.world?.gravityBind;
+    if (!bindings?.length || !this.counters) return;
+    const gravity = this.game.physics.gravity;
+    const wanted = { x: gravity.x, y: gravity.y, ...(gravity.z !== undefined && { z: gravity.z }) };
+    let changed = false;
+    for (const { counter, axis = 'y' } of bindings) {
+      if (!this.counters.has(counter)) continue;
+      const value = this.counters.get(counter);
+      if (wanted[axis] === value) continue;
+      wanted[axis] = value;
+      changed = true;
+    }
+    if (changed) this.game.physics.setGravity(wanted);
   }
 
   /**

@@ -295,3 +295,59 @@ describe('a constraint as an editor sees it', () => {
     expect(constraint.size).toBe(9);
   });
 });
+
+describe('spawnPrefab', () => {
+  it('builds the prefab the scene describes, constraints and all', async () => {
+    const { game } = await build(level({
+      prefabConstraints: { bob: { type: 'Hover', params: { amplitude: 12 } } }
+    }));
+    const scene = game.sceneManager.getCurrentScene();
+
+    const spawned = scene.spawnPrefab('thing', { x: 80, y: 40, width: 24, height: 24 });
+
+    expect(spawned).not.toBeNull();
+    expect(spawned.prefab).toBe('thing');
+    expect(spawned.position).toMatchObject({ x: 80, y: 40 });
+    // The point of it: a spawn is the same thing the level opened with.
+    expect(spawned.getConstraint('bob')).toBeInstanceOf(Hover);
+    expect(spawned.getConstraint('bob').amplitude).toBe(12);
+    expect(game.entities.has(spawned)).toBe(true);
+    expect(game.physics.bodies).toContain(spawned.body);
+    game.destroy();
+  });
+
+  it('gives each one a scene id of its own, and finds it by it', async () => {
+    const { game } = await build(level());
+    const scene = game.sceneManager.getCurrentScene();
+
+    const first = scene.spawnPrefab('thing', { x: 10, y: 10 });
+    const second = scene.spawnPrefab('thing', { x: 20, y: 20 });
+
+    expect(first.sceneId).not.toBe(second.sceneId);
+    expect(scene.entitiesById.get(first.sceneId)).toBe(first);
+    expect(scene.entitiesById.get(second.sceneId)).toBe(second);
+    // A caller may name one itself.
+    const named = scene.spawnPrefab('thing', { x: 30, y: 30, id: 'chosen' });
+    expect(scene.entitiesById.get('chosen')).toBe(named);
+    game.destroy();
+  });
+
+  it('counts toward a tally of its prefab', async () => {
+    const config = level();
+    config.world = { counters: { things: { prefab: 'thing', count: 'remaining' } } };
+    const { game } = await build(config);
+    const scene = game.sceneManager.getCurrentScene();
+
+    expect(scene.counters.get('things')).toBe(1);
+    scene.spawnPrefab('thing', { x: 50, y: 50 });
+    expect(scene.counters.get('things')).toBe(2);
+    game.destroy();
+  });
+
+  it('refuses a prefab the scene does not have', async () => {
+    const { game } = await build(level());
+    const scene = game.sceneManager.getCurrentScene();
+    expect(scene.spawnPrefab('nothing', { x: 0, y: 0 })).toBeNull();
+    game.destroy();
+  });
+});

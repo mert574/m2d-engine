@@ -32,6 +32,7 @@ import { DamageFlash } from '../constraints/damageFlash.js';
 import { Debug } from '../constraints/debug.js';
 import { Footsteps } from '../constraints/footsteps.js';
 import { GlideControl } from '../constraints/glideControl.js';
+import { Grabbable } from '../constraints/grabbable.js';
 import { Health } from '../constraints/health.js';
 import { Hover } from '../constraints/hover.js';
 import { Interactive } from '../constraints/interactive.js';
@@ -49,8 +50,8 @@ export const BUILTIN_ACTORS = new Map(Object.entries({
 
 /** The engine's constraints, by the name a scene uses. */
 export const BUILTIN_CONSTRAINTS = new Map(Object.entries({
-  Abilities, Attack, CarControl, Chase, ContactDamage, DamageFlash, Debug, Footsteps, GlideControl, Health, Hover,
-  Interactive, KeyboardControl, PathFollow, PointerMove, ProximityPrompt, ThrustControl, WallSlip
+  Abilities, Attack, CarControl, Chase, ContactDamage, DamageFlash, Debug, Footsteps, GlideControl, Grabbable, Health,
+  Hover, Interactive, KeyboardControl, PathFollow, PointerMove, ProximityPrompt, ThrustControl, WallSlip
 }));
 
 /**

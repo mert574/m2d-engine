@@ -476,6 +476,8 @@ const AMBIENCE = s.object({
  */
 const COUNTER = s.object({
   initial: s.number({ initial: 0, description: 'A plain counter\'s starting value' }),
+  min: s.number({ description: 'A plain counter is never set below this' }),
+  max: s.number({ description: 'Nor above this: the ends of a dial a rule turns' }),
   prefab: s.ref('prefab', { description: 'Tally this prefab\'s objects instead' }),
   count: s.enumOf(['placed', 'remaining', 'taken'], { description: 'With a prefab: how many the scene placed, how many are left, or how many are gone. taken by default' })
 }, { label: 'Counter' });
@@ -491,6 +493,17 @@ const POST_BINDING = s.object({
   empty: s.number({ initial: 0, description: 'The field\'s value when the reading is 0' }),
   full: s.number({ initial: 0, description: 'The field\'s value when the reading is 1' })
 }, { label: 'Post binding' });
+
+/**
+ * The world's gravity along one axis, following a counter: a rule turns
+ * the counter and the fall changes with it. The HUD shows the same
+ * counter as a `{name}` text, so what a player is turning is readable
+ * without a second number to keep in step.
+ */
+const GRAVITY_BINDING = s.object({
+  counter: s.string({ required: true, description: 'A key in world.counters' }),
+  axis: s.enumOf(['x', 'y', 'z'], { initial: 'y' })
+}, { label: 'Gravity binding' });
 
 const WORLD = s.object({
   dimensions: s.enumOf(DIMENSIONS, {
@@ -523,6 +536,7 @@ const WORLD = s.object({
   ambience: s.array(AMBIENCE, { label: 'Ambience', description: 'Looping sounds played while the scene shows, faded in' }),
   counters: s.record(COUNTER, { label: 'Counters', description: 'Numbers the rules and the HUD read by name' }),
   postBind: s.array(POST_BINDING, { label: 'Post bindings', description: 'Post effect fields that follow a value in play' }),
+  gravityBind: s.array(GRAVITY_BINDING, { label: 'Gravity bindings', description: 'Axes of gravity that follow a counter: a rule that turns the counter changes the fall' }),
   killPlane: s.number({ label: 'Kill plane', unit: 'px', description: '2D: the player falling below this y fires the fall rules (game over without one); the world\'s height plus 50 by default' }),
   rules: s.array(RULE, { label: 'Rules', description: 'What happens when: see the guide' })
 });

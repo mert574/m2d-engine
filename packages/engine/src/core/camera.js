@@ -116,7 +116,13 @@ export class Camera {
       this.clampToBounds();
       return;
     }
-    if (!this.target) return;
+    // Bounds are the camera's, not the follow's: a single-screen level
+    // with nothing to follow still opens inside its world rather than
+    // with its corner in the middle of the view.
+    if (!this.target) {
+      this.clampToBounds();
+      return;
+    }
 
     // Follow the *rendered* position: the camera is a render concern, and
     // chasing the raw solver position would reintroduce the between-step

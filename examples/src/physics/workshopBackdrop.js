@@ -1,3 +1,5 @@
+import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { makeRng, range } from '../shared/rng.js';
 
 /**
@@ -9,16 +11,34 @@ import { makeRng, range } from '../shared/rng.js';
  * machineActors.js) rather than tiled sprites. One screen, no camera
  * movement, so the backdrop is a still life: the motion belongs to the
  * bodies.
+ *
+ * It is scenery placed in the scene, twice: the `back` layer draws the
+ * room — wall, lamp pool, lamp and panelling — under everything, and the
+ * `front` layer the dust and the room's lights over it. The ambient light
+ * and the film grade are `world.lighting` and `world.post`, so the editor
+ * shows the workshop as it plays.
+ *
+ * Every optional capability is asked for when drawing: on Canvas the
+ * lights and additive blends drop out and the painted colours carry the
+ * room. Nothing here touches the renderer until it draws, so a headless
+ * game builds the scene without one.
  */
 
-export class WorkshopBackdrop {
-  /**
-   * @param {import('m2d-engine/core/m2d.js').M2D} game
-   * @param {number} [seed=5] - Same default as the menu's board
-   */
-  constructor(game, seed = 5) {
-    this.game = game;
-    this.renderer = game.renderer;
+export class WorkshopBackdrop extends Entity {
+  static properties = {
+    layer: s.enumOf(['back', 'front'], { initial: 'back', description: 'back: the room under everything; front: the dust and lamplight over it' }),
+    seed: s.integer({ min: 0, initial: 5, description: 'Which scatter of dust; the menu\'s board is 5' })
+  };
+
+  name = 'WorkshopBackdrop';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game, options);
+    // Scenery: drawn, never touched.
+    body.setCollisionFilter({ category: 0, mask: 0 });
+    this.layer = options.layer ?? 'back';
+    this.zIndex = this.layer === 'front' ? 1000 : -1000;
+
     this.bounds = {
       width: game.options.worldWidth,
       height: game.options.worldHeight
@@ -26,13 +46,8 @@ export class WorkshopBackdrop {
     this.time = 0;
     this.lamp = { x: this.bounds.width / 2, y: 34 };
 
-    this.features = {
-      blendModes: game.renderer.supports('blendModes'),
-      lights: game.renderer.supports('lights')
-    };
-
     // Dust in the lamp's cone, rising and falling on slow sines.
-    const rng = makeRng(seed);
+    const rng = makeRng(options.seed ?? 5);
     this.dust = Array.from({ length: 50 }, () => ({
       x: range(rng, 0.2, 0.8),
       y: range(rng, 0.05, 0.95),
@@ -44,34 +59,24 @@ export class WorkshopBackdrop {
     }));
   }
 
-  applyAtmosphere() {
-    this.renderer.setAmbientLight('#e6e2da');
-    this.renderer.setPostEffects({
-      bloom: { threshold: 0.78, strength: 0.45, blur: 26 },
-      vignette: { strength: 0.24, start: 0.55 },
-      // Shot on film: warm highlights, a touch of lens, grain in the dark.
-      grade: { shadows: '#948a80', highlights: '#fff8ea', amount: 0.42, contrast: 1.03 },
-      chromatic: { strength: 0.002 },
-      distortion: { strength: 0.05 },
-      grain: { strength: 0.04 }
-    });
-  }
-
-  clearAtmosphere() {
-    this.renderer.setAmbientLight(null);
-    this.renderer.setPostEffects(null);
-  }
-
-  /**
-   * @param {number} deltaTime - Seconds since the last frame
-   */
+  /** @param {number} deltaTime - Seconds since the last frame */
   update(deltaTime) {
     this.time += deltaTime;
   }
 
-  /** The room. Before the entities. */
-  drawBackground() {
-    const renderer = this.renderer;
+  draw() {
+    if (this.dead || !this.visible) return;
+    const features = {
+      blendModes: this.game.renderer.supports('blendModes'),
+      lights: this.game.renderer.supports('lights')
+    };
+    if (this.layer === 'back') this.drawRoom(features);
+    else this.drawDust(features);
+  }
+
+  /** The room. Under everything. */
+  drawRoom(features) {
+    const renderer = this.game.renderer;
     const { width, height } = this.bounds;
 
     renderer.drawRect({
@@ -100,7 +105,7 @@ export class WorkshopBackdrop {
     });
 
     // Shafts of lamplight through the dust, barely there.
-    if (this.features.blendModes) {
+    if (features.blendModes) {
       for (const side of [-1, 1]) {
         renderer.drawPath({
           points: [
@@ -177,11 +182,10 @@ export class WorkshopBackdrop {
     });
   }
 
-  /** The dust and the frame's lights. After the entities. */
-  drawForeground() {
-    const renderer = this.renderer;
+  /** The dust and the frame's lights. Over the entities. */
+  drawDust(features) {
+    const renderer = this.game.renderer;
     const { width, height } = this.bounds;
-    const blend = this.features.blendModes ? 'additive' : undefined;
 
     for (const mote of this.dust) {
       const x = mote.x * width + Math.sin(this.time * 0.3 + mote.phase) * mote.driftX * 4;
@@ -196,7 +200,7 @@ export class WorkshopBackdrop {
       });
     }
 
-    if (!this.features.lights) return;
+    if (!features.lights) return;
 
     renderer.drawLight({
       x: this.lamp.x, y: this.lamp.y,

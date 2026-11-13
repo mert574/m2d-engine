@@ -115,7 +115,7 @@ These games ship with the engine. Each exercises a different part of it. Sources
 
 Each example opens on a main menu with a scene of its own behind the type, drawn in code through `UIBackdrop` layers, and plays its own pair of tracks from the IDMf netlabel ([credits](./music-credits)). Every example mounts the settings menu, opened with O. Its renderer row reloads the page with `?renderer=canvas` or `?renderer=webgl`, and the same parameter can be typed into the URL. The showcase skips its menu when the parameter is present.
 
-Pointer lock is enabled only in the physics playground. The other examples leave the pointer free.
+No example locks the pointer; they all leave it free. It is off by default, and a game that wants it asks for it (see [Pointer lock](../guide/input#pointer-lock)).
 
 ## Controls
 
@@ -187,15 +187,17 @@ The auto-scroller: the camera runs in `scroll` mode down a meadow verge while th
 
 [Play](https://mert574.github.io/m2d-engine/examples/physics/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/physics)
 
-A sandbox with a funnel, a splitter and a peg field made of rotated static boxes, drawn as a lamplit machine: brass pegs, girder rails, amber balls and wooden crates, with no image assets at all. Objects can be grabbed and thrown through the `Interactive` constraint, which steers the body toward the pointer with velocity so it still collides; whatever the pointer holds glows.
+A sandbox with a funnel, a splitter and a peg field made of rotated static boxes, drawn as a lamplit machine: brass pegs, girder rails, amber balls and wooden crates, with no image assets at all. The machine is a scene file the editor opens, and the balls and crates attach the engine's `Grabbable` constraint, which steers a body toward the pointer with velocity so it still collides and can be thrown; whatever the pointer holds glows. Gravity is a counter the scene's action rules turn, and the world's fall follows it.
 
 | Input | Action |
 | --- | --- |
 | Drag | Grab and throw a body |
 | Right-click or long press | Remove a body |
-| Click empty space | Spawn at the pointer |
-| Scroll or pinch | Change gravity |
-| `Space` | Spawn random objects |
+| Click empty space | Drop one at the pointer |
+| `Space` | Drop one into the funnel |
+| `↑` / `↓` | Lighter and heavier gravity |
+| `G` | Back to earth gravity |
+| `Escape` | Main menu |
 
 ### Top-down game
 

@@ -25,7 +25,7 @@ The inverse also holds: presentation never writes simulation state. `update(delt
 
 Simulation code that wants something *shown* (a hit flash, a footstep, a spark) raises a [world event](../guide/headless#world-events) instead of drawing or playing it. Events are queued during the tick and delivered after it, so the tick stays a function of its inputs, and the same code works on a server with nothing to draw with.
 
-Pointer events and UI handlers count as presentation. A handler that wants to change the world queues the change for the next tick, as the physics playground does with its spawns, flings and gravity. A UI component whose state decides what the simulation does takes a game-time clock: `UIDialogue` with `clock: () => game.time.elapsed` types on game time, so whether a press finishes a line or closes the conversation does not depend on the frame rate.
+Pointer events and UI handlers count as presentation. A handler that wants to change the world queues the change for the next tick, as the physics playground's spout does with its spawns and the engine's `Grabbable` does with a fling and a removal. A UI component whose state decides what the simulation does takes a game-time clock: `UIDialogue` with `clock: () => game.time.elapsed` types on game time, so whether a press finishes a line or closes the conversation does not depend on the frame rate.
 
 The engine gives every scene load a fresh physics world, and a scene switch requested inside a tick runs after it. A game that rebuilds its world inside a scene, as Night Circuit does every round, calls `game.physics.reset()` and adds its static bodies again. Removing and re-adding bodies in the same world does not reproduce a first run.
 

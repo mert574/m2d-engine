@@ -32,6 +32,17 @@ describe('camera modes', () => {
     expect(camera.x).toBe(600);
   });
 
+  it('holds a camera with nothing to follow inside its bounds', () => {
+    // A single-screen level — a playground, a board — has no player to
+    // follow, and used to open with the world's corner in the middle of
+    // the view because the follow returned before the clamp.
+    const camera = new Camera(960, 720);
+    camera.bounds = { left: 0, top: 0, right: 960, bottom: 720 };
+    camera.update(1 / 60);
+    expect(camera.x).toBe(480);
+    expect(camera.y).toBe(360);
+  });
+
   it('snaps to the target room in rooms mode', () => {
     const camera = new Camera(800, 600, { mode: 'rooms', lerp: 1 });
     camera.follow({ body: { renderPosition: { x: 1700, y: 100 } } });

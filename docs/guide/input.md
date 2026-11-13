@@ -82,7 +82,7 @@ crate.addConstraint('grab', new Interactive(crate, {
 
 Handlers are bound to the entity. The full option list is in the [constraints reference](../reference/constraints#interactive).
 
-`Interactive` delivers drag events and leaves the body alone. Moving a dragged body is a physics decision. Teleporting a static prop, driving a kinematic one and steering a dynamic one are each right for different games. Pass `follow: true` to place the body under the pointer on every tick of the drag. The physics playground steers the body toward the pointer with velocity instead, so a grabbed object still collides and can be thrown.
+`Interactive` delivers drag events and leaves the body alone. Moving a dragged body is a physics decision. Teleporting a static prop, driving a kinematic one and steering a dynamic one are each right for different games. Pass `follow: true` to place the body under the pointer on every tick of the drag. For a dynamic body, [`Grabbable`](../reference/constraints#grabbable) is the answer a physics world wants: it steers the body toward the pointer with velocity, so a grabbed object still collides on the way and keeps the speed it was flung at. The physics playground attaches it from its scene file.
 
 ## Pointer lock
 

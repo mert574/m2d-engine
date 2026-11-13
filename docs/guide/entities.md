@@ -144,6 +144,15 @@ game.spawn({
 
 `spawn` takes one object: `type` and the placement (`x`, `y`, `width`, `height`) are required, and beside them it accepts `sprite` (a sprite sheet key of the current scene), `animation`, `options` (passed to the actor), `physics` and `playerId` (the owner). It builds the body from the prefab physics keys, constructs the actor, adds both to the game and returns the entity. It records how the entity was made, which is what lets a server tell its clients to make the same one, so `options` must be plain data. See [Multiplayer](./multiplayer#what-is-sent).
 
+When what appears is something the scene already describes — one more of its balls, another crate from the spout — spawn the *prefab* instead, and the body, the sprite and the constraints come from the scene file rather than being restated in code:
+
+```javascript
+const scene = game.sceneManager.getCurrentScene();
+scene.spawnPrefab('ball', { x, y, width: 32, height: 32 });
+```
+
+`spawnPrefab(prefab, where)` builds the object the prefab describes exactly as a load builds each placed one, adds it to the world and returns the entity (`null`, with an error logged, for a prefab the scene does not have). `where` takes `x`, `y`, `z`, `width`, `height`, `depth`, `angle`, `properties` and `id`; a size left out is the placed object's default, and without an `id` it is given one of its own (`ball-7`), so rules, the HUD and a tally all see it. Nothing is written back to the scene file: it is a spawn, not an edit.
+
 An entity can also be built by hand: create the body, construct the actor and add both. Such an entity is not sent to clients.
 
 ```javascript

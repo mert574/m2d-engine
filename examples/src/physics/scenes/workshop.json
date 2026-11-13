@@ -1,0 +1,182 @@
+{
+  "version": 4,
+  "name": "workshop",
+  "type": "level",
+  "title": "The workshop",
+  "gameType": "sideScroll",
+  "world": {
+    "width": 960,
+    "height": 720,
+    "gravity": { "x": 0, "y": 1000 },
+    "camera": { "bounds": "world" },
+    "lighting": { "ambient": "#e6e2da" },
+    "post": {
+      "bloom": { "threshold": 0.78, "strength": 0.45, "blur": 26 },
+      "vignette": { "strength": 0.24, "start": 0.55 },
+      "grade": { "shadows": "#948a80", "highlights": "#fff8ea", "amount": 0.42, "contrast": 1.03 },
+      "chromatic": { "strength": 0.002 },
+      "distortion": { "strength": 0.05 },
+      "grain": { "strength": 0.04 }
+    },
+    "counters": { "gravity": { "initial": 1000, "min": 0, "max": 3000 } },
+    "gravityBind": [{ "counter": "gravity", "axis": "y" }],
+    "rules": [
+      {
+        "id": "heavier",
+        "when": { "event": "action", "action": "heavier" },
+        "then": [{ "do": "count", "counter": "gravity", "add": 200 }],
+        "once": false
+      },
+      {
+        "id": "lighter",
+        "when": { "event": "action", "action": "lighter" },
+        "then": [{ "do": "count", "counter": "gravity", "add": -200 }],
+        "once": false
+      },
+      {
+        "id": "menu",
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
+      },
+      {
+        "id": "earth",
+        "when": { "event": "action", "action": "earthGravity" },
+        "then": [{ "do": "count", "counter": "gravity", "set": 1000 }],
+        "once": false
+      }
+    ]
+  },
+  "assets": {
+    "sounds": { "spawn": { "url": "sounds/drop_003.ogg" }, "remove": { "url": "sounds/minimize_006.ogg" } }
+  },
+  "prefabs": {
+    "ball": {
+      "actor": "Ball",
+      "physics": {
+        "bodyType": "dynamic",
+        "shape": "circle",
+        "friction": 0.005,
+        "frictionAir": 0.001,
+        "restitution": 0.8
+      },
+      "constraints": { "grab": { "type": "Grabbable", "params": { "removable": true, "removeSound": "remove" } } }
+    },
+    "box": {
+      "actor": "Box",
+      "physics": { "bodyType": "dynamic", "restitution": 0.4 },
+      "constraints": { "grab": { "type": "Grabbable", "params": { "removable": true, "removeSound": "remove" } } }
+    },
+    "housing": { "actor": "Housing", "physics": { "bodyType": "static" } },
+    "girder": { "actor": "Girder", "physics": { "bodyType": "static" } },
+    "peg": { "actor": "Peg", "physics": { "bodyType": "static" } },
+    "workshop": { "actor": "WorkshopBackdrop", "physics": { "bodyType": "static", "isSensor": true } },
+    "spout": { "actor": "Spout", "physics": { "bodyType": "static", "isSensor": true } }
+  },
+  "layers": [
+    {
+      "name": "room",
+      "objects": [
+        {
+          "id": "workshop-back",
+          "prefab": "workshop",
+          "x": 8,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "properties": { "layer": "back" }
+        },
+        {
+          "id": "workshop-dust",
+          "prefab": "workshop",
+          "x": 8,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "properties": { "layer": "front" }
+        },
+        { "id": "spout", "prefab": "spout", "x": 480, "y": 360, "width": 960, "height": 720 }
+      ]
+    },
+    {
+      "name": "machine",
+      "objects": [
+        { "id": "floor", "prefab": "housing", "x": 480, "y": 704, "width": 960 },
+        { "id": "wall-left", "prefab": "housing", "x": 16, "y": 360, "height": 720 },
+        { "id": "wall-right", "prefab": "housing", "x": 944, "y": 360, "height": 720 },
+        {
+          "id": "funnel-left",
+          "prefab": "girder",
+          "x": 192,
+          "y": 176,
+          "width": 288,
+          "angle": 0.37699
+        },
+        {
+          "id": "funnel-right",
+          "prefab": "girder",
+          "x": 768,
+          "y": 176,
+          "width": 288,
+          "angle": -0.37699
+        },
+        {
+          "id": "splitter-left",
+          "prefab": "girder",
+          "x": 384,
+          "y": 368,
+          "width": 224,
+          "angle": -0.37699
+        },
+        {
+          "id": "splitter-right",
+          "prefab": "girder",
+          "x": 576,
+          "y": 368,
+          "width": 224,
+          "angle": 0.37699
+        },
+        { "id": "peg-1", "prefab": "peg", "x": 160, "y": 512, "angle": 0.7854 },
+        { "id": "peg-2", "prefab": "peg", "x": 320, "y": 512, "angle": 0.7854 },
+        { "id": "peg-3", "prefab": "peg", "x": 480, "y": 512, "angle": 0.7854 },
+        { "id": "peg-4", "prefab": "peg", "x": 640, "y": 512, "angle": 0.7854 },
+        { "id": "peg-5", "prefab": "peg", "x": 800, "y": 512, "angle": 0.7854 },
+        { "id": "peg-6", "prefab": "peg", "x": 240, "y": 608, "angle": 0.7854 },
+        { "id": "peg-7", "prefab": "peg", "x": 400, "y": 608, "angle": 0.7854 },
+        { "id": "peg-8", "prefab": "peg", "x": 560, "y": 608, "angle": 0.7854 },
+        { "id": "peg-9", "prefab": "peg", "x": 720, "y": 608, "angle": 0.7854 }
+      ]
+    },
+    {
+      "name": "starters",
+      "objects": [
+        { "id": "ball-a", "prefab": "ball", "x": 300, "y": 40 },
+        { "id": "ball-b", "prefab": "ball", "x": 480, "y": 80 },
+        { "id": "ball-c", "prefab": "ball", "x": 660, "y": 40 },
+        { "id": "box-a", "prefab": "box", "x": 400, "y": 120, "width": 64, "height": 64 },
+        { "id": "box-b", "prefab": "box", "x": 560, "y": 120, "width": 64, "height": 64 }
+      ]
+    }
+  ],
+  "hud": [
+    {
+      "type": "text",
+      "id": "gravity",
+      "x": 16,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": { "text": "gravity {gravity} px/s²", "fontSize": "16px", "color": "#cfe8ff" }
+    },
+    {
+      "type": "text",
+      "id": "controls",
+      "x": 16,
+      "y": -76,
+      "anchor": "bottom-left",
+      "properties": {
+        "text": "Drag to grab · Right-click removes · Click or Space drops · ↑ ↓ change gravity, G resets it",
+        "fontSize": "13px",
+        "color": "#9fb4c8"
+      }
+    }
+  ]
+}

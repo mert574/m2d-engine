@@ -11,6 +11,7 @@ The target is [[idiomatic-m2d]], including its rulings on prewritten levels, the
 - **Notify rules are presentation only.** A rule on `player.notify` runs where the screen is, a client too, so the schema holds it to notice, objective, say, sound, switch and camera. Cinder Keep's stair messages and descent move onto these.
 - **The audit counts tracked files only.** A checkout can hold ignored leftovers (an old sprite generator's output, local HDRs) that no project owns; `idiom.test.js` filters `audit_project`'s unused files by `git ls-files`, so one worktree's leftovers cannot fail it.
 - **Listed exceptions, accepted for good**: Cinder Keep's satchel and shop screens (its own UI, opened by the `satchel` and `trade` actions) and Hollow Grove's quest with the talking that moves it on (JS on the engine's `Quest`). Each is an `exception:` line in the allow-list, with its reason.
+- **The other five examples come before the menus** (phases 3 and 4, swapped 13 Nov 2026). A menu is a UI scene *in a project*, and Night Circuit, Hedgerow Court, the playground and Beeline have no project file until the examples phase makes them one. Doing the menus first would have meant either pulling those four project files forward or leaving four menus behind as code.
 - **The project file has no undo.** Its edits (Project tab, `edit_project`) are written at once and refused whole when invalid; it is configuration, not a scene.
 
 ## Plan
@@ -20,8 +21,8 @@ The target is [[idiomatic-m2d]], including its rulings on prewritten levels, the
 | 0: The bar | Point `adding-a-demo.md` at [[idiomatic-m2d]]. Add `examples/test/idiom.test.js`, which checks every project for an `m2d.project.json`, a clean `audit_project`, no forbidden hook calls, a hook line budget and no `layout.json`. Today's violations start on an allow-list | The test passes with the allow-list. Every later phase shrinks the list |
 | 1: Engine, editor, MCP | The general features the examples are missing (list below). Each gets a schema field, an editor field, an MCP tool or field, docs and a test | Every feature is usable from the editor and over MCP |
 | 2: The seven editor projects | Ash Row, Salvage Run, Cinder Keep, Hollow Grove, Ember Valley, The Facility, The Yard move onto the phase 1 features (per-project list below) | Each `hooks.js` is gone or lists only allowed exceptions; screenshots match |
-| 3: Menus | Every menu becomes its own UI scene in its project, each in a distinct style. `shared/mainMenu.js` goes | No menu is a code screen; no two menus share a layout or selection style |
-| 4: The other five examples | Night Circuit, Hedgerow Court, Physics playground and Beeline become editor projects with prewritten scenes. The showcase gains effects | All four open, play and save in the editor; the generators are deleted |
+| 3: The other five examples | Night Circuit, Hedgerow Court, Physics playground and Beeline become editor projects with prewritten scenes. The showcase gains effects | All four open, play and save in the editor; the generators are deleted |
+| 4: Menus | Every menu becomes its own UI scene in its project, each in a distinct style. `shared/mainMenu.js` goes | No menu is a code screen; no two menus share a layout or selection style |
 | 5: Docs demos | The 14 `docs/demos/*.js` and the first-game tutorial use scene data, constraints, rules, HUD and `world.camera`. A page that teaches a raw API keeps code only for that API. `first-game.md` leads with the editor | No demo places the camera, adds static UI or spawns gameplay in code it doesn't teach |
 | 6: Close | Rerun the audit and the idiom test with an empty allow-list. Add headless playthroughs and a `test:editor` suite that opens every example. Update the docs | All green; the roadmap line is struck and the record below filled in |
 
@@ -55,9 +56,7 @@ The target is [[idiomatic-m2d]], including its rulings on prewritten levels, the
 | The Facility | The damage tear (a `world.postBind` on health); the sonar as a constraint |
 | The Yard | Orbit and zoom (camera), wind (ambience), footsteps (engine constraint), T (input action rule) |
 
-**Phase 3, a direction per menu** (a starting point, not binding): Ash Row as an arcade marquee with a blinking prompt; Salvage Run as a ship console down one edge with scanline selection; Cinder Keep as a torch-lit stone list with an ember cursor; Hollow Grove as a storybook page with ink-in items; Ember Valley as a low centred row over the valley; The Facility as a glitching terminal; The Yard over the live 3D scene in a corner; Night Circuit as a race-start grid; Hedgerow Court as a garden sign; the playground with items as physics blocks; Beeline as a flight path of flowers.
-
-**Phase 4:**
+**Phase 3:**
 
 - **Night Circuit**: the five maps are baked once into scene files, with each road a closed smooth path and the cones, gates and traffic placed. The radial builder goes. The track draws along the path, and race and replay stay as actors.
 - **Hedgerow Court**: the courts are baked once into scene files and `generateMaze.js` goes. The rooms camera moves into `world.camera`.
@@ -74,7 +73,11 @@ The target is [[idiomatic-m2d]], including its rulings on prewritten levels, the
 
 Its counters stay comparable between backends.
 
+**Phase 4, a direction per menu** (a starting point, not binding): Ash Row as an arcade marquee with a blinking prompt; Salvage Run as a ship console down one edge with scanline selection; Cinder Keep as a torch-lit stone list with an ember cursor; Hollow Grove as a storybook page with ink-in items; Ember Valley as a low centred row over the valley; The Facility as a glitching terminal; The Yard over the live 3D scene in a corner; Night Circuit as a race-start grid; Hedgerow Court as a garden sign; the playground with items as physics blocks; Beeline as a flight path of flowers.
+
 ## Record
+
+- Phase 3, the playground, 13 Nov 2026: the physics playground is an editor project. Its machine is `scenes/workshop.json` — the funnel, splitter and peg field as placed parts, the room as a `WorkshopBackdrop` scenery actor in back and front layers, the lamp's light and the film grade as `world.lighting` and `world.post` — and `main.js` is `bootProject`. `MachineRamp`, which guessed what it was from its size, became the `Housing`, `Girder` and `Peg` actors the scene names as prefabs. Engine additions: the `Grabbable` constraint (steers a dynamic body toward the pointer and flings it on release, `removable` for a right-click that takes it out of the world), which the ball and crate prefabs attach; `scene.spawnPrefab(prefab, where)`, so a spawner drops what the scene already describes rather than restating its body; `world.gravityBind`, an axis of gravity that follows a counter, with `min` and `max` on a plain counter to hold it — the playground's gravity is now a counter its action rules turn and its HUD shows. The spout, a sensor the size of the room under everything in the hit test, is what a click on bare room lands on. A camera with nothing to follow now clamps to its bounds, so a single-screen level opens on its world rather than its corner.
 
 - Phase 0, 13 Nov 2026: `examples/test/idiom.test.js` with the allow-list and the audit over every project; `adding-a-demo.md` rewritten around [[idiomatic-m2d]].
 - Review of phases 0 to 2, 13 Nov 2026: a scene now releases what its data started before a reload as well as on unload (a game-over restart doubled ambience, camera controls and notify rules); a UI scene's failed or empty exit can no longer wedge scene switching, and the last switch asked for wins; particles split back and front on their defaulted `front`; rain at speed 0 no longer draws NaN; every HUD text takes counter holes; a scene-named minimap target resolves each frame; dialogue hints follow rebinding; plain counters ride snapshots (online they stay at `initial` on a client, documented); notify rules may only follow notify rules; action rules are documented single-player; a malformed project file is refused, not overwritten; projects without actions leave a game's own. With it, a pre-existing lot bug: a moving body's `mesh.texture` is now mapped in its own frame (`webgpu.planar.test.js`).

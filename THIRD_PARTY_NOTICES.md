@@ -77,7 +77,8 @@ Credits are also published at https://mert574.github.io/m2d-engine/examples/musi
 The demos' sound effects are from **Interface Sounds (1.0)** by Kenney
 (www.kenney.nl), released under
 [Creative Commons Zero 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
-Included unchanged, under `examples/src/shared/sfx/`.
+Included unchanged, under `examples/src/shared/sfx/` and, where a project's
+scene file names its own, copied unchanged into that project's `sounds/`.
 Source: https://kenney.nl/assets/interface-sounds
 (mirror: https://opengameart.org/content/interface-sounds).
 

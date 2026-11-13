@@ -182,6 +182,27 @@ Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lo
 
 Properties: `isHovered`, `isDragging`, `grabOffset`. `setEnabled(false)` takes the entity out of hit testing without removing the constraint. A dead entity is skipped as well. Registers with the input system on construction and unregisters in `destroy()`, which `entity.destroy()` calls.
 
+## Grabbable
+
+`constraints/grabbable.js`. An `Interactive` that picks a dynamic body up with the pointer, carries it and flings it. Everything `Interactive` takes except `follow`, plus:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `stiffness` | `18` | How hard the body is pulled toward the hand, per second of the distance left |
+| `maxSpeed` | `0` | The fastest it may be hauled, px/s; 0 for no limit |
+| `removable` | `false` | A right-click or long press takes the body out of the world |
+| `removeSound` | | Played when one is removed: a key in `assets.sounds` |
+
+The body is *steered*, not placed: it still collides on its way to the hand and leaves it with the speed it was swung at, which is what a physics sandbox wants and what `follow` (which teleports) cannot give. Steering happens in `fixedUpdate`, so a grab is part of the simulation. `held` is whether the pointer is carrying it. Two-dimensional.
+
+```json
+"ball": {
+  "actor": "Ball",
+  "physics": { "bodyType": "dynamic", "shape": "circle", "restitution": 0.8 },
+  "constraints": { "grab": { "type": "Grabbable", "params": { "removable": true } } }
+}
+```
+
 ## Chase
 
 `constraints/chase.js`. Pursues `game.player` within range and wanders around its current position otherwise. Pauses while the entity's `ContactDamage` reports it stunned.

@@ -52,8 +52,8 @@ const FORBIDDEN = [
 const ALLOWED = {
   // Night Circuit
   circuit: [
-    'project-file — phase 4: the maps baked into scene files, an editor project',
-    'boot — phase 4: bootProject'
+    'project-file — phase 3: the maps baked into scene files, an editor project',
+    'boot — phase 3: bootProject'
   ],
   // Cinder Keep
   iso: [
@@ -61,23 +61,18 @@ const ALLOWED = {
   ],
   // Hedgerow Court
   maze: [
-    'project-file — phase 4: the courts baked into scene files, an editor project',
-    'boot — phase 4: bootProject'
+    'project-file — phase 3: the courts baked into scene files, an editor project',
+    'boot — phase 3: bootProject'
   ],
   // Hollow Grove
   oblique: [
     'hooks: budget — exception: the quest, JS on the engine\'s Quest, and the talking that moves it on',
     'hooks: input — exception: the talking reads the tick\'s input, as the quest needs'
   ],
-  // Physics playground
-  physics: [
-    'project-file — phase 4: its scene into a file, an editor project',
-    'boot — phase 4: bootProject'
-  ],
   // Beeline
   scroller: [
-    'project-file — phase 4: the meadow as a scene with a scroll camera',
-    'boot — phase 4: bootProject'
+    'project-file — phase 3: the meadow as a scene with a scroll camera',
+    'boot — phase 3: bootProject'
   ],
 };
 

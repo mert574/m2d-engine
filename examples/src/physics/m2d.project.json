@@ -1,0 +1,18 @@
+{
+  "name": "Physics playground",
+  "definition": "game.js",
+  "initialScene": "mainMenu",
+  "display": {
+    "width": 960,
+    "height": 720
+  },
+  "input": {
+    "actions": {
+      "menu": ["Escape"],
+      "drop": ["Space"],
+      "heavier": ["ArrowDown"],
+      "lighter": ["ArrowUp"],
+      "earthGravity": ["KeyG"]
+    }
+  }
+}
