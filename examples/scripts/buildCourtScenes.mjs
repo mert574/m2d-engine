@@ -12,7 +12,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { writeScene } from 'm2d-editor-core';
-import { seedTarget } from './seedScene.mjs';
+import { seedTarget, placer } from './seedScene.mjs';
 import { TILE, COURT_PX, MAPS, buildMap, wallObjects } from './courtyards.mjs';
 
 /** How long a court's title hangs over it, in seconds. */
@@ -23,18 +23,7 @@ const sensor = { bodyType: 'static', isSensor: true };
 /** One court's scene, laid out from its map config. */
 function courtScene(config, next) {
   const map = buildMap(config);
-  const objects = [];
-  const counts = new Map();
-  const nextId = (prefab) => {
-    const n = (counts.get(prefab) ?? 0) + 1;
-    counts.set(prefab, n);
-    return `${prefab}-${n}`;
-  };
-  const add = (prefab, x, y, width, height, properties) => {
-    const o = { id: nextId(prefab), prefab, x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
-    if (properties) o.properties = properties;
-    objects.push(o);
-  };
+  const { objects, add } = placer();
 
   // The garden the courts stand in, under everything and over it.
   add('garden', map.width / 2, map.height / 2, 16, 16,
@@ -100,11 +89,11 @@ function courtScene(config, next) {
               { do: 'sound', key: 'bloom' }
             ]
           },
-          {
+          ...(beds ? [{
             id: 'all-tended',
             when: { event: 'count', counter: 'beds', atLeast: beds },
             then: [{ do: 'notice', text: 'Every bed in bloom', seconds: 2.2 }]
-          },
+          }] : []),
           {
             id: 'walked',
             when: { event: 'notify', name: 'fountain' },

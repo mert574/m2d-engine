@@ -26,3 +26,25 @@ export function seedTarget(url) {
   }
   process.exit(0);
 }
+
+/**
+ * A list of placed objects for a builder to fill: `add(prefab, x, y,
+ * width, height, properties)` rounds the placement and gives each object
+ * a stable id, readable in a diff — the prefab and its ordinal
+ * (`hedge-42`), in the order placed.
+ *
+ * @returns {{ objects: object[], add: Function }}
+ */
+export function placer() {
+  const objects = [];
+  const counts = new Map();
+  const add = (prefab, x, y, width, height, properties) => {
+    const n = (counts.get(prefab) ?? 0) + 1;
+    counts.set(prefab, n);
+    const object = { id: `${prefab}-${n}`, prefab, x: Math.round(x), y: Math.round(y) };
+    if (width !== undefined) { object.width = Math.round(width); object.height = Math.round(height); }
+    if (properties) object.properties = properties;
+    objects.push(object);
+  };
+  return { objects, add };
+}

@@ -21,7 +21,6 @@ export class BeeStatus extends UIElement {
     this.scene = scene;
     /** How many grains the lane put down: a tally of the pollen prefab. */
     this.totalCounter = properties.totalCounter ?? 'total';
-    this.hint = properties.hint ?? '';
   }
 
   /** The send-off, by how the run went. */
@@ -63,13 +62,6 @@ export class BeeStatus extends UIElement {
       fillStyle: '#ffd98f', fontSize: 15, letterSpacing: 2, textAlign: 'right', textBaseline: 'top',
       ...outline('rgba(80, 40, 0, 0.6)', 2)
     });
-
-    if (this.hint && !bee.arrived) {
-      paint.drawText({
-        x: view.x + view.width - 20, y: view.y + view.height - 16, text: this.hint,
-        fillStyle: 'rgba(255, 240, 220, 0.6)', fontSize: 13, textAlign: 'right', textBaseline: 'bottom'
-      });
-    }
 
     if (!bee.arrived) return;
     // Home: the send-off, over the middle of the view.

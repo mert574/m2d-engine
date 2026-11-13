@@ -842,8 +842,9 @@ export class Scene {
    * back to the scene file: it is a spawn, not an edit.
    *
    * @param {string} prefab - A key of the scene's `prefabs`
-   * @param {object} where - `{ x, y, z, width, height, depth, angle, properties, id }`;
-   *   a size left out is the placed object's default, as in a scene file
+   * @param {object} where - `{ x, y, z, width, height, depth, angle, properties, id }`.
+   *   A height left out matches the width; both left out are a placed
+   *   object's default size, as in a scene file
    * @returns {import('./entity.js').Entity|null} The entity, or null for an unknown prefab
    */
   spawnPrefab(prefab, where = {}) {
@@ -894,14 +895,16 @@ export class Scene {
     };
     for (const [key, desc] of Object.entries(fields)) {
       const value = properties[key];
-      const own = assetsFor(desc);
-      if (own && typeof value === 'string') {
-        put(key, lookup(own, value));
-      } else if (desc?.kind === 'array' && assetsFor(desc.item) && Array.isArray(value)) {
-        put(key, value.map((name) => lookup(assetsFor(desc.item), name)));
-      } else if (desc?.kind === 'record' && assetsFor(desc.value) && value && typeof value === 'object') {
-        put(key, Object.fromEntries(Object.entries(value)
-          .map(([name, asset]) => [name, lookup(assetsFor(desc.value), asset)])));
+      if (value === undefined || value === null) continue;
+      if (desc?.kind === 'ref') {
+        const assets = assetsFor(desc);
+        if (assets && typeof value === 'string') put(key, lookup(assets, value));
+      } else if (desc?.kind === 'array' || desc?.kind === 'record') {
+        const assets = assetsFor(desc.kind === 'array' ? desc.item : desc.value);
+        if (!assets || typeof value !== 'object') continue;
+        put(key, Array.isArray(value)
+          ? value.map((name) => lookup(assets, name))
+          : Object.fromEntries(Object.entries(value).map(([role, name]) => [role, lookup(assets, name)])));
       }
     }
     return resolved;

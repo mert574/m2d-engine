@@ -79,19 +79,19 @@ export class HedgeWall extends Platform {
     });
   }
 }
+
 /**
  * The gardener: a straw hat seen from above, leaving daisies in the lawn
- * behind it. Movement is the stock keyboard constraint; the trail is the
- * maze aid — the courts you have walked are the courts in bloom.
+ * behind it. How they walk — one press and they keep going, turns
+ * buffered at the junctions — is the engine's `GlideControl`, which the
+ * court's player prefab attaches and tunes; the trail is the maze aid —
+ * the courts you have walked are the courts in bloom.
  */
 export class Gardener extends Entity {
   name = 'Player';
 
   constructor(body, sprite, game) {
     super(body, sprite, game);
-    // How they walk — one press and they keep going, turns buffered at
-    // the junctions — is the engine's GlideControl, which the court's
-    // player prefab attaches and tunes.
     this.clock = 0;
     /** @type {Array<{x: number, y: number, t: number, k: number}>} */
     this.trail = [];
@@ -197,7 +197,7 @@ export class Fountain extends Entity {
     super.onCollisionStart(other);
     if (this.triggered || other.entity?.name !== 'Player') return;
     this.triggered = true;
-    this.game.players?.local?.notify('fountain');
+    this.game.players.local?.notify('fountain');
   }
 
   update(deltaTime) {

@@ -61,6 +61,7 @@ export class WorkshopBackdrop extends Entity {
 
   /** @param {number} deltaTime - Seconds since the last frame */
   update(deltaTime) {
+    super.update(deltaTime);
     this.time += deltaTime;
   }
 

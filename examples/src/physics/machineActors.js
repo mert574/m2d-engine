@@ -343,7 +343,8 @@ export class Spout extends Entity {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    // The room's empty space, not part of it: nothing collides with this.
+    // The room's empty space, not part of it: nothing collides with it and
+    // nothing is drawn for it.
     body.setCollisionFilter({ category: 0, mask: 0 });
     this.visible = false;
 
@@ -390,6 +391,4 @@ export class Spout extends Entity {
     if (!scene.spawnPrefab(box ? 'box' : 'ball', { x, y, width: size, height: size })) return;
     if (this.spawnSound) this.game.soundManager.playSound(this.spawnSound);
   }
-
-  draw() {}
 }

@@ -749,7 +749,7 @@ export class Hive extends Entity {
     if (this.reached || bee?.name !== 'Player') return;
     this.reached = true;
     bee.arrived = true;
-    this.game.players?.local?.notify('arrived');
+    this.game.players.local?.notify('arrived');
   }
 
   draw() {

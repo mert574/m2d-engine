@@ -45,13 +45,13 @@ export class GardenBackdrop extends Entity {
     this.lawn = options.lawnTexture ?? null;
     this.plaza = options.plazaTexture ?? null;
     this.time = 0;
-    const map = { width: game.options.worldWidth, height: game.options.worldHeight };
-    this.map = map;
+    const bounds = { width: game.options.worldWidth, height: game.options.worldHeight };
+    this.bounds = bounds;
 
     const rng = makeRng(options.seed ?? 0xb100);
-    this.clover = Array.from({ length: Math.round(map.width * map.height / 36000) }, () => ({
-      x: range(rng, 0, map.width),
-      y: range(rng, 0, map.height),
+    this.clover = Array.from({ length: Math.round(bounds.width * bounds.height / 36000) }, () => ({
+      x: range(rng, 0, bounds.width),
+      y: range(rng, 0, bounds.height),
       radius: range(rng, 12, 30),
       alpha: range(rng, 0.08, 0.18)
     }));
@@ -61,8 +61,8 @@ export class GardenBackdrop extends Entity {
 
     // Two clouds crossing the garden, large and soft and slow.
     this.clouds = [
-      { x: map.width * 0.2, y: map.height * 0.3, vx: 14, vy: 4, radius: 330 },
-      { x: map.width * 0.75, y: map.height * 0.7, vx: 10, vy: -3, radius: 430 }
+      { x: bounds.width * 0.2, y: bounds.height * 0.3, vx: 14, vy: 4, radius: 330 },
+      { x: bounds.width * 0.75, y: bounds.height * 0.7, vx: 10, vy: -3, radius: 430 }
     ];
   }
 
@@ -81,7 +81,7 @@ export class GardenBackdrop extends Entity {
   #anchors() {
     if (this.butterflies) return this.butterflies;
     const beds = [...this.game.entities].filter((entity) => entity.prefab === 'bed');
-    const picks = beds.length ? beds.map((bed) => bed.position) : [{ x: this.map.width / 2, y: this.map.height / 2 }];
+    const picks = beds.length ? beds.map((bed) => bed.position) : [{ x: this.bounds.width / 2, y: this.bounds.height / 2 }];
     this.butterflies = Array.from({ length: Math.min(6, 2 + Math.floor(picks.length / 4)) }, (_, i) => ({
       anchor: picks[(i * 7) % picks.length],
       color: BUTTERFLIES[i % BUTTERFLIES.length],
@@ -160,8 +160,8 @@ export class GardenBackdrop extends Entity {
     // thing that makes the sun read as sun. They loop around the map with a
     // margin so a loop never pops on screen.
     for (const cloud of this.clouds) {
-      const marginW = this.map.width + 1600;
-      const marginH = this.map.height + 1600;
+      const marginW = this.bounds.width + 1600;
+      const marginH = this.bounds.height + 1600;
       const cx = ((cloud.x + cloud.vx * this.time) % marginW + marginW) % marginW - 800;
       const cy = ((cloud.y + cloud.vy * this.time) % marginH + marginH) % marginH - 800;
       if (cx < view.left - cloud.radius || cx > view.left + view.width + cloud.radius) continue;

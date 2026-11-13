@@ -814,9 +814,19 @@
       "y": 0,
       "anchor": "top-left",
       "component": "beeStatus",
+      "properties": { "totalCounter": "total" }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": -20,
+      "y": -16,
+      "anchor": "bottom-right",
       "properties": {
-        "totalCounter": "total",
-        "hint": "Arrows fly · Space dashes — through danger, out of webs · wasps raise a mark before they strike"
+        "text": "Arrows fly · Space dashes — through danger, out of webs · wasps raise a mark before they strike",
+        "fontSize": "13px",
+        "color": "rgba(255, 240, 220, 0.6)",
+        "align": "right"
       }
     },
     {

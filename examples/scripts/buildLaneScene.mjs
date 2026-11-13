@@ -13,7 +13,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { writeScene } from 'm2d-editor-core';
-import { seedTarget } from './seedScene.mjs';
+import { seedTarget, placer } from './seedScene.mjs';
 import { LENGTH, HEIGHT, SPEED, buildMeadow } from '../src/scroller/meadow.js';
 
 // A seed: writes the scene only when it is not there; see seedScene.mjs.
@@ -21,20 +21,9 @@ const out = seedTarget(new URL('../src/scroller/scenes/lane.json', import.meta.u
 
 const meadow = buildMeadow();
 
-const objects = [];
-const counts = new Map();
-/** A stable id, readable in a diff: the prefab and its ordinal. */
-const nextId = (prefab) => {
-  const n = (counts.get(prefab) ?? 0) + 1;
-  counts.set(prefab, n);
-  return `${prefab}-${n}`;
-};
+const { objects, add } = placer();
+/** Two decimals: a sway phase or a wasp's rate needs no more, and the file stays readable. */
 const round = (n) => Math.round(n * 100) / 100;
-const add = (prefab, x, y, width, height, properties) => {
-  const o = { id: nextId(prefab), prefab, x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
-  if (properties) o.properties = properties;
-  objects.push(o);
-};
 
 /** The silhouettes each parallax plane is populated from. */
 const PLANES = {
@@ -193,9 +182,17 @@ const scene = {
       x: 0,
       y: 0,
       anchor: 'top-left',
+      properties: { totalCounter: 'total' }
+    },
+    {
+      type: 'text',
+      id: 'hint',
+      x: -20,
+      y: -16,
+      anchor: 'bottom-right',
       properties: {
-        totalCounter: 'total',
-        hint: 'Arrows fly · Space dashes — through danger, out of webs · wasps raise a mark before they strike'
+        text: 'Arrows fly · Space dashes — through danger, out of webs · wasps raise a mark before they strike',
+        align: 'right', fontSize: '13px', color: 'rgba(255, 240, 220, 0.6)'
       }
     },
     {
