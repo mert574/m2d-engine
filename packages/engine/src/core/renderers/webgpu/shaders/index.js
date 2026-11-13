@@ -2,7 +2,7 @@
  * WGSL for the 3D renderer: a sky, a shadow pass, a physically based mesh
  * pass lit by the sun, an image-based environment and point and spot
  * lights, and the environment bakes and post passes that feed it. Grown
- * per phase of docs/plans/3d-and-editor.md.
+ * per phase of knowledge-base/projects/3d/3d-and-editor.md.
  *
  * Every pass shares the frame uniform and the instance and light storage
  * arrays in group 0. Layouts here must match `INSTANCE_FLOATS` and

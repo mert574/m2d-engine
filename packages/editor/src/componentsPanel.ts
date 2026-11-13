@@ -5,7 +5,7 @@
  * ships, as a card: its name, what it does, and the fields a scene may set
  * (an actor's `properties`, a constraint's `params`) with their kinds,
  * units and starting values — the catalog a scene author browses before
- * attaching anything (docs/plans/editor-e6-e9.md). A filter narrows it.
+ * attaching anything (knowledge-base/projects/editor/editor-e6-e9.md). A filter narrows it.
  *
  * Each card acts: **Attach** puts a constraint on the selected object or
  * prefab, **New prefab** makes a prefab of an actor. An engine class the

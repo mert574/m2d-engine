@@ -92,7 +92,7 @@ const PhysicsWorlds = { 2: null, 3: null };
  * @param {object} [options]
  * @param {2|3} [options.dimensions=2] - Which solver to load. The two are
  *   separate worlds and separate WASM modules; see
- *   `docs/plans/3d-and-editor.md` for why the engine runs both rather than
+ *   `knowledge-base/projects/3d/3d-and-editor.md` for why the engine runs both rather than
  *   treating 2D as a special case of 3D.
  */
 export async function initPhysics({ dimensions = 2 } = {}) {

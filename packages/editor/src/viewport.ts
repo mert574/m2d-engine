@@ -8,7 +8,7 @@
  * through a fresh game *without* the flag.
  *
  * The game's real classes come from its definition module, served by the
- * host (docs/plans/editor-host.md). **Placeholders** fill only what
+ * host (knowledge-base/projects/editor/editor-host.md). **Placeholders** fill only what
  * registration left unnamed — a scene no declared game owns, a class a
  * definition forgot: an empty actor still draws its prefab's sprite or
  * mesh, or its body as an outline, and a placeholder constraint

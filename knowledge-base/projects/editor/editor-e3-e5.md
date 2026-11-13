@@ -1,5 +1,7 @@
 # E3, E4, E5: assets, play, project and build — done, Nov 2026
 
+Part of [[editor]]. A shipped phase plan, kept as the record of why things are built as they are.
+
 Working record, not published documentation. The user-facing half is
 `docs/guide/editor.md`; the phase rows live in
 `docs/contributing/roadmap.md`. Built in one round after E2

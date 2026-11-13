@@ -5,7 +5,7 @@ import { LEVEL_SCHEMA, UI_SCHEMA } from 'm2d-engine/core/sceneSchema.js';
 import { createInspector } from '../src/inspector.ts';
 
 /**
- * The completeness criterion (docs/plans/editor-e6-e9.md): every
+ * The completeness criterion (knowledge-base/projects/editor/editor-e6-e9.md): every
  * descriptor kind the scene schemas use has an editor in the inspector,
  * and every container can gain and lose entries. The first test pins the
  * set of kinds, so a new kind in the schema fails here until the

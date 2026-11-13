@@ -1,5 +1,7 @@
 # E7b, E8, E9: props by hand, 2D authoring, UI scenes
 
+Part of [[editor]]. A shipped phase plan, kept as the record of why things are built as they are.
+
 Working record, not published documentation. The user-facing half is
 `docs/guide/editor.md`; the phase rows live in
 `docs/contributing/roadmap.md`. Planned 11 Nov 2026, after E6, the

@@ -33,11 +33,6 @@ README) is the exception. When a change alters behaviour, update the page
 that covers it in the same change, following
 `docs/contributing/writing-docs.md`.
 
-Working plans for large in-flight work live in `docs/plans/`. They are
-tracked with the docs but excluded from the published site, and they are
-not a substitute for documenting shipped behaviour on the page that covers
-it.
-
 | Topic | Page |
 | --- | --- |
 | Setup, commands, minimal game | `docs/guide/getting-started.md` |
@@ -66,7 +61,29 @@ it.
 | Tests, conformance harness, Chromium setup | `docs/contributing/testing.md` |
 | Adding a demo, deployment | `docs/contributing/adding-a-demo.md`, `docs/contributing/deployment.md` |
 | Common issues | `docs/contributing/troubleshooting.md` |
-| Roadmap | `docs/contributing/roadmap.md` |
+| Roadmap (big picture only) | `docs/contributing/roadmap.md` |
+
+## Knowledge base
+
+`knowledge-base/` holds decisions, learnings and working preferences (`notes/`, one file per topic) and the plans and records of big projects (`projects/<name>/`). It is an Obsidian-style graph linked with `[[note-name]]`. It is not documentation and not a work log. `knowledge-base/README.md` has the map, the rules and the templates.
+
+- Before a task, scan this index and read the files that look related; follow their links for the rest.
+- Keep it current both ways. Record what you had to learn because it wasn't here. When a decision changes, update its entry in the same change as the code. Skip trivia.
+- Choose the scope from context: session-only (not recorded), project (that project's file) or repository (a topic note). After recording, tell the owner what you wrote and at which scope.
+- At the end of every big session (for example, finishing a project's phases), extract the session's learnings.
+- Adding, renaming or removing a file updates its links and this index in the same change. No file is left unlinked.
+
+| File | Summary |
+| --- | --- |
+| `README.md` | The map of every note and project; rules for writing (brief and complete, no redundancy, no orphans); keeping it current and choosing the scope (session, project, repository); templates. |
+| `notes/idiomatic-m2d.md` | How games are written on m2d: behaviour in actors, constraints and intents; everything else in scene data. Covers tunables (actor properties vs constraint params), what is not idiomatic (generated levels, custom ticks, hooks that set look or UI), and the showcase and docs demo exceptions. |
+| `notes/code-style.md` | Readable, modular code with few comments, refactoring before commenting; rendering fixes pinned by a small repro scene. |
+| `notes/demo-standards.md` | The quality and art bar for examples: native AAA, every demo a showcase, bright new demos, distinct menus per game, free open assets and how to word them. |
+| `notes/working-style.md` | Parallel agents (a new port and temp dir after every owner message; never touch another agent's work), native Chrome when under WSL, the session summary at completion, MCP parity for editor features, one commit per phase, plain names over plan codes, and where roadmap, projects, docs and notes each live. |
+| `projects/editor/editor.md` | The editor project: its decisions, the active sub-project, the backlog, and links to the shipped phase plans (`editor-e0` … `editor-e7b-e8-e9`, `editor-host`) beside it. |
+| `projects/editor/idiomatic-examples.md` | Active: moving every example and docs demo onto idiomatic m2d, in phases 0 to 6, with the engine features and per-project work it needs. |
+| `projects/networking/networking.md` | Server-authoritative networking: the decision, the 3D online gaps, WebTransport datagrams, and what shipped. |
+| `projects/3d/3d.md` | 3D places and the asset library: backlog and record, with the renderer's plan `3d-and-editor` beside it. |
 
 ## Commands
 
@@ -172,13 +189,8 @@ npx playwright install chromium   # once, for test:browser
 - Anything attached to `window` or `document` keeps a stable handler
   reference so `destroy()` can remove it.
 - Keys are physical codes (`'KeyW'`, `'Space'`), never characters.
-- Other agents work on this repository concurrently, each in its own git
-  worktree. Never touch the base checkout (`~/Developer/mert574/m2d-engine`).
-  Scratch files go in a fresh `mktemp -d` per task; dev servers take a
-  random high port (check `ss -ltnp` first), and a server is only yours to
-  kill if its PID runs in your worktree. Trust no screenshot or log you did
-  not produce, and re-read files you rely on — even a worktree and a /tmp
-  path can turn out to be shared.
+- Other agents work on this repository concurrently. Ports, temp dirs and
+  what you may touch are in `knowledge-base/notes/working-style.md`.
 - Build what another game could also want (a constraint, an actor, a UI
   component) at the engine level; only game-specific parts stay in the
   demo. The demos are engine demonstrations.
@@ -188,8 +200,7 @@ npx playwright install chromium   # once, for test:browser
   `THIRD_PARTY_NOTICES.md` with pack, author, license and source URL only —
   no per-file checksums, and no counts of assets or demos anywhere, since
   numbers go stale. See `docs/contributing/adding-a-demo.md`.
-- New demos aim bright: cozy, sunlit, distinctive. The shipped set already
-  leans nocturnal; do not add to that register, and avoid cliché genre
-  pastiches. Brightness is not lower craft — lights, parallax and post
-  effects read in daylight too. (Owner preference, Nov 2026 — move to agent
-  memory when writable.)
+- Write readable, modular code with few comments: when code needs a comment
+  to be understood, refactor it first (`knowledge-base/notes/code-style.md`).
+- Games, examples and docs demos are idiomatic m2d
+  (`knowledge-base/notes/idiomatic-m2d.md`).

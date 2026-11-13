@@ -1,5 +1,7 @@
 # E6 to E9: creating anything from the GUI
 
+Part of [[editor]]. A shipped phase plan, kept as the record of why things are built as they are.
+
 Working record, not published documentation. The user-facing half is
 `docs/guide/editor.md`; the phase rows live in
 `docs/contributing/roadmap.md`. Written 10 Nov 2026 after an audit of the

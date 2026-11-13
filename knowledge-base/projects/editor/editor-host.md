@@ -1,5 +1,7 @@
 # The host: the editor becomes an IDE — done, Nov 2026
 
+Part of [[editor]]. A shipped phase plan, kept as the record of why things are built as they are.
+
 Working record, not published documentation. This replan landed after E1
 shipped with placeholder actors and the owner called it: a game's look
 and behaviour live in its *code*, and an editor that cannot run that

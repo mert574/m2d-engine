@@ -1,5 +1,7 @@
 # E1: the viewer and the inspector — done, Nov 2026
 
+Part of [[editor]]. A shipped phase plan, kept as the record of why things are built as they are.
+
 Working record, not published documentation; the phase row lives in
 `docs/contributing/roadmap.md`. E1 is the read-only editor: open a
 project, pick a scene, see its outline, its world and any node's fields.
@@ -92,4 +94,4 @@ placeholders standing in for real classes, and a built-in demo scene
 standing in for real projects. Both are gone — the editor now runs the
 project's own code, served and hot-reloaded by its host. The File System
 Access half of this record (BrowserProject, blob-URL assets, `?demo`) is
-deleted; see `docs/plans/editor-host.md` for what replaced it and why.
+deleted; see `knowledge-base/projects/editor/editor-host.md` for what replaced it and why.

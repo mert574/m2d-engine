@@ -1,356 +1,42 @@
 # Roadmap
 
-What is planned next. Check the current implementation before starting an item. [Architecture](./architecture) describes what exists.
+The big picture, one line per item. Each large item's plan, backlog and record live in its project under `knowledge-base/projects/` in the repository; shipped behaviour is documented on its page here.
 
 ## Done
 
-Renderer abstraction with a batched WebGL2 default and a Canvas 2D fallback, both held to one conformance suite. Optional capabilities that backends declare and callers degrade against. The renderer showcase. Scenes, entities, constraints, camera and UI. Strict scene validation. The display pipeline with independent view, world surface and UI resolutions, aspect modes, fullscreen, a settings menu and the world overlay. The input system with one Pointer Events source, gesture recognition, band routing with `consume()`, opt-in world hit testing, code-based keyboard state and opt-in pointer lock with a virtual cursor. The fixed simulation tick: `game.time` with two clocks, `fixedUpdate` on entities, constraints and scenes, per-tick input snapshots, game-time and wall-time timers, a seeded `game.rng` and a frame-rate-independent camera, pinned by a determinism test and written down as the [determinism contract](./determinism). The WebGPU 3D renderer behind the same engine: physically based meshes under cascaded sun shadows, point and spot shadow maps, clustered lights, an image-based environment, glTF models with skinning, morphs and levels of detail, GPU culling, streaming and the post stack, grown by the plan in `docs/plans/3d-and-editor.md` and documented in [Renderer](../reference/renderer#three-dimensions). The perspective kit: the depth sort, the isometric and belt projections, parallax tile layers, `elevation`, camera zoom, rotation and the `follow`/`scroll`/`rooms` modes, camera config resetting with its scene, with every perspective below carried by a demo (see the table below).
+- **Renderer**: batched WebGL2 with a Canvas 2D fallback; WebGPU 3D with PBR, shadows, clustered lights, glTF, post and particles.
+- **Core**: scenes, entities, constraints, camera, input, the fixed tick and the [determinism contract](./determinism).
+- **UI**: themed element tree, layout, focus, the screen stack, motion, the console.
+- **Perspectives**: every view in the table below marked shipped.
+- **Networking, 2D**: headless simulation, the authoritative `m2d-server`, intents, replication, prediction, interpolation, interest.
 
-## In progress: the UI re-architecture
+## Underway
 
-Rebuilding the UI layer to carry modern game menus. No backwards compatibility
-is kept; the phases land as one change.
-
-| Phase | Work | Done when |
-| --- | --- | --- |
-| 1: Foundation | Theme tokens, element tree, box model, inherited visual state, vendored type | **Done.** `UIElement` nests, with anchor/pivot boxes, padding, compounding opacity and pivot-relative transforms. `theme.js` holds the tokens every component resolves; no component names a colour. Exo ships as a variable face and `drawText` takes `fontStyle`. The UI ticks while paused and both draw passes receive `deltaTime` |
-| 2: Structure | Layout containers, focus and directional navigation, the screen stack | **Done.** `Stack`, `Grid` and `Spacer` place children from a gap and an alignment instead of hand-tuned offsets. Every screen owns a `FocusManager`: Tab walks draw order, the arrows move geometrically, Enter activates, Escape pops. `game.ui` is an ordered `ScreenStack` and has replaced `game.overlays`, so a menu sits over a live level. `SettingsMenu` is a screen built from `UIOptionRow`s, and the readout lives in `game.ui.debug` with an F3 toggle |
-| 3: Feel | Motion, screen transitions, backdrops | **Done.** `game.motion` tweens from the theme's duration and easing tokens, with staggering. Screens declare a `transition`, and an exiting one keeps drawing until it lands. `UIBackdrop` layers a gradient, a drifting still, custom `layers`, motes, scanlines and a vignette. `blurBehind` defocuses the world through a `blur` post effect under the existing `postEffects` capability, degrading to the scrim on Canvas. Every demo menu is rebuilt as a screen on the shared `examples/src/shared/mainMenu.js`: an off-centre composition of `UIMenuItem` lines, tracked uppercase type with a selection bar instead of filled buttons, under a light display title and a rule. `drawText` gained `letterSpacing`, since tracked caps are half of what makes UI read as a game |
-| 4: Tools | CVars, commands, the developer console | **Done.** `game.cvars` holds typed, described, optionally persisted engine state as accessors over the live engine; `game.commands` resolves Quake's grammar over it. The settings menu is a view onto the same cvars, so its choices persist. The backquote console has scrollback with wrapping, history, Tab completion and `console.*` capture, takes every key while open, and stays pointer-transparent outside its panel |
-
-## In progress: networking
-
-Multiplayer through an authoritative server. The game author writes their game once, as a module that registers actors, constraints and scenes. The browser imports it to play. A small server entry imports the same module into the engine's server host, which runs the simulation headless in Node. The author writes no networking code.
-
-Decisions that hold for every phase:
-
-- The server is authoritative and the only supported model. Lockstep, rollback and cross-browser bit-identity are deferred.
-- Clients send input and nothing else. No positions, velocities or results cross the wire from a client.
-- An input message is the held keys and the pointer for one tick. The server derives press and release edges from consecutive ticks, so a client cannot claim a press it never released.
-- Input is validated statically: the structure, key codes against the game's allowlist, finite pointer coordinates inside the world bounds and at most one input per player per tick inside a window the server's clock defines. Anything else is dropped and counted against the connection.
-- The server binds each connection to the entities it owns. A player's input drives only their entities.
-- Simulation code runs without a browser. Reading the camera, the renderer, the DOM, sprites or sound from simulation code fails on the server.
-- Two channels from a client, and nothing else. Continuous control (move, aim, fire, jump) is per-tick held input through the gate. Discrete requests whose choice only exists in the client's UI (move an item between slots, sell, equip, craft, pick a dialogue answer) are *intents*: named, typed requests declared by the game in its shared module. Settings, bindings, menus, opening a panel and hovering are local and never sent. The server holds state per player, never UI per player; each client draws its own HUD from its own copy.
-- Rule of thumb: if the server can work out what was meant from keys plus world state (E talks to the nearest NPC), it is input. If the choice exists only in the client's UI (a slot index, a vendor's item, a dialogue option), it is an intent.
-- An intent is applied at the start of a tick, before entities update, in a deterministic order (tick, player, sequence number). The server stamps the tick on arrival; the client never chooses it. The sender is the connection, never an argument. A repeated sequence number is a duplicate and dropped.
-- Intents are validated in three layers. Static, generated from the declaration: unknown name, field set, types, integer ranges, string and array sizes, by a decoder that never throws; failures count toward the gate's sticky violation limit. Rate limits per intent per player. Then the game's own `run(player, args)`, which may reject with a reason the client receives. Reference arguments (`entity({ actor, owned, within })`, `slot(size)`) resolve a network id and check actor type, ownership and distance before `run` sees them, so "act on something you do not own or are not near" is declared, not remembered.
-- Chat, accounts, purchases and matchmaking are not intents. They belong to services outside the tick.
-- While a UI screen has focus, the input snapshot carries no keys: typing in a chat box or holding an arrow over the inventory must not move the avatar.
-
-| Phase | Work | Done when |
-| --- | --- | --- |
-| 1: Determinism hardening | Fix the contract violations found in the engine and the demos. Widen the determinism test | **Done.** A scene switch requested inside a tick runs after it, and no later tick or frame touches the outgoing scene. The game-over restart goes through `sceneManager.reload()`, so no tick runs while the level reloads. Every scene load builds a fresh physics world, since re-entering a level in an emptied one drifted in the last bits. Interactive's follow mode moves the body in `fixedUpdate`. `UIDialogue` takes a game-time `clock`. Ash Row measures waves from the design width, Hollow Grove talks on the tick, the physics playground queues pointer play for the next tick and Night Circuit rebuilds its world each round and saves the spills its best lap started with. `determinism.test.js` runs every engine actor and constraint from a scripted held-key stream at 30, 60 and 144 fps and through a pause and slow motion, plus re-entry, the restart and both kinds of mid-tick switch |
-| 2: Headless simulation | Run a game with no canvas, renderer, DOM or assets | **Done.** `new M2D(null, { headless: true })` loads and ticks level scenes in plain Node, driven by `game.step()`. Scenes load no sprite sheets or tile layers. The camera, renderer, UI, world overlay, layers, cvars and the live input devices are guards that throw by name on first use; sound is silent. Scene hooks split into simulation (`onEnter`, `onFixedUpdate`, `onExit`) and presentation (`onShow`, `onHide` and the frame hooks). Beeline is split into `game.js`, `main.js` and a headless `simulate.mjs`. `test/headless.test.js` runs with no browser globals, checks the guards and spawns a plain `node` process that agrees with the in-process run; `determinism.test.js` checks that a headless game plays the displayed game's ticks bit for bit |
-| 3: Players, ownership and intents | Per-player input, network ids, ownership and the intent channel | **Done.** `game.players` holds the local player and one per connection; `entity.input` is the owning player's snapshot (the local one by default) and every engine constraint and demo actor reads it. A blocking screen blanks the sampled snapshot, and a press the UI took never reaches one. Every entity has a `netId` reset with the scene, and `game.entityById` looks one up. `net/intents.js` has `defineIntents`, the argument types with the `entity` reference rule, `IntentQueue` (filed on arrival, applied at the start of the next tick in turn order (players by id, rotated by the tick) then seq, rate-limited, deduplicated by seq, sharing a `ViolationMeter` with the input gate) and `player.send` for the local path. `test/netIntents.test.js` attacks it: forged sender fields, unknown names, out-of-range and mistyped args, prototype keys, Proxies, replayed and stale seqs, floods and fuzz. `test/players.test.js` drives two players headless. Cinder Keep gained a satchel and a quartermaster with limited stock (`keepIntents.js`, `satchelUI.js`); choosing an item opens its options menu, and a test has two players race for the last charm in one tick, with `examples/test/keepIntents.test.js` running the real keep headless |
-| 4: State snapshots | Capture and restore the whole simulation | **Done.** `game.snapshot()` returns Rapier's world snapshot with every body wrapper's state, the entities in set order with their fields and their constraints', game-time timers, the clock, the rng, network ids, player state and avatars, and anything registered with `game.trackState`. `game.restore()` brings it back in place, and the ticks after it are bit-identical (`test/snapshot.test.js`: both coverage scenes, spawned and removed entities, a character body, timers, in-place containers, a rewind resimulated with corrected input; `examples/test/keepIntents.test.js`: a purchase rolled back). Entities and constraints customise capture with `saveState` and `loadState`. In memory only: about 4 ms each way for Cinder Keep's 615 entities, so phase 6 rewinds on server updates rather than snapshotting every tick |
-| 5: Server host and replication | The `m2d-server` package; state replication and a basic client in the engine | **Done.** `packages/server`: `createServer` and `defineMatch`, one worker per match (heap cap, entity cap, a watchdog fed four times a second), HMAC tickets checked before the upgrade (expiring, lifetime-capped, single-use, failing closed when the replay memory is full), per-IP upgrade rate and connection caps, an origin allow list, 4 KB frames with compression off, text-only envelopes, a message rate limit, idle and ping timeouts, slow readers cut off, violation kicks, a reconnect window, replaced connections, full matches. `net/replication.js` diffs per client (spawns via `game.spawn`, removals, transforms, `static replicated` fields, `replicaState`/`replicaUpdated`, private `state`, `player.notify` events, intent results, the avatar id). `net/client.js` connects, checks the scene signature and tick rate, sends latched per-tick input and intents. Tests: `packages/server/test` (tickets, envelopes, limits, real servers with misbehaving clients and crashing, looping, memory-hungry and runaway matches), `packages/engine/test/replication.test.js`, `examples/test/keepOnline.test.js` (two clients routing through the real keep). Cinder Keep plays online (`?online=`, `server.mjs`, `keepMatch.js`). Along the way: a non-blocking screen no longer takes navigation keys, and a UI scene's hooks run on a replica |
-| 6: Client | Prediction, reconciliation, interpolation and interest management | **Done, less the datagrams.** `net/interpolation.js` draws remote entities between server states on a clock that eases rather than steps, each entity on its own blend since a diff only carries what moved, extrapolating at most one send interval into a gap. `net/prediction.js` runs the local avatar's declared movement (`static predictedConstraints`, `static predictedFields`) on the tick its input is sent and reconciles against the server's answer by replaying the input since, with the drawn position settling over a tenth of a second; it predicts a character body, since one can be advanced without stepping a world the server owns, and a dynamic avatar is drawn from the server instead. `core/events.js` carries what the simulation says happened (`damage`, `death`, `heal`, `step`) to the clients that can see it, so hit flashes, bursts and footsteps work online; `DamageFlash`, `HitBurst` and `Footsteps` react to them rather than to a server-side hook. `interest: { radius }` sends each client what its player is near, hiding rather than removing what leaves, with hysteresis at the boundary; scenery, the player's own avatar and `static alwaysRelevant` are always sent. A join is seeded with the scene's own build, and one `StateFrame` per send is shared by every client's stream. The transform is diffed as three parts (position at a tenth of a pixel, angle, velocity in whole px/s, a crawl sent as a standstill) rather than one all-or-nothing array, and a player's own avatar always carries its position so prediction always has something to check. `permessage-deflate` is on, which `maxMessageBytes` makes safe since `ws` applies it after decompression. For Cinder Keep with four players: join 52 KB → 2.7 KB, stream 30 → 7.2 KB/s raw and 5.7 KB/s compressed, replication 2.35 → 1.29 ms per send. How far ahead to send is measured: the input gate reports the arrival margin and the client steers its lead by it, instead of estimating from a round trip. Tests: `interpolation`, `prediction` (a 150 ms round trip with a shove to correct), `interest`, `events` |
-| 6a: Datagrams | WebTransport where the browser supports it | **Not started, and larger than it looks.** Two things block it. Node has no WebTransport server: there is no HTTP/3 in core, so it needs a third-party QUIC package and TLS certificates even locally, which the "runnable from a fresh checkout" rule has to be weighed against. And state cannot simply be moved onto unreliable datagrams: the `Replicator` diffs against what it last *sent*, so a dropped message loses that change for good. Datagrams need the diff to run against what the client last *acknowledged*, with per-client acked baselines: a protocol change, not a transport swap. The client is already transport-agnostic (`NetClient` takes anything `WebSocket`-shaped), so the adapter is the small half |
-
-## Planned: 3D online, natural scenes, an asset library and the editor
-
-Four pieces of work the owner asked for in Nov 2026, in the order their prerequisites allow. Each gets a plan file under `docs/plans/` when it starts; this is the list of what has to be true first, checked against the code.
-
-### 1. 3D games online
-
-What works today: a 3D match runs headless on the server, `game.spawn` carries `z`, `depth`, `mesh` and `light` across the wire, a transform packs as position, quaternion and velocity, and `packages/server/test/server3d.test.js` has two clients walking the yard and agreeing on every transform. What a 3D client still lacks is everything that makes a 2D client feel good.
-
-| Gap | Where | Done when |
-| --- | --- | --- |
-| No prediction | `Predictor.#canPredict` refuses a 3D game outright | The local hero moves on the tick the key goes down and reconciles against the server's answer, as the 2D knight does. Needs a 3D movement constraint first: the yard's `Hero` steers in a hand-written `fixedUpdate`, so it has no `static predictedConstraints` for the predictor to run (the plan's "3D constraints when the demo needs one" is now needed) |
-| No interpolation | `applyState` skips the `ReplicaView` when `dimensions` is 3, so a remote hero jumps on every state message | Remote entities draw between server states on the eased clock, with the rotation slerped. `interpolation.js` blends two numbers and an angle today; it needs a quaternion path |
-| Interest measures the wrong plane | `#relevant` and `worldEvents` compare `dx² + dy²`, which in 3D is the ground axis and *up* | Interest and event culling measure ground distance (x, z) or full distance in metres, and `interest: { radius }` is documented in metres for a 3D match |
-| No 3D demo plays online | Only Cinder Keep has `?online=`, `server.mjs` and a match module | The yard joins an `m2d-server` with `?online=`, and `examples/test` runs two yard clients the way `keepOnline.test.js` runs the keep |
-| The docs say so | `guide/multiplayer.md`: "Interpolation and client prediction apply to 2D games" | That sentence is gone |
-
-Blocked by: nothing. This is the smallest of the four and clears the path for the others, since every editor scene is also a possible match.
-
-### 2. 3D scenes that read as places
-
-The yard is laid out by hand and the lot by a script. The lot was a grid of walled exhibit lots with seeded jitter, and looked it; in Nov 2026 it was rebuilt as a place (a town corner where two roads cross: shops, a terrace of houses with their gardens, a works depot, a park, allotments, woodland and meadow; buildings as primitive shells dressed with scanned shutters and lamps, scatter by noise fields with exclusion, props placed with intent — see `buildLotScene.mjs`), which took the layout as far as a generator, primitive shells and primitive ground can go. The engine still lacks the pieces that make outdoor scenes natural in the first place.
-
-| Prerequisite | Today | Done when |
-| --- | --- | --- |
-| Ground that is not one plane | The whole lot stands on one lawn-textured plane with thin textured slabs for roads, gravel, paving and leaf litter, which meet along straight edges | Terrain with height and splat-mapped materials (plan: Beyond R6), so grass, dirt and asphalt meet along painted edges rather than at a prefab boundary |
-| ~~Shape materials with more than a colour map~~ | — | **Done, Nov 2026**: `mesh.texture` takes `normal` and `arm` maps beside `url`, lit in the planar projection's own tangent frame; the lot's buildings, roads and walls carry Poly Haven's normal and occlusion-roughness-metal maps |
-| ~~Vegetation that moves~~ | — | **Done, Nov 2026**: `world.lighting.wind` (direction, strength, gust, blended by the cycle) bends every model with foliage by height in the mesh and shadow passes, its cut-outs fluttering; the compiler marks foliage (`extras.m2d.foliage`) and the reader marks the whole model to sway |
-| Surface detail | None | Decals (dirt, puddles, leaf litter, tyre marks) and water, both on the plan's realism list |
-| Placement with intent | `buildLotScene.mjs` scatters the woodland and meadow by value-noise fields with clustering and an exclusion test (nothing on a road, a path, a pad or in a compound), lays fences, kerbs, pavements and paths along straight segments, and places the rest by hand in code | Splines for curved fences, kerbs and paths; orientation-aware scatter (more moss on the north side); and hand placement of individual props in the editor |
-| Sky and air | A procedural gradient or one HDRI | The Hillaire atmosphere and clouds item, and volumetric fog, so dusk and haze are physical |
-| ~~Ambient life~~ | — | **Done, Nov 2026**: stateless 3D particle fields (`world.particles`: motes on the wind around the camera, smoke from a point), one instanced draw a field; the lot's air carries pollen and its chimneys smoke. Still to do: falling leaves, which want a textured card |
-
-Blocked by: the editor for hand placement, item 3 for materials. The generator route (noise scattering, splines, better ground) is not blocked and should go first, since it also feeds the editor's scatter tools later.
-
-### 3. A library of materials, textures and models, and a search for more
-
-| Prerequisite | Today | Done when |
-| --- | --- | --- |
-| A fetch recipe for textures | `fetchPolyHaven.mjs` fetches models and HDRIs by id with checksums; textures joined it in Nov 2026 with the colour map only (`TEXTURES`) | The recipe fetches a texture's full PBR set (colour, normal, roughness or ARM, occlusion, height) and the engine's material block reads it |
-| Assets by identity, in 3D too | The asset database (`core/assets.js`) holds sprite sheets and prefabs by uid; 3D models, materials and environments are declared per scene by path | Models, materials and HDRIs are manifest assets with uids, so a scene binds them through `uses` like a sheet and a rename breaks nothing |
-| Credits that write themselves | `THIRD_PARTY_NOTICES.md` is edited by hand per pack, a rule every change must remember | Each fetch writes `info.json`; a script renders the notices tables from those, so a credit cannot be forgotten |
-| More sources than Poly Haven | One API client | ambientCG (PBR materials, a direct download API), Kenney and OpenGameArt (2D and 3D packs), each a small adapter with the same checksum and credit discipline |
-| A starting set | Some eighty scans and kit pieces, twenty textures, one HDRI | A few dozen materials across ground, wall, wood, metal and fabric, and a model set per theme (industrial, garden, interior), with the lot and a new interior scene drawing on them |
-| Search and preview | None | An editor panel that queries the sources' APIs, shows thumbnails and licences, and fetches into the project through the recipe. This is the one part that waits for the editor shell (item 4); the pipeline and the library do not |
-
-Blocked by: the editor only for the search panel. The rule that assets enter as recipes and never as bytes holds throughout, as does the demo rule against generated art.
-
-### 4. A full editor, Godot-like
-
-The enablement work is done; see `docs/plans/editor-e0.md` for the E0 rounds that closed it. The scene format is descriptors a tool can read, every object has a stable id, actors and constraints both declare their schemas, the asset database exists, there is a canonical writer, a game can run in edit mode, several live views can show one scene at once, `screenToRay` plus a physics raycast picks in 3D, and a game tears down to nothing on `destroy()`. The three editor packages are scaffolded: `packages/editor-core` (the headless document, command and writer core), `packages/editor-host` (the companion process and the MCP server an agent drives) and `packages/editor` (the browser app). What is left below is feature work, not enablement.
-
-| Blocker | Why it blocks | Done when |
-| --- | --- | --- |
-| ~~No write path~~ | ~~The loader reads JSON; nothing serializes a live scene, and a generated scene like `lot.json` is one long line~~ | **Done, Nov 2026**: `m2d-editor-core` ships `writeScene`/`writeManifest`, canonical by the schema's own declaration order with schema defaults omitted; every shipped scene and manifest is the writer's output byte for byte (`examples/test/sceneWriter.test.js`), the generator scripts emit through it, and `scripts/formatScenes.mjs` restores the form after a hand edit |
-| Untyped shapes | ~~Actors declare no schema for their `properties`~~; the engine's own JSDoc is still unchecked, see Types under Later | **Half done, Nov 2026**: actors carry `static properties`, merged along the class chain and validated on load (`actorPropertiesSchema`). The engine's `checkJs`-or-TypeScript decision is still open, but the toolchain for it is in (`tsconfig.base.json`, `npm run typecheck`) and the new editor packages are TypeScript already |
-| Where files live | ~~The editor runs in a browser; `compileModel.mjs` and `buildModels.mjs` are Node scripts~~ | **Decided, Nov 2026**: a project is one game's plain folder with an `m2d.project.json`, owned by the **host** (`packages/editor-host`), which serves it to the editor app through Vite so the app imports the project's real code (`docs/plans/editor-host.md`). The asset pipeline runs in the host rather than a WASM worker, since a local process must exist anyway and is also where the MCP server lives. Running the compilers from it is E3 |
-| ~~No editor widgets~~ | ~~`core/ui` is a game UI: menus, dialogue, rows~~ | **Decided, Nov 2026**: DOM for the editor's chrome, the engine canvas for the viewport. `packages/editor` is a Vite app whose docked panel frame is CSS grid; the engine draws only inside the viewport. A game UI toolkit does not grow a text editor |
-| Selection and gizmos | Picking exists for bodies; a prop without a collider cannot be picked, and nothing draws handles | Mesh-level picking (an id buffer in the 3D renderer, hit tests in 2D), translate, rotate and scale gizmos, snapping, and multi-select |
-| Undo | ~~Nothing records edits~~ | **Done, Nov 2026**: `CommandStack` in `m2d-editor-core` — apply, undo, redo, batching and change listeners, with each command returning its own undo from `apply`. The concrete commands arrive with the tools that need them (E2) |
-| Play in editor | ~~Scenes reload only by `switchTo`~~ | **Enabled, Nov 2026**: the `editMode` option makes a scene materialize from its document with no hook run, no tick and no transition, so playing is the same document in a fresh game without the flag. The editor's play/stop controls are E4 |
-| ~~Composition~~ | ~~Prefabs and props, but a scene cannot instance another scene~~ | **Done, Nov 2026**: `layers[].scenes[]` instances a level scene whole with overrides, prefixed ids, a turn; `SCENE_VERSION` 3; the 3D template instances a room three times |
-
-Phases, each its own plan when it starts:
-
-| Phase | Work | Done when |
-| --- | --- | --- |
-| ~~E1: Viewer and inspector~~ | ~~Open a project, show the scene tree and the props, inspect any object or prefab through the descriptors, read-only~~ | **Done, Nov 2026** — see `docs/plans/editor-e1.md`. The tree comes from the *document* (`sceneOutline`), not the live game, so a scene that fails to materialize still shows; the inspector's rows come from the descriptors (`inspectNode` over `descriptorAt`), every declared field with its kind, unit and what absence means; the viewport materializes in edit mode with the project's **real classes**, served by the host (`docs/plans/editor-host.md`) and hot-reloaded on change; placeholders (sprite or body outline, `params: null` constraints) remain only as the fallback for what registration missed. `npm run editor` opens the examples project |
-| ~~E2: Edit and save~~ | ~~Selection, gizmos, the inspector writes, undo, the scene writer~~ | **Done, Nov 2026** — see `docs/plans/editor-e2.md`. One game per editor; the host holds the documents and their history and agents edit them over MCP on the editor's port; edits are ops whose inverses are ops; edit mode draws on demand (5 fps at rest); an object edit rebuilds that object in place; click to pick, F to frame, SVG gizmos in 2D and 3D, an inspector that writes, save. A wall on the lot was moved by hand, saved, and the game loads the result. A follow-up added full problem reporting (`SceneLoader.check`), 3D rotation, 20 fps idle drawing with a power-saving switch, and a redone GUI. The lot was rebuilt as a coherent scene in Nov 2026 (the plan's TODO 4); saved layouts and docking landed Nov 2026 (the dock below or beside the viewport, mirrored panels, named layouts) |
-| ~~E3: Assets~~ | ~~The asset browser over the project and the manifest, drag to place, import through the recipe, the online search panel (item 3)~~ | **Done, Nov 2026** — see `docs/plans/editor-e3-e5.md`. The pipeline lives in the host; the Assets tab places prefabs, models and images by drag, and searches and imports Poly Haven with recipes in `library.json` and credits rendered to `CREDITS.md`. A Poly Haven crate was found, fetched, placed and credited without leaving the editor |
-| ~~E4: Play and iterate~~ | ~~Play in editor, hot reload of scenes and materials, the console inside the editor~~ | **Done, Nov 2026**: Play (F5) on the document as it stands with the project's hooks module, Stop back to it untouched, a restart on code change, the Console tab, and `run_scene` for agents. Edit, play, stop, edit again without reloading the page |
-| ~~E5: Project and build~~ | ~~Templates for a 2D and a 3D game, the Vite build from the editor, export~~ | **Done, Nov 2026**: 2D and 3D templates (`m2d-editor new`, the New project dialog), the engine aliased so a project lives anywhere, Build to a static `dist/` with runtime assets copied, Preview, `build_project` for agents. A template project went to a built, previewed site inside the editor |
-| ~~E6: Structure~~, ~~the component library~~, ~~E7: Selection at scale~~ | ~~Create anything the format holds from the GUI: record entries, variants, tuples, layers, prefabs, scene files; a catalog of actors and constraints; multi-select, marquee, group gizmo, copy and paste, align and distribute~~ | **Done, Nov 2026** — see `docs/plans/editor-e6-e9.md` |
-| ~~E7b: Props by hand~~, ~~E8: 2D authoring~~, ~~E9: UI scenes~~ | ~~Prop instances picked, moved, scattered, erased, promoted and demoted; per-cell tile indices, a paint tool, an animation editor; UI style fields, the element palette, pick, gizmo and anchors~~ | **Done, Nov 2026** — see `docs/plans/editor-e7b-e8-e9.md`. Props, tiles, animations and elements all edit in place (`rebuildProps`, `rebuildTileLayers`, `rebuildUIScene`); Ember Valley's ground is painted scene data and its coin spins from a sheet (Kenney CC0 tiles, MedicineStorm's coin, credited); the 2D template opens on a menu made of elements. Still carried: the rest of the view helpers (light icons, camera gizmo, bookmarks, isolate) and composition |
-
-Blocked by: the Types item (E1 wants it, E2 needs it), the write path (E2), and the chrome decision (E1). Items 1 to 3 are not blockers but each phase is better for them: online testing of edited scenes, a library to browse in E3, and scenes worth editing.
-
-### 5. Editor follow-ups (owner, Nov 2026)
-
-Asked for after E7 shipped, in the order they bite while editing. Each is small enough to go straight into a round rather than a phase.
-
-| Work | Today | Done when |
-| --- | --- | --- |
-| ~~Thumbnails for assets~~ | — | **Done, Nov 2026**: the editor's own tab renders them (it has the GPU; the host does not) — a model turned three-quarters, an HDRI as the sky — one at a time on an off-screen canvas, and the host keeps each under `library/thumbs/` by path, size and mtime. Still open: prefab cards and the component library |
-| ~~Constraints the game has not registered~~ | — | **Done, Nov 2026**: `core/builtins.js` — `game.actors` and `game.constraintTypes` are `Registry` maps that fall back to the engine's own classes, the game's registration winning; `own` and `isBuiltin` tell them apart. The Components tab marks them "engine" and attaches them. The catalog is imported eagerly (eighteen small modules); a lazy variant was not worth its async lookups |
-| ~~Scale without a rebuild~~ | — | **Done, Nov 2026**: `Viewport.apply` rebuilds one object in place when its new overrides name only assets the scene holds (sheets, models, textures); only a new asset is a full rebuild |
-| ~~Live geometry while dragging~~ | — | **Done, Nov 2026**: `Viewport.previewSize` rescales the drawn shape, model or sprite every frame of a scale drag (the body waits for the release), and the inspector's Position and Size labels preview while scrubbed |
-| Game logic the GUI cannot reach | An audit of the seven example projects (below) found gameplay and presentation that lives only in code: day and night cycles, the sun and sky, camera framing, music, HUD, spawners, win conditions, actor tunables as constants | Each item below is either declared (actor `static properties`), moved into a scene field, or given a new scene field with engine support; the editor shows every one. The rule going forward: **a demo's tunables live in the scene or in declared properties, never in a constant**, checked by the audit being rerun before each demo ships |
-
-#### Deferred creator work, noted 11 Nov 2026
-
-Proposed after E7b–E9 shipped and parked by the owner, to be picked up after the carried editor work closes. Not scheduled; listed so nothing is lost. The GUI-reach F-items above (F4, F6, F8, F11, F12, F14, F15 and the per-project rows) are parked the same way. **More library sources** (ambientCG, Kenney, OpenGameArt adapters) are dropped from editor scope altogether: lowest priority, and not enablement work.
-
-| Idea | What it is |
+| Item | Project |
 | --- | --- |
-| ~~GUI test harness~~ | **Done, 12 Nov 2026**: `scripts/driveEditor.mjs` (`npm run test:editor`). Suites: lot (3D), platformer (2D, play), paths (select, drag, add, remove points), playtest (play from here, a prefab's stage), settle (3D template), look (cycle scrub, particles), search (unused badge, where-used), template2d (UI scene). Still to add: suites for scatter, tile paint, the animation editor and composition |
-| ~~Prefab isolation stage~~ | **Done, 12 Nov 2026**: Stage it plays a prefab alone on a floor in the scene's world, restarting on each prefab edit; `run_scene` and `screenshot_scene` take `prefab`. Still to do: a sprite for the 2D floor; prefab variants and inheritance |
-| ~~Play-from-here, settle~~ | **Done, 12 Nov 2026**: Shift+F5 and `run_scene`/`screenshot_scene` `from`; Settle physics and `settle_scene` write resting poses as one edit, both through `playtest.ts`. Settling is an action rather than a toggle on save: a save that silently moves things is a save nobody can trust |
-| ~~Paths and splines~~ | **Done, 12 Nov 2026**: `paths` (format 4) with straight or smooth, open or closed lines; `PathFollow` follows one by name along its arc length; the editor draws every path and edits points on the canvas. Still to do: roads (a mesh or sprite strip drawn along a path) and following a path's tangent (a turning cart) |
-| ~~Particle and cycle editors~~ | **Done, 12 Nov 2026**: the Look tab (cycle strip, phase scrubber, states from a phase; particle sliders previewing until release), look edits in place (`Scene.rebuildLook`), particle defaults in one engine module; `look_at`, `edit_look` and `screenshot_scene` `phase` for agents. Still to do: 2D particles (the format is 3D only); a curve per value across the cycle rather than states blended pairwise |
-| ~~Search and audit~~ | **Done, 12 Nov 2026**: the schema walk reports every reference (`validate`'s `onRef`), `audit.ts` builds uses and the project audit on it; the Assets tab marks unused and missing files, the tree answers Where is it used, agents get `find_uses` and `audit_project`. File uses read the loaded document, so a sheet bound through `uses` counts. A rule's `switch` stays a string (it may name a page-built scene) and is collected by hand |
-| Presence | Who (person or agent) has a scene open and what they have selected, over the host's one history |
-| Terrain | A coarse heightfield with raise and lower brushes for 3D levels |
-| ~~Agent vision~~ | **Done, 12 Nov 2026**: MCP `screenshot_scene` (`shots.ts`), with unsaved edits, framing, play and the whole window as options |
-| Export targets | An itch-ready zip, a PWA manifest; F14's settings panel absorbing input bindings |
-| Online from the editor | After headless server mode (networking plan): a host-a-session button and a replica inspector |
-
-#### Rework the examples on what the engine already has, noted 12 Nov 2026
-
-A second pass over the seven editor projects, with a different lens than
-the GUI-reach audit below. That audit read every code-only behaviour as a
-missing format feature (the F-items). Re-read against the engine as it
-stands, most of them are not: the code predates features that have since
-shipped, or ignores primitives the engine always had. The standard m2d
-shape is: **tunables in declared properties, placement and look in the
-scene, behaviour in constraints, outcomes in rules, UI in HUD elements,
-helpers (Quest, Npc, UIDialogue, UIMinimap, UIAbilityBar, UIBackdrop)
-from the engine** — and only then a hook for what truly has no home.
-The F-items that survive this cut are listed at the end.
-
-**Every project** still set what the scene can already say — **done,
-12 Nov 2026**, in one round:
-
-- The light and the post pass moved into `world.lighting` and
-  `world.post` for Ash Row, Salvage Run, Cinder Keep and Hollow Grove
-  (Ember Valley and The Facility had them); the keep's and the drift's
-  cameras moved into `world.camera` on the way, with `bounds: "world"`
-  taught to project (an isometric camera clamps to the projected
-  ground). Hooks no longer clear any of it: the scene set it, the
-  engine clears it.
-- Every level's sounds and music are its scene's (`assets.sounds`,
-  `assets.music`, `world.music`), the files copied into each project —
-  Ash Row and Cinder Keep had imported Hollow Grove's footstep files
-  across projects. The menus are still code screens, so each menu's
-  track stays a page registration until F15.
-- The HUDs' static parts are `hud` blocks: the objective line, the
-  health meter, the notice, the hint, the yard's titles. The hud text
-  gained `letterSpacing` and an outline, the meter a `low` colour, the
-  minimap plot `{ shape, color, size }`, so nothing dimmed in the move.
-  Still code, deliberately: Salvage Run's boost meter (computed fill),
-  the `instanceof` minimaps with live colours, the keep's ability bar
-  and satchel, the grove's dialogue, and the hooks that write into the
-  HUD's elements by id.
-- Actor tunables as module constants — **done for the gameplay numbers,
-  12 Nov 2026**. The line drawn: an actor's *own* numbers become
-  `static properties` (the yard hero's speeds, turn rate, gaits and clips;
-  Salvage Run's ship guns and ram formula, the drone's fire range and
-  cadence, the meteors' spin, drift and size class the scene already set,
-  the sky's seed; Ash Row's thug windup, reach and hit lift; the wisp's
-  height and repel speed; the turret's bolt lifetime; the agent's hand
-  lamp; `sealed` on the gate, stair and clearing; and the engine's own
-  `Player.jumpVelocity`). Numbers an actor sets on its *constraints*
-  (chase speeds, contact damage, thrust) stay in its constructor: the
-  editor's Running constraints card already shows and retunes them by
-  slot, which is the standard shape. Cinder Keep's trade radius was two
-  numbers (120 for the prompt, 140 on the server); it is one declared
-  `tradeRadius`, which the intent reads (`entity({ within })` takes a
-  function of the target). Left as is, deliberately: drawing constants
-  internal to a look (skyline periods, reed counts, glow radii) — the
-  actor-drawn glows want `prefab.light` (F10's remainder), not
-  properties.
-- **Two bugs the pass found, fixed**: Hollow Grove's walker, "frozen" in
-  conversation, still ticked its movement and attack constraints and
-  ticked its cooldowns and health twice a tick; its warded wisp still
-  chased (so the ward pushed it half as far) and double-ticked too. Both
-  re-implemented the entity's tick to leave a constraint out; the engine
-  now has `Constraint.suspended` for that, and `groveTicks.test.js`
-  pins both down.
-
-**Per project, the rewrites** — **mostly done, 12 Nov 2026**:
-
-| Project | Rewrite with existing features |
-| --- | --- |
-| ~~Ash Row~~ | **Done**: the waves are placed thugs, `sealed` (unseen, untouchable, still) until their section's zone calls them; the locks, the GO sign and the door are rules. This needed three small, general rules features rather than code: rule `id`s with `after`/`before`, `death` over a group of `objects`, and a `camera` action moving bound edges. `hooks.js` is down to the camera's height and Escape. A headless playthrough test covers the chain |
-| ~~Salvage Run~~ | **Done**: the gate's opening, its warning while sealed and the jump out are rules; only the running salvage count is code. Still code, as noted: the `instanceof` minimap and Escape (F14) |
-| ~~The Facility~~ | **Done**: the concrete is the scene's `background` layer (tile layers draw after the hook's background pass, so the accents moved into a seeded `FloorMarks` object drawn just above it); the lamp grid is 35 placed `CeilingLamp`s with their prefab's light, `live` and `flicker` declared; the player's light is its prefab's; the sonar's period and range are declared on the player. Play looks the same |
-| Ember Valley | The four `textures/forest/*.png` orphans are deleted. Still open: baking the ridge backdrop to seed-once images on parallax `tileLayers`, leaving only fireflies and leaves as code |
-| Hollow Grove | Already on `Quest`/`Npc`/`UIDialogue`; its light, post and HUD moved. The quest stages and lines as JS constants wired to the engine's `Quest` *is* a standard shape — F8 (quests as assets) is optional, not owed |
-| ~~Cinder Keep~~ | **Done**: `UIAbilityBar` and the satchel are engine UI plus game code, which is the standard shape; the trade radius is one declared property both the prompt and the server read |
-| ~~The Yard~~ | **Done**: `lot.json` declared seven prefabs nothing placed (pillar, copper, lamp, neon, wheel, breather, mirror), leftovers of the lot rebuild; deleted |
-
-**Found on the way, fixed:** the engine's `Trigger` had a placeholder
-`onEnter` that switched to `mainMenu` on touch, which cut off Ember
-Valley's and The Facility's exit rules (their notice and three-second
-delay never showed); it is gone. Ash Row, Salvage Run, Hollow Grove,
-Ember Valley and The Facility read the renderer in actor constructors,
-which a headless game refuses (Ash Row's were dead fields); they read it
-when drawing now, as Cinder Keep's actors always did. Hollow Grove's
-scene named a music file that `.gitignore` (`*.mp3`) had kept out of the
-repository; it is tracked now, and `sceneAudio.test.js` holds every scene
-to naming only tracked sounds and tracks.
-
-**Left for the owner** (untracked local files, so not deleted here): the
-yard's spare sky (`environments/kloofendal_43d_clear_puresky_2k.hdr`) and
-three textures (`aerial_grass_rock_diff_1k.jpg`, `forrest_ground_01_diff_1k.jpg`,
-`polyhaven/dirty_carpet.jpg`). Files the audit lists as unused but code
-loads (ability icons, Salvage Run's runtime effect sheets, Ash Row's old
-`bricks.jpg`/`facade-*.jpg` experiments) are not orphans; the effect
-sheets want moving into `assets.spritesheets`.
-
-**What genuinely needs engine work** (the F-items that survive):
-
-- F4 backdrop layers as data — but smaller than written: parallax image
-  layers already exist (`tileLayers`); what is missing is a sky
-  gradient/`clearColor` and seeded scatter (stars, clouds, motes) in 2D.
-- A `camera` rule action (set bounds/lock) — the one piece of Ash Row's
-  sections that has no data form; small, and it also covers Salvage
-  Run's arena shrink if it ever wants one.
-- A `spawn` rule action would remove the last hand spawning anywhere —
-  worth weighing against placing-sealed-objects, which covers the
-  shipped demos.
-- 2D particle fields (the format is 3D-only) — fireflies, leaves, rain.
-- F8 quest/dialogue/ability/item tables as assets — optional; the code
-  shape on the engine's helpers is acceptable m2d.
-- F14 project settings (input maps, starting scene), F15 menus as UI
-  scenes (`UIBackdrop` becomes a backdrop element) — unchanged.
-- F1/F2 leftovers as recorded: wheel-zoom limits, speed zoom, 2D tint,
-  `clearColor`; F10's flicker; F11's spawn points.
-
-#### The GUI-reach audit, 10 Nov 2026
-
-Every file of the seven editor projects (Ash Row, Salvage Run, Cinder Keep, Hollow Grove, Ember Valley, The Facility, The Yard) and the shared modules they import was read against the scene schema. The scene document covers placement, prefabs, assets, tile layers and the world's size, gravity, sort, projection and (3D) environment, and nothing else. Everything below is invisible to the editor today. The one day/night cycle is the yard's (`hooks.js`: key T eases afternoon to dusk); Ember Valley's `dusk.js` is a fixed palette.
-
-**Engine and format features the audit asks for**, each named once here and referenced per project below. These are the real roadmap items; the per-project rows are the backlog they clear.
-
-| Feature | What it is | Why | Seen in |
-| --- | --- | --- | --- |
-| F1 `world.camera` | **Shipped, Nov 2026** (mode, follow, zoom, lerp, follow axes, bounds incl. `"world"`, rotation follow, orbit distance, yaw, pitch, limits, fov, target offset; `world.player`). Still to do: wheel zoom limits and drag sensitivities (the yard's and the keep's), speed zoom (Salvage Run). Migrated: Ember Valley, The Facility, The Yard | Every project's `onEnter` configured the camera in code | all seven |
-| F2 `world.lighting`, `world.post` | **Shipped, Nov 2026** (2D ambient; 3D sun, sky and ground ambient, fog, exposure, shadow distance; the post blocks of both renderers, dof following the camera's target). Still to do: the 2D fallback tint, `clearColor`. Migrated: Ember Valley (ambient and post), The Facility (ambient; its post tears with damage and stays in code) | Every project set these in a hook | all seven |
-| ~~F3 `world.cycle`~~ | **Done, Nov 2026**: named lighting states blended by phase, turned by `period` or eased to `target` by game code or a rule; the yard's afternoon and dusk moved into its scenes | — | yard, oblique |
-| F4 `world.sky`, `world.clearColor`, backdrop layers | A sky gradient, a clear colour, parallax image layers and seeded scatter layers (clouds, stars, motes) as scene data rather than code | Street, Sky, DuskValley, the facility floor and every menu backdrop are drawn procedurally in code; only their seeds are declared | belt, drift, platformer, topdown, iso, oblique |
-| F5 `assets.sounds`, `world.music`, `world.ambience` | **Shipped, Nov 2026**: `assets.sounds`, `assets.music`, `world.music`. Still to do: `world.ambience` (loops with fade); migrating the demos, whose music files are page imports under `shared/` rather than project assets | Every project registers sounds in M2D boot options and starts music in a hook | all seven |
-| ~~F6 A level HUD~~ | **Done, Nov 2026**: `hud` on a level — text, notice, meter (bound to a constraint's fields), minimap (plot by prefab), image, rect — built in the editor too; rules write notices and objectives. Still to do: ability bar, dialogue box, inventory list and slot | — | all seven |
-| ~~F7 Rules and objectives~~ | **Done, Nov 2026**: `world.rules` (start, collected, enter, death, fall → notice, objective, sound, unseal, remove, set, switch, gameOver, cycle), `world.killPlane`; Ember Valley and The Facility win and lose by rules now. Still to do: quest stages and waves (F8) | — | all seven |
-| F8 Quest, dialogue, ability and item data as assets | `assets.quests` (stages, advancing NPC, effects), `assets.dialogue` keyed by `who`, `assets.abilities` (cooldown, range, damage), `assets.items` and shop tables; each with a table or graph editor | Hollow Grove's quest and lines, Cinder Keep's abilities, satchel and wares, Ash Row's waves (`layout.json`) are JS constants or sidecar files | oblique, iso, belt |
-| ~~F9 `prefab.physics.category`, `mask`~~ | **Done, Nov 2026** (names or bits). Still to do: `mass` | — | belt, drift, platformer, topdown |
-| ~~F10 2D `prefab.light`~~ | **Done, Nov 2026**: a 2D level's prefab `light` draws with `drawLight` at the body each frame (point or spot, offset, shadows). Still to do: moving the demos' actor-drawn glows and the facility's lamp grid onto it; flicker | — | platformer, topdown, iso, oblique |
-| F11 Spawn points and the player object | **Half done, Nov 2026**: `world.player` names the player's object. Still to do: spawn points for online joins | Cinder Keep's online spawn is a literal | yard, iso |
-| F12 Code-attached constraints in the inspector | **Shipped, Nov 2026**: the Object tab's Running constraints card lists every slot with live params and a Retune that adds a document entry. Still to do: a scene retune applying after the constructor's own retune (the Thug, Creature and Wisp pattern) | Every demo actor attaches constraints in code | all seven |
-| ~~F13 `static params` on the shared effects~~ | **Done, Nov 2026**: `AttackSwing` and `HitBurst` declare params and descriptions and every 2D demo registers them | — | all 2D projects |
-| F14 Project settings | Match options (`maxPlayers`, interest radius), the starting scene, input maps, texture filter, exposed on a project panel and in `m2d.project.json` | Cinder Keep's match module, the yard's `?scene=`, `textureFilter` in hooks | iso, yard |
-| F15 Menus as UI scenes | The shared code menu becomes a `type: ui` scene with a menu-item element and a backdrop element | All seven menus are code screens with procedural backdrops | all seven |
-
-**Two bugs the audit found**, ~~fixed by reordering rather than a feature~~ **fixed, Nov 2026**: `Rogue` and `Knight` spread `...options` before their own literals, so the declared `ObliquePlayer` properties showed in the inspector and whatever was typed there was silently ignored; the literals are defaults under the options now. Also `lot.json` is generated by `buildLotScene.mjs` but carries no `generator`, so edits can be overwritten by the next seed run (decided: the scripts seed once; the field stays off and the script is the one at risk).
-
-**Per project**, the small changes (a: declare as `static properties`; b: move into an existing scene field) and which features above the rest wait on.
-
-| Project | Declare (a) | Move into the scene (b) | Waits on |
-| --- | --- | --- | --- |
-| Ash Row (belt) | Street bay, tile, skyline periods, roof height, parallax rates; Foreground spacing; Lamp post height; Thug sprite, speeds, lift, windup, reach; Rogue speeds, cooldown, combo lifts | World size and lane from `row.json` (drop `layout.json`); Thug and Rogue constraints (Attack, Footsteps) into prefab `constraints` | F1 F2 F4 F5 F6 F7 (sections and waves: F8) F9 F12 F13 F15 |
-| Salvage Run (drift) | Ship hull, sprite, laser speed, damage, life, fire rate, gun offset, ram formula; Meteor `spin`, `drift`, `sizeClass` (already set in `field.json`, undeclared), size table; Drone fire range, cadence; Gate `sealed`; Sky seed, star count, parallax | World size from `field.json` (drop `layout.json`); runtime sprite sheets into `assets.spritesheets`; Health, ThrustControl, Chase, Hover into prefab `constraints`; split chunks by prefab name | F1 (speed zoom) F2 F4 F5 F6 (minimap) F7 F9 F12 F13 F15 |
-| Cinder Keep (iso) | Wall tile and fade thresholds; Torch radius, colour, intensity; Ember elevation and light; Stair `sealed`; Creature sprite, damage, knockback; Knight light; one `tradeRadius` (now 120 in one file and 140 in another) | World size from `keep.json`; knight spawn from the `player` prefab; Hover and Chase retunes into prefab `constraints`; ability icons into assets | F1 F2 F5 F6 (ability bar, satchel, shop) F7 F8 (abilities, items, wares) F11 F12 F13 F14 F15 |
-| Hollow Grove (oblique) | Tree sway rate and amplitude; Pond reed and lily counts; Clearing stones and `sealed`; GroundDetail densities and palettes; Wisp elevation, repel speed, light; Lantern and Wanderer lights; skill numbers | World size from `grove.json`; GroundDetail texture as a sheet ref; AttackSwing, Footsteps, Chase into prefab `constraints` | F1 F2 F3 F5 F6 (dialogue, minimap) F7 F8 (quest, dialogue, skills) F12 F13 F15 |
-| Ember Valley (platformer) | Player `jumpVelocity`; coin, bee, gate and platform glow radius and colour; cliff `facing` | World size from `level1.json`; `levelComplete` trigger gets an action | F1 F2 F4 F5 F6 F7 (kill plane, game over) F9 F10 F12 F13 F15 |
-| The Facility (topdown) | Turret bolt offset, size, lifetime; Player swing colour, hurt decay, hand-lamp reach and spread; sonar period and reach; lamp `live` and `flicker` | World size; floor sheet as a `background` or `tileLayers` entry; bolt as a prefab | F1 F2 F4 F5 F6 F7 F9 F10 (the lamp grid becomes placed lamps) F12 F13 F15 |
-| The Yard (yard) | Hero walk, jump and fly speeds, turn rate, animation thresholds and clip names, key bindings; Footsteps as a constraint with params | `world.width/height` into the scenes; the HUD title from the scene's `title`; `world.environment` set from the HDR already in the project | F1 (orbit) F2 (sun, fog, exposure, depth of field) F3 F5 (wind) F6 F11 F14 |
-
-Order: F1, F2 and F5 first, since they are the same `onEnter` block in all seven projects and the editor shows nothing of a scene's look without them; then F12 and F13 (the inspector tells the truth about constraints); then F7 and F6 (a level can be won and seen without code); then F3, F4, F9, F10, F11; F8, F14 and F15 last, each a data kind with its own editor.
-
+| The editor, with MCP as an equal client: author, play and ship any m2d game. Current: every example and docs demo on idiomatic m2d | `projects/editor` |
+| Networking: 3D online, then datagrams | `projects/networking` |
+| 3D places: terrain, decals, water, atmosphere | `projects/3d` |
+| An asset library of open materials and models | `projects/3d` |
 
 ## Next
 
-| Work | Done when |
-| --- | --- |
-| Visibility culling | `Camera.isVisible` is used. `Scene.draw` skips entities outside the view. The showcase reports the saved primitives. A test pins that an off-screen entity emits no draw calls. Culling must not change what is visible at any aspect mode or render resolution. (`LayerManager` already skips off-screen tiles, pinned by `test/perspectives.test.js`) |
-| ~~Tilemap layers~~ | **Done, Nov 2026** (E8): a cell may be `[column, row, tileX, tileY]`, Ember Valley paints a real map, the editor has the paint tool. Still open: validating indices against the sheet (the loader cannot see the image), and batching the tile draws |
-| Named input actions | Games bind actions such as `jump` and `attack` instead of key codes. Bindings can be listed and rebound, and the settings menu grows a rebinding row using `keyLabel`. An action binds pointer buttons and gestures too. The raw key and event API stays |
-| Gamepad | A fourth source behind `game.input`. Axes feed `axis` and `vector`, buttons feed `isDown` and `justPressed`, hot-plugging works. Pairs with named actions |
-| Web Audio mixing | A Web Audio graph with master, music and effects gain nodes replaces the audio elements. Volume rows in the settings menu, persisted with the other settings. Overlapping effects stop cutting each other off |
-| Extension guide | A minimal example adds a new actor, constraint, scene and renderer backend. The documented commands work from a fresh checkout |
+- **Visibility culling**: off-screen entities issue no draws, at every aspect mode and resolution.
+- **Tile layers**: indices validated against the sheet; batched draws.
+- **Gamepad**: a fourth input source alongside named actions.
+- **Web Audio mixing**: master, music and effects gains, persisted volumes.
+- **Extension guide**: adding an actor, a constraint, a scene and a renderer backend from a fresh checkout.
 
 ## Perspectives
 
-The engine ships a side view and a top-down view. The ones below simulate on the same flat plane; what changes is draw order, the camera transform and a faked third axis at render time. Four pieces of shared infrastructure carry almost all of them:
-
-1. **Draw order.** Entities and tile layers sort by `zIndex`, then `depth` (the feet, by default), instead of insertion order. *Done.*
-2. **Camera transform.** The camera owns a full world-to-view matrix: translate, zoom and rotation. Isometric adds a projection on top. *Zoom and rotation done.*
-3. **Tile layers.** Several tiled layers per scene, each with its own parallax factor and `zIndex`, culled to the view. *Done.* Per-tile index maps remain a separate item above.
-4. **Pseudo-z.** An `elevation` on entities that lifts the drawn sprite without touching the body, so a jump or a flight reads as height while the collider stays on the ground. *Done.*
-
-| Perspective | Games like | Needs beyond the shared work | Status |
-| --- | --- | --- | --- |
-| 3/4 oblique top-down | Zelda, Stardew Valley, Enter the Gungeon | A prefab `footprint` so the collider is the feet and the sprite stands above it; a demo that walks behind things | **Done** |
-| Isometric, dimetric 2:1 | Hades, Diablo, tactics games, city builders | A ground-to-render projection applied to positions only, a diamond tile layer with sparse cells, inverse projection for picking, screen-aligned keys and click-to-move. Physics stays unprojected | **Done** |
-| Beat 'em up, belt scroller | Streets of Rage, Castle Crashers | The `belt` projection, `elevation` as the jump, the engine's ground shadow, `followAxes` and section locks through `bounds` | **Done** |
-| Auto-scrolling shmup, endless runner | — | `camera.mode = 'scroll'`; a simulation-side scroll front for the window's rules | **Done** as Beeline |
-| Rotating top-down | Twin-stick shooters, Hotline Miami | `camera.followRotation` and `ThrustControl` | **Done** as Salvage Run |
-| Single-screen, room-based | Bomberman, Celeste rooms | `camera.mode = 'rooms'` with `roomSize` | **Done** as Hedgerow Court (the maze example, rebuilt as a garden of one-screen courts) |
-| Point-and-click adventure | Monkey Island | Walk-behind layers, sprite scale by depth, pathfinding on a walkable polygon | Later |
-| Mode 7 pseudo-3D | F-Zero, SNES Mario Kart | A ground-plane shader in the WebGL effects pass over flat top-down physics | Stretch |
-| 2.5D parallax side view | Ori, Rayman Legends | Scenery planes at their own parallax fractions above and in front of the play plane | **Done** in Ash Row's street: skyline at 0.12, blocks at 0.45, frontage at 1, bollards at 1.25 |
+| Perspective | Status |
+| --- | --- |
+| Side view, top-down, 3/4 oblique, isometric, belt scroller, auto-scroller, rotating top-down, single-screen rooms, 2.5D parallax | Shipped, each with a demo |
+| Point-and-click adventure: walk-behind layers, depth scaling, polygon pathfinding | Later |
+| Mode 7 pseudo-3D: a ground-plane shader | Stretch |
 
 ## Later
 
-- **Types.** The engine is plain JavaScript with JSDoc, and the JSDoc is not checked by anything. That was affordable while the shapes were small and local; it is getting expensive. The scene schema, the constraint `params` blocks and the asset database all pass around objects whose shape is the contract, a renderer backend and a physics backend each implement an interface written only in prose, and an editor will want to generate UI from these shapes. Two routes, and the choice is the item: turn on `checkJs` with a `tsconfig` and fix the JSDoc until it passes, which keeps the source as it is and buys editor hints and a build-time check; or move the engine to TypeScript, which is a larger change and a published-types story for `m2d-engine` consumers. Either way the win is the same: the interfaces that exist only as comments today become something a tool can verify.
-
-- Persist volumes and bindings once audio mixing and named actions exist (resolution, aspect and the world filter already persist through their cvars).
-- Cache sprite sheets across scenes. `Scene.unload` drops them, so re-entering a level decodes every image again.
-- More reusable UI components, actors and constraints.
-- Lockstep or rollback networking, on top of the authoritative model above. It needs Rapier's deterministic build (`@dimforge/rapier2d-deterministic-compat`) and a deterministic math module that simulation code uses in place of `Math.sin`, `Math.cos`, `Math.atan2`, `Math.exp` and `Math.hypot`, whose results may differ between JavaScript engines.
-
-## Polish debt
-
-- **Ash Row** landed flat and careless; it was rebuilt in the 2.5D pass (skyline, mid blocks and frontage on three parallax planes, a real road, kerb props, a foreground). The lesson stands: every demo is a showcase, and one careless one undoes the others. Do not ship another example below that level.
-
-## Working notes
-
-Keep a small reproducible scene with each rendering fix instead of growing the showcase. Optional renderer features are not required of every backend. Keep demos runnable from a fresh checkout, and record asset origins alongside new assets.
+- **Types**: `checkJs` over the JSDoc, or the engine in TypeScript. The toolchain is in (`npm run typecheck`).
+- Sprite sheets cached across scenes.
+- Lockstep or rollback networking.

@@ -1,5 +1,7 @@
 # Plan: 3D support and a visual editor
 
+Part of [[3d]]. A shipped phase plan, kept as the record of why things are built as they are.
+
 Working plan, not published documentation. `docs/.vitepress/config.mjs`
 excludes `plans/**` from the site. When a piece of this lands, the
 user-facing half of it goes into the real docs pages as usual.

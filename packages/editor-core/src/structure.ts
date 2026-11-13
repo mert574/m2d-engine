@@ -2,7 +2,7 @@
  * Structural edits, as ops: the changes that add to, rename or rearrange
  * a scene's containers rather than tune a field in one.
  *
- * One place for them, on purpose (docs/plans/editor-e6-e9.md): the GUI
+ * One place for them, on purpose (knowledge-base/projects/editor/editor-e6-e9.md): the GUI
  * and the MCP tools both call these, so neither can do what the other
  * cannot, and a rename that has to carry its references (a prefab's name
  * is written in every object that uses it) is right in both. Each

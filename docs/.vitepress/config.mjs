@@ -11,9 +11,7 @@ export default defineConfig({
   outDir: 'dist',
   cleanUrls: true,
   lastUpdated: true,
-  // `plans/**` holds working plans for large in-flight work. They are
-  // tracked with the docs but are not published to the site.
-  srcExclude: ['README.md', 'demos/**', 'plans/**'],
+  srcExclude: ['README.md', 'demos/**'],
   // The engine's model-loader worker imports shared modules, which only an
   // ES-format worker bundle can hold.
   vite: { worker: { format: 'es' } },

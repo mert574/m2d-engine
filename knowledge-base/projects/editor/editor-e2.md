@@ -1,5 +1,7 @@
 # E2: edit and save — done, Nov 2026
 
+Part of [[editor]]. A shipped phase plan, kept as the record of why things are built as they are.
+
 Working record, not published documentation; the phase row lives in
 `docs/contributing/roadmap.md`. The plan as written is kept below the
 record of what shipped, which says where the build departed from it. E0 (enablement), E1 (the read-only

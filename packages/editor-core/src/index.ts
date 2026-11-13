@@ -19,7 +19,7 @@
  * - `structure` — the structural edits (add an entry, rename a prefab,
  *   move a layer) as ops, shared by the GUI and the MCP tools.
  *
- * See docs/plans/editor-e2.md for how the editor and its host use them.
+ * See knowledge-base/projects/editor/editor-e2.md for how the editor and its host use them.
  */
 
 export { writeScene, writeManifest, write, WriteError } from './writer.ts';

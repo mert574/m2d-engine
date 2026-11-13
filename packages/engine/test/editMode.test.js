@@ -10,7 +10,7 @@ import { SCENE_VERSION } from '../src/core/sceneLoader.js';
  * document exactly as a load builds it — entities, constraints, ids,
  * bodies — but no game code runs against it: no lifecycle hook, no tick,
  * no game time, no transition. The contract an editor's viewport stands
- * on; see docs/plans/editor-e0.md (E0.6).
+ * on; see knowledge-base/projects/editor/editor-e0.md (E0.6).
  */
 
 class Crate extends Entity { name = 'Crate'; }

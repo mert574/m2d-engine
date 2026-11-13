@@ -31,7 +31,7 @@ export const Vec2 = {
  *
  * Kept beside `Vec2` rather than replacing it: a 2D game's vectors stay
  * two numbers, which is what its physics, its renderer and its sprite
- * maths all want. See `docs/plans/3d-and-editor.md` for why the engine
+ * maths all want. See `knowledge-base/projects/3d/3d-and-editor.md` for why the engine
  * runs two dimensions rather than one.
  */
 export const Vec3 = {

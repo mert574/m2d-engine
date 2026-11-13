@@ -11,7 +11,7 @@ import { createCanvasElement, readCanvas2DPixels } from '../helpers/environment.
 
 /**
  * Multiple live views of one scene — the editor plan's hard requirement
- * (docs/plans/editor-e0.md, E0.5). One frame, several cameras, several
+ * (knowledge-base/projects/editor/editor-e0.md, E0.5). One frame, several cameras, several
  * canvases: in 3D the renderer shares the assembly, cull and shadows and
  * runs the camera passes per view; in 2D the world pass is walked once
  * more per view through its own renderer instance. The assertions are

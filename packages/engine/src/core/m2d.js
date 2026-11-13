@@ -171,7 +171,7 @@ const defaultOptions = {
    * receives no input, `gameOver` is inert, and cvars do not persist, so
    * an editing session cannot overwrite a player's settings. This is what
    * an editor's viewport runs; playing in an editor is a *fresh* game
-   * without this flag. See docs/plans/editor-e0.md (E0.6).
+   * without this flag. See knowledge-base/projects/editor/editor-e0.md (E0.6).
    */
   editMode: false
 };

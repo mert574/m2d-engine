@@ -1,5 +1,7 @@
 # Plan: E0 — editor enablement rounds
 
+Part of [[editor]]. A shipped phase plan, kept as the record of why things are built as they are.
+
 Working plan, not published documentation. Agreed direction with the owner,
 Nov 2026. This plan covers everything that must land *before*
 `editor-core` (the headless scene-document/command package) is worth
