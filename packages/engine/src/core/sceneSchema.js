@@ -212,6 +212,8 @@ const CAMERA = s.object({
   zoom: s.number({ positive: true, description: '2D' }),
   lerp: s.number({ min: 0, max: 1, description: 'Fraction of the way to the target per frame at 60 Hz' }),
   followAxes: s.object({ x: s.boolean(), y: s.boolean() }, { label: 'Follow axes', description: '2D: which axes follow the target' }),
+  scrollVelocity: s.object({ x: s.number({ unit: 'px/s' }), y: s.number({ unit: 'px/s' }) },
+    { label: 'Scroll velocity', description: '2D scroll mode: how fast the view travels on its own, held inside bounds' }),
   bounds: s.union([
     s.enumOf(['world'], { match: value => typeof value === 'string' }),
     s.object({ left: s.number({ required: true }), top: s.number({ required: true }), right: s.number({ required: true }), bottom: s.number({ required: true }) },

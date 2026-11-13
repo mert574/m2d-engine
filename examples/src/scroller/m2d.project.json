@@ -1,0 +1,14 @@
+{
+  "name": "Beeline",
+  "definition": "game.js",
+  "initialScene": "mainMenu",
+  "display": {
+    "width": 960,
+    "height": 540
+  },
+  "input": {
+    "actions": {
+      "menu": ["Escape"]
+    }
+  }
+}

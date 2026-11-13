@@ -1,4 +1,5 @@
 import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { makeRng, range } from '../shared/rng.js';
 import { LENGTH, HEIGHT } from './meadow.js';
 
@@ -47,7 +48,11 @@ function shift(camera, parallax) {
   return camera.x * (1 - parallax);
 }
 
-/** Lay a periodic strip of clumps: seeded sizes and spacing, one period. */
+/**
+ * Lay a periodic strip of clumps: seeded sizes and spacing, one period.
+ * `sprites` are the plane's silhouettes, as the scene handed them over
+ * (and nulls in a headless game, which never draws).
+ */
 function makeStrip(rng, period, sprites, minSize, maxSize, spacingMin = 0.45, spacingMax = 0.8) {
   const clumps = [];
   for (let x = 0; x < period;) {
@@ -59,7 +64,7 @@ function makeStrip(rng, period, sprites, minSize, maxSize, spacingMin = 0.45, sp
 }
 
 /** Draw one strip, repeated across the view at its parallax. */
-function drawStrip(renderer, textures, camera, area, time, { clumps, period, parallax, baseY, swayAmount = 0.03, alpha = 1, contactShadow = 0, shadowLean = 0 }) {
+function drawStrip(renderer, camera, area, time, { clumps, period, parallax, baseY, swayAmount = 0.03, alpha = 1, contactShadow = 0, shadowLean = 0 }) {
   const offset = shift(camera, parallax);
   const left = area.left - offset;
   const first = Math.floor((left - 400) / period) * period;
@@ -67,7 +72,7 @@ function drawStrip(renderer, textures, camera, area, time, { clumps, period, par
     for (const clump of clumps) {
       const x = px + clump.x + offset;
       if (x < area.left - clump.size || x > area.right + clump.size) continue;
-      const image = textures[clump.sprite];
+      const image = clump.sprite;
       if (!image) continue;
       const sway = Math.sin(time * 0.7 + clump.sway) * swayAmount;
       // The clump's shadow pools at its roots and leans away from the sun,
@@ -92,7 +97,18 @@ function drawStrip(renderer, textures, camera, area, time, { clumps, period, par
   }
 }
 
+/** The silhouettes a parallax plane is populated from: a list of images the scene names. */
+const plane = (description) => s.array(s.ref('image'), { description });
+
 export class Meadow extends Entity {
+  static properties = {
+    trees: plane('The treeline past the fields'),
+    far: plane('The far grass and bushes'),
+    mid: plane('The middle distance'),
+    verge: plane('The verge the flowers grow from'),
+    seed: s.integer({ min: 0, initial: 0x5eed5, description: 'Which scatter of clumps' })
+  };
+
   name = 'Meadow';
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
@@ -103,17 +119,16 @@ export class Meadow extends Entity {
     body.setCollisionFilter({ category: 0, mask: 0 });
     this.zIndex = 0;
     this.depth = -Infinity;
-    this.textures = options.textures ?? {};
 
     const rng = makeRng(options.seed ?? 0x5eed5);
     this.treePeriod = 3000;
-    this.trees = makeStrip(rng, this.treePeriod, ['tree-a', 'tree-b', 'tree-c'], 140, 240, 0.5, 1);
+    this.trees = makeStrip(rng, this.treePeriod, options.trees ?? [], 140, 240, 0.5, 1);
     this.farPeriod = 2400;
-    this.far = makeStrip(rng, this.farPeriod, ['far-grass-a', 'far-grass-b', 'far-bush'], 80, 150);
+    this.far = makeStrip(rng, this.farPeriod, options.far ?? [], 80, 150);
     this.midPeriod = 1800;
-    this.mid = makeStrip(rng, this.midPeriod, ['mid-grass-a', 'mid-grass-b', 'mid-flowers', 'mid-sprouts'], 90, 160, 0.6, 1.1);
+    this.mid = makeStrip(rng, this.midPeriod, options.mid ?? [], 90, 160, 0.6, 1.1);
     this.vergePeriod = 1400;
-    this.verge = makeStrip(rng, this.vergePeriod, ['play-grass-a', 'play-grass-b', 'play-grass-c'], 56, 100, 0.55, 1);
+    this.verge = makeStrip(rng, this.vergePeriod, options.verge ?? [], 56, 100, 0.55, 1);
 
     this.clouds = Array.from({ length: 3 }, (_, i) => ({
       y: 48 + i * 52 + range(rng, -14, 14),
@@ -220,10 +235,8 @@ export class Meadow extends Entity {
       renderer.popTransform();
     }
 
-    const textures = this.textures;
-
     // The treeline past the fields, sunk in haze.
-    drawStrip(renderer, textures, camera, area, time, {
+    drawStrip(renderer, camera, area, time, {
       clumps: this.trees, period: this.treePeriod, parallax: 0.06, baseY: HEIGHT - 118, swayAmount: 0.008, alpha: 0.85
     });
     // Aerial perspective: the sky laid thinly back over the distance.
@@ -238,10 +251,10 @@ export class Meadow extends Entity {
       }
     });
 
-    drawStrip(renderer, textures, camera, area, time, {
+    drawStrip(renderer, camera, area, time, {
       clumps: this.far, period: this.farPeriod, parallax: 0.15, baseY: HEIGHT - 86, swayAmount: 0.015, alpha: 0.92
     });
-    drawStrip(renderer, textures, camera, area, time, {
+    drawStrip(renderer, camera, area, time, {
       clumps: this.mid, period: this.midPeriod, parallax: 0.45, baseY: HEIGHT - 38, swayAmount: 0.02,
       contactShadow: 0.16, shadowLean: 4 + t * 10
     });
@@ -258,7 +271,7 @@ export class Meadow extends Entity {
       x: area.left, y: HEIGHT - 35, width, height: 2.5,
       fillStyle: mixColor('#b8d87e', '#8a6a9a', t), globalAlpha: 0.8
     });
-    drawStrip(renderer, textures, camera, area, time, {
+    drawStrip(renderer, camera, area, time, {
       clumps: this.verge, period: this.vergePeriod, parallax: 1, baseY: HEIGHT + 4,
       contactShadow: 0.28, shadowLean: 6 + t * 16
     });
@@ -275,6 +288,11 @@ export class Meadow extends Entity {
 }
 
 export class ForeMeadow extends Entity {
+  static properties = {
+    fore: plane('The grass and bushes the lane is seen through'),
+    seed: s.integer({ min: 0, initial: 0x0f0e, description: 'Which scatter of clumps' })
+  };
+
   name = 'ForeMeadow';
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
@@ -286,10 +304,9 @@ export class ForeMeadow extends Entity {
     body.setCollisionFilter({ category: 0, mask: 0 });
     this.zIndex = 6;
     this.depth = Infinity;
-    this.textures = options.textures ?? {};
     const rng = makeRng(options.seed ?? 0x0f0e);
     this.period = 2600;
-    this.clumps = makeStrip(rng, this.period, ['fore-grass-a', 'fore-grass-b', 'fore-bush'], 150, 260, 1.8, 3.2);
+    this.clumps = makeStrip(rng, this.period, options.fore ?? [], 150, 260, 1.8, 3.2);
     this.fireflies = Array.from({ length: 14 }, (_, i) => ({
       at: range(rng, 0, 1),
       y: range(rng, 220, 480),
@@ -309,7 +326,7 @@ export class ForeMeadow extends Entity {
     const width = area.right - area.left;
     const t = progress(camera);
 
-    drawStrip(renderer, this.textures, camera, area, time, {
+    drawStrip(renderer, camera, area, time, {
       clumps: this.clumps, period: this.period, parallax: 1.3, baseY: HEIGHT + 56, swayAmount: 0.04
     });
 

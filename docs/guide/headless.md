@@ -5,12 +5,15 @@ A headless game is the simulation with nothing that shows it. It has the clock, 
 ```javascript
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
-import { registerMyGame, levelScene } from './game.js';
+import { readFileSync } from 'node:fs';
+import { register, GAME } from './game.js';
+
+const level = JSON.parse(readFileSync('./scenes/level.json', 'utf8'));
 
 await initPhysics();
-const game = new M2D(null, { headless: true, worldWidth: 4000, worldHeight: 720, seed: 1 });
-registerMyGame(game);
-game.sceneManager.addScene('level', levelScene(game));
+const game = new M2D(null, { ...GAME, headless: true, seed: 1 });
+register(game);
+game.sceneManager.addScene('level', { fetch: async () => level });
 await game.sceneManager.switchTo('level');
 game.setupCollisionHandlers();
 
@@ -21,9 +24,9 @@ Pass `null` for the canvas. A headless game has no frame loop, so `game.update()
 
 ## Splitting a game
 
-A game that runs on a server and in the browser splits into two modules. `game.js` holds the simulation: the actors, the constraints, the scene definitions and their simulation hooks. `main.js` imports it and adds the camera, lights, HUD, menus and sounds. A server entry imports `game.js` alone.
+A game that runs on a server and in the browser splits into two modules. `game.js` holds the simulation: the actors, the constraints and their simulation hooks. The levels are scene files both read. `main.js` boots the project for a player; a server entry imports `game.js` and the scene file alone.
 
-Beeline is split this way. `examples/src/scroller/game.js` is the lane, `main.js` is what the player sees and `simulate.mjs` runs the lane headless from a scripted client:
+Beeline is split this way. `examples/src/scroller/game.js` is its cast, `scenes/lane.json` the lane, `main.js` what the player sees, and `simulate.mjs` runs the same lane headless from a scripted client:
 
 ```bash
 node examples/src/scroller/simulate.mjs 600
@@ -49,11 +52,11 @@ export function sceneHooks(game) {
 game.sceneManager.addScene('keep', { fetch: loadKeep, ...sceneHooks(game).keep });
 ```
 
-Most presentation needs no hook at all: the camera, the light, the HUD, music and what the player is told are the scene's data. A game without a project adds its presentation hooks on top of the definition's itself:
+Most presentation needs no hook at all: the camera, the light, the HUD, music and what the player is told are the scene's data. A game without a project adds its presentation hooks on top of the scene itself:
 
 ```javascript
 game.sceneManager.addScene('lane', {
-  ...laneScene(game, { assetUrl: foliageUrl }),
+  fetch: async () => lane,
   onShow() { /* what no scene field says */ }
 });
 ```

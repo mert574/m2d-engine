@@ -69,11 +69,6 @@ const ALLOWED = {
     'hooks: budget — exception: the quest, JS on the engine\'s Quest, and the talking that moves it on',
     'hooks: input — exception: the talking reads the tick\'s input, as the quest needs'
   ],
-  // Beeline
-  scroller: [
-    'project-file — phase 3: the meadow as a scene with a scroll camera',
-    'boot — phase 3: bootProject'
-  ],
 };
 
 const src = join(import.meta.dirname, '..', 'src');

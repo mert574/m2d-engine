@@ -7,12 +7,15 @@
 // arriving as per-tick messages through the input gate. Here the client
 // is a scripted autopilot. Prints the run's outcome as one JSON line.
 
+import { readFileSync } from 'node:fs';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { InputGate } from 'm2d-engine/net/input.js';
 import { InputSnapshot } from 'm2d-engine/core/input/snapshot.js';
-import { LENGTH, HEIGHT } from './meadow.js';
-import { BEELINE_INPUT, registerBeeline, laneScene, totalPollen } from './game.js';
+import { BEELINE_INPUT, GAME, register } from './game.js';
+
+/** The lane as the editor and the page have it: the scene file, read as it is. */
+const lane = JSON.parse(readFileSync(new URL('./scenes/lane.json', import.meta.url), 'utf8'));
 
 /** A scripted client: weave up and down, push on, dash every second and a half. */
 export function autopilot(tick) {
@@ -29,12 +32,15 @@ export function autopilot(tick) {
  */
 export async function simulate({ ticks = Infinity, seed = 1 } = {}) {
   await initPhysics();
-  const game = new M2D(null, { headless: true, worldWidth: LENGTH, worldHeight: HEIGHT, seed });
-  registerBeeline(game);
-  let reachedAt = null;
-  game.sceneManager.addScene('lane', laneScene(game, { onReached: () => { reachedAt = game.time.steps; } }));
+  const game = new M2D(null, { ...GAME, headless: true, seed });
+  register(game);
+  game.sceneManager.addScene('lane', { fetch: async () => lane });
   await game.sceneManager.switchTo('lane');
   game.setupCollisionHandlers();
+  const scene = game.sceneManager.getCurrentScene();
+  const hive = scene.entitiesById.get('hive-1');
+  const totalPollen = scene.counters.get('total');
+  let reachedAt = null;
 
   const gate = new InputGate(BEELINE_INPUT);
   game.input.setSnapshotSource(() => {
@@ -45,7 +51,10 @@ export async function simulate({ ticks = Infinity, seed = 1 } = {}) {
 
   // The lane scrolls past in a little under four minutes; a run cannot outlast it.
   const limit = Math.min(ticks, 60 * 60 * 5);
-  while (game.time.steps < limit && reachedAt === null && !game.isGameOver) game.step(1);
+  while (game.time.steps < limit && reachedAt === null && !game.isGameOver) {
+    game.step(1);
+    if (hive?.reached && reachedAt === null) reachedAt = game.time.steps;
+  }
 
   const bee = game.player;
   const outcome = {

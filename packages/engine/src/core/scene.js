@@ -871,17 +871,35 @@ export class Scene {
    * actor names its art in data — the flame its ship trails, a ground
    * texture — and the scene hands it over loaded. Headless there is no
    * art, and the property arrives as null.
+   *
+   * A property declared as a list or a record of refs
+   * (`s.array(s.ref('image'))`) is resolved the same way, entry by entry:
+   * a scenery actor that paints a plane from a handful of silhouettes
+   * takes the set the scene gives it, so which art each plane is made of
+   * is the scene's to change.
    */
   #resolveAssetProperties(actor, properties) {
     const fields = actorPropertyFields(this.game.actors?.get(actor));
     if (!fields || !properties) return properties;
     const loaded = { spritesheet: this.spriteSheets, image: this.sprites };
+    const assetsFor = (desc) => (desc?.kind === 'ref' ? loaded[desc.scope] : null);
+    const lookup = (assets, name) => (typeof name === 'string' ? assets.get(name) ?? null : null);
     let resolved = properties;
-    for (const [key, desc] of Object.entries(fields)) {
-      const assets = desc?.kind === 'ref' ? loaded[desc.scope] : null;
-      if (!assets || typeof properties[key] !== 'string') continue;
+    const put = (key, value) => {
       if (resolved === properties) resolved = { ...properties };
-      resolved[key] = assets.get(properties[key]) ?? null;
+      resolved[key] = value;
+    };
+    for (const [key, desc] of Object.entries(fields)) {
+      const value = properties[key];
+      const own = assetsFor(desc);
+      if (own && typeof value === 'string') {
+        put(key, lookup(own, value));
+      } else if (desc?.kind === 'array' && assetsFor(desc.item) && Array.isArray(value)) {
+        put(key, value.map((name) => lookup(assetsFor(desc.item), name)));
+      } else if (desc?.kind === 'record' && assetsFor(desc.value) && value && typeof value === 'object') {
+        put(key, Object.fromEntries(Object.entries(value)
+          .map(([name, asset]) => [name, lookup(assetsFor(desc.value), asset)])));
+      }
     }
     return resolved;
   }

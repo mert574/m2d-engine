@@ -1,0 +1,852 @@
+{
+  "version": 4,
+  "name": "lane",
+  "type": "level",
+  "title": "The lane",
+  "gameType": "autoScroller",
+  "world": {
+    "width": 8400,
+    "height": 540,
+    "gravity": { "x": 0, "y": 0 },
+    "player": "player-1",
+    "camera": { "mode": "scroll", "scrollVelocity": { "x": 130, "y": 0 }, "bounds": "world" },
+    "lighting": { "ambient": "#fff8e8" },
+    "post": {
+      "bloom": { "threshold": 0.8, "strength": 0.45, "blur": 20 },
+      "vignette": { "strength": 0.12, "start": 0.66 },
+      "grade": {
+        "shadows": "#9a9a6e",
+        "highlights": "#fff6da",
+        "amount": 0.32,
+        "saturation": 1.08,
+        "contrast": 1.02
+      },
+      "grain": { "strength": 0.03 }
+    },
+    "music": { "track": "game" },
+    "cycle": {
+      "states": [
+        { "name": "afternoon", "lighting": { "ambient": "#fff8e8" } },
+        {
+          "name": "sundown",
+          "lighting": { "ambient": "#f3dcd8" },
+          "post": {
+            "bloom": { "threshold": 0.72, "strength": 0.55, "blur": 24 },
+            "vignette": { "strength": 0.16, "start": 0.62 },
+            "grade": {
+              "shadows": "#7a6a8a",
+              "highlights": "#ffdcae",
+              "amount": 0.4,
+              "saturation": 1.12,
+              "contrast": 1.04
+            },
+            "grain": { "strength": 0.035 }
+          }
+        },
+        {
+          "name": "dusk",
+          "lighting": { "ambient": "#d6c4ea" },
+          "post": {
+            "bloom": { "threshold": 0.6, "strength": 0.7, "blur": 26 },
+            "vignette": { "strength": 0.2, "start": 0.58 },
+            "grade": {
+              "shadows": "#4e4a7a",
+              "highlights": "#ffc994",
+              "amount": 0.45,
+              "saturation": 1.08,
+              "contrast": 1.05
+            },
+            "grain": { "strength": 0.04 }
+          }
+        }
+      ],
+      "period": 97
+    },
+    "counters": { "total": { "prefab": "pollen", "count": "placed" } },
+    "rules": [
+      {
+        "id": "brief",
+        "when": { "event": "start" },
+        "then": [
+          { "do": "notice", "text": "Reach the hive before dark", "seconds": 3.6 },
+          {
+            "do": "notice",
+            "text": "chain the pollen — the combo keeps the score climbing",
+            "seconds": 3.6,
+            "element": "sub"
+          }
+        ]
+      },
+      {
+        "id": "home",
+        "when": { "event": "notify", "name": "arrived" },
+        "then": [{ "do": "sound", "key": "arrived" }, { "do": "switch", "scene": "mainMenu", "after": 5 }]
+      },
+      {
+        "id": "menu",
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
+      }
+    ]
+  },
+  "assets": {
+    "spritesheets": {
+      "flowerballs": { "url": "textures/foliage/flowerballs.png", "frameWidth": 256, "frameHeight": 256 },
+      "seedheads": { "url": "textures/foliage/seedheads.png", "frameWidth": 256, "frameHeight": 256 },
+      "flowerspikes": { "url": "textures/foliage/flowerspikes.png", "frameWidth": 256, "frameHeight": 256 },
+      "cattails": { "url": "textures/foliage/cattails.png", "frameWidth": 256, "frameHeight": 256 },
+      "bramble-a": { "url": "textures/foliage/bramble-a.png", "frameWidth": 256, "frameHeight": 256 },
+      "bramble-b": { "url": "textures/foliage/bramble-b.png", "frameWidth": 256, "frameHeight": 256 }
+    },
+    "images": {
+      "tree-a": { "url": "textures/foliage/tree-a.png" },
+      "tree-b": { "url": "textures/foliage/tree-b.png" },
+      "tree-c": { "url": "textures/foliage/tree-c.png" },
+      "far-grass-a": { "url": "textures/foliage/far-grass-a.png" },
+      "far-grass-b": { "url": "textures/foliage/far-grass-b.png" },
+      "far-bush": { "url": "textures/foliage/far-bush.png" },
+      "mid-grass-a": { "url": "textures/foliage/mid-grass-a.png" },
+      "mid-grass-b": { "url": "textures/foliage/mid-grass-b.png" },
+      "mid-flowers": { "url": "textures/foliage/mid-flowers.png" },
+      "mid-sprouts": { "url": "textures/foliage/mid-sprouts.png" },
+      "play-grass-a": { "url": "textures/foliage/play-grass-a.png" },
+      "play-grass-b": { "url": "textures/foliage/play-grass-b.png" },
+      "play-grass-c": { "url": "textures/foliage/play-grass-c.png" },
+      "fore-grass-a": { "url": "textures/foliage/fore-grass-a.png" },
+      "fore-grass-b": { "url": "textures/foliage/fore-grass-b.png" },
+      "fore-bush": { "url": "textures/foliage/fore-bush.png" }
+    },
+    "sounds": {
+      "collect": { "url": "sounds/confirmation_001.ogg", "volume": 0.45 },
+      "damage": { "url": "sounds/error_008.ogg" },
+      "dash": { "url": "sounds/bong_001.ogg", "volume": 0.5 },
+      "web": { "url": "sounds/minimize_006.ogg", "volume": 0.5 },
+      "tear": { "url": "sounds/minimize_008.ogg", "volume": 0.6 },
+      "arrived": { "url": "sounds/maximize_008.ogg" }
+    },
+    "music": { "game": { "url": "music/theget-perfect-union.ogg", "volume": 0.6 } }
+  },
+  "prefabs": {
+    "meadow": { "actor": "Meadow", "physics": { "bodyType": "static", "isSensor": true } },
+    "foreMeadow": { "actor": "ForeMeadow", "physics": { "bodyType": "static", "isSensor": true } },
+    "front": { "actor": "ScrollFront", "physics": { "bodyType": "static", "isSensor": true } },
+    "player": {
+      "actor": "Bee",
+      "physics": { "bodyType": "dynamic", "shape": "circle", "lockRotation": true, "frictionAir": 0.05 }
+    },
+    "flowerballs": {
+      "actor": "Flower",
+      "spritesheet": "flowerballs",
+      "physics": { "bodyType": "static", "isSensor": true }
+    },
+    "seedheads": {
+      "actor": "Flower",
+      "spritesheet": "seedheads",
+      "physics": { "bodyType": "static", "isSensor": true }
+    },
+    "flowerspikes": {
+      "actor": "Flower",
+      "spritesheet": "flowerspikes",
+      "physics": { "bodyType": "static", "isSensor": true }
+    },
+    "cattails": {
+      "actor": "Flower",
+      "spritesheet": "cattails",
+      "physics": { "bodyType": "static", "isSensor": true }
+    },
+    "pollen": { "actor": "Pollen", "physics": { "bodyType": "static", "isSensor": true } },
+    "bramble-a": {
+      "actor": "Thistle",
+      "spritesheet": "bramble-a",
+      "physics": { "bodyType": "static", "isSensor": true }
+    },
+    "bramble-b": {
+      "actor": "Thistle",
+      "spritesheet": "bramble-b",
+      "physics": { "bodyType": "static", "isSensor": true }
+    },
+    "wasp": { "actor": "Wasp", "physics": { "bodyType": "static", "isSensor": true } },
+    "web": { "actor": "Web", "physics": { "bodyType": "static", "isSensor": true } },
+    "hive": { "actor": "Hive", "physics": { "bodyType": "static", "isSensor": true } }
+  },
+  "layers": [
+    {
+      "name": "lane",
+      "objects": [
+        {
+          "id": "meadow-1",
+          "prefab": "meadow",
+          "x": 4200,
+          "y": 270,
+          "width": 16,
+          "height": 16,
+          "properties": {
+            "trees": ["tree-a", "tree-b", "tree-c"],
+            "far": ["far-grass-a", "far-grass-b", "far-bush"],
+            "mid": ["mid-grass-a", "mid-grass-b", "mid-flowers", "mid-sprouts"],
+            "verge": ["play-grass-a", "play-grass-b", "play-grass-c"]
+          }
+        },
+        {
+          "id": "foreMeadow-1",
+          "prefab": "foreMeadow",
+          "x": 4200,
+          "y": 270,
+          "width": 16,
+          "height": 16,
+          "properties": { "fore": ["fore-grass-a", "fore-grass-b", "fore-bush"] }
+        },
+        { "id": "front-1", "prefab": "front", "x": 480, "y": 270, "width": 16, "height": 16 },
+        {
+          "id": "flowerballs-1",
+          "prefab": "flowerballs",
+          "x": 380,
+          "y": 434,
+          "width": 193,
+          "height": 212,
+          "properties": { "sway": 5.3 }
+        },
+        {
+          "id": "cattails-1",
+          "prefab": "cattails",
+          "x": 596,
+          "y": 459,
+          "width": 136,
+          "height": 162,
+          "properties": { "sway": 1.36 }
+        },
+        {
+          "id": "cattails-2",
+          "prefab": "cattails",
+          "x": 793,
+          "y": 431,
+          "width": 177,
+          "height": 217,
+          "properties": { "sway": 5.19 }
+        },
+        {
+          "id": "seedheads-1",
+          "prefab": "seedheads",
+          "x": 943,
+          "y": 420,
+          "width": 233,
+          "height": 240,
+          "properties": { "sway": 4.61 }
+        },
+        {
+          "id": "flowerballs-2",
+          "prefab": "flowerballs",
+          "x": 1150,
+          "y": 438,
+          "width": 182,
+          "height": 203,
+          "properties": { "sway": 0.49 }
+        },
+        {
+          "id": "flowerballs-3",
+          "prefab": "flowerballs",
+          "x": 1309,
+          "y": 437,
+          "width": 190,
+          "height": 206,
+          "properties": { "sway": 6.16 }
+        },
+        {
+          "id": "cattails-3",
+          "prefab": "cattails",
+          "x": 1442,
+          "y": 434,
+          "width": 181,
+          "height": 213,
+          "properties": { "sway": 1.34 }
+        },
+        {
+          "id": "flowerspikes-1",
+          "prefab": "flowerspikes",
+          "x": 1596,
+          "y": 441,
+          "width": 183,
+          "height": 197,
+          "properties": { "sway": 0.04 }
+        },
+        {
+          "id": "flowerballs-4",
+          "prefab": "flowerballs",
+          "x": 1793,
+          "y": 426,
+          "width": 188,
+          "height": 228,
+          "properties": { "sway": 5.08 }
+        },
+        {
+          "id": "seedheads-2",
+          "prefab": "seedheads",
+          "x": 1970,
+          "y": 467,
+          "width": 133,
+          "height": 146,
+          "properties": { "sway": 1.15 }
+        },
+        {
+          "id": "flowerballs-5",
+          "prefab": "flowerballs",
+          "x": 2097,
+          "y": 460,
+          "width": 153,
+          "height": 159,
+          "properties": { "sway": 4.42 }
+        },
+        {
+          "id": "seedheads-3",
+          "prefab": "seedheads",
+          "x": 2297,
+          "y": 458,
+          "width": 133,
+          "height": 163,
+          "properties": { "sway": 3.57 }
+        },
+        {
+          "id": "flowerspikes-2",
+          "prefab": "flowerspikes",
+          "x": 2515,
+          "y": 463,
+          "width": 143,
+          "height": 155,
+          "properties": { "sway": 3.43 }
+        },
+        {
+          "id": "flowerballs-6",
+          "prefab": "flowerballs",
+          "x": 2669,
+          "y": 454,
+          "width": 167,
+          "height": 172,
+          "properties": { "sway": 4.72 }
+        },
+        {
+          "id": "seedheads-4",
+          "prefab": "seedheads",
+          "x": 2872,
+          "y": 455,
+          "width": 148,
+          "height": 169,
+          "properties": { "sway": 1.56 }
+        },
+        {
+          "id": "flowerballs-7",
+          "prefab": "flowerballs",
+          "x": 3092,
+          "y": 448,
+          "width": 161,
+          "height": 183,
+          "properties": { "sway": 0.88 }
+        },
+        {
+          "id": "seedheads-5",
+          "prefab": "seedheads",
+          "x": 3257,
+          "y": 456,
+          "width": 146,
+          "height": 168,
+          "properties": { "sway": 5.81 }
+        },
+        {
+          "id": "flowerspikes-3",
+          "prefab": "flowerspikes",
+          "x": 3396,
+          "y": 442,
+          "width": 162,
+          "height": 196,
+          "properties": { "sway": 1.16 }
+        },
+        {
+          "id": "flowerballs-8",
+          "prefab": "flowerballs",
+          "x": 3570,
+          "y": 411,
+          "width": 252,
+          "height": 257,
+          "properties": { "sway": 2.45 }
+        },
+        {
+          "id": "seedheads-6",
+          "prefab": "seedheads",
+          "x": 3768,
+          "y": 460,
+          "width": 129,
+          "height": 160,
+          "properties": { "sway": 1.77 }
+        },
+        {
+          "id": "cattails-4",
+          "prefab": "cattails",
+          "x": 3958,
+          "y": 434,
+          "width": 195,
+          "height": 212,
+          "properties": { "sway": 5.6 }
+        },
+        {
+          "id": "flowerspikes-4",
+          "prefab": "flowerspikes",
+          "x": 4081,
+          "y": 444,
+          "width": 160,
+          "height": 193,
+          "properties": { "sway": 0.69 }
+        },
+        {
+          "id": "flowerballs-9",
+          "prefab": "flowerballs",
+          "x": 4268,
+          "y": 410,
+          "width": 229,
+          "height": 260,
+          "properties": { "sway": 1.78 }
+        },
+        {
+          "id": "seedheads-7",
+          "prefab": "seedheads",
+          "x": 4406,
+          "y": 451,
+          "width": 144,
+          "height": 178,
+          "properties": { "sway": 5.6 }
+        },
+        {
+          "id": "seedheads-8",
+          "prefab": "seedheads",
+          "x": 4576,
+          "y": 431,
+          "width": 190,
+          "height": 217,
+          "properties": { "sway": 1.14 }
+        },
+        {
+          "id": "cattails-5",
+          "prefab": "cattails",
+          "x": 4757,
+          "y": 400,
+          "width": 248,
+          "height": 280,
+          "properties": { "sway": 4.72 }
+        },
+        {
+          "id": "seedheads-9",
+          "prefab": "seedheads",
+          "x": 4928,
+          "y": 465,
+          "width": 139,
+          "height": 150,
+          "properties": { "sway": 3.35 }
+        },
+        {
+          "id": "seedheads-10",
+          "prefab": "seedheads",
+          "x": 5081,
+          "y": 448,
+          "width": 182,
+          "height": 184,
+          "properties": { "sway": 2.62 }
+        },
+        {
+          "id": "cattails-6",
+          "prefab": "cattails",
+          "x": 5291,
+          "y": 436,
+          "width": 172,
+          "height": 208,
+          "properties": { "sway": 5.11 }
+        },
+        {
+          "id": "flowerballs-10",
+          "prefab": "flowerballs",
+          "x": 5457,
+          "y": 425,
+          "width": 211,
+          "height": 231,
+          "properties": { "sway": 6.02 }
+        },
+        {
+          "id": "flowerballs-11",
+          "prefab": "flowerballs",
+          "x": 5595,
+          "y": 432,
+          "width": 216,
+          "height": 217,
+          "properties": { "sway": 5.92 }
+        },
+        {
+          "id": "seedheads-11",
+          "prefab": "seedheads",
+          "x": 5764,
+          "y": 442,
+          "width": 179,
+          "height": 197,
+          "properties": { "sway": 5.22 }
+        },
+        {
+          "id": "seedheads-12",
+          "prefab": "seedheads",
+          "x": 5915,
+          "y": 422,
+          "width": 195,
+          "height": 236,
+          "properties": { "sway": 3.39 }
+        },
+        {
+          "id": "flowerspikes-5",
+          "prefab": "flowerspikes",
+          "x": 6046,
+          "y": 458,
+          "width": 146,
+          "height": 165,
+          "properties": { "sway": 3.77 }
+        },
+        {
+          "id": "seedheads-13",
+          "prefab": "seedheads",
+          "x": 6206,
+          "y": 433,
+          "width": 201,
+          "height": 214,
+          "properties": { "sway": 3.94 }
+        },
+        {
+          "id": "cattails-7",
+          "prefab": "cattails",
+          "x": 6383,
+          "y": 450,
+          "width": 163,
+          "height": 179,
+          "properties": { "sway": 1.63 }
+        },
+        {
+          "id": "flowerballs-12",
+          "prefab": "flowerballs",
+          "x": 6557,
+          "y": 465,
+          "width": 147,
+          "height": 151,
+          "properties": { "sway": 0.39 }
+        },
+        {
+          "id": "flowerballs-13",
+          "prefab": "flowerballs",
+          "x": 6774,
+          "y": 437,
+          "width": 168,
+          "height": 206,
+          "properties": { "sway": 5.08 }
+        },
+        {
+          "id": "seedheads-14",
+          "prefab": "seedheads",
+          "x": 6897,
+          "y": 429,
+          "width": 190,
+          "height": 221,
+          "properties": { "sway": 2.04 }
+        },
+        {
+          "id": "flowerballs-14",
+          "prefab": "flowerballs",
+          "x": 7024,
+          "y": 433,
+          "width": 177,
+          "height": 214,
+          "properties": { "sway": 2.74 }
+        },
+        {
+          "id": "flowerspikes-6",
+          "prefab": "flowerspikes",
+          "x": 7217,
+          "y": 465,
+          "width": 136,
+          "height": 150,
+          "properties": { "sway": 3.11 }
+        },
+        {
+          "id": "seedheads-15",
+          "prefab": "seedheads",
+          "x": 7403,
+          "y": 433,
+          "width": 197,
+          "height": 214,
+          "properties": { "sway": 5.25 }
+        },
+        {
+          "id": "flowerballs-15",
+          "prefab": "flowerballs",
+          "x": 7596,
+          "y": 434,
+          "width": 199,
+          "height": 211,
+          "properties": { "sway": 5.5 }
+        },
+        {
+          "id": "flowerspikes-7",
+          "prefab": "flowerspikes",
+          "x": 7744,
+          "y": 467,
+          "width": 143,
+          "height": 145,
+          "properties": { "sway": 0.77 }
+        },
+        {
+          "id": "bramble-a-1",
+          "prefab": "bramble-a",
+          "x": 1650,
+          "y": 417,
+          "width": 65,
+          "height": 65,
+          "properties": { "sway": 2.35 }
+        },
+        {
+          "id": "bramble-b-1",
+          "prefab": "bramble-b",
+          "x": 1947,
+          "y": 155,
+          "width": 77,
+          "height": 77,
+          "properties": { "sway": 0.29 }
+        },
+        {
+          "id": "bramble-b-2",
+          "prefab": "bramble-b",
+          "x": 2238,
+          "y": 369,
+          "width": 82,
+          "height": 82,
+          "properties": { "sway": 1.78 }
+        },
+        {
+          "id": "bramble-b-3",
+          "prefab": "bramble-b",
+          "x": 2542,
+          "y": 176,
+          "width": 79,
+          "height": 79,
+          "properties": { "sway": 2.29 }
+        },
+        {
+          "id": "bramble-a-2",
+          "prefab": "bramble-a",
+          "x": 2882,
+          "y": 335,
+          "width": 73,
+          "height": 73,
+          "properties": { "sway": 4.93 }
+        },
+        {
+          "id": "bramble-b-4",
+          "prefab": "bramble-b",
+          "x": 3144,
+          "y": 198,
+          "width": 89,
+          "height": 89,
+          "properties": { "sway": 4.47 }
+        },
+        {
+          "id": "bramble-a-3",
+          "prefab": "bramble-a",
+          "x": 4339,
+          "y": 359,
+          "width": 76,
+          "height": 76,
+          "properties": { "sway": 4.24 }
+        },
+        {
+          "id": "bramble-b-5",
+          "prefab": "bramble-b",
+          "x": 4949,
+          "y": 356,
+          "width": 78,
+          "height": 78,
+          "properties": { "sway": 4.13 }
+        },
+        {
+          "id": "web-1",
+          "prefab": "web",
+          "x": 5480,
+          "y": 160,
+          "width": 150,
+          "height": 230,
+          "properties": { "sway": 5.83 }
+        },
+        {
+          "id": "web-2",
+          "prefab": "web",
+          "x": 5940,
+          "y": 202,
+          "width": 150,
+          "height": 230,
+          "properties": { "sway": 5.63 }
+        },
+        {
+          "id": "web-3",
+          "prefab": "web",
+          "x": 6502,
+          "y": 352,
+          "width": 150,
+          "height": 230,
+          "properties": { "sway": 3.41 }
+        },
+        { "id": "pollen-1", "prefab": "pollen", "x": 460, "y": 231, "width": 26, "height": 26 },
+        { "id": "pollen-2", "prefab": "pollen", "x": 516, "y": 198, "width": 26, "height": 26 },
+        { "id": "pollen-3", "prefab": "pollen", "x": 572, "y": 166, "width": 26, "height": 26 },
+        { "id": "pollen-4", "prefab": "pollen", "x": 628, "y": 133, "width": 26, "height": 26 },
+        { "id": "pollen-5", "prefab": "pollen", "x": 774, "y": 237, "width": 26, "height": 26 },
+        { "id": "pollen-6", "prefab": "pollen", "x": 830, "y": 193, "width": 26, "height": 26 },
+        { "id": "pollen-7", "prefab": "pollen", "x": 886, "y": 148, "width": 26, "height": 26 },
+        { "id": "pollen-8", "prefab": "pollen", "x": 942, "y": 104, "width": 26, "height": 26 },
+        { "id": "pollen-9", "prefab": "pollen", "x": 1102, "y": 255, "width": 26, "height": 26 },
+        { "id": "pollen-10", "prefab": "pollen", "x": 1158, "y": 246, "width": 26, "height": 26 },
+        { "id": "pollen-11", "prefab": "pollen", "x": 1214, "y": 237, "width": 26, "height": 26 },
+        { "id": "pollen-12", "prefab": "pollen", "x": 1270, "y": 228, "width": 26, "height": 26 },
+        { "id": "pollen-13", "prefab": "pollen", "x": 1480, "y": 211, "width": 26, "height": 26 },
+        { "id": "pollen-14", "prefab": "pollen", "x": 1536, "y": 257, "width": 26, "height": 26 },
+        { "id": "pollen-15", "prefab": "pollen", "x": 1592, "y": 303, "width": 26, "height": 26 },
+        { "id": "pollen-16", "prefab": "pollen", "x": 1648, "y": 348, "width": 26, "height": 26 },
+        { "id": "pollen-17", "prefab": "pollen", "x": 1764, "y": 210, "width": 26, "height": 26 },
+        { "id": "pollen-18", "prefab": "pollen", "x": 1814, "y": 200, "width": 26, "height": 26 },
+        { "id": "pollen-19", "prefab": "pollen", "x": 1864, "y": 191, "width": 26, "height": 26 },
+        { "id": "pollen-20", "prefab": "pollen", "x": 2048, "y": 336, "width": 26, "height": 26 },
+        { "id": "pollen-21", "prefab": "pollen", "x": 2098, "y": 352, "width": 26, "height": 26 },
+        { "id": "pollen-22", "prefab": "pollen", "x": 2148, "y": 368, "width": 26, "height": 26 },
+        { "id": "pollen-23", "prefab": "pollen", "x": 2361, "y": 167, "width": 26, "height": 26 },
+        { "id": "pollen-24", "prefab": "pollen", "x": 2411, "y": 178, "width": 26, "height": 26 },
+        { "id": "pollen-25", "prefab": "pollen", "x": 2461, "y": 189, "width": 26, "height": 26 },
+        { "id": "pollen-26", "prefab": "pollen", "x": 2684, "y": 360, "width": 26, "height": 26 },
+        { "id": "pollen-27", "prefab": "pollen", "x": 2734, "y": 373, "width": 26, "height": 26 },
+        { "id": "pollen-28", "prefab": "pollen", "x": 2784, "y": 385, "width": 26, "height": 26 },
+        { "id": "pollen-29", "prefab": "pollen", "x": 3022, "y": 148, "width": 26, "height": 26 },
+        { "id": "pollen-30", "prefab": "pollen", "x": 3072, "y": 136, "width": 26, "height": 26 },
+        { "id": "pollen-31", "prefab": "pollen", "x": 3122, "y": 125, "width": 26, "height": 26 },
+        { "id": "pollen-32", "prefab": "pollen", "x": 3239, "y": 385, "width": 26, "height": 26 },
+        { "id": "pollen-33", "prefab": "pollen", "x": 3289, "y": 391, "width": 26, "height": 26 },
+        { "id": "pollen-34", "prefab": "pollen", "x": 3339, "y": 397, "width": 26, "height": 26 },
+        { "id": "pollen-35", "prefab": "pollen", "x": 3480, "y": 248, "width": 26, "height": 26 },
+        { "id": "pollen-36", "prefab": "pollen", "x": 3540, "y": 263, "width": 26, "height": 26 },
+        { "id": "pollen-37", "prefab": "pollen", "x": 3600, "y": 277, "width": 26, "height": 26 },
+        { "id": "pollen-38", "prefab": "pollen", "x": 3660, "y": 291, "width": 26, "height": 26 },
+        { "id": "pollen-39", "prefab": "pollen", "x": 3720, "y": 305, "width": 26, "height": 26 },
+        { "id": "pollen-40", "prefab": "pollen", "x": 4033, "y": 334, "width": 26, "height": 26 },
+        { "id": "pollen-41", "prefab": "pollen", "x": 4093, "y": 311, "width": 26, "height": 26 },
+        { "id": "pollen-42", "prefab": "pollen", "x": 4153, "y": 289, "width": 26, "height": 26 },
+        { "id": "pollen-43", "prefab": "pollen", "x": 4213, "y": 267, "width": 26, "height": 26 },
+        { "id": "pollen-44", "prefab": "pollen", "x": 4273, "y": 245, "width": 26, "height": 26 },
+        { "id": "pollen-45", "prefab": "pollen", "x": 4592, "y": 265, "width": 26, "height": 26 },
+        { "id": "pollen-46", "prefab": "pollen", "x": 4652, "y": 273, "width": 26, "height": 26 },
+        { "id": "pollen-47", "prefab": "pollen", "x": 4712, "y": 281, "width": 26, "height": 26 },
+        { "id": "pollen-48", "prefab": "pollen", "x": 4772, "y": 288, "width": 26, "height": 26 },
+        { "id": "pollen-49", "prefab": "pollen", "x": 4832, "y": 296, "width": 26, "height": 26 },
+        { "id": "pollen-50", "prefab": "pollen", "x": 5480, "y": 145, "width": 26, "height": 26 },
+        { "id": "pollen-51", "prefab": "pollen", "x": 5703, "y": 235, "width": 26, "height": 26 },
+        { "id": "pollen-52", "prefab": "pollen", "x": 5755, "y": 213, "width": 26, "height": 26 },
+        { "id": "pollen-53", "prefab": "pollen", "x": 5807, "y": 190, "width": 26, "height": 26 },
+        { "id": "pollen-54", "prefab": "pollen", "x": 5940, "y": 201, "width": 26, "height": 26 },
+        { "id": "pollen-55", "prefab": "pollen", "x": 6178, "y": 176, "width": 26, "height": 26 },
+        { "id": "pollen-56", "prefab": "pollen", "x": 6230, "y": 160, "width": 26, "height": 26 },
+        { "id": "pollen-57", "prefab": "pollen", "x": 6282, "y": 144, "width": 26, "height": 26 },
+        { "id": "pollen-58", "prefab": "pollen", "x": 6502, "y": 354, "width": 26, "height": 26 },
+        { "id": "pollen-59", "prefab": "pollen", "x": 6702, "y": 330, "width": 26, "height": 26 },
+        { "id": "pollen-60", "prefab": "pollen", "x": 6754, "y": 332, "width": 26, "height": 26 },
+        { "id": "pollen-61", "prefab": "pollen", "x": 6806, "y": 334, "width": 26, "height": 26 },
+        { "id": "pollen-62", "prefab": "pollen", "x": 7050, "y": 160, "width": 26, "height": 26 },
+        { "id": "pollen-63", "prefab": "pollen", "x": 7156, "y": 162, "width": 26, "height": 26 },
+        { "id": "pollen-64", "prefab": "pollen", "x": 7263, "y": 169, "width": 26, "height": 26 },
+        { "id": "pollen-65", "prefab": "pollen", "x": 7369, "y": 180, "width": 26, "height": 26 },
+        { "id": "pollen-66", "prefab": "pollen", "x": 7475, "y": 195, "width": 26, "height": 26 },
+        { "id": "pollen-67", "prefab": "pollen", "x": 7581, "y": 215, "width": 26, "height": 26 },
+        { "id": "pollen-68", "prefab": "pollen", "x": 7688, "y": 239, "width": 26, "height": 26 },
+        { "id": "pollen-69", "prefab": "pollen", "x": 7794, "y": 267, "width": 26, "height": 26 },
+        { "id": "pollen-70", "prefab": "pollen", "x": 7900, "y": 300, "width": 26, "height": 26 },
+        { "id": "pollen-71", "prefab": "pollen", "x": 389, "y": 290, "width": 26, "height": 26 },
+        { "id": "pollen-72", "prefab": "pollen", "x": 606, "y": 348, "width": 26, "height": 26 },
+        { "id": "pollen-73", "prefab": "pollen", "x": 1593, "y": 311, "width": 26, "height": 26 },
+        { "id": "pollen-74", "prefab": "pollen", "x": 1792, "y": 275, "width": 26, "height": 26 },
+        { "id": "pollen-75", "prefab": "pollen", "x": 1982, "y": 357, "width": 26, "height": 26 },
+        { "id": "pollen-76", "prefab": "pollen", "x": 2301, "y": 343, "width": 26, "height": 26 },
+        { "id": "pollen-77", "prefab": "pollen", "x": 2512, "y": 351, "width": 26, "height": 26 },
+        { "id": "pollen-78", "prefab": "pollen", "x": 2664, "y": 338, "width": 26, "height": 26 },
+        { "id": "pollen-79", "prefab": "pollen", "x": 3103, "y": 329, "width": 26, "height": 26 },
+        { "id": "pollen-80", "prefab": "pollen", "x": 3398, "y": 315, "width": 26, "height": 26 },
+        { "id": "pollen-81", "prefab": "pollen", "x": 4270, "y": 255, "width": 26, "height": 26 },
+        { "id": "pollen-82", "prefab": "pollen", "x": 4576, "y": 293, "width": 26, "height": 26 },
+        { "id": "pollen-83", "prefab": "pollen", "x": 5093, "y": 318, "width": 26, "height": 26 },
+        { "id": "pollen-84", "prefab": "pollen", "x": 7028, "y": 293, "width": 26, "height": 26 },
+        { "id": "pollen-85", "prefab": "pollen", "x": 7603, "y": 307, "width": 26, "height": 26 },
+        {
+          "id": "wasp-1",
+          "prefab": "wasp",
+          "x": 3600,
+          "y": 264,
+          "height": 20,
+          "properties": { "amp": 72.18, "rate": 0.49, "drift": 27, "phase": 4.29 }
+        },
+        {
+          "id": "wasp-2",
+          "prefab": "wasp",
+          "x": 4153,
+          "y": 308,
+          "height": 20,
+          "properties": { "amp": 67.27, "rate": 0.54, "drift": 34.84, "phase": 1.56 }
+        },
+        {
+          "id": "wasp-3",
+          "prefab": "wasp",
+          "x": 4712,
+          "y": 241,
+          "height": 20,
+          "properties": { "amp": 104.76, "rate": 0.54, "drift": 57.63, "phase": 5.21 }
+        },
+        { "id": "hive-1", "prefab": "hive", "x": 8160, "y": 300, "width": 70, "height": 110 },
+        { "id": "player-1", "prefab": "player", "x": 220, "y": 270, "height": 24 }
+      ]
+    }
+  ],
+  "hud": [
+    {
+      "type": "component",
+      "id": "status",
+      "x": 0,
+      "y": 0,
+      "anchor": "top-left",
+      "component": "beeStatus",
+      "properties": {
+        "totalCounter": "total",
+        "hint": "Arrows fly · Space dashes — through danger, out of webs · wasps raise a mark before they strike"
+      }
+    },
+    {
+      "type": "notice",
+      "id": "notice",
+      "x": 0,
+      "y": -120,
+      "anchor": "center",
+      "properties": {
+        "fontSize": "30px",
+        "fontWeight": "600",
+        "color": "#fff3d6",
+        "letterSpacing": 3,
+        "outlineColor": "rgba(70, 30, 0, 0.6)",
+        "outlineWidth": 3
+      }
+    },
+    {
+      "type": "notice",
+      "id": "sub",
+      "x": 0,
+      "y": -84,
+      "anchor": "center",
+      "properties": {
+        "fontSize": "16px",
+        "color": "#ffe2ae",
+        "letterSpacing": 2,
+        "outlineColor": "rgba(70, 30, 0, 0.5)",
+        "outlineWidth": 2
+      }
+    }
+  ]
+}

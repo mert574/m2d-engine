@@ -20,6 +20,17 @@ installWindowStub();
 stubDocumentListeners();
 
 class Dot extends Entity {}
+class Plane extends Entity {
+  static properties = {
+    silhouettes: s.array(s.ref('image')),
+    byRole: s.record(s.ref('image'))
+  };
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    this.silhouettes = options.silhouettes;
+    this.byRole = options.byRole;
+  }
+}
 class Ship extends Entity {
   static properties = { flame: s.ref('spritesheet'), hull: s.number({ initial: 3 }) };
   constructor(body, sprite, game, options = {}) {
@@ -43,6 +54,7 @@ async function show(scene, options = {}) {
   const game = new M2D(displayCanvas(320, 180), { width: 320, height: 180, worldWidth: 999, worldHeight: 999, renderer, devConsole: false, performanceStats: false, ...options });
   game.registerActor('Dot', Dot);
   game.registerActor('Ship', Ship);
+  game.registerActor('Plane', Plane);
   vi.spyOn(game.soundManager, 'playMusic').mockImplementation(() => {});
   game.sceneManager.addScene(scene.name, { fetch: async () => scene });
   game.sceneManager.addScene('other', { fetch: async () => level({}, { name: 'other' }) });
@@ -204,6 +216,40 @@ describe('asset-reference properties', () => {
     const loader = new SceneLoader(game);
     game.registerActor('Ship', Ship);
     expect(() => loader.load(bad, 'ships')).toThrow(/no spritesheet named 'smoke'/);
+  });
+
+  it('resolve a list and a record of refs entry by entry', async () => {
+    // The one test here that loads images: a stub that is "decoded" at once.
+    const Image = window.Image;
+    window.Image = class { set src(url) { this._src = url; queueMicrotask(() => this.onload?.()); } get src() { return this._src; } };
+    const data = level({}, {
+      name: 'planes',
+      assets: { images: { near: { url: 'near.png' }, far: { url: 'far.png' } } },
+      prefabs: { plane: { actor: 'Plane', physics: { bodyType: 'static', isSensor: true } } },
+      layers: [{ name: 'main', objects: [
+        { id: 'strip', prefab: 'plane', x: 10, y: 10, properties: { silhouettes: ['near', 'far'], byRole: { front: 'near' } } }
+      ] }]
+    });
+    const { game, scene } = await show(data);
+    const strip = scene.entitiesById.get('strip');
+    // The loaded images, in the order the scene named them.
+    expect(strip.silhouettes).toEqual([scene.sprites.get('near'), scene.sprites.get('far')]);
+    expect(strip.byRole).toEqual({ front: scene.sprites.get('near') });
+    game.destroy();
+    window.Image = Image;
+  });
+
+  it('refuse a list entry naming an image the scene does not have', () => {
+    const data = level({}, {
+      name: 'planes',
+      assets: { images: { near: { url: 'near.png' } } },
+      prefabs: { plane: { actor: 'Plane', physics: { bodyType: 'static', isSensor: true } } },
+      layers: [{ name: 'main', objects: [{ id: 'strip', prefab: 'plane', x: 10, y: 10, properties: { silhouettes: ['near', 'gone'] } }] }]
+    });
+    const game = new M2D(null, { headless: true });
+    game.registerActor('Plane', Plane);
+    expect(() => new SceneLoader(game).load(data, 'planes')).toThrow(/no image named 'gone'/);
+    game.destroy();
   });
 });
 

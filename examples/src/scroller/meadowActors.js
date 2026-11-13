@@ -83,6 +83,8 @@ export class Bee extends Entity {
     this.dashCooldown = 0;
     this.hit = null;
     this.pop = null;
+    /** Home: the hive sets it, and the HUD reads the run off the bee. */
+    this.arrived = false;
     /** Webs currently holding the bee. @type {Set<Web>} */
     this.webs = new Set();
     /** Recent drawn positions, for the dash's afterimages. */
@@ -734,14 +736,20 @@ export class Hive extends Entity {
   constructor(body, sprite, game) {
     super(body, sprite, game);
     this.reached = false;
-    this.onReached = null;
   }
 
+  /**
+   * The bee is home. The simulation records it on the bee — the HUD reads
+   * the run off it for the send-off — and tells the player, which is what
+   * the scene's notify rule hears: the sound, and the way back to the menu.
+   */
   onCollisionStart(other) {
     super.onCollisionStart(other);
-    if (this.reached || other.entity?.name !== 'Player') return;
+    const bee = other.entity;
+    if (this.reached || bee?.name !== 'Player') return;
     this.reached = true;
-    this.onReached?.(other.entity);
+    bee.arrived = true;
+    this.game.players?.local?.notify('arrived');
   }
 
   draw() {
