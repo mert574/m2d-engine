@@ -372,3 +372,105 @@ describe('scene hooks from both modules', () => {
     game.destroy();
   });
 });
+
+describe('a level loaded again after a game over', () => {
+  it('runs one set of its ambience, camera controls and rule listeners, not two', async () => {
+    const handles = [];
+    const renderer = new RecordingRenderer();
+    const game = new M2D(displayCanvas(320, 180), { width: 320, height: 180, renderer, devConsole: false, performanceStats: false });
+    game.registerActor('Dot', Dot);
+    vi.spyOn(game.soundManager, 'loop').mockImplementation(() => {
+      const handle = { setVolume() {}, stop: vi.fn() };
+      handles.push(handle);
+      return handle;
+    });
+    const notice = vi.fn();
+    game.sceneManager.addScene('look', { fetch: async () => level({
+      ambience: [{ sound: 'wind' }],
+      camera: { wheelZoom: { min: 0.1, max: 10, speed: 0.001 } },
+      rules: [{ when: { event: 'notify', name: 'ping' }, then: [{ do: 'sound', key: 'ping' }], once: false }]
+    }) });
+    await game.sceneManager.switchTo('look');
+    game.reset();
+    await game.sceneManager.reload();
+    expect(handles).toHaveLength(2);
+    expect(handles[0].stop).toHaveBeenCalled();
+    expect(handles[1].stop).not.toHaveBeenCalled();
+    scroll(game, 100, 100, { dy: -100 });
+    game.input.flush();
+    expect(game.camera.zoom).toBeCloseTo(Math.exp(0.1));
+    const play = vi.spyOn(game.soundManager, 'playSound').mockImplementation(notice);
+    game.players.local.notify('ping');
+    game.players.local.dispatch(game.players.local.drainEvents());
+    expect(play).toHaveBeenCalledTimes(1);
+    game.destroy();
+  });
+});
+
+describe('review fixes', () => {
+  it('draw leaves, rain and sparks over the world by default, as the Look panel says', async () => {
+    const { game, renderer, scene } = await show(level({ particles: [{ kind: 'rain', count: 5 }] }));
+    renderer.reset();
+    scene.backdrop.drawBack(0);
+    expect(renderer.callsTo('drawLine')).toHaveLength(0);
+    scene.backdrop.drawFront(0);
+    expect(renderer.callsTo('drawLine')).toHaveLength(5);
+    game.destroy();
+  });
+
+  it('draw rain that does not fall without a NaN in it', async () => {
+    const { game, renderer, scene } = await show(level({ particles: [{ kind: 'rain', count: 3, speed: 0 }] }));
+    renderer.reset();
+    scene.backdrop.drawFront(0);
+    for (const line of renderer.optionsFor('drawLine')) expect(Number.isFinite(line.x2)).toBe(true);
+    game.destroy();
+  });
+
+  it('switch away even when an exit has nothing to animate, to the scene asked for last', async () => {
+    const { game } = await show({
+      version: SCENE_VERSION, type: 'ui', name: 'menu',
+      elements: [{ type: 'rect', id: 'bar', x: 0, y: 0, width: 10, height: 10, color: '#fff', effects: { exit: { motion: 'type' } } },
+        { type: 'text', id: 'title', x: 0, y: 0, properties: { text: 'Hi' }, effects: { exit: { motion: 'fade', duration: 0.1 } } }]
+    });
+    game.sceneManager.addScene('third', { fetch: async () => level({}, { name: 'third' }) });
+    const first = game.sceneManager.switchTo('other');
+    game.sceneManager.switchTo('third');
+    game.motion.update(1);
+    await first;
+    expect(game.sceneManager.getCurrentScene().config.name).toBe('third');
+    game.destroy();
+  });
+
+  it('carry plain counters in a snapshot', async () => {
+    const game = new M2D(null, { headless: true });
+    game.registerActor('Dot', Dot);
+    game.sceneManager.addScene('look', { fetch: async () => level({ counters: { score: { initial: 1 } } }) });
+    await game.sceneManager.switchTo('look');
+    const scene = game.sceneManager.getCurrentScene();
+    const snapshot = game.snapshot();
+    scene.counters.add('score', 5);
+    game.restore(snapshot);
+    expect(scene.counters.get('score')).toBe(1);
+    game.destroy();
+  });
+
+  it('refuse a notify rule that waits on a rule only the simulation runs', () => {
+    expect(() => new SceneLoader(null).load(level({ rules: [
+      { id: 'boss', when: { event: 'start' }, then: [] },
+      { when: { event: 'notify', name: 'x' }, after: ['boss'], then: [{ do: 'notice', text: 'X' }] }
+    ] }), 'look')).toThrow(/notify rule can only follow other notify rules/);
+  });
+
+  it('let a rule give a plain text counter holes later', async () => {
+    const { game, scene } = await show(level({ counters: { keys: { initial: 2 } } }, { hud: [{ type: 'text', id: 'line', x: 0, y: 0, properties: { text: 'Find the keys' } }] }));
+    scene.hud.setText('line', 'Keys {keys}');
+    scene.counters.add('keys', 1);
+    scene.hud.elements.get('line').update(0.016);
+    expect(scene.hud.elements.get('line').text).toBe('Keys 3');
+    game.destroy();
+  });
+
+  it('leave a game\'s own actions alone when the project declares none', () => {
+    expect(projectOptions({ name: 'x' })).not.toHaveProperty('actions');
+  });
+});

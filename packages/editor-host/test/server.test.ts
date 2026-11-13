@@ -173,6 +173,18 @@ describe('the project declaration', () => {
     }
   });
 
+  it('refuses to edit a project file that does not parse, leaving it as it is', async () => {
+    await writeFile(join(root, 'm2d.project.json'), '{ "name": "Rooms", }');
+    try {
+      const refused = await client.callTool({ name: 'edit_project', arguments: { ops: [{ op: 'set', path: ['name'], value: 'Other' }] } });
+      expect(refused.isError).toBe(true);
+      expect(textOf(refused)).toMatch(/does not parse/);
+      expect(await readFile(join(root, 'm2d.project.json'), 'utf8')).toBe('{ "name": "Rooms", }');
+    } finally {
+      await rm(join(root, 'm2d.project.json'));
+    }
+  });
+
   it('falls back to the folder name and no code when there is no declaration', async () => {
     const project = new Project(root);
     expect(await project.declared()).toBe(false);

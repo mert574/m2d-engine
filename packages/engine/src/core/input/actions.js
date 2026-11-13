@@ -11,8 +11,9 @@
  * project.
  *
  * Reading goes through a snapshot, never the live keyboard, so what an
- * action did is part of the recorded input and a replay or a server sees
- * the same thing.
+ * action did is part of the recorded input and a replay sees the same
+ * thing. An `action` rule reads the local player's snapshot, so it is a
+ * single-player rule; online, a player's request of the world is an intent.
  */
 export class InputActions {
   /**

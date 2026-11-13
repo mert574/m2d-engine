@@ -54,14 +54,14 @@ export class SceneBackdrop {
     const world = this.#world;
     if (world.sky) this.#sky(world.sky, area);
     for (const layer of world.scatter ?? []) this.#scatter(layer, area, time);
-    for (const field of world.particles ?? []) if (!field.front) this.#particles(field, area, time);
+    for (const field of world.particles ?? []) if (!withParticleDefaults(field).front) this.#particles(field, area, time);
   }
 
   /** Over the entities: the front particle fields. */
   drawFront(time) {
     if (this.game.physics.dimensions === 3) return;
     const area = this.game.camera.getVisibleArea();
-    for (const field of this.#world.particles ?? []) if (field.front) this.#particles(field, area, time);
+    for (const field of this.#world.particles ?? []) if (withParticleDefaults(field).front) this.#particles(field, area, time);
   }
 
   #sky(sky, area) {
@@ -203,6 +203,7 @@ const PARTICLE_DRAWERS = {
 
   rain(renderer, field, box, time) {
     const seed = field.seed ?? 1;
+    // Every drop falls along one slant: 0.08 across for each unit down.
     const slant = field.speed * 0.08;
     for (let i = 0; i < field.count; i++) {
       const a = hash(seed, i, 1), b = hash(seed, i, 2), c = hash(seed, i, 3);
@@ -210,7 +211,7 @@ const PARTICLE_DRAWERS = {
       const y = box.top + mod(b * box.height + time * speed, box.height);
       const x = box.left + mod(a * box.width + time * slant, box.width);
       const length = field.radius * 8 * (0.7 + 0.6 * c);
-      renderer.drawLine({ x1: x, y1: y, x2: x + slant * length / speed, y2: y + length, strokeStyle: field.color, lineWidth: Math.max(1, field.radius * 0.5), globalAlpha: field.opacity * (0.5 + 0.5 * c) });
+      renderer.drawLine({ x1: x, y1: y, x2: x + 0.08 * length, y2: y + length, strokeStyle: field.color, lineWidth: Math.max(1, field.radius * 0.5), globalAlpha: field.opacity * (0.5 + 0.5 * c) });
     }
   },
 

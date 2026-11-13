@@ -46,7 +46,8 @@ export interface HostProject {
 export function projectGameOptions(project: HostProject, hooksOptions?: Record<string, unknown>): Record<string, unknown> {
   const display = project.display ?? {};
   const pick = (key: string) => (display[key] !== undefined ? { [key]: display[key] } : {});
-  return { ...hooksOptions, ...pick('clearColor'), ...pick('textureFilter'), ...pick('worldFilter'), actions: project.actions ?? {} };
+  const actions = Object.keys(project.actions ?? {}).length ? { actions: project.actions } : {};
+  return { ...hooksOptions, ...pick('clearColor'), ...pick('textureFilter'), ...pick('worldFilter'), ...actions };
 }
 
 /** What a game-definition module exports; see m2d.project.json. */

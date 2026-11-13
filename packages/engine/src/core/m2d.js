@@ -429,13 +429,6 @@ export class M2D {
     this.rng = new Rng(this.options.seed);
 
     /**
-     * Named input actions (`menu`, `interact`) to the keys that perform
-     * them, from the project's `input.actions`: what rules fire on and
-     * the settings menu rebinds. Read against a tick's snapshot. See
-     * core/input/actions.js.
-     * @type {InputActions}
-     */
-    /**
      * The game's own HUD widgets, by name: what a level's `hud` places
      * with `{ "type": "component", "component": name }`. See
      * `registerHudComponent`.
@@ -443,6 +436,13 @@ export class M2D {
      */
     this.hudComponents = new Map();
 
+    /**
+     * Named input actions (`menu`, `interact`) to the keys that perform
+     * them, from the project's `input.actions`: what rules fire on and
+     * the settings menu rebinds. Read against a tick's snapshot. See
+     * core/input/actions.js.
+     * @type {InputActions}
+     */
     this.actions = new InputActions(this.options.actions ?? {}, {
       // A player's rebinding is theirs, per game; an edited or headless game keeps none.
       storageKey: this.editMode || this.headless ? null : `m2d.actions:${this.options.saveId ?? defaultSaveId()}`

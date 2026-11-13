@@ -40,7 +40,7 @@ export function projectOptions(project, { basePath = '' } = {}) {
   const display = project.display ?? {};
   return {
     ...Object.fromEntries(DISPLAY_KEYS.filter((key) => display[key] !== undefined).map((key) => [key, display[key]])),
-    actions: project.input?.actions ?? {},
+    ...(project.input?.actions && { actions: project.input.actions }),
     ...(project.initialScene && { initialScene: project.initialScene }),
     ...(project.music && {
       music: Object.fromEntries(Object.entries(project.music).map(([key, track]) => [key, { src: basePath + track.url, volume: track.volume ?? 1 }]))

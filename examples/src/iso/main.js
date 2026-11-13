@@ -35,7 +35,6 @@ import { NetClient } from 'm2d-engine/net/client.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { lastTransmission, audioOption } from '../shared/audio.js';
 import { menuBackdrop } from './menuBackdrop.js';
-import { KEEP_INPUT } from './game.js';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 import * as hooks from './hooks.js';
@@ -71,7 +70,7 @@ async function playOnline() {
     // A development server hands out tickets; a real one gets them from its lobby.
     const ticketUrl = `${ONLINE.replace(/^ws/, 'http')}/dev/ticket?player=${name}&match=keep`;
     const ticket = await (await fetch(ticketUrl)).text();
-    const net = await NetClient.connect(game, { url: `${ONLINE}/play`, ticket, schema: KEEP_INPUT });
+    const net = await NetClient.connect(game, { url: `${ONLINE}/play`, ticket, schema: definition.KEEP_INPUT });
     status('In the keep with whoever else is here');
     net.on('close', ({ code, reason }) => {
       game.replica = false;

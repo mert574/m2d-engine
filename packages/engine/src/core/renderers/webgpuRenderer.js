@@ -1653,6 +1653,7 @@ export class WebGPURenderer extends BaseRenderer {
     data[23] = material?.sway ? (material.foliage ? 2 : 1) : 0;
     data[24] = material?.clearcoat ?? 0;
     data[25] = material?.clearcoatRoughness ?? 0;
+    data[26] = material?.planarFrame === 'own' ? 1 : 0;
     const uniform = device.createBuffer({
       label: `material ${material?.name ?? 'default'}`,
       size: data.byteLength,

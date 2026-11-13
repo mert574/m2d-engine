@@ -677,7 +677,7 @@ const MESH = s.object({
   castShadow: s.boolean({ default: true, description: 'Off for a glowing shell around a light, which would otherwise shadow its own lamp' }),
   texture: s.object({
     url: s.string({ required: true, nonEmpty: true, description: 'An image, relative to the game\'s basePath' }),
-    size: s.number({ positive: true, initial: 1, unit: 'm', description: 'World metres per tile: mapped planar from the position, so a floor and a wall tile alike' }),
+    size: s.number({ positive: true, initial: 1, unit: 'm', description: 'Metres per tile, mapped planar: from the world on a static body, so a floor and a wall tile alike; in the body\'s own frame on one that moves, so the texture moves with it' }),
     normal: s.string({ nonEmpty: true, description: 'A tangent-space normal map (OpenGL convention, +Y up), tiled as the colour is' }),
     arm: s.string({ nonEmpty: true, description: 'Occlusion, roughness and metal in red, green and blue; the mesh\'s roughness and metallic scale it' })
   }, { description: 'A tiling texture over the shape, dev-grid style' }),
@@ -1346,10 +1346,15 @@ export const LEVEL_SCHEMA = s.object({
         if (!placed.has(id)) fail(`world.rules[${i}].when.objects[${j}]`, `no placed object with id '${id}'`);
       });
     });
+    const notifyIds = new Set(rules.filter((rule) => rule.id && rule.when?.event === 'notify').map((rule) => rule.id));
     rules.forEach((rule, i) => {
       for (const key of ['after', 'before']) {
         (rule[key] ?? []).forEach((id, j) => {
           if (!ruleIds.has(id)) fail(`world.rules[${i}].${key}[${j}]`, `no rule with id '${id}' (ids: ${[...ruleIds].join(', ') || 'none'})`);
+          // A notify rule runs on a client too, where the simulated rules never fire.
+          else if (rule.when?.event === 'notify' && !notifyIds.has(id)) {
+            fail(`world.rules[${i}].${key}[${j}]`, `a notify rule can only follow other notify rules; '${id}' runs in the simulation, which a client does not`);
+          }
         });
       }
     });

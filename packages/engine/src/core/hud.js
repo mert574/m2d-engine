@@ -7,6 +7,7 @@ import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
 import { boundEntity, readBinding } from './binding.js';
 import { fillTemplate } from './counters.js';
+import { keyLabel } from './input/actions.js';
 
 /**
  * A level's HUD from its `hud` block: the overlay every level has drawn in
@@ -62,6 +63,24 @@ class UITemplateText extends UIText {
   }
 }
 
+/**
+ * A minimap whose objective the scene names: looked up each frame rather
+ * than once, since on a client the object may arrive after the HUD is
+ * built. Without one, `target` is game code's to set.
+ */
+class UISceneMinimap extends UIMinimap {
+  constructor(game, findTarget, options) {
+    super(game, options);
+    this.findTarget = findTarget;
+    if (findTarget) this.target = findTarget();
+  }
+
+  update(deltaTime) {
+    if (this.findTarget) this.target = this.findTarget();
+    super.update(deltaTime);
+  }
+}
+
 export class SceneHud {
   /**
    * @param {import('./scene.js').Scene} scene
@@ -74,10 +93,7 @@ export class SceneHud {
     this.elements = new Map();
     this.firstNotice = null;
     this.firstDialogue = null;
-    /** Minimaps whose `target` names an object, resolved once the objects stand. */
-    this.targets = [];
     for (const element of elements) this.#build(element);
-    for (const { minimap, id } of this.targets) minimap.target = boundEntity(scene, id);
   }
 
   #build(element) {
@@ -91,12 +107,9 @@ export class SceneHud {
 
   #make(element, common, properties) {
     switch (element.type) {
-      case 'text': {
-        const options = { ...common, ...textLook(properties) };
-        return typeof properties.text === 'string' && properties.text.includes('{')
-          ? new UITemplateText(properties.text, this.scene.counters, options)
-          : new UIText({ ...options, text: properties.text });
-      }
+      case 'text':
+        // Every text reads its counters, so a rule may give one holes later.
+        return new UITemplateText(properties.text ?? '', this.scene.counters, { ...common, ...textLook(properties) });
       case 'notice': {
         const made = new UINotice({
           ...common, ...textLook(properties), text: '',
@@ -127,7 +140,6 @@ export class SceneHud {
           ...placed(common), width: element.width ?? 720, height: element.height ?? 128,
           charsPerSecond: properties.charsPerSecond,
           ...(properties.clock === 'game' && { clock: () => this.game.time.elapsed }),
-          advanceHint: this.#advanceHint(properties.advance),
           ...(properties.textColor && { textColor: properties.textColor }),
           ...(properties.nameColor && { nameColor: properties.nameColor }),
           ...(properties.background && { background: properties.background }),
@@ -135,6 +147,8 @@ export class SceneHud {
         });
         // An empty advance action: game code drives the conversation.
         made.advanceAction = properties.advance ?? 'interact';
+        // The hint names the key as bound now, so a rebinding shows at once.
+        Object.defineProperty(made, 'advanceHint', { get: () => this.#advanceKey(made.advanceAction || 'interact') });
         this.firstDialogue ??= made;
         return made;
       }
@@ -161,7 +175,7 @@ export class SceneHud {
     const world = this.scene.config.world ?? {};
     const bounds = element.bounds ?? { width: world.width ?? this.game.options.worldWidth ?? 1000, height: world.height ?? this.game.options.worldHeight ?? 1000 };
     const plots = element.plot ?? {};
-    const minimap = new UIMinimap(this.game, {
+    const minimap = new UISceneMinimap(this.game, element.target ? () => boundEntity(this.scene, element.target) : null, {
       ...common, bounds, size: element.size ?? 160, background: properties.background,
       ...(properties.borderColor && { borderColor: properties.borderColor }),
       plot: (entity) => {
@@ -169,14 +183,12 @@ export class SceneHud {
         return style === undefined ? null : plotStyle(style, entity);
       }
     });
-    if (element.target) this.targets.push({ minimap, id: element.target });
     return minimap;
   }
 
-  /** The key a dialogue's hint names: its advance action's first key, else E. */
-  #advanceHint(action = 'interact') {
-    const code = this.game.actions?.codes(action)[0] ?? 'KeyE';
-    return code.replace(/^Key|^Digit/, '');
+  /** The key a dialogue's hint names: its action's first key, else E. */
+  #advanceKey(action) {
+    return keyLabel(this.game.actions?.codes(action)[0] ?? 'KeyE');
   }
 
   /** Show a notice: on the element named, else the first notice element. */
@@ -190,7 +202,7 @@ export class SceneHud {
   setText(elementId, text) {
     const target = this.elements.get(elementId);
     if (!target) return;
-    if (target instanceof UITemplateText) target.template = text;
+    if ('template' in target) target.template = text;
     target.text = fillTemplate(text, this.scene.counters);
   }
 

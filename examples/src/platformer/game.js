@@ -3,7 +3,7 @@ import { AttackSwing, HitBurst } from '../shared/effects.js';
 import {
   EmberPlayer, DuskPlatform, DuskMovingPlatform, GlowCoin, DuskBee, ValleyGate
 } from './duskActors.js';
-import { ValleyBackdrop } from './levelBackdrop.js';
+import { ValleyBackdrop } from './valleyBackdrop.js';
 
 /**
  * Ember Valley's definition: the cast and the options its simulation

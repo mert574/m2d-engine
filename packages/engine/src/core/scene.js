@@ -90,6 +90,7 @@ export class Scene {
    * presentation hook; a UI scene cannot load headless at all.
    */
   async load() {
+    this.#release();
     const headless = this.game.headless;
     if (headless && this.config.type !== 'level') {
       throw new Error(`M2D headless: scene '${this.config.name}' is a UI scene, and a headless game has no UI`);
@@ -191,6 +192,13 @@ export class Scene {
     }
     /** `world.counters`: what rules count and the HUD shows. */
     this.counters = new SceneCounters(this, world.counters ?? {});
+    // Plain counters are simulation state: a snapshot carries them and a restore puts them back.
+    if (this.counters.values.size) {
+      this.game.trackState('counters', {
+        save: () => [...this.counters.values],
+        load: (values) => { this.counters.values = new Map(values); }
+      });
+    }
     // On a client the server runs the rules; only the notify rules, which
     // answer what the server tells this player, run here.
     if (!this.game.editMode && world.rules?.length) this.rules = new SceneRules(this, world.rules, { simulate: !this.#serverRuns });
@@ -444,11 +452,17 @@ export class Scene {
    * an emissive colour, a clearcoat, a reflectance). Null for a plain
    * coloured shape. Stable per distinct block, since the renderer caches
    * bind groups by the material's identity and groups instances by it.
+   *
+   * A texture is mapped planar from the world, so neighbouring floors and
+   * walls tile as one surface; on a body that moves (`moving`) it is mapped
+   * in the body's own frame instead, or the box would slide under a
+   * texture standing still.
    */
-  meshMaterial(mesh) {
+  meshMaterial(mesh, { moving = false } = {}) {
     const texture = mesh?.texture;
     if (!texture && !hasSurface(mesh)) return null;
-    const key = `${texture ? meshTextureKey(texture) : ''}#${meshSurfaceKey(mesh)}`;
+    const ownFrame = Boolean(texture) && moving;
+    const key = `${texture ? meshTextureKey(texture) : ''}#${meshSurfaceKey(mesh)}${ownFrame ? '#own' : ''}`;
     let material = this.meshMaterials.get(key);
     if (material) return material;
     const maps = texture ? this.meshMaterials.get(meshTextureKey(texture)) : null;
@@ -467,7 +481,8 @@ export class Scene {
       doubleSided: opacity < 1,
       specularF0: 0.04 * (mesh.specular ?? 1),
       clearcoat: mesh.clearcoat ?? 0,
-      clearcoatRoughness: mesh.clearcoatRoughness ?? 0
+      clearcoatRoughness: mesh.clearcoatRoughness ?? 0,
+      planarFrame: ownFrame ? 'own' : 'world'
     };
     this.meshMaterials.set(key, material);
     return material;
@@ -1175,6 +1190,24 @@ export class Scene {
     return this.effects?.exit() ?? null;
   }
 
+  /**
+   * Let go of what the scene's data started: rule and HUD listeners, the
+   * camera controls, the ambience loops, the UI scene's effects. On unload,
+   * and before a load, since a game-over restart loads the scene again
+   * without unloading it, and a second set would run beside the first.
+   */
+  #release() {
+    this.rules?.unlisten();
+    this.hud?.unlisten();
+    this.rules = null;
+    this.hud = null;
+    this.cameraControls?.detach();
+    this.cameraControls = null;
+    this.ambience?.stop();
+    this.ambience = null;
+    this.effects = null;
+  }
+
   /** `onHide` (with a display), then `onExit`, then tear down. */
   unload() {
     const headless = this.game.headless;
@@ -1192,18 +1225,10 @@ export class Scene {
     for (const model of this.models.values()) this.game.renderer?.unloadModel?.(model);
     this.models.clear();
     // The level's rules, HUD and cycle are this scene's; headless too.
-    this.rules?.unlisten();
-    this.hud?.unlisten();
-    this.rules = null;
-    this.hud = null;
+    this.#release();
     this.counters = null;
     this.cycle = null;
     this.#lastLook = null;
-    this.cameraControls?.detach();
-    this.cameraControls = null;
-    this.ambience?.stop();
-    this.ambience = null;
-    this.effects = null;
 
     // Headless there is no camera, UI or cursor to reset, only the scene's
     // timers (see the end of this method).
@@ -1473,7 +1498,7 @@ export class Scene {
           emissive: instanceEmissive(mesh),
           checker: mesh.checker,
           castShadow: mesh.castShadow,
-          material: this.meshMaterial(mesh),
+          material: this.meshMaterial(mesh, { moving: body.bodyType !== 'static' }),
           previousModel: entity.lastModel ?? undefined
         });
       }

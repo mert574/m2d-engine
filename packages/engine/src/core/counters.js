@@ -9,8 +9,11 @@
  * no state, so it cannot drift from what is there, and it reads the same
  * on a client as on the server that removed the objects.
  *
- * Simulation state (rules fire on counters), so it is made headless too.
- * The HUD shows one as `{name}` in a text.
+ * Simulation state (rules fire on counters), so it is made headless too,
+ * and snapshots carry the plain counters' values. The HUD shows one as
+ * `{name}` in a text. Online, a client sees tallies change (they read the
+ * world it is sent) but its plain counters stay at their `initial`: the
+ * rules that count run on the server, and counters are not replicated.
  */
 export class SceneCounters {
   /**

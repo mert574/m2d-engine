@@ -19,6 +19,11 @@ struct VertexOut {
   // World-space tangent, handedness in w.
   @location(6) tangent: vec4f,
   @location(7) vertexColor: vec4f,
+  // Where world-planar texturing samples: the world position and normal,
+  // or, for a body that moves (material.coat.z), its own frame at its own
+  // size, so the texture rides with it.
+  @location(8) planarPosition: vec3f,
+  @location(9) planarNormal: vec3f,
 };
 
 @vertex
@@ -63,6 +68,10 @@ fn vs(
   let previousWorld = previous.xyz + windOffset(previous.xyz, inst.previousModel[3].xyz, time - frame.post[5].y);
   out.clipPrev = frame.previousViewProjection * vec4f(previousWorld, 1.0);
   out.vertexColor = color;
+  let ownFrame = material.coat.z > 0.5;
+  let size = vec3f(length(inst.model[0].xyz), length(inst.model[1].xyz), length(inst.model[2].xyz));
+  out.planarPosition = select(world.xyz, local.xyz * size, ownFrame);
+  out.planarNormal = select(out.normal, localNormal, ownFrame);
   return out;
 }
 `;
@@ -89,8 +98,8 @@ fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
   let inst = instances[in.instance];
   var uv = materialUV(in.uv);
   if (material.specular.y > 0.0) {
-    let axis = abs(in.normal);
-    let p = in.worldPosition / material.specular.y;
+    let axis = abs(in.planarNormal);
+    let p = in.planarPosition / material.specular.y;
     uv = select(select(p.xy, p.xz, axis.y >= axis.x && axis.y >= axis.z), p.yz, axis.x >= axis.y && axis.x >= axis.z);
   }
   // Material lookups take the frame's mip bias: with TAA jittering the
@@ -112,9 +121,14 @@ fn fs(in: VertexOut, @builtin(front_facing) frontFacing: bool) -> MeshFragment {
       // Mapped planar from the world, the frame is the projection's own:
       // the tangent where u grows, the bitangent where v shrinks (a
       // normal map's +Y is the top of its image), whatever the mesh says.
-      let axis = abs(in.normal);
+      let axis = abs(in.planarNormal);
       if (axis.x >= axis.y && axis.x >= axis.z) { t = vec3f(0.0, 1.0, 0.0); b = vec3f(0.0, 0.0, -1.0); }
       else if (axis.z > axis.y) { t = vec3f(1.0, 0.0, 0.0); b = vec3f(0.0, -1.0, 0.0); }
+      // In a body's own frame the axes turn with it.
+      if (material.coat.z > 0.5) {
+        t = normalize((inst.model * vec4f(t, 0.0)).xyz);
+        b = normalize((inst.model * vec4f(b, 0.0)).xyz);
+      }
     } else {
       // The vertex frame, made orthogonal to the normal. A primitive's
       // tangents are zeros, and normalizing a zero vector is undefined:

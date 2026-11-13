@@ -105,14 +105,26 @@ export class Project {
     };
   }
 
-  /** `m2d.project.json` as written, for the project panel and `read_project`; `{}` when there is none. */
+  /**
+   * `m2d.project.json` as written, for the project panel and
+   * `read_project`; `{}` when there is none. A file that is there and does
+   * not parse is an error, so nothing edits it as if it were empty.
+   */
   async file(): Promise<Record<string, unknown>> {
+    let text: string;
     try {
-      const raw = JSON.parse(await readFile(join(this.root, PROJECT_FILE), 'utf8')) as unknown;
-      return isRecord(raw) ? raw : {};
+      text = await readFile(join(this.root, PROJECT_FILE), 'utf8');
     } catch {
       return {};
     }
+    let raw: unknown;
+    try {
+      raw = JSON.parse(text);
+    } catch (error) {
+      throw new Error(`${PROJECT_FILE} does not parse: ${(error as Error).message}. Fix it by hand first`);
+    }
+    if (!isRecord(raw)) throw new Error(`${PROJECT_FILE} must hold an object`);
+    return raw;
   }
 
   /**

@@ -70,21 +70,23 @@ export class SceneManager {
       return this.#deferred;
     }
     // A UI scene's way out (its exit effects) plays first, while it still
-    // draws: the loading flag would hide it. A second request while it
-    // plays joins the first rather than racing it.
+    // draws: the loading flag would hide it. A request made while it plays
+    // joins it, and the last one asked for is where the switch goes.
+    this.#next = sceneName;
     if (this.#leaving) return this.#leaving;
     const exit = this.currentScene?.leave?.();
-    if (exit) {
-      this.#leaving = exit.then(() => {
-        this.#leaving = null;
-        return this.#run(() => this.#switch(sceneName));
-      });
-      return this.#leaving;
-    }
-    return this.#run(() => this.#switch(sceneName));
+    if (!exit) return this.#run(() => this.#switch(sceneName));
+    const go = () => {
+      this.#leaving = null;
+      return this.#run(() => this.#switch(this.#next));
+    };
+    // A way out that fails still goes: the switch must never wedge.
+    this.#leaving = exit.then(go, go);
+    return this.#leaving;
   }
 
   #leaving = null;
+  #next = null;
 
   /**
    * Run the current scene's `load()` again, under the same loading flag as

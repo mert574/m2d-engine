@@ -22,7 +22,8 @@ struct Material {
   // w how the wind moves it: 0 not at all, 1 it sways (a tree's wood), 2 it sways and flutters (its leaves).
   specular: vec4f,
   // x clearcoat strength, y its roughness: a thin glossy lacquer over the
-  // base (car paint, varnish, a wet surface). z, w unused.
+  // base (car paint, varnish, a wet surface). z 1 when world-planar
+  // texturing maps in the instance's own frame (a body that moves). w unused.
   coat: vec4f,
 };
 @group(2) @binding(0) var<uniform> material: Material;

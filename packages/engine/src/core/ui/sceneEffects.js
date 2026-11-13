@@ -98,9 +98,11 @@ export class SceneEffects {
       const exit = entry.effects.exit;
       if (exit) waits.push(this.#play(entry, exit, { delay: exit.delay ?? 0, entering: false }));
     }
-    if (!waits.length) return null;
+    // A motion with nothing to animate (typing out an element with no text) gives no tween.
+    const tweens = waits.filter(Boolean);
+    if (!tweens.length) return null;
     return Promise.race([
-      Promise.all(waits.map((tween) => new Promise((resolve) => tween.whenComplete?.(resolve) ?? resolve()))),
+      Promise.all(tweens.map((tween) => new Promise((resolve) => tween.whenComplete(resolve)))),
       new Promise((resolve) => this.game.time?.after?.(MAX_EXIT, resolve, { unscaled: true }) ?? setTimeout(resolve, MAX_EXIT * 1000))
     ]).then(() => undefined);
   }
