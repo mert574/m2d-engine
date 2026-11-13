@@ -143,19 +143,29 @@ export class RaceDirector extends Entity {
     this.playback = null;
     for (const cancel of this.timers) cancel.cancel?.();
     this.timers = [];
-    for (const entity of this.roundEntities) {
-      game.entities.delete(entity);
-      game.physics.remove(entity.body);
-      entity.destroy?.();
-    }
+    // Everything the props layer stands for goes, whoever built it: on the
+    // first round that is what the scene itself placed at load, and after
+    // it what the last round rebuilt. Missing the scene's own was two of
+    // every prop on the road, and two gates sweeping it.
+    const scene = game.sceneManager.getCurrentScene();
+    for (const object of this.#propObjects()) this.#retire(scene?.entitiesById.get(object.id));
+    for (const entity of this.roundEntities) this.#retire(entity);
     this.roundEntities = [];
     this.ghost.stop();
+
     // A fresh physics world per round. Removing and re-adding bodies leaves
     // Rapier's internal state behind, and a replay in a world that has
-    // already run a round drifts from the lap it reproduces. What the
-    // scene keeps across rounds — the road, this director — goes back in.
+    // already run a round drifts from the lap it reproduces.
+    //
+    // What the scene keeps across rounds — the road, this director — goes
+    // back in, in the file's order rather than whatever order the entity
+    // set happens to be in: bodies enter the solver in the same order every
+    // round, which is half of why a replay reproduces its lap.
     game.physics.reset();
-    for (const entity of game.entities) game.physics.add(entity.body);
+    for (const object of this.#standingObjects()) {
+      const entity = scene?.entitiesById.get(object.id);
+      if (entity && !entity.dead) game.physics.add(entity.body);
+    }
     this.#buildWalls();
 
     this.mode = 'countdown';
@@ -182,6 +192,26 @@ export class RaceDirector extends Entity {
     for (let n = 3; n >= 0; n--) {
       this.timers.push(game.time.after(this.countdownSeconds - 0.2 - n, beep(n)));
     }
+  }
+
+  /** Take an entity out of the world for good. */
+  #retire(entity) {
+    if (!entity || entity.dead) return;
+    this.game.entities.delete(entity);
+    this.game.physics.remove(entity.body);
+    entity.destroy?.();
+  }
+
+  /** The objects of the scene's `props` layer: what a round is built from. */
+  #propObjects() {
+    const layers = this.game.sceneManager.getCurrentScene()?.config.layers ?? [];
+    return layers.find((layer) => layer.name === PROPS_LAYER)?.objects ?? [];
+  }
+
+  /** The objects that stand for the whole visit: the road, this director. */
+  #standingObjects() {
+    const layers = this.game.sceneManager.getCurrentScene()?.config.layers ?? [];
+    return layers.filter((layer) => layer.name !== PROPS_LAYER).flatMap((layer) => layer.objects ?? []);
   }
 
   /** The barriers: a static box per wall piece, into the fresh world. */
@@ -253,8 +283,7 @@ export class RaceDirector extends Entity {
    */
   #buildProps(spills) {
     const scene = this.game.sceneManager.getCurrentScene();
-    const props = scene?.config.layers?.find((layer) => layer.name === PROPS_LAYER);
-    for (const object of props?.objects ?? []) {
+    for (const object of this.#propObjects()) {
       const entity = scene.materializeObject(object);
       if (!entity) continue;
       this.roundEntities.push(entity);
@@ -285,7 +314,9 @@ export class RaceDirector extends Entity {
    */
   #spill(spill) {
     if (this.mode === 'live') this.spills.push(spill);
-    this.roundSpills.push(spill);
+    // Not into `roundSpills`: that is what the round *started* from, and
+    // it is what a saved best records. Adding this round's own spills to
+    // it put oil on the road for a replay that was not there for the lap.
     this.#slick(spill);
   }
 
