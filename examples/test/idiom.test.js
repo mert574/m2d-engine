@@ -50,11 +50,6 @@ const FORBIDDEN = [
  * a hook, with the reason.
  */
 const ALLOWED = {
-  // Night Circuit
-  circuit: [
-    'project-file — phase 3: the maps baked into scene files, an editor project',
-    'boot — phase 3: bootProject'
-  ],
   // Cinder Keep
   iso: [
     'hooks: input — exception: the satchel and the shop are the keep\'s own screens, opened by the satchel and trade actions'

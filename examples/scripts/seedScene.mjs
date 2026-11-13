@@ -29,20 +29,22 @@ export function seedTarget(url) {
 
 /**
  * A list of placed objects for a builder to fill: `add(prefab, x, y,
- * width, height, properties)` rounds the placement and gives each object
- * a stable id, readable in a diff — the prefab and its ordinal
- * (`hedge-42`), in the order placed.
+ * width, height, properties, extra)` rounds the placement and gives each
+ * object a stable id, readable in a diff — the prefab and its ordinal
+ * (`hedge-42`), in the order placed. `extra` carries the object's own
+ * fields beside its placement: `angle`, `constraints`, `zIndex`.
  *
  * @returns {{ objects: object[], add: Function }}
  */
 export function placer() {
   const objects = [];
   const counts = new Map();
-  const add = (prefab, x, y, width, height, properties) => {
+  const add = (prefab, x, y, width, height, properties, extra) => {
     const n = (counts.get(prefab) ?? 0) + 1;
     counts.set(prefab, n);
     const object = { id: `${prefab}-${n}`, prefab, x: Math.round(x), y: Math.round(y) };
     if (width !== undefined) { object.width = Math.round(width); object.height = Math.round(height); }
+    Object.assign(object, extra);
     if (properties) object.properties = properties;
     objects.push(object);
   };

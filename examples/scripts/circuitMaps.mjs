@@ -1,5 +1,9 @@
 /**
- * The five circuits.
+ * The five circuits, as the shapes they are seeded from.
+ *
+ * `scripts/buildCircuitScenes.mjs` runs this once and writes the roads
+ * into `src/circuit/scenes/*.json` as closed smooth paths; nothing here
+ * is loaded by the game.
  *
  * A map's road is a radial loop: control points on a distorted ellipse,
  * `radius(θ)` shaped by a few sine harmonics. Single-valued radius means
@@ -13,7 +17,7 @@
  * centreline (negative left, positive right). Difficulty rises map to map:
  * narrower pinches, sharper harmonics, more gates and traffic in the way.
  */
-import { Track } from './track.js';
+import { Track } from '../src/circuit/track.js';
 
 /** Control points per loop. Plenty for smooth hairpins at this scale. */
 const POINTS = 72;

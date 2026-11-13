@@ -253,6 +253,14 @@ describe('asset-reference properties', () => {
   });
 });
 
+describe('the settings menu a project mounts', () => {
+  it('takes its options from the project file, and is left out by false', () => {
+    expect(projectIssues({ name: 'g', settings: { pauseWhenOpen: true } })).toEqual([]);
+    expect(projectIssues({ name: 'g', settings: false })).toEqual([]);
+    expect(projectIssues({ name: 'g', settings: 'yes' })[0].message).toMatch(/must be true, false or/);
+  });
+});
+
 describe('a UI scene\'s menu', () => {
   const menu = (extra = {}) => ({
     version: SCENE_VERSION, type: 'ui', name: 'menu',

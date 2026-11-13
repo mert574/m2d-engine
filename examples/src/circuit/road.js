@@ -2,18 +2,40 @@
  * Draws a circuit: grass, shoulder, asphalt, lines, curbs, barriers,
  * lamps, trees, tribunes — everything that is scenery rather than an actor.
  *
+ * The road itself is the scene's `road` path, whose points carry the
+ * half-width of the asphalt: the surface, the kerbs and the barriers are
+ * all resampled from it, so moving a point in the editor moves the
+ * circuit. It is placed twice, as the `ground` layer under the cars and
+ * the `over` layer above them.
+ *
  * The world is ~11000 px across and the view 1280, so everything culls
  * against the camera: road segments come from the track's sample buckets,
  * walls and decorations from distance checks. Barriers and trees near the
  * car also register as shadow casters, which is what puts real shadows
  * behind them when the headlights sweep past.
  *
- * Draw order is split across the scene's two hooks: `drawUnder` runs before
- * the entities (ground, road, skid marks), `drawOver` after them (barriers,
- * lamp posts, tree canopies — things a car slides under or behind).
+ * Draw order is the two layers: the `ground` one draws before the cars
+ * (ground, road, skid marks) and the `over` one after them (barriers, lamp
+ * posts, tree canopies — things a car slides under or behind).
  */
+
+/** The skid marks of each scene: the cars lay them down, the road draws them. */
+const marks = new WeakMap();
+
+/**
+ * One scene's skid-mark buffer, shared by every car that lays one and the
+ * road that draws them.
+ * @param {import('m2d-engine/core/scene.js').Scene} scene
+ */
+export function marksFor(scene) {
+  if (!marks.has(scene)) marks.set(scene, []);
+  return marks.get(scene);
+}
+import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { tileTexture } from '../shared/textures.js';
 import { makeRng, range } from '../shared/rng.js';
+import { trackFor } from './track.js';
 
 /** How far outside the view still draws, px. Lights reach further than sprites. */
 const MARGIN = 260;
@@ -31,33 +53,76 @@ const DEFAULT_THEME = {
   weather: null
 };
 
-export class TrackRenderer {
-  /**
-   * @param {import('m2d-engine/core/m2d.js').M2D} game
-   * @param {import('./track.js').Track} track
-   * @param {object} map - The map definition (seed, lampEvery)
-   * @param {Record<string, HTMLImageElement>} images
-   * @param {Array} marks - The shared skid-mark buffer
-   */
-  constructor(game, track, map, images, marks) {
-    this.game = game;
-    this.track = track;
-    this.map = map;
-    this.images = images;
-    this.marks = marks;
-    this.theme = { ...DEFAULT_THEME, ...(map.theme ?? {}) };
-    /** The entity whose headlights the shadow casters serve. */
-    this.focus = null;
+export class Road extends Entity {
+  static properties = {
+    path: s.ref('path', { initial: 'road', description: 'The centreline it draws: a closed path whose points carry the half-width of the asphalt' }),
+    layer: s.enumOf(['ground', 'over'], { initial: 'ground', description: 'ground: the surface under the cars; over: the barriers and canopies above them' }),
+    art: s.record(s.ref('image'), { description: 'The circuit\'s sprites by name: the ground, the barriers, the kerbs, the lamps and the scenery' }),
+    ground: s.string({ initial: 'grass', description: 'Which of the art is tiled outside the road' }),
+    asphalt: s.string({ editor: 'color' }), worn: s.string({ editor: 'color' }), shoulder: s.string({ editor: 'color' }),
+    edge: s.string({ editor: 'color' }), dash: s.string({ editor: 'color' }), lampColor: s.string({ editor: 'color' }),
+    decor: s.record(s.integer({ min: 0 }), { description: 'How many of each scenery sprite are scattered beside the road' }),
+    weather: s.any({ description: 'Rain: { drops, speed, angle } — see drawWeather' }),
+    lampEvery: s.number({ positive: true, initial: 900, unit: 'px', description: 'A lamp this far apart along the lap, alternating sides' }),
+    seed: s.integer({ min: 0, initial: 1, description: 'Which scatter of scenery and rain' })
+  };
+
+  name = 'Road';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    // Scenery: drawn, never touched.
+    body.setCollisionFilter({ category: 0, mask: 0 });
+    this.layer = options.layer ?? 'ground';
+    this.zIndex = this.layer === 'over' ? 1000 : -1000;
+
+    this.art = options.art ?? {};
+    this.theme = {
+      ...DEFAULT_THEME,
+      ...Object.fromEntries(['ground', 'asphalt', 'worn', 'shoulder', 'edge', 'dash', 'decor', 'weather']
+        .filter((key) => options[key] !== undefined).map((key) => [key, options[key]])),
+      lamp: options.lampColor ?? DEFAULT_THEME.lamp
+    };
+    this.lampEvery = options.lampEvery ?? 900;
+    this.seed = options.seed ?? 1;
     /** Rain drops in flight, world space, recycled. */
     this.rain = [];
-    this.rainRng = makeRng(map.seed + 7);
+    this.rainRng = makeRng(this.seed + 7);
+    this.roadPath = options.path ?? 'road';
+    this.track = null;
+  }
 
+  /**
+   * The track and everything measured off it. Done on the first draw
+   * rather than in the constructor: the scene is still being built then,
+   * and its road path is not resolvable yet.
+   */
+  #ready() {
+    if (this.track) return true;
+    const scene = this.game.sceneManager.getCurrentScene();
+    if (!scene) return false;
+    this.track = trackFor(scene, this.roadPath);
+    this.marks = marksFor(scene);
     this.#precompute();
+    return true;
+  }
+
+  /** The car the headlights belong to, for the shadow casters near it. */
+  get focus() {
+    if (this.car && !this.car.dead) return this.car;
+    this.car = [...this.game.entities].find((entity) => entity.name === 'RaceCar') ?? null;
+    return this.car;
+  }
+
+  draw() {
+    if (this.dead || !this.visible || !this.#ready()) return;
+    if (this.layer === 'ground') this.drawUnder();
+    else this.drawOver();
   }
 
   /** Curvature per sample, lamps, curb runs and scattered decorations. */
   #precompute() {
-    const { track, map } = this;
+    const { track } = this;
     const samples = track.samples;
     const n = samples.length;
 
@@ -77,7 +142,7 @@ export class TrackRenderer {
 
     // Lamps: alternating sides at a steady beat along the lap.
     this.lamps = [];
-    for (let s = 0, i = 0; s < track.length - map.lampEvery / 2; s += map.lampEvery, i++) {
+    for (let s = 0, i = 0; s < track.length - this.lampEvery / 2; s += this.lampEvery, i++) {
       const side = i % 2 === 0 ? -1 : 1;
       const pose = track.pose(s / track.length, 0);
       const offset = (pose.width + 30) * side;
@@ -92,7 +157,7 @@ export class TrackRenderer {
     // Decorations outside the track, seeded per map so every visit and
     // every machine sees the same scenery. game.rng is left alone: this is
     // load-time dressing, not simulation.
-    const rng = makeRng(this.map.seed);
+    const rng = makeRng(this.seed);
     this.decor = [];
     const place = (kind, count, min, max, scale) => {
       for (let i = 0; i < count; i++) {
@@ -178,7 +243,7 @@ export class TrackRenderer {
     const area = this.game.camera.getVisibleArea();
 
     // The ground at its natural tile size over the visible world.
-    tileTexture(renderer, this.images[this.theme.ground] ?? this.images.grass, {
+    tileTexture(renderer, this.art[this.theme.ground] ?? this.art.grass, {
       x: area.left - 64, y: area.top - 64,
       width: area.right - area.left + 128, height: area.bottom - area.top + 128
     }, 128);
@@ -221,7 +286,7 @@ export class TrackRenderer {
             // Curbs on the corners: the red-and-white rumble strips.
             if (Math.abs(this.curvature[i]) > 1 / 420) {
               const inside = Math.sign(this.curvature[i]);
-              const image = (i % 2 === 0) ? this.images.curbRed : this.images.curbWhite;
+              const image = (i % 2 === 0) ? this.art.curbRed : this.art.curbWhite;
               const mx = (a.x + b.x) / 2 + a.nx * inside * (a.w - 1);
               const my = (a.y + b.y) / 2 + a.ny * inside * (a.w - 1);
               renderer.drawSprite({
@@ -296,7 +361,7 @@ export class TrackRenderer {
     // Barriers, alternating stripe colours so distance reads at speed.
     const walls = this.track.wallsNear(camera.x, camera.y, viewRadius);
     for (const wall of walls) {
-      const image = ((wall.x + wall.y) & 64) ? this.images.barrierRed : this.images.barrierWhite;
+      const image = ((wall.x + wall.y) & 64) ? this.art.barrierRed : this.art.barrierWhite;
       // No drop shadow here on purpose: every shadowed sprite is its own
       // offscreen blur pass, and there are dozens of wall pieces in view.
       renderer.drawSprite({
@@ -310,7 +375,7 @@ export class TrackRenderer {
     for (const stack of this.tyres) {
       if (stack.x < area.left - 40 || stack.x > area.right + 40 ||
           stack.y < area.top - 40 || stack.y > area.bottom + 40) continue;
-      const image = stack.red ? this.images.tiresRed : this.images.tiresWhite;
+      const image = stack.red ? this.art.tiresRed : this.art.tiresWhite;
       renderer.drawSprite({
         image, x: stack.x, y: stack.y,
         tileWidth: image.width, tileHeight: image.height,
@@ -405,13 +470,13 @@ export class TrackRenderer {
       const near = focus && Math.hypot(lamp.x - focus.x, lamp.y - focus.y) < 760;
       // Hung at z 1: a barrier at 0.3 does not shadow it, a tree at 1.5 does.
       renderer.drawLight({
-        x: lamp.x, y: lamp.y, radius: 340, color: this.map.theme?.lamp ?? '#ffd9a0', intensity: 1.3,
+        x: lamp.x, y: lamp.y, radius: 340, color: this.theme.lamp, intensity: 1.3,
         angle: lamp.aim, cone: 1.35, shadows: near, z: 1
       });
       renderer.drawSprite({
-        image: this.images.lamp, x: lamp.x, y: lamp.y,
-        tileWidth: this.images.lamp.width, tileHeight: this.images.lamp.height,
-        width: 26, height: 26 * (this.images.lamp.height / this.images.lamp.width),
+        image: this.art.lamp, x: lamp.x, y: lamp.y,
+        tileWidth: this.art.lamp.width, tileHeight: this.art.lamp.height,
+        width: 26, height: 26 * (this.art.lamp.height / this.art.lamp.width),
         rotation: lamp.aim + Math.PI / 2
       });
     }
@@ -420,11 +485,11 @@ export class TrackRenderer {
   #drawDecor(area, focus) {
     const renderer = this.game.renderer;
     const sprites = {
-      treeLarge: { image: this.images.treeLarge, size: 90 },
-      treeSmall: { image: this.images.treeSmall, size: 58 },
-      rock: { image: this.images.rock, size: 34 },
-      tent: { image: this.images.tent, size: 70 },
-      tribune: { image: this.images.tribune, size: 150 }
+      treeLarge: { image: this.art.treeLarge, size: 90 },
+      treeSmall: { image: this.art.treeSmall, size: 58 },
+      rock: { image: this.art.rock, size: 34 },
+      tent: { image: this.art.tent, size: 70 },
+      tribune: { image: this.art.tribune, size: 150 }
     };
     for (const item of this.decor) {
       const spec = sprites[item.kind];

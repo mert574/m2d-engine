@@ -43,7 +43,7 @@ A project is a folder with an `m2d.project.json`.
 | `initialScene` | none | The scene the game opens on, by its file's name |
 | `display` | | `width`, `height` (the design size, 1280 by 720), `aspectMode` (`letterbox` or `expand`), `textureFilter`, `worldFilter` (`linear` or `nearest`), `pointerLock`, `performanceStats`, `clearColor` |
 | `input.actions` | none | Named input actions to the key codes that perform them. Rules fire on them and the settings menu rebinds them. See [Named actions](./input#named-actions) |
-| `settings` | `true` | Mount the settings menu (O) |
+| `settings` | `true` | Mount the settings menu (O). `{ "pauseWhenOpen": true }` also holds the game still while it is up, which a race or a timed level wants; `false` leaves it out |
 | `music` | none | Tracks by key, `{ url, volume }`, loaded at boot for screens that are not scenes |
 
 The definition holds the cast: actors, constraints, intents and the asset manifest. It never draws, so a headless game, a server and the editor's checks can load it. The hooks module holds what shows the game: the camera, lights, HUD and music. The game's page (`main.js`) boots the project with `bootProject`, and the editor's play mode builds the same game. Without a definition the editor draws placeholder actors. Without a hooks module, play runs the bare scene.

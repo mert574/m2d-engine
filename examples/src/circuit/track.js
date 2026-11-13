@@ -11,6 +11,9 @@
  * Everything here is plain geometry computed once per map load — nothing
  * random, nothing per-frame — so a track is identical on every machine,
  * which the replays depend on.
+ *
+ * The control points are the scene's `road` path (see `trackFor`), so the
+ * road a circuit drives is the one its file draws and the editor edits.
  */
 
 /** Distance between samples along the centreline, px. */
@@ -41,6 +44,8 @@ export class Track {
    *   loop, in driving order. The lap runs from the first point.
    */
   constructor(controls) {
+    /** The control points as given: the scene's road path, kept for anyone redrawing it. */
+    this.controls = controls.map((point) => ({ ...point }));
     this.samples = this.#sample(controls);
     this.length = this.samples[this.samples.length - 1].s +
       Math.hypot(this.samples[0].x - this.samples[this.samples.length - 1].x,
@@ -245,3 +250,27 @@ export class Track {
 }
 
 export { WALL_THICKNESS };
+
+/** Each scene's track, built once from its road path. */
+const tracks = new WeakMap();
+
+/**
+ * The track of a loaded scene: its `road` path, whose points carry the
+ * half-width of the asphalt. Built on the first ask and kept for the
+ * scene's life, so the director, the road and the car all measure against
+ * one piece of geometry.
+ *
+ * @param {import('m2d-engine/core/scene.js').Scene} scene
+ * @param {string} [name='road'] - Which of the scene's paths is the road
+ * @returns {Track}
+ */
+export function trackFor(scene, name = 'road') {
+  let track = tracks.get(scene);
+  if (!track) {
+    const road = scene.paths.get(name);
+    if (!road) throw new Error(`Night Circuit: scene '${scene.config.name}' has no '${name}' path`);
+    track = new Track(road.points);
+    tracks.set(scene, track);
+  }
+  return track;
+}

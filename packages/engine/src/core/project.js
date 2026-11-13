@@ -122,7 +122,9 @@ export async function bootProject(canvas, { project, definition, hooks = null, s
       : async () => source;
     m2d.sceneManager.addScene(name, { fetch, ...sceneHooks[name] });
   }
-  if (project.settings !== false && !m2d.headless) new SettingsMenu(m2d);
+  if (project.settings !== false && !m2d.headless) {
+    new SettingsMenu(m2d, typeof project.settings === 'object' ? project.settings : {});
+  }
   setup?.(m2d);
   await m2d.start();
   return m2d;

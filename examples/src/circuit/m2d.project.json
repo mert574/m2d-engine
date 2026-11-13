@@ -1,0 +1,17 @@
+{
+  "name": "Night Circuit",
+  "definition": "game.js",
+  "initialScene": "mainMenu",
+  "settings": { "pauseWhenOpen": true },
+  "display": {
+    "width": 1280,
+    "height": 720
+  },
+  "input": {
+    "actions": {
+      "menu": ["Escape"],
+      "restart": ["KeyR"],
+      "replay": ["Enter"]
+    }
+  }
+}

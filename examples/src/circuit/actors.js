@@ -9,7 +9,7 @@
  */
 import { Entity } from 'm2d-engine/core/entity.js';
 import { CarControl } from 'm2d-engine/constraints/carControl.js';
-import { PathFollow } from 'm2d-engine/constraints/pathFollow.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 /** Visual size of a car, px. The physics box is a whisker smaller. */
 export const CAR = { width: 30, length: 54, bodyWidth: 26, bodyLength: 48 };
@@ -38,7 +38,7 @@ export class RaceCar extends Entity {
     body.bullet = true;              // gates and walls at 800 px/s: no tunnelling
     super(body, sprite, game);
 
-    this.images = options.images;
+    this.image = options.image;
     this.track = options.track;
     this.marks = options.marks;
     /** Grip of the asphalt itself: 1 dry, less in the rain. */
@@ -185,8 +185,8 @@ export class RaceCar extends Entity {
 
     // The car, dropping its silhouette one layer down onto the road.
     renderer.drawSprite({
-      image: this.images.car, x: pos.x, y: pos.y,
-      tileWidth: this.images.car.width, tileHeight: this.images.car.height,
+      image: this.image, x: pos.x, y: pos.y,
+      tileWidth: this.image.width, tileHeight: this.image.height,
       width: CAR.width, height: CAR.length,
       rotation: angle + Math.PI / 2,   // the sprite art points up
       shadow: { color: 'rgba(8, 8, 16, 0.45)', blur: 8, offsetX: 5, offsetY: 7 }
@@ -225,9 +225,9 @@ export class RaceCar extends Entity {
 
 /** The ghost: the best lap's recorded poses, played back as a translucent car. */
 export class GhostCar {
-  constructor(game, images) {
+  constructor(game, image) {
     this.game = game;
-    this.images = images;
+    this.image = image;
     /** Flat [x, y, angle, ...] per tick, set by the race director. */
     this.frames = null;
     this.at = -1;
@@ -256,9 +256,9 @@ export class GhostCar {
     const i = Math.min(this.at, this.frames.length / 3 - 1) * 3;
     const renderer = this.game.renderer;
     renderer.drawSprite({
-      image: this.images.ghost,
+      image: this.image,
       x: this.frames[i], y: this.frames[i + 1],
-      tileWidth: this.images.ghost.width, tileHeight: this.images.ghost.height,
+      tileWidth: this.image.width, tileHeight: this.image.height,
       width: CAR.width, height: CAR.length,
       rotation: this.frames[i + 2] + Math.PI / 2,
       globalAlpha: 0.45
@@ -268,18 +268,16 @@ export class GhostCar {
 
 /** A slow car patrolling a stretch of the track. Kinematic: it does not yield. */
 export class TrafficCar extends Entity {
+  static properties = { image: s.ref('image', { description: 'The car it is drawn as' }) };
+
   name = 'TrafficCar';
 
   constructor(body, sprite, game, options = {}) {
     body.bodyType = 'kinematic';
     super(body, sprite, game);
     this.image = options.image;
-    this.addConstraint('path', new PathFollow(this, {
-      points: options.points,
-      speed: options.speed,
-      waitTime: 900,
-      acceleration: options.speed
-    }));
+    // The stretch of road it shuttles is the scene's own path, walked by
+    // the engine's PathFollow, which the prefab attaches.
     this.heading = 0;
   }
 
@@ -315,12 +313,17 @@ export class TrafficCar extends Entity {
 
 /** A traffic cone: light, scattered by a touch, flat once knocked over. */
 export class Cone extends Entity {
+  static properties = {
+    up: s.ref('image', { description: 'Standing' }),
+    down: s.ref('image', { description: 'Knocked over' })
+  };
+
   name = 'Cone';
 
   constructor(body, sprite, game, options = {}) {
     body.setMass(0.08);
     super(body, sprite, game);
-    this.images = options.images;
+    this.art = { up: options.up, down: options.down };
     this.down = false;
   }
 
@@ -336,7 +339,7 @@ export class Cone extends Entity {
 
   draw() {
     if (this.dead) return;
-    const image = this.down ? this.images.coneDown : this.images.cone;
+    const image = this.down ? this.art.down : this.art.up;
     const pos = this.renderPosition;
     this.game.renderer.drawSprite({
       image, x: pos.x, y: pos.y,
@@ -355,13 +358,20 @@ export class Cone extends Entity {
  * session goes.
  */
 export class Barrel extends Entity {
+  static properties = {
+    blue: s.ref('image'), blueDown: s.ref('image'),
+    red: s.ref('image'), redDown: s.ref('image'),
+    rusted: s.boolean({ initial: false, description: 'The red barrel rather than the blue one' })
+  };
+
   name = 'Barrel';
 
   constructor(body, sprite, game, options = {}) {
     body.setMass(2.2);
     super(body, sprite, game);
-    this.images = options.images;
-    this.red = options.red ?? false;
+    this.art = options.rusted
+      ? { up: options.red, down: options.redDown }
+      : { up: options.blue, down: options.blueDown };
     /** Called once with the spill spec when the barrel topples. */
     this.onSpill = options.onSpill ?? null;
     this.toppled = false;
@@ -398,9 +408,7 @@ export class Barrel extends Entity {
     if (this.dead) return;
     const pos = this.renderPosition;
     const renderer = this.game.renderer;
-    const up = this.red ? this.images.barrelRed : this.images.barrel;
-    const down = this.red ? this.images.barrelRedDown : this.images.barrelDown;
-    const image = this.toppled ? down : up;
+    const image = this.toppled ? this.art.down : this.art.up;
     renderer.drawSprite({
       image, x: pos.x, y: pos.y,
       tileWidth: image.width, tileHeight: image.height,
@@ -417,6 +425,11 @@ export class Barrel extends Entity {
 
 /** The slick itself: a sensor that strips the tyres' grip while overlapped. */
 export class OilSlick extends Entity {
+  static properties = {
+    image: s.ref('image'),
+    radius: s.number({ positive: true, initial: 55, unit: 'px', description: 'How far the slick spreads' })
+  };
+
   name = 'OilSlick';
 
   constructor(body, sprite, game, options = {}) {
@@ -424,7 +437,8 @@ export class OilSlick extends Entity {
     body.bodyType = 'static';
     super(body, sprite, game);
     this.image = options.image;
-    this.angle = options.angle ?? 0;
+    // Placed at an angle on the road; the body carries it.
+    this.angle = body.angle ?? 0;
     this.radius = options.radius ?? 55;
   }
 
@@ -455,6 +469,8 @@ export class OilSlick extends Entity {
 
 /** A boost pad: drive over it, get thrown along the track. */
 export class BoostPad extends Entity {
+  static properties = { image: s.ref('image', { description: 'The arrow painted on the road' }) };
+
   name = 'BoostPad';
 
   constructor(body, sprite, game, options = {}) {
@@ -462,7 +478,8 @@ export class BoostPad extends Entity {
     body.bodyType = 'static';
     super(body, sprite, game);
     this.image = options.image;
-    this.direction = options.direction ?? 0;
+    // Which way it throws: along the road, which is how it was placed.
+    this.direction = body.angle ?? 0;
   }
 
   onCollisionStart(other) {
@@ -499,6 +516,8 @@ export class BoostPad extends Entity {
  * ramps it so being hit is a shove, not an execution — but it will shove.
  */
 export class GateArm extends Entity {
+  static properties = { image: s.ref('image', { description: 'The barrier the beam is drawn as' }) };
+
   name = 'GateArm';
 
   constructor(body, sprite, game, options = {}) {
@@ -506,13 +525,10 @@ export class GateArm extends Entity {
     body.friction = 0.2;
     super(body, sprite, game);
     this.image = options.image;
-    this.beam = options.beam;       // { length, angle }
-    this.addConstraint('path', new PathFollow(this, {
-      points: options.points,
-      speed: options.speed ?? 130,
-      waitTime: 650,
-      acceleration: 260
-    }));
+    // The beam is how it was placed: as long as the object is wide, lying
+    // across the road. It shuttles along the scene's path, which the
+    // prefab's PathFollow walks.
+    this.beam = { length: this.size.x, angle: body.angle ?? 0 };
   }
 
   draw() {
@@ -542,14 +558,21 @@ export class GateArm extends Entity {
 
 /** An invisible line across the road; the race director counts crossings. */
 export class Checkpoint extends Entity {
+  static properties = {
+    index: s.integer({ min: 0, description: 'Its place in the lap order' }),
+    finish: s.boolean({ initial: false, description: 'The line a lap is timed from' })
+  };
+
   name = 'Checkpoint';
 
   constructor(body, sprite, game, options = {}) {
     body.isSensor = true;
     body.bodyType = 'static';
     super(body, sprite, game);
-    this.index = options.index;
-    this.onCross = options.onCross;
+    this.index = options.index ?? 0;
+    this.finish = options.finish ?? false;
+    /** Set by the race director when it builds the round. */
+    this.onCross = null;
   }
 
   onCollisionStart(other) {

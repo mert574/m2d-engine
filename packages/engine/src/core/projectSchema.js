@@ -39,7 +39,12 @@ export const PROJECT_SCHEMA = s.object({
       label: 'Actions', description: 'Action name to the physical key codes that perform it; rules fire on them and the settings menu rebinds them'
     })
   }, { label: 'Input' }),
-  settings: s.boolean({ initial: true, description: 'Mount the settings menu (O), with a Controls section for the actions' }),
+  settings: s.union([
+    s.boolean({ match: (value) => typeof value === 'boolean' }),
+    s.object({
+      pauseWhenOpen: s.boolean({ initial: false, label: 'Pause while open', description: 'Hold the game still while the menu is up: what a race or a timed level wants' })
+    }, { match: (value) => typeof value === 'object' && value !== null })
+  ], { initial: true, label: 'Settings', description: 'Mount the settings menu (O), with a Controls section for the actions. An object mounts it and tunes it', message: 'must be true, false or { pauseWhenOpen }' }),
   music: s.record(s.object({
     url: s.string({ required: true, nonEmpty: true, description: 'Relative to basePath' }),
     volume: s.number({ min: 0, max: 1, initial: 1 })
