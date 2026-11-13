@@ -50,14 +50,17 @@ engine.setVolume(0.35 + revs * 0.45);
 engine.stop();
 ```
 
-Scene hooks are the usual place to switch music.
+A scene says what plays while it shows. `world.music` (a level) or `music` (a UI scene) plays a track, and `world.ambience` loops sounds under the level, each faded in from silence and stopped when the scene leaves.
 
-```javascript
-game.sceneManager.addScene('level1', {
-  fetch: async () => (await import('./scenes/level1.json')).default,
-  onEnter() { game.soundManager.playMusic('game'); }
-});
+```json
+"assets": { "sounds": { "wind": { "url": "sounds/wind.ogg" } }, "music": { "theme": { "url": "music/theme.ogg" } } },
+"world": {
+  "music": { "track": "theme" },
+  "ambience": [{ "sound": "wind", "volume": 0.6, "fadeIn": 2 }]
+}
 ```
+
+A rule plays an effect with `{ "do": "sound", "key": "levelComplete" }`. See [the scene format](../reference/scene-format#world).
 
 ## Generated effects
 

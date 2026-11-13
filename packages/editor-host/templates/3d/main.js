@@ -1,28 +1,15 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { initWebGPU, webgpuSupported } from 'm2d-engine/core/renderers/index.js';
-import { GAME, register } from './game.js';
-import { sceneHooks } from './hooks.js';
-import level from './scenes/level.json';
-import room from './scenes/room.json';
+import { bootProject } from 'm2d-engine/core/project.js';
+import project from './m2d.project.json';
+import * as definition from './game.js';
 
-// The page: a canvas, the game's definition, its scenes with their hooks.
-if (!webgpuSupported()) {
-  document.body.textContent = 'This game is 3D and needs WebGPU: Chrome or Edge with a GPU.';
-} else {
-  await Promise.all([initWebGPU(), initPhysics({ dimensions: 3 })]);
-  const game = new M2D(document.getElementById('screen'), {
-    ...GAME,
-    width: 1280,
-    height: 720,
-    initialScene: 'level',
-    performanceStats: false
-  });
-  register(game);
-  const hooks = sceneHooks(game);
-  // The room is never switched to: the level instances it three times
-  // (layers[0].scenes), and the loader composes it in from this fetch.
-  game.sceneManager.addScene('room', { fetch: async () => room });
-  game.sceneManager.addScene('level', { fetch: async () => level, ...hooks.level });
-  await game.start();
-}
+// The page: the project boots itself. Which scene opens, the display and
+// the input actions are m2d.project.json's; the look, the HUD and what
+// happens when are the scenes'. Everything here is edited in the editor.
+await bootProject(document.getElementById('screen'), {
+  project,
+  definition,
+  scenes: import.meta.glob('./scenes/*.json', { import: 'default' })
+}).catch((error) => {
+  document.body.textContent = error.message;
+  throw error;
+});

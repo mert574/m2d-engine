@@ -29,7 +29,24 @@ export interface HostProject {
   hooks: string | null;
   /** What scene asset URLs are relative to, project-relative. */
   basePath: string;
+  /** The scene the game opens on, or null. */
+  initialScene: string | null;
+  /** `display` from the project file: design size, filters, clear colour. */
+  display: Record<string, unknown>;
+  /** Named input actions to key codes, as `input.actions` declares them. */
+  actions: Record<string, string[]>;
   scenes: SceneEntry[];
+}
+
+/**
+ * The M2D options the project file contributes to a game the editor
+ * makes, played or edited: its actions (so a rule on one fires in play),
+ * its clear colour and filters, over the hooks module's `OPTIONS`.
+ */
+export function projectGameOptions(project: HostProject, hooksOptions?: Record<string, unknown>): Record<string, unknown> {
+  const display = project.display ?? {};
+  const pick = (key: string) => (display[key] !== undefined ? { [key]: display[key] } : {});
+  return { ...hooksOptions, ...pick('clearColor'), ...pick('textureFilter'), ...pick('worldFilter'), actions: project.actions ?? {} };
 }
 
 /** What a game-definition module exports; see m2d.project.json. */

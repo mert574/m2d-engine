@@ -56,6 +56,24 @@ The page gives the canvas a CSS size and calls `start`. The engine reads the dis
 
 One option in the demo exists because it runs inside a documentation page. `performanceStats: false` hides the frame-rate readout every scene adds by default.
 
+## A game as a project
+
+A game you ship is a project: a folder with an `m2d.project.json`, a `game.js` that registers its actors and constraints, and its scenes, which the [editor](./editor) opens. `npm run editor new my-game --template 2d` makes one. Its page boots it in one call, and the scene it opens on, the display and the input actions come from the project file.
+
+```js
+import { bootProject } from 'm2d-engine/core/project.js';
+import project from './m2d.project.json';
+import * as definition from './game.js';
+
+await bootProject(document.getElementById('screen'), {
+  project,
+  definition,
+  scenes: import.meta.glob('./scenes/*.json', { import: 'default' })
+});
+```
+
+See [The project file](./editor#the-project-file).
+
 ## Next
 
 [Building](./building) covers the production build. [Your first game](./first-game) builds a playable platformer with a keyboard-controlled hero, a level file and a menu. The rest of the guide covers each system on its own.

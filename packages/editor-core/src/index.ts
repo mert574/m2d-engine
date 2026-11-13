@@ -33,7 +33,8 @@ export { validateScene, type ValidationResult, type ValidationIssue } from './va
 export { sceneOutline, type OutlineNode } from './outline.ts';
 export * as rotation from './rotation.ts';
 export type { Quaternion, Euler } from './rotation.ts';
-export { inspectNode, startingValue, type InspectedRow, type InspectOptions } from './inspect.ts';
+export { inspectNode, inspectWith, startingValue, type InspectedRow, type InspectOptions } from './inspect.ts';
+export * as project from './project.ts';
 export { descriptorAt, resolveDescriptor, isPlainObject, type PathSegment, type ResolveContext } from './descriptors.ts';
 export * as structure from './structure.ts';
 export * as paths from './paths.ts';

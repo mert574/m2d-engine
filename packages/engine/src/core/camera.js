@@ -159,6 +159,23 @@ export class Camera {
   }
 
   /**
+   * Jump to the target at once, as if the follow had always been there: no
+   * swing from wherever the camera last was. The engine snaps when a scene
+   * shows, so entering a level never opens on the view easing across it.
+   */
+  snap() {
+    if (!this.target || this.mode === 'scroll') return;
+    if (this.followRotation) {
+      const angle = this.target.body?.renderAngle ?? this.target.body?.angle;
+      if (angle !== undefined) this.rotation = angle + this.rotationOffset;
+    }
+    const lerp = this.lerp;
+    this.lerp = 1;
+    this.update(1 / Camera.REFERENCE_FPS);
+    this.lerp = lerp;
+  }
+
+  /**
    * Keep the view inside `bounds`, if set. `update` does this after the
    * follow; a game that moves the camera by hand (a room snap, a zoom) can
    * call it itself so the edit cannot reveal the void past the map.

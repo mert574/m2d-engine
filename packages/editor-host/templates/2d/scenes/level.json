@@ -2,7 +2,17 @@
   "version": 4,
   "name": "level",
   "type": "level",
-  "world": { "width": 1600, "height": 900, "gravity": { "x": 0, "y": 1000 } },
+  "world": {
+    "width": 1600,
+    "height": 900,
+    "gravity": { "x": 0, "y": 1000 },
+    "rules": [
+      {
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "menu" }]
+      }
+    ]
+  },
   "prefabs": {
     "player": { "actor": "Player", "physics": { "bodyType": "dynamic", "friction": 5, "frictionAir": 0.001 } },
     "sky": { "actor": "Prop", "physics": { "bodyType": "static", "isSensor": true } },
@@ -71,6 +81,20 @@
         },
         { "id": "player", "prefab": "player", "x": 120, "y": 780, "width": 28, "height": 40 }
       ]
+    }
+  ],
+  "hud": [
+    {
+      "type": "text",
+      "id": "controls",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": {
+        "text": "Arrows move · Space jumps · Escape for the menu",
+        "fontSize": "15px",
+        "color": "#2b3a4a"
+      }
     }
   ]
 }

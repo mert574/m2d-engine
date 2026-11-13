@@ -416,7 +416,10 @@ export class SceneLoader {
       environment: scope(Object.keys(data.assets?.environments ?? {}),
         (name, known) => `no environment named '${name}' (declared: ${known.join(', ') || 'none'})`),
       path: scope(Object.keys(data.paths ?? {}),
-        (name, known) => `no path named '${name}' (declared: ${known.join(', ') || 'none'})`)
+        (name, known) => `no path named '${name}' (declared: ${known.join(', ') || 'none'})`),
+      // An image is drawn whole: one of assets.images, or a sprite sheet's image.
+      image: scope([...Object.keys(data.assets?.images ?? {}), ...Object.keys(data.assets?.spritesheets ?? {})],
+        (name, known) => `no image named '${name}' (assets.images and sprite sheets: ${known.join(', ') || 'none'})`)
     };
 
     if (this.game?.assets) {

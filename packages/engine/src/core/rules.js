@@ -2,14 +2,16 @@
  * A level's rules — `world.rules` — run by the scene each tick.
  *
  * A rule is a `when` and a `then`: an event the scene watches for, and the
- * actions it takes once (or every time, with `once: false`). The events are
- * the ones every level has had in code so far: the scene starting, every
- * object of a prefab collected, the player entering an object, an object
- * (or the player, or every one of a group) dying, the player falling below
- * the kill plane. The actions are the things those hooks did: a notice on
- * the HUD, a sound, unsealing a gate, removing an object, a scene switch
- * or game over after a moment, turning the lighting cycle, setting a field
- * on an object, moving the camera's bounds.
+ * actions it takes once (or every time, with `once: false`). The events:
+ * the scene starting, every object of a prefab collected, the player
+ * entering an object, an object (or the player, or every one of a group)
+ * dying, the player falling below the kill plane, a counter reaching a
+ * value, a named input action pressed, a world event game code raised
+ * (`emit`), and an event the simulation told the player (`notify`). The
+ * actions: a notice, an objective line or a dialogue on the HUD, a sound,
+ * unsealing a gate, removing an object, setting a field, changing a
+ * counter, a scene switch or game over after a moment, turning the
+ * lighting cycle, moving the camera's bounds.
  *
  * Rules chain by id: `after` waits for the named rules to have fired, and
  * `before` stops a rule once they have — a wave arming only once the one
@@ -20,22 +22,41 @@
  * do nothing without a display. Conditions are polled rather than listened
  * for, so a rule is a pure function of the world at the tick and a replay
  * agrees.
+ *
+ * The one exception is `notify`. What the simulation tells a player
+ * reaches that player's screen after the tick — on a client, from the
+ * server — so a notify rule is heard rather than polled, runs where the
+ * screen is (a client too), and may only change what is shown and heard
+ * (the schema holds it to `PRESENTATION_ACTIONS`).
  */
 export class SceneRules {
   /**
    * @param {import('./scene.js').Scene} scene
    * @param {Array<object>} rules - `world.rules`, validated
+   * @param {Object} [options]
+   * @param {boolean} [options.simulate=true] - Poll the rules each tick.
+   *   False on a client, whose world the server simulates: only its notify
+   *   rules run there
    */
-  constructor(scene, rules = []) {
+  constructor(scene, rules = [], { simulate = true } = {}) {
     this.scene = scene;
     this.game = scene.game;
+    this.simulate = simulate;
     this.rules = rules.map((rule) => ({ ...rule, fired: false }));
     /** The rules with an id, for after and before. */
     this.byId = new Map(this.rules.filter((rule) => rule.id).map((rule) => [rule.id, rule]));
     this.started = false;
     /** Set by the kill plane check, read once. */
     this.fell = false;
+    /** World events already looked at, as `game.events.raised` counts them. */
+    this.seenEvents = this.game.events?.raised ?? 0;
+    /** The names `emit` rules hear this tick. @type {Set<string>} */
+    this.emitted = new Set();
+    /** The notify listeners, dropped by `unlisten`. */
+    this.#off = [];
   }
+
+  #off;
 
   /** The entity for an object id, or the player for `'player'`. */
   #entity(id) {
@@ -72,6 +93,16 @@ export class SceneRules {
         return this.#gone(this.#entity(when.object));
       case 'fall':
         return this.fell;
+      case 'count': {
+        const value = this.scene.counters?.get(when.counter) ?? 0;
+        if (typeof when.atLeast === 'number' && value < when.atLeast) return false;
+        if (typeof when.atMost === 'number' && value > when.atMost) return false;
+        return typeof when.atLeast === 'number' || typeof when.atMost === 'number';
+      }
+      case 'action':
+        return this.game.actions?.pressed(when.action, this.game.input?.snapshot) ?? false;
+      case 'emit':
+        return this.emitted.has(when.name);
       default:
         return false;
     }
@@ -85,14 +116,52 @@ export class SceneRules {
 
   /** One tick: fire every rule whose event holds, in order, so a chain can run through in one tick. */
   fixedUpdate() {
+    if (!this.simulate) return;
+    this.#hearEmitted();
     for (const rule of this.rules) {
+      if (rule.when?.event === 'notify') continue;
       if (rule.fired && rule.once !== false) continue;
       if (!this.#ready(rule) || !this.#holds(rule.when)) continue;
-      rule.fired = true;
-      for (const action of rule.then ?? []) this.#run(action);
+      this.#fire(rule);
     }
     this.started = true;
     this.fell = false;
+  }
+
+  /** The world events raised since the last tick looked. */
+  #hearEmitted() {
+    this.emitted.clear();
+    const events = this.game.events;
+    if (!events) return;
+    for (const name of events.since(this.seenEvents)) this.emitted.add(name);
+    this.seenEvents = events.raised;
+  }
+
+  #fire(rule) {
+    rule.fired = true;
+    for (const action of rule.then ?? []) this.#run(action);
+  }
+
+  /**
+   * Hear what the simulation tells the local player, for the notify
+   * rules. Presentation: the scene calls it when it shows, with a display.
+   */
+  listen() {
+    const player = this.game.players?.local;
+    if (!player) return;
+    for (const rule of this.rules) {
+      if (rule.when?.event !== 'notify') continue;
+      this.#off.push(player.on(rule.when.name, () => {
+        if (rule.fired && rule.once !== false) return;
+        if (!this.#ready(rule)) return;
+        this.#fire(rule);
+      }));
+    }
+  }
+
+  unlisten() {
+    for (const off of this.#off) off();
+    this.#off = [];
   }
 
   #run(action) {
@@ -104,6 +173,9 @@ export class SceneRules {
         break;
       case 'objective':
         this.scene.hud?.setText(action.element ?? 'objective', action.text);
+        break;
+      case 'say':
+        this.scene.hud?.say(action.speaker ?? '', action.lines, action.element);
         break;
       case 'sound':
         game.soundManager?.playSound(action.key);
@@ -131,6 +203,13 @@ export class SceneRules {
         if (entity && typeof action.property === 'string') entity[action.property] = action.value;
         break;
       }
+      case 'count': {
+        const counters = this.scene.counters;
+        if (!counters) break;
+        if (typeof action.set === 'number') counters.set(action.counter, action.set);
+        else counters.add(action.counter, action.add ?? 1);
+        break;
+      }
       case 'switch':
         after(action.after, () => { void game.sceneManager.switchTo(action.scene); });
         break;
@@ -148,8 +227,10 @@ export class SceneRules {
       case 'cycle': {
         const cycle = this.scene.cycle;
         if (!cycle) break;
-        if (typeof action.target === 'number') cycle.target = action.target;
         if (typeof action.phase === 'number') { cycle.phase = action.phase; cycle.target = action.phase; }
+        if (typeof action.target === 'number') {
+          cycle.target = action.toggle && cycle.target === action.target ? 0 : action.target;
+        }
         if (typeof action.ease === 'number') cycle.ease = action.ease;
         break;
       }

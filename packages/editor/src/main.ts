@@ -36,7 +36,7 @@ import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { ANCHOR_ORIGINS } from 'm2d-engine/core/ui/uiElement.js';
 import {
-  loadProject, assetBase, loadDefinition, loadHooks, onHost, post, get, fetchDocument,
+  loadProject, assetBase, loadDefinition, loadHooks, onHost, post, get, fetchDocument, projectGameOptions,
   type HostProject, type SceneEntry, type GameDefinition, type HooksModule
 } from './host.ts';
 import { RemoteDocument, type ReplicaChange } from './remote.ts';
@@ -47,6 +47,7 @@ import { createAnimationEditor } from './animationEditor.ts';
 import { createViewHelpers, type Helper } from './viewHelpers.ts';
 import { createPathTool } from './pathEditor.ts';
 import { createLookPanel } from './lookPanel.ts';
+import { createProjectPanel } from './projectPanel.ts';
 import { renderThumbnail } from './thumbnails.ts';
 import { createTree, type SelectMode } from './tree.ts';
 import { showMenu, SEPARATOR, type MenuItem } from './menu.ts';
@@ -304,6 +305,7 @@ const inspector = createInspector(inspectorPanel, {
     const assetBlock = isPlainObject(data?.assets) ? data.assets : {};
     if (scope === 'prefab') return keys(data?.prefabs);
     if (scope === 'spritesheet') return keys(assetBlock.spritesheets);
+    if (scope === 'image') return [...keys(assetBlock.images), ...keys(assetBlock.spritesheets)];
     if (scope === 'model') return keys(assetBlock.models);
     if (scope === 'environment') return keys(assetBlock.environments);
     if (scope === 'actor') return [...(viewport.registries.actors?.keys() ?? [])];
@@ -424,6 +426,11 @@ const lookPanel = createLookPanel($<HTMLElement>('#look'), viewport, {
   say
 });
 const lookShown = () => !$<HTMLElement>('#look').hidden;
+const projectPanel = createProjectPanel($<HTMLElement>('#project-panel'), {
+  say,
+  changed: () => { void loadProject().then((fresh) => { project = fresh; listScenes(); }).catch(() => {}); },
+  scenes: () => project?.scenes.flatMap((scene) => (scene.name ? [scene.name] : [])) ?? []
+});
 const consolePanel = createConsolePanel($<HTMLElement>('#console'), () => viewport.game as never, (count) => {
   consoleCount.textContent = count ? String(count) : '';
   consoleCount.classList.toggle('zero', !count);
@@ -1450,7 +1457,7 @@ async function materialize(keepView: boolean): Promise<void> {
   try {
     const shown = await viewport.show(remote.doc, {
       definition,
-      presentation: hooksModule?.OPTIONS,
+      presentation: projectGameOptions(project, hooksModule?.OPTIONS),
       basePath: assetBase(project),
       scenes: projectScenes(),
       library: siblings
@@ -1805,7 +1812,7 @@ async function startPlay(variant: Variant | null = playVariant): Promise<void> {
     const played = variant ? new SceneDocument(stage.variantOf(current.doc.data, variant), current.path) : current.doc;
     const shown = await viewport.show(played, {
       definition,
-      presentation: hooksModule?.OPTIONS,
+      presentation: projectGameOptions(project, hooksModule?.OPTIONS),
       basePath: assetBase(project),
       play: {
         hooks: hooksModule?.sceneHooks,
@@ -2003,8 +2010,8 @@ function setMode(mode: GizmoMode): void {
   scaleTool.setAttribute('aria-pressed', String(mode === 'scale'));
 }
 
-type DockTab = 'assets' | 'components' | 'problems' | 'history' | 'look' | 'console' | 'build';
-const DOCK_TABS: DockTab[] = ['assets', 'components', 'problems', 'history', 'look', 'console', 'build'];
+type DockTab = 'assets' | 'components' | 'problems' | 'history' | 'look' | 'project' | 'console' | 'build';
+const DOCK_TABS: DockTab[] = ['assets', 'components', 'problems', 'history', 'look', 'project', 'console', 'build'];
 
 function showDock(tab: DockTab): void {
   for (const button of document.querySelectorAll<HTMLElement>('.tab')) {
@@ -2015,6 +2022,7 @@ function showDock(tab: DockTab): void {
   if (tab === 'assets') void assets.refresh().catch(() => {});
   if (tab === 'components') components.refresh();
   if (tab === 'look') lookPanel.refresh();
+  if (tab === 'project') void projectPanel.refresh();
   setDockHidden(false);
   settings.set('dock.tab', tab);
 }
@@ -2302,6 +2310,11 @@ const refreshListing = settled(() => {
 const assetsChanged = settled(() => { void assets.refresh().catch(() => {}); }, 300);
 const siblingsChanged = settled(() => { void refreshSiblings().then(() => problemsSoon()); }, 300);
 onHost<{ path: string }>('m2d:file', ({ path }) => {
+  // The project file: an agent's edit_project, or the Project tab's own write.
+  if (path === 'm2d.project.json') {
+    refreshListing();
+    if (!$<HTMLElement>('#project-panel').hidden) void projectPanel.refresh();
+  }
   if (path.endsWith('.json') && !project?.scenes.some((scene) => scene.path === path)) refreshListing();
   if (path.endsWith('.json') && project?.scenes.some((scene) => scene.path === path && scene.path !== entry?.path)) siblingsChanged();
   if (/\.(glb|gltf|png|jpe?g|webp|hdr|wav|mp3|ogg)$/i.test(path)) assetsChanged();

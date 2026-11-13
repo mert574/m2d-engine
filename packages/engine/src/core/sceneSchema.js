@@ -173,8 +173,14 @@ const SOUND = s.object({
   volume: s.number({ min: 0, max: 1, initial: 1 })
 });
 
+/** A single image the scene draws whole: a HUD icon, a backdrop still, a ground texture an actor names. */
+const IMAGE = s.object({
+  url: s.string({ required: true, nonEmpty: true, editor: 'asset', label: 'Image', description: 'Relative to the game\'s basePath' })
+});
+
 const ASSETS = s.object({
   spritesheets: s.record(SPRITESHEET),
+  images: s.record(IMAGE, { description: 'Whole images by key: icons, stills, textures an actor property names' }),
   models: s.record(MODEL),
   environments: s.record(ENVIRONMENT),
   sounds: s.record(SOUND, { description: 'Effects, loaded into the sound manager by key when the scene loads' }),
@@ -222,7 +228,21 @@ const CAMERA = s.object({
   minPitch: s.number({ unit: 'rad', label: 'Min pitch' }),
   maxPitch: s.number({ unit: 'rad', label: 'Max pitch' }),
   fov: s.number({ positive: true, unit: 'rad', label: 'Field of view', description: '3D: vertical' }),
-  targetOffset: s.object({ x: s.number(), y: s.number(), z: s.number() }, { label: 'Target offset', description: '3D: added to the followed object\'s position' })
+  targetOffset: s.object({ x: s.number(), y: s.number(), z: s.number() }, { label: 'Target offset', description: '3D: added to the followed object\'s position' }),
+  wheelZoom: s.object({
+    speed: s.number({ positive: true, initial: 0.0015, description: 'Zoom per wheel unit, as an exponent' }),
+    min: s.number({ positive: true, description: '2D: the furthest out the wheel zooms' }),
+    max: s.number({ positive: true, description: '2D: the closest in the wheel zooms' })
+  }, { label: 'Wheel zoom', description: 'The mouse wheel zooms: in 2D between min and max, in 3D between the min and max distance' }),
+  orbitDrag: s.object({
+    yaw: s.number({ initial: 0.005, unit: 'rad/px' }),
+    pitch: s.number({ initial: 0.004, unit: 'rad/px' })
+  }, { label: 'Orbit drag', description: '3D orbit: dragging turns the camera around its target' }),
+  speedZoom: s.object({
+    out: s.number({ min: 0, max: 1, initial: 0.2, description: 'How far the view pulls out at full speed, as a fraction of the zoom' }),
+    at: s.number({ positive: true, initial: 600, unit: 'px/s', description: 'The speed at which the pull is full' }),
+    ease: s.number({ min: 0, max: 1, initial: 0.05, description: 'Fraction of the way to the wanted zoom per frame at 60 Hz' })
+  }, { label: 'Speed zoom', description: '2D: the view pulls out as the followed object speeds up' })
 }, { label: 'Camera' });
 
 /**
@@ -269,9 +289,23 @@ const POST = s.object({
   grain: s.any({ description: '2D { strength }; 3D a number' }),
   scanlines: s.any({ description: '2D { strength, density }' }),
   blur: s.any({ description: '2D { strength }' }),
+  glitch: s.any({ description: '2D { strength }: a torn, shifted signal' }),
+  flash: s.any({ description: '2D { strength, color }: the screen washed with a colour' }),
   dof: s.any({ label: 'Depth of field', description: '3D { focalLength, fStop, maxBlur }; the focus follows the camera\'s target' }),
   autoExposure: s.any({ label: 'Auto exposure', description: '3D { enabled, key, min, max, speed }' })
 }, { label: 'Post effects' });
+
+/** The events a rule may watch for. */
+export const RULE_EVENTS = ['start', 'collected', 'enter', 'death', 'fall', 'count', 'action', 'emit', 'notify'];
+
+/** The actions a rule may take. */
+export const RULE_ACTIONS = ['notice', 'objective', 'say', 'sound', 'unseal', 'remove', 'set', 'count', 'switch', 'gameOver', 'cycle', 'camera'];
+
+/**
+ * What a `notify` rule may do: it runs where the player's screen is (on a
+ * client too), so it changes what is shown and heard, never the world.
+ */
+export const PRESENTATION_ACTIONS = ['notice', 'objective', 'say', 'sound', 'switch', 'camera'];
 
 /** What a rule watches for; see core/rules.js. */
 const RULE_WHEN = s.tagged('event', {
@@ -283,25 +317,52 @@ const RULE_WHEN = s.tagged('event', {
     object: s.string({ initial: 'player', description: 'The object that died, or "player"' }),
     objects: s.array(s.string(), { description: 'Fires once every one of these objects is gone: a wave cleared. Wins over object' })
   }),
-  fall: s.object({ event: s.string({ required: true }) })
-}, { label: 'When', message: value => `unknown event ${JSON.stringify(value)} (known: start, collected, enter, death, fall)` });
+  fall: s.object({ event: s.string({ required: true }) }),
+  count: s.object({
+    event: s.string({ required: true }),
+    counter: s.string({ required: true, description: 'A key in world.counters' }),
+    atLeast: s.number({ description: 'Holds once the counter reaches this' }),
+    atMost: s.number({ description: 'Holds once the counter falls to this' })
+  }),
+  action: s.object({ event: s.string({ required: true }), action: s.string({ required: true, description: 'A named input action of the project (input.actions), pressed this tick' }) }),
+  emit: s.object({ event: s.string({ required: true }), name: s.string({ required: true, description: 'A world event game code raises with game.events.emit' }) }),
+  notify: s.object({ event: s.string({ required: true }), name: s.string({ required: true, description: 'An event the simulation tells the local player with player.notify; heard on a client too' }) })
+}, { label: 'When', message: value => `unknown event ${JSON.stringify(value)} (known: ${list(RULE_EVENTS)})` });
 
 /** What a rule does; see core/rules.js. */
 const RULE_ACTION = s.tagged('do', {
   notice: s.object({ do: s.string({ required: true }), text: s.string({ required: true }), seconds: s.number({ positive: true }), element: s.string({ description: 'A notice element\'s id; the first one by default' }) }),
   objective: s.object({ do: s.string({ required: true }), text: s.string({ required: true }), element: s.string({ initial: 'objective', description: 'A text element\'s id' }) }),
+  say: s.object({
+    do: s.string({ required: true }),
+    speaker: s.string({ description: 'The name shown over the lines' }),
+    lines: s.array(s.string(), { required: true, minLength: 1 }),
+    element: s.string({ description: 'A dialogue element\'s id; the first one by default' })
+  }, { description: 'Open the HUD\'s dialogue on these lines; the interact action or a click advances it' }),
   sound: s.object({ do: s.string({ required: true }), key: s.string({ required: true }) }),
   unseal: s.object({ do: s.string({ required: true }), object: s.string({ required: true, description: 'Sets its active true and its sealed false' }) }),
   remove: s.object({ do: s.string({ required: true }), object: s.string({ required: true }) }),
   set: s.object({ do: s.string({ required: true }), object: s.string({ required: true }), property: s.string({ required: true }), value: s.any() }),
+  count: s.object({
+    do: s.string({ required: true }),
+    counter: s.string({ required: true, description: 'A key in world.counters' }),
+    add: s.number({ description: 'Added to the counter' }),
+    set: s.number({ description: 'The counter\'s new value; wins over add' })
+  }),
   switch: s.object({ do: s.string({ required: true }), scene: s.string({ required: true, nonEmpty: true, description: 'A scene by name: one of the project\'s, or one the game\'s page builds in code (a menu)' }), after: s.number({ min: 0, unit: 's' }) }),
   gameOver: s.object({ do: s.string({ required: true }), after: s.number({ min: 0, unit: 's' }) }),
-  cycle: s.object({ do: s.string({ required: true }), target: s.number({ min: 0, description: 'The lighting state to ease to' }), phase: s.number({ min: 0, description: 'Jump to this state' }), ease: s.number({ positive: true }) }),
+  cycle: s.object({
+    do: s.string({ required: true }),
+    target: s.number({ min: 0, description: 'The lighting state to ease to' }),
+    phase: s.number({ min: 0, description: 'Jump to this state' }),
+    ease: s.number({ positive: true }),
+    toggle: s.boolean({ description: 'Ease to target, or back to 0 when target is where it is already going: a key that turns the day and turns it back' })
+  }),
   camera: s.object({
     do: s.string({ required: true }),
     left: s.number({ unit: 'px' }), top: s.number({ unit: 'px' }), right: s.number({ unit: 'px' }), bottom: s.number({ unit: 'px' })
   }, { description: 'Move these edges of the camera\'s bounds, keeping the rest: a locked section opening' })
-}, { label: 'Action', message: value => `unknown action ${JSON.stringify(value)} (known: notice, objective, sound, unseal, remove, set, switch, gameOver, cycle, camera)` });
+}, { label: 'Action', message: value => `unknown action ${JSON.stringify(value)} (known: ${list(RULE_ACTIONS)})` });
 
 const RULE = s.object({
   id: s.string({ pattern: ID_PATTERN, description: 'A name other rules sequence against with after and before' }),
@@ -329,24 +390,106 @@ const CYCLE = s.object({
   ease: s.number({ positive: true, initial: 1.5, description: 'How fast the phase approaches its target, per second' })
 }, { label: 'Cycle' });
 
+/** Particle kinds by the dimension that draws them. */
+export const PARTICLE_KINDS = {
+  2: ['fireflies', 'leaves', 'rain', 'sparks'],
+  3: ['motes', 'smoke']
+};
+
 /**
- * A field of particles in a 3D level: motes in the air around the
- * camera, or smoke rising from a point. Stateless (each particle is a
- * function of its index and the time) and drawn blended over the scene;
- * see the renderer's particle fields.
+ * A field of particles. 3D: motes in the air around the camera, or smoke
+ * rising from a point. 2D: fireflies, falling leaves, rain or sparks over
+ * the view or a box of the world. Stateless either way (each particle is
+ * a function of its index and the time), so a field costs no simulation
+ * and looks the same on every machine; see particles.js.
  */
 const PARTICLE_FIELD = s.object({
-  kind: s.enumOf(['motes', 'smoke'], { required: true, description: 'Motes drift on the wind through a box; smoke rises from a point' }),
+  kind: s.enumOf([...PARTICLE_KINDS[2], ...PARTICLE_KINDS[3]], { required: true, description: '3D: motes drift on the wind, smoke rises. 2D: fireflies wander and pulse, leaves and rain fall, sparks rise' }),
   count: s.number({ min: 0, required: true }),
-  at: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Smoke: its source. Motes: the box\'s centre when they do not follow the camera' }),
-  extent: s.object({ x: s.number({ positive: true }), y: s.number({ positive: true }), z: s.number({ positive: true }) }, { unit: 'm', description: 'Half sizes. Smoke: the column\'s spread, and half its height' }),
-  radius: s.number({ positive: true, unit: 'm' }),
+  at: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Smoke: its source. Otherwise the box\'s centre when the field does not follow the camera' }),
+  extent: s.object({ x: s.number({ positive: true }), y: s.number({ positive: true }), z: s.number({ positive: true }) }, { description: 'Half sizes, in metres (3D) or px (2D). Smoke: the column\'s spread, and half its height' }),
+  radius: s.number({ positive: true, description: 'Particle size: metres in 3D, px in 2D' }),
   color: colour({ label: 'Colour' }),
   opacity: s.number({ min: 0, max: 1 }),
-  emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour: fireflies, embers' }),
-  speed: s.number({ min: 0, unit: 'm/s', description: 'Smoke: how fast it rises. Motes: how far each wanders' }),
-  follow: s.boolean({ description: 'Motes: the box stays centred on the camera (the default)' })
+  emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour: fireflies, embers. 2D: a lit level draws each as a small light' }),
+  speed: s.number({ min: 0, description: 'm/s in 3D, px/s in 2D. Smoke: how fast it rises. Motes, fireflies: how far each wanders. Leaves, rain, sparks: how fast they travel' }),
+  follow: s.boolean({ description: 'The box stays centred on the camera (the default for motes and every 2D kind)' }),
+  front: s.boolean({ description: '2D: drawn over the entities rather than behind them' }),
+  seed: s.integer({ min: 0, description: '2D: which scatter of particles; the same seed is the same field' })
 }, { label: 'Particle field' });
+
+/**
+ * What a meter or a post binding reads: a constraint's fields on an object
+ * (the player's health by default), as `current / max` or as a ratio
+ * already between 0 and 1. See binding.js.
+ */
+const BINDING = s.object({
+  object: s.string({ initial: 'player', description: 'An object id, or "player"' }),
+  constraint: s.string({ initial: 'health', description: 'The constraint slot read from (health by default); an empty string reads the entity\'s own fields' }),
+  current: s.string({ initial: 'currentHealth' }),
+  max: s.string({ initial: 'maxHealth' }),
+  ratio: s.string({ description: 'A field already between 0 and 1 (a cooldown\'s charge); read instead of current and max' })
+}, { label: 'Binding' });
+
+/** The 2D sky behind a level: a vertical gradient over the view, under everything. */
+const SKY = s.object({
+  top: colour({ required: true }),
+  bottom: colour({ required: true }),
+  middle: colour({ description: 'A third stop, at the horizon' }),
+  horizon: s.number({ min: 0, max: 1, initial: 0.5, description: 'Where the middle stop sits, down the view' })
+}, { label: 'Sky', description: '2D: a gradient drawn behind the level, fixed to the view' });
+
+export const SCATTER_KINDS = ['stars', 'clouds', 'motes'];
+
+/**
+ * A seeded layer of small things behind a 2D level: stars that twinkle,
+ * clouds that drift, motes in the air. Laid out once from the seed, tiled
+ * across the view and moved at `parallax`, so it needs no world size and
+ * never repeats visibly at the edge of a level.
+ */
+const SCATTER = s.object({
+  kind: s.enumOf(SCATTER_KINDS, { required: true }),
+  count: s.integer({ min: 0, required: true }),
+  seed: s.integer({ min: 0, initial: 1 }),
+  color: colour({ label: 'Colour' }),
+  size: s.number({ positive: true, unit: 'px', description: 'The largest one; the rest are smaller' }),
+  opacity: s.number({ min: 0, max: 1 }),
+  parallax: s.number({ min: 0, description: '0 is fixed to the view, 1 moves with the world' }),
+  speed: s.number({ unit: 'px/s', description: 'Clouds and motes: drift across the view' }),
+  twinkle: s.number({ min: 0, max: 1, description: 'Stars: how much each flickers' }),
+  band: s.object({ top: s.number({ min: 0, max: 1 }), bottom: s.number({ min: 0, max: 1 }) }, { description: 'The part of the view it fills, top to bottom, as fractions' })
+}, { label: 'Scatter layer' });
+
+/** A looping sound under the level: wind, a hum, rain. */
+const AMBIENCE = s.object({
+  sound: s.string({ required: true, description: 'A key in assets.sounds' }),
+  volume: s.number({ min: 0, max: 1, initial: 1 }),
+  fadeIn: s.number({ min: 0, unit: 's', initial: 1, label: 'Fade in' }),
+  rate: s.number({ positive: true, initial: 1, description: 'Playback rate; pitch follows it' })
+}, { label: 'Ambience' });
+
+/**
+ * A number the level keeps: a score the rules add to, or a tally of a
+ * prefab's objects the engine keeps itself. HUD texts show one as
+ * `{name}`; a `count` rule fires on one.
+ */
+const COUNTER = s.object({
+  initial: s.number({ initial: 0, description: 'A plain counter\'s starting value' }),
+  prefab: s.ref('prefab', { description: 'Tally this prefab\'s objects instead' }),
+  count: s.enumOf(['placed', 'remaining', 'taken'], { description: 'With a prefab: how many the scene placed, how many are left, or how many are gone. taken by default' })
+}, { label: 'Counter' });
+
+/**
+ * One post effect field moved by a value in play: the damage tear as
+ * health falls. `empty` at a reading of 0, `full` at 1, linear between.
+ */
+const POST_BINDING = s.object({
+  effect: s.string({ required: true, description: 'A block of world.post: glitch, chromatic, vignette, grain…' }),
+  field: s.string({ initial: 'strength' }),
+  bind: BINDING,
+  empty: s.number({ initial: 0, description: 'The field\'s value when the reading is 0' }),
+  full: s.number({ initial: 0, description: 'The field\'s value when the reading is 1' })
+}, { label: 'Post binding' });
 
 const WORLD = s.object({
   dimensions: s.enumOf(DIMENSIONS, {
@@ -372,7 +515,13 @@ const WORLD = s.object({
     volume: s.number({ min: 0, max: 1 })
   }, { label: 'Music', description: 'Played when the scene shows, stopped when it leaves' }),
   cycle: CYCLE,
-  particles: s.array(PARTICLE_FIELD, { label: 'Particles', description: '3D: fields of motes and smoke' }),
+  particles: s.array(PARTICLE_FIELD, { label: 'Particles', description: 'Stateless particle fields: motes and smoke in 3D; fireflies, leaves, rain and sparks in 2D' }),
+  clearColor: colour({ label: 'Clear colour', description: 'What the view shows where nothing is drawn' }),
+  sky: SKY,
+  scatter: s.array(SCATTER, { label: 'Scatter', description: '2D: seeded stars, clouds and motes behind the level' }),
+  ambience: s.array(AMBIENCE, { label: 'Ambience', description: 'Looping sounds played while the scene shows, faded in' }),
+  counters: s.record(COUNTER, { label: 'Counters', description: 'Numbers the rules and the HUD read by name' }),
+  postBind: s.array(POST_BINDING, { label: 'Post bindings', description: 'Post effect fields that follow a value in play' }),
   killPlane: s.number({ label: 'Kill plane', unit: 'px', description: '2D: the player falling below this y fires the fall rules (game over without one); the world\'s height plus 50 by default' }),
   rules: s.array(RULE, { label: 'Rules', description: 'What happens when: see the guide' })
 });
@@ -773,6 +922,38 @@ const ELEMENT_COMMON = {
   })
 };
 
+/** How an element arrives or leaves; see ui/sceneEffects.js. */
+export const ELEMENT_MOTIONS = ['fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'scale', 'drop', 'type'];
+
+/** What a selected element does while selected. */
+export const SELECT_EFFECTS = ['none', 'glow', 'shake', 'pulse', 'lift'];
+
+/** How a whole UI scene arrives and leaves; see ui/transitions.js. */
+export const SCENE_TRANSITIONS = ['none', 'fade', 'slide-up', 'slide-down', 'scale'];
+
+/** How a menu item shows that it is selected; see ui/menuItem.js. */
+export const MENU_ITEM_VARIANTS = ['bar', 'bracket', 'underline', 'block', 'dot'];
+
+const MOTION = s.object({
+  motion: s.enumOf(ELEMENT_MOTIONS, { required: true, description: 'type: the text types itself out' }),
+  duration: s.number({ positive: true, unit: 's' }),
+  delay: s.number({ min: 0, unit: 's' })
+});
+
+/**
+ * An element's motion: how it enters when the scene shows (after the
+ * scene's stagger), what it does while selected, and how it leaves when
+ * the scene switches away. The switch waits for the exits.
+ */
+const EFFECTS = s.object({
+  enter: MOTION,
+  select: s.enumOf(SELECT_EFFECTS, { description: 'While selected by pointer or keys' }),
+  exit: MOTION
+}, { label: 'Effects' });
+
+/** What every element of a UI scene has. */
+const UI_COMMON = { ...ELEMENT_COMMON, effects: EFFECTS };
+
 /** A button must do exactly one thing, and the thing must exist. */
 function refineButton(element, { path, fail }) {
   const { action, onClick } = element.properties ?? {};
@@ -785,9 +966,12 @@ function refineButton(element, { path, fail }) {
   }
 }
 
+/** The kinds of element a UI scene may hold. */
+export const UI_KINDS = ['button', 'menuItem', 'text', 'image', 'rect', 'backdrop'];
+
 const ELEMENTS = s.tagged('type', {
   button: s.object({
-    ...ELEMENT_COMMON,
+    ...UI_COMMON,
     properties: s.object({
       text: styled('text', 'Label'),
       // Cross-references the scene this button switches to. The check that
@@ -808,7 +992,7 @@ const ELEMENTS = s.tagged('type', {
   }, { refine: refineButton }),
 
   text: s.object({
-    ...ELEMENT_COMMON,
+    ...UI_COMMON,
     properties: s.object({
       text: styled('text'),
       fontSize: styled('size'),
@@ -821,7 +1005,7 @@ const ELEMENTS = s.tagged('type', {
   }),
 
   image: s.object({
-    ...ELEMENT_COMMON,
+    ...UI_COMMON,
     sprite: s.string({ required: true, editor: 'asset' }),
     properties: s.object({
       width: styled('size'),
@@ -830,8 +1014,48 @@ const ELEMENTS = s.tagged('type', {
     })
   }),
 
+  menuItem: s.object({
+    ...UI_COMMON,
+    properties: s.object({
+      text: styled('text', 'Label'),
+      onClick: s.ref('scene', { label: 'Switch to scene' }),
+      action: s.string({ label: 'Action', description: 'settings opens the settings menu; anything else goes to the scene\'s onAction' }),
+      variant: s.enumOf(MENU_ITEM_VARIANTS, { description: 'How selection shows: a bar in the margin, brackets, an underline, a filled block, a dot' }),
+      align: s.enumOf(['left', 'center', 'right']),
+      width: styled('size'),
+      height: styled('size'),
+      uppercase: s.boolean({ initial: true }),
+      fontSize: styled('size'),
+      fontFamily: styled('font'),
+      fontWeight: styled('font'),
+      letterSpacing: styled('size'),
+      color: styled('color'),
+      selectedColor: styled('color', 'Selected colour'),
+      accentColor: styled('color', 'Accent colour')
+    })
+  }, { refine: refineButton }),
+
+  backdrop: s.object({
+    type: s.string({ required: true }),
+    id: identity('Id'),
+    effects: EFFECTS,
+    sprite: s.ref('image', { editor: 'asset', description: 'A still behind the gradient: a key in assets.images (or a sprite sheet)' }),
+    properties: s.object({
+      from: colour({ description: 'The gradient\'s first colour' }),
+      to: colour({ description: 'Its last colour' }),
+      angle: s.number({ unit: 'deg', initial: 90 }),
+      imageOpacity: s.number({ min: 0, max: 1, initial: 1, label: 'Image opacity' }),
+      drift: s.boolean({ initial: true, description: 'The still pans and zooms slowly' }),
+      motes: s.integer({ min: 0, max: 240, initial: 0 }),
+      moteColor: colour({ label: 'Mote colour' }),
+      scanlines: s.number({ min: 0, max: 1, initial: 0 }),
+      vignette: s.number({ min: 0, max: 1, initial: 0 }),
+      seed: s.integer({ min: 0, initial: 1 })
+    })
+  }, { label: 'Backdrop' }),
+
   rect: s.object({
-    ...ELEMENT_COMMON,
+    ...UI_COMMON,
     width: styled('size'),
     height: styled('size'),
     color: styled('color'),
@@ -842,10 +1066,37 @@ const ELEMENTS = s.tagged('type', {
   })
 }, {
   message: (value, _key) => `unknown element type ${JSON.stringify(value)} ` +
-    `(known: ${list(['button', 'text', 'image', 'rect'])})`
+    `(known: ${list(UI_KINDS)})`
 });
 
-/** A level's HUD: the UI scene's elements plus the three that read the game. */
+/** The kinds of element a level's HUD may hold. */
+export const HUD_KINDS = ['text', 'notice', 'meter', 'minimap', 'abilityBar', 'dialogue', 'image', 'rect'];
+
+/** A style a minimap plots with: what `UIMinimap` draws for one entity. */
+const PLOT_STYLE = {
+  shape: s.enumOf(['dot', 'ring', 'square']),
+  color: colour({ label: 'Colour' }),
+  size: s.number({ positive: true, unit: 'px' })
+};
+
+/**
+ * How a minimap plots one prefab: a colour, or a style — and with `by`,
+ * a style that changes with one of the entity's properties (a gate's
+ * `sealed`, a meteor's `sizeClass`), the matching entry merged over the
+ * rest.
+ */
+const MINIMAP_PLOT = s.union([
+  s.string({ editor: 'color', match: value => typeof value === 'string' }),
+  s.object({
+    ...PLOT_STYLE,
+    by: s.object({
+      property: s.string({ required: true, description: 'Read off the entity' }),
+      values: s.record(s.object(PLOT_STYLE), { required: true, description: 'The property\'s value, as text, to the style it takes' })
+    }, { description: 'A style per value of an entity property' })
+  }, { match: value => typeof value === 'object' && value !== null })
+], { message: 'must be a colour or { shape, color, size, by }' });
+
+/** A level's HUD: the UI scene's elements plus the ones that read the game. */
 const HUD_TEXT_LOOK = {
   fontSize: styled('size'), fontFamily: styled('font'), fontWeight: styled('font'), fontStyle: styled('font'),
   color: styled('color'), align: styled('align'),
@@ -855,41 +1106,61 @@ const HUD_TEXT_LOOK = {
 };
 
 const HUD_ELEMENTS = s.tagged('type', {
-  text: s.object({ ...ELEMENT_COMMON, properties: s.object({ text: styled('text'), ...HUD_TEXT_LOOK }) }),
+  text: s.object({ ...ELEMENT_COMMON, properties: s.object({ text: s.any({ editor: 'text', label: 'Text', description: '{name} shows the counter of that name' }), ...HUD_TEXT_LOOK }) }),
   notice: s.object({ ...ELEMENT_COMMON, properties: s.object({ ...HUD_TEXT_LOOK, seconds: s.number({ positive: true, initial: 2.5, unit: 's' }) }) }),
   meter: s.object({
     ...ELEMENT_COMMON,
     width: s.number({ positive: true, unit: 'px', initial: 180 }),
     height: s.number({ positive: true, unit: 'px', initial: 12 }),
-    bind: s.object({
-      object: s.string({ initial: 'player', description: 'An object id, or "player"' }),
-      constraint: s.string({ initial: 'health', description: 'The constraint slot read from (health by default); an empty string reads the entity\'s own fields' }),
-      current: s.string({ initial: 'currentHealth' }),
-      max: s.string({ initial: 'maxHealth' })
-    }, { label: 'Binding' }),
+    bind: BINDING,
     properties: s.object({
       label: styled('text'),
       color: styled('color'),
       background: styled('color'),
       low: colour({ label: 'Low colour', description: 'The bar below the low mark: health in the red' }),
-      lowBelow: s.number({ min: 0, max: 1, initial: 0.35, label: 'Low mark' })
+      lowBelow: s.number({ min: 0, max: 1, initial: 0.35, label: 'Low mark' }),
+      full: colour({ label: 'Full colour', description: 'The bar when it is full: a cooldown ready' })
     })
   }),
   minimap: s.object({
     ...ELEMENT_COMMON,
     size: s.number({ positive: true, unit: 'px', initial: 160 }),
     bounds: s.object({ width: s.number({ required: true, positive: true }), height: s.number({ required: true, positive: true }) }, { description: 'The world area mapped; the world\'s size when unset' }),
-    plot: s.record(s.union([
-      s.string({ editor: 'color', match: value => typeof value === 'string' }),
-      s.object({ shape: s.enumOf(['dot', 'ring']), color: s.string({ required: true, editor: 'color' }), size: s.number({ positive: true }) },
-        { match: value => typeof value === 'object' && value !== null })
-    ], { message: 'must be a colour or { shape, color, size }' }), { label: 'Plot', description: 'Prefab name to a dot colour, or { shape, color, size }' }),
-    properties: s.object({ background: styled('color') })
+    plot: s.record(MINIMAP_PLOT, { label: 'Plot', description: 'Prefab name (or "players" for the other players) to a dot colour, or { shape, color, size, by }' }),
+    target: s.string({ description: 'An object id the map rings: the objective' }),
+    properties: s.object({ background: styled('color'), borderColor: colour({ label: 'Border colour' }) })
+  }),
+  abilityBar: s.object({
+    ...ELEMENT_COMMON,
+    bind: s.object({
+      object: s.string({ initial: 'player', description: 'An object id, or "player"' }),
+      constraint: s.string({ initial: 'abilities', description: 'The Abilities constraint\'s slot' })
+    }, { label: 'Binding' }),
+    icons: s.record(s.ref('image', { editor: 'asset' }), { description: 'Ability id to a key in assets.images (or a sprite sheet)' }),
+    properties: s.object({
+      slot: s.number({ positive: true, unit: 'px', initial: 50 }),
+      gap: s.number({ min: 0, unit: 'px', initial: 8 }),
+      background: styled('color'),
+      borderColor: colour({ label: 'Border colour' })
+    })
+  }),
+  dialogue: s.object({
+    ...ELEMENT_COMMON,
+    width: s.number({ positive: true, unit: 'px', initial: 720 }),
+    height: s.number({ positive: true, unit: 'px', initial: 128 }),
+    properties: s.object({
+      charsPerSecond: s.number({ positive: true, initial: 46, label: 'Characters per second' }),
+      advance: s.string({ initial: 'interact', description: 'The input action that advances it; KeyE when the project names none' }),
+      textColor: colour({ label: 'Text colour' }),
+      nameColor: colour({ label: 'Name colour' }),
+      background: styled('color'),
+      borderColor: colour({ label: 'Border colour' })
+    })
   }),
   image: s.object({ ...ELEMENT_COMMON, sprite: s.string({ required: true, editor: 'asset' }), properties: s.object({ width: styled('size'), height: styled('size'), scale: styled('size') }) }),
   rect: s.object({ ...ELEMENT_COMMON, width: styled('size'), height: styled('size'), color: styled('color'), fill: s.boolean({ label: 'Fill the screen' }), properties: s.object({}) })
 }, {
-  message: (value) => `unknown HUD element type ${JSON.stringify(value)} (known: text, notice, meter, minimap, image, rect)`
+  message: (value) => `unknown HUD element type ${JSON.stringify(value)} (known: ${list(HUD_KINDS)})`
 });
 
 // === Scenes ===
@@ -957,7 +1228,17 @@ function checkDimension(level, fail) {
     }
   }
 
+  (level.world?.particles ?? []).forEach((field, i) => {
+    if (field?.kind !== undefined && !PARTICLE_KINDS[dimensions].includes(field.kind)) {
+      fail(`world.particles[${i}].kind`, `'${field.kind}' particles are drawn in ${dimensions === 2 ? 3 : 2}D, and this level is ${dimensions}D ` +
+        `(known here: ${list(PARTICLE_KINDS[dimensions])})`);
+    }
+  });
+
   if (dimensions === 3) {
+    for (const key of ['sky', 'scatter']) {
+      if (level.world?.[key] !== undefined) fail(`world.${key}`, `'${key}' is drawn behind a 2D level; a 3D level's sky is its environment and lighting`);
+    }
     (level.layers ?? []).forEach((layer, li) => {
       layer.objects.forEach((object, oi) => {
         const where = `layers[${li}].objects[${oi}]`;
@@ -1066,6 +1347,32 @@ export const LEVEL_SCHEMA = s.object({
       }
     });
 
+    // A counter a rule or the HUD names must be declared, or it reads as
+    // zero forever and the rule never fires.
+    const counters = new Set(Object.keys(level.world?.counters ?? {}));
+    const counterMissing = (name) => `no counter named '${name}' (world.counters: ${[...counters].join(', ') || 'none'})`;
+    rules.forEach((rule, i) => {
+      if (rule.when?.event === 'count' && typeof rule.when.counter === 'string' && !counters.has(rule.when.counter)) {
+        fail(`world.rules[${i}].when.counter`, counterMissing(rule.when.counter));
+      }
+      (rule.then ?? []).forEach((action, j) => {
+        if (action?.do === 'count' && typeof action.counter === 'string' && !counters.has(action.counter)) {
+          fail(`world.rules[${i}].then[${j}].counter`, counterMissing(action.counter));
+        }
+        // A notify rule runs on the player's screen, a client's too, where
+        // changing the world would be a second truth beside the server's.
+        if (rule.when?.event === 'notify' && action?.do !== undefined && !PRESENTATION_ACTIONS.includes(action.do)) {
+          fail(`world.rules[${i}].then[${j}].do`, `a notify rule runs where the player's screen is and may only ${list(PRESENTATION_ACTIONS)}; '${action.do}' changes the world`);
+        }
+      });
+    });
+    const prefabCounters = Object.entries(level.world?.counters ?? {});
+    for (const [name, counter] of prefabCounters) {
+      if (counter?.count !== undefined && counter.prefab === undefined) {
+        fail(`world.counters.${name}.count`, 'count tallies a prefab\'s objects; name the prefab');
+      }
+    }
+
     // A composed path is prefixed with its instance's id and a slash, so a
     // name of its own may not hold one.
     for (const name of Object.keys(level.paths ?? {})) {
@@ -1090,6 +1397,15 @@ export const UI_SCHEMA = s.object({
   ...SCENE_COMMON,
   uses: USES,
   assets: ASSETS,
+  transition: s.object({
+    enter: s.enumOf(SCENE_TRANSITIONS),
+    exit: s.enumOf(SCENE_TRANSITIONS),
+    duration: s.number({ positive: true, unit: 's' })
+  }, { label: 'Transition', description: 'How the whole scene arrives and leaves' }),
+  stagger: s.number({ min: 0, unit: 's', description: 'Added to each entering element\'s delay, one step per element in order: a menu arriving line by line' }),
+  music: s.object({
+    track: s.string({ required: true, description: 'A key in assets.music (or one the project loaded)' })
+  }, { label: 'Music', description: 'Played when the scene shows' }),
   elements: s.array(ELEMENTS, { required: true })
 }, {
   refine(scene, { fail }) {

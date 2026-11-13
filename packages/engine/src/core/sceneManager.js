@@ -69,8 +69,22 @@ export class SceneManager {
       });
       return this.#deferred;
     }
+    // A UI scene's way out (its exit effects) plays first, while it still
+    // draws: the loading flag would hide it. A second request while it
+    // plays joins the first rather than racing it.
+    if (this.#leaving) return this.#leaving;
+    const exit = this.currentScene?.leave?.();
+    if (exit) {
+      this.#leaving = exit.then(() => {
+        this.#leaving = null;
+        return this.#run(() => this.#switch(sceneName));
+      });
+      return this.#leaving;
+    }
     return this.#run(() => this.#switch(sceneName));
   }
+
+  #leaving = null;
 
   /**
    * Run the current scene's `load()` again, under the same loading flag as

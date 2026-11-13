@@ -107,6 +107,7 @@ export async function projectGames() {
     const scenes = join(root, config.scenes ?? 'scenes');
     return {
       name: config.name,
+      root,
       game,
       scenes: readdirSync(scenes).filter(f => f.endsWith('.json')).map(f => join(scenes, f))
     };

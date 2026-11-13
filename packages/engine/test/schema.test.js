@@ -240,8 +240,8 @@ describe('schema', () => {
     });
 
     it('reports every ref scope a format reaches, for an editor\'s pickers', () => {
-      expect(refScopesOf(LEVEL_SCHEMA).sort()).toEqual(['actor', 'asset', 'constraint', 'environment', 'model', 'prefab', 'scene', 'spritesheet']);
-      expect(refScopesOf(UI_SCHEMA).sort()).toEqual(['asset', 'scene']);
+      expect(refScopesOf(LEVEL_SCHEMA).sort()).toEqual(['actor', 'asset', 'constraint', 'environment', 'image', 'model', 'prefab', 'scene', 'spritesheet']);
+      expect(refScopesOf(UI_SCHEMA).sort()).toEqual(['asset', 'image', 'scene']);
     });
 
     it('exposes the scene format itself as data', () => {

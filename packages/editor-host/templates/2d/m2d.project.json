@@ -1,5 +1,7 @@
 {
   "name": "My 2D Game",
   "definition": "game.js",
-  "hooks": "hooks.js"
+  "initialScene": "menu",
+  "display": { "width": 1280, "height": 720, "performanceStats": false },
+  "input": { "actions": { "menu": ["Escape"] } }
 }

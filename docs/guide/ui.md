@@ -215,6 +215,27 @@ const horizon = {
 screen.add(new UIBackdrop({ gradient: null, layers: [horizon], vignette: 0.5 }));
 ```
 
+### A menu as a UI scene
+
+A game's menu is a UI scene, so the editor and an agent can change it. A `backdrop` element is the layered background above; `menuItem` elements are the lines, each showing selection by its `variant` (`bar`, `bracket`, `underline`, `block` or `dot`); every element may give `effects`, how it enters, what it does while selected and how it leaves; and the scene's `transition`, `stagger` and `music` cover the screen as a whole.
+
+```json
+{
+  "version": 4, "type": "ui", "name": "mainMenu",
+  "transition": { "enter": "fade", "exit": "fade" },
+  "stagger": 0.08,
+  "music": { "track": "theme" },
+  "elements": [
+    { "type": "backdrop", "id": "sky", "properties": { "from": "#06121c", "to": "#123a52", "angle": 115, "motes": 80, "vignette": 0.55 } },
+    { "type": "menuItem", "id": "start", "x": 96, "y": 0, "anchor": "left",
+      "properties": { "text": "Start", "onClick": "level", "variant": "bracket" },
+      "effects": { "enter": { "motion": "slide-right" }, "select": "glow", "exit": { "motion": "fade" } } }
+  ]
+}
+```
+
+Arrows, Tab and a controller move between the lines; Enter or a click picks one. A switch away waits for the exits to play. See [the scene format](../reference/scene-format#elements) for every field.
+
 ### Blurring the game behind a menu
 
 `blurBehind` on a screen defocuses the world beneath it. The post-effect pass runs between the world and screen passes, so the menu drawn over it stays sharp.

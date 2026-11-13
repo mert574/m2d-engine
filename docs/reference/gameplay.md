@@ -26,7 +26,7 @@ An actor; see [Built-in actors](./actors#npc).
 
 ## UIDialogue, UIMinimap, UIAbilityBar, UIMeter
 
-UI components; see [UI components](./ui#uidialogue).
+UI components; see [UI components](./ui#uidialogue). A level's `hud` builds each from scene data (`dialogue`, `minimap`, `abilityBar`, `meter`), and a rule's `say` action opens the dialogue; see [`hud`](./scene-format#hud).
 
 ## Directions and arcs
 

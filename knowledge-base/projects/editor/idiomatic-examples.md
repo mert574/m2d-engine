@@ -6,6 +6,11 @@ Goal: Every example and docs demo is written the way m2d means games to be writt
 
 The target is [[idiomatic-m2d]], including its rulings on prewritten levels, the showcase and docs demos; menus and quality follow [[demo-standards]]; commits, MCP parity and GPU checks follow [[working-style]].
 
+- **Progress is the allow-list.** `examples/test/idiom.test.js` lists each example's departures (`project-file`, `layout-json`, `boot`, `hooks: <camera|ui|audio|look|input|drawing|instanceof|budget>`, `audit`), each line naming the phase that removes it. The test fails on a new departure and on a listed one that is fixed, so the list only shrinks. Hooks get 40 code lines. The showcase is exempt.
+- **The audit's unused files are the hooks' art.** Every unused file `audit_project` reports today is art a hook loads in code; moving it into `assets` (sheets, `assets.images`, asset-reference properties) clears the audit line.
+- **Notify rules are presentation only.** A rule on `player.notify` runs where the screen is, a client too, so the schema holds it to notice, objective, say, sound, switch and camera. Cinder Keep's stair messages and descent move onto these.
+- **The project file has no undo.** Its edits (Project tab, `edit_project`) are written at once and refused whole when invalid; it is configuration, not a scene.
+
 ## Plan
 
 | Phase | Work | Done when |
@@ -41,11 +46,11 @@ The target is [[idiomatic-m2d]], including its rulings on prewritten levels, the
 | Project | What leaves code |
 | --- | --- |
 | Ash Row | `layout.json`; the camera height (scene camera bounds); the sky fill (clear colour); Escape |
-| Salvage Run | `layout.json`; the eight hand-loaded sheets (assets plus sheet properties); the boost meter, the minimap and the salvage count (HUD and counters); Escape |
+| Salvage Run | `layout.json`; the eight hand-loaded sheets (assets plus sheet properties); the boost meter (`bind.ratio: 'boostCharge'` on `ThrustControl`), the minimap (gate ringed as `target`, colour `by: sealed`) and the salvage count (a `{taken} / {total}` text over tally counters); speed zoom and the opening pose (`world.camera`); Escape |
 | Cinder Keep | Minimap, ability bar and satchel bar (HUD); `say()` and the stair events (rules on net events); the duplicated simulation wiring in its hooks |
 | Hollow Grove | Minimap, ability bar and dialogue (HUD); notices (rules); zoom limits (camera). The quest stays JS on the engine's `Quest`, which is acceptable |
 | Ember Valley | The drawn ridge goes to parallax layers plus scatter; fireflies and leaves become 2D particles |
-| The Facility | The damage tear (post binding or a listed exception); the sonar as a constraint |
+| The Facility | The damage tear (a `world.postBind` on health); the sonar as a constraint |
 | The Yard | Orbit and zoom (camera), wind (ambience), footsteps (engine constraint), T (input action rule) |
 
 **Phase 3, a direction per menu** (a starting point, not binding): Ash Row as an arcade marquee with a blinking prompt; Salvage Run as a ship console down one edge with scanline selection; Cinder Keep as a torch-lit stone list with an ember cursor; Hollow Grove as a storybook page with ink-in items; Ember Valley as a low centred row over the valley; The Facility as a glitching terminal; The Yard over the live 3D scene in a corner; Night Circuit as a race-start grid; Hedgerow Court as a garden sign; the playground with items as physics blocks; Beeline as a flight path of flowers.
@@ -68,5 +73,8 @@ The target is [[idiomatic-m2d]], including its rulings on prewritten levels, the
 Its counters stay comparable between backends.
 
 ## Record
+
+- Phase 0, 13 Nov 2026: `examples/test/idiom.test.js` with the allow-list and the audit over every project; `adding-a-demo.md` rewritten around [[idiomatic-m2d]].
+- Phase 1, 13 Nov 2026: every feature listed above, each in the schema, the inspector (schema-driven) and MCP, with docs and tests. Project boot: `m2d.project.json` gains `initialScene`, `display`, `input.actions`, `settings`, `music`, read by `bootProject` (`core/project.js`, schema in `core/projectSchema.js`); a level's `world.width` is the world size; the Project tab and `read_project`/`edit_project`. Named actions (`game.actions`, an `action` rule, Controls in settings). UI scenes: `menuItem` (five variants), `backdrop`, per-element `effects`, scene `transition`, `stagger`, `music`; a switch waits for exits. HUD: `{counter}` texts, meter `bind.ratio` and `full`, minimap `by`, `target`, `players`, `abilityBar`, `dialogue` with a `say` action. Rules: `world.counters` (plain and prefab tallies), `count`, `emit`, `notify` and `action` events, `count` and `say` actions, cycle `toggle`. `assets.images` and asset-reference actor properties. Camera `wheelZoom`, `orbitDrag`, `speedZoom`, and a snap on show. `world.ambience`. 2D `clearColor`, `sky`, `scatter`, particle kinds fireflies, leaves, rain and sparks. `world.postBind`. Both editor templates boot with `bootProject` and no hooks.
 
 Before this project, 12 Nov 2026: the seven editor projects' light, post, cameras, sounds, music and static HUDs moved into their scenes; Ash Row's waves and Salvage Run's gate became rules; The Facility's floor and lamps became scene data; actor gameplay numbers became declared properties; orphaned assets and prefabs removed.

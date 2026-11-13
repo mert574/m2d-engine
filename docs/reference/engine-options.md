@@ -8,8 +8,9 @@
 | --- | --- | --- |
 | `width` | `1280` | Visible world width, in world units |
 | `height` | `720` | Visible world height, in world units |
-| `worldWidth` | `1920` | World width, used for the background layer |
-| `worldHeight` | `1080` | World height, used for the background layer and the fall-out check |
+| `worldWidth` | `1920` | World width, used for tile layers. A level's `world.width` replaces it while that level shows |
+| `worldHeight` | `1080` | World height, used for tile layers and the fall-out check. A level's `world.height` replaces it while that level shows |
+| `clearColor` | `'#000'` | What the view is cleared to each frame. A scene's `world.clearColor` wins while it shows |
 | `aspectMode` | `'letterbox'` | `'letterbox'` keeps the view's aspect with bars. `'expand'` widens the view to fill the display |
 | `resolution` | `'native'`, or `0.5` when `dimensions` is `3` | World render resolution. `'native'`, a fraction of native such as `0.5`, or an absolute `{ width, height }` (only `height` sets the scale). A 3D frame is many passes over many pixels, so half of native is its default and the settings menu offers more |
 | `worldFilter` | `'linear'` | Upscaling filter below native resolution. `'nearest'` for pixel art |
@@ -37,6 +38,7 @@
 | --- | --- | --- |
 | `pointerLock` | `false` | Confine the pointer to the canvas and draw a virtual cursor. See [Pointer lock](../guide/input#pointer-lock) |
 | `preventDefaultKeys` | built-in list | Key codes whose browser default is suppressed. Replaces the list of Space, Tab, Enter, the arrows, PageUp, PageDown, Home, End and Backspace |
+| `actions` | `{}` | Named input actions: action name to the key codes that perform it. A project sets them from `input.actions`. See [Named actions](../guide/input#named-actions) |
 
 ## Physics
 
@@ -61,6 +63,7 @@
 | Property | What it is |
 | --- | --- |
 | `game.headless` | True for a game built with `headless: true` |
+| `game.actions` | The named input actions: `pressed(name, snapshot)`, `down(name, snapshot)`, `codes(name)`, `rebind(name, codes)`, `reset()`. See [Named actions](../guide/input#named-actions) |
 | `game.players` | The players: `local` and, on a server, one per connection. See [Players](../guide/headless#players) |
 | `game.replica` | True while the game is a client of a server, showing state it does not simulate. See [Multiplayer](../guide/multiplayer#the-client) |
 | `game.net` | The `NetClient`, while connected |

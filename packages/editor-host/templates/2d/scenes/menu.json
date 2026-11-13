@@ -3,45 +3,72 @@
   "name": "menu",
   "type": "ui",
   "title": "Menu",
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.25 },
+  "stagger": 0.08,
   "elements": [
+    {
+      "type": "backdrop",
+      "id": "sky",
+      "properties": {
+        "from": "#fbe3c4",
+        "to": "#9fc4e8",
+        "angle": 100,
+        "motes": 40,
+        "moteColor": "#ffffff",
+        "vignette": 0.35
+      }
+    },
     {
       "type": "text",
       "id": "title",
-      "x": 0,
-      "y": -140,
-      "anchor": "center",
+      "x": 120,
+      "y": -120,
+      "anchor": "left",
+      "effects": { "enter": { "motion": "slide-right", "duration": 0.4 } },
       "properties": {
         "text": "MY GAME",
         "fontSize": "$font.size.display",
         "fontWeight": "$font.weight.bold",
-        "color": "$color.text.primary"
+        "color": "#2b3a4a"
       }
     },
     {
-      "type": "rect",
-      "id": "rule",
-      "x": 0,
-      "y": -92,
-      "anchor": "center",
-      "width": 220,
-      "height": 2,
-      "color": "$color.border.strong"
-    },
-    {
-      "type": "button",
+      "type": "menuItem",
       "id": "start",
-      "x": 0,
-      "y": -16,
-      "anchor": "center",
-      "properties": { "text": "Start", "onClick": "level" }
+      "x": 120,
+      "y": -20,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-right", "duration": 0.3 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Start",
+        "onClick": "level",
+        "color": "#4a5a6a",
+        "selectedColor": "#1d2a38",
+        "accentColor": "#ff7a59"
+      }
     },
     {
-      "type": "button",
+      "type": "menuItem",
       "id": "settings",
-      "x": 0,
-      "y": 44,
-      "anchor": "center",
-      "properties": { "text": "Settings", "action": "settings", "variant": "ghost" }
+      "x": 120,
+      "y": 30,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-right", "duration": 0.3 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Settings",
+        "action": "settings",
+        "color": "#4a5a6a",
+        "selectedColor": "#1d2a38",
+        "accentColor": "#ff7a59"
+      }
     }
   ]
 }

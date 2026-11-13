@@ -22,7 +22,7 @@ import type { Session, ChangeEvent } from './session.ts';
 import type { Assets } from './assets.ts';
 // Type-only: the stdio server never loads shots.ts (or playwright) at runtime.
 import type { Shot, ShotOptions } from './shots.ts';
-import { stage, look } from 'm2d-editor-core';
+import { stage, look, project as projectFile } from 'm2d-editor-core';
 import { settle } from './playtest.ts';
 import { runAudit, findUses } from './search.ts';
 
@@ -118,6 +118,46 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       'generates it when it has one. A generated scene is read-only: edit its script instead.',
     inputSchema: {}
   }, async () => json(await session.project.scenes()));
+
+  server.registerTool('read_project', {
+    title: 'Read the project file',
+    description:
+      'm2d.project.json: the game\'s definition and hooks modules, its scenes folder, the scene it ' +
+      'opens on (initialScene), its display (design size, filters, clear colour), its named input ' +
+      'actions (input.actions: name to key codes, which rules fire on and the settings menu rebinds) ' +
+      'and boot music. Returns the file, every field the schema declares with kind, description and ' +
+      'default (the editor\'s Project panel), and any problems. Change it with edit_project.',
+    inputSchema: {}
+  }, async () => {
+    try {
+      const file = await session.project.file();
+      const rows = (rowsOf: Array<{ key: string; kind: string; present: boolean; value?: unknown; fallback?: unknown; description?: string; options?: unknown[]; children?: unknown[] }>): unknown[] =>
+        rowsOf.map(({ key, kind, present, value, fallback, description, options, children }) => ({
+          key, kind, ...(present ? { value } : { default: fallback }), description, options,
+          ...(children?.length && { fields: rows(children as typeof rowsOf) })
+        }));
+      return json({ file, fields: rows(projectFile.inspectProject(file)), problems: projectFile.projectProblems(file) });
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('edit_project', {
+    title: 'Edit the project file',
+    description:
+      'Apply ops to m2d.project.json and write it, all or nothing: refused whole, naming the field, when ' +
+      'the result fails the project schema. Same ops as edit_scene, e.g. ' +
+      '{"op":"set","path":["initialScene"],"value":"mainMenu"} or ' +
+      '{"op":"set","path":["input","actions","menu"],"value":["Escape"]}. Written at once (the project ' +
+      'file has no undo); the open editor reloads the project.',
+    inputSchema: { ops: z.array(OP).min(1) }
+  }, async ({ ops }) => {
+    try {
+      return json(await session.project.editFile(ops as Op[]));
+    } catch (error) {
+      return failure(error);
+    }
+  });
 
   server.registerTool('read_scene', {
     title: 'Read a scene',
@@ -299,8 +339,8 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
     description:
       'The Look tab\'s actions, as one step of undo each: startCycle (two states from the resting ' +
       'look), addState (the blended look at phase, inserted as a state named name), removeState ' +
-      '(index; the start phase stays on the state it named), addParticles (a 3D field of kind ' +
-      'motes or smoke at a point). Tune fields afterwards with edit_scene under world.cycle and ' +
+      '(index; the start phase stays on the state it named), addParticles (a field: in 3D motes or ' +
+      'smoke at a point; in 2D fireflies, leaves, rain or sparks over the view). Tune fields afterwards with edit_scene under world.cycle and ' +
       'world.particles.',
     inputSchema: {
       path: scenePath,
@@ -308,7 +348,7 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       phase: z.number().min(0).optional().describe('addState'),
       name: z.string().min(1).optional().describe('addState'),
       index: z.number().int().nonnegative().optional().describe('removeState'),
-      kind: z.enum(['motes', 'smoke']).optional().describe('addParticles'),
+      kind: z.enum(['motes', 'smoke', 'fireflies', 'leaves', 'rain', 'sparks']).optional().describe('addParticles: motes and smoke in 3D; fireflies, leaves, rain and sparks in 2D'),
       at: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional().describe('addParticles: where it stands, metres')
     }
   }, async ({ path: file, action, phase, name, index, kind, at }) => {

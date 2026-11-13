@@ -175,7 +175,7 @@ describe('inspector rows', () => {
 
     const ui = { version: 4, type: 'ui', elements: [{ type: 'rect', id: 'bg', fill: true }] };
     const [element] = inspectNode(ui, ['elements']);
-    expect(element!.alternatives?.map((a) => a.label)).toEqual(['button', 'text', 'image', 'rect']);
+    expect(element!.alternatives?.map((a) => a.label)).toEqual(['button', 'text', 'image', 'menuItem', 'backdrop', 'rect']);
     expect(element!.alternatives?.find((a) => a.label === 'button')?.value).toMatchObject({ type: 'button' });
 
     const sheet = { ...doc(), assets: { spritesheets: { hero: { url: 'h.png', frameWidth: 8, frameHeight: 8, animations: { run: { frames: [[0, 0], [1, 0]] } } } } } };
@@ -261,6 +261,21 @@ describe('UI elements', () => {
     expect(() => addElement(d, 'image')).toThrow(/sprite/);
     run(d, addElement(d, 'image', { sprite: 'logo' }).ops);
     expect((d.elements as Array<{ sprite?: string }>)[5]!.sprite).toBe('logo');
+  });
+
+  it('adds menu items like buttons, and a backdrop first with no position', async () => {
+    const { addElement, changeElementType } = await import('../src/structure.ts');
+    const { validateScene } = await import('../src/validate.ts');
+    const d = ui();
+    run(d, addElement(d, 'menuItem', { scene: 'level' }).ops);
+    run(d, addElement(d, 'backdrop').ops);
+    const elements = d.elements as Array<Record<string, unknown>>;
+    expect(elements[0]).toMatchObject({ type: 'backdrop', id: 'backdrop' });
+    expect(elements[0]).not.toHaveProperty('x');
+    expect(elements[1]).toMatchObject({ type: 'menuItem', properties: { text: 'Menu item', onClick: 'level' } });
+    expect(validateScene(d, null).ok).toBe(true);
+    run(d, changeElementType(d, ['elements', 1], 'backdrop'));
+    expect(elements[1]).toEqual({ type: 'backdrop', id: 'menuItem', properties: expect.any(Object) });
   });
 
   it('changes an element\'s kind keeping id, position and anchor', async () => {

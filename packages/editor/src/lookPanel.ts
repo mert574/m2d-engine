@@ -35,6 +35,18 @@ const SLIDERS: Slider[] = [
   { key: 'emissive', label: 'Glow', min: 0, max: 10, step: 0.1 }
 ];
 
+/** The same fields in a 2D level, where a particle is pixels across and moves in px/s. */
+const SLIDERS_2D: Slider[] = [
+  { key: 'count', label: 'Count', min: 0, max: 600, step: 1 },
+  { key: 'radius', label: 'Size', min: 0.5, max: 24, step: 0.5 },
+  { key: 'opacity', label: 'Opacity', min: 0, max: 1, step: 0.01 },
+  { key: 'speed', label: 'Speed', min: 0, max: 1200, step: 5 },
+  { key: 'emissive', label: 'Glow', min: 0, max: 3, step: 0.05 }
+];
+
+/** What each dimension's Add buttons offer. */
+const KINDS: Record<2 | 3, look.ParticleKind[]> = { 2: ['fireflies', 'leaves', 'rain', 'sparks'], 3: ['motes', 'smoke'] };
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> & { className?: string } = {}, children: Array<Node | string> = []): HTMLElementTagNameMap[K] {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children);
@@ -104,10 +116,7 @@ export function createLookPanel(container: HTMLElement, viewport: Viewport, call
 
   const particlesSection = (data: Record<string, unknown>): HTMLElement => {
     const section = el('section', { className: 'look-section' }, [el('h3', { textContent: 'Particles' })]);
-    if (viewport.dimensions !== 3) {
-      section.append(el('p', { className: 'hint', textContent: 'Particle fields draw in 3D levels.' }));
-      return section;
-    }
+    const three = viewport.dimensions === 3;
     const world = isPlainObject(data.world) ? data.world : {};
     const fields = Array.isArray(world.particles) ? world.particles as Record<string, unknown>[] : [];
     const editable = callbacks.editable();
@@ -116,7 +125,7 @@ export function createLookPanel(container: HTMLElement, viewport: Viewport, call
       const card = el('div', { className: 'particle-card' }, [el('h4', { textContent: `${String(full.kind)} ${index + 1}` })]);
       const preview = (key: string, value: unknown) => viewport.previewParticles(fields.map((each, i) => (i === index ? { ...each, [key]: value } : each)));
       const commit = (key: string, value: unknown) => callbacks.apply([{ op: 'set', path: ['world', 'particles', index, key], value }], `Particles: ${key}`);
-      for (const slider of SLIDERS) {
+      for (const slider of three ? SLIDERS : SLIDERS_2D) {
         const input = el('input', { type: 'range', min: String(slider.min), max: String(slider.max), step: String(slider.step), value: String(full[slider.key]), disabled: !editable });
         const shown = el('span', { className: 'value', textContent: String(full[slider.key]) });
         input.addEventListener('input', () => { shown.textContent = input.value; preview(slider.key, Number(input.value)); });
@@ -127,18 +136,23 @@ export function createLookPanel(container: HTMLElement, viewport: Viewport, call
       colour.addEventListener('input', () => preview('color', colour.value));
       colour.addEventListener('change', () => commit('color', colour.value));
       card.append(el('label', { className: 'slider' }, [el('span', { textContent: 'Colour' }), colour]));
+      if (!three) {
+        const front = el('input', { type: 'checkbox', checked: full.front === true, disabled: !editable });
+        front.addEventListener('change', () => commit('front', front.checked));
+        card.append(el('label', { className: 'slider', title: 'Drawn over the entities rather than behind them' }, [el('span', { textContent: 'In front' }), front]));
+      }
       card.append(el('button', { type: 'button', className: 'danger', textContent: 'Remove', disabled: !editable, onclick: () => callbacks.apply([{ op: 'remove', path: ['world', 'particles'], index }], `Remove particle field ${index + 1}`) }));
       section.append(card);
     });
-    const add = (kind: 'motes' | 'smoke') => {
+    const add = (kind: look.ParticleKind) => {
       const at = callbacks.target() ?? { x: 0, y: 0, z: 0 };
       revealNewField = true;
       callbacks.apply(look.addParticleField(data, kind, at), `Add ${kind}`);
     };
-    section.append(el('div', { className: 'look-actions' }, [
-      el('button', { type: 'button', textContent: 'Add motes', disabled: !editable, onclick: () => add('motes') }),
-      el('button', { type: 'button', textContent: 'Add smoke', title: 'Rising from the camera\'s target', disabled: !editable, onclick: () => add('smoke') })
-    ]));
+    section.append(el('div', { className: 'look-actions' }, KINDS[three ? 3 : 2].map((kind) => el('button', {
+      type: 'button', textContent: `Add ${kind}`, disabled: !editable, onclick: () => add(kind),
+      ...(kind === 'smoke' && { title: 'Rising from the camera\'s target' })
+    }))));
     return section;
   };
 

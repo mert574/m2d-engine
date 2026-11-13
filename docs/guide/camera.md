@@ -61,6 +61,20 @@ game.camera.rotation = car.body.angle - Math.PI / 2;   // the road always runs u
 
 Both renderer backends apply exactly the camera's `matrix`, a world-to-view affine in the six-number form the renderer's geometry uses, so what `worldToScreen` computes is where a point is drawn. Like every camera setting, zoom and rotation return to their defaults when the scene unloads (see [Modes](#modes)).
 
+## Controls in the scene
+
+A scene's `world.camera` can give the player control of the view, with no code.
+
+```json
+"camera": {
+  "zoom": 1,
+  "wheelZoom": { "min": 0.6, "max": 1.8 },
+  "speedZoom": { "out": 0.22, "at": 570 }
+}
+```
+
+`wheelZoom` zooms with the mouse wheel, between `min` and `max` in 2D and between `minDistance` and `maxDistance` in 3D. `orbitDrag` turns a 3D orbit camera when the player drags. `speedZoom` pulls a 2D view out as the followed object speeds up: by the fraction `out` at `at` px/s and above, easing by `ease`. The wheel sets the zoom the speed pulls out from. All three are detached when the scene leaves. The camera also opens on its target when a scene shows, rather than easing to it from where the last scene left it. See [`world.camera`](../reference/scene-format#world) for every field.
+
 ## Bounds
 
 `bounds` keeps the view inside a rectangle. Set them whenever the camera follows something, so neither the follow nor the `expand` aspect mode reveals the space past the edge of the map.

@@ -59,6 +59,22 @@ export class WorldEvents {
     /** @type {Array<[string, object]>} */
     this.queue = [];
     this.listeners = new Map();
+    /** How many events have been raised, ever: what `since` counts from. */
+    this.raised = 0;
+    /** The last few events' names with their numbers, for `since`. @type {Array<[number, string]>} */
+    this.recent = [];
+  }
+
+  /**
+   * The names of the events raised after event number `after`, oldest
+   * first: what a level's `emit` rules read each tick. Simulation code,
+   * unlike `on`: it hears an event in the tick it was raised in (or the
+   * next, when raised after the rules ran), not after the frame.
+   * @param {number} after - A `raised` count read earlier
+   * @returns {string[]}
+   */
+  since(after) {
+    return this.recent.filter(([n]) => n > after).map(([, name]) => name);
   }
 
   /**
@@ -75,6 +91,9 @@ export class WorldEvents {
     if (this.game.replica) return;
     if (this.queue.length >= MAX_QUEUED) this.queue.shift();
     this.queue.push([name, data]);
+    this.raised++;
+    if (this.recent.length >= MAX_QUEUED) this.recent.shift();
+    this.recent.push([this.raised, name]);
   }
 
   /**
@@ -117,6 +136,7 @@ export class WorldEvents {
   /** Drop every listener and anything queued. A scene load calls this. */
   clear() {
     this.queue.length = 0;
+    this.recent.length = 0;
     this.listeners.clear();
   }
 }

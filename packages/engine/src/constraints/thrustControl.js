@@ -85,6 +85,16 @@ export class ThrustControl extends Constraint {
     return this.boostLeft > 0;
   }
 
+  /**
+   * How charged the boost is, 0..1: full while it burns or once it is
+   * ready, filling through the cooldown. What a HUD meter binds to as
+   * `ratio: 'boostCharge'`.
+   */
+  get boostCharge() {
+    if (this.boosting || !(this.boostCooldown > 0)) return 1;
+    return Math.max(0, Math.min(1, 1 - this.boostWait / this.boostCooldown));
+  }
+
   get boostReady() {
     return this.boostWait <= 0 && this.boostLeft <= 0;
   }

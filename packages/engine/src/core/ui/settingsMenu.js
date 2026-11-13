@@ -6,6 +6,7 @@ import { UIElement } from './uiElement.js';
 import { UIOptionRow } from './optionRow.js';
 import { Stack, Spacer } from './layout/stack.js';
 import { UIRectangle } from './Rectangle.js';
+import { keyLabel } from '../input/actions.js';
 
 /**
  * Scale presets offered as resolutions, besides 'native'. A scale is a
@@ -195,7 +196,16 @@ class HotkeyCatcher extends UIElement {
   }
 
   handleInput(event) {
-    if (event.type !== 'keydown' || event.code !== this.menu.hotkey) return;
+    if (event.type !== 'keydown') return;
+    // A Controls row waiting for its new key takes the next press, whatever it is.
+    const actions = this.menu.game.actions;
+    if (actions?.listening) {
+      if (event.code !== 'Escape') actions.rebind(actions.listening, [event.code]);
+      actions.listening = null;
+      event.consume();
+      return;
+    }
+    if (event.code !== this.menu.hotkey) return;
     this.menu.toggle();
     event.consume();
   }
@@ -507,6 +517,7 @@ export class SettingsMenu {
   /** Close the menu (no-op when already closed). */
   close() {
     if (!this.isShowing || !this.screen) return;
+    if (this.game.actions) this.game.actions.listening = null;
     this.game.ui.remove(this.screen);
     // Rows depend on where the game is (the main-menu row hides while the
     // menu scene is showing), so the next open builds them fresh.
@@ -652,7 +663,7 @@ export class SettingsMenu {
 
     // A custom row joins its section if a built-in one exists; the rest of
     // the sections appear in the order the game added them.
-    const items = [...builtIn];
+    const items = [...builtIn, ...this.#controls()];
     for (const item of this.customItems) {
       const section = item.section ?? 'Game';
       let at = -1;
@@ -691,6 +702,31 @@ export class SettingsMenu {
       description: 'Back to the game.'
     });
     return items;
+  }
+
+  /**
+   * A row per named input action (`game.actions`): its keys, and Enter to
+   * rebind it to the next key pressed. Escape keeps the old key. The
+   * player's choice persists; see core/input/actions.js.
+   */
+  #controls() {
+    const actions = this.game.actions;
+    if (!actions?.names.length) return [];
+    const rows = actions.names.map((name) => ({
+      section: 'Controls',
+      label: name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase()),
+      value: () => (actions.listening === name ? 'Press a key…' : actions.codes(name).map(keyLabel).join(' / ') || '—'),
+      activate: () => { actions.listening = name; },
+      description: 'Enter, then press the new key. Escape keeps the old one.'
+    }));
+    rows.push({
+      section: 'Controls',
+      label: 'Reset controls',
+      value: () => '↺',
+      activate: () => actions.reset(),
+      description: 'Every action back to the game\'s own keys.'
+    });
+    return rows;
   }
 
   /**

@@ -88,6 +88,17 @@ export function inspectNode(doc: unknown, path: PathSegment[], options: InspectO
   return rowsFor(desc, value, path, registries, depth, 0);
 }
 
+/**
+ * The rows for one node of any document under any descriptor: what
+ * `inspectNode` does for a scene, for a document that is not one (the
+ * project file, against `PROJECT_SCHEMA`).
+ */
+export function inspectWith(schema: SchemaDescriptor, doc: unknown, path: PathSegment[], options: InspectOptions = {}): InspectedRow[] {
+  const registries = { prefabs: {}, ...options.registries };
+  const { desc, value } = descriptorAt(schema, doc, path, registries);
+  return rowsFor(desc, value, path, registries, options.depth ?? 4, 0);
+}
+
 function pick(doc: unknown, path: PathSegment[]): unknown {
   let value = doc;
   for (const segment of path) {

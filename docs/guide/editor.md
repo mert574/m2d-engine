@@ -27,7 +27,9 @@ A project is a folder with an `m2d.project.json`.
 {
   "name": "My Game",
   "definition": "game.js",
-  "hooks": "hooks.js"
+  "initialScene": "menu",
+  "display": { "width": 1280, "height": 720 },
+  "input": { "actions": { "menu": ["Escape"], "interact": ["KeyE"] } }
 }
 ```
 
@@ -38,8 +40,29 @@ A project is a folder with an `m2d.project.json`.
 | `hooks` | none | The module with each scene's presentation hooks: exports `sceneHooks(game)`, which returns `{ [sceneName]: { onEnter, onShow, onRender, ... } }`. It may also export `OPTIONS`, M2D options the game's look depends on (a `textureFilter`), which the editor applies when it edits and plays and the page spreads into its own options |
 | `scenes` | `scenes` | The folder the scene JSON lives in |
 | `basePath` | the project folder | What asset URLs in scenes are relative to |
+| `initialScene` | none | The scene the game opens on, by its file's name |
+| `display` | | `width`, `height` (the design size, 1280 by 720), `aspectMode` (`letterbox` or `expand`), `textureFilter`, `worldFilter` (`linear` or `nearest`), `pointerLock`, `performanceStats`, `clearColor` |
+| `input.actions` | none | Named input actions to the key codes that perform them. Rules fire on them and the settings menu rebinds them. See [Named actions](./input#named-actions) |
+| `settings` | `true` | Mount the settings menu (O) |
+| `music` | none | Tracks by key, `{ url, volume }`, loaded at boot for screens that are not scenes |
 
-The definition holds the cast: actors, constraints, intents and the asset manifest. It never draws, so a headless game, a server and the editor's checks can load it. The hooks module holds what shows the game: the camera, lights, HUD and music. The game's page (`main.js`) builds both, and so does the editor's play mode. Without a definition the editor draws placeholder actors. Without a hooks module, play runs the bare scene.
+The definition holds the cast: actors, constraints, intents and the asset manifest. It never draws, so a headless game, a server and the editor's checks can load it. The hooks module holds what shows the game: the camera, lights, HUD and music. The game's page (`main.js`) boots the project with `bootProject`, and the editor's play mode builds the same game. Without a definition the editor draws placeholder actors. Without a hooks module, play runs the bare scene.
+
+```js
+import { bootProject } from 'm2d-engine/core/project.js';
+import project from './m2d.project.json';
+import * as definition from './game.js';
+
+await bootProject(document.getElementById('screen'), {
+  project,
+  definition,
+  scenes: import.meta.glob('./scenes/*.json', { import: 'default' })
+});
+```
+
+`bootProject(canvas, parts)` checks the project file, initialises physics (and WebGPU for a game whose `GAME` says `dimensions: 3`), makes the game with the project's display, actions, opening scene and music, runs `register`, adds every scene with its hooks under its file's name, mounts the settings menu and starts. `parts` takes `project`, `definition`, `hooks`, `scenes` (path to data or to a loader), `basePath`, `options` (M2D options over the rest) and `setup(game)`, called before the start for what the page adds. The two templates boot this way.
+
+The Project tab shows the file in the inspector, in tabs for the game, display, input and audio. An edit is written at once and refused whole, naming the field, when the file would not be a valid project.
 
 ## The window
 
@@ -94,7 +117,7 @@ The Look tab in the dock holds a level's lighting cycle and particle fields. Edi
 
 **Cycle.** A strip shows the colours the cycle moves through (ambient, sky, ground, sun and fog, wherever its states set them), from the engine's own blend. Drag the scrubber to preview any phase in the viewport; it writes nothing. Click a state's name to jump to it. Set as start writes the phase shown as `world.cycle.phase`, Add state here inserts the look shown as a new state, and × removes a state, keeping at least two. The start phase stays on the state it named. Back to the document returns the view to the written phase. A level without a cycle offers Start a cycle, two states copied from its resting look.
 
-**Particles** (3D). Each field of `world.particles` shows its count, radius, opacity, speed, glow and colour, with what it leaves out shown at the value it draws with. A slider previews while it is held and writes one step of undo on release. Add motes and Add smoke place a new field at the camera's target.
+**Particles.** Each field of `world.particles` shows its count, radius, opacity, speed, glow and colour, with what it leaves out shown at the value it draws with. A slider previews while it is held and writes one step of undo on release. In a 3D level, Add motes and Add smoke place a new field at the camera's target. In a 2D level, Add fireflies, leaves, rain or sparks adds a field over the view, the sliders run in pixels, and In front draws it over the entities.
 
 ## Animations
 
@@ -102,7 +125,7 @@ Double-click a sprite sheet in the tree for the animation editor. The sheet draw
 
 ## UI scenes
 
-A UI scene previews at the game's design size, letterboxed. Right-click the Elements group (or the scene) to add a button, a text, an image or a rect, each valid from birth — a button arrives with something to do. Click an element to select it; the gizmo moves it by its offsets, resizes the kinds that keep a size (a text measures itself), and the nine anchor points of the screen draw over the view with the element's own filled. Changing the anchor in the inspector moves only the point the offsets measure from — the element stays put. Style fields (a label, a size, a colour, a font) take a literal or a `$token` from the game's theme, offered as completions; changing an element's kind with the shape picker keeps its id, position and anchor. A button's `onClick` names a scene and switches to it in Play; an `action` goes to the scene's `onAction` hook, with `settings` opening the settings menu.
+A UI scene previews at the game's design size, letterboxed. Right-click the Elements group (or the scene) to add a button, a menu item, a text, an image, a rect or a backdrop, each valid from birth: a button or a menu item arrives with something to do, and a backdrop goes first, behind everything. An element's `effects` and the scene's `transition` and `stagger` play in Play; the edit view shows every element at rest. Click an element to select it; the gizmo moves it by its offsets, resizes the kinds that keep a size (a text measures itself), and the nine anchor points of the screen draw over the view with the element's own filled. Changing the anchor in the inspector moves only the point the offsets measure from — the element stays put. Style fields (a label, a size, a colour, a font) take a literal or a `$token` from the game's theme, offered as completions; changing an element's kind with the shape picker keeps its id, position and anchor. A button's `onClick` names a scene and switches to it in Play; an `action` goes to the scene's `onAction` hook, with `settings` opening the settings menu.
 
 ## Components
 
@@ -185,7 +208,8 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `find_uses` | Each scene using a named prefab, sheet, model, environment, path, actor, constraint, scene or file, with the fields that use it |
 | `audit_project` | Missing files, files no scene names, prefabs and paths their own scene never uses, and which scene uses which |
 | `look_at` | The lighting and post at a phase of the cycle, as the engine blends them, with the states and the strip's colours |
-| `edit_look` | The Look tab's actions: start a cycle, add a state from a phase, remove a state, add a particle field |
+| `edit_look` | The Look tab's actions: start a cycle, add a state from a phase, remove a state, add a particle field (motes or smoke in 3D; fireflies, leaves, rain or sparks in 2D) |
+| `read_project`, `edit_project` | The project file with every field the schema declares and any problems, as the Project tab shows it; ops on it, written at once and refused whole when the result is invalid |
 | `undo`, `redo`, `save_scene` | Step the history, write the scene |
 | `validate_scene` | Every problem, with its path |
 | `list_assets`, `search_library`, `import_asset` | The project's asset files, a Poly Haven search, an import with its credit |

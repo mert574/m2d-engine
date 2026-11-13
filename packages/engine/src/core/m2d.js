@@ -16,6 +16,7 @@ function categoryBits(value) {
 import { Time } from './time.js';
 import { Rng } from './rng.js';
 import { InputManager } from './input/index.js';
+import { InputActions } from './input/actions.js';
 import { LayerManager } from './layerManager.js';
 import { AssetDatabase } from './assets.js';
 import { CollisionCategories } from './constants.js';
@@ -162,6 +163,18 @@ const defaultOptions = {
   sounds: {},
   music: {},
   /**
+   * Named input actions: action name to the physical key codes that
+   * perform it, `{ menu: ['Escape'], interact: ['KeyE'] }`. A project
+   * declares them in `m2d.project.json` (`input.actions`). Live at
+   * `game.actions`. See core/input/actions.js.
+   */
+  actions: {},
+  /**
+   * The colour the view is cleared to each frame, under everything. A
+   * scene's `world.clearColor` wins while it shows.
+   */
+  clearColor: '#000',
+  /**
    * Edit mode: the scene is presentation without game. The world is built
    * from the scene document exactly as a load builds it — entities,
    * constraints, props, tiles, lights — but no game code runs against it:
@@ -215,6 +228,8 @@ export class M2D {
   constructor(canvas, options = {}) {
     this.options = { ...defaultOptions, ...options };
     this.constructorOptions = options;
+    /** The world size the game was made with, which a scene without its own falls back to. */
+    this.defaultWorldSize = { width: this.options.worldWidth, height: this.options.worldHeight };
     /**
      * True for a game with no display: the simulation only. See
      * core/headless.js and `#initHeadless`.
@@ -412,6 +427,18 @@ export class M2D {
      * @type {Rng}
      */
     this.rng = new Rng(this.options.seed);
+
+    /**
+     * Named input actions (`menu`, `interact`) to the keys that perform
+     * them, from the project's `input.actions`: what rules fire on and
+     * the settings menu rebinds. Read against a tick's snapshot. See
+     * core/input/actions.js.
+     * @type {InputActions}
+     */
+    this.actions = new InputActions(this.options.actions ?? {}, {
+      // A player's rebinding is theirs, per game; an edited or headless game keeps none.
+      storageKey: this.editMode || this.headless ? null : `m2d.actions:${this.options.saveId ?? defaultSaveId()}`
+    });
 
     /**
      * The simulation. Games and actors reach physics only through this; see
@@ -1498,7 +1525,7 @@ export class M2D {
       this.renderer = view.renderer;
       this.camera = view.camera;
       try {
-        view.renderer.clear('#000');
+        view.renderer.clear(this.clearColor);
         view.renderer.beginFrame();
         view.renderer.applyCamera(view.camera);
         currentScene.draw(deltaTime);
@@ -1645,7 +1672,7 @@ export class M2D {
     const rawDelta = (currentTime - this.lastTime) / 1000;
     this.lastTime = currentTime;
 
-    this.renderer.clear('#000');
+    this.renderer.clear(this.clearColor);
 
     if (this.sceneManager.loading) {
       // The clocks do not tick while a scene loads: a timer armed by the
@@ -1733,6 +1760,11 @@ export class M2D {
     this.input.endFrame();
 
     this.frameHandle = requestAnimationFrame(this.update);
+  }
+
+  /** What the view is cleared to: the scene's `world.clearColor`, else the `clearColor` option. */
+  get clearColor() {
+    return this.sceneManager?.getCurrentScene()?.config?.world?.clearColor ?? this.options.clearColor ?? '#000';
   }
 
   async start() {

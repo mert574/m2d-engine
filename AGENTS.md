@@ -170,15 +170,17 @@ npx playwright install chromium   # once, for test:browser
   edits. A scene with a `generator` field is owned by that script, and
   the editor refuses to edit it until the field is deleted.
 - An editor project is one game's folder with an `m2d.project.json`
-  (`name`, `definition`, optionally `hooks`, `scenes` and `basePath`). Its
+  (`name`, `definition`, optionally `hooks`, `scenes`, `basePath`,
+  `initialScene`, `display`, `input.actions`, `settings` and `music`;
+  `core/projectSchema.js` is its schema). Its
   definition module exports `register(game)` (actors, constraints,
   intents, asset manifest) and optionally `GAME`; it never draws, so a
   headless game can import it. The optional hooks module exports
   `sceneHooks(game)` with each scene's presentation hooks, and may export
   `OPTIONS` (M2D options for the look, such as `textureFilter`). Every
-  demo with scene files has one. `main.js`
-  boots from both, and the editor's checks and play mode use them. See
-  `docs/guide/editor.md`.
+  demo with scene files has one. `main.js` boots the project with
+  `bootProject` (`core/project.js`), and the editor's checks and play mode
+  use the same modules. See `docs/guide/editor.md`.
 - The asset pipeline (Poly Haven fetch, model compiler) lives in
   `packages/editor-host/src/pipeline/`. The examples' `fetchPolyHaven.mjs`
   and `compileModel.mjs` wrap it with the lot's lists and paths.

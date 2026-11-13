@@ -514,7 +514,7 @@ export function demoteObjectToProp(doc: unknown, objectPath: PathSegment[]): { o
 // --- UI elements (E9) ------------------------------------------------------
 
 /** What each element kind starts as: a valid value the loader accepts whole. */
-export const ELEMENT_KINDS = ['button', 'text', 'image', 'rect'] as const;
+export const ELEMENT_KINDS = ['button', 'menuItem', 'text', 'image', 'rect', 'backdrop'] as const;
 export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
 /**
@@ -528,9 +528,12 @@ export function addElement(
   doc: unknown, kind: ElementKind, options: { scene?: string; sprite?: string } = {}
 ): { ops: Op[]; id: string; index: number } {
   const id = uniqueId(doc, kind);
-  const element: Record<string, unknown> = { type: kind, id, x: 0, y: 0, anchor: 'center' };
-  if (kind === 'button') {
-    element.properties = options.scene ? { text: 'Button', onClick: options.scene } : { text: 'Button', action: 'start' };
+  const element: Record<string, unknown> = kind === 'backdrop' ? { type: kind, id } : { type: kind, id, x: 0, y: 0, anchor: 'center' };
+  if (kind === 'button' || kind === 'menuItem') {
+    const label = kind === 'button' ? 'Button' : 'Menu item';
+    element.properties = options.scene ? { text: label, onClick: options.scene } : { text: label, action: 'start' };
+  } else if (kind === 'backdrop') {
+    element.properties = { from: '#101820', to: '#2a3550', angle: 110, motes: 40, vignette: 0.5 };
   } else if (kind === 'text') {
     element.properties = { text: 'Text' };
   } else if (kind === 'image') {
@@ -542,6 +545,10 @@ export function addElement(
     element.color = '$color.border';
   }
   const elements = valueAt(doc, ['elements']);
+  // A backdrop is the whole screen behind everything: it goes first.
+  if (kind === 'backdrop' && Array.isArray(elements)) {
+    return { ops: [{ op: 'insert', path: ['elements'], index: 0, value: element }], id, index: 0 };
+  }
   if (Array.isArray(elements)) {
     return { ops: [{ op: 'insert', path: ['elements'], index: elements.length, value: element }], id, index: elements.length };
   }
@@ -559,7 +566,9 @@ export function changeElementType(doc: unknown, elementPath: PathSegment[], kind
   const fresh = (ops[0] as { value: unknown }).value;
   const starting = (Array.isArray(fresh) ? fresh[0] : fresh) as Record<string, unknown>;
   const kept: Record<string, unknown> = {};
-  for (const key of ['id', 'x', 'y', 'anchor'] as const) {
+  // A backdrop has no position: it is the whole screen.
+  const shared = kind === 'backdrop' ? (['id'] as const) : (['id', 'x', 'y', 'anchor'] as const);
+  for (const key of shared) {
     if (element[key] !== undefined) kept[key] = element[key];
   }
   return [{ op: 'set', path: elementPath, value: { ...starting, ...kept, type: kind } }];

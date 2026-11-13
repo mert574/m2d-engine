@@ -2,7 +2,27 @@
   "version": 4,
   "name": "level",
   "type": "level",
-  "world": { "dimensions": 3, "gravity": { "x": 0, "y": -9.81, "z": 0 } },
+  "world": {
+    "dimensions": 3,
+    "gravity": { "x": 0, "y": -9.81, "z": 0 },
+    "camera": {
+      "mode": "orbit",
+      "distance": 14,
+      "yaw": 0.7,
+      "pitch": 0.42,
+      "minDistance": 3,
+      "maxDistance": 40,
+      "wheelZoom": { "speed": 0.0012 },
+      "orbitDrag": {}
+    },
+    "lighting": {
+      "sun": { "direction": { "x": 0.4, "y": -0.75, "z": 0.35 }, "color": "#fff9ed", "intensity": 4 },
+      "sky": "#b1c7e7",
+      "ground": "#888075",
+      "ambientIntensity": 0.6,
+      "fog": { "color": "#dce9f7", "density": 0.005 }
+    }
+  },
   "prefabs": {
     "ground": {
       "actor": "Prop",
@@ -103,6 +123,20 @@
         },
         { "id": "room-3", "scene": "room", "x": 9, "y": 0, "z": -12, "yaw": 0.7853982 }
       ]
+    }
+  ],
+  "hud": [
+    {
+      "type": "text",
+      "id": "controls",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": {
+        "text": "Drag orbits · Scroll zooms",
+        "fontSize": "15px",
+        "color": "rgba(255, 252, 244, 0.9)"
+      }
     }
   ]
 }

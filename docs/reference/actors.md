@@ -31,6 +31,7 @@ The rules, all of which match constraints:
 - **A subclass adds to its bases.** The `static properties` of every class in the chain are merged, base first, so a subclass restates nothing. (`static replicated` works the same way.)
 - **Callbacks stay out.** They are code, not scene data.
 - **Declaring nothing keeps the old contract**: `properties` is then a free-form bag the engine never looks inside. Adding a schema is per actor.
+- **An asset is named, and arrives loaded.** A property declared `s.ref('spritesheet')` or `s.ref('image')` is checked against the scene's sheets or `assets.images`, and the actor receives the loaded `SpriteSheet` or image in `options` (null headless). Art an actor uses at run time, such as the flame a ship trails, is then scene data the editor shows.
 
 `actorPropertiesSchema(Class)` from `m2d-engine/core/sceneSchema.js` returns the merged schema, and `fieldsOf` on it yields the inspector's field list.
 

@@ -1,5 +1,6 @@
 {
   "name": "My 3D Game",
   "definition": "game.js",
-  "hooks": "hooks.js"
+  "initialScene": "level",
+  "display": { "width": 1280, "height": 720, "performanceStats": false }
 }

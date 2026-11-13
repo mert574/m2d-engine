@@ -65,8 +65,8 @@ describe('the MCP server', () => {
   it('advertises its tools to a client', async () => {
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
-      'audit_project', 'build_project', 'create_scene', 'delete_scene', 'edit_look', 'edit_scene', 'find_uses', 'import_asset', 'inspect_node', 'list_assets',
-      'list_components', 'list_scenes', 'look_at', 'outline_scene', 'read_scene', 'redo', 'rename_entry', 'rename_scene', 'run_scene', 'save_scene',
+      'audit_project', 'build_project', 'create_scene', 'delete_scene', 'edit_look', 'edit_project', 'edit_scene', 'find_uses', 'import_asset', 'inspect_node', 'list_assets',
+      'list_components', 'list_scenes', 'look_at', 'outline_scene', 'read_project', 'read_scene', 'redo', 'rename_entry', 'rename_scene', 'run_scene', 'save_scene',
       'screenshot_scene', 'search_library', 'settle_scene', 'undo', 'validate_scene'
     ]);
     // Every tool says what it is for: the description is the agent's
@@ -140,8 +140,37 @@ describe('the project declaration', () => {
     await writeFile(join(root, 'm2d.project.json'), JSON.stringify({ name: 'Rooms', definition: 'src/game.js' }));
     const project = new Project(root);
     expect(await project.declared()).toBe(true);
-    expect(await project.config()).toEqual({ name: 'Rooms', definition: 'src/game.js', hooks: null, scenes: 'scenes', basePath: '.' });
+    expect(await project.config()).toEqual({
+      name: 'Rooms', definition: 'src/game.js', hooks: null, scenes: 'scenes', basePath: '.',
+      initialScene: null, display: {}, actions: {}
+    });
     await rm(join(root, 'm2d.project.json'));
+  });
+
+  it('is read and edited over MCP, canonically, and an invalid edit is refused whole', async () => {
+    await writeFile(join(root, 'm2d.project.json'), JSON.stringify({ name: 'Rooms', definition: 'src/game.js' }));
+    try {
+      const read = JSON.parse(textOf(await client.callTool({ name: 'read_project', arguments: {} })));
+      expect(read.file).toEqual({ name: 'Rooms', definition: 'src/game.js' });
+      expect(read.problems).toEqual([]);
+      expect(read.fields.map((field: { key: string }) => field.key)).toEqual(expect.arrayContaining(['initialScene', 'display', 'input']));
+
+      const edited = await client.callTool({ name: 'edit_project', arguments: { ops: [
+        { op: 'set', path: ['initialScene'], value: 'menu' },
+        { op: 'set', path: ['input'], value: { actions: { menu: ['Escape'] } } }
+      ] } });
+      expect(edited.isError).toBeFalsy();
+      const onDisk = await readFile(join(root, 'm2d.project.json'), 'utf8');
+      expect(JSON.parse(onDisk)).toEqual({ name: 'Rooms', definition: 'src/game.js', initialScene: 'menu', input: { actions: { menu: ['Escape'] } } });
+      expect((await new Project(root).config()).actions).toEqual({ menu: ['Escape'] });
+
+      const refused = await client.callTool({ name: 'edit_project', arguments: { ops: [{ op: 'set', path: ['display'], value: { aspectMode: 'stretch' } }] } });
+      expect(refused.isError).toBe(true);
+      expect(textOf(refused)).toMatch(/display.aspectMode/);
+      expect(await readFile(join(root, 'm2d.project.json'), 'utf8')).toBe(onDisk);
+    } finally {
+      await rm(join(root, 'm2d.project.json'));
+    }
   });
 
   it('falls back to the folder name and no code when there is no declaration', async () => {
@@ -372,7 +401,7 @@ describe('templates', () => {
     const made = await createProject(join(folder, 'sunny-hop'), '3d', 'Sunny Hop');
     expect(made.name).toBe('Sunny Hop');
     const config = JSON.parse(await readFile(join(made.root, 'm2d.project.json'), 'utf8'));
-    expect(config).toMatchObject({ name: 'Sunny Hop', definition: 'game.js', hooks: 'hooks.js' });
+    expect(config).toMatchObject({ name: 'Sunny Hop', definition: 'game.js', initialScene: 'level' });
     expect(JSON.parse(await readFile(join(made.root, 'package.json'), 'utf8')).name).toBe('sunny-hop');
     expect(await readFile(join(made.root, 'index.html'), 'utf8')).toContain('<title>Sunny Hop</title>');
     const project = new Project(made.root);
@@ -380,6 +409,12 @@ describe('templates', () => {
     expect(scenes.map((scene) => scene.path).sort()).toEqual(['scenes/level.json', 'scenes/room.json']);
     const doc = await project.openScene('scenes/level.json');
     expect(doc.validate().ok).toBe(true);
+    // Both templates boot through bootProject, with no hooks: the scenes say it all.
+    expect(await readFile(join(made.root, 'main.js'), 'utf8')).toContain('bootProject');
+    const flat = await createProject(join(folder, 'flat-hop'), '2d');
+    const flatProject = new Project(flat.root);
+    for (const scene of await flatProject.scenes()) expect((await flatProject.openScene(scene.path)).validate().ok).toBe(true);
+    expect((await flatProject.config()).actions).toEqual({ menu: ['Escape'] });
     await expect(createProject(made.root, '2d')).rejects.toThrow(/not empty/);
     await expect(createProject(join(folder, 'other'), 'nope')).rejects.toThrow(/no template/);
     await rm(folder, { recursive: true, force: true });

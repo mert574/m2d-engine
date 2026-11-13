@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { inspectNode } from 'm2d-editor-core';
 import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { LEVEL_SCHEMA, UI_SCHEMA } from 'm2d-engine/core/sceneSchema.js';
+import { PROJECT_SCHEMA } from 'm2d-engine/core/projectSchema.js';
 import { createInspector } from '../src/inspector.ts';
 
 /**
@@ -56,7 +57,7 @@ const inspector = () => createInspector(container, {
 
 describe('the schema', () => {
   it('uses only kinds the inspector has an editor for', () => {
-    const kinds = new Set([...kindsOf(LEVEL_SCHEMA as Desc), ...kindsOf(UI_SCHEMA as Desc)]);
+    const kinds = new Set([...kindsOf(LEVEL_SCHEMA as Desc), ...kindsOf(UI_SCHEMA as Desc), ...kindsOf(PROJECT_SCHEMA as Desc)]);
     for (const kind of kinds) expect(HANDLED, `kind '${kind}' has no inspector editor`).toContain(kind);
   });
 });
@@ -148,7 +149,7 @@ describe('every kind has a control', () => {
     inspector().show('elements', inspectNode(ui, ['elements']));
     const variant = container.querySelector<HTMLSelectElement>('[data-key="0"] select.variant, .card-head select.variant')!;
     expect(variant).toBeTruthy();
-    expect([...variant.options].map((o) => o.textContent)).toEqual(['button', 'text', 'image', 'rect']);
+    expect([...variant.options].map((o) => o.textContent)).toEqual(['button', 'text', 'image', 'menuItem', 'backdrop', 'rect']);
     expect(variant.selectedOptions[0]?.textContent).toBe('rect');
     variant.value = '0';
     variant.dispatchEvent(new Event('change'));

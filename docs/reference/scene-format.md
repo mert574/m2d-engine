@@ -1,6 +1,6 @@
 # Scene format
 
-A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `2`; see [Versions](#versions).
+A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `4`; see [Versions](#versions).
 
 ## Top level
 
@@ -27,18 +27,24 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | Key | Meaning |
 | --- | --- |
 | `dimensions` | `2` (default) or `3`. How many axes the simulation has. A 3D level needs a game built for it: `initPhysics({ dimensions: 3 })` and `new M2D(canvas, { dimensions: 3 })`. A 3D level is in metres with up along `+y`, so positions and sizes are metre-scale and the default object size of 32 is far too big; give every 3D object a `width` and `height`. See [Three dimensions](./physics#three-dimensions) |
-| `width`, `height` | Size of the playable area in world units. The engine does not read these; a game does, from `scene.config.world`, to set camera bounds or lay out a level |
+| `width`, `height` | Size of the playable area in world units. A level that sets them is the game's world size while it shows: tile layers, the kill plane and `"world"` camera bounds read it. A level that leaves them out uses the size the game was made with |
 | `gravity` | `{ "x", "y" }` in px/s² with down along `+y`; in a 3D level `{ "x", "y", "z" }` in m/s² with down along `-y`, so Earth is `{ "x": 0, "y": -9.81, "z": 0 }`. Applied to the physics world when the scene loads |
 | `projection` | How the ground plane is seen: `"isometric"` or `"belt"`, or `{ "type", "ratio" }`. Isometric draws a ground square as a `2:ratio·2` diamond; belt keeps x and compresses y by `ratio`. Positions are drawn through it; physics stays flat. See [Perspectives](../guide/perspectives#isometric-a-projection-on-positions) |
 | `environment` | A 3D level only: a key in `assets.environments`. That HDR panorama lights the level and is its sky, in play and in the editor. A scene's `onRender` hook may still set `frame.environment` itself, and that wins |
 | `sort` | Entity draw order within a `zIndex`. `"depth"` (default) draws by the bottom edge of the body, so whatever stands lower on the ground is in front. `"insertion"` keeps scene order. See [Perspectives](../guide/perspectives) |
 | `player` | The id of the placed object that is the player: `game.player` when the scene shows, and what the camera follows unless `camera.follow` says otherwise |
-| `camera` | How the level is seen, applied when the scene shows (not in the editor, whose camera is its own). 2D: `mode` (`follow`, `scroll`, `rooms`), `follow` (an object id), `zoom`, `lerp`, `followAxes { x, y }`, `bounds` (`"world"` for the world's size, or `{ left, top, right, bottom }`), `followRotation`, `rotationLerp`, `rotationMaxRate`. 3D: `mode` (`orbit`, `free`), `distance`, `yaw`, `pitch`, `minDistance`, `maxDistance`, `minPitch`, `maxPitch`, `fov`, `targetOffset`. Nested blocks merge over the camera's defaults, so a scene may set one axis |
+| `camera` | How the level is seen, applied when the scene shows (not in the editor, whose camera is its own). 2D: `mode` (`follow`, `scroll`, `rooms`), `follow` (an object id), `zoom`, `lerp`, `followAxes { x, y }`, `bounds` (`"world"` for the world's size, or `{ left, top, right, bottom }`), `followRotation`, `rotationLerp`, `rotationMaxRate`. 3D: `mode` (`orbit`, `free`), `distance`, `yaw`, `pitch`, `minDistance`, `maxDistance`, `minPitch`, `maxPitch`, `fov`, `targetOffset`. Nested blocks merge over the camera's defaults, so a scene may set one axis. The view opens on its target. Three controls listen to the player: `wheelZoom { speed, min, max }` zooms with the wheel (2D between `min` and `max`, default 0.25 and 4; 3D between `minDistance` and `maxDistance`; `speed` 0.0015 per wheel unit), `orbitDrag { yaw, pitch }` turns a 3D orbit by a drag (0.005 and 0.004 rad/px), and `speedZoom { out, at, ease }` pulls a 2D view out by the fraction `out` (0.2) as the followed object reaches `at` px/s (600), easing by `ease` (0.05) |
 | `lighting` | The light the level stands in, applied in the editor too. 2D: `ambient`, a colour that switches lighting on (actors add their lights with `drawLight`). 3D: `sun { direction, color, intensity }`, `sky` and `ground` ambient colours with `ambientIntensity`, `fog { color, density }`, `exposure`, `shadowDistance`, `wind { direction { x, z }, strength, gust }` (what sways the foliage: 0 is still air, 1 a stiff breeze that moves a ten-metre crown about half a metre; `gust`, 0 to 1, how much comes in waves rolling downwind). A scene's `onRender` hook may change any of them afterwards, which is how a day and night cycle moves them |
-| `post` | The full-screen pass. Each block is what the renderer takes: 2D `bloom { threshold, strength, blur }`, `vignette { strength, start }`, `grade { shadows, highlights, amount, saturation, contrast }`, `chromatic`, `distortion`, `grain`, `scanlines`, `blur`; 3D `bloom { threshold, intensity, scatter }`, `vignette`, `grain` (numbers), `grade { saturation, contrast, temperature }`, `dof { focalLength, fStop, maxBlur }` (the focus follows the camera's target), `autoExposure`. Blocks a renderer does not know are ignored |
+| `post` | The full-screen pass. Each block is what the renderer takes: 2D `bloom { threshold, strength, blur }`, `vignette { strength, start }`, `grade { shadows, highlights, amount, saturation, contrast }`, `chromatic`, `distortion`, `grain`, `scanlines`, `blur`, `glitch { strength }`, `flash { strength, color }`; 3D `bloom { threshold, intensity, scatter }`, `vignette`, `grain` (numbers), `grade { saturation, contrast, temperature }`, `dof { focalLength, fStop, maxBlur }` (the focus follows the camera's target), `autoExposure`. Blocks a renderer does not know are ignored |
 | `music` | `{ track, volume }`: a key in `assets.music` (or one the game loaded), played when the scene shows and stopped when it leaves. Not in the editor |
 | `cycle` | A turn of the light: `states`, at least two, each a name with the `lighting` and `post` that differ from the level's resting ones; `period` seconds for a full turn and back to the first (0 to move it by hand); `phase`, where it starts; `ease`, how fast the phase approaches a target per second. Game code moves it with `scene.cycle.target = 1` (or `phase` to jump); a rule's `cycle` action does the same. Blended state by state: numbers lerp, colours mix. The editor shows the level at `phase` |
-| `particles` | 3D: fields of particles drawn blended over the level, at most sixteen. Each is `{ kind, count, at, extent, radius, color, opacity, emissive, speed, follow }`: `kind` `motes` (dust and pollen through a box of half sizes `extent`, centred on the camera unless `follow` is false and then on `at`, carried by `world.lighting.wind` and wandering `speed` metres) or `smoke` (rising from `at` at `speed` metres a second through a column `extent.y` metres in half-height, widening by `extent.x` and `extent.z`, leaning downwind). `radius` is a particle's size in metres, `emissive` a glow as a multiple of the colour. Stateless: see [particle fields](./renderer#three-dimensions) |
+| `particles` | Stateless particle fields. 2D: `kind` `fireflies` (wandering and pulsing), `leaves` (falling and turning), `rain` (slanted streaks) or `sparks` (rising and fading), with `count`, `radius` (px), `color`, `opacity`, `speed` (px/s), `emissive` (in a lit level each bright one also draws a small light), `front` (drawn over the entities; leaves, rain and sparks by default), `seed`, and `follow` (true: the field covers the view; false: the box `at` ± `extent`). Drawn in the editor too. 3D: fields of particles drawn blended over the level, at most sixteen. Each is `{ kind, count, at, extent, radius, color, opacity, emissive, speed, follow }`: `kind` `motes` (dust and pollen through a box of half sizes `extent`, centred on the camera unless `follow` is false and then on `at`, carried by `world.lighting.wind` and wandering `speed` metres) or `smoke` (rising from `at` at `speed` metres a second through a column `extent.y` metres in half-height, widening by `extent.x` and `extent.z`, leaning downwind). `radius` is a particle's size in metres, `emissive` a glow as a multiple of the colour. Stateless: see [particle fields](./renderer#three-dimensions) |
+| `clearColor` | What the view is cleared to under everything while the scene shows. The game's `clearColor` option otherwise (`#000`) |
+| `sky` | 2D: `{ top, bottom, middle, horizon }`, a vertical gradient over the view behind the level; `middle` sits at `horizon` (0.5) down the view |
+| `scatter` | 2D: seeded layers behind the level, each `{ kind, count, seed, color, size, opacity, parallax, speed, twinkle, band { top, bottom } }`. `kind` is `stars` (twinkling by `twinkle`), `clouds` (soft puffs drifting at `speed` px/s) or `motes` (rising specks). Laid out from `seed` across the view, so a layer has no edge; `parallax` 0 is fixed to the view and 1 moves with the world; `band` keeps it to a part of the view, as fractions from the top |
+| `ambience` | Looping sounds while the scene shows: each `{ sound, volume, fadeIn, rate }`, `sound` a key in `assets.sounds`, faded in from silence over `fadeIn` seconds (1) and stopped when the scene leaves. Not in the editor |
+| `counters` | Numbers the rules and the HUD read by name. A plain counter is `{ initial }` (0) and changes through a rule's `count` action. A tally is `{ prefab, count }`: how many of the prefab's objects the scene `placed`, how many are `remaining`, or how many are gone (`taken`, the default), read off the world each time |
+| `postBind` | Post fields that follow a value in play: each `{ effect, field, bind, empty, full }` sets `post[effect][field]` (field `strength` by default) between `empty` (at a reading of 0) and `full` (at 1). `bind` is a meter's (see [`hud`](#hud)): the player's health by default. The damage tear as health falls |
 | `killPlane` | 2D: the `y` below which the player is lost; the world's height plus 50 by default. Crossing it fires the `fall` rules, or ends the game when there are none |
 | `rules` | What happens when, run by the engine each tick (headless too; not in the editor). See [Rules](#rules) |
 
@@ -78,18 +84,24 @@ Rules chain through an optional `id`: `after: [ids]` keeps a rule from firing un
 | `enter` | The player touches `object` (an id): a sensor or a body |
 | `death` | `object` (an id, or `"player"`, the default) is dead or gone; with `objects` (a list of placed ids), once every one is: a wave cleared |
 | `fall` | The player crossed `world.killPlane` this tick |
+| `count` | `counter` (a key in `world.counters`) is at least `atLeast`, or at most `atMost` |
+| `action` | A key of the named input `action` went down this tick. The project declares actions in `m2d.project.json`; see [Input actions](../guide/input#named-actions) |
+| `emit` | Game code raised the world event `name` (`game.events.emit(name)`) since the last tick |
+| `notify` | The simulation told the local player `name` (`player.notify(name)`). Heard where the player's screen is, on a client too, after the tick. Its actions may only be `notice`, `objective`, `say`, `sound`, `switch` and `camera` |
 
 | `then[].do` | Does |
 | --- | --- |
 | `notice` | Shows `text` on a `notice` HUD element for `seconds` (`element` names one; the first otherwise) |
-| `objective` | Sets a HUD text's `text` (`element`, default `objective`) |
+| `objective` | Sets a HUD text's `text` (`element`, default `objective`); `{name}` in it shows a counter |
+| `say` | Opens a HUD `dialogue` (`element`, the first by default) on `lines`, with `speaker` over them |
+| `count` | Changes a plain counter: `add` to it (1 by default), or `set` it |
 | `sound` | Plays the sound `key` |
 | `unseal` | Sets `object`'s `active` to true and its `sealed` to false, and calls its `onUnseal()` if it has one |
 | `remove` | Removes `object` from the world |
 | `set` | Sets `property` on `object` to `value` |
 | `switch` | Switches to `scene`, `after` seconds; the scene may be one the page builds in code |
 | `gameOver` | Ends the game, `after` seconds |
-| `cycle` | Moves `world.cycle`: `target` to ease to, `phase` to jump to, `ease` |
+| `cycle` | Moves `world.cycle`: `target` to ease to, `phase` to jump to, `ease`. With `toggle`, a target it is already going to sends it back to 0: a key that turns the day and turns it back |
 | `camera` | Moves the edges it names (`left`, `top`, `right`, `bottom`) of the camera's bounds and keeps the rest: a locked section opening. Nothing headless |
 
 ```json
@@ -97,6 +109,17 @@ Rules chain through an optional `id`: `after: [ids]` keeps a rule from firing un
   { "when": { "event": "collected", "prefab": "coin" }, "then": [{ "do": "unseal", "object": "gate" }, { "do": "notice", "text": "THE GATE OPENS" }] },
   { "when": { "event": "enter", "object": "gate" }, "then": [{ "do": "sound", "key": "levelComplete" }, { "do": "switch", "scene": "mainMenu", "after": 3 }] },
   { "when": { "event": "death" }, "then": [{ "do": "gameOver" }] }
+]
+```
+
+A counter, a key and a world event:
+
+```json
+"counters": { "taken": { "prefab": "salvage" }, "total": { "prefab": "salvage", "count": "placed" } },
+"rules": [
+  { "when": { "event": "count", "counter": "taken", "atLeast": 6 }, "then": [{ "do": "unseal", "object": "gate" }] },
+  { "when": { "event": "action", "action": "menu" }, "then": [{ "do": "switch", "scene": "mainMenu" }] },
+  { "when": { "event": "emit", "name": "alarm" }, "then": [{ "do": "notice", "text": "THEY HEARD YOU" }] }
 ]
 ```
 
@@ -112,15 +135,25 @@ A wave, as Ash Row writes one: its thugs are placed sealed, a zone calls them on
 
 ## `hud`
 
-A level's overlay, drawn over the world and shown in the editor: a list of elements like a UI scene's, with three more that read the running game. Every element has an `id`, an `anchor` and `x`, `y` from it. Game code reaches them through `scene.hud.elements`, a map by id — how a hook rewrites an objective line the scene laid out.
+A level's overlay, drawn over the world and shown in the editor: a list of elements like a UI scene's, with more that read the running game. Every element has an `id`, an `anchor` and `x`, `y` from it. Game code reaches them through `scene.hud.elements`, a map by id — how a hook rewrites an objective line the scene laid out.
 
 | `type` | Fields |
 | --- | --- |
-| `text` | `properties.text`, `fontSize`, `color`, `align`, `letterSpacing`, `outlineColor`, `outlineWidth`, …; a rule's `objective` action rewrites it |
+| `text` | `properties.text`, `fontSize`, `color`, `align`, `letterSpacing`, `outlineColor`, `outlineWidth`, …; `{name}` in the text shows the counter of that name as it changes (`"SALVAGE {taken} / {total}"`); a rule's `objective` action rewrites it |
 | `notice` | A text that is hidden until a rule's `notice` action shows it, and fades after `properties.seconds` (2.5) |
-| `meter` | A bar: `width`, `height`, `bind { object, constraint, current, max }`, the player's `health` slot's `currentHealth` over `maxHealth` by default; an empty `constraint` reads the entity's own fields; `properties.label`, `color`, `background`, and `low` with `lowBelow` (0.35) for the bar under the low mark |
-| `minimap` | `size` (width; the height follows the world's shape, or `bounds`), `plot`: prefab name to a dot colour or `{ shape: dot\|ring, color, size }` |
+| `meter` | A bar: `width`, `height`, `bind { object, constraint, current, max, ratio }`, the player's `health` slot's `currentHealth` over `maxHealth` by default; an empty `constraint` reads the entity's own fields; `ratio` names a field already between 0 and 1 (`ThrustControl`'s `boostCharge`) and is read instead; `properties.label`, `color`, `background`, `low` with `lowBelow` (0.35) for the bar under the low mark, and `full` for the bar when it is full |
+| `minimap` | `size` (width; the height follows the world's shape, or `bounds`), `plot`: prefab name (or `players`, the other players) to a dot colour or `{ shape: dot\|ring\|square, color, size, by }`. `by { property, values }` changes the style with an entity property: `values` maps the property's value, as text, to the fields that differ (`{ "true": { "color": "#9a70ff" } }` for a sealed gate). `target` (an object id) is ringed, the objective. `properties.background`, `borderColor` |
+| `abilityBar` | The slots of an `Abilities` constraint, `bind { object, constraint }` (the player's `abilities` by default), at the bottom centre unless placed. `icons` maps an ability id to a key in `assets.images` (or a sprite sheet). `properties.slot` (50), `gap` (8), `background`, `borderColor` |
+| `dialogue` | Spoken lines, typed out, opened by a rule's `say` action. `width` (720), `height` (128), at the bottom centre unless placed; `properties.advance`, the input action that advances it (`interact`; E when the project declares none), or a click; `charsPerSecond` (46), `textColor`, `nameColor`, `background`, `borderColor` |
 | `image`, `rect` | As in a UI scene |
+
+## `assets.images`
+
+Whole images by key: `{ "url" }`, relative to the game's `basePath`. A HUD `image` or `abilityBar` icon, a UI `backdrop` still, or an actor property declared `s.ref('image')` names one. Loaded with the scene.
+
+## Asset-reference properties
+
+An actor property declared as `s.ref('spritesheet')` or `s.ref('image')` in its `static properties` names an asset of the scene, and is checked against the scene's sheets or images. The actor receives the loaded `SpriteSheet` or image in its `options`, so art an actor spawns at run time (a ship's flame, a laser) is scene data. Headless, it receives null.
 
 ## `assets.sounds`, `assets.music`
 
@@ -396,11 +429,14 @@ An array of UI elements. Every element accepts these keys.
 
 | Key | Required | Meaning |
 | --- | --- | --- |
-| `type` | yes | `"button"`, `"text"`, `"image"` or `"rect"` |
+| `type` | yes | `"button"`, `"menuItem"`, `"text"`, `"image"`, `"rect"` or `"backdrop"` |
 | `id` | yes | Identity, unique within the scene. Same spelling rules as an object's |
 | `x`, `y` | yes for all but a filled rect | Offset from the anchor, in UI units |
 | `anchor` | no | One of `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right`. Default `top-left` |
 | `properties` | no | Type-specific, below |
+| `effects` | no | `{ enter, select, exit }`. `enter` and `exit` are `{ motion, duration, delay }`, `motion` one of `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`, `drop` (falls in and settles) or `type` (the text types itself out). `select` is what the element does while selected by the pointer or the keys: `glow`, `shake`, `pulse`, `lift` or `none`. Not in the editor, which shows every element at rest |
+
+The scene itself may give `transition { enter, exit, duration }` (each `none`, `fade`, `slide-up`, `slide-down` or `scale`), how the whole screen arrives and leaves; `stagger`, seconds added to each entering element's delay in document order; and `music { track }`, a key in `assets.music` played when the scene shows. A switch away waits for the exits and the leaving transition, at most 1.5 s.
 
 Every colour and size accepts a [theme token](./ui#theme-tokens) such as `"$color.text.accent"` or `"$font.size.heading"` as readily as a literal, so a scene authored against the theme follows a retheme.
 
@@ -420,6 +456,33 @@ Every colour and size accepts a [theme token](./ui#theme-tokens) such as `"$colo
 | `fontWeight`, `fontStyle` | from the variant, `normal` | `fontStyle: "italic"` for italic |
 
 Exactly one of `onClick` and `action` is required.
+
+### `menuItem`
+
+A line of a game menu: type, with a mark that eases in when it is selected. `properties`:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `text` | | Label |
+| `onClick`, `action` | | As a `button`'s; exactly one |
+| `variant` | `bar` | How selection shows: `bar` (a bar in the margin, the line stepping right), `bracket` (chevrons either side), `underline` (a rule growing from the middle), `block` (a filled band behind inverted type) or `dot` (a bead before it) |
+| `align` | `left` | `left`, `center` or `right` |
+| `width`, `height` | `340`, `44` | |
+| `uppercase` | `true` | |
+| `fontSize`, `fontFamily`, `fontWeight`, `letterSpacing` | `$font.size.subheading`, the UI face, `$font.weight.medium`, `$font.tracking.wide` | |
+| `color`, `selectedColor`, `accentColor` | `$color.text.secondary`, `$color.text.primary`, `$color.accent.default` | Resting label, selected label, the mark |
+
+### `backdrop`
+
+What a menu sits on: the whole screen, under everything after it. It has no position. `sprite` names a still (a key in `assets.images` or a sprite sheet) drawn behind the gradient. `properties`:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `from`, `to`, `angle` | the theme's background, `90` | The gradient's colours and its angle in degrees |
+| `imageOpacity`, `drift` | `1`, `true` | The still's opacity, and whether it pans and zooms slowly |
+| `motes`, `moteColor` | `0` | Drifting specks, at most 240 |
+| `scanlines`, `vignette` | `0`, `0` | A fine grille, darkness at the edges, 0 to 1 |
+| `seed` | `1` | Which layout of motes |
 
 ### `text`
 

@@ -121,6 +121,23 @@ While a blocking screen is up (a dialog, an inventory, the console), the snapsho
 
 Because every tick reads one snapshot, recording them (`snapshot.toJSON()`) and feeding them back through `game.input.setSnapshotSource(fn)` replays the simulation exactly: the recording drives the game through the same seam the keyboard does. The circuit example's lap replays are this and nothing more.
 
+## Named actions
+
+A named action is what a key means to the game: `menu`, `jump`, `interact`. A project declares its actions in `m2d.project.json`, each name with the physical key codes that perform it, and the game reads them as `game.actions`.
+
+```json
+"input": { "actions": { "menu": ["Escape"], "interact": ["KeyE", "Enter"] } }
+```
+
+A rule fires on one with `{ "event": "action", "action": "menu" }` (see [Rules](../reference/scene-format#rules)). Code reads one against a tick's snapshot, so a replay sees what the action did.
+
+```javascript
+if (game.actions.pressed('interact', this.input)) this.talk();
+if (game.actions.down('boost', this.input)) this.burn(dt);
+```
+
+The settings menu lists every action under Controls. Enter on a row waits for the next key and binds the action to it; Escape keeps the old one, and Reset controls returns every action to the project's keys. A player's bindings persist in the browser, per game, and never change the project file. Code rebinds with `game.actions.rebind(name, codes)` and restores with `game.actions.reset()`. Without the `actions` option the game has none.
+
 ## Replacing the engine loop
 
 A game that runs its own `requestAnimationFrame` loop must call `game.input.beginFrame(now)` at the start of each frame and `game.input.endFrame()` at the end. `beginFrame` delivers buffered pointer moves and fires time-based gestures. `endFrame` retires the `justPressed` and `justReleased` edges. `game.fixedUpdate` samples the snapshot; a loop that runs ticks some other way calls `game.input.sample()` itself at the start of each. See [Game loop](./game-loop).

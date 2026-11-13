@@ -1,12 +1,17 @@
 import { SpriteSheet } from './spriteSheet.js';
 import { validate } from './schema.js';
-import { constraintParamsSchema } from './sceneSchema.js';
+import { constraintParamsSchema, actorPropertyFields } from './sceneSchema.js';
 import { Projection } from './projection.js';
 import { geometryFor } from './renderers/geometry/primitives.js';
 import { placeLight, instanceEmissive, toLinear } from './presentation3d.js';
 import { parseColor } from './renderers/geometry/color.js';
 import { SceneRules } from './rules.js';
 import { SceneHud } from './hud.js';
+import { SceneCounters } from './counters.js';
+import { SceneBackdrop } from './sceneBackdrop.js';
+import { SceneAmbience } from './sceneAmbience.js';
+import { CameraControls, CONTROL_KEYS } from './cameraControls.js';
+import { bindingRatio } from './binding.js';
 import { SceneProps } from './sceneProps.js';
 import { Path } from './path.js';
 import { withParticleDefaults } from './particles.js';
@@ -24,6 +29,9 @@ import { UIButton } from './ui/button.js';
 import { UIText } from './ui/text.js';
 import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
+import { UIMenuItem } from './ui/menuItem.js';
+import { UIBackdrop } from './ui/backdrop.js';
+import { SceneEffects } from './ui/sceneEffects.js';
 
 const ZERO = { x: 0, y: 0, z: 0 };
 
@@ -54,6 +62,10 @@ export class Scene {
     this.meshMaterials = new Map();
     /** The level's props, their batches, colliders, lights and streaming; see sceneProps.js. */
     this.props = new SceneProps(this);
+    /** Whole images from `assets.images`, by key; also in `sprites`, which HUD icons and images read. @type {Map<string, HTMLImageElement>} */
+    this.images = new Map();
+    /** The sky, scatter layers and 2D particle fields; see sceneBackdrop.js. */
+    this.backdrop = new SceneBackdrop(this);
     /** The level's `paths`, by name. @type {Map<string, Path>} */
     this.paths = pathsOf(config);
     /**
@@ -100,7 +112,15 @@ export class Scene {
     } else {
       console.debug('Setting up UI scene');
       await this.setupUIScene();
-      if (!headless && !this.game.editMode) this.#attachMenuFocus();
+      if (!headless && !this.game.editMode) {
+        this.#attachMenuFocus();
+        this.effects = new SceneEffects(this.game, this.config, this.uiById, this.ui);
+        this.effects.enter();
+        if (this.config.music?.track) {
+          this.game.soundManager?.playMusic(this.config.music.track);
+          this.#musicStarted = true;
+        }
+      }
     }
 
     this.game.markSceneBuilt?.();
@@ -118,7 +138,7 @@ export class Scene {
   async loadAssets() {
     // Before anything is fetched: what may stream, and where it stands.
     this.indexProps();
-    await Promise.all([this.#loadSpriteSheets(), this.props.loadModels(), this.#loadEnvironments(), this.#loadMeshTextures()]);
+    await Promise.all([this.#loadSpriteSheets(), this.#loadImages(), this.props.loadModels(), this.#loadEnvironments(), this.#loadMeshTextures()]);
     this.#loadSounds();
   }
 
@@ -169,7 +189,16 @@ export class Scene {
       const player = this.entitiesById.get(world.player);
       if (player && !this.game.player) this.game.player = player;
     }
-    if (!this.game.editMode && !this.#serverRuns && world.rules?.length) this.rules = new SceneRules(this, world.rules);
+    /** `world.counters`: what rules count and the HUD shows. */
+    this.counters = new SceneCounters(this, world.counters ?? {});
+    // On a client the server runs the rules; only the notify rules, which
+    // answer what the server tells this player, run here.
+    if (!this.game.editMode && world.rules?.length) this.rules = new SceneRules(this, world.rules, { simulate: !this.#serverRuns });
+  }
+
+  /** The level's lighting as it stands (the cycle's blend, when it has one). */
+  get currentLighting() {
+    return this.#currentLook().lighting;
   }
 
   /** Whether `#applyLook` set the renderer's ambient or post pass, to clear on unload. */
@@ -191,8 +220,27 @@ export class Scene {
   /** The level's lighting and post as they stand: the resting look, or the cycle's blend at its phase. */
   #currentLook() {
     const world = this.config.world ?? {};
-    if (!world.cycle || !this.cycle) return { lighting: world.lighting, post: world.post };
-    return cycleLook(world.cycle, this.cycle.phase, world);
+    const look = !world.cycle || !this.cycle ? { lighting: world.lighting, post: world.post } : cycleLook(world.cycle, this.cycle.phase, world);
+    return world.postBind?.length && !this.game.editMode ? { ...look, post: this.#boundPost(look.post, world.postBind) } : look;
+  }
+
+  /**
+   * The post blocks with `world.postBind` applied: each bound field set
+   * from its reading, between its `empty` and `full` values. A binding
+   * that reads nothing (the object gone) leaves the field as the post
+   * block says.
+   */
+  #boundPost(post = {}, bindings) {
+    const out = { ...post };
+    for (const binding of bindings) {
+      const k = bindingRatio(this, binding.bind);
+      if (k === null) continue;
+      const value = (binding.empty ?? 0) + ((binding.full ?? 0) - (binding.empty ?? 0)) * k;
+      const block = out[binding.effect];
+      const field = binding.field ?? 'strength';
+      out[binding.effect] = block && typeof block === 'object' ? { ...block, [field]: value } : { [field]: value };
+    }
+    return out;
   }
 
   #lastLook = null;
@@ -224,12 +272,15 @@ export class Scene {
     if (player && !this.game.player) this.game.player = player;
     if (this.config.hud?.length) this.hud = new SceneHud(this, this.config.hud);
     if (this.game.editMode) return;
+    this.hud?.listen();
+    this.rules?.listen();
+    if (world.ambience?.length) this.ambience = new SceneAmbience(this.game, world.ambience);
     const camera = this.game.camera;
     const config = world.camera;
     if (config) {
       const { follow, bounds, ...rest } = config;
       for (const [key, value] of Object.entries(rest)) {
-        if (value === undefined) continue;
+        if (value === undefined || CONTROL_KEYS.includes(key)) continue;
         // Nested blocks (followAxes, targetOffset) merge over the camera's own, so a scene may set one axis.
         if (value && typeof value === 'object' && camera[key] && typeof camera[key] === 'object') Object.assign(camera[key], value);
         else camera[key] = value;
@@ -248,9 +299,15 @@ export class Scene {
       const target = follow ? this.entitiesById.get(follow) : player;
       if (target) camera.follow(target);
       camera.update?.(0);
+      if (CameraControls.wanted(config)) {
+        this.cameraControls = new CameraControls(this.game, config);
+        this.cameraControls.attach();
+      }
     } else if (player && !camera.target) {
       camera.follow(player);
     }
+    // The view opens on its target rather than easing across the level to it.
+    camera.snap?.();
     if (world.music?.track && this.game.soundManager) {
       this.game.soundManager.playMusic(world.music.track);
       this.#musicStarted = true;
@@ -428,6 +485,25 @@ export class Scene {
   }
 
 
+  /** `assets.images`, each decoded once, into `images` and `sprites` by key. */
+  async #loadImages() {
+    const images = this.config.assets?.images;
+    if (!images) return;
+    await Promise.all(Object.entries(images).map(([key, { url }]) => new Promise((resolve, reject) => {
+      const image = new window.Image();
+      image.onload = () => {
+        this.images.set(key, image);
+        this.sprites.set(key, image);
+        resolve();
+      };
+      image.onerror = (error) => {
+        console.error(`Failed to load image: ${url}`, error);
+        reject(error);
+      };
+      image.src = this.game.options.basePath + url;
+    })));
+  }
+
   async #loadSpriteSheets() {
     if (!this.config.assets?.spritesheets) return;
 
@@ -501,6 +577,12 @@ export class Scene {
       if (this.config.world.gravity) {
         this.game.physics.setGravity(this.config.world.gravity);
       }
+    }
+    // The level's size is its own: tile layers, the kill plane and "world"
+    // camera bounds read it, and no option has to say it a second time.
+    if (this.config.type === 'level' && this.game.defaultWorldSize) {
+      this.game.options.worldWidth = this.config.world?.width ?? this.game.defaultWorldSize.width;
+      this.game.options.worldHeight = this.config.world?.height ?? this.game.defaultWorldSize.height;
     }
 
     // Draw order among entities: `depth` sorts by the feet so whatever
@@ -702,7 +784,7 @@ export class Scene {
           ...(object.rotation && { rotation: quaternion(object.rotation) })
         }
         : prefab.physics,
-      options: object.properties
+      options: this.#resolveAssetProperties(prefab.actor, object.properties)
     });
     if (!entity) return null;
 
@@ -721,6 +803,28 @@ export class Scene {
     this.game.entities.add(entity);
     this.game.physics.add(entity.body);
     return entity;
+  }
+
+  /**
+   * A placed object's properties with the asset names resolved: a property
+   * the actor declares as `s.ref('spritesheet')` arrives as the scene's
+   * loaded `SpriteSheet`, one declared `s.ref('image')` as the image. An
+   * actor names its art in data — the flame its ship trails, a ground
+   * texture — and the scene hands it over loaded. Headless there is no
+   * art, and the property arrives as null.
+   */
+  #resolveAssetProperties(actor, properties) {
+    const fields = actorPropertyFields(this.game.actors?.get(actor));
+    if (!fields || !properties) return properties;
+    const loaded = { spritesheet: this.spriteSheets, image: this.sprites };
+    let resolved = properties;
+    for (const [key, desc] of Object.entries(fields)) {
+      const assets = desc?.kind === 'ref' ? loaded[desc.scope] : null;
+      if (!assets || typeof properties[key] !== 'string') continue;
+      if (resolved === properties) resolved = { ...properties };
+      resolved[key] = assets.get(properties[key]) ?? null;
+    }
+    return resolved;
   }
 
   /**
@@ -963,6 +1067,47 @@ export class Scene {
             interactive: properties.interactive ?? false
           });
           break;
+
+        case 'menuItem':
+          made = new UIMenuItem({
+            ...common,
+            pivot: properties.align === 'center' ? 'center' : properties.align === 'right' ? 'right' : 'left',
+            width: properties.width ?? 340,
+            height: properties.height ?? 44,
+            text: properties.text,
+            onSelect: () => this.#runButtonAction(properties),
+            variant: properties.variant,
+            align: properties.align,
+            ...defined({
+              uppercase: properties.uppercase,
+              fontSize: properties.fontSize,
+              fontFamily: properties.fontFamily,
+              fontWeight: properties.fontWeight,
+              letterSpacing: properties.letterSpacing,
+              color: properties.color,
+              selectedColor: properties.selectedColor,
+              barColor: properties.accentColor
+            })
+          });
+          break;
+
+        case 'backdrop':
+          made = new UIBackdrop({
+            ...defined({
+              gradient: properties.from || properties.to
+                ? { from: properties.from ?? properties.to, to: properties.to ?? properties.from, angle: properties.angle ?? 90 }
+                : undefined,
+              image: element.sprite ? this.sprites.get(element.sprite) : undefined,
+              imageOpacity: properties.imageOpacity,
+              drift: properties.drift,
+              motes: properties.motes,
+              moteColor: properties.moteColor,
+              scanlines: properties.scanlines,
+              vignette: properties.vignette,
+              seed: properties.seed
+            })
+          });
+          break;
       }
       if (!made) return;
       this.ui.add(made);
@@ -1019,6 +1164,17 @@ export class Scene {
     return this.game.replica && this.config.type === 'level';
   }
 
+  /**
+   * Play the scene's way out — a UI scene's exit effects and leaving
+   * transition — before a switch unloads it. The scene manager waits on
+   * the promise; null when there is nothing to play.
+   * @returns {Promise<void>|null}
+   */
+  leave() {
+    if (this.game.editMode || this.game.headless) return null;
+    return this.effects?.exit() ?? null;
+  }
+
   /** `onHide` (with a display), then `onExit`, then tear down. */
   unload() {
     const headless = this.game.headless;
@@ -1036,10 +1192,18 @@ export class Scene {
     for (const model of this.models.values()) this.game.renderer?.unloadModel?.(model);
     this.models.clear();
     // The level's rules, HUD and cycle are this scene's; headless too.
+    this.rules?.unlisten();
+    this.hud?.unlisten();
     this.rules = null;
     this.hud = null;
+    this.counters = null;
     this.cycle = null;
     this.#lastLook = null;
+    this.cameraControls?.detach();
+    this.cameraControls = null;
+    this.ambience?.stop();
+    this.ambience = null;
+    this.effects = null;
 
     // Headless there is no camera, UI or cursor to reset, only the scene's
     // timers (see the end of this method).
@@ -1064,6 +1228,7 @@ export class Scene {
     }
 
     this.sprites.clear();
+    this.images.clear();
     this.spriteSheets.clear();
     this.ui.clear();
     for (const off of this.#focusOff) off();
@@ -1128,6 +1293,10 @@ export class Scene {
     if (this.config.type === 'level') {
       this.game.entities.forEach(entity => entity.update(deltaTime));
       this.#updateCycle(deltaTime);
+      this.cameraControls?.update(this.game.time?.unscaledDelta ?? deltaTime);
+      // A bound post field follows its value every frame; the look is
+      // only re-sent to the renderer when it changed.
+      if (this.config.world?.postBind?.length && this.game.physics.dimensions !== 3 && !this.game.headless) this.#apply2DLook(this.#currentLook());
     }
 
     // Scene-level presentation that is not an entity (a sky, a particle
@@ -1151,6 +1320,8 @@ export class Scene {
   updateUI(deltaTime) {
     this.ui.updateTree(deltaTime);
     this.focus?.prune();
+    this.effects?.update(deltaTime);
+    this.ambience?.update(deltaTime);
   }
 
   draw(deltaTime) {
@@ -1158,6 +1329,11 @@ export class Scene {
     // the pass; what the document declares (layers, entities, props) still
     // draws, which is the entities' own `draw` below.
     const hooks = !this.game.editMode;
+    const level = this.config.type === 'level';
+    const time = this.game.time?.elapsed ?? 0;
+
+    // The level's own sky, scatter and back particles, from the document.
+    if (level && this.backdrop.active) this.backdrop.drawBack(time);
 
     // World-space drawing that everything else sits on — a sky, parallax
     // scenery. Runs inside the world pass, before the background layer and
@@ -1166,8 +1342,9 @@ export class Scene {
       this.config.onDrawBackground(deltaTime);
     }
 
-    if (this.config.type === 'level') {
+    if (level) {
       this.drawWorld(deltaTime);
+      if (this.backdrop.active) this.backdrop.drawFront(time);
     }
 
     // World-space drawing that does not belong to an entity. Runs inside the
@@ -1375,6 +1552,11 @@ export class Scene {
 /** A scene's `[x, y, z, w]` rotation as the 3D physics takes it. */
 function quaternion([x, y, z, w]) {
   return { x, y, z, w };
+}
+
+/** Only the keys whose value is set, so a class's own defaults stand for the rest. */
+function defined(options) {
+  return Object.fromEntries(Object.entries(options).filter(([, value]) => value !== undefined));
 }
 
 function pathsOf(config) {

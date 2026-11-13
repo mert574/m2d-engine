@@ -20,6 +20,17 @@ import { UIElement } from './uiElement.js';
  * why game UI reads as game UI. Tracking needs `ctx.letterSpacing`; where
  * the browser lacks it the text simply draws untracked.
  *
+ * ## Variants
+ *
+ * The bar is one way to say "this line". A game's menu should not look
+ * like every other game's, so `variant` picks another: `bracket` sets the
+ * label between chevrons, `underline` draws a rule growing from the
+ * label's middle, `block` fills the line behind inverted type, `dot` puts
+ * a bead before it. All of them ease in with `selectedAmount`.
+ *
+ * `glow` (0..1, driven by a scene's select effect) lights the label with a
+ * soft halo in the accent colour.
+ *
  * ## Selection is one thing
  *
  * There is no separate focus appearance: `UIElement.state` reports
@@ -42,7 +53,8 @@ export class UIMenuItem extends UIElement {
    * @param {number|string} [options.letterSpacing='$font.tracking.wide']
    * @param {string} [options.color] - Resting label colour
    * @param {string} [options.selectedColor] - Selected label colour
-   * @param {string} [options.barColor]
+   * @param {string} [options.barColor] - The accent: the bar, the brackets, the rule, the block
+   * @param {'bar'|'bracket'|'underline'|'block'|'dot'} [options.variant='bar']
    */
   constructor(options = {}) {
     super({ pivot: 'top-left', height: 44, focusable: true, ...options });
@@ -60,6 +72,10 @@ export class UIMenuItem extends UIElement {
     this.color = options.color ?? '$color.text.secondary';
     this.selectedColor = options.selectedColor ?? '$color.text.primary';
     this.barColor = options.barColor ?? '$color.accent.default';
+    this.variant = options.variant ?? 'bar';
+    if (options.fontFamily) this.fontFamily = options.fontFamily;
+    /** A halo around the label, 0..1; a scene's `glow` select effect drives it. */
+    this.glow = 0;
 
     /**
      * How far along the selection animation this item is, 0..1. Driven here
@@ -86,36 +102,65 @@ export class UIMenuItem extends UIElement {
   draw() {
     if (!this.game) return;
     const frame = this.frame;
-    const slide = this.indent * this.selectedAmount;
-
-    if (this.selectedAmount > 0.001 && this.align === 'left') {
-      // The bar grows from the middle outward, which reads as the line
-      // arriving rather than as a block switching on.
-      const height = frame.height * 0.52 * this.selectedAmount;
-      this.paint.drawRect({
-        x: frame.x,
-        y: frame.y + (frame.height - height) / 2,
-        width: this.barWidth,
-        height,
-        fillStyle: this.barColor
-      });
-    }
-
+    const amount = this.selectedAmount;
     const label = this.uppercase ? this.text.toUpperCase() : this.text;
-    const centred = this.align === 'center';
+    const font = { fontSize: this.fontSize, fontWeight: this.fontWeight, letterSpacing: this.letterSpacing, ...(this.fontFamily && { fontFamily: this.fontFamily }) };
+    const width = this.paint.measureText(label, font).width;
+    const middle = frame.y + frame.height / 2;
+    const slide = this.variant === 'bar' || this.variant === 'dot' ? this.indent * amount : 0;
+    const left = this.barWidth + 10 + slide;
+    const textX = this.align === 'center' ? frame.x + frame.width / 2
+      : this.align === 'right' ? frame.x + frame.width - left
+        : frame.x + left;
+    const textLeft = this.align === 'center' ? textX - width / 2 : this.align === 'right' ? textX - width : textX;
+
+    if (amount > 0.001) this.#drawSelection(frame, { textLeft, width, middle, amount });
+
+    const inverted = this.variant === 'block' && amount > 0.5;
     this.paint.drawText({
       text: label,
-      x: centred ? frame.x + frame.width / 2 : frame.x + this.barWidth + 10 + slide,
-      y: frame.y + frame.height / 2,
+      x: textX,
+      y: middle,
       fillStyle: this.enabled
-        ? (this.selectedAmount > 0.5 ? this.selectedColor : this.color)
+        ? (inverted ? '$color.bg.base' : amount > 0.5 ? this.selectedColor : this.color)
         : '$color.text.muted',
-      fontSize: this.fontSize,
-      fontWeight: this.fontWeight,
-      letterSpacing: this.letterSpacing,
-      textAlign: centred ? 'center' : 'left',
-      textBaseline: 'middle'
+      ...font,
+      textAlign: this.align,
+      textBaseline: 'middle',
+      ...(this.glow > 0.01 && { shadow: { color: this.barColor, blur: 18 * this.glow, offsetX: 0, offsetY: 0 } })
     });
+  }
+
+  /** The variant's mark of selection, eased in by `amount`. */
+  #drawSelection(frame, { textLeft, width, middle, amount }) {
+    const paint = this.paint;
+    switch (this.variant) {
+      case 'bracket': {
+        const gap = 10 + 8 * (1 - amount);
+        const style = { fontSize: this.fontSize, fontWeight: this.fontWeight, fillStyle: this.barColor, textBaseline: 'middle', globalAlpha: amount };
+        paint.drawText({ ...style, text: '›', x: textLeft - gap, y: middle, textAlign: 'right' });
+        paint.drawText({ ...style, text: '‹', x: textLeft + width + gap, y: middle, textAlign: 'left' });
+        break;
+      }
+      case 'underline': {
+        const length = width * amount;
+        paint.drawRect({ x: textLeft + (width - length) / 2, y: middle + frame.height * 0.3, width: length, height: this.barWidth * 0.7, fillStyle: this.barColor });
+        break;
+      }
+      case 'block':
+        paint.drawRect({ x: frame.x, y: frame.y + frame.height * 0.08, width: frame.width, height: frame.height * 0.84, fillStyle: this.barColor, globalAlpha: amount });
+        break;
+      case 'dot':
+        paint.drawArc({ x: textLeft - 14, y: middle, radius: 4 * amount, fillStyle: this.barColor });
+        break;
+      default: {
+        if (this.align !== 'left') break;
+        // The bar grows from the middle outward, which reads as the line
+        // arriving rather than as a block switching on.
+        const height = frame.height * 0.52 * amount;
+        paint.drawRect({ x: frame.x, y: frame.y + (frame.height - height) / 2, width: this.barWidth, height, fillStyle: this.barColor });
+      }
+    }
   }
 
   onHover() {

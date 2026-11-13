@@ -147,7 +147,9 @@ export class UIText extends UIElement {
       ...(this.outlineColor
         ? { strokeStyle: this.outlineColor, lineWidth: this.outlineWidth }
         : {}),
-      ...(this.elevation !== 'none' ? { shadow: `$elevation.${this.elevation}` } : {})
+      ...(this.elevation !== 'none' ? { shadow: `$elevation.${this.elevation}` } : {}),
+      // A scene's glow effect: a halo in the text's own colour.
+      ...(this.glow > 0.01 ? { shadow: { color: this.color, blur: 18 * this.glow, offsetX: 0, offsetY: 0 } } : {})
     });
   }
 

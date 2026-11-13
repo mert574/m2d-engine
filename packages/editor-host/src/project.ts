@@ -12,7 +12,7 @@
 import { readFile, writeFile, readdir, stat, mkdir, rename, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { join, relative, resolve, sep } from 'node:path';
-import { SceneDocument } from 'm2d-editor-core';
+import { SceneDocument, project as projectFile, type Op } from 'm2d-editor-core';
 
 /** A scene file found in a project. */
 export interface SceneEntry {
@@ -43,10 +43,18 @@ export interface ProjectConfig {
   scenes: string;
   /** What asset URLs in its scenes are relative to, project-relative. Default the root. */
   basePath: string;
+  /** The scene the game opens on, by name, or null for the editor's first. */
+  initialScene: string | null;
+  /** How the game is displayed: its design size, filters, clear colour. */
+  display: Record<string, unknown>;
+  /** Named input actions to the key codes that perform them. */
+  actions: Record<string, string[]>;
 }
 
 /** The file that makes a folder a project. */
 export const PROJECT_FILE = 'm2d.project.json';
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export class Project {
   readonly root: string;
@@ -74,7 +82,10 @@ export class Project {
    * them with, and the editor says so.
    */
   async config(): Promise<ProjectConfig> {
-    const fallback: ProjectConfig = { name: this.root.split(sep).pop() ?? 'project', definition: null, hooks: null, scenes: 'scenes', basePath: '.' };
+    const fallback: ProjectConfig = {
+      name: this.root.split(sep).pop() ?? 'project', definition: null, hooks: null, scenes: 'scenes', basePath: '.',
+      initialScene: null, display: {}, actions: {}
+    };
     let raw: Record<string, unknown>;
     try {
       raw = JSON.parse(await readFile(join(this.root, PROJECT_FILE), 'utf8')) as Record<string, unknown>;
@@ -87,8 +98,32 @@ export class Project {
       definition: typeof raw.definition === 'string' && raw.definition ? raw.definition : null,
       hooks: typeof raw.hooks === 'string' && raw.hooks ? raw.hooks : null,
       scenes: text(raw.scenes, fallback.scenes),
-      basePath: text(raw.basePath, fallback.basePath)
+      basePath: text(raw.basePath, fallback.basePath),
+      initialScene: typeof raw.initialScene === 'string' && raw.initialScene ? raw.initialScene : null,
+      display: isRecord(raw.display) ? raw.display : {},
+      actions: isRecord(raw.input) && isRecord(raw.input.actions) ? raw.input.actions as Record<string, string[]> : {}
     };
+  }
+
+  /** `m2d.project.json` as written, for the project panel and `read_project`; `{}` when there is none. */
+  async file(): Promise<Record<string, unknown>> {
+    try {
+      const raw = JSON.parse(await readFile(join(this.root, PROJECT_FILE), 'utf8')) as unknown;
+      return isRecord(raw) ? raw : {};
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Edit `m2d.project.json` by ops and write it back canonically. Refused
+   * whole, the file untouched, when the result would fail the engine's
+   * project schema. Returns the file as written.
+   */
+  async editFile(ops: readonly Op[]): Promise<Record<string, unknown>> {
+    const next = projectFile.editProject(await this.file(), ops);
+    await writeFile(join(this.root, PROJECT_FILE), projectFile.writeProject(next));
+    return next;
   }
 
   /** Whether the folder declares itself a project. */

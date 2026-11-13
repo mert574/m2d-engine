@@ -10,13 +10,15 @@ Code is only:
 - **Constraints**: reusable behaviours an actor attaches, tuned through `static params`.
 - **Net intents**: the discrete requests a player's UI makes.
 - **The definition** (`game.js`): `register(game)` registers the above and does nothing else.
+- **The page** (`main.js`): `bootProject` and nothing else. The opening scene, display and input actions are `m2d.project.json`'s.
 
 Everything else is scene data, which the editor and MCP can read and change:
 
 - placement, prefabs, tile layers and paths;
 - camera, lighting, post, the day/night cycle, sounds and music;
 - the HUD, and menus as UI scenes;
-- flow and outcomes as `world.rules`.
+- flow and outcomes as `world.rules`, with counters for what is counted;
+- keys as named actions (`input.actions` in the project): rules and code read an action, never a raw key code.
 
 Use the engine's helpers (Quest, Npc, the UI components) before writing your own. Something another game could want becomes an engine feature, not demo code. A hook keeps only what has no data form, and says why.
 

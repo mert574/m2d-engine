@@ -80,6 +80,9 @@ declare module 'm2d-engine/core/sceneSchema.js' {
   export const SCENE_VERSION: number;
   export const LEVEL_SCHEMA: SchemaDescriptor;
   export const UI_SCHEMA: SchemaDescriptor;
+  export const UI_KINDS: readonly string[];
+  export const HUD_KINDS: readonly string[];
+  export const PARTICLE_KINDS: Readonly<Record<2 | 3, readonly string[]>>;
   export function schemaForType(type: string): SchemaDescriptor | null;
 }
 
@@ -126,7 +129,16 @@ declare module 'm2d-engine/core/look.js' {
   export function cycleLook(cycle: unknown, phase: number, resting?: Look): Look;
 }
 
+declare module 'm2d-engine/core/projectSchema.js' {
+  import type { SchemaDescriptor } from 'm2d-engine/core/schema.js';
+  export const PROJECT_FILE: string;
+  export const PROJECT_SCHEMA: SchemaDescriptor;
+  export function projectIssues(project: unknown): Array<{ path: string; message: string }>;
+  export function checkProject<T>(project: T): T;
+  export function sceneNameOf(path: string): string;
+}
+
 declare module 'm2d-engine/core/particles.js' {
-  export const PARTICLE_DEFAULTS: Readonly<Record<'motes' | 'smoke', Readonly<Record<string, unknown> & { count: number }>>>;
+  export const PARTICLE_DEFAULTS: Readonly<Record<'motes' | 'smoke' | 'fireflies' | 'leaves' | 'rain' | 'sparks', Readonly<Record<string, unknown> & { count: number }>>>;
   export function withParticleDefaults(field: Record<string, unknown>): Record<string, unknown>;
 }

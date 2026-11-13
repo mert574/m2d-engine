@@ -43,7 +43,7 @@ import { engineAlias, buildProject, previewProject, closePreview } from './build
 import { spawn } from 'node:child_process';
 import { openSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { structure, SCENE_VERSION, type Edit } from 'm2d-editor-core';
+import { structure, SCENE_VERSION, type Edit, type Op } from 'm2d-editor-core';
 
 /** A free port the OS hands out, so parallel editors never fight. */
 function freePort(): Promise<number> {
@@ -313,6 +313,16 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
         const respond = async (): Promise<void> => {
           if (url.pathname === '/__project') {
             json(res, { ...await companion.project.config(), root: companion.project.root, scenes: await companion.project.scenes() });
+            return;
+          }
+          if (url.pathname === '/__project/file') {
+            json(res, { file: await companion.project.file() });
+            return;
+          }
+          if (url.pathname === '/__project/edit' && req.method === 'POST') {
+            const body = await readBody(req) as { ops?: Op[] };
+            if (!Array.isArray(body.ops) || !body.ops.length) throw new Error('a project edit is { ops: [...] }');
+            json(res, { file: await companion.project.editFile(body.ops) });
             return;
           }
           if (url.pathname === '/__assets') {
