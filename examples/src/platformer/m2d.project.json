@@ -1,5 +1,16 @@
 {
   "name": "Ember Valley",
   "definition": "game.js",
-  "hooks": "hooks.js"
+  "initialScene": "mainMenu",
+  "display": {
+    "width": 1280,
+    "height": 960
+  },
+  "input": {
+    "actions": {
+      "menu": [
+        "Escape"
+      ]
+    }
+  }
 }

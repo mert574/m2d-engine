@@ -145,5 +145,4 @@ const scene = {
   layers: [{ name: 'field', type: 'objects', objects }]
 };
 writeFileSync(out, writeScene(scene));
-writeFileSync(fileURLToPath(new URL('../src/drift/layout.json', import.meta.url)), JSON.stringify({ world: { width: W, height: H }, start: START, gate: GATE, pods: pods.length }, null, 2) + '\n');
 console.log(`field: ${objects.length} objects, ${placed.length} meteors, ${pods.length} pods → ${out}`);

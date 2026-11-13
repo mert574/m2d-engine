@@ -80,7 +80,7 @@ The attack draws nothing of its own: what a swing looks like depends on the game
 
 ## Footsteps
 
-`constraints/footsteps.js`. Plays the next of `sounds` (sound keys) every `stride` world units of ground travel, cycling; pauses in the air (an entity with `isAirborne`, or `isOnGround()` false) and below `minSpeed`; plays a step on landing unless `landing: false`. `onStep(index)` is called with each step. Simulation: the stride is integrated in `fixedUpdate` from the body's velocity.
+`constraints/footsteps.js`. Plays the next of `sounds` (sound keys) every `stride` world units of ground travel, cycling; pauses in the air (an entity with `isAirborne`, or `isOnGround()` false) and below `minSpeed`; plays a step on landing unless `landing: false`. `onStep(index)` is called with each step. Simulation: the stride is integrated in `fixedUpdate` from the body's velocity, along the ground (x and y in 2D, x and z in 3D).
 
 ## Abilities
 

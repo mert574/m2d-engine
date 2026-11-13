@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
-import { register, GAME } from '../src/belt/game.js';
+import { register } from '../src/belt/game.js';
 
 /**
  * Ash Row's waves as scene data, played headless with the real scene and
@@ -18,7 +18,7 @@ beforeAll(async () => {
 });
 
 async function row() {
-  const game = new M2D(null, { headless: true, ...GAME, seed: 5 });
+  const game = new M2D(null, { headless: true, seed: 5 });
   register(game);
   game.sceneManager.addScene('row', { fetch: async () => ROW });
   game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: ROW.version, type: 'level', name: 'mainMenu', prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });

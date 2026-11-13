@@ -2,34 +2,8 @@ import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
 import { tileTexture } from '../shared/textures.js';
 import { makeRng, range } from '../shared/rng.js';
-import bricksUrl from './textures/bricks.jpg';
-import plasterUrl from './textures/plaster.jpg';
-import roadUrl from './textures/road.jpg';
-import roofingUrl from './textures/roofing.jpg';
-import facadeAUrl from './textures/facade-a.jpg';
-import facadeBUrl from './textures/facade-b.jpg';
-import facadeCUrl from './textures/facade-c.jpg';
-
-const TEXTURE_URLS = {
-  bricks: bricksUrl, plaster: plasterUrl, road: roadUrl, roofing: roofingUrl,
-  facadeA: facadeAUrl, facadeB: facadeBUrl, facadeC: facadeCUrl
-};
-
-/**
- * The street's ambientCG textures, decoded once for every street on the
- * page and only when one is first drawn: decoding is presentation, so a
- * headless street never asks for an image, and anything that builds the
- * scene — the game, the editor — gets them without handing them over.
- */
-let decoded = null;
-function streetTextures() {
-  decoded ??= Object.fromEntries(Object.entries(TEXTURE_URLS).map(([name, url]) => {
-    const image = new Image();
-    image.src = url;
-    return [name, image];
-  }));
-  return decoded;
-}
+/** The street's ambientCG textures, by the property that names each: images the scene loads. */
+const TEXTURES = ['bricks', 'plaster', 'road', 'roofing', 'facadeA', 'facadeB', 'facadeC'];
 
 /**
  * Ash Row's street, in depth.
@@ -69,7 +43,8 @@ export class Street extends Entity {
       bottom: s.number({ required: true, unit: 'px' })
     }, { label: 'Lane', description: 'The walkable band the street is drawn around' }),
     length: s.number({ positive: true, unit: 'px', description: 'How far the row runs' }),
-    seed: s.number({ initial: 3, description: 'Fixes the windows, signs and litter' })
+    seed: s.number({ initial: 3, description: 'Fixes the windows, signs and litter' }),
+    ...Object.fromEntries(TEXTURES.map((name) => [name, s.ref('image', { description: 'An image in assets.images' })]))
   };
 
   name = 'Street';
@@ -81,6 +56,7 @@ export class Street extends Entity {
     this.depth = -Infinity;
     this.lane = options.lane;
     this.length = options.length;
+    this.images = Object.fromEntries(TEXTURES.map((name) => [name, options[name] ?? null]));
     const rng = makeRng(options.seed ?? 3);
 
     // Far skyline: towers of random height and width, repeating every 3600.
@@ -118,9 +94,9 @@ export class Street extends Entity {
     this.patches = Array.from({ length: Math.floor(this.length / 260) }, () => ({ x: range(rng, 0, this.length), y: range(rng, 0.1, 0.9), r: range(rng, 40, 110) }));
   }
 
-  /** The decoded textures; see `streetTextures`. */
+  /** The textures, as the scene loaded them (null headless, where nothing draws). */
   get textures() {
-    return streetTextures();
+    return this.images;
   }
 
   draw() {

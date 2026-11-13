@@ -35,13 +35,17 @@ const assetsPlugin = {
       throw error;
     }
   },
-  writeBundle() {
-    // Scene JSON contains runtime image paths that Vite cannot discover as imports.
+  writeBundle(output) {
+    // Scene JSON names runtime files (images, models, sounds, music) that
+    // Vite cannot discover as imports, so each example's folders of them
+    // are copied beside its page in the build's output folder.
+    const out = output.dir ?? resolve(import.meta.dirname, 'dist');
     for (const example of ['platformer', 'maze', 'physics', 'topdown', 'oblique', 'iso', 'belt', 'drift', 'showcase', 'yard']) {
-      for (const folder of ['assets', 'textures', 'models']) {
+      for (const folder of ['assets', 'textures', 'models', 'sounds', 'music', 'library']) {
         const source = resolve(import.meta.dirname, `src/${example}/${folder}`);
         if (existsSync(source)) {
-          cpSync(source, resolve(import.meta.dirname, `dist/${example}/${folder}`), { recursive: true });
+          // A library's raw downloads (`library/sources`) are the editor's, not the game's.
+          cpSync(source, resolve(out, `${example}/${folder}`), { recursive: true, filter: (path) => !path.includes("/library/sources") });
         }
       }
     }

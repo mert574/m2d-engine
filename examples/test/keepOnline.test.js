@@ -4,7 +4,7 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { NetClient } from 'm2d-engine/net/client.js';
 import { createServer, issueTicket } from 'm2d-server';
-import { KEEP_INPUT, KEEP_GAME, registerKeep, keepScene } from '../src/iso/game.js';
+import { KEEP_INPUT, KEEP_GAME, registerKeep, sceneHooks } from '../src/iso/game.js';
 import { purse } from '../src/iso/keepIntents.js';
 
 /**
@@ -37,7 +37,7 @@ afterAll(async () => {
 async function join(player) {
   const game = new M2D(null, { headless: true, ...KEEP_GAME });
   registerKeep(game);
-  game.sceneManager.addScene('keep', keepScene(game, { loadScene: async () => KEEP }));
+  game.sceneManager.addScene('keep', { fetch: async () => KEEP, ...sceneHooks(game).keep });
   const input = { click: null, held: [] };
   game.input.setSnapshotSource(() => {
     const click = input.click;

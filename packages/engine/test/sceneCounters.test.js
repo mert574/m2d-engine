@@ -243,6 +243,28 @@ describe('the HUD reads the game', () => {
     game.destroy();
   });
 
+  it('leaves a dialogue with no advance action to the game, typing on game time', async () => {
+    const { game, scene } = await make(level({}, { hud: [{ type: 'dialogue', id: 'talk', x: 0, y: -40, properties: { advance: '', clock: 'game' } }] }), { headless: false, actions: { interact: ['KeyE'] } });
+    const dialogue = scene.hud.elements.get('talk');
+    dialogue.start('Oswin', ['One.', 'Two.']);
+    keyDown(game, 'KeyE');
+    game.input.flush();
+    expect(dialogue.index).toBe(0);
+    expect(dialogue.clock()).toBe(game.time.elapsed);
+    game.destroy();
+  });
+
+  it('plots an entity\'s own trail on the minimap', async () => {
+    const { game, scene, renderer } = await make(level({}, {
+      hud: [{ type: 'minimap', id: 'map', x: 0, y: 0, plot: { gate: { shape: 'trail', color: '#a87', size: 3 } } }]
+    }), { headless: false });
+    scene.entitiesById.get('gate').trail = [{ x: 0, y: 0 }, { x: 200, y: 150 }, { x: 400, y: 300 }];
+    renderer.reset();
+    scene.hud.elements.get('map').drawTree?.(0.016) ?? scene.drawUI(0.016);
+    expect(renderer.optionsFor('drawPath').some((path) => path.strokeStyle === '#a87' && path.points.length === 3)).toBe(true);
+    game.destroy();
+  });
+
   it('builds an ability bar over the player\'s Abilities', async () => {
     const { game, scene } = await make(level({}, {
       hud: [{ type: 'abilityBar', id: 'bar', x: 0, y: -14, anchor: 'bottom' }]

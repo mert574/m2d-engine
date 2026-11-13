@@ -47,6 +47,7 @@ import { createAnimationEditor } from './animationEditor.ts';
 import { createViewHelpers, type Helper } from './viewHelpers.ts';
 import { createPathTool } from './pathEditor.ts';
 import { createLookPanel } from './lookPanel.ts';
+import { combineSceneHooks } from 'm2d-engine/core/project.js';
 import { createProjectPanel } from './projectPanel.ts';
 import { renderThumbnail } from './thumbnails.ts';
 import { createTree, type SelectMode } from './tree.ts';
@@ -1815,7 +1816,7 @@ async function startPlay(variant: Variant | null = playVariant): Promise<void> {
       presentation: projectGameOptions(project, hooksModule?.OPTIONS),
       basePath: assetBase(project),
       play: {
-        hooks: hooksModule?.sceneHooks,
+        hooks: (game: unknown) => combineSceneHooks(definition?.sceneHooks?.(game), hooksModule?.sceneHooks?.(game)) as Record<string, Record<string, unknown>>,
         scenes: others.map((scene) => ({ name: scene.name!, fetch: async () => (await fetchDocument(scene.path)).data })),
         leave: (scene) => {
           if (!playing) return;
@@ -1826,7 +1827,7 @@ async function startPlay(variant: Variant | null = playVariant): Promise<void> {
     });
     if (!shown) return;
     showPlate(null);
-    const bare = hooksModule?.sceneHooks ? '' : ' (no hooks module declared: the bare scene)';
+    const bare = hooksModule?.sceneHooks || definition?.sceneHooks ? '' : ' (no hooks declared: the bare scene)';
     const what = variant?.prefab ? `prefab ${variant.prefab} on its stage (edits to it restart the stage)` : `${current.doc.name ?? current.path}${variant?.from ? ' from here' : ''}${bare}`;
     say(`Playing ${what} — F5 or Stop to return`);
   } catch (error) {

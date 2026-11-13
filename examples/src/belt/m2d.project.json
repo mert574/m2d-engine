@@ -1,5 +1,16 @@
 {
   "name": "Ash Row",
   "definition": "game.js",
-  "hooks": "hooks.js"
+  "initialScene": "mainMenu",
+  "display": {
+    "width": 1280,
+    "height": 720
+  },
+  "input": {
+    "actions": {
+      "menu": [
+        "Escape"
+      ]
+    }
+  }
 }

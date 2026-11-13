@@ -14,7 +14,8 @@
       "bounds": "world",
       "followRotation": true,
       "rotationLerp": 0.03,
-      "rotationMaxRate": 1.1
+      "rotationMaxRate": 1.1,
+      "speedZoom": { "out": 0.22, "at": 572, "ease": 0.05 }
     },
     "lighting": { "ambient": "#eceef6" },
     "post": {
@@ -29,6 +30,8 @@
       }
     },
     "music": { "track": "game" },
+    "clearColor": "#0a0914",
+    "counters": { "taken": { "prefab": "salvage" }, "total": { "prefab": "salvage", "count": "placed" } },
     "rules": [
       {
         "id": "salvaged",
@@ -60,6 +63,10 @@
           { "do": "switch", "scene": "mainMenu", "after": 2.5 }
         ],
         "after": ["salvaged"]
+      },
+      {
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
       }
     ]
   },
@@ -80,7 +87,15 @@
       "brownMed1": { "url": "textures/meteors/brown-med1.png", "frameWidth": 43, "frameHeight": 43 },
       "greyMed2": { "url": "textures/meteors/grey-med2.png", "frameWidth": 45, "frameHeight": 40 },
       "brownSmall1": { "url": "textures/meteors/brown-small1.png", "frameWidth": 28, "frameHeight": 28 },
-      "greySmall2": { "url": "textures/meteors/grey-small2.png", "frameWidth": 29, "frameHeight": 26 }
+      "greySmall2": { "url": "textures/meteors/grey-small2.png", "frameWidth": 29, "frameHeight": 26 },
+      "laserBlue": { "url": "textures/effects/laser-blue.png", "frameWidth": 9, "frameHeight": 54 },
+      "laserRed": { "url": "textures/effects/laser-red.png", "frameWidth": 9, "frameHeight": 54 },
+      "flame": { "url": "textures/effects/flame.png", "frameWidth": 14, "frameHeight": 31 },
+      "flameBoost": { "url": "textures/effects/flame-boost.png", "frameWidth": 14, "frameHeight": 32 },
+      "shield": { "url": "textures/effects/shield.png", "frameWidth": 133, "frameHeight": 108 },
+      "playerDamage1": { "url": "textures/ships/player-damage1.png", "frameWidth": 112, "frameHeight": 75 },
+      "playerDamage2": { "url": "textures/ships/player-damage2.png", "frameWidth": 112, "frameHeight": 75 },
+      "playerDamage3": { "url": "textures/ships/player-damage3.png", "frameWidth": 112, "frameHeight": 75 }
     },
     "sounds": {
       "laser": { "url": "sounds/laser1.ogg", "volume": 0.35 },
@@ -2582,7 +2597,8 @@
           "x": 4474,
           "y": 3083,
           "width": 56,
-          "height": 56
+          "height": 56,
+          "properties": { "laser": "laserRed" }
         },
         {
           "id": "droneRed-2",
@@ -2590,7 +2606,8 @@
           "x": 2722,
           "y": 1518,
           "width": 56,
-          "height": 56
+          "height": 56,
+          "properties": { "laser": "laserRed" }
         },
         {
           "id": "droneRed-3",
@@ -2598,7 +2615,8 @@
           "x": 5617,
           "y": 4687,
           "width": 56,
-          "height": 56
+          "height": 56,
+          "properties": { "laser": "laserRed" }
         },
         {
           "id": "droneBlack-1",
@@ -2606,7 +2624,8 @@
           "x": 5700,
           "y": 1100,
           "width": 64,
-          "height": 64
+          "height": 64,
+          "properties": { "laser": "laserRed" }
         },
         {
           "id": "droneBlack-2",
@@ -2614,7 +2633,8 @@
           "x": 6400,
           "y": 1400,
           "width": 64,
-          "height": 64
+          "height": 64,
+          "properties": { "laser": "laserRed" }
         },
         {
           "id": "droneRed-4",
@@ -2622,7 +2642,8 @@
           "x": 3900,
           "y": 3200,
           "width": 56,
-          "height": 56
+          "height": 56,
+          "properties": { "laser": "laserRed" }
         },
         {
           "id": "gate-1",
@@ -2633,7 +2654,23 @@
           "height": 220,
           "properties": { "visible": true, "triggers": "levelComplete", "active": true }
         },
-        { "id": "player-1", "prefab": "player", "x": 700, "y": 6300, "width": 60, "height": 60 }
+        {
+          "id": "player-1",
+          "prefab": "player",
+          "x": 700,
+          "y": 6300,
+          "width": 60,
+          "height": 60,
+          "properties": {
+            "laser": "laserBlue",
+            "flame": "flame",
+            "flameBoost": "flameBoost",
+            "shield": "shield",
+            "damage1": "playerDamage1",
+            "damage2": "playerDamage2",
+            "damage3": "playerDamage3"
+          }
+        }
       ]
     }
   ],
@@ -2645,7 +2682,13 @@
       "x": 20,
       "y": 16,
       "anchor": "top-left",
-      "properties": { "text": "", "fontSize": "15px", "color": "#ffd66e", "align": "left", "letterSpacing": 1 }
+      "properties": {
+        "text": "SALVAGE · {taken} / {total} · THE GATE IS SEALED",
+        "fontSize": "15px",
+        "color": "#ffd66e",
+        "align": "left",
+        "letterSpacing": 1
+      }
     },
     {
       "type": "meter",
@@ -2682,6 +2725,73 @@
         "color": "rgba(220, 228, 255, 0.55)",
         "align": "right"
       }
+    },
+    {
+      "type": "meter",
+      "id": "boost",
+      "x": 20,
+      "y": 76,
+      "anchor": "top-left",
+      "width": 200,
+      "height": 6,
+      "bind": { "constraint": "control", "ratio": "boostCharge" },
+      "properties": { "label": "BOOST · C", "color": "#6a7a9a", "full": "#ffd66e" }
+    },
+    {
+      "type": "minimap",
+      "id": "map",
+      "x": -16,
+      "y": 16,
+      "anchor": "top-right",
+      "size": 200,
+      "plot": {
+        "brownBig1": {
+          "color": "rgba(170, 150, 130, 0.5)",
+          "size": 1.2,
+          "by": { "property": "sizeClass", "values": { "big": { "size": 2 } } }
+        },
+        "brownBig3": {
+          "color": "rgba(170, 150, 130, 0.5)",
+          "size": 1.2,
+          "by": { "property": "sizeClass", "values": { "big": { "size": 2 } } }
+        },
+        "greyBig2": {
+          "color": "rgba(170, 150, 130, 0.5)",
+          "size": 1.2,
+          "by": { "property": "sizeClass", "values": { "big": { "size": 2 } } }
+        },
+        "brownMed1": {
+          "color": "rgba(170, 150, 130, 0.5)",
+          "size": 1.2,
+          "by": { "property": "sizeClass", "values": { "big": { "size": 2 } } }
+        },
+        "greyMed2": {
+          "color": "rgba(170, 150, 130, 0.5)",
+          "size": 1.2,
+          "by": { "property": "sizeClass", "values": { "big": { "size": 2 } } }
+        },
+        "brownSmall1": {
+          "color": "rgba(170, 150, 130, 0.5)",
+          "size": 1.2,
+          "by": { "property": "sizeClass", "values": { "big": { "size": 2 } } }
+        },
+        "greySmall2": {
+          "color": "rgba(170, 150, 130, 0.5)",
+          "size": 1.2,
+          "by": { "property": "sizeClass", "values": { "big": { "size": 2 } } }
+        },
+        "salvage": { "color": "#ffd66e", "size": 2.5 },
+        "droneRed": { "color": "#ff6a5a", "size": 2.2 },
+        "droneBlack": { "color": "#ff6a5a", "size": 2.2 },
+        "gate": {
+          "shape": "ring",
+          "color": "#78dcff",
+          "size": 5,
+          "by": { "property": "sealed", "values": { "true": { "color": "#9a70ff" } } }
+        }
+      },
+      "target": "gate-1",
+      "properties": { "background": "rgba(8, 10, 22, 0.88)", "borderColor": "rgba(127, 212, 255, 0.45)" }
     }
   ]
 }

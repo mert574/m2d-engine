@@ -2,6 +2,7 @@ import { InputSchema } from 'm2d-engine/net/input.js';
 import { AttackSwing, HitBurst } from '../shared/effects.js';
 import { Wall, Torch, Ember, Stair, Creature, Knight, Quartermaster } from './keepActors.js';
 import { keepIntents, newPurse } from './keepIntents.js';
+import { SatchelBar } from './satchelUI.js';
 
 /**
  * Cinder Keep's simulation: the actors, the intents and the keep's rules,
@@ -48,6 +49,9 @@ export function registerKeep(game) {
   game.registerConstraint('AttackSwing', AttackSwing);
   game.registerConstraint('HitBurst', HitBurst);
   game.registerIntents(keepIntents);
+  // The satchel strip, which the keep's hud places by name. Only ever
+  // built where there is a screen to show it on.
+  game.registerHudComponent('satchel', (scene, element) => new SatchelBar(scene.game.players.local, element));
 }
 
 /** Everyone who should hear about the keep's progress. */
@@ -56,17 +60,15 @@ function everyone(game) {
 }
 
 /**
- * The keep scene's definition: its JSON and its simulation hooks. The
- * caller adds presentation (`onShow`, `onUpdate`, `onHide`) on top.
+ * The keep's simulation hooks, which the page (through `bootProject`),
+ * the editor's play and the match server all run: the purse, the embers
+ * that open the stair, the stair that tells a knight what it found.
+ * Presentation is the hooks module's.
  *
  * @param {import('m2d-engine/core/m2d.js').M2D} game
- * @param {object} options
- * @param {() => Promise<object>} options.loadScene - The keep's JSON: an import in the browser, a file read on a server
  */
-export function keepScene(game, { loadScene }) {
-  return {
-    fetch: loadScene,
-
+export function sceneHooks(game) {
+  return { keep: {
     onEnter() {
       const entities = [...game.entities];
       const stair = entities.find((e) => e instanceof Stair);
@@ -90,7 +92,7 @@ export function keepScene(game, { loadScene }) {
         };
       }
     }
-  };
+  } };
 }
 
 /**

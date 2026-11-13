@@ -16,7 +16,6 @@ import { s } from 'm2d-engine/core/schema.js';
 class Hero extends Entity {
   name = 'Hero';
   heading = 0;
-  footsteps = null;
 
   // Tuned to twice Earth's gravity in the scene file, as most games run:
   // real falls read as slow motion on a screen.
@@ -45,7 +44,6 @@ class Hero extends Entity {
     super.update(deltaTime);
     const v = this.body.velocity;
     const speed = Math.hypot(v.x, v.z);
-    this.footsteps?.update(deltaTime, speed, this.isOnGround() && !this.noclip);
     if (speed > this.walkAbove) {
       // The fox's nose points down +z in its file; turn it to the velocity.
       const target = Math.atan2(v.x, v.z);

@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Chase } from 'm2d-engine/constraints/chase.js';
+import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { AssetDatabase } from 'm2d-engine/core/assets.js';
 
 /**
@@ -14,11 +15,11 @@ import { AssetDatabase } from 'm2d-engine/core/assets.js';
  * not stubs: their `static params` is what declared params validate
  * against, so a mistyped param in a demo scene fails here.
  */
-const CONSTRAINT_CLASSES = { Chase };
+const CONSTRAINT_CLASSES = { Chase, Footsteps };
 
 /** Actors each demo registers with `game.registerActor`. */
 export const DEMO_ACTORS = {
-  platformer: ['Player', 'Bee', 'Platform', 'MovingPlatform', 'Coin', 'Trigger'],
+  platformer: ['Player', 'Bee', 'Platform', 'MovingPlatform', 'Coin', 'Trigger', 'ValleyBackdrop'],
   topdown: ['TopDownPlayer', 'Ghost', 'Platform', 'Coin', 'Trigger', 'Turret', 'FloorMarks', 'CeilingLamp'],
   oblique: ['ObliquePlayer', 'Ghost', 'Tree', 'Decor', 'Bound', 'Pond', 'Coin', 'Trigger', 'Npc', 'GroundDetail'],
   iso: ['ObliquePlayer', 'Ghost', 'Wall', 'Torch', 'Coin', 'Trigger', 'Quartermaster'],
@@ -30,7 +31,8 @@ export const DEMO_ACTORS = {
 
 /** Constraints each demo registers, and so may attach from its scenes. */
 export const DEMO_CONSTRAINTS = {
-  platformer: ['Chase']
+  platformer: ['Chase'],
+  yard: ['Footsteps']
 };
 
 /** A game stub exposing only what the loader cross-references. */

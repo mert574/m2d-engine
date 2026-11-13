@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { Companion } from 'm2d-editor-host';
 import { runAudit } from 'm2d-editor-host/search.ts';
 import { projectGames } from './helpers.js';
@@ -43,45 +44,20 @@ const FORBIDDEN = [
   { name: 'instanceof', pattern: /\binstanceof\b/, instead: 'prefab names: plot, counters, rules' }
 ];
 
-/** Today's departures, by project folder. Each line says which phase removes it. */
+/**
+ * Today's departures, by project folder. Each line says which phase
+ * removes it, or that it is a listed exception: what the plan accepts as
+ * a hook, with the reason.
+ */
 const ALLOWED = {
-  // Ash Row
-  belt: [
-    'layout-json — phase 2: the street\'s layout moves into the scene',
-    'boot — phase 2: bootProject',
-    'hooks: camera — phase 2: the camera height becomes scene camera bounds',
-    'hooks: input — phase 2: Escape becomes a menu action rule',
-    'hooks: drawing — phase 2: the sky fill becomes the clear colour and sky',
-    'audit — phase 2: facade textures and icons the hooks load become scene assets'
-  ],
   // Night Circuit
   circuit: [
     'project-file — phase 4: the maps baked into scene files, an editor project',
     'boot — phase 4: bootProject'
   ],
-  // Salvage Run
-  drift: [
-    'layout-json — phase 2: the field\'s layout moves into the scene',
-    'boot — phase 2: bootProject',
-    'hooks: budget — phase 2: what is left after the moves below',
-    'hooks: camera — phase 2: speed zoom and the opening pose are world.camera',
-    'hooks: ui — phase 2: the boost meter and minimap become hud',
-    'hooks: input — phase 2: Escape becomes a menu action rule',
-    'hooks: drawing — phase 2: the void fill becomes the clear colour',
-    'hooks: instanceof — phase 2: minimap plots by prefab, the count is a counter',
-    'audit — phase 2: the eight hand-loaded sheets become assets and sheet properties'
-  ],
   // Cinder Keep
   iso: [
-    'boot — phase 2: bootProject',
-    'hooks: budget — phase 2: what is left after the moves below',
-    'hooks: camera — phase 2: wheel zoom and the opening pose are world.camera',
-    'hooks: ui — phase 2: minimap, ability bar and satchel bar become hud',
-    'hooks: audio — phase 2: the descent sound becomes a notify rule',
-    'hooks: input — phase 2: Escape and the satchel become action rules',
-    'hooks: drawing — phase 2: the rock wash becomes the clear colour',
-    'hooks: instanceof — phase 2: minimap plots by prefab, the count is a counter',
-    'audit — phase 2: ability icons become assets.images'
+    'hooks: input — exception: the satchel and the shop are the keep\'s own screens, opened by the satchel and trade actions'
   ],
   // Hedgerow Court
   maze: [
@@ -90,46 +66,31 @@ const ALLOWED = {
   ],
   // Hollow Grove
   oblique: [
-    'boot — phase 2: bootProject',
-    'hooks: budget — phase 2: what is left after the moves below',
-    'hooks: camera — phase 2: zoom limits are world.camera',
-    'hooks: ui — phase 2: minimap, ability bar and dialogue become hud',
-    'hooks: audio — phase 2: sounds become rules',
-    'hooks: input — phase 2: keys become action rules',
-    'hooks: drawing — phase 2: the ground texture becomes an asset-reference property',
-    'hooks: instanceof — phase 2: minimap plots by prefab',
-    'audit — phase 2: sheets and icons the hooks load become scene assets; the unplaced tree_dead prefab'
+    'hooks: budget — exception: the quest, JS on the engine\'s Quest, and the talking that moves it on',
+    'hooks: input — exception: the talking reads the tick\'s input, as the quest needs'
   ],
   // Physics playground
   physics: [
     'project-file — phase 4: its scene into a file, an editor project',
     'boot — phase 4: bootProject'
   ],
-  // Ember Valley
-  platformer: [
-    'boot — phase 2: bootProject'
-  ],
   // Beeline
   scroller: [
     'project-file — phase 4: the meadow as a scene with a scroll camera',
     'boot — phase 4: bootProject'
   ],
-  // The Facility
-  topdown: [
-    'boot — phase 2: bootProject'
-  ],
-  // The Yard
-  yard: [
-    'boot — phase 2: bootProject',
-    'hooks: camera — phase 2: orbit drag and wheel zoom are world.camera',
-    'hooks: audio — phase 2: the wind becomes world.ambience',
-    'hooks: input — phase 2: T becomes an action rule on the cycle',
-    'audit — phase 2: the HDR sky and the dev models and textures the lot\'s script or hooks name'
-  ]
 };
 
 const src = join(import.meta.dirname, '..', 'src');
-const games = readdirSync(src).filter((name) => !NOT_GAMES.has(name) && statSync(join(src, name)).isDirectory());
+/**
+ * Files git tracks under the examples. The audit sees every file on disk,
+ * and a checkout can hold ignored leftovers (an old sprite generator's
+ * output) that are no part of any project.
+ */
+const tracked = new Set(execFileSync('git', ['ls-files', '-z'], { cwd: src, encoding: 'utf8' })
+  .split('\0').filter(Boolean).map((file) => join(src, file)));
+// A game is a folder with a page; a stray folder of build output is not one.
+const games = readdirSync(src).filter((name) => !NOT_GAMES.has(name) && statSync(join(src, name)).isDirectory() && existsSync(join(src, name, 'index.html')));
 
 /** Lines that are code: not blank, not only a comment. */
 function codeLines(text) {
@@ -200,7 +161,7 @@ describe('the examples are idiomatic m2d', () => {
         const audit = await runAudit(companion.session, companion.assets, game);
         const problems = [
           ...audit.missingFiles.map((use) => `missing ${use.url} (${use.scene})`),
-          ...audit.unusedFiles.map((url) => `unused file ${url}`),
+          ...audit.unusedFiles.filter((url) => tracked.has(join(src, folder, url))).map((url) => `unused file ${url}`),
           ...audit.unusedPrefabs.map(({ scene, prefab }) => `unused prefab ${prefab} (${scene})`),
           ...audit.unusedPaths.map(({ scene, path }) => `unused path ${path} (${scene})`)
         ];

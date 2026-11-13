@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { defineMatch } from 'm2d-server';
-import { KEEP_INPUT, KEEP_GAME, registerKeep, keepScene, spawnKnight } from './game.js';
+import { KEEP_INPUT, KEEP_GAME, registerKeep, sceneHooks, spawnKnight } from './game.js';
 
 /**
  * Cinder Keep as a match: the same game.js the browser plays, run headless
@@ -24,7 +24,7 @@ export default defineMatch({
 
   async setup(game) {
     registerKeep(game);
-    game.sceneManager.addScene('keep', keepScene(game, { loadScene: async () => JSON.parse(await readFile(SCENE, 'utf8')) }));
+    game.sceneManager.addScene('keep', { fetch: async () => JSON.parse(await readFile(SCENE, 'utf8')), ...sceneHooks(game).keep });
     await game.sceneManager.switchTo('keep');
     // The scene's own knight is the single-player one. Online, every
     // knight belongs to someone.

@@ -1,65 +1,37 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+/**
+ * Ember Valley: a platformer in a valley at dusk.
+ *
+ * The page boots the project (m2d.project.json). The level is scene data
+ * the editor opens: the valley painted behind and over it, its fireflies
+ * and leaves, its light, HUD, music and rules. Only the main menu is still
+ * a code screen, added here until it becomes a UI scene.
+ */
+import { bootProject } from 'm2d-engine/core/project.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
-import { menuBackdrop } from './menuBackdrop.js';
-import { register } from './game.js';
-import { sceneHooks } from './hooks.js';
-import {
-  EmberPlayer, DuskPlatform, DuskMovingPlatform, GlowCoin, DuskBee, ValleyGate
-} from './duskActors.js';
-
 import { starsAtDawn, audioOption } from '../shared/audio.js';
+import { menuBackdrop } from './menuBackdrop.js';
+import project from './m2d.project.json';
+import * as definition from './game.js';
 
-const canvas = document.getElementById('screen');
-// Compile Rapier's WASM module before anything builds a physics world.
-await initPhysics();
-
-const game = new M2D(canvas, {
-  pointerLock: false,
-  initialScene: 'mainMenu',
-  width: 1280,
-  height: 960,
-  worldWidth: 1920,
-  worldHeight: 1440,
-  // Where sprite URLs in scene JSON resolve. Vite's BASE_URL is '/' on the
-  // dev server and '/m2d-engine/examples/' in the published build (set in
-  // vite.config.js), so deriving the prefix from it keeps both in step with
-  // however the site is actually served, instead of hardcoding each one.
+await bootProject(document.getElementById('screen'), {
+  project,
+  definition,
+  scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
+  // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'platformer/',
-  // The level's sounds and music are the scene's (assets.sounds, assets.music
-  // in level1.json); the menu is a code screen, so its track stays here.
-  music: { menu: starsAtDawn }
+  options: { music: { menu: starsAtDawn } },
+  setup(game) {
+    registerMainMenu(game, {
+      title: 'Platformer',
+      subtitle: 'a demonstration',
+      hint: 'Arrows move · Space jumps · X attacks · O for settings',
+      backdrop: menuBackdrop,
+      items: () => [
+        { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('level1') },
+        { text: 'Settings', onSelect: () => game.settings.open() }
+      ],
+      onEnter: () => game.soundManager.playMusic('menu')
+    });
+    game.settings.addOption(audioOption(game));
+  }
 });
-
-// Register actors. The scene JSON names the stock actors; what answers to
-// those names here is the dusk cast from duskActors.js, which keeps every
-// behaviour and replaces the tiled sprites with drawn terrain.
-register(game);
-
-// Constraints the scene may attach and tune by name. The higher bee is a
-// faster, longer-sighted hunter than the lower one, set in level1.json
-// rather than in a second actor or a second prefab.
-
-// Register scenes
-registerMainMenu(game, {
-  title: 'Platformer',
-  subtitle: 'a demonstration',
-  hint: 'Arrows move · Space jumps · X attacks · O for settings',
-  backdrop: menuBackdrop,
-  items: () => [
-    { text: 'Start Game', onSelect: () => game.sceneManager.switchTo('level1') },
-    { text: 'Settings', onSelect: () => game.settings.open() }
-  ],
-  onEnter: () => game.soundManager.playMusic('menu')
-});
-
-game.sceneManager.addScene('level1', {
-  fetch: async () => (await import('./scenes/level1.json')).default,
-  ...sceneHooks(game).level1
-});
-
-// Settings overlay (O), with the demos' shared Audio row added on.
-new SettingsMenu(game).addOption(audioOption(game));
-
-game.start();

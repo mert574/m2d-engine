@@ -155,16 +155,25 @@ export class SceneBackdrop {
 const PARTICLE_DRAWERS = {
   fireflies(renderer, field, box, time, glow) {
     const seed = field.seed ?? 1;
+    const [r, g, b] = parseColor(field.color).map((c) => Math.round(c * 255));
+    const halo = { inner: `rgba(${r}, ${g}, ${b}, 0.5)`, outer: `rgba(${r}, ${g}, ${b}, 0)` };
+    // The core is the colour run halfway to white: the hot centre of the glow.
+    const core = `rgb(${(r + 255) >> 1}, ${(g + 255) >> 1}, ${(b + 255) >> 1})`;
+    const blend = renderer.supports?.('blendModes') ? 'additive' : undefined;
+    const reach = field.radius * 3.2;
     let lights = 0;
     for (let i = 0; i < field.count; i++) {
-      const a = hash(seed, i, 1), b = hash(seed, i, 2), c = hash(seed, i, 3);
+      const a = hash(seed, i, 1), c = hash(seed, i, 3), d = hash(seed, i, 2);
       const wander = field.speed * 6;
       const x = box.left + a * box.width + Math.sin(time * (0.3 + c * 0.4) + c * 50) * wander;
-      const y = box.top + b * box.height + Math.cos(time * (0.25 + a * 0.3) + b * 50) * wander * 0.6;
-      const pulse = Math.pow(0.5 + 0.5 * Math.sin(time * (1.2 + c * 1.6) + a * 60), 2);
-      if (pulse < 0.02) continue;
-      renderer.drawArc({ x, y, radius: field.radius, fillStyle: field.color, globalAlpha: field.opacity * pulse });
-      if (glow && lights < MAX_GLOWS && pulse > 0.3) {
+      const y = box.top + d * box.height + Math.cos(time * (0.25 + a * 0.3) + d * 50) * wander * 0.6;
+      const pulse = 0.5 + 0.5 * Math.sin(time * (1.2 + c * 1.6) + a * 60);
+      renderer.drawArc({
+        x, y, radius: reach, globalAlpha: field.opacity * pulse, blend,
+        fillStyle: { type: 'radial', x, y, r0: 0, r1: reach, stops: [{ offset: 0, color: halo.inner }, { offset: 1, color: halo.outer }] }
+      });
+      renderer.drawArc({ x, y, radius: field.radius * 0.73, fillStyle: core, globalAlpha: field.opacity * (0.35 + 0.65 * pulse), blend });
+      if (glow && lights < MAX_GLOWS && pulse > 0.5) {
         renderer.drawLight({ x, y, radius: field.radius * 14, color: field.color, intensity: field.emissive * pulse });
         lights++;
       }

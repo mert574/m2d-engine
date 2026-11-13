@@ -25,6 +25,35 @@
       "grain": { "strength": 0.035 }
     },
     "music": { "track": "game" },
+    "particles": [
+      {
+        "kind": "fireflies",
+        "count": 34,
+        "at": { "x": 960, "y": 932 },
+        "extent": { "x": 900, "y": 430 },
+        "radius": 2.2,
+        "color": "#ffd27a",
+        "opacity": 1,
+        "emissive": 0,
+        "speed": 10,
+        "follow": false,
+        "front": true,
+        "seed": 11
+      },
+      {
+        "kind": "leaves",
+        "count": 16,
+        "at": { "x": 960, "y": 720 },
+        "extent": { "x": 960, "y": 720 },
+        "radius": 4.5,
+        "color": "#4a3524",
+        "opacity": 0.75,
+        "speed": 38,
+        "follow": false,
+        "front": true,
+        "seed": 5
+      }
+    ],
     "rules": [
       {
         "when": { "event": "collected", "prefab": "coin" },
@@ -41,7 +70,11 @@
           { "do": "switch", "scene": "mainMenu", "after": 3 }
         ]
       },
-      { "when": { "event": "death", "object": "player" }, "then": [{ "do": "gameOver" }] }
+      { "when": { "event": "death", "object": "player" }, "then": [{ "do": "gameOver" }] },
+      {
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
+      }
     ]
   },
   "assets": {
@@ -68,7 +101,11 @@
     "music": { "game": { "url": "music/theget-perfect-union.ogg" } }
   },
   "prefabs": {
-    "player": { "actor": "Player", "physics": { "bodyType": "dynamic", "friction": 5, "frictionAir": 0.001 } },
+    "player": {
+      "actor": "Player",
+      "physics": { "bodyType": "dynamic", "friction": 5, "frictionAir": 0.001 },
+      "light": { "type": "point", "color": "#ffc98a", "intensity": 0.65, "range": 210 }
+    },
     "platform": { "actor": "Platform", "physics": { "bodyType": "static", "friction": 1 } },
     "movingPlatform": { "actor": "MovingPlatform", "physics": { "bodyType": "kinematic", "friction": 1 } },
     "coin": {
@@ -81,13 +118,32 @@
       "actor": "Bee",
       "physics": { "bodyType": "dynamic", "lockRotation": true, "friction": 0.1, "frictionAir": 0.01 }
     },
-    "trigger": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } }
+    "trigger": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
+    "backdrop": { "actor": "ValleyBackdrop", "physics": { "bodyType": "static", "isSensor": true } }
   },
   "layers": [
     {
       "name": "platforms",
       "type": "static",
       "objects": [
+        {
+          "id": "valley-back",
+          "prefab": "backdrop",
+          "x": 8,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "properties": { "layer": "back" }
+        },
+        {
+          "id": "valley-mist",
+          "prefab": "backdrop",
+          "x": 8,
+          "y": 8,
+          "width": 8,
+          "height": 8,
+          "properties": { "layer": "front" }
+        },
         { "id": "platform-1", "prefab": "platform", "x": 300, "y": 1400, "width": 600 },
         { "id": "platform-2", "prefab": "platform", "x": 740, "y": 1316, "width": 160 },
         { "id": "platform-3", "prefab": "platform", "x": 1010, "y": 1220, "width": 192 },

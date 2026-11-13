@@ -146,5 +146,4 @@ const scene = {
 writeFileSync(out, writeScene(scene));
 writeFileSync(fileURLToPath(new URL('../src/belt/assets.json', import.meta.url)),
   writeManifest(buildManifest()));
-writeFileSync(fileURLToPath(new URL('../src/belt/layout.json', import.meta.url)), JSON.stringify({ lane: LANE, length: LENGTH, sections: SECTIONS }, null, 2) + '\n');
 console.log(`row: ${objects.length} objects, ${SECTIONS.length} sections → ${out}`);

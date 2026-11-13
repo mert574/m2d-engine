@@ -6,7 +6,7 @@ import { Hero, Ground, Crate } from './actors.js';
  */
 
 /** M2D options the yard's simulation depends on. It is a 3D game. */
-export const GAME = { dimensions: 3, worldWidth: 40, worldHeight: 40 };
+export const GAME = { dimensions: 3 };
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {

@@ -49,6 +49,28 @@ export function projectOptions(project, { basePath = '' } = {}) {
 }
 
 /**
+ * A scene's hooks from both modules: the definition's simulation hooks
+ * (`onEnter`, `onFixedUpdate`, `onExit`, which a headless server runs too)
+ * and the hooks module's presentation ones, per scene. A hook both name
+ * runs the definition's first.
+ * @param {Record<string, object>} [simulation]
+ * @param {Record<string, object>} [presentation]
+ */
+export function combineSceneHooks(simulation = {}, presentation = {}) {
+  const combined = {};
+  for (const name of new Set([...Object.keys(simulation ?? {}), ...Object.keys(presentation ?? {})])) {
+    const a = simulation?.[name] ?? {};
+    const b = presentation?.[name] ?? {};
+    const scene = { ...a, ...b };
+    for (const key of Object.keys(a)) {
+      if (typeof a[key] === 'function' && typeof b[key] === 'function') scene[key] = (...args) => { a[key](...args); return b[key](...args); };
+    }
+    combined[name] = scene;
+  }
+  return combined;
+}
+
+/**
  * Boot a project: physics (and WebGPU for a 3D game), the game with the
  * project's options, its definition registered, every scene added with
  * its hooks, the settings menu, and `start`.
@@ -56,7 +78,8 @@ export function projectOptions(project, { basePath = '' } = {}) {
  * @param {HTMLCanvasElement} canvas
  * @param {Object} parts
  * @param {object} parts.project - `m2d.project.json`
- * @param {{register: Function, GAME?: object}} parts.definition - The definition module
+ * @param {{register: Function, GAME?: object, sceneHooks?: Function}} parts.definition - The definition module;
+ *   its optional `sceneHooks(game)` holds simulation hooks, merged with the hooks module's
  * @param {{sceneHooks?: Function, OPTIONS?: object}} [parts.hooks] - The hooks module
  * @param {Record<string, (() => Promise<object>)|object>} parts.scenes - Scene file
  *   path to its data, or to a loader for it (`import.meta.glob`)
@@ -91,7 +114,7 @@ export async function bootProject(canvas, { project, definition, hooks = null, s
     ...options
   });
   definition.register(m2d);
-  const sceneHooks = hooks?.sceneHooks?.(m2d) ?? {};
+  const sceneHooks = combineSceneHooks(definition.sceneHooks?.(m2d), hooks?.sceneHooks?.(m2d));
   for (const [path, source] of Object.entries(scenes)) {
     const name = sceneNameOf(path);
     const fetch = typeof source === 'function'

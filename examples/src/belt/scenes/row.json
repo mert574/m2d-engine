@@ -10,7 +10,7 @@
     "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
     "projection": { "type": "belt", "ratio": 0.5 },
-    "camera": { "lerp": 0.12, "followAxes": { "x": true, "y": false } },
+    "camera": { "lerp": 0.12, "bounds": { "left": 0, "top": -2000, "right": 5200, "bottom": 264 } },
     "lighting": { "ambient": "#f2ecdf" },
     "post": {
       "bloom": { "threshold": 0.85, "strength": 0.2, "blur": 18 },
@@ -24,6 +24,7 @@
       }
     },
     "music": { "track": "game" },
+    "clearColor": "#5fa6e4",
     "rules": [
       {
         "when": { "event": "start" },
@@ -174,6 +175,10 @@
           { "do": "switch", "scene": "mainMenu", "after": 3 }
         ],
         "after": ["clear-5"]
+      },
+      {
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
       }
     ]
   },
@@ -265,6 +270,15 @@
         }
       }
     },
+    "images": {
+      "bricks": { "url": "textures/bricks.jpg" },
+      "plaster": { "url": "textures/plaster.jpg" },
+      "road": { "url": "textures/road.jpg" },
+      "roofing": { "url": "textures/roofing.jpg" },
+      "facadeA": { "url": "textures/facade-a.jpg" },
+      "facadeB": { "url": "textures/facade-b.jpg" },
+      "facadeC": { "url": "textures/facade-c.jpg" }
+    },
     "sounds": {
       "attack": { "url": "sounds/minimize_008.ogg" },
       "damage": { "url": "sounds/error_008.ogg" },
@@ -309,7 +323,18 @@
           "y": 200,
           "width": 16,
           "height": 16,
-          "properties": { "seed": 3, "lane": { "top": 40, "bottom": 360 }, "length": 5200 }
+          "properties": {
+            "seed": 3,
+            "lane": { "top": 40, "bottom": 360 },
+            "length": 5200,
+            "bricks": "bricks",
+            "plaster": "plaster",
+            "road": "road",
+            "roofing": "roofing",
+            "facadeA": "facadeA",
+            "facadeB": "facadeB",
+            "facadeC": "facadeC"
+          }
         },
         {
           "id": "foreground-1",

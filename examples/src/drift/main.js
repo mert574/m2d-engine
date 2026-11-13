@@ -12,55 +12,38 @@
  * - projectiles through `Projectile` for the ship's and the drones' lasers;
  * - meteors that split through `game.createEntity` on death, drones on
  *   `Chase`, and a minimap of the whole field.
+ *
+ * The page boots the project (m2d.project.json); the field, its HUD,
+ * camera and rules are scene data. Only the main menu is still a code
+ * screen, added here until it becomes a UI scene.
  */
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+import { bootProject } from 'm2d-engine/core/project.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
-import { menuBackdrop } from './menuBackdrop.js';
-import { Ship, Bound, Sky } from './fieldActors.js';
-import { register } from './game.js';
-import { sceneHooks } from './hooks.js';
 import { symmetricalTree, audioOption } from '../shared/audio.js';
-import layout from './layout.json';
+import { menuBackdrop } from './menuBackdrop.js';
+import project from './m2d.project.json';
+import * as definition from './game.js';
 
-const canvas = document.getElementById('screen');
-await initPhysics();
-
-const game = new M2D(canvas, {
-  pointerLock: false,
-  initialScene: 'mainMenu',
-  width: 1280,
-  height: 800,
-  worldWidth: layout.world.width,
-  worldHeight: layout.world.height,
+const game = await bootProject(document.getElementById('screen'), {
+  project,
+  definition,
+  scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
+  // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'drift/',
-  // The level's sounds and music are the scene's (assets.sounds, assets.music
-  // in field.json); the menu is a code screen, so its track stays here.
-  music: { menu: { src: symmetricalTree, volume: 0.6 } }
+  options: { music: { menu: { src: symmetricalTree, volume: 0.6 } } },
+  setup(game) {
+    registerMainMenu(game, {
+      title: 'Salvage Run',
+      subtitle: 'a rotating top-down view',
+      hint: 'Arrows steer and thrust · X fires · C boosts · O for settings',
+      backdrop: menuBackdrop,
+      items: () => [
+        { text: 'Launch', onSelect: () => game.sceneManager.switchTo('field') },
+        { text: 'Settings', onSelect: () => game.settings.open() }
+      ],
+      onEnter: () => game.soundManager.playMusic('menu')
+    });
+    game.settings.addOption(audioOption(game));
+  }
 });
-
-register(game);
-
-registerMainMenu(game, {
-  title: 'Salvage Run',
-  subtitle: 'a rotating top-down view',
-  hint: 'Arrows steer and thrust · X fires · C boosts · O for settings',
-  backdrop: menuBackdrop,
-  items: () => [
-    { text: 'Launch', onSelect: () => game.sceneManager.switchTo('field') },
-    { text: 'Settings', onSelect: () => game.settings.open() }
-  ],
-  onEnter: () => game.soundManager.playMusic('menu')
-});
-
-game.sceneManager.addScene('field', {
-  // The scene needs the runtime sheets before its actors are built, so they
-  // are merged into the fetched config's sheet map through the scene object.
-  fetch: async () => (await import('./scenes/field.json')).default,
-  ...sceneHooks(game).field
-});
-
-new SettingsMenu(game).addOption(audioOption(game));
 if (new URLSearchParams(location.search).has('debug')) window.salvageRun = { game };
-game.start();

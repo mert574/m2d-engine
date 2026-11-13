@@ -63,6 +63,7 @@
 | Property | What it is |
 | --- | --- |
 | `game.headless` | True for a game built with `headless: true` |
+| `game.hudComponents` | The game's own HUD widgets by name; see `registerHudComponent` |
 | `game.actions` | The named input actions: `pressed(name, snapshot)`, `down(name, snapshot)`, `codes(name)`, `rebind(name, codes)`, `reset()`. See [Named actions](../guide/input#named-actions) |
 | `game.players` | The players: `local` and, on a server, one per connection. See [Players](../guide/headless#players) |
 | `game.replica` | True while the game is a client of a server, showing state it does not simulate. See [Multiplayer](../guide/multiplayer#the-client) |
@@ -105,6 +106,7 @@
 | Method | What it does |
 | --- | --- |
 | `start()` | Load sounds, switch to the initial scene and start the loop. Returns a promise. Headless, it switches to the initial scene and starts no loop |
+| `registerHudComponent(name, make)` | Register a HUD widget a level's `hud` places as `{ "type": "component", "component": name }`. `make(scene, element)` returns the UI element; `element` carries `x`, `y`, `anchor` and `properties`. Never called headless |
 | `step(ticks)` | Run `ticks` whole ticks now (default 1) and return how many ran. Stops early when a tick requests a scene switch. Not gated on `paused`. A headless game's only way to advance |
 | `reset()` | Destroy constraints, clear entities, physics and layers, reset the camera to defaults, stop music. See [Game loop](../guide/game-loop#resetting) |
 | `destroy()` | Stop the loop and release every listener and resource |

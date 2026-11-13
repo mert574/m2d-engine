@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
-import { register, GAME } from '../src/drift/game.js';
+import { register } from '../src/drift/game.js';
 
 /**
  * Salvage Run's gate as scene rules, headless with the real field: sealed
@@ -16,7 +16,7 @@ beforeAll(async () => {
 });
 
 async function field() {
-  const game = new M2D(null, { headless: true, ...GAME, seed: 7 });
+  const game = new M2D(null, { headless: true, seed: 7 });
   register(game);
   game.sceneManager.addScene('field', { fetch: async () => FIELD });
   game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: FIELD.version, type: 'level', name: 'mainMenu', prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });

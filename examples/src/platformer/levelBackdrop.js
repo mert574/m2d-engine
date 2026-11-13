@@ -1,3 +1,5 @@
+import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { makeRng, range } from '../shared/rng.js';
 import { seedRidges, ridgeProfile } from './dusk.js';
 
@@ -12,15 +14,18 @@ import { seedRidges, ridgeProfile } from './dusk.js';
  * past the far peaks and climbing the level lifts the player above the
  * skyline.
  *
- * The backdrop draws in three passes wired to the scene hooks:
- *
- *   drawBackground   sky, stars, sun, clouds, ridges — before the entities
- *   drawForeground   valley mist, fireflies, leaves, lights — after them
- *   atmosphere       ambient light and the post pass, set on enter
+ * It is scenery placed in the scene, twice: the `back` layer draws the
+ * sky, stars, sun, clouds and ridges under everything, and the `front`
+ * layer the valley mist over the entities. The fireflies and falling
+ * leaves are the scene's `world.particles`, the player's own light its
+ * prefab's `light`, and the ambient light and post pass `world.lighting`
+ * and `world.post`; so the editor shows the valley as it plays.
  *
  * Everything is deterministic from the seed and animated from `time`, and
- * every optional capability is asked for once: on Canvas the lights, bloom
- * and additive blends drop out and the painted colours carry the scene.
+ * every optional capability is asked for when drawing: on Canvas the
+ * lights and additive blends drop out and the painted colours carry the
+ * scene. Nothing here touches the renderer until it draws, so a headless
+ * game builds the scene without it.
  */
 
 /** Sampling step along a ridge, in world units. */
@@ -42,28 +47,27 @@ const LEVEL_SKY = [
 /** Ridge colours for that hour, far to near: hazier, never black. */
 const LEVEL_RIDGES = ['#88a0bc', '#68829f', '#4d6482', '#374a66'];
 
-export class DuskLevelBackdrop {
-  /**
-   * @param {import('m2d-engine/core/m2d.js').M2D} game
-   * @param {number} [seed=11] - Same default as the menu: the same valley
-   */
-  constructor(game, seed = 11) {
-    this.game = game;
-    this.renderer = game.renderer;
+export class ValleyBackdrop extends Entity {
+  static properties = {
+    layer: s.enumOf(['back', 'front'], { initial: 'back', description: 'back: the sky and ridges under everything; front: the valley mist over it' }),
+    seed: s.integer({ min: 0, initial: 11, description: 'Which valley: the menu\'s is 11' })
+  };
+
+  name = 'ValleyBackdrop';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    // Scenery: drawn, never touched.
+    body.setCollisionFilter({ category: 0, mask: 0 });
+    this.layer = options.layer ?? 'back';
+    this.zIndex = this.layer === 'front' ? 1000 : -1000;
+    this.time = 0;
     this.bounds = {
       width: game.options.worldWidth,
       height: game.options.worldHeight
     };
-    this.time = 0;
 
-    const renderer = game.renderer;
-    this.features = {
-      blendModes: renderer.supports('blendModes'),
-      lights: renderer.supports('lights'),
-      postEffects: renderer.supports('postEffects')
-    };
-
-    const rng = makeRng(seed);
+    const rng = makeRng(options.seed ?? 11);
     this.ridges = seedRidges(rng);
 
     // Far cousins of the level's own islands, hanging over the valley
@@ -121,33 +125,6 @@ export class DuskLevelBackdrop {
       flap: range(rng, 0, Math.PI * 2)
     }));
 
-    // Fireflies wander the lower half of the level on slow Lissajous paths
-    // around fixed anchors, each with its own pulse. They are the one warm
-    // moving thing in the air, which is why there are not many.
-    this.fireflies = Array.from({ length: 34 }, () => ({
-      x: range(rng, 60, this.bounds.width - 60),
-      y: range(rng, this.bounds.height * 0.35, this.bounds.height - 80),
-      spanX: range(rng, 30, 90),
-      spanY: range(rng, 20, 50),
-      rateX: range(rng, 0.08, 0.2),
-      rateY: range(rng, 0.1, 0.26),
-      pulse: range(rng, 0.5, 1.4),
-      phase: range(rng, 0, Math.PI * 2)
-    }));
-
-    // Leaves shed from somewhere above the view, falling the whole world
-    // height on a sway, so the air between the platforms has weather in it.
-    this.leaves = Array.from({ length: 16 }, () => ({
-      x: rng() * this.bounds.width,
-      start: rng() * this.bounds.height,
-      fall: range(rng, 26, 52),
-      sway: range(rng, 18, 42),
-      swayRate: range(rng, 0.5, 1.1),
-      spin: range(rng, -2.2, 2.2),
-      size: range(rng, 3, 5.5),
-      phase: range(rng, 0, Math.PI * 2)
-    }));
-
     // Mist lobes: wide, slow, barely-there. The gradient under them does the
     // work; these keep its top edge from reading as a straight line.
     this.mist = Array.from({ length: 6 }, () => ({
@@ -162,15 +139,29 @@ export class DuskLevelBackdrop {
     }));
   }
 
-  // The ambient light and the post pass used to be set here; they are the
-  // scene's now (`world.lighting`, `world.post`), applied and cleared by the
-  // engine, so the editor shows the level as it is lit.
+  get renderer() {
+    return this.game.renderer;
+  }
 
-  /**
-   * @param {number} deltaTime - Seconds since the last frame
-   */
+  /** What this renderer can do, asked once it is drawing. */
+  get features() {
+    this.#features ??= {
+      blendModes: this.renderer.supports('blendModes'),
+      lights: this.renderer.supports('lights')
+    };
+    return this.#features;
+  }
+
+  #features = null;
+
+  /** @param {number} deltaTime - Seconds since the last frame */
   update(deltaTime) {
     this.time += deltaTime;
+  }
+
+  draw() {
+    if (this.layer === 'front') this.drawForeground();
+    else this.drawBackground();
   }
 
   /** The camera's view rectangle, in world units. */
@@ -256,6 +247,12 @@ export class DuskLevelBackdrop {
       }
       this.#drawRidge(renderer, ridge, view);
     });
+
+    // The low sun warms everything on its side of the valley.
+    if (this.features.lights) {
+      const sun = this.#sunAt(view);
+      renderer.drawLight({ x: sun.x, y: sun.y, radius: view.width * 1.4, color: '#ffb46a', intensity: 0.75 });
+    }
   }
 
   /** Slowly turning shafts of late light. Additive or not at all. */
@@ -337,20 +334,9 @@ export class DuskLevelBackdrop {
     }
   }
 
-  /**
-   * Valley mist, fireflies, falling leaves and the frame's lights. After
-   * the entities: the mist has to pool over the low platforms' feet and the
-   * fireflies have to cross in front of the terrain.
-   */
+  /** Valley mist, after the entities: it pools over the low platforms' feet. */
   drawForeground() {
-    const renderer = this.renderer;
-    const view = this.#view();
-
-    this.#drawMist(renderer, view);
-    this.#drawLeaves(renderer, view);
-    this.#drawFireflies(renderer, view);
-
-    if (this.features.lights) this.#drawLights(renderer, view);
+    this.#drawMist(this.renderer, this.#view());
   }
 
   #drawStars(renderer, view, horizon) {
@@ -501,88 +487,6 @@ export class DuskLevelBackdrop {
         fillStyle: 'rgba(130, 146, 188, 0.9)',
         globalAlpha: lobe.alpha * (0.7 + 0.3 * Math.sin(this.time * lobe.rate * 1.7 + lobe.phase)),
         cornerRadius: lobe.height / 2
-      });
-    }
-  }
-
-  #drawLeaves(renderer, view) {
-    for (const leaf of this.leaves) {
-      const y = ((leaf.start + this.time * leaf.fall) % this.bounds.height);
-      const x = leaf.x + Math.sin(this.time * leaf.swayRate + leaf.phase) * leaf.sway;
-      if (x < view.left - 10 || x > view.left + view.width + 10) continue;
-      if (y < view.top - 10 || y > view.top + view.height + 10) continue;
-
-      const angle = this.time * leaf.spin + leaf.phase;
-      const cos = Math.cos(angle), sin = Math.sin(angle);
-      const s = leaf.size;
-      // A leaf is a thin rhombus; the spin foreshortens it into a flutter.
-      renderer.drawPath({
-        points: [
-          { x: x - s * cos, y: y - s * sin },
-          { x: x - s * 0.3 * sin, y: y + s * 0.3 * cos },
-          { x: x + s * cos, y: y + s * sin },
-          { x: x + s * 0.3 * sin, y: y - s * 0.3 * cos }
-        ],
-        closed: true,
-        fillStyle: '#4a3524',
-        globalAlpha: 0.75
-      });
-    }
-  }
-
-  #drawFireflies(renderer, view) {
-    const blend = this.features.blendModes ? 'additive' : undefined;
-    for (const fly of this.fireflies) {
-      const x = fly.x + Math.sin(this.time * fly.rateX * Math.PI * 2 + fly.phase) * fly.spanX;
-      const y = fly.y + Math.sin(this.time * fly.rateY * Math.PI * 2 + fly.phase * 1.7) * fly.spanY;
-      if (x < view.left - 20 || x > view.left + view.width + 20) continue;
-      if (y < view.top - 20 || y > view.top + view.height + 20) continue;
-
-      const pulse = 0.5 + 0.5 * Math.sin(this.time * fly.pulse * Math.PI + fly.phase * 3.1);
-      renderer.drawArc({
-        x, y, radius: 7,
-        fillStyle: {
-          type: 'radial', x, y, r0: 0, r1: 7,
-          stops: [
-            { offset: 0, color: 'rgba(255, 210, 122, 0.5)' },
-            { offset: 1, color: 'rgba(255, 210, 122, 0)' }
-          ]
-        },
-        globalAlpha: pulse,
-        blend
-      });
-      renderer.drawArc({
-        x, y, radius: 1.6,
-        fillStyle: '#ffe9b4',
-        globalAlpha: 0.35 + 0.65 * pulse,
-        blend
-      });
-    }
-  }
-
-  /**
-   * The frame's lights: two real sources, not a wash. The low sun warms
-   * everything on its side of the valley, and the player — an ember in a
-   * glass shell — carries its own.
-   */
-  #drawLights(renderer, view) {
-    const sun = this.#sunAt(view);
-
-    renderer.drawLight({
-      x: sun.x, y: sun.y,
-      radius: view.width * 1.4,
-      color: '#ffb46a',
-      intensity: 0.75
-    });
-
-    const player = this.game.player;
-    if (player && !player.dead) {
-      const pos = player.renderPosition;
-      renderer.drawLight({
-        x: pos.x, y: pos.y,
-        radius: 210,
-        color: '#ffc98a',
-        intensity: 0.65
       });
     }
   }

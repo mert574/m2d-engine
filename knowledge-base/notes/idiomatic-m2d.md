@@ -9,7 +9,8 @@ Code is only:
 - **Actors** (entity classes): behaviour and drawing.
 - **Constraints**: reusable behaviours an actor attaches, tuned through `static params`.
 - **Net intents**: the discrete requests a player's UI makes.
-- **The definition** (`game.js`): `register(game)` registers the above and does nothing else.
+- **The definition** (`game.js`): `register(game)` registers the above and does nothing else; it may export `sceneHooks(game)` with simulation hooks (`onEnter`, `onFixedUpdate`), which the page, the editor's play and a server all run.
+- **Scenery actors**: painting of the game's own (a valley's ridges, a street's skyline) is an actor placed in the scene, colliding with nothing, at a low or high `zIndex`. It draws in the editor too, which a draw hook never did. Weather and backdrops that any game could want are `world.particles`, `world.sky` and `world.scatter`.
 - **The page** (`main.js`): `bootProject` and nothing else. The opening scene, display and input actions are `m2d.project.json`'s.
 
 Everything else is scene data, which the editor and MCP can read and change:
@@ -20,7 +21,7 @@ Everything else is scene data, which the editor and MCP can read and change:
 - flow and outcomes as `world.rules`, with counters for what is counted;
 - keys as named actions (`input.actions` in the project): rules and code read an action, never a raw key code.
 
-Use the engine's helpers (Quest, Npc, the UI components) before writing your own. Something another game could want becomes an engine feature, not demo code. A hook keeps only what has no data form, and says why.
+Use the engine's helpers (Quest, Npc, the UI components) before writing your own. A HUD widget of the game's own is registered with `registerHudComponent` and placed by the scene's `hud`, not added by a hook. Something another game could want becomes an engine feature, not demo code. A hook keeps only what has no data form, and says why.
 
 ## Tunables
 

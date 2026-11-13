@@ -5,7 +5,8 @@ import { UIElement } from './uiElement.js';
  *
  * Maps a world rectangle onto the element's box and asks the game how to
  * plot each entity: `plot(entity)` returns `null` to skip it or
- * `{ shape: 'dot'|'square'|'ring', color, size }`. The player is drawn as
+ * `{ shape: 'dot'|'square'|'ring'|'area'|'trail', color, size }`; a trail
+ * draws the entity's own `trail` (points in world coordinates) as a line. The player is drawn as
  * a heading arrow, the camera's view as a rectangle, and `target` (an
  * entity or `{ position }`) as a pulsing ring, for an objective. Optional
  * `paths` are polylines in world coordinates.
@@ -66,6 +67,9 @@ export class UIMinimap extends UIElement {
         paint.drawRect({ x: p.x - size, y: p.y - size, width: size * 2, height: size * 2, fillStyle: mark.color, cornerRadius: 1 });
       } else if (mark.shape === 'ring') {
         paint.drawArc({ x: p.x, y: p.y, radius: size, strokeStyle: mark.color, lineWidth: 1.5 });
+      } else if (mark.shape === 'trail') {
+        const points = mark.points ?? entity.trail;
+        if (points?.length > 1) paint.drawPath({ points: points.map((q) => this.map(q.x, q.y)), strokeStyle: mark.color, lineWidth: mark.size ?? 3 });
       } else if (mark.shape === 'area') {
         paint.drawArc({ x: p.x, y: p.y, radius: (mark.radius ?? entity.size.x / 2) * sx, fillStyle: mark.color });
       } else {

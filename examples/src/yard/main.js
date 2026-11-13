@@ -1,11 +1,3 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { initWebGPU, webgpuSupported } from 'm2d-engine/core/renderers/index.js';
-import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
-import { audioOption } from '../shared/audio.js';
-import { register } from './game.js';
-import { sceneHooks } from './hooks.js';
-
 /**
  * The yard: the engine's first three-dimensional scene.
  *
@@ -28,61 +20,38 @@ import { sceneHooks } from './hooks.js';
  */
 
 const canvas = document.getElementById('screen');
+import { bootProject } from 'm2d-engine/core/project.js';
+import { audioOption } from '../shared/audio.js';
+import project from './m2d.project.json';
+import * as definition from './game.js';
+
 const unsupported = document.getElementById('unsupported');
+const query = new URLSearchParams(location.search);
 
-if (!webgpuSupported()) {
-  unsupported.textContent = 'This demo needs WebGPU: Chrome or Edge on a machine with a GPU.';
-  unsupported.style.display = 'flex';
-  throw new Error('WebGPU unavailable');
-}
-
-await Promise.all([initWebGPU(), initPhysics({ dimensions: 3 })]);
-
-
-
-/** Which scene to open: the yard, or the lot around it (`?scene=lot`). */
-const SCENE = new URLSearchParams(location.search).get('scene') === 'lot' ? 'lot' : 'yard';
-
-const game = new M2D(canvas, {
-  dimensions: 3,
-  width: 1280,
-  height: 720,
-  worldWidth: 40,
-  worldHeight: 40,
-  initialScene: SCENE,
-  basePath: import.meta.env.BASE_URL + 'yard/'
-});
-
-register(game);
-
-const hooks = sceneHooks(game);
-/** The page's half of a scene: its file, and the loading plate the hooks know nothing of. */
-const page = (name, fetch) => ({
-  fetch,
-  ...hooks[name],
-  // The loading plate, while the scene's models arrive.
-  onLoadProgress({ loaded, total, name: model }) {
-    const plate = document.getElementById('loading');
+/** The loading plate, the page's own: it fills while a scene's models arrive and lifts when it shows. */
+function loadingPlate(scene) {
+  const plate = document.getElementById('loading');
+  const shown = scene.onShow;
+  scene.onLoadProgress = ({ loaded, total, name: model }) => {
     plate.querySelector('.bar span').style.width = `${total ? (loaded / total) * 100 : 0}%`;
     plate.querySelector('small').textContent = loaded < total
       ? `Loading ${model ? model.replaceAll('_', ' ') : 'models'}… ${loaded} / ${total}`
       : 'Building the scene…';
-  },
-  onShow() {
-    document.getElementById('loading').classList.add('done');
-    hooks[name].onShow();
-  }
-});
+  };
+  scene.onShow = () => {
+    plate.classList.add('done');
+    shown?.();
+  };
+}
 
-game.sceneManager.addScene('yard', page('yard', async () => (await import('./scenes/yard.json')).default));
-game.sceneManager.addScene('lot', page('lot', async () => (await import('./scenes/lot.json')).default));
-
-// `?views=2`: a second live view of the same running scene — the
-// multi-view path an editor's side viewports stand on. A
-// picture-in-picture canvas slowly circles the hero on a camera of its
-// own while the main view stays yours to orbit; one frame is assembled
-// and shadowed for both, and each pays only its own main pass and post.
-if (new URLSearchParams(location.search).get('views') === '2') {
+/**
+ * `?views=2`: a second live view of the same running scene, the multi-view
+ * path an editor's side viewports stand on. A picture-in-picture canvas
+ * slowly circles the hero on a camera of its own while the main view
+ * stays yours to orbit; one frame is assembled and shadowed for both, and
+ * each pays only its own main pass and post.
+ */
+function pictureInPicture(game) {
   const pip = document.createElement('canvas');
   pip.width = 426;
   pip.height = 240;
@@ -98,16 +67,32 @@ if (new URLSearchParams(location.search).get('views') === '2') {
   view.camera.mode = 'free';
   let angle = 0;
   const circle = () => {
-    if (!game.running) { requestAnimationFrame(circle); return; }
-    angle += 0.003;
-    const target = game.player?.position ?? { x: 0, y: 0, z: 0 };
-    view.camera.position = { x: target.x + Math.cos(angle) * 14, y: 6, z: target.z + Math.sin(angle) * 14 };
-    view.camera.lookAt = { x: target.x, y: 1, z: target.z };
-    view.camera.update(0);
+    if (game.running) {
+      angle += 0.003;
+      const target = game.player?.position ?? { x: 0, y: 0, z: 0 };
+      view.camera.position = { x: target.x + Math.cos(angle) * 14, y: 6, z: target.z + Math.sin(angle) * 14 };
+      view.camera.lookAt = { x: target.x, y: 1, z: target.z };
+      view.camera.update(0);
+    }
     requestAnimationFrame(circle);
   };
   circle();
 }
 
-new SettingsMenu(game).addOption(audioOption(game));
-game.start();
+await bootProject(document.getElementById('screen'), {
+  project,
+  definition,
+  scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
+  basePath: import.meta.env.BASE_URL + 'yard/',
+  // `?scene=lot` opens the lot instead of the yard.
+  options: query.get('scene') === 'lot' ? { initialScene: 'lot' } : {},
+  setup(game) {
+    for (const { scene } of game.sceneManager.scenesToLoad) loadingPlate(scene);
+    game.settings.addOption(audioOption(game));
+    if (query.get('views') === '2') pictureInPicture(game);
+  }
+}).catch((error) => {
+  unsupported.textContent = error.message;
+  unsupported.style.display = 'flex';
+  throw error;
+});

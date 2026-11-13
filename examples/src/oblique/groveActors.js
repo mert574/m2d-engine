@@ -447,11 +447,15 @@ export class GroundDetail extends Entity {
     path: s.array(s.object({ x: s.number({ required: true }), y: s.number({ required: true }) }),
       { label: 'Path', description: 'The worn track, smoothed into segments' }),
     pathWidth: s.number({ initial: 64, positive: true, unit: 'px', label: 'Path width' }),
-    seed: s.number({ initial: 11, description: 'Fixes the scatter of grass and flowers' })
+    seed: s.number({ initial: 11, description: 'Fixes the scatter of grass and flowers' }),
+    texture: s.ref('image', { description: 'The dirt the track is painted with: an image, or a sprite sheet\'s' })
   };
 
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
   get tint() { return this.game.renderer.supports('tint') ? '#c9b48e' : undefined; }
+
+  /** The track as the minimap draws it (a `trail` plot). */
+  get trail() { return this.segments; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
@@ -496,7 +500,7 @@ export class GroundDetail extends Entity {
       this.flowers.push({ x, y, r: range(rng, 2.5, 4.5), phase: range(rng, 0, 6.28), color: rng() < 0.4 ? '#e9d8ff' : rng() < 0.5 ? '#fff1b8' : '#ffd0d8' });
     }
     this.patches = Array.from({ length: 50 }, () => ({ x: range(rng, 90, w - 90), y: range(rng, 110, h - 90), r: range(rng, 80, 180), dark: rng() < 0.5 }));
-    this.ground = null; // set by the scene: the dirt sheet
+    this.ground = options.texture ?? null;
   }
 
   /** Chaikin smoothing, two passes: hand-placed corners become bends. */

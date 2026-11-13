@@ -37,14 +37,24 @@ class Pollen extends Entity {
 }
 ```
 
-A scene definition from `game.js` gets its presentation hooks added on top in `main.js`:
+In an editor project, `game.js` may export `sceneHooks(game)` with each scene's simulation hooks, and the hooks module exports the presentation ones. `bootProject` (see [The project file](./editor#the-project-file)), the editor's play and a server entry all run the definition's, and the page and the editor add the hooks module's on top:
+
+```javascript
+// game.js: simulation, run headless too
+export function sceneHooks(game) {
+  return { keep: { onEnter() { /* wire the stair, the purse */ } } };
+}
+
+// a server entry: the definition's hooks, no presentation
+game.sceneManager.addScene('keep', { fetch: loadKeep, ...sceneHooks(game).keep });
+```
+
+Most presentation needs no hook at all: the camera, the light, the HUD, music and what the player is told are the scene's data. A game without a project adds its presentation hooks on top of the definition's itself:
 
 ```javascript
 game.sceneManager.addScene('lane', {
   ...laneScene(game, { assetUrl: foliageUrl }),
-  onShow() { game.camera.mode = 'scroll'; /* lights, HUD */ },
-  onUpdate() { /* HUD text */ },
-  onHide() { game.renderer.setPostEffects(null); }
+  onShow() { /* what no scene field says */ }
 });
 ```
 

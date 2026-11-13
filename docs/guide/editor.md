@@ -36,7 +36,7 @@ A project is a folder with an `m2d.project.json`.
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `name` | the folder's name | Shown in the editor's bar |
-| `definition` | none | The module that registers the game: exports `register(game)` and may export `GAME`, the M2D options the simulation needs |
+| `definition` | none | The module that registers the game: exports `register(game)` and may export `GAME`, the M2D options the simulation needs, and `sceneHooks(game)`, each scene's simulation hooks (`onEnter`, `onFixedUpdate`, `onExit`), which a headless server runs too |
 | `hooks` | none | The module with each scene's presentation hooks: exports `sceneHooks(game)`, which returns `{ [sceneName]: { onEnter, onShow, onRender, ... } }`. It may also export `OPTIONS`, M2D options the game's look depends on (a `textureFilter`), which the editor applies when it edits and plays and the page spreads into its own options |
 | `scenes` | `scenes` | The folder the scene JSON lives in |
 | `basePath` | the project folder | What asset URLs in scenes are relative to |
@@ -60,7 +60,7 @@ await bootProject(document.getElementById('screen'), {
 });
 ```
 
-`bootProject(canvas, parts)` checks the project file, initialises physics (and WebGPU for a game whose `GAME` says `dimensions: 3`), makes the game with the project's display, actions, opening scene and music, runs `register`, adds every scene with its hooks under its file's name, mounts the settings menu and starts. `parts` takes `project`, `definition`, `hooks`, `scenes` (path to data or to a loader), `basePath`, `options` (M2D options over the rest) and `setup(game)`, called before the start for what the page adds. The two templates boot this way.
+`bootProject(canvas, parts)` checks the project file, initialises physics (and WebGPU for a game whose `GAME` says `dimensions: 3`), makes the game with the project's display, actions, opening scene and music, runs `register`, adds every scene under its file's name with the definition's simulation hooks and the hooks module's presentation hooks (the definition's run first where both name one), mounts the settings menu and starts. `parts` takes `project`, `definition`, `hooks`, `scenes` (path to data or to a loader), `basePath`, `options` (M2D options over the rest) and `setup(game)`, called before the start for what the page adds. The two templates boot this way.
 
 The Project tab shows the file in the inspector, in tabs for the game, display, input and audio. An edit is written at once and refused whole, naming the field, when the file would not be a valid project.
 

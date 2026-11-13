@@ -9,8 +9,8 @@
     "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
     "projection": "isometric",
-    "camera": { "lerp": 0.1, "bounds": "world" },
-    "lighting": { "ambient": "#575062" },
+    "camera": { "lerp": 0.1, "bounds": "world", "wheelZoom": { "speed": 0.0015, "min": 0.6, "max": 1.8 } },
+    "lighting": { "ambient": "#575062", "fallback": "rgba(20, 14, 30, 0.35)" },
     "post": {
       "bloom": { "threshold": 0.65, "strength": 0.4, "blur": 22 },
       "vignette": { "strength": 0.5, "start": 0.55 },
@@ -22,7 +22,40 @@
         "contrast": 1.06
       }
     },
-    "music": { "track": "game" }
+    "music": { "track": "game" },
+    "clearColor": "#0b0a10",
+    "counters": { "taken": { "prefab": "ember" }, "total": { "prefab": "ember", "count": "placed" } },
+    "rules": [
+      {
+        "when": { "event": "notify", "name": "stair-open" },
+        "then": [
+          { "do": "notice", "text": "THE STAIR OPENS", "seconds": 2.4 },
+          { "do": "objective", "text": "THE STAIR IS OPEN · DESCEND" }
+        ]
+      },
+      {
+        "when": { "event": "notify", "name": "stair-sealed" },
+        "then": [{ "do": "notice", "text": "THE STAIR IS SEALED · GATHER THE EMBERS", "seconds": 2.4 }],
+        "once": false
+      },
+      {
+        "when": { "event": "notify", "name": "fallen" },
+        "then": [{ "do": "notice", "text": "YOU FELL · BACK IN A MOMENT", "seconds": 2.4 }],
+        "once": false
+      },
+      {
+        "when": { "event": "notify", "name": "descended" },
+        "then": [
+          { "do": "notice", "text": "YOU DESCEND", "seconds": 2.4 },
+          { "do": "sound", "key": "levelComplete" },
+          { "do": "switch", "scene": "mainMenu", "after": 3 }
+        ]
+      },
+      {
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
+      }
+    ]
   },
   "assets": {
     "spritesheets": {
@@ -217,6 +250,11 @@
           "run": { "frames": [[2, 6], [3, 6]], "fps": 6 }
         }
       }
+    },
+    "images": {
+      "cleave": { "url": "textures/icons/cleave.png" },
+      "dash": { "url": "textures/icons/dash.png" },
+      "emberShield": { "url": "textures/icons/emberShield.png" }
     },
     "sounds": {
       "attack": { "url": "sounds/minimize_008.ogg" },
@@ -7085,7 +7123,13 @@
       "x": 20,
       "y": 16,
       "anchor": "top-left",
-      "properties": { "text": "", "fontSize": "15px", "color": "#ffc890", "align": "left", "letterSpacing": 1 }
+      "properties": {
+        "text": "GATHER THE EMBERS · {taken} / {total}",
+        "fontSize": "15px",
+        "color": "#ffc890",
+        "align": "left",
+        "letterSpacing": 1
+      }
     },
     {
       "type": "meter",
@@ -7096,18 +7140,18 @@
       "properties": { "color": "#e0905a", "low": "#ff5a4e" }
     },
     {
-      "type": "text",
+      "type": "notice",
       "id": "notice",
       "x": 0,
       "y": -120,
       "anchor": "center",
       "properties": {
-        "text": "",
         "fontSize": "30px",
         "fontWeight": "600",
         "color": "#ffe9cc",
         "align": "center",
-        "letterSpacing": 3
+        "letterSpacing": 3,
+        "seconds": 2.4
       }
     },
     {
@@ -7122,6 +7166,47 @@
         "color": "rgba(240, 230, 220, 0.55)",
         "align": "right"
       }
+    },
+    {
+      "type": "minimap",
+      "id": "map",
+      "x": -16,
+      "y": 16,
+      "anchor": "top-right",
+      "size": 220,
+      "plot": {
+        "wall": { "shape": "square", "color": "rgba(120, 110, 100, 0.9)", "size": 2.4 },
+        "wallDark": { "shape": "square", "color": "rgba(120, 110, 100, 0.9)", "size": 2.4 },
+        "ember": "#ff9a4a",
+        "skeleton": { "color": "#b0e0ff", "size": 2 },
+        "goblin": { "color": "#b0e0ff", "size": 2 },
+        "stair": {
+          "shape": "ring",
+          "color": "#ffc878",
+          "size": 5,
+          "by": { "property": "sealed", "values": { "true": { "color": "#9a70ff" } } }
+        },
+        "players": { "color": "#ffe3b0", "size": 3 }
+      },
+      "target": "stair-1",
+      "properties": { "background": "rgba(14, 12, 18, 0.9)", "borderColor": "rgba(255, 200, 140, 0.45)" }
+    },
+    {
+      "type": "abilityBar",
+      "id": "abilities",
+      "x": 0,
+      "y": -14,
+      "anchor": "bottom",
+      "icons": { "cleave": "cleave", "dash": "dash", "emberShield": "emberShield" },
+      "properties": { "borderColor": "rgba(255, 200, 140, 0.45)" }
+    },
+    {
+      "type": "component",
+      "id": "satchel",
+      "x": 20,
+      "y": -64,
+      "anchor": "bottom-left",
+      "component": "satchel"
     }
   ]
 }

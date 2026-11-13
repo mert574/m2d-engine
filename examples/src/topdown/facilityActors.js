@@ -6,6 +6,7 @@ import { Rocket } from 'm2d-engine/actors/rocket.js';
 import { Coin } from 'm2d-engine/actors/coin.js';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { AttackSwing, HitBurst } from '../shared/effects.js';
+import { Sonar } from './sonar.js';
 import { makeRng, range } from '../shared/rng.js';
 import { tileTexture } from '../shared/textures.js';
 import { s } from 'm2d-engine/core/schema.js';
@@ -521,8 +522,6 @@ export class ExtractionPad extends Trigger {
 
 export class ScannerAgent extends TopDownPlayer {
   static properties = {
-    sonarPeriod: s.number({ initial: 3.2, positive: true, unit: 's', label: 'Sonar period', description: 'Seconds between echoes' }),
-    sonarRange: s.number({ initial: 460, positive: true, unit: 'px', label: 'Sonar range', description: 'How far an echo reaches' }),
     lampReach: s.number({ initial: 240, positive: true, unit: 'px', label: 'Hand lamp reach' }),
     lampSpread: s.number({ initial: 0.42, positive: true, unit: 'rad', label: 'Hand lamp spread', description: 'Half the cone\'s width' })
   };
@@ -532,14 +531,15 @@ export class ScannerAgent extends TopDownPlayer {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.sonarPeriod = options.sonarPeriod ?? 3.2;
-    this.sonarRange = options.sonarRange ?? 460;
     this.lampReach = options.lampReach ?? 240;
     this.lampSpread = options.lampSpread ?? 0.42;
     /** Smoothed heading, so the lamp does not snap on a tap of a key. */
     this.heading = -Math.PI / 2;
-    /** 1 on a hit, decaying to 0: drives the feed's glitch in the backdrop. */
+    /** 1 on a hit, decaying to 0: what tears the feed (see `tear`). */
     this.hurt = 0;
+    /** Seconds since the agent appeared, on frame time: the feed acquiring. */
+    this.age = 0;
+    this.addConstraint('sonar', new Sonar(this, { period: 3.2, range: 460 }));
     this.addConstraint('swing', new AttackSwing(this, { color: '#ffe6c4' }));
     this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd9a0', radius: 34 }));
     const health = this.constraints.get('health');
@@ -553,6 +553,22 @@ export class ScannerAgent extends TopDownPlayer {
   update(deltaTime) {
     super.update(deltaTime);
     this.hurt = Math.max(0, this.hurt - deltaTime * 1.4);
+    this.age += deltaTime;
+  }
+
+  /**
+   * How torn the feed the player watches is, 0..1: it tears once as it
+   * acquires in the first moment of the level and again on a hit, clean
+   * otherwise. The scene's `world.postBind` reads this (and `tearFlash`,
+   * which comes on harder) to tear the post pass.
+   */
+  get tear() {
+    const boot = Math.max(0, 1 - this.age / 0.8);
+    return Math.min(1, Math.max(boot * 0.7, this.hurt));
+  }
+
+  get tearFlash() {
+    return this.tear * this.tear;
   }
 
   draw(deltaTime) {
@@ -635,6 +651,9 @@ export class ScannerAgent extends TopDownPlayer {
         color: '#ffe6c4',
         intensity: 0.45
       });
+      // A low fill around the agent, as wide as the view, so nothing it
+      // can see is pure black; the ceiling lamps do the real lighting.
+      renderer.drawLight({ x: pos.x, y: pos.y, radius: this.game.camera.width, color: '#9aa3b8', intensity: 0.32 });
     }
 
     for (const constraint of this.constraints.values()) {

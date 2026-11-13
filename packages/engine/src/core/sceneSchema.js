@@ -254,6 +254,7 @@ const CAMERA = s.object({
  */
 const LIGHTING = s.object({
   ambient: colour({ description: '2D: the ambient light; set, the world is lit (actors add lights). Unset, full brightness' }),
+  fallback: colour({ description: '2D: a wash laid over the view on a renderer without lights (Canvas), standing in for the ambient' }),
   sun: s.object({
     direction: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Where the light goes; down is negative y' }),
     color: colour({ label: 'Colour' }),
@@ -1070,11 +1071,11 @@ const ELEMENTS = s.tagged('type', {
 });
 
 /** The kinds of element a level's HUD may hold. */
-export const HUD_KINDS = ['text', 'notice', 'meter', 'minimap', 'abilityBar', 'dialogue', 'image', 'rect'];
+export const HUD_KINDS = ['text', 'notice', 'meter', 'minimap', 'abilityBar', 'dialogue', 'component', 'image', 'rect'];
 
 /** A style a minimap plots with: what `UIMinimap` draws for one entity. */
 const PLOT_STYLE = {
-  shape: s.enumOf(['dot', 'ring', 'square']),
+  shape: s.enumOf(['dot', 'ring', 'square', 'area', 'trail'], { description: 'area: a disc the size of the entity; trail: the line the entity gives as its trail (a worn track)' }),
   color: colour({ label: 'Colour' }),
   size: s.number({ positive: true, unit: 'px' })
 };
@@ -1144,13 +1145,19 @@ const HUD_ELEMENTS = s.tagged('type', {
       borderColor: colour({ label: 'Border colour' })
     })
   }),
+  component: s.object({
+    ...ELEMENT_COMMON,
+    component: s.string({ required: true, nonEmpty: true, description: 'A HUD widget the game registers with game.registerHudComponent' }),
+    properties: s.any({ description: 'Handed to the widget' })
+  }, { label: 'Component' }),
   dialogue: s.object({
     ...ELEMENT_COMMON,
     width: s.number({ positive: true, unit: 'px', initial: 720 }),
     height: s.number({ positive: true, unit: 'px', initial: 128 }),
     properties: s.object({
       charsPerSecond: s.number({ positive: true, initial: 46, label: 'Characters per second' }),
-      advance: s.string({ initial: 'interact', description: 'The input action that advances it; KeyE when the project names none' }),
+      advance: s.string({ initial: 'interact', description: 'The input action that advances it; KeyE when the project names none. Empty: game code advances it' }),
+      clock: s.enumOf(['frame', 'game'], { initial: 'frame', description: 'game: types on game time, for a conversation the tick drives (it replays the same)' }),
       textColor: colour({ label: 'Text colour' }),
       nameColor: colour({ label: 'Name colour' }),
       background: styled('color'),

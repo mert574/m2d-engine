@@ -2,19 +2,13 @@ import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { AttackSwing, HitBurst } from '../shared/effects.js';
 import { Rogue, Thug, Lamp, Bound } from './rowActors.js';
 import { Street, Foreground } from './streetScenery.js';
-import layout from './layout.json';
 import assetManifest from './assets.json';
 
 /**
  * Ash Row's definition: the cast, the asset manifest its scene binds by
- * uid, and the options its simulation depends on — nothing that shows
- * them. See m2d.project.json.
+ * uid — nothing that shows them. The row's size is its scene's. See
+ * m2d.project.json.
  */
-
-export const WORLD = { width: layout.length, height: 400 };
-
-/** M2D options the row's simulation depends on. */
-export const GAME = { worldWidth: WORLD.width, worldHeight: WORLD.height };
 
 /** Register the cast and its assets, on a displayed game or the editor's. */
 export function register(game) {

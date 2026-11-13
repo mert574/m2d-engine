@@ -220,6 +220,19 @@ describe('Footsteps', () => {
     expect(played).toHaveLength(3);
   });
 
+  it('paces a 3D walker by its speed along the ground, x and z, not its fall', () => {
+    const game = makeTestGame();
+    const entity = new Entity(makeBody(game, 0, 0, 16, 16, { bodyType: 'static' }), null, game);
+    entity.isAirborne = false;
+    const velocity = { x: 0, y: -5, z: 2 };
+    Object.defineProperty(entity, 'velocity', { get: () => velocity });
+    Object.defineProperty(game.physics, 'dimensions', { value: 3, configurable: true });
+    const steps = new Footsteps(entity, { sounds: ['a'], stride: 1, minSpeed: 0.3 });
+    const taken = vi.spyOn(steps, 'step');
+    for (let i = 0; i < 61; i++) steps.fixedUpdate(1 / 60); // just past two metres along z
+    expect(taken).toHaveBeenCalledTimes(2);
+  });
+
   it('a step the server took is heard by a client watching the walker', () => {
     const game = makeTestGame();
     const played = [];

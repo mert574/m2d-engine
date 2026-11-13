@@ -10,7 +10,50 @@
     "player": "player-1",
     "camera": { "bounds": "world" },
     "lighting": { "ambient": "#e4e6ec" },
+    "post": {
+      "bloom": { "threshold": 0.7, "strength": 0.6, "blur": 28 },
+      "vignette": { "strength": 0.2, "start": 0.55 },
+      "grade": {
+        "shadows": "#8b93a4",
+        "highlights": "#ffffff",
+        "amount": 0.4,
+        "saturation": 0.9,
+        "contrast": 1.04
+      },
+      "chromatic": { "strength": 0.002 },
+      "distortion": { "strength": 0.04 },
+      "grain": { "strength": 0.03 },
+      "scanlines": { "strength": 0.045, "density": 1.7 },
+      "glitch": { "strength": 0 },
+      "flash": { "color": "#ff3b2f", "strength": 0 }
+    },
     "music": { "track": "game" },
+    "postBind": [
+      {
+        "effect": "chromatic",
+        "bind": { "object": "player", "constraint": "", "ratio": "tear" },
+        "empty": 0.002,
+        "full": 0.014
+      },
+      {
+        "effect": "grain",
+        "bind": { "object": "player", "constraint": "", "ratio": "tear" },
+        "empty": 0.03,
+        "full": 0.08
+      },
+      {
+        "effect": "glitch",
+        "bind": { "object": "player", "constraint": "", "ratio": "tear" },
+        "empty": 0,
+        "full": 0.55
+      },
+      {
+        "effect": "flash",
+        "bind": { "object": "player", "constraint": "", "ratio": "tearFlash" },
+        "empty": 0,
+        "full": 0.22
+      }
+    ],
     "rules": [
       {
         "when": { "event": "collected", "prefab": "coin" },
@@ -27,7 +70,11 @@
           { "do": "switch", "scene": "mainMenu", "after": 3 }
         ]
       },
-      { "when": { "event": "death", "object": "player" }, "then": [{ "do": "gameOver" }] }
+      { "when": { "event": "death", "object": "player" }, "then": [{ "do": "gameOver" }] },
+      {
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
+      }
     ]
   },
   "assets": {

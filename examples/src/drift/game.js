@@ -1,14 +1,10 @@
 import { Ship, Meteor, Drone, Salvage, Gate, Bound, Sky } from './fieldActors.js';
 import { AttackSwing, HitBurst } from '../shared/effects.js';
-import layout from './layout.json';
 
 /**
- * Salvage Run's definition: the cast and the options its simulation
- * depends on, and nothing that shows them. See m2d.project.json.
+ * Salvage Run's definition: the cast, and nothing that shows it. The
+ * field's size is its scene's. See m2d.project.json.
  */
-
-/** M2D options the field's simulation depends on. */
-export const GAME = { worldWidth: layout.world.width, worldHeight: layout.world.height };
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {

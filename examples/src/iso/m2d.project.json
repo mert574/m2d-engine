@@ -1,5 +1,24 @@
 {
   "name": "Cinder Keep",
   "definition": "game.js",
-  "hooks": "hooks.js"
+  "hooks": "hooks.js",
+  "initialScene": "mainMenu",
+  "display": {
+    "width": 1280,
+    "height": 800,
+    "textureFilter": "nearest"
+  },
+  "input": {
+    "actions": {
+      "menu": [
+        "Escape"
+      ],
+      "satchel": [
+        "KeyI"
+      ],
+      "trade": [
+        "KeyE"
+      ]
+    }
+  }
 }

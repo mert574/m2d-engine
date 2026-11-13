@@ -1345,6 +1345,7 @@ export class Scene {
     if (level) {
       this.drawWorld(deltaTime);
       if (this.backdrop.active) this.backdrop.drawFront(time);
+      this.#drawLightingFallback();
     }
 
     // World-space drawing that does not belong to an entity. Runs inside the
@@ -1352,6 +1353,18 @@ export class Scene {
     if (hooks && this.config.onDraw) {
       this.config.onDraw(deltaTime);
     }
+  }
+
+  /**
+   * `world.lighting.fallback`: on a renderer without lights the ambient
+   * cannot darken anything, so a dusk level would play at noon; this lays
+   * the level's own stand-in wash over the view instead.
+   */
+  #drawLightingFallback() {
+    const fallback = this.currentLighting?.fallback;
+    if (!fallback || this.game.physics.dimensions === 3 || this.game.renderer.supports?.('lights')) return;
+    const area = this.game.camera.getVisibleArea();
+    this.game.renderer.drawRect({ x: area.left, y: area.top, width: area.right - area.left, height: area.bottom - area.top, fillStyle: fallback });
   }
 
   /**

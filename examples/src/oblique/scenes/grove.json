@@ -8,8 +8,8 @@
     "height": 2400,
     "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
-    "camera": { "lerp": 0.08, "bounds": "world" },
-    "lighting": { "ambient": "#5a6078" },
+    "camera": { "lerp": 0.08, "bounds": "world", "wheelZoom": { "speed": 0.0015, "min": 0.7, "max": 1.6 } },
+    "lighting": { "ambient": "#5a6078", "fallback": "rgba(14, 22, 44, 0.36)" },
     "post": {
       "bloom": { "threshold": 0.7, "strength": 0.35, "blur": 20 },
       "vignette": { "strength": 0.4, "start": 0.6 },
@@ -21,7 +21,36 @@
         "contrast": 1.04
       }
     },
-    "music": { "track": "game" }
+    "music": { "track": "game" },
+    "counters": { "taken": { "prefab": "lantern" }, "total": { "prefab": "lantern", "count": "placed" } },
+    "rules": [
+      {
+        "when": { "event": "emit", "name": "quest-openClearing" },
+        "then": [{ "do": "notice", "text": "WARD LEARNED · THE SEAL FADES", "seconds": 2.4 }]
+      },
+      {
+        "when": { "event": "emit", "name": "quest-done" },
+        "then": [
+          { "do": "notice", "text": "THE CLEARING OPENS", "seconds": 2.4 },
+          { "do": "sound", "key": "levelComplete" },
+          { "do": "switch", "scene": "mainMenu", "after": 4 }
+        ]
+      },
+      {
+        "when": { "event": "emit", "name": "stones-sealed" },
+        "then": [{ "do": "notice", "text": "THE STONES ARE SEALED", "seconds": 2.4 }],
+        "once": false
+      },
+      {
+        "when": { "event": "emit", "name": "ward-locked" },
+        "then": [{ "do": "notice", "text": "OSWIN KNOWS THE WARD", "seconds": 2.4 }],
+        "once": false
+      },
+      {
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
+      }
+    ]
   },
   "assets": {
     "spritesheets": {
@@ -292,6 +321,11 @@
       "decor_log": { "url": "textures/trees/log.png", "frameWidth": 220, "frameHeight": 150 },
       "decor_stump": { "url": "textures/trees/stump.png", "frameWidth": 92, "frameHeight": 115 }
     },
+    "images": {
+      "flare": { "url": "textures/icons/flare.png" },
+      "blink": { "url": "textures/icons/blink.png" },
+      "ward": { "url": "textures/icons/ward.png" }
+    },
     "sounds": {
       "attack": { "url": "sounds/minimize_008.ogg" },
       "damage": { "url": "sounds/error_008.ogg" },
@@ -431,7 +465,8 @@
               { "x": 2800, "y": 400 }
             ],
             "pathWidth": 64,
-            "seed": 3
+            "seed": 3,
+            "texture": "ground"
           }
         },
         { "id": "bound-1", "prefab": "bound", "x": 1600, "y": 24, "width": 3200, "height": 48 },
@@ -2236,6 +2271,30 @@
           "width": 250,
           "height": 250,
           "properties": { "spriteOffsetY": 55 }
+        },
+        {
+          "id": "tree_dead-1",
+          "prefab": "tree_dead",
+          "x": 2745,
+          "y": 693,
+          "width": 200,
+          "height": 290
+        },
+        {
+          "id": "tree_dead-2",
+          "prefab": "tree_dead",
+          "x": 2495,
+          "y": 528,
+          "width": 200,
+          "height": 290
+        },
+        {
+          "id": "tree_dead-3",
+          "prefab": "tree_dead",
+          "x": 2846,
+          "y": 566,
+          "width": 200,
+          "height": 290
         }
       ]
     }
@@ -2256,7 +2315,12 @@
       "x": 20,
       "y": 40,
       "anchor": "top-left",
-      "properties": { "text": "", "fontSize": "13px", "color": "rgba(240, 236, 220, 0.75)", "align": "left" }
+      "properties": {
+        "text": "Lanterns {taken} / {total}",
+        "fontSize": "13px",
+        "color": "rgba(240, 236, 220, 0.75)",
+        "align": "left"
+      }
     },
     {
       "type": "meter",
@@ -2267,18 +2331,18 @@
       "properties": { "color": "#e0905a", "low": "#ff5a4e" }
     },
     {
-      "type": "text",
+      "type": "notice",
       "id": "notice",
       "x": 0,
       "y": -120,
       "anchor": "center",
       "properties": {
-        "text": "",
         "fontSize": "30px",
         "fontWeight": "600",
         "color": "#eef5dc",
         "align": "center",
-        "letterSpacing": 3
+        "letterSpacing": 3,
+        "seconds": 2.4
       }
     },
     {
@@ -2292,6 +2356,71 @@
         "fontSize": "13px",
         "color": "rgba(230, 236, 220, 0.55)",
         "align": "right"
+      }
+    },
+    {
+      "type": "minimap",
+      "id": "map",
+      "x": -16,
+      "y": 16,
+      "anchor": "top-right",
+      "size": 220,
+      "plot": {
+        "tree_lime": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "tree_oakA": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "tree_oakB": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "tree_goldA": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "tree_goldB": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "tree_elder": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "tree_ember": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "tree_violet": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "tree_lilac": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "tree_dead": { "color": "rgba(90, 150, 70, 0.9)", "size": 2.2 },
+        "groundDetail": { "shape": "trail", "color": "rgba(150, 126, 82, 0.8)", "size": 3 },
+        "pond": { "shape": "area", "color": "rgba(60, 110, 140, 0.9)" },
+        "lantern": "#ffd27a",
+        "wisp": { "color": "#bfeaff", "size": 2 },
+        "maren": {
+          "shape": "square",
+          "color": "#e6dcb8",
+          "size": 3,
+          "by": { "property": "hasNews", "values": { "true": { "color": "#ffd27a" } } }
+        },
+        "oswin": {
+          "shape": "square",
+          "color": "#e6dcb8",
+          "size": 3,
+          "by": { "property": "hasNews", "values": { "true": { "color": "#ffd27a" } } }
+        },
+        "clearing": {
+          "shape": "ring",
+          "color": "#dff5d0",
+          "size": 5,
+          "by": { "property": "sealed", "values": { "true": { "color": "#b996ff" } } }
+        }
+      },
+      "properties": { "borderColor": "rgba(255, 210, 140, 0.45)" }
+    },
+    {
+      "type": "abilityBar",
+      "id": "abilities",
+      "x": 0,
+      "y": -14,
+      "anchor": "bottom",
+      "icons": { "flare": "flare", "blink": "blink", "ward": "ward" },
+      "properties": { "borderColor": "rgba(255, 210, 140, 0.45)" }
+    },
+    {
+      "type": "dialogue",
+      "id": "talk",
+      "x": 0,
+      "y": -64,
+      "anchor": "bottom",
+      "properties": {
+        "advance": "",
+        "clock": "game",
+        "nameColor": "#ffd27a",
+        "borderColor": "rgba(255, 210, 140, 0.45)"
       }
     }
   ]

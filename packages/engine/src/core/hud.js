@@ -126,15 +126,25 @@ export class SceneHud {
         const made = new UIDialogue({
           ...placed(common), width: element.width ?? 720, height: element.height ?? 128,
           charsPerSecond: properties.charsPerSecond,
+          ...(properties.clock === 'game' && { clock: () => this.game.time.elapsed }),
           advanceHint: this.#advanceHint(properties.advance),
           ...(properties.textColor && { textColor: properties.textColor }),
           ...(properties.nameColor && { nameColor: properties.nameColor }),
           ...(properties.background && { background: properties.background }),
           ...(properties.borderColor && { borderColor: properties.borderColor })
         });
+        // An empty advance action: game code drives the conversation.
         made.advanceAction = properties.advance ?? 'interact';
         this.firstDialogue ??= made;
         return made;
+      }
+      case 'component': {
+        const make = this.game.hudComponents?.get(element.component);
+        if (!make) {
+          console.warn(`M2D hud: no HUD component '${element.component}' is registered (game.registerHudComponent)`);
+          return null;
+        }
+        return make(this.scene, { ...placed(common), properties });
       }
       case 'image':
         return element.sprite
@@ -197,7 +207,7 @@ export class SceneHud {
   listen() {
     const input = this.game.input;
     if (!input?.on) return;
-    const dialogues = [...this.elements.values()].filter((element) => element instanceof UIDialogue);
+    const dialogues = [...this.elements.values()].filter((element) => element instanceof UIDialogue && element.advanceAction);
     if (!dialogues.length) return;
     const advance = (event) => {
       const open = dialogues.find((dialogue) => dialogue.open);

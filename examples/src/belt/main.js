@@ -14,54 +14,33 @@
  *   depth sort putting whoever is lower on the street in front.
  */
 import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+import { bootProject } from 'm2d-engine/core/project.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
-import { menuBackdrop } from './menuBackdrop.js';
-import { Rogue, Thug, Lamp, Bound } from './rowActors.js';
-import { WORLD, register } from './game.js';
-import { sceneHooks } from './hooks.js';
 import { lastTransmission, audioOption } from '../shared/audio.js';
+import { menuBackdrop } from './menuBackdrop.js';
+import project from './m2d.project.json';
+import * as definition from './game.js';
 
-const canvas = document.getElementById('screen');
-await initPhysics();
-
-const RATIO = 0.5;
-
-const game = new M2D(canvas, {
-  pointerLock: false,
-  initialScene: 'mainMenu',
-  width: 1280,
-  height: 720,
-  worldWidth: WORLD.width,
-  worldHeight: WORLD.height,
+const game = await bootProject(document.getElementById('screen'), {
+  project,
+  definition,
+  scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
+  // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'belt/',
-  // The level's sounds and music are the scene's (assets.sounds, assets.music
-  // in row.json); the menu is a code screen, so its track stays here.
-  music: { menu: { src: lastTransmission, volume: 0.7 } }
+  options: { music: { menu: { src: lastTransmission, volume: 0.7 } } },
+  setup(game) {
+    registerMainMenu(game, {
+      title: 'Ash Row',
+      subtitle: 'a belt scroller',
+      hint: 'Arrows move · Space jumps · X chains punches · C sweeps · air X drop-kicks',
+      backdrop: menuBackdrop,
+      items: () => [
+        { text: 'Walk the row', onSelect: () => game.sceneManager.switchTo('row') },
+        { text: 'Settings', onSelect: () => game.settings.open() }
+      ],
+      onEnter: () => game.soundManager.playMusic('menu')
+    });
+    game.settings.addOption(audioOption(game));
+  }
 });
-
-
-// The cast and the asset manifest; see game.js.
-register(game);
-
-registerMainMenu(game, {
-  title: 'Ash Row',
-  subtitle: 'a belt scroller',
-  hint: 'Arrows move · Space jumps · X chains punches · C sweeps · air X drop-kicks',
-  backdrop: menuBackdrop,
-  items: () => [
-    { text: 'Walk the row', onSelect: () => game.sceneManager.switchTo('row') },
-    { text: 'Settings', onSelect: () => game.settings.open() }
-  ],
-  onEnter: () => game.soundManager.playMusic('menu')
-});
-
-game.sceneManager.addScene('row', {
-  fetch: async () => (await import('./scenes/row.json')).default,
-  ...sceneHooks(game).row
-});
-
-new SettingsMenu(game).addOption(audioOption(game));
 if (new URLSearchParams(location.search).has('debug')) window.ashRow = { game };
-game.start();

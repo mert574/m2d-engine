@@ -14,7 +14,9 @@
       "minDistance": 3,
       "maxDistance": 30,
       "fov": 0.923998,
-      "targetOffset": { "x": 0, "y": 0.4, "z": 0 }
+      "targetOffset": { "x": 0, "y": 0.4, "z": 0 },
+      "wheelZoom": { "speed": 0.0012 },
+      "orbitDrag": { "yaw": 0.005, "pitch": 0.004 }
     },
     "lighting": { "shadowDistance": 70 },
     "post": {
@@ -71,7 +73,15 @@
       "period": 0,
       "phase": 0,
       "ease": 1.5
-    }
+    },
+    "ambience": [{ "sound": "wind", "fadeIn": 2 }],
+    "rules": [
+      {
+        "when": { "event": "action", "action": "turn" },
+        "then": [{ "do": "cycle", "target": 1, "toggle": true }],
+        "once": false
+      }
+    ]
   },
   "assets": {
     "models": {
@@ -79,6 +89,13 @@
       "colorSphere": { "url": "models/dev/colorSphere.glb" },
       "morphBlob": { "url": "models/dev/morphBlob.glb" },
       "fox": { "url": "models/Fox.glb" }
+    },
+    "sounds": {
+      "wind": { "url": "sounds/wind.wav", "volume": 0.5 },
+      "step0": { "url": "sounds/footstep-grass-1.wav", "volume": 0.45 },
+      "step1": { "url": "sounds/footstep-grass-2.wav", "volume": 0.45 },
+      "step2": { "url": "sounds/footstep-grass-3.wav", "volume": 0.45 },
+      "step3": { "url": "sounds/footstep-grass-4.wav", "volume": 0.45 }
     }
   },
   "prefabs": {
@@ -206,6 +223,12 @@
         "scale": 0.012,
         "offset": { "x": 0, "y": -0.5, "z": 0 },
         "animation": { "clip": "Survey" }
+      },
+      "constraints": {
+        "footsteps": {
+          "type": "Footsteps",
+          "params": { "sounds": ["step0", "step1", "step2", "step3"], "stride": 0.7, "minSpeed": 0.3 }
+        }
       }
     }
   },

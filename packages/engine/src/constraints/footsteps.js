@@ -79,8 +79,9 @@ export class Footsteps extends Constraint {
     this.wasAirborne = !grounded;
     if (!grounded) return;
 
+    // Ground speed: the plane the entity walks on, x and z when y is up.
     const velocity = this.entity.velocity;
-    const speed = Math.hypot(velocity.x, velocity.y);
+    const speed = this.entity.game.physics?.dimensions === 3 ? Math.hypot(velocity.x, velocity.z ?? 0) : Math.hypot(velocity.x, velocity.y);
     if (speed < this.minSpeed) return;
     this.travelled += speed * dt;
     if (this.travelled - this.lastStep >= this.stride) {

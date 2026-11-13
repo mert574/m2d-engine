@@ -53,6 +53,8 @@ export function projectGameOptions(project: HostProject, hooksOptions?: Record<s
 export interface GameDefinition {
   register?: (game: unknown) => void;
   GAME?: Record<string, unknown>;
+  /** Simulation scene hooks (`onEnter`, `onFixedUpdate`, `onExit`), merged with the hooks module's for play. */
+  sceneHooks?: (game: unknown) => Record<string, Record<string, unknown>>;
 }
 
 /** What the host says about a document besides its data; see the host's session.ts. */

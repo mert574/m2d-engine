@@ -93,12 +93,22 @@ The loop was converted from 24-bit, 96 kHz to 16-bit, 24 kHz mono and normalised
 
 # Footsteps: Owlish Media
 
-The Hollow Grove demo's grass footsteps are from the **Sound Effects Pack** by
+The grass footsteps in Hollow Grove, Cinder Keep, Ash Row and The Yard are from the **Sound Effects Pack** by
 Owlish Media on [OpenGameArt](https://opengameart.org/content/sound-effects-pack),
 dedicated to the public domain under
 [Creative Commons Zero 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 The pack's grassy footstep WAVs are included unchanged, renamed to
-`footstep-grass-*.wav` under `examples/src/oblique/sounds/`.
+`footstep-grass-*.wav` under each of those examples' `sounds/` folders.
+
+# Ambience: Thimras
+
+The Yard's wind is from **Park ambiences** by Thimras on
+[OpenGameArt](https://opengameart.org/content/park-ambiences), dedicated to
+the public domain under
+[Creative Commons Zero 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+Sixteen seconds of `park_ambience_wind.wav` were cut into a seamless loop,
+converted from 24-bit, 48 kHz stereo to 16-bit, 22.05 kHz mono and
+normalised, as `examples/src/yard/sounds/wind.wav`.
 
 # Sprites: Wenrexa nature sprites
 
@@ -156,8 +166,6 @@ and otherwise unchanged, under `examples/src/iso/textures/tiles/`.
 | Original | File |
 | --- | --- |
 | `Floors/ISS_Floor_Crypt-64x32.png` | `floor-crypt.png` |
-| `Floors/ISS_Floor_Cobble_Blood-64x32.png` | `floor-cobble.png` |
-| `Floors/ISS_Floor_Dirt-64x32.png` | `floor-dirt.png` |
 | `Walls/Block/ISS_Block_Brick_Gray-64x64.png` | `wall-brick.png` |
 | `Walls/Block/ISS_Block_Catacombs-64x64.png` | `wall-catacombs.png` |
 | `Walls/ISS-Torch_Anim-32x48.png` | `torch.png` |

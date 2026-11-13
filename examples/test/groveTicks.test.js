@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
-import { register, GAME } from '../src/oblique/game.js';
+import { register } from '../src/oblique/game.js';
 
 /**
  * What the grove holds still, held still, headless with the real scene: a
@@ -17,7 +17,7 @@ beforeAll(async () => {
 });
 
 async function grove() {
-  const game = new M2D(null, { headless: true, ...(GAME ?? {}), seed: 3 });
+  const game = new M2D(null, { headless: true, seed: 3 });
   register(game);
   game.sceneManager.addScene('grove', { fetch: async () => GROVE });
   await game.sceneManager.switchTo('grove');

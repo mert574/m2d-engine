@@ -24,44 +24,34 @@
  * - the same keep played online: the rules live in game.js, which
  *   keepMatch.js runs on an m2d-server (server.mjs), and with
  *   `?online=ws://host:port` this page joins it as a client. The keep's
- *   presentation (camera, light, HUD, screens and sound) is hooks.js,
- *   which the editor's play mode builds too; this file is the page around
- *   it: the menu, settings and the connection to a match.
+ *   camera, light, HUD and the stair's news are its scene's (keep.json);
+ *   hooks.js opens the satchel and the shop. This file is the page around
+ *   it: the project boot, the menu and the connection to a match.
  */
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+import { bootProject } from 'm2d-engine/core/project.js';
 import { UIText } from 'm2d-engine/core/ui/text.js';
-import { registerMainMenu } from '../shared/mainMenu.js';
-import { menuBackdrop } from './menuBackdrop.js';
-import { NetClient } from 'm2d-engine/net/client.js';
 import { UIScreen } from 'm2d-engine/core/ui/screen.js';
-import { WORLD, KEEP_INPUT, registerKeep, keepScene } from './game.js';
-import { sceneHooks, OPTIONS } from './hooks.js';
+import { NetClient } from 'm2d-engine/net/client.js';
+import { registerMainMenu } from '../shared/mainMenu.js';
 import { lastTransmission, audioOption } from '../shared/audio.js';
+import { menuBackdrop } from './menuBackdrop.js';
+import { KEEP_INPUT } from './game.js';
+import project from './m2d.project.json';
+import * as definition from './game.js';
+import * as hooks from './hooks.js';
 
-const canvas = document.getElementById('screen');
-await initPhysics();
-
-/** `?online=ws://host:port`: an m2d-server running keepMatch.js (see server.mjs). */
 const ONLINE = new URLSearchParams(location.search).get('online');
 
-const game = new M2D(canvas, {
-  pointerLock: false,
-  initialScene: 'mainMenu',
-  width: 1280,
-  height: 800,
-  worldWidth: WORLD.width,
-  worldHeight: WORLD.height,
-  // The tiles are pixel art drawn at twice their size.
-  ...OPTIONS,
+const game = await bootProject(document.getElementById('screen'), {
+  project,
+  definition,
+  hooks,
+  scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
+  // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'iso/',
-  // The keep's own sounds and its music are loaded by its hooks (hooks.js);
-  // the menu's track is the page's.
-  music: { menu: { src: lastTransmission, volume: 0.7 } }
+  options: { music: { menu: { src: lastTransmission, volume: 0.7 } } },
+  setup
 });
-
-registerKeep(game);
 
 /** A line at the top of whatever is showing, for connection news. */
 function status(text, seconds = 4) {
@@ -96,32 +86,29 @@ async function playOnline() {
   }
 }
 
-/** Back to the menu, alone or online. */
-function leaveKeep() {
-  if (game.net) game.net.close(1000, 'left');
-  else game.sceneManager.switchTo('mainMenu');
+/** Online, leaving the keep leaves the match: Escape, or three seconds after descending. Alone, the scene's rules do it. */
+function leaveMatch() {
+  game.net?.close(1000, 'left');
 }
 
-registerMainMenu(game, {
-  title: 'Cinder Keep',
-  subtitle: 'an isometric view',
-  hint: 'Click to walk · Arrows move · X swings · 1 2 3 abilities · Wheel zooms · O for settings',
-  backdrop: menuBackdrop,
-  items: () => [
-    { text: 'Descend', onSelect: () => game.sceneManager.switchTo('keep') },
-    ...(ONLINE ? [{ text: 'Descend together', onSelect: () => playOnline() }] : []),
-    { text: 'Settings', onSelect: () => game.settings.open() }
-  ],
-  onEnter: () => game.soundManager.playMusic('menu')
-});
-
-game.sceneManager.addScene('keep', {
-  ...keepScene(game, { loadScene: async () => (await import('./scenes/keep.json')).default }),
-  ...sceneHooks(game, { leave: leaveKeep }).keep
-});
-
-new SettingsMenu(game).addOption(audioOption(game));
+function setup(game) {
+  registerMainMenu(game, {
+    title: 'Cinder Keep',
+    subtitle: 'an isometric view',
+    hint: 'Click to walk · Arrows move · X swings · 1 2 3 abilities · Wheel zooms · O for settings',
+    backdrop: menuBackdrop,
+    items: () => [
+      { text: 'Descend', onSelect: () => game.sceneManager.switchTo('keep') },
+      ...(ONLINE ? [{ text: 'Descend together', onSelect: () => playOnline() }] : []),
+      { text: 'Settings', onSelect: () => game.settings.open() }
+    ],
+    onEnter: () => game.soundManager.playMusic('menu')
+  });
+  game.settings.addOption(audioOption(game));
+  game.input.on('keydown', (event) => {
+    if (game.net && game.actions.codes('menu').includes(event.code)) { leaveMatch(); event.consume(); }
+  });
+  game.players.local.on('descended', () => { if (game.net) game.time.after(3, leaveMatch, { unscaled: true }); });
+}
 
 if (new URLSearchParams(location.search).has('debug')) window.cinderKeep = { game };
-
-game.start();

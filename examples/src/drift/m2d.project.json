@@ -1,5 +1,16 @@
 {
   "name": "Salvage Run",
   "definition": "game.js",
-  "hooks": "hooks.js"
+  "initialScene": "mainMenu",
+  "display": {
+    "width": 1280,
+    "height": 800
+  },
+  "input": {
+    "actions": {
+      "menu": [
+        "Escape"
+      ]
+    }
+  }
 }

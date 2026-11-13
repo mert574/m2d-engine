@@ -6,6 +6,7 @@ Each example lives in `examples/src/<name>/` and is an editor project, written t
 - Everything else is scene data the editor and MCP can read and change: placement, the camera, the light and post, sounds, music and ambience, the HUD, menus as UI scenes, and what happens when as `world.rules`.
 - `main.js` is the generic boot, `bootProject`, and nothing else.
 - A hook keeps only what has no data form, and says why. No hook sets the camera, the light, audio or UI, reads keys, draws a background or finds entities with `instanceof`.
+- Painting of the game's own (a valley's ridges, a street's skyline) is a scenery actor placed in the scene, which the editor shows; weather is `world.particles`, a backdrop `world.sky` and `world.scatter`. Simulation hooks go in the definition's `sceneHooks`, so a server and the editor's play run them.
 - No file beside the scenes holds layout (`layout.json`), and no level is generated at run time.
 
 `examples/test/idiom.test.js` checks each example against these rules and runs `audit_project` on it. A departure fails the test unless it is on the test's allow-list, which only shrinks.

@@ -56,12 +56,12 @@ export class Laser extends Projectile {
 }
 
 /** Spawn a laser from `owner` along `angle`, with its own sprite and targets. */
-export function fireLaser(owner, angle, { sheetName, tint, targetNames, damage, speed = 900, offset = 40 }) {
+export function fireLaser(owner, angle, { sprite = null, tint, targetNames, damage, speed = 900, offset = 40 }) {
   const game = owner.game;
   const x = owner.position.x + Math.cos(angle) * offset;
   const y = owner.position.y + Math.sin(angle) * offset;
   const body = game.physics.createBox({ x, y, width: 8, height: 30, angle: angle + SPRITE_UP, friction: 0, frictionAir: 0, restitution: 0, isSensor: true });
-  const laser = new Laser(body, sheet(game, sheetName), game, {
+  const laser = new Laser(body, sprite, game, {
     direction: { x: Math.cos(angle), y: Math.sin(angle) }, owner, targetNames, tint, damage, speed,
     collisionMask: CollisionCategories.default | CollisionCategories.player | CollisionCategories.enemy | CollisionCategories.platform
   });
@@ -91,7 +91,14 @@ export class Ship extends Entity {
     gunSpread: s.number({ initial: 14, min: 0, unit: 'px', label: 'Gun spread', description: 'How far each gun sits from the nose' }),
     ramFree: s.number({ initial: 120, min: 0, unit: 'px/s', label: 'Free ram speed', description: 'A meteor met slower than this costs nothing' }),
     ramDamage: s.number({ initial: 0.12, min: 0, label: 'Ram damage', description: 'Hull lost per px/s above the free speed' }),
-    ramMax: s.number({ initial: 40, min: 0, label: 'Ram cap' })
+    ramMax: s.number({ initial: 40, min: 0, label: 'Ram cap' }),
+    laser: s.ref('spritesheet', { description: 'The bolt it fires' }),
+    flame: s.ref('spritesheet', { description: 'The engine flame' }),
+    flameBoost: s.ref('spritesheet', { description: 'The flame while boosting' }),
+    shield: s.ref('spritesheet', { description: 'The shield that flashes on a hit' }),
+    damage1: s.ref('spritesheet', { label: 'Damage 1', description: 'The hull at two thirds' }),
+    damage2: s.ref('spritesheet', { label: 'Damage 2', description: 'The hull at a third' }),
+    damage3: s.ref('spritesheet', { label: 'Damage 3', description: 'The hull nearly gone' })
   };
 
   get lit() { return this.game.renderer.supports('lights'); }
@@ -114,10 +121,12 @@ export class Ship extends Entity {
     this.ramFree = options.ramFree ?? 120;
     this.ramDamage = options.ramDamage ?? 0.12;
     this.ramMax = options.ramMax ?? 40;
-    this.damageSheets = [1, 2, 3].map(n => sheet(game, `playerDamage${n}`));
-    this.flame = sheet(game, 'flame');
-    this.flameBoost = sheet(game, 'flameBoost');
-    this.shieldSprite = sheet(game, 'shield');
+    // The art the scene names (null headless, where nothing draws).
+    this.laserSheet = options.laser ?? null;
+    this.damageSheets = [options.damage1, options.damage2, options.damage3].map((each) => each ?? null);
+    this.flame = options.flame ?? null;
+    this.flameBoost = options.flameBoost ?? null;
+    this.shieldSprite = options.shield ?? null;
 
     this.addConstraint('health', new Health(this, {
       maxHealth: HULL, invulnerableDuration: 0.6,
@@ -144,7 +153,7 @@ export class Ship extends Entity {
     for (const side of [-1, 1]) {
       const px = Math.cos(angle + SPRITE_UP) * this.gunSpread * side;
       const py = Math.sin(angle + SPRITE_UP) * this.gunSpread * side;
-      const laser = fireLaser(this, angle, { sheetName: 'laserBlue', tint: '#7fd4ff', targetNames: ['Meteor', 'Drone'], damage: this.laserDamage, speed: this.laserSpeed });
+      const laser = fireLaser(this, angle, { sprite: this.laserSheet, tint: '#7fd4ff', targetNames: ['Meteor', 'Drone'], damage: this.laserDamage, speed: this.laserSpeed });
       laser.body.setPosition({ x: laser.position.x + px, y: laser.position.y + py });
     }
     this.game.soundManager.playSound('laser');
@@ -268,6 +277,8 @@ export class Meteor extends Entity {
           physics: { bodyType: 'dynamic', shape: 'circle', friction: 0.2, frictionAir: 0, restitution: 0.7 }
         });
         chunk.onShatter = this.onShatter;
+        // A shard is the same kind of rock: the minimap plots it as its parent's prefab.
+        chunk.prefab = this.prefab;
         game.entities.add(chunk);
         game.physics.add(chunk.body);
       }
@@ -302,7 +313,8 @@ export class Drone extends Entity {
     fireRange: s.number({ initial: 700, positive: true, unit: 'px', label: 'Fire range' }),
     fireInterval: s.number({ initial: 1.4, positive: true, unit: 's', label: 'Fire interval', description: 'Plus up to 0.6 s at random, so a pack does not fire in unison' }),
     laserDamage: s.number({ initial: 9, min: 0, label: 'Laser damage' }),
-    laserSpeed: s.number({ initial: 620, positive: true, unit: 'px/s', label: 'Laser speed' })
+    laserSpeed: s.number({ initial: 620, positive: true, unit: 'px/s', label: 'Laser speed' }),
+    laser: s.ref('spritesheet', { description: 'The bolt it fires' })
   };
 
   constructor(body, sprite, game, options = {}) {
@@ -315,6 +327,7 @@ export class Drone extends Entity {
     this.fireInterval = options.fireInterval ?? 1.4;
     this.laserDamage = options.laserDamage ?? 9;
     this.laserSpeed = options.laserSpeed ?? 620;
+    this.laserSheet = options.laser ?? null;
     this.fireWait = 1 + game.rng.next();
     this.hurt = 0;
     this.addConstraint('chase', new Chase(this, { speed: 170, idleSpeed: 60, detectionRange: 1100, wanderRadius: 220, wanderInterval: 2.5 }));
@@ -341,7 +354,7 @@ export class Drone extends Entity {
     this.fireWait -= dt;
     if (dist < this.fireRange && this.fireWait <= 0) {
       this.fireWait = this.fireInterval + this.game.rng.next() * 0.6;
-      fireLaser(this, this.facing, { sheetName: 'laserRed', tint: '#ff8a6a', targetNames: ['Player'], damage: this.laserDamage, speed: this.laserSpeed, offset: 50 });
+      fireLaser(this, this.facing, { sprite: this.laserSheet, tint: '#ff8a6a', targetNames: ['Player'], damage: this.laserDamage, speed: this.laserSpeed, offset: 50 });
       this.game.soundManager.playSound('droneLaser');
     }
   }

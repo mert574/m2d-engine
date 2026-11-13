@@ -435,6 +435,14 @@ export class M2D {
      * core/input/actions.js.
      * @type {InputActions}
      */
+    /**
+     * The game's own HUD widgets, by name: what a level's `hud` places
+     * with `{ "type": "component", "component": name }`. See
+     * `registerHudComponent`.
+     * @type {Map<string, (scene: object, element: object) => object>}
+     */
+    this.hudComponents = new Map();
+
     this.actions = new InputActions(this.options.actions ?? {}, {
       // A player's rebinding is theirs, per game; an edited or headless game keeps none.
       storageKey: this.editMode || this.headless ? null : `m2d.actions:${this.options.saveId ?? defaultSaveId()}`
@@ -1018,6 +1026,19 @@ export class M2D {
     this.physics.destroy();
     this.sceneManager?.getCurrentScene()?.unload?.();
     this.renderer.destroy();
+  }
+
+  /**
+   * Register a HUD widget of the game's own, which a level's `hud` places
+   * by name: `{ "type": "component", "component": "satchel", "x": ..., "properties": {...} }`.
+   * `make(scene, element)` returns the UI element, positioned from the
+   * element's `x`, `y` and `anchor` (passed in `element`). Presentation:
+   * a headless game never calls it.
+   * @param {string} name
+   * @param {(scene: import('./scene.js').Scene, element: object) => import('./ui/uiElement.js').UIElement} make
+   */
+  registerHudComponent(name, make) {
+    this.hudComponents.set(name, make);
   }
 
   registerActor(type, ActorClass) {

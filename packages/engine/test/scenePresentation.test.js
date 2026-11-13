@@ -6,7 +6,7 @@ import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
 import { scroll, keyDown } from './helpers/input.js';
 import { SCENE_VERSION, SceneLoader } from '../src/core/sceneLoader.js';
-import { PROJECT_SCHEMA, projectIssues, projectOptions, bootProject, sceneNameOf } from '../src/core/project.js';
+import { PROJECT_SCHEMA, projectIssues, projectOptions, bootProject, sceneNameOf, combineSceneHooks } from '../src/core/project.js';
 
 /**
  * What a scene says about how it looks, sounds and moves, applied by the
@@ -312,5 +312,63 @@ describe('a project file', () => {
   it('refuses to boot a project its schema rejects', async () => {
     await expect(bootProject(null, { project: { name: '' }, definition: { register() {} }, options: { headless: true } }))
       .rejects.toThrow(/M2D project: name/);
+  });
+});
+
+describe('a level\'s own HUD widgets and its lighting fallback', () => {
+  it('places a HUD component the game registers, with the element\'s position and properties', async () => {
+    const made = [];
+    const renderer = new RecordingRenderer();
+    const game = new M2D(displayCanvas(320, 180), { width: 320, height: 180, renderer, devConsole: false, performanceStats: false });
+    game.registerActor('Dot', Dot);
+    const { UIText } = await import('../src/core/ui/text.js');
+    game.registerHudComponent('purse', (scene, element) => { made.push(element); return new UIText({ ...element, text: `${element.properties.label} 3` }); });
+    game.sceneManager.addScene('look', { fetch: async () => level({}, { hud: [{ type: 'component', id: 'purse', component: 'purse', x: 20, y: -40, anchor: 'bottom-left', properties: { label: 'EMBERS' } }] }) });
+    await game.sceneManager.switchTo('look');
+    const purse = game.sceneManager.getCurrentScene().hud.elements.get('purse');
+    expect(purse.text).toBe('EMBERS 3');
+    expect(made[0]).toMatchObject({ x: 20, y: -40, anchor: 'bottom-left' });
+    game.destroy();
+  });
+
+  it('lays the fallback wash over the view only where the renderer has no lights', async () => {
+    const { game, renderer, scene } = await show(level({ lighting: { ambient: '#334', fallback: 'rgba(0, 0, 40, 0.3)' } }));
+    const washes = () => renderer.optionsFor('drawRect').filter((rect) => rect.fillStyle === 'rgba(0, 0, 40, 0.3)');
+    vi.spyOn(renderer, 'supports').mockImplementation((what) => what !== 'lights');
+    renderer.reset();
+    scene.draw(0.016);
+    expect(washes()).toHaveLength(1);
+    renderer.supports.mockImplementation(() => true);
+    renderer.reset();
+    scene.draw(0.016);
+    expect(washes()).toHaveLength(0);
+    game.destroy();
+  });
+});
+
+describe('scene hooks from both modules', () => {
+  it('run the definition\'s simulation hooks first, then the hooks module\'s', () => {
+    const order = [];
+    const combined = combineSceneHooks(
+      { level: { onEnter: () => order.push('simulation'), onFixedUpdate: () => order.push('tick') } },
+      { level: { onEnter: () => order.push('presentation'), onShow: () => order.push('show') }, menu: { onShow() {} } }
+    );
+    combined.level.onEnter();
+    combined.level.onFixedUpdate();
+    combined.level.onShow();
+    expect(order).toEqual(['simulation', 'presentation', 'tick', 'show']);
+    expect(Object.keys(combined).sort()).toEqual(['level', 'menu']);
+  });
+
+  it('boot with a definition that has simulation hooks of its own', async () => {
+    const onEnter = vi.fn();
+    const game = await bootProject(null, {
+      project: { name: 'Boot', initialScene: 'level' },
+      definition: { register: (g) => g.registerActor('Dot', Dot), sceneHooks: () => ({ level: { onEnter } }) },
+      scenes: { './scenes/level.json': level({}, { name: 'level' }) },
+      options: { headless: true }
+    });
+    expect(onEnter).toHaveBeenCalledOnce();
+    game.destroy();
   });
 });

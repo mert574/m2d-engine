@@ -20,56 +20,35 @@
  * - an `Attack` swung at the heading, so it reaches above and below;
  * - per-clip volumes in the `sounds` and `music` options, and camera zoom.
  */
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+import { bootProject } from 'm2d-engine/core/project.js';
 import { registerMainMenu } from '../shared/mainMenu.js';
-import { menuBackdrop } from './menuBackdrop.js';
-import { WORLD, register } from './game.js';
-import { sceneHooks } from './hooks.js';
 import { enchantedFestival, audioOption } from '../shared/audio.js';
+import { menuBackdrop } from './menuBackdrop.js';
+import project from './m2d.project.json';
+import * as definition from './game.js';
+import * as hooks from './hooks.js';
 
-const canvas = document.getElementById('screen');
-await initPhysics();
-
-const game = new M2D(canvas, {
-  pointerLock: false,
-  initialScene: 'mainMenu',
-  width: 1280,
-  height: 800,
-  worldWidth: WORLD.width,
-  worldHeight: WORLD.height,
+const game = await bootProject(document.getElementById('screen'), {
+  project,
+  definition,
+  hooks,
+  scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
+  // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'oblique/',
-  // The grove's sounds and its music are the scene's (assets.sounds,
-  // assets.music in grove.json); the menu's track stays with its code screen.
-  // The tracks are mastered hot for a game that plays under speech, so
-  // they come in at half the engine's music volume.
-  music: { menu: { src: enchantedFestival, volume: 0.5 } }
+  options: { music: { menu: { src: enchantedFestival, volume: 0.5 } } },
+  setup(game) {
+    registerMainMenu(game, {
+      title: 'Hollow Grove',
+      subtitle: 'a three-quarter view · a small quest',
+      hint: 'Arrows move · Space hops · X swings · 1 2 3 abilities · E talks · Wheel zooms',
+      backdrop: menuBackdrop,
+      items: () => [
+        { text: 'Enter the grove', onSelect: () => game.sceneManager.switchTo('grove') },
+        { text: 'Settings', onSelect: () => game.settings.open() }
+      ],
+      onEnter: () => game.soundManager.playMusic('menu')
+    });
+    game.settings.addOption(audioOption(game));
+  }
 });
-
-// The scene JSON names the stock actors; the grove's cast answers.
-register(game);
-
-registerMainMenu(game, {
-  title: 'Hollow Grove',
-  subtitle: 'a three-quarter view · a small quest',
-  hint: 'Arrows move · Space hops · X swings · 1 2 3 abilities · E talks · Wheel zooms',
-  backdrop: menuBackdrop,
-  items: () => [
-    { text: 'Enter the grove', onSelect: () => game.sceneManager.switchTo('grove') },
-    { text: 'Settings', onSelect: () => game.settings.open() }
-  ],
-  onEnter: () => game.soundManager.playMusic('menu')
-});
-
-game.sceneManager.addScene('grove', {
-  fetch: async () => (await import('./scenes/grove.json')).default,
-  ...sceneHooks(game).grove
-});
-
-new SettingsMenu(game).addOption(audioOption(game));
-
-// `?debug` exposes the engine for poking at from the console or a harness.
 if (new URLSearchParams(location.search).has('debug')) window.hollowGrove = { game };
-
-game.start();
