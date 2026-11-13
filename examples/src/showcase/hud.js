@@ -75,6 +75,7 @@ export class Hud extends UIElement {
       `shapes      ${stats.shapesDrawn.toLocaleString()}`,
       '',
       `load        ${this.showcase.loadLabel()}   ([ or ] to change)`,
+      `programme   ${this.showcase.beats.beat.name} · ${this.showcase.beats.hour}`,
       '',
       'display',
       `world res   ${this.resolutionLabel()}`,
@@ -112,8 +113,10 @@ export class Hud extends UIElement {
       });
     });
 
-    this.drawCapabilities(renderer, padding, padding + height + 10);
-    this.drawLayers(renderer, padding, padding + height + 10 + 108);
+    // Each panel says how tall it was, so adding a capability or a layer
+    // moves the one below rather than drawing on top of it.
+    const capabilities = this.drawCapabilities(renderer, padding, padding + height + 10);
+    this.drawLayers(renderer, padding, padding + height + 20 + capabilities);
   }
 
   /**
@@ -123,6 +126,7 @@ export class Hud extends UIElement {
    */
   drawCapabilities(renderer, x, y) {
     const names = Object.keys(OPTIONAL_CAPABILITIES);
+    // Returns its height; see draw().
     const lineHeight = 16;
     const height = 20 + names.length * lineHeight + 8;
 
@@ -161,6 +165,8 @@ export class Hud extends UIElement {
         textBaseline: 'top'
       });
     });
+
+    return height;
   }
 
   /**
@@ -183,7 +189,7 @@ export class Hud extends UIElement {
     });
 
     renderer.drawText({
-      text: 'layers   (1-7 to toggle, P pauses camera)',
+      text: 'layers   (1-9 to toggle, P pauses camera)',
       x: x + 12,
       y: y + 8,
       fillStyle: 'rgba(160, 220, 255, 0.8)',
@@ -205,5 +211,7 @@ export class Hud extends UIElement {
         textBaseline: 'top'
       });
     });
+
+    return height;
   }
 }

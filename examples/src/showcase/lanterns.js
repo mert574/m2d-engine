@@ -146,6 +146,18 @@ export class Lanterns {
       });
     }
 
+    // The posts are in the beam's way: flat scenery that blocks a shadowed
+    // light, so the sweep throws their shadows across the bank.
+    for (const lantern of this.lanterns) {
+      renderer.drawShadowCaster({
+        x: lantern.x,
+        y: lantern.y + lantern.postHeight / 2,
+        width: 7,
+        height: lantern.postHeight,
+        z: 1
+      });
+    }
+
     // The lighthouse lamp itself, brightening as the beam swings toward us.
     const lamp = this.lighthouse;
     // Wide and gentle rather than bright and tight: a strong light centred on
@@ -157,6 +169,21 @@ export class Lanterns {
       radius: 680,
       color: '#fff0c0',
       intensity: 0.5 + flare * 0.55
+    });
+
+    // And the beam as a spot: a cone along the sweep, shadowed, so the
+    // posts it passes behind go dark and their shadows swing with it. It
+    // hangs above the posts, which is what lets it clear the far ones.
+    renderer.drawLight({
+      x: lamp.x,
+      y: lamp.lampY,
+      radius: lamp.reach,
+      color: '#ffe9b0',
+      intensity: 0.5 + flare * 0.5,
+      angle: Math.cos(lamp.angle) > 0 ? 0 : Math.PI,
+      cone: 0.55,
+      shadows: true,
+      z: 0.8
     });
   }
 }

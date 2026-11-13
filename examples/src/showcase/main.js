@@ -7,6 +7,7 @@ import reedSprite from './assets/reed.png';
 import lanternSprite from './assets/lantern.png';
 import lighthouseSprite from './assets/lighthouse.png';
 import rainSprite from './assets/rain.png';
+import gullSprite from './assets/gull.png';
 import { registerMainMenu } from '../shared/mainMenu.js';
 import { menuBackdrop } from './menuBackdrop.js';
 import { lastTransmission, g2Remix, audioOption } from '../shared/audio.js';
@@ -36,7 +37,7 @@ let showcase = null;
 registerMainMenu(game, {
   title: 'Showcase',
   subtitle: 'renderer comparison',
-  hint: '[ and ] change load · 1-7 toggle layers · P pauses the camera · H hides the HUD',
+  hint: '[ and ] change load · 1-9 toggle layers · P pauses the camera · H hides the HUD',
   backdrop: menuBackdrop,
   items: () => [
     { text: 'Start', onSelect: () => game.sceneManager.switchTo('showcase') },
@@ -50,14 +51,28 @@ game.sceneManager.addScene('showcase', {
     version: 4,
     name: 'showcase',
     type: 'level',
-    world: { width: WORLD.width, height: WORLD.height, gravity: { x: 0, y: 0 } },
+    world: {
+      width: WORLD.width, height: WORLD.height, gravity: { x: 0, y: 0 },
+      // The engine's own backdrop and weather, under and over the stress
+      // layers: seeded, stateless and the same on every backend.
+      sky: { top: '#0b1026', middle: '#243a63', bottom: '#5c6f8a', horizon: 0.58 },
+      scatter: [
+        { kind: 'stars', count: 220, seed: 7, color: '#dce8ff', size: 2.2, opacity: 0.9, parallax: 0.05, twinkle: 0.6, band: { top: 0, bottom: 0.55 } },
+        { kind: 'clouds', count: 14, seed: 3, color: '#8fa6c8', size: 240, opacity: 0.18, parallax: 0.25, speed: 6, band: { top: 0.05, bottom: 0.5 } }
+      ],
+      particles: [
+        { kind: 'fireflies', count: 90, radius: 2.4, color: '#ffd27a', opacity: 0.9, emissive: 1, speed: 12, follow: true, front: false, seed: 11 },
+        { kind: 'sparks', count: 70, radius: 1.8, color: '#ffb46a', opacity: 0.8, emissive: 1, speed: 46, follow: true, front: true, seed: 5 }
+      ]
+    },
     assets: {
       spritesheets: {
         mote: { url: moteSprite, frameWidth: 32, frameHeight: 32 },
         reed: { url: reedSprite, frameWidth: 32, frameHeight: 64 },
         lantern: { url: lanternSprite, frameWidth: 32, frameHeight: 32 },
         lighthouse: { url: lighthouseSprite, frameWidth: 64, frameHeight: 160 },
-        rain: { url: rainSprite, frameWidth: 8, frameHeight: 32 }
+        rain: { url: rainSprite, frameWidth: 8, frameHeight: 32 },
+        gull: { url: gullSprite, frameWidth: 48, frameHeight: 32 }
       }
     },
     prefabs: {},
@@ -92,7 +107,7 @@ const SHORTCUTS = {
   KeyP: () => showcase.toggleCamera(),
   KeyH: () => showcase.toggleHud()
 };
-for (let i = 1; i <= 7; i++) SHORTCUTS[`Digit${i}`] = () => showcase.toggleLayer(i);
+for (let i = 1; i <= 9; i++) SHORTCUTS[`Digit${i}`] = () => showcase.toggleLayer(i);
 
 game.input.on('keydown', (event) => {
   if (showcase) SHORTCUTS[event.code]?.();

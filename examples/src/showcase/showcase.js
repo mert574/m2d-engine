@@ -7,6 +7,8 @@ import { RainEmitter } from './rainEmitter.js';
 import { Lanterns } from './lanterns.js';
 import { Backdrop } from './backdrop.js';
 import { Hud } from './hud.js';
+import { Beats } from './beats.js';
+import { Gulls } from './gulls.js';
 
 /**
  * Showcase director.
@@ -26,7 +28,8 @@ const BASE_COUNTS = {
   motes: 2400,
   reeds: 2200,
   labels: 150,
-  rain: 6000
+  rain: 6000,
+  gulls: 60
 };
 
 const LOAD_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16];
@@ -101,6 +104,14 @@ export class Showcase {
 
     this.labels = new LabelStorm({ renderer, bounds });
 
+    this.gulls = new Gulls({
+      renderer,
+      sheet: spriteSheets.get('gull'),
+      bounds,
+      horizonY,
+      features: this.features
+    });
+
     this.rain = new RainEmitter({
       renderer,
       sheet: spriteSheets.get('rain'),
@@ -151,6 +162,9 @@ export class Showcase {
       shoreY
     });
 
+    /** The programme of frame-wide effects over the stress layers. */
+    this.beats = new Beats(game);
+
     this.hud = new Hud(game, this);
     this.waterline = waterline;
     this.horizonY = horizonY;
@@ -160,10 +174,12 @@ export class Showcase {
       { name: 'drift', enabled: true, target: this.field },
       { name: 'reeds', enabled: true, target: this.reeds },
       { name: 'labels', enabled: true, target: this.labels },
+      { name: 'flock', enabled: true, target: this.gulls },
       { name: 'chart', enabled: true, target: this.minimap },
       { name: 'rain', enabled: true, target: this.rain },
       { name: 'lights', enabled: true, target: this.lanterns },
-      { name: 'bloom', enabled: true, target: { count: '' } }
+      { name: 'post', enabled: true, target: { count: '' } },
+      { name: 'beats', enabled: true, target: { count: '' } }
     ];
 
     this.applyLoad();
@@ -182,6 +198,16 @@ export class Showcase {
 
     ui.add(this.minimap);
     ui.add(this.hud);
+  }
+
+  /**
+   * Whether a layer is on, by name. The layers are numbered on the HUD but
+   * never addressed by number here: inserting one would silently renumber
+   * every check.
+   * @param {string} name
+   */
+  showing(name) {
+    return this.layers.find((layer) => layer.name === name)?.enabled ?? false;
   }
 
   /** @returns {number} Current load multiplier */
@@ -211,6 +237,7 @@ export class Showcase {
     this.reeds.setCount(BASE_COUNTS.reeds * load);
     this.labels.setCount(BASE_COUNTS.labels * load);
     this.rain.setCount(BASE_COUNTS.rain * load);
+    this.gulls.setCount(BASE_COUNTS.gulls * load);
   }
 
   /**
@@ -238,16 +265,9 @@ export class Showcase {
    */
   applyEffects() {
     const renderer = this.game.renderer;
-    const lit = this.layers[5].enabled;
-    const bloom = this.layers[6].enabled;
-
-    renderer.setAmbientLight(lit ? '#404a66' : null);
-    renderer.setPostEffects(bloom
-      ? {
-        bloom: { threshold: 0.72, strength: 0.62, blur: 34 },
-        vignette: { strength: 0.42, start: 0.45 }
-      }
-      : null);
+    const look = this.beats.look();
+    renderer.setAmbientLight(this.showing('lights') ? look.lighting?.ambient ?? null : null);
+    renderer.setPostEffects(this.showing('post') ? look.post ?? null : null);
   }
 
   /** @returns {Array<{name: string, enabled: boolean, count: string|number}>} HUD rows */
@@ -261,8 +281,20 @@ export class Showcase {
     });
   }
 
+  /**
+   * Show or hide the readout. Coming back it slides in from the left and
+   * fades up through the engine's motion manager, which is the same path
+   * a menu's entrance takes — and the one thing on screen that is not the
+   * stress test, so it never touches the counters.
+   */
   toggleHud() {
     this.hud.visible = !this.hud.visible;
+    if (!this.hud.visible) return;
+    const motion = this.game.motion;
+    motion?.from(this.hud, { offsetX: this.hud.offsetX - 28, opacity: 0 }, {
+      duration: '$motion.duration.normal',
+      easing: '$motion.easing.decelerate'
+    });
   }
 
   toggleCamera() {
@@ -275,6 +307,13 @@ export class Showcase {
   update(deltaTime) {
     this.time += deltaTime;
 
+    // The programme runs on the wall clock, so its own slow-motion beat
+    // cannot slow it down and both backends are at the same beat.
+    this.beats.enabled = this.showing('beats');
+    this.beats.update(this.game.time?.unscaledDelta ?? deltaTime);
+    // The light and the post stack turn with the hour, every frame.
+    this.applyEffects();
+
     if (!this.cameraPaused) {
       this.panCamera();
     }
@@ -285,6 +324,7 @@ export class Showcase {
     this.reeds.update(deltaTime);
     this.labels.update(deltaTime);
     this.rain.update(deltaTime);
+    this.gulls.update(deltaTime);
     this.lanterns.update(deltaTime);
     this.lighthouse.update(deltaTime);
     this.backdrop.update(deltaTime);
@@ -300,8 +340,11 @@ export class Showcase {
     const spanX = Math.max(0, this.bounds.width - camera.width) / 2;
     const spanY = Math.max(0, this.bounds.height - camera.height) / 2;
 
-    camera.x = marginX + spanX + Math.sin(this.time * 0.51) * spanX;
-    camera.y = marginY + spanY + Math.sin(this.time * 0.33) * spanY;
+    camera.x = marginX + spanX + Math.sin(this.time * 0.51) * spanX + this.beats.offset.x;
+    camera.y = marginY + spanY + Math.sin(this.time * 0.33) * spanY + this.beats.offset.y;
+    // Zoom and roll are the programme's; the pan is the harness's.
+    camera.zoom = this.beats.zoom;
+    camera.rotation = this.beats.rotation;
   }
 
   /**
@@ -314,19 +357,20 @@ export class Showcase {
     // away it is behind the building, coming toward the viewer it is in front.
     const behind = this.lighthouse.beamBehindTower();
     if (behind) this.lighthouse.drawBeam();
-    if (this.layers[1].enabled) this.reeds.draw();
+    if (this.showing('reeds')) this.reeds.draw();
     this.backdrop.drawBank();
     this.lanterns.drawSprites();
     this.lighthouse.drawTower();
     if (!behind) this.lighthouse.drawBeam();
     this.lighthouse.drawHalo();
-    if (this.layers[0].enabled) this.field.draw();
-    if (this.layers[4].enabled) this.rain.draw();
-    if (this.layers[2].enabled) this.labels.draw();
+    if (this.showing('flock')) this.gulls.draw();
+    if (this.showing('drift')) this.field.draw();
+    if (this.showing('rain')) this.rain.draw();
+    if (this.showing('labels')) this.labels.draw();
 
     // Lights are not painted into the scene; they accumulate into a light map
     // the backend multiplies over the finished world pass.
-    if (this.layers[5].enabled) {
+    if (this.showing('lights')) {
       this.backdrop.drawLights();
       this.lanterns.drawLights();
     }

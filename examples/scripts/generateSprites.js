@@ -57,6 +57,45 @@ const generateShowcaseSprites = () => {
     ensureDirectoryExists(motePath);
     writeSprite(motePath, moteCanvas.toBuffer('image/png'));
 
+    // Gull sheet: six 48x32 frames of one wingbeat, down through up and
+    // back. Drawn as two tapered wings and a body, in the harbour's own
+    // cool white, so a flock reads as silhouettes at any size.
+    const gullFrames = 6;
+    const gullCanvas = createCanvas(48 * gullFrames, 32);
+    const gullCtx = gullCanvas.getContext('2d');
+    for (let frame = 0; frame < gullFrames; frame++) {
+        // -1 at the bottom of the beat, +1 at the top.
+        const beat = Math.cos((frame / gullFrames) * Math.PI * 2);
+        const originX = frame * 48 + 24;
+        const originY = 18;
+        const lift = beat * 9;
+        const sweep = 6 - Math.abs(beat) * 3;
+
+        gullCtx.strokeStyle = '#E8F1FF';
+        gullCtx.lineWidth = 3;
+        gullCtx.lineCap = 'round';
+        gullCtx.lineJoin = 'round';
+        for (const side of [-1, 1]) {
+            gullCtx.beginPath();
+            gullCtx.moveTo(originX, originY);
+            gullCtx.quadraticCurveTo(originX + side * 10, originY - lift * 0.8, originX + side * 19, originY - lift - sweep);
+            gullCtx.stroke();
+        }
+        gullCtx.fillStyle = '#F4F8FF';
+        gullCtx.beginPath();
+        gullCtx.ellipse(originX, originY + 1, 6, 3.2, 0, 0, Math.PI * 2);
+        gullCtx.fill();
+        // The head, and a dot of bill so the bird has a direction.
+        gullCtx.beginPath();
+        gullCtx.arc(originX + 6, originY - 1, 2.4, 0, Math.PI * 2);
+        gullCtx.fill();
+        gullCtx.fillStyle = '#FFC46B';
+        gullCtx.fillRect(originX + 8, originY - 1.6, 3, 1.6);
+    }
+    const gullPath = getOutputPath('showcase', 'gull.png');
+    ensureDirectoryExists(gullPath);
+    writeSprite(gullPath, gullCanvas.toBuffer('image/png'));
+
     // Reed sheet: eight 32x64 stalks — six grasses and two flowering heads.
     // Enough variety that a dense bank does not read as one repeated sprite.
     const reedStalks = [
