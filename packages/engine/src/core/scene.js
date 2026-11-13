@@ -77,6 +77,8 @@ export class Scene {
      * @type {Map<string, import('./entity.js').Entity>}
      */
     this.entitiesById = new Map();
+    /** How many of each prefab `spawnPrefab` has named, for the next id. @type {Map<string, number>} */
+    this.spawned = new Map();
     // A headless game has no UI; a scene hook that reaches for it fails by name.
     this.ui = game.headless ? presentationGuard('scene.ui') : new Container(game);
   }
@@ -837,7 +839,8 @@ export class Scene {
    * dropped by a spout is the same ball, grab and all, as the ones the
    * level opened with.
    *
-   * The new object gets a scene id of its own (`ball-7`), so rules and
+   * The new object gets a scene id of its own (`ball-7`: the prefab and
+   * the next ordinal past any the file placed), so rules and
    * the HUD can find it and a tally counts it, and nothing is written
    * back to the scene file: it is a spawn, not an edit.
    *
@@ -861,10 +864,11 @@ export class Scene {
     });
   }
 
-  /** A scene id no object of this prefab has taken yet. */
+  /** The next id for a spawned object of this prefab, past any the scene file placed. */
   #spawnId(prefab) {
-    let n = this.entitiesById.size + 1;
+    let n = (this.spawned.get(prefab) ?? 0) + 1;
     while (this.entitiesById.has(`${prefab}-${n}`)) n++;
+    this.spawned.set(prefab, n);
     return `${prefab}-${n}`;
   }
 
@@ -1286,6 +1290,7 @@ export class Scene {
     // every body of every scene ever loaded alive. onExit runs first so it
     // can still look one up.
     this.entitiesById.clear();
+    this.spawned.clear();
     // A load still in the air must not land in a scene that has gone, and
     // every model this scene brought in gives its GPU memory back — which
     // is what used to leak a level's worth on each scene change.

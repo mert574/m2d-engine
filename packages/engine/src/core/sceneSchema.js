@@ -122,27 +122,31 @@ const vector = (label) => s.object({
  * the engine never looks inside — so adding a schema is per actor and
  * nothing breaks without one.
  */
-const actorProperties = s.dynamic((value, ctx) => {
-  const prefab = ctx.context?.prefabs?.[ctx.parent?.prefab];
-  const ActorClass = prefab?.actor ? ctx.context?.actors?.get(prefab.actor) : null;
+/**
+ * A `properties` block checked against the actor it is for: the schema an
+ * actor's `static properties` declares, or nothing to check against when
+ * it declares none. `actorOf` finds the actor's name from where the block
+ * sits — on a placed object, through its prefab; on a prefab, its own.
+ */
+const propertiesOf = (actorOf, description) => s.dynamic((value, ctx) => {
+  const ActorClass = ctx.context?.actors?.get(actorOf(ctx)) ?? null;
   return actorPropertyFields(ActorClass) ? actorPropertiesSchema(ActorClass) : null;
-}, {
-  label: 'Properties',
-  description: "Passed to the actor's constructor"
-});
+}, { label: 'Properties', description });
+
+const actorProperties = propertiesOf(
+  (ctx) => ctx.context?.prefabs?.[ctx.parent?.prefab]?.actor,
+  "Passed to the actor's constructor"
+);
 
 /**
  * A prefab's own `properties`: what every object of it starts with, which
  * a placed object's own override one by one. A prefab placed a hundred
  * times says which art and which numbers it is made of once.
  */
-const prefabProperties = s.dynamic((value, ctx) => {
-  const ActorClass = ctx.parent?.actor ? ctx.context?.actors?.get(ctx.parent.actor) : null;
-  return actorPropertyFields(ActorClass) ? actorPropertiesSchema(ActorClass) : null;
-}, {
-  label: 'Properties',
-  description: "Defaults for every object of this prefab; a placed object's own win"
-});
+const prefabProperties = propertiesOf(
+  (ctx) => ctx.parent?.actor,
+  "Defaults for every object of this prefab; a placed object's own win"
+);
 
 /**
  * A property an editor should draw with a particular widget but whose value
@@ -1411,10 +1415,18 @@ export const LEVEL_SCHEMA = s.object({
         }
       });
     });
-    const prefabCounters = Object.entries(level.world?.counters ?? {});
-    for (const [name, counter] of prefabCounters) {
+    (level.world?.gravityBind ?? []).forEach((binding, i) => {
+      if (typeof binding?.counter === 'string' && !counters.has(binding.counter)) {
+        fail(`world.gravityBind[${i}].counter`, counterMissing(binding.counter));
+      }
+    });
+    for (const [name, counter] of Object.entries(level.world?.counters ?? {})) {
       if (counter?.count !== undefined && counter.prefab === undefined) {
         fail(`world.counters.${name}.count`, 'count tallies a prefab\'s objects; name the prefab');
+      }
+      // A tally is read off the world, never set, so nothing could hold it.
+      if (counter?.prefab !== undefined && (counter.min !== undefined || counter.max !== undefined)) {
+        fail(`world.counters.${name}`, 'min and max hold a plain counter; a tally is what the world says');
       }
     }
 

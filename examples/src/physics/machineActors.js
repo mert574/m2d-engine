@@ -330,8 +330,10 @@ export class Spout extends Entity {
   static properties = {
     dropAction: s.string({ initial: 'drop', description: 'The named action that drops one into the funnel' }),
     spawnSound: s.string({ editor: 'sound', initial: 'spawn', description: 'Played when one drops: a key in assets.sounds' }),
-    ballSize: s.number({ positive: true, initial: 32, unit: 'px' }),
-    boxSize: s.number({ positive: true, initial: 64, unit: 'px' }),
+    stock: s.array(s.object({
+      prefab: s.ref('prefab', { required: true }),
+      size: s.number({ positive: true, required: true, unit: 'px' })
+    }), { description: 'What may drop, one picked at random each time: a prefab of the scene and the size to drop it at' }),
     inlet: s.object({
       left: s.number({ initial: 120, unit: 'px' }),
       right: s.number({ initial: 840, unit: 'px' }),
@@ -350,8 +352,7 @@ export class Spout extends Entity {
 
     this.dropAction = options.dropAction ?? 'drop';
     this.spawnSound = options.spawnSound ?? 'spawn';
-    this.ballSize = options.ballSize ?? 32;
-    this.boxSize = options.boxSize ?? 64;
+    this.stock = options.stock ?? [];
     this.inlet = { left: 120, right: 840, y: 40, ...options.inlet };
 
     /** Where the pointer has asked for stock since the last tick. */
@@ -372,7 +373,8 @@ export class Spout extends Entity {
     }));
   }
 
-  fixedUpdate() {
+  fixedUpdate(dt) {
+    super.fixedUpdate(dt);
     if (this.game.actions?.pressed(this.dropAction, this.input)) {
       this.asked.push({
         x: this.game.rng.range(this.inlet.left, this.inlet.right),
@@ -382,13 +384,12 @@ export class Spout extends Entity {
     for (const at of this.asked.splice(0)) this.#drop(at);
   }
 
-  /** One more ball or crate, as the scene's own prefab describes it. */
+  /** One more of the stock, as the scene's own prefab describes it. */
   #drop({ x, y }) {
     const scene = this.game.sceneManager.getCurrentScene();
-    if (!scene) return;
-    const box = this.game.rng.chance(0.5);
-    const size = box ? this.boxSize : this.ballSize;
-    if (!scene.spawnPrefab(box ? 'box' : 'ball', { x, y, width: size, height: size })) return;
+    if (!scene || !this.stock.length) return;
+    const { prefab, size } = this.stock[Math.floor(this.game.rng.range(0, this.stock.length)) % this.stock.length];
+    if (!scene.spawnPrefab(prefab, { x, y, width: size, height: size })) return;
     if (this.spawnSound) this.game.soundManager.playSound(this.spawnSound);
   }
 }

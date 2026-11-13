@@ -136,7 +136,7 @@ function courtScene(config, next) {
             movement: { type: 'GlideControl', params: { speed: 230, grid: TILE } }
           }
         },
-        hedge: { actor: 'Platform', spritesheet: 'hedge', physics: { bodyType: 'static' } },
+        hedge: { actor: 'Hedge', spritesheet: 'hedge', physics: { bodyType: 'static' } },
         fountain: { actor: 'Fountain', spritesheet: 'fountain', physics: sensor },
         bed: { actor: 'FlowerBed', physics: sensor },
         garden: { actor: 'GardenBackdrop', physics: sensor }

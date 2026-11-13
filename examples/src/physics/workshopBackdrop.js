@@ -46,9 +46,10 @@ export class WorkshopBackdrop extends Entity {
     this.time = 0;
     this.lamp = { x: this.bounds.width / 2, y: 34 };
 
-    // Dust in the lamp's cone, rising and falling on slow sines.
+    // Dust in the lamp's cone, rising and falling on slow sines: the front
+    // layer's, over the machine.
     const rng = makeRng(options.seed ?? 5);
-    this.dust = Array.from({ length: 50 }, () => ({
+    this.dust = this.layer !== 'front' ? [] : Array.from({ length: 50 }, () => ({
       x: range(rng, 0.2, 0.8),
       y: range(rng, 0.05, 0.95),
       driftX: range(rng, -6, 6),

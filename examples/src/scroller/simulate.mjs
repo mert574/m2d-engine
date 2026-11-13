@@ -12,7 +12,7 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { InputGate } from 'm2d-engine/net/input.js';
 import { InputSnapshot } from 'm2d-engine/core/input/snapshot.js';
-import { BEELINE_INPUT, GAME, register } from './game.js';
+import { BEELINE_INPUT, register } from './game.js';
 
 /** The lane as the editor and the page have it: the scene file, read as it is. */
 const lane = JSON.parse(readFileSync(new URL('./scenes/lane.json', import.meta.url), 'utf8'));
@@ -32,13 +32,13 @@ export function autopilot(tick) {
  */
 export async function simulate({ ticks = Infinity, seed = 1 } = {}) {
   await initPhysics();
-  const game = new M2D(null, { ...GAME, headless: true, seed });
+  const game = new M2D(null, { headless: true, seed });
   register(game);
   game.sceneManager.addScene('lane', { fetch: async () => lane });
   await game.sceneManager.switchTo('lane');
   game.setupCollisionHandlers();
   const scene = game.sceneManager.getCurrentScene();
-  const hive = scene.entitiesById.get('hive-1');
+  const hive = [...game.entities].find((entity) => entity.prefab === 'hive');
   const totalPollen = scene.counters.get('total');
   let reachedAt = null;
 

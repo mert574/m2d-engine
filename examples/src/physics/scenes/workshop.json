@@ -70,7 +70,11 @@
     "girder": { "actor": "Girder", "physics": { "bodyType": "static" } },
     "peg": { "actor": "Peg", "physics": { "bodyType": "static" } },
     "workshop": { "actor": "WorkshopBackdrop", "physics": { "bodyType": "static", "isSensor": true } },
-    "spout": { "actor": "Spout", "physics": { "bodyType": "static", "isSensor": true } }
+    "spout": {
+      "actor": "Spout",
+      "physics": { "bodyType": "static", "isSensor": true },
+      "properties": { "stock": [{ "prefab": "ball", "size": 32 }, { "prefab": "box", "size": 64 }] }
+    }
   },
   "layers": [
     {

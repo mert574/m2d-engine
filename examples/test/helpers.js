@@ -28,7 +28,7 @@ export const DEMO_ACTORS = {
   drift: ['Ship', 'Meteor', 'Drone', 'Salvage', 'Gate', 'Bound', 'Sky'],
   yard: ['Hero', 'Ground', 'Crate'],
   physics: ['Ball', 'Box', 'Housing', 'Girder', 'Peg', 'Spout', 'WorkshopBackdrop'],
-  maze: ['Gardener', 'Platform', 'Fountain', 'FlowerBed', 'GardenBackdrop'],
+  maze: ['Gardener', 'Hedge', 'Fountain', 'FlowerBed', 'GardenBackdrop'],
   scroller: ['Meadow', 'ForeMeadow', 'ScrollFront', 'Bee', 'Flower', 'Pollen', 'Thistle', 'Wasp', 'Web', 'Hive'],
   'first-game': ['Hero', 'Platform']
 };

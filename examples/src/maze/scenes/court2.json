@@ -85,7 +85,7 @@
       "physics": { "bodyType": "character", "shape": "circle", "frictionAir": 0.2 },
       "constraints": { "movement": { "type": "GlideControl", "params": { "speed": 230, "grid": 32 } } }
     },
-    "hedge": { "actor": "Platform", "spritesheet": "hedge", "physics": { "bodyType": "static" } },
+    "hedge": { "actor": "Hedge", "spritesheet": "hedge", "physics": { "bodyType": "static" } },
     "fountain": {
       "actor": "Fountain",
       "spritesheet": "fountain",

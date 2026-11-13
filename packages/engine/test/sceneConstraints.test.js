@@ -352,7 +352,8 @@ describe('spawnPrefab', () => {
     const first = scene.spawnPrefab('thing', { x: 10, y: 10 });
     const second = scene.spawnPrefab('thing', { x: 20, y: 20 });
 
-    expect(first.sceneId).not.toBe(second.sceneId);
+    // Past the one the file placed (thing-1), then counting on.
+    expect([first.sceneId, second.sceneId]).toEqual(['thing-2', 'thing-3']);
     expect(scene.entitiesById.get(first.sceneId)).toBe(first);
     expect(scene.entitiesById.get(second.sceneId)).toBe(second);
     // A caller may name one itself.

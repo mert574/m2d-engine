@@ -193,7 +193,7 @@ Properties: `isHovered`, `isDragging`, `grabOffset`. `setEnabled(false)` takes t
 | `removable` | `false` | A right-click or long press takes the body out of the world |
 | `removeSound` | | Played when one is removed: a key in `assets.sounds` |
 
-The body is *steered*, not placed: it still collides on its way to the hand and leaves it with the speed it was swung at, which is what a physics sandbox wants and what `follow` (which teleports) cannot give. Steering happens in `fixedUpdate`, so a grab is part of the simulation. `held` is whether the pointer is carrying it. Two-dimensional.
+The body is *steered*, not placed: it still collides on its way to the hand and leaves it with the speed it was swung at, which is what a physics sandbox wants and what `follow` (which teleports) cannot give. Steering happens in `fixedUpdate`, so a grab is part of the simulation; `isDragging` is whether the pointer is carrying it. Two-dimensional.
 
 ```json
 "ball": {

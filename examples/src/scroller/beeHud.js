@@ -26,7 +26,7 @@ export class BeeStatus extends UIElement {
   /** The send-off, by how the run went. */
   rank(bee, total) {
     const part = total ? bee.pollen / total : 0;
-    if (part >= 0.95 && bee.hearts === 3) return "QUEEN'S OWN — a perfect beeline";
+    if (part >= 0.95 && bee.hearts === bee.maxHearts) return "QUEEN'S OWN — a perfect beeline";
     if (part >= 0.8) return 'HEAD FORAGER';
     if (part >= 0.55) return 'FORAGER';
     return 'WORKER — the lane will still be there tomorrow';

@@ -2,7 +2,6 @@ import { InputSchema } from 'm2d-engine/net/input.js';
 import { Meadow, ForeMeadow } from './meadowScenery.js';
 import { ScrollFront, Bee, Flower, Pollen, Thistle, Wasp, Web, Hive } from './meadowActors.js';
 import { BeeStatus } from './beeHud.js';
-import { LENGTH, HEIGHT } from './meadow.js';
 
 /**
  * Beeline's definition: the cast, the input a client may send, and
@@ -22,9 +21,6 @@ const ACTORS = { Meadow, ForeMeadow, ScrollFront, Bee, Flower, Pollen, Thistle, 
 export const BEELINE_INPUT = new InputSchema({
   keys: ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyX']
 });
-
-/** M2D options Beeline's simulation depends on. */
-export const GAME = { worldWidth: LENGTH, worldHeight: HEIGHT };
 
 /** Register the cast on a game, displayed or headless. */
 export function register(game) {

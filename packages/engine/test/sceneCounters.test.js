@@ -129,6 +129,12 @@ describe('counters', () => {
     game.destroy();
   });
 
+  it('refuse bounds on a tally, which nothing sets', () => {
+    const loader = new SceneLoader(null);
+    expect(() => loader.load(level({ counters: { left: { prefab: 'coin', count: 'remaining', max: 2 } } }), 'count'))
+      .toThrow(/world.counters.left: min and max hold a plain counter/);
+  });
+
   it('refuse a rule that names an undeclared counter', () => {
     const loader = new SceneLoader(null);
     expect(() => loader.load(level({ rules: [{ when: { event: 'count', counter: 'nope', atLeast: 1 }, then: [] }] }), 'count'))
@@ -162,14 +168,10 @@ describe('gravity bound to a counter', () => {
     game.destroy();
   });
 
-  it('leaves gravity alone when the counter it names is not declared', async () => {
-    const { game } = await make(level({
-      gravity: { x: 0, y: 1000 },
-      gravityBind: [{ counter: 'pull', axis: 'y' }]
-    }));
-    game.step(1);
-    expect(game.physics.gravity.y).toBe(1000);
-    game.destroy();
+  it('refuses a binding that names an undeclared counter, as a rule is', () => {
+    const loader = new SceneLoader(null);
+    expect(() => loader.load(level({ gravity: { x: 0, y: 1000 }, gravityBind: [{ counter: 'pull' }] }), 'count'))
+      .toThrow(/gravityBind\[0\].counter: no counter named 'pull'/);
   });
 });
 

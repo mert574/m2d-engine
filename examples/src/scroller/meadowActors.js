@@ -73,7 +73,9 @@ export class Bee extends Entity {
     this.dashDir = { x: 1, y: 0 };
     this.clock = 0;
     this.pollen = 0;
-    this.hearts = 3;
+    /** The wing hearts a run starts with; the HUD's perfect run is all of them still beating. */
+    this.maxHearts = 3;
+    this.hearts = this.maxHearts;
     this.score = 0;
     this.combo = 0;
     this.bestCombo = 0;

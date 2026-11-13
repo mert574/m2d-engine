@@ -97,10 +97,6 @@ export class Gardener extends Entity {
     this.trail = [];
   }
 
-  resetTrail() {
-    this.trail = [];
-  }
-
   update(deltaTime) {
     super.update(deltaTime);
     this.clock += deltaTime;

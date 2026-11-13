@@ -56,7 +56,7 @@ describe('Grabbable', () => {
 
     // The pointer moved this frame; the body has not, yet.
     expect(body.velocity.x).toBe(0);
-    expect(grab.held).toBe(true);
+    expect(grab.isDragging).toBe(true);
 
     entity.fixedUpdate(1 / 60);
     // 60 px of distance left, times a stiffness of 10 per second.
@@ -64,7 +64,7 @@ describe('Grabbable', () => {
     expect(body.velocity.y).toBeCloseTo(0, 5);
 
     pointerUp(game, 160, 100);
-    expect(grab.held).toBe(false);
+    expect(grab.isDragging).toBe(false);
     // Released: the fling is whatever the last steer left on the body,
     // and no further steering happens.
     entity.fixedUpdate(1 / 60);

@@ -14,6 +14,6 @@ import { GardenBackdrop } from './gardenBackdrop.js';
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
   for (const [name, actor] of Object.entries({
-    Gardener, Platform: HedgeWall, Fountain, FlowerBed, GardenBackdrop
+    Gardener, Hedge: HedgeWall, Fountain, FlowerBed, GardenBackdrop
   })) game.registerActor(name, actor);
 }

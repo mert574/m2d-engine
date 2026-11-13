@@ -76,10 +76,10 @@ export class Grabbable extends Interactive {
     this.removable = options.removable ?? false;
     this.removeSound = options.removeSound ?? null;
 
-    /** Where the hand holds the body, in world coordinates, or null. */
+    /** Where the hand holds the body, in world coordinates, or null while not held. */
     this.target = null;
     /** A right-click asked for this body to go; the next tick does it. */
-    this.dropped = false;
+    this.removing = false;
   }
 
   /** Right-clicking a removable body is handled even with no handler of the game's own. */
@@ -105,19 +105,14 @@ export class Grabbable extends Interactive {
         this.target = null;
         break;
       case 'rightclick':
-        if (this.removable) this.dropped = true;
+        if (this.removable) this.removing = true;
         break;
     }
   }
 
-  /** Whether the pointer is carrying this body right now. */
-  get held() {
-    return this.target !== null;
-  }
-
   fixedUpdate(dt) {
     super.fixedUpdate(dt);
-    if (this.dropped) {
+    if (this.removing) {
       this.#remove();
       return;
     }
@@ -139,7 +134,7 @@ export class Grabbable extends Interactive {
 
   /** Take the body out of the world, the way every actor's own death does. */
   #remove() {
-    this.dropped = false;
+    this.removing = false;
     const { game } = this.entity;
     if (this.entity.dead) return;
     if (this.removeSound) game.soundManager?.playSound(this.removeSound);
