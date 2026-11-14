@@ -25,7 +25,7 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
 import { RaceCar, GhostCar, CAR } from './actors.js';
-import { Recorder, Player, saveBest, loadBest } from './replay.js';
+import { Recorder, Player, saveBest, loadBest, raceSignature } from './replay.js';
 import { trackFor, WALL_THICKNESS } from './track.js';
 import { marksFor } from './road.js';
 import { selectedCar, CARS } from './cars.js';
@@ -353,6 +353,7 @@ export class RaceDirector extends Entity {
     const isBest = this.mode === 'live' && (!this.best || ticks < this.best.lapTicks);
     if (isBest) {
       this.best = {
+        signature: this.signature,
         lapTicks: ticks,
         lapStart: this.recorder.inputs.length - ticks,
         lapEnd: this.recorder.inputs.length,
@@ -454,7 +455,8 @@ export class RaceDirector extends Entity {
     const game = this.game;
     const scene = game.sceneManager.getCurrentScene();
     this.track = trackFor(scene, this.roadPath);
-    this.best = loadBest(this.circuit);
+    this.signature = raceSignature(scene.config);
+    this.best = loadBest(this.circuit, this.signature);
 
     // Follow a point ahead of the car, so the road coming at you is on
     // screen rather than behind the bumper.

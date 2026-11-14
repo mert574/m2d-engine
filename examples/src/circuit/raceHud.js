@@ -70,7 +70,8 @@ export class RaceHud extends UIElement {
     this.#text(kmh, x + 6, y, { fontFamily: '$font.mono', fontSize: 26, fontWeight: '600', textAlign: 'right' });
     this.#text('KM/H', x + 14, y + 4, { fillStyle: MUTED, fontSize: '$font.size.micro', letterSpacing: 2, textAlign: 'left' });
 
-    const fill = drive.boostLeft > 0 ? drive.boostLeft / drive.nitroDuration : 1 - drive.nitroWait / drive.nitroCooldown;
+    const fill = drive.boostLeft > 0 ? drive.boostLeft / drive.nitroDuration
+      : drive.nitroCooldown > 0 ? 1 - drive.nitroWait / drive.nitroCooldown : 1;
     const width = 120;
     this.paint.drawRect({ x: x - width / 2, y: y + 22, width, height: 3, fillStyle: 'rgba(255, 255, 255, 0.16)' });
     this.paint.drawRect({

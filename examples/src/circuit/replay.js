@@ -124,6 +124,35 @@ export class Player {
 const STORE_PREFIX = 'm2d-circuit:best:';
 
 /**
+ * Bumped by hand when how the game plays changes — the car's handling,
+ * the surfaces, the barriers — so every stored best stops pretending its
+ * inputs would still drive the same lap.
+ */
+const RULES_REVISION = 2;
+
+/**
+ * What a stored best was recorded against: the driving rules and the map.
+ * Only what the simulation sees goes into the hash — the world, the
+ * prefabs, the placed objects, the paths — so editing a light or the HUD
+ * keeps the bests, and moving a cone does not.
+ * @param {object} config - The loaded scene config
+ */
+export function raceSignature(config) {
+  const { width, height, gravity } = config.world ?? {};
+  const map = JSON.stringify({
+    world: { width, height, gravity },
+    prefabs: config.prefabs,
+    objects: (config.layers ?? []).map((layer) => layer.objects),
+    paths: config.paths
+  });
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < map.length; i++) {
+    hash = Math.imul(hash ^ map.charCodeAt(i), 0x01000193) >>> 0;
+  }
+  return `${RULES_REVISION}.${hash.toString(36)}`;
+}
+
+/**
  * The stored best round for a map: enough to show the ghost and to re-run
  * the entire round from inputs alone, in a later session.
  */
@@ -139,6 +168,7 @@ export function saveBest(mapName, best) {
       splits: best.splits ?? [],
       spills: best.spills,
       car: best.car,
+      signature: best.signature,
       // The ghost rounds to a tenth of a pixel: display precision, a
       // quarter of the storage.
       ghost: best.ghost.map((v) => Math.round(v * 10) / 10)
@@ -148,12 +178,21 @@ export function saveBest(mapName, best) {
   }
 }
 
-export function loadBest(mapName) {
+/**
+ * The stored best round for `mapName`, or null. With a `signature`, a
+ * best recorded against other rules or another map is dropped — and
+ * removed, so the menu stops showing a time nothing can replay.
+ */
+export function loadBest(mapName, signature) {
   try {
     const raw = localStorage.getItem(STORE_PREFIX + mapName);
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (data.version !== 1) return null;
+    if (signature && data.signature !== signature) {
+      localStorage.removeItem(STORE_PREFIX + mapName);
+      return null;
+    }
     return { ...data, inputs: unrle(data.inputs) };
   } catch {
     return null;
