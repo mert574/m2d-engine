@@ -140,9 +140,12 @@ export class Road extends Entity {
       this.curvature[i] = d / (Math.hypot(c.x - a.x, c.y - a.y) / 2 || 1);
     }
 
-    // Lamps: alternating sides at a steady beat along the lap.
+    // Lamps: alternating sides at a steady beat along the lap, and none
+    // inside a tunnel, which lights itself.
+    const tunnels = [...this.game.entities].filter((entity) => entity.name === 'Tunnel' && entity.ready());
     this.lamps = [];
     for (let s = 0, i = 0; s < track.length - this.lampEvery / 2; s += this.lampEvery, i++) {
+      if (tunnels.some((tunnel) => tunnel.coversDistance(s))) continue;
       const side = i % 2 === 0 ? -1 : 1;
       const pose = track.pose(s / track.length, 0);
       const offset = (pose.width + 30) * side;

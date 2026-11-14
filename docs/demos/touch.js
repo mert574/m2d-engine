@@ -2,55 +2,7 @@ import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { Entity } from 'm2d-engine/core/entity.js';
 import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
-import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
-
-/** The pads on screen, so a release anywhere lets go of every one. */
-const pads = new Set();
-function releaseAll() { for (const pad of pads) pad.release(); }
-
-/**
- * An on-screen button that acts as a key. Pressing it pushes a keydown
- * record into the input system, the same seam the real keyboard uses, so
- * KeyboardControl cannot tell the two apart. The scene's HUD places one
- * per direction as a `pad` component.
- */
-class PadButton extends UIElement {
-  constructor(code, label, options = {}) {
-    super({ ...options, width: 56, height: 56 });
-    this.code = code;
-    this.label = label;
-    this.held = false;
-  }
-
-  onMount() { pads.add(this); }
-  onUnmount() { pads.delete(this); }
-
-  press() {
-    if (this.held) return;
-    this.held = true;
-    this.game.input.push({ kind: 'keydown', code: this.code, key: this.code, time: performance.now() });
-    this.game.input.flush();
-  }
-
-  release() {
-    if (!this.held) return;
-    this.held = false;
-    this.game.input.push({ kind: 'keyup', code: this.code, key: this.code, time: performance.now() });
-    this.game.input.flush();
-  }
-
-  onPointerDown() { this.press(); }
-  onPointerUp() { releaseAll(); }
-
-  draw() {
-    const ui = this.game.uiRenderer;
-    ui.drawRect({
-      x: this.x - 28, y: this.y - 28, width: 56, height: 56, cornerRadius: 10,
-      fillStyle: this.held ? '#4dd0e1' : 'rgba(255, 255, 255, 0.15)'
-    });
-    ui.drawText({ text: this.label, x: this.x, y: this.y, fillStyle: '#fff', fontSize: '22px', textAlign: 'center', textBaseline: 'middle' });
-  }
-}
+import { UIKeyButton } from 'm2d-engine/core/ui/keyButton.js';
 
 class Ball extends Entity {
   name = 'Player';
@@ -75,7 +27,11 @@ class Wall extends Entity {
   }
 }
 
-/** The D-pad: one pad per direction, anchored to the bottom-left corner. */
+/**
+ * The D-pad: one on-screen key per direction, anchored to the bottom-left
+ * corner. Each pushes its key code into the input system, the seam the
+ * real keyboard uses, so KeyboardControl cannot tell the two apart.
+ */
 const pad = (id, dx, dy, code, label) => ({
   type: 'component', id, component: 'pad', anchor: 'bottom-left', x: 96 + dx * 60, y: -96 + dy * 60, properties: { code, label }
 });
@@ -110,15 +66,13 @@ export default async function start(canvas) {
   const game = new M2D(canvas, { width: 640, height: 360, initialScene: 'main', performanceStats: false });
   game.registerActor('Ball', Ball);
   game.registerActor('Wall', Wall);
-  game.registerUIComponent('pad', (_scene, element) => new PadButton(element.properties.code, element.properties.label, element));
+  game.registerUIComponent('pad', (_scene, element) => new UIKeyButton({
+    ...element, ...element.properties, width: 56, height: 56, shape: 'rect', heldBackground: '#4dd0e1'
+  }));
 
   game.sceneManager.addScene('main', { fetch: async () => scene });
 
   const status = (text) => game.sceneManager.getCurrentScene().hud.setText('status', text);
-
-  // A finger that slides off a pad releases somewhere else. Releasing
-  // anywhere lets go of every pad, including a cancelled pointer.
-  game.input.on('pointerup', () => releaseAll());
 
   // A long press on a touchscreen stands in for a right click.
   game.input.on('rightclick', (event) => {

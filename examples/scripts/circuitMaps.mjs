@@ -1,5 +1,5 @@
 /**
- * The five circuits, as the shapes they are seeded from.
+ * The six circuits, as the shapes they are seeded from.
  *
  * `scripts/buildCircuitScenes.mjs` runs this once and writes the roads
  * into `src/circuit/scenes/*.json` as closed smooth paths; nothing here
@@ -16,6 +16,10 @@
  * is authored per map as `{ t, o }`: lap fraction and offset from the
  * centreline (negative left, positive right). Difficulty rises map to map:
  * narrower pinches, sharper harmonics, more gates and traffic in the way.
+ * A map may also run at a `pace` above the base car, lay `ice` over
+ * stretches of the lap, roof a stretch as a `tunnel`, and ask for boost
+ * pads `beforeCorners`: set a car's length of road before the sharpest
+ * bends, so the only way through them at that speed is sideways.
  */
 import { Track } from '../src/circuit/track.js';
 
@@ -248,6 +252,51 @@ export const MAPS = [
       ]
     },
     lampEvery: 680
+  },
+  {
+    name: 'circuit6',
+    title: 'Permafrost GP',
+    subtitle: 'ice, a tunnel, no lifting off · the fast one',
+    seed: 606,
+    targetLength: 29500,
+    pace: 1.3,
+    ambient: '#3a4058',
+    grade: { bloom: 0.85, vignette: 0.56, shadows: '#121a30', highlights: '#dff0ff', saturation: 0.85 },
+    // A frozen pass at the dead of night: cold floods close together,
+    // black ice on the fast stretches, a tunnel through the ridge.
+    theme: {
+      ground: 'dirt', asphalt: '#2a2e3c', worn: '#242836', shoulder: '#2a2d33',
+      lamp: '#cfe8ff', edge: 'rgba(225, 238, 255, 0.9)', dash: 'rgba(160, 210, 255, 0.6)',
+      decor: { treeLarge: 30, treeSmall: 40, rock: 80, tent: 2, tribune: 4 },
+      roadGrip: 0.95
+    },
+    shape: {
+      squash: 0.7,
+      harmonics: [[2, 0.1, 0.5], [4, 0.14, 2.2], [6, 0.11, 1.0], [10, 0.06, 2.6]],
+      width: (t) => 70 - 22 * Math.sin(t * Math.PI * 12 + 0.9)
+    },
+    checkpoints: [0.25, 0.5, 0.75],
+    tunnel: { from: 0.6, to: 0.68 },
+    ice: [{ from: 0.3, to: 0.37 }, { from: 0.82, to: 0.87 }],
+    props: {
+      cones: [
+        coneRow(0.06, 25, 6), coneRow(0.22, -35, 6), coneRow(0.44, 30, 5),
+        coneRow(0.55, -25, 6), coneRow(0.74, 35, 5), coneRow(0.92, -30, 6)
+      ],
+      barrels: [
+        { t: 0.12, o: 50, n: 4 }, { t: 0.4, o: -45, n: 3 },
+        { t: 0.52, o: 45, n: 4 }, { t: 0.78, o: -50, n: 3 }
+      ],
+      oil: [{ t: 0.17, o: -15, r: 55 }, { t: 0.72, o: 15, r: 60 }],
+      boosts: [{ t: 0.01, o: 0 }, { t: 0.5, o: 0 }],
+      beforeCorners: { count: 5, lead: 480 },
+      gates: [{ t: 0.14 }, { t: 0.47 }, { t: 0.9 }],
+      traffic: [
+        { t0: 0.18, t1: 0.29, o: 26, speed: 230 },
+        { t0: 0.7, t1: 0.8, o: -24, speed: 220 }
+      ]
+    },
+    lampEvery: 560
   }
 ];
 

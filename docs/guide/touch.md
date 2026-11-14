@@ -3,7 +3,7 @@
 Touch input arrives through the same `game.input` as the mouse. A finger is a pointer with `pointerType` set to `touch`. Clicks, drags and scrolls work without changes. This page covers what differs and how to add on-screen controls.
 
 <Demo name="touch">
-Move the ball with the arrow keys or the on-screen pad. The pad pushes key records into the input system. Right-click, or long-press on a touchscreen, to teleport the ball. Pinch with two fingers to see the pinch readout.
+Move the ball with the arrow keys or the on-screen pad. Each pad is the engine's `UIKeyButton`, which pushes key records into the input system. Right-click, or long-press on a touchscreen, to teleport the ball. Pinch with two fingers to see the pinch readout.
 </Demo>
 
 ## What differs on a touchscreen
@@ -28,9 +28,9 @@ game.input.push({ kind: 'keydown', code: 'ArrowLeft', key: 'ArrowLeft', time: pe
 game.input.flush();
 ```
 
-With that, an on-screen button is a UI element that pushes `keydown` on press and `keyup` on release. Any `KeyboardControl` bound to that code moves the entity, and `game.input.isDown('ArrowLeft')` reports it held. The demo's `PadButton` is the complete pattern; the game registers it as a UI component and the scene's HUD places one per direction, so where the pad sits is the scene's to say.
+With that, an on-screen button is a UI element that pushes `keydown` on press and `keyup` on release. Any `KeyboardControl` bound to that code moves the entity, and `game.input.isDown('ArrowLeft')` reports it held. The engine ships one: [`UIKeyButton`](../reference/ui#uikeybutton), a round or square key, or with `zone: true` an invisible area that holds a key while a finger rests on it (a racing game steers by the left and right halves of the screen this way). The demo registers it as a UI component and the scene's HUD places one per direction, so where the pad sits is the scene's to say.
 
-Releasing is the part to get right. A finger that slides off a button lifts somewhere else, so the button's own `onPointerUp` never runs. The demo releases every pad on any `pointerup` through a subscriber. The same subscriber receives a `pointerup` with `cancelled` set when the browser cancels the touch.
+Releasing is the part to get right. A finger that slides off a button lifts somewhere else, so the button's own `onPointerUp` never runs. `UIKeyButton` remembers which pointer pressed it and listens to the input for that pointer's `pointerup`, which arrives with `cancelled` set when the browser cancels the touch; so each finger holds its own key and lifting one leaves the others down.
 
 Pointer records are pushed the same way. The fields are `kind` (`down`, `move`, `up`, `cancel` or `wheel`), `pointerId`, `pointerType`, `button`, `buttons`, `clientX`, `clientY`, `movementX`, `movementY`, `scrollX`, `scrollY`, `modifiers` and `time`. Positions are client coordinates, as the browser would report them. `packages/engine/test/helpers/input.js` shows how to build them from UI coordinates.
 

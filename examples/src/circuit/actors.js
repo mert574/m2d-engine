@@ -10,6 +10,8 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { CarControl } from 'm2d-engine/constraints/carControl.js';
 import { s } from 'm2d-engine/core/schema.js';
+import { makeRng, range } from '../shared/rng.js';
+import { trackFor } from './track.js';
 
 /** Visual size of a car, px. The physics box is a whisker smaller. */
 export const CAR = { width: 30, length: 54, bodyWidth: 26, bodyLength: 48 };
@@ -18,6 +20,7 @@ export const CAR = { width: 30, length: 54, bodyWidth: 26, bodyLength: 48 };
 const SURFACE = {
   road: { grip: 1, drag: 0 },
   grass: { grip: 0.45, drag: 0 },
+  ice: { grip: 0.3, drag: 0 },
   oil: { grip: 0.16, drag: 1.1 }
 };
 
@@ -54,6 +57,8 @@ export class RaceCar extends Entity {
     this.marks = options.marks;
     /** Grip of the asphalt itself: 1 dry, less in the rain. */
     this.roadGrip = options.roadGrip ?? 1;
+    /** What the asphalt is covered with at a point, if anything: `(x, y) => 'ice' | null`. */
+    this.surfaceAt = options.surfaceAt ?? null;
     /** Oil slicks currently under the car, maintained by OilSlick. */
     this.oilCount = 0;
     /** Set each tick; the HUD and sounds read it. */
@@ -75,7 +80,7 @@ export class RaceCar extends Entity {
     // The car's voice: an electric motor whine that climbs with speed and
     // tyres that squeal while it slides. One looping voice each, steered
     // per frame.
-    this.engineLoop = game.soundManager.loop('engine', { volume: 0.2, rate: 0.55 });
+    this.engineLoop = game.soundManager.loop('engine', { volume: 0.55, rate: 0.55 });
     this.roadLoop = game.soundManager.loop('road', { volume: 0, rate: 1 });
     this.tyreLoop = game.soundManager.loop('tyres', { volume: 0, rate: 1 });
   }
@@ -103,10 +108,12 @@ export class RaceCar extends Entity {
     if (this.dead) return;
 
     // The tyres ask the world what they are standing on. Oil wins over
-    // everything; otherwise it is asphalt inside the road width, grass out.
+    // everything; otherwise it is grass outside the road width, and inside
+    // it asphalt or whatever the circuit laid over it.
     const { x, y } = this.body.position;
     this.surface = this.oilCount > 0 ? 'oil'
-      : this.track.onRoad(x, y, 6) ? 'road' : 'grass';
+      : !this.track.onRoad(x, y, 6) ? 'grass'
+      : this.surfaceAt?.(x, y) ?? 'road';
     const surface = SURFACE[this.surface];
     this.drive.surfaceGrip = surface.grip * (this.surface === 'road' ? this.roadGrip : 1);
     this.drive.surfaceDrag = surface.drag;
@@ -114,7 +121,7 @@ export class RaceCar extends Entity {
     super.fixedUpdate(dt);
     this.#scrapeBarrier();
 
-    this.braking = this.input.isDown(this.drive.keys.brake);
+    this.braking = this.input.isDown(this.drive.keys.brake) || this.input.isDown(this.drive.keys.handbrake);
 
     // Skid marks from the rear axle: drifting, or scrabbling on grass.
     if (this.marks && (this.drive.drifting || (this.surface !== 'road' && this.drive.speed > 120))) {
@@ -174,14 +181,17 @@ export class RaceCar extends Entity {
     // An EV: a quiet whine at rest that climbs with speed and steps up
     // under nitro — kept under 2× so the loop never races. The road roar
     // comes in with the square of speed and carries the weight.
+    // The loops sit under the sound volume like every effect, and the
+    // music plays beside them, so they are mixed hot: the motor is the
+    // thing the player hears most.
     this.engineLoop?.setRate(0.55 + revs * 1.15 + (drive.boostLeft > 0 ? 0.25 : 0));
-    this.engineLoop?.setVolume(0.18 + revs * 0.42);
+    this.engineLoop?.setVolume(0.55 + revs * 0.45);
     this.roadLoop?.setRate(0.9 + revs * 0.4);
-    this.roadLoop?.setVolume(revs * revs * 0.7 + (this.surface === 'grass' ? 0.25 : 0));
+    this.roadLoop?.setVolume(revs * revs * 0.9 + (this.surface === 'grass' ? 0.3 : 0));
     // Tyres: loud while drifting or scrabbling, silent on a clean line.
     const slide = Math.min(1, Math.abs(drive.lateralSpeed) / 220);
-    const scrabble = this.surface !== 'road' && drive.speed > 120 ? 0.35 : 0;
-    this.tyreLoop?.setVolume(Math.max(slide * 0.8, scrabble));
+    const scrabble = this.surface !== 'road' && drive.speed > 120 ? 0.4 : 0;
+    this.tyreLoop?.setVolume(Math.max(slide, scrabble));
     this.tyreLoop?.setRate(0.85 + slide * 0.3);
   }
 
@@ -394,6 +404,8 @@ export class Cone extends Entity {
       rotation: this.renderAngle,
       shadow: this.down ? undefined : { color: 'rgba(8, 8, 16, 0.4)', blur: 4, offsetX: 3, offsetY: 4 }
     });
+    // A standing cone blocks the headlights; a flat one is below the beam.
+    if (!this.down) this.game.renderer.drawShadowCaster({ x: pos.x, y: pos.y, radius: 5, z: 0.4 });
   }
 }
 
@@ -628,4 +640,225 @@ export class Checkpoint extends Entity {
 
   draw() {}
   setAnimation() {}
+}
+
+/** A stretch of the lap, as fractions of it, measured off the scene's road path. */
+class RoadStretch extends Entity {
+  static properties = {
+    path: s.ref('path', { initial: 'road', description: 'The road it lies along' }),
+    from: s.number({ min: 0, max: 1, required: true, description: 'Where it begins, as a fraction of the lap' }),
+    to: s.number({ min: 0, max: 1, required: true, description: 'Where it ends; after `from`' })
+  };
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    // Scenery: drawn, never touched.
+    body.setCollisionFilter({ category: 0, mask: 0 });
+    this.roadPath = options.path ?? 'road';
+    this.from = options.from ?? 0;
+    this.to = options.to ?? 0;
+    this.track = null;
+  }
+
+  /** The track, on the first ask: the scene is still being built in the constructor. */
+  ready() {
+    if (this.track) return true;
+    const scene = this.game.sceneManager.getCurrentScene();
+    if (!scene) return false;
+    this.track = trackFor(scene, this.roadPath);
+    this.span = this.track.samples.map((sample, i) => i).filter((i) => this.coversDistance(this.track.samples[i].s));
+    this.prepare();
+    return true;
+  }
+
+  /** Whether a distance along the lap lies in the stretch. */
+  coversDistance(s) {
+    return s >= this.from * this.track.length && s <= this.to * this.track.length;
+  }
+
+  /** Whether a world point is on the stretch: on the road and inside it along the lap. */
+  covers(track, x, y) {
+    const sample = track.samples[track.nearest(x, y)];
+    const length = track.length;
+    return sample.s >= this.from * length && sample.s <= this.to * length;
+  }
+
+  prepare() {}
+
+  /** The visible pairs of consecutive samples in the stretch, for quads. */
+  *pairs(area, margin = 60) {
+    const samples = this.track.samples;
+    for (let k = 0; k < this.span.length - 1; k++) {
+      const a = samples[this.span[k]];
+      const b = samples[this.span[k + 1]];
+      if (this.span[k + 1] !== this.span[k] + 1) continue;
+      if (a.x < area.left - margin && b.x < area.left - margin) continue;
+      if (a.x > area.right + margin && b.x > area.right + margin) continue;
+      if (a.y < area.top - margin && b.y < area.top - margin) continue;
+      if (a.y > area.bottom + margin && b.y > area.bottom + margin) continue;
+      yield [a, b];
+    }
+  }
+
+  quad(a, b, widthA, widthB, fillStyle, inset = 0) {
+    this.game.renderer.drawPath({
+      points: [
+        { x: a.x + a.nx * widthA, y: a.y + a.ny * widthA },
+        { x: b.x + b.nx * widthB, y: b.y + b.ny * widthB },
+        { x: b.x - b.nx * (widthB - inset), y: b.y - b.ny * (widthB - inset) },
+        { x: a.x - a.nx * (widthA - inset), y: a.y - a.ny * (widthA - inset) }
+      ],
+      closed: true, fillStyle
+    });
+  }
+
+  setAnimation() {}
+}
+
+/**
+ * Ice over the asphalt: the car keeps its grip on the gas but little on
+ * the wheel, so a corner taken on it is a slide whatever the driver does.
+ * The race director hands the car the stretches to ask; this one draws.
+ */
+export class IceStretch extends RoadStretch {
+  static properties = {
+    tint: s.string({ editor: 'color', initial: 'rgba(168, 214, 255, 0.3)', description: 'The sheet over the road' }),
+    seed: s.integer({ min: 0, initial: 1, description: 'Which scatter of cracks' })
+  };
+
+  name = 'IceStretch';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game, options);
+    this.tint = options.tint ?? IceStretch.properties.tint.initial;
+    this.seed = options.seed ?? 1;
+    this.zIndex = -900;
+  }
+
+  prepare() {
+    const rng = makeRng(this.seed);
+    this.cracks = [];
+    for (let k = 0; k < this.span.length; k += 3) {
+      const sample = this.track.samples[this.span[k]];
+      const offset = range(rng, -sample.w * 0.8, sample.w * 0.8);
+      this.cracks.push({
+        x: sample.x + sample.nx * offset, y: sample.y + sample.ny * offset,
+        angle: Math.atan2(sample.ty, sample.tx) + range(rng, -0.9, 0.9), length: range(rng, 14, 46)
+      });
+    }
+    this.ends = [this.span[0], this.span[this.span.length - 1]].map((i) => this.track.samples[i]);
+  }
+
+  draw() {
+    if (this.dead || !this.visible || !this.ready()) return;
+    const renderer = this.game.renderer;
+    const area = this.game.camera.getVisibleArea();
+    for (const [a, b] of this.pairs(area)) this.quad(a, b, a.w - 2, b.w - 2, this.tint);
+    for (const crack of this.cracks) {
+      if (crack.x < area.left - 50 || crack.x > area.right + 50 || crack.y < area.top - 50 || crack.y > area.bottom + 50) continue;
+      const dx = Math.cos(crack.angle) * crack.length / 2;
+      const dy = Math.sin(crack.angle) * crack.length / 2;
+      renderer.drawLine({ x1: crack.x - dx, y1: crack.y - dy, x2: crack.x + dx, y2: crack.y + dy, strokeStyle: 'rgba(235, 246, 255, 0.55)', lineWidth: 1.5 });
+    }
+    // The sheet catches the light at both ends, the warning a driver gets.
+    for (const end of this.ends) {
+      renderer.drawLight({ x: end.x, y: end.y, radius: 260, color: '#bfe3ff', intensity: 0.7 });
+    }
+  }
+}
+
+/**
+ * A tunnel over a stretch of road. The roof hides the car: what shows is
+ * the strip lights along the ceiling, the headlight pool the lights pass
+ * still paints through, and the tail lights as two faint dots, enough to
+ * know where it is and not enough to see the road.
+ */
+export class Tunnel extends RoadStretch {
+  static properties = {
+    roof: s.string({ editor: 'color', initial: 'rgba(9, 11, 20, 0.97)' }),
+    lightColor: s.string({ editor: 'color', initial: '#9fd8ff', label: 'Light colour', description: 'The strip lights along the ceiling' }),
+    lightEvery: s.number({ positive: true, initial: 130, unit: 'px', label: 'Light spacing' })
+  };
+
+  name = 'Tunnel';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game, options);
+    this.roof = options.roof ?? Tunnel.properties.roof.initial;
+    this.lightColor = options.lightColor ?? Tunnel.properties.lightColor.initial;
+    this.lightEvery = options.lightEvery ?? Tunnel.properties.lightEvery.initial;
+    // Over the road's own over-layer, and over the cars.
+    this.zIndex = 1200;
+  }
+
+  prepare() {
+    this.strips = [];
+    const first = this.track.samples[this.span[0]].s;
+    const last = this.track.samples[this.span[this.span.length - 1]].s;
+    for (let s = first + this.lightEvery / 2; s < last; s += this.lightEvery) {
+      const sample = this.track.at(s);
+      this.strips.push({ x: sample.x, y: sample.y, nx: sample.nx, ny: sample.ny });
+    }
+    this.portals = [this.span[0], this.span[this.span.length - 1]].map((i) => this.track.samples[i]);
+  }
+
+  /** The player's car, for the hint of it under the roof. */
+  get car() {
+    if (this.racer && !this.racer.dead) return this.racer;
+    this.racer = [...this.game.entities].find((entity) => entity.name === 'RaceCar') ?? null;
+    return this.racer;
+  }
+
+  draw() {
+    if (this.dead || !this.visible || !this.ready()) return;
+    const renderer = this.game.renderer;
+    const area = this.game.camera.getVisibleArea();
+    const additive = renderer.supports('blendModes') ? 'additive' : undefined;
+
+    for (const [a, b] of this.pairs(area, 80)) {
+      this.quad(a, b, a.w + 46, b.w + 46, '#04050a');          // the walls' tops
+      this.quad(a, b, a.w + 34, b.w + 34, this.roof);         // the roof
+    }
+    for (const strip of this.strips) {
+      if (strip.x < area.left - 200 || strip.x > area.right + 200 || strip.y < area.top - 200 || strip.y > area.bottom + 200) continue;
+      renderer.drawLine({
+        x1: strip.x - strip.nx * 14, y1: strip.y - strip.ny * 14, x2: strip.x + strip.nx * 14, y2: strip.y + strip.ny * 14,
+        strokeStyle: this.lightColor, lineWidth: 3, blend: additive
+      });
+      renderer.drawLight({ x: strip.x, y: strip.y, radius: 110, color: this.lightColor, intensity: 0.55 });
+    }
+    // The mouths: a lit frame, so the dark ahead reads as a tunnel and not a hole.
+    for (const portal of this.portals) {
+      renderer.drawLine({
+        x1: portal.x - portal.nx * (portal.w + 46), y1: portal.y - portal.ny * (portal.w + 46),
+        x2: portal.x + portal.nx * (portal.w + 46), y2: portal.y + portal.ny * (portal.w + 46),
+        strokeStyle: '#3a4160', lineWidth: 10
+      });
+      renderer.drawLight({ x: portal.x, y: portal.y, radius: 300, color: '#ffe2b8', intensity: 1.1 });
+    }
+
+    const car = this.car;
+    if (!car || !this.covers(this.track, car.position.x, car.position.y)) return;
+    const pos = car.renderPosition;
+    const angle = car.renderAngle;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    // Under the roof: a glow where the headlights are and the tail lights behind.
+    renderer.drawArc({
+      x: pos.x + cos * 40, y: pos.y + sin * 40, radius: 70,
+      fillStyle: {
+        type: 'radial', x: pos.x + cos * 40, y: pos.y + sin * 40, r0: 0, r1: 70,
+        stops: [{ offset: 0, color: 'rgba(255, 232, 196, 0.16)' }, { offset: 1, color: 'rgba(255, 232, 196, 0)' }]
+      },
+      blend: additive
+    });
+    const tailX = pos.x - cos * CAR.bodyLength * 0.5;
+    const tailY = pos.y - sin * CAR.bodyLength * 0.5;
+    for (const side of [-1, 1]) {
+      renderer.drawArc({
+        x: tailX - sin * side * CAR.bodyWidth * 0.36, y: tailY + cos * side * CAR.bodyWidth * 0.36,
+        radius: 2.5, fillStyle: 'rgba(255, 80, 60, 0.75)', blend: additive
+      });
+    }
+  }
 }

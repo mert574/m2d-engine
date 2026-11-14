@@ -16,6 +16,11 @@ const OUTLINE = { color: 'rgba(0, 0, 0, 0.75)', blur: 6, offsetX: 0, offsetY: 1 
  * the best and last laps under the circuit's name. All of it is the race
  * director's state, read each frame; the circuit's name and the controls
  * line are the scene's own text.
+ *
+ * Each line has a band of its own, top to bottom: the director's tag (a
+ * replay, its verdict) at the very top, the countdown and a new best at a
+ * fifth of the height, the split at a third, the wrong-way warning below
+ * the middle. Nothing shares a band, so nothing can overlap.
  */
 export class RaceHud extends UIElement {
   constructor(scene, options = {}) {
@@ -42,11 +47,17 @@ export class RaceHud extends UIElement {
     const bottom = view.y + view.height;
 
     this.#laps(race, view.x + 20, view.y + 44);
+    this.#tag(race, centre, view.y + 22);
     this.#clock(race, centre, bottom - 118);
     this.#speed(race.car.drive, centre, bottom - 70);
-    this.#checkpoints(race, view.x + view.width - 24, bottom - 52);
-    this.#split(race, centre, view.y + view.height * 0.3);
-    this.#callouts(race, centre, view.y + view.height / 2);
+    // The corners are the thumbs' on a touchscreen: the count moves up beside the title line.
+    const touch = this.scene.hud?.elements.get('touch')?.active;
+    this.#checkpoints(race, view.x + view.width - 24, touch ? view.y + 44 : bottom - 52);
+    this.#callouts(race, centre, view.y + view.height * 0.19);
+    this.#split(race, centre, view.y + view.height * 0.34);
+    if (race.wrongWayFor > 0.7) {
+      this.#text('WRONG WAY', centre, view.y + view.height * 0.62, { fillStyle: BEHIND, fontSize: 22, fontWeight: '700', letterSpacing: 3, textAlign: 'center' });
+    }
   }
 
   #text(text, x, y, style) {
@@ -57,6 +68,12 @@ export class RaceHud extends UIElement {
     const best = race.best ? `BEST  ${this.#time(race.best.lapTicks)}` : 'NO BEST YET';
     const last = race.lastLapTicks ? `     LAST  ${this.#time(race.lastLapTicks)}` : '';
     this.#text(best + last, x, y, { fillStyle: MUTED, fontSize: '$font.size.caption', letterSpacing: 2, textAlign: 'left' });
+  }
+
+  /** A quiet line at the top: that a replay is driving, and how it ended. */
+  #tag(race, x, y) {
+    if (!race.tag) return;
+    this.#text(race.tag.toUpperCase(), x, y, { fillStyle: MUTED, fontSize: '$font.size.caption', letterSpacing: 3, textAlign: 'center' });
   }
 
   #clock(race, x, y) {
@@ -105,13 +122,9 @@ export class RaceHud extends UIElement {
     });
   }
 
-  /** The countdown, a new best, and the wrong-way warning. */
+  /** The countdown and a new best. */
   #callouts(race, x, y) {
-    if (race.announcement) {
-      this.#text(race.announcement, x, y - 130, { fillStyle: '#ffd34d', fontSize: 30, fontWeight: '700', letterSpacing: 3, textAlign: 'center' });
-    }
-    if (race.wrongWayFor > 0.7) {
-      this.#text('WRONG WAY', x, y - 80, { fillStyle: BEHIND, fontSize: 22, fontWeight: '700', letterSpacing: 3, textAlign: 'center' });
-    }
+    if (!race.announcement) return;
+    this.#text(race.announcement, x, y, { fillStyle: '#ffd34d', fontSize: 30, fontWeight: '700', letterSpacing: 3, textAlign: 'center' });
   }
 }

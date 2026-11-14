@@ -128,7 +128,7 @@ const STORE_PREFIX = 'm2d-circuit:best:';
  * the surfaces, the barriers — so every stored best stops pretending its
  * inputs would still drive the same lap.
  */
-const RULES_REVISION = 2;
+const RULES_REVISION = 3;
 
 /**
  * What a stored best was recorded against: the driving rules and the map.

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { register } from '../src/circuit/game.js';
-import { RaceCar, CAR } from '../src/circuit/actors.js';
+import { RaceCar, CAR, IceStretch } from '../src/circuit/actors.js';
 import { trackFor } from '../src/circuit/track.js';
 import { saveBest, loadBest, raceSignature } from '../src/circuit/replay.js';
 
@@ -20,17 +20,27 @@ beforeAll(async () => {
   await initPhysics();
 });
 
-async function circuit() {
+async function circuit({ ice = false } = {}) {
   const scene = structuredClone(SCENE);
   for (const layer of scene.layers) layer.objects = layer.objects.filter((object) => object.prefab === 'road');
+  if (ice) {
+    // A sheet over the stretch the tests drive on.
+    scene.prefabs.ice = { actor: 'IceStretch', physics: { bodyType: 'static', isSensor: true } };
+    scene.layers[0].objects.push({ id: 'ice-1', prefab: 'ice', x: 0, y: 0, width: 16, height: 16, properties: { path: 'road', from: 0.08, to: 0.2 } });
+  }
   const game = new M2D(null, { headless: true, seed: 1 });
   register(game);
   game.sceneManager.addScene('c', { fetch: async () => scene });
   await game.sceneManager.switchTo('c');
   game.input.setSnapshotSource(() => ({ down: ['ArrowUp'] }));
-  const track = trackFor(game.sceneManager.getCurrentScene());
+  const current = game.sceneManager.getCurrentScene();
+  const track = trackFor(current);
+  const stretches = [...game.entities].filter((entity) => entity instanceof IceStretch);
   const body = game.physics.createBox({ x: 0, y: 0, width: CAR.bodyLength, height: CAR.bodyWidth, friction: 0.1, frictionAir: 0, restitution: 0.25, density: 0.004 });
-  const car = new RaceCar(body, null, game, { track, marks: null });
+  const car = new RaceCar(body, null, game, {
+    track, marks: null, control: { autoThrottle: true },
+    surfaceAt: stretches.length ? (x, y) => (stretches.some((stretch) => stretch.covers(track, x, y)) ? 'ice' : null) : null
+  });
   game.entities.add(car);
   game.physics.add(body);
   return { game, car, track };
@@ -61,6 +71,33 @@ describe('Night Circuit\'s car', () => {
     const gap = Math.atan2(Math.sin(car.body.angle - along), Math.cos(car.body.angle - along));
     expect(Math.abs(gap)).toBeLessThan(0.1);
     game.destroy();
+  });
+
+  it('drives itself: full throttle with no key held, lifting only to brake', async () => {
+    const { game, car, track } = await circuit();
+    game.input.setSnapshotSource(() => null);
+    aim(car, track, 0, 0);
+    game.step(90);
+    expect(speedOf(car)).toBeGreaterThan(300);
+    game.input.setSnapshotSource(() => ({ down: ['ArrowDown'] }));
+    game.step(45);
+    expect(speedOf(car)).toBeLessThan(60);
+    game.destroy();
+  });
+
+  it('slides on ice where it would have gripped on asphalt', async () => {
+    const onIce = await circuit({ ice: true });
+    const dry = await circuit();
+    for (const { game, car, track } of [onIce, dry]) {
+      game.input.setSnapshotSource(() => ({ down: ['ArrowRight'] }));
+      aim(car, track, 0, 450);
+      game.step(30);
+    }
+    expect(onIce.car.surface).toBe('ice');
+    expect(dry.car.surface).toBe('road');
+    expect(Math.abs(onIce.car.drive.lateralSpeed)).toBeGreaterThan(Math.abs(dry.car.drive.lateralSpeed) * 2);
+    onIce.game.destroy();
+    dry.game.destroy();
   });
 
   it('loses a little speed on oil as well as its grip', async () => {
@@ -97,8 +134,11 @@ describe('a lap\'s splits', () => {
     game.sceneManager.addScene('circuit2', { fetch: async () => structuredClone(SCENE) });
     await game.sceneManager.switchTo('circuit2');
     game.setupCollisionHandlers();
-    game.step(60 * 4);
+    // Just past the green light, before the car has driven itself anywhere.
+    game.step(183);
     const director = [...game.entities].find((entity) => entity.name === 'RaceDirector');
+    expect(director.mode).toBe('live');
+    director.car.drive.autoThrottle = false;
     return { game, director };
   }
 
@@ -126,6 +166,36 @@ describe('a lap\'s splits', () => {
 
     lap(game, director);
     expect(typeof director.split.delta).toBe('number');
+    game.destroy();
+  });
+
+  it('draws the personal-best ghost from the director, over the road', async () => {
+    const { game, director } = await round();
+    const drawn = [];
+    Object.defineProperty(game, 'renderer', { value: { drawSprite: (sprite) => drawn.push(sprite) } });
+    director.ghost.image = { width: 32, height: 64 };
+    director.ghost.start([100, 200, 0.5, 110, 205, 0.6]);
+    director.ghost.tick();
+    director.draw();
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]).toMatchObject({ x: 110, y: 205, globalAlpha: 0.45 });
+    expect(director.visible).toBe(true);
+    expect(director.zIndex).toBeGreaterThan(0);
+    game.destroy();
+  });
+
+  it('tags a replay quietly instead of announcing it', async () => {
+    const { game, director } = await round();
+    lap(game, director);
+    lap(game, director);
+    director.startReplay();
+    game.step(183);
+    expect(director.mode).toBe('replay');
+    expect(director.tag).toMatch(/replay/);
+    expect(director.announcement).not.toMatch(/REPLAY/);
+    game.step(60 * 4);                        // a recording a few ticks long has played out, and the next round is counting down
+    expect(director.lastVerdict).toMatch(/replay (matched|diverged|finished)/);
+    expect(director.announcement).not.toMatch(/replay/i);
     game.destroy();
   });
 

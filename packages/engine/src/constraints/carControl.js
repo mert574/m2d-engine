@@ -29,6 +29,12 @@ import { s } from '../core/schema.js';
  *   Space and ShiftLeft, KeyX for nitro.
  * @param {boolean} [options.manual=false] - Ignore the keyboard; an AI (or
  *   a recording) supplies `controls` through `setControls`.
+ * @param {boolean} [options.autoThrottle=false] - The throttle is held for
+ *   the driver: full drive whenever the brake is not, so the player steers
+ *   and drifts and never lifts off. The throttle key is then ignored.
+ * @param {number} [options.handbrakeDrag=0] - Speed the handbrake takes
+ *   off while held, 1/s: a drift that costs a little pace, so one button
+ *   can both slow the car and set it sliding.
  * @param {number} [options.acceleration=420] - Forward drive, px/s².
  * @param {number} [options.maxSpeed=560] - Forward speed cap, px/s.
  * @param {number} [options.brake=780] - Braking, px/s².
@@ -70,6 +76,8 @@ export class CarControl extends Constraint {
   static description = 'Arcade top-down car handling: throttle, steering, drift';
   static params = {
     manual: s.boolean({ initial: false, label: 'Manual drift' }),
+    autoThrottle: s.boolean({ initial: false, label: 'Auto throttle', description: 'Full drive whenever the brake is not held; the throttle key is ignored' }),
+    handbrakeDrag: s.number({ initial: 0, min: 0, unit: '1/s', label: 'Handbrake drag', description: 'Speed the handbrake takes off while held' }),
     acceleration: s.number({ initial: 420, positive: true, unit: 'px/s²' }),
     maxSpeed: s.number({ initial: 560, positive: true, unit: 'px/s' }),
     brake: s.number({ initial: 780, positive: true, unit: 'px/s²' }),
@@ -103,6 +111,8 @@ export class CarControl extends Constraint {
       ...options.keys
     };
     this.manual = options.manual ?? false;
+    this.autoThrottle = options.autoThrottle ?? false;
+    this.handbrakeDrag = options.handbrakeDrag ?? 0;
 
     this.acceleration = options.acceleration ?? 420;
     this.maxSpeed = options.maxSpeed ?? 560;
@@ -233,7 +243,12 @@ export class CarControl extends Constraint {
   }
 
   #readControls() {
-    if (this.manual) return this.controls;
+    const controls = this.manual ? { ...this.controls } : this.#keyboardControls();
+    if (this.autoThrottle) controls.throttle = controls.brake > 0 ? 0 : 1;
+    return controls;
+  }
+
+  #keyboardControls() {
     const input = this.entity.input;
     return {
       throttle: input.isDown(this.keys.throttle) ? 1 : 0,
@@ -287,6 +302,7 @@ export class CarControl extends Constraint {
       forward *= Math.exp(-this.drag * dt);
     }
     if (this.surfaceDrag > 0) forward *= Math.exp(-this.surfaceDrag * dt);
+    if (c.handbrake && this.handbrakeDrag > 0 && forward > 0) forward *= Math.exp(-this.handbrakeDrag * dt);
     forward = this.#capped(forward, cap, dt);
 
     // Grip kills the lateral part. The handbrake swaps in the drift grip;

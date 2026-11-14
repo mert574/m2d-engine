@@ -256,6 +256,7 @@ It needs the `postEffects` capability. On the Canvas backend there is no blur an
 | `UIImage` | An image, optionally scaled and tinted |
 | `UIRectangle` | A flat rectangle. `fill: true` covers the whole screen |
 | `UIMenuItem` | One line in a game menu: a tracked uppercase label with a selection bar, not a filled button |
+| `UIKeyButton` | An on-screen key for touch: pushes its key code down while a finger holds it, released by that finger wherever it lifts. A D-pad, a pedal, or an invisible `zone` |
 | `UIOptionRow` | A settings row: label, current value, and a click that changes it |
 | `Stack`, `Grid`, `Spacer` | Layout containers |
 | `UIBackdrop` | A layered menu background: gradient, drifting still, custom layers, motes, scanlines, vignette |

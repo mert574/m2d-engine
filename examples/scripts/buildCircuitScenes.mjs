@@ -1,5 +1,5 @@
 /**
- * Lays out Night Circuit's five tracks: `node scripts/buildCircuitScenes.mjs`.
+ * Lays out Night Circuit's six tracks: `node scripts/buildCircuitScenes.mjs`.
  *
  * A map's road was a radial loop built at boot from a handful of sine
  * harmonics, which meant no editor could open a circuit and no one could
@@ -15,7 +15,8 @@
  * Every sprite is a free, open asset under `src/circuit/textures/` (see
  * THIRD_PARTY_NOTICES.md).
  */
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { writeScene } from 'm2d-editor-core';
 import { seedTarget, placer } from './seedScene.mjs';
 import { MAPS, trackFor } from './circuitMaps.mjs';
@@ -56,8 +57,11 @@ function circuitScene(map) {
   const { objects, add } = placer();
   const at = (t, offset = 0) => track.pose(t, offset);
 
-  // Boost pads first: everything else draws over them.
-  for (const spec of map.props.boosts) {
+  // Boost pads first: everything else draws over them. A map may also ask
+  // for pads a car's length before its sharpest corners, which is what
+  // forces the drift through them.
+  const boosts = [...map.props.boosts, ...boostsBeforeCorners(track, map.props.beforeCorners)];
+  for (const spec of boosts) {
     const pose = at(spec.t, spec.o);
     add('boost', pose.x, pose.y, 90, 54, undefined, { angle: round(pose.angle) });
   }
@@ -117,7 +121,9 @@ function circuitScene(map) {
   const course = placer();
   course.add('road', 0, 0, 16, 16, { path: 'road', layer: 'ground', art: named(ROAD_ART), ...roadLook(map) });
   course.add('road', 0, 0, 16, 16, { path: 'road', layer: 'over', art: named(ROAD_ART), ...roadLook(map) });
-  course.add('director', 0, 0, 16, 16, { path: 'road', cars: named(CAR_ART), ghost: 'carBlack' });
+  course.add('director', 0, 0, 16, 16, { path: 'road', cars: named(CAR_ART), ghost: 'carBlack', ...(map.pace ? { pace: map.pace } : {}) });
+  for (const stretch of map.ice ?? []) course.add('ice', 0, 0, 16, 16, { path: 'road', from: stretch.from, to: stretch.to });
+  if (map.tunnel) course.add('tunnel', 0, 0, 16, 16, { path: 'road', from: map.tunnel.from, to: map.tunnel.to });
 
   const bounds = track.bounds;   // left and top are 0 now, give or take a rounding
   return {
@@ -167,11 +173,14 @@ function circuitScene(map) {
         drift: { url: 'sounds/minimize_006.ogg' },
         tyres: { url: 'sounds/tyre_squeal_loop.wav' }
       },
-      music: { game: { url: 'music/evelon-longing-for-rain.ogg' } }
+      // Under the car, which is what the player should hear most.
+      music: { game: { url: 'music/evelon-longing-for-rain.ogg', volume: 0.6 } }
     },
     prefabs: placed({
       road: { actor: 'Road', physics: { bodyType: 'static', isSensor: true } },
       director: { actor: 'RaceDirector', physics: { bodyType: 'static', isSensor: true } },
+      ice: { actor: 'IceStretch', physics: { bodyType: 'static', isSensor: true } },
+      tunnel: { actor: 'Tunnel', physics: { bodyType: 'static', isSensor: true } },
       boost: { actor: 'BoostPad', physics: { bodyType: 'static', isSensor: true }, properties: { image: 'arrow' } },
       oil: { actor: 'OilSlick', physics: { bodyType: 'static', isSensor: true, shape: 'circle' }, properties: { image: 'oil' } },
       checkpoint: { actor: 'Checkpoint', physics: { bodyType: 'static', isSensor: true } },
@@ -193,12 +202,40 @@ function circuitScene(map) {
     ],
     hud: [
       { type: 'text', id: 'title', x: 20, y: 16, anchor: 'top-left', properties: { text: map.title.toUpperCase(), fontSize: '18px', letterSpacing: 2, color: '#ffd34d' } },
-      { type: 'text', id: 'speedLabel', x: -20, y: 16, anchor: 'top-right', properties: { text: 'KM/H', align: 'right', fontSize: '12px', letterSpacing: 2, color: '#9fb0cc' } },
-      { type: 'text', id: 'nitroLabel', x: -26, y: 76, anchor: 'top-right', properties: { text: 'X', align: 'right', fontSize: '12px', color: '#9fb0cc' } },
-      { type: 'text', id: 'hint', x: 0, y: -18, anchor: 'bottom', properties: { text: 'Arrows drive · Space handbrake · X nitro · R restart · Enter replay best · O settings', align: 'center', fontSize: '13px', color: '#8292ae' } },
-      { type: 'component', id: 'race', component: 'raceHud', x: 0, y: 0, anchor: 'top-left' }
+      { type: 'text', id: 'hint', x: 0, y: -18, anchor: 'bottom', properties: { text: HINT, align: 'center', fontSize: '13px', color: '#8292ae' } },
+      { type: 'component', id: 'race', component: 'raceHud', x: 0, y: 0, anchor: 'top-left' },
+      { type: 'component', id: 'touch', component: 'touchControls', x: 0, y: 0, anchor: 'top-left' }
     ]
   };
+}
+
+/** The controls line, for a keyboard; the touch controls hide it on a touchscreen. */
+const HINT = 'Arrows steer · Down brakes · Space drifts · X nitro · R restart · Enter replay best · O settings';
+
+/**
+ * Boost pads `lead` px before the `count` sharpest corners, where the
+ * track turns hardest over a stretch of samples. A corner is counted once:
+ * its neighbours within a quarter of the lead are the same bend.
+ */
+function boostsBeforeCorners(track, spec) {
+  if (!spec) return [];
+  const samples = track.samples;
+  const n = samples.length;
+  const turn = (i) => {
+    const a = samples[(i - 4 + n) % n];
+    const b = samples[i];
+    const c = samples[(i + 4) % n];
+    const d = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(b.y - a.y, b.x - a.x);
+    return Math.abs(Math.atan2(Math.sin(d), Math.cos(d)));
+  };
+  const ranked = samples.map((_, i) => i).sort((i, j) => turn(j) - turn(i));
+  const corners = [];
+  for (const i of ranked) {
+    if (corners.length >= spec.count) break;
+    if (corners.some((j) => Math.abs(samples[j].s - samples[i].s) < spec.lead / 4 || track.length - Math.abs(samples[j].s - samples[i].s) < spec.lead / 4)) continue;
+    corners.push(i);
+  }
+  return corners.map((i) => ({ t: (((samples[i].s - spec.lead) % track.length) + track.length) % track.length / track.length, o: 0 }));
 }
 
 /** Only the prefabs a circuit actually places; an unplaced one is dead weight in the file. */
@@ -222,7 +259,10 @@ function roadLook(map) {
 const round = (n) => Math.round(n * 1000) / 1000;
 
 for (const map of MAPS) {
-  const out = seedTarget(new URL(`../src/circuit/scenes/${map.name}.json`, import.meta.url));
+  const url = new URL(`../src/circuit/scenes/${map.name}.json`, import.meta.url);
+  // A circuit seeded already is the editor's; a new one in the list is seeded beside it.
+  if (existsSync(fileURLToPath(url)) && !process.argv.includes('--force')) continue;
+  const out = seedTarget(url);
   const scene = circuitScene(map);
   writeFileSync(out, writeScene(scene));
   console.log(`${map.name}: ${scene.layers[1].objects.length} props, ${scene.paths.road.points.length} road points → ${out}`);

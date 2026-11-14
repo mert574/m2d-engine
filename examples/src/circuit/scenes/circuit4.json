@@ -67,7 +67,7 @@
       "drift": { "url": "sounds/minimize_006.ogg" },
       "tyres": { "url": "sounds/tyre_squeal_loop.wav" }
     },
-    "music": { "game": { "url": "music/evelon-longing-for-rain.ogg" } }
+    "music": { "game": { "url": "music/evelon-longing-for-rain.ogg", "volume": 0.6 } }
   },
   "prefabs": {
     "road": { "actor": "Road", "physics": { "bodyType": "static", "isSensor": true } },
@@ -911,7 +911,7 @@
       "y": -18,
       "anchor": "bottom",
       "properties": {
-        "text": "Arrows drive · Space handbrake · X nitro · R restart · Enter replay best · O settings",
+        "text": "Arrows steer · Down brakes · Space drifts · X nitro · R restart · Enter replay best · O settings",
         "fontSize": "13px",
         "color": "#8292ae",
         "align": "center"
@@ -924,6 +924,14 @@
       "y": 0,
       "anchor": "top-left",
       "component": "raceHud"
+    },
+    {
+      "type": "component",
+      "id": "touch",
+      "x": 0,
+      "y": 0,
+      "anchor": "top-left",
+      "component": "touchControls"
     }
   ]
 }

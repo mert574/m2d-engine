@@ -44,7 +44,7 @@
       "anchor": "left",
       "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
-        "text": "FIVE CIRCUITS · DRIFT, BOOST, REPLAY",
+        "text": "SIX CIRCUITS · DRIFT, BOOST, REPLAY",
         "fontSize": "$font.size.caption",
         "fontWeight": "$font.weight.medium",
         "letterSpacing": "$font.tracking.widest",
@@ -129,7 +129,7 @@
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
-        "text": "Harbour Lights",
+        "text": "Switchyard",
         "onClick": "circuit4",
         "variant": "block",
         "width": 420,
@@ -151,8 +151,30 @@
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
-        "text": "Nightfall Gauntlet",
+        "text": "Gauntlet GP",
         "onClick": "circuit5",
+        "variant": "block",
+        "width": 420,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "circuit6",
+      "x": 83,
+      "y": 90,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-right", "duration": 0.35 },
+        "select": "none",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Permafrost GP",
+        "onClick": "circuit6",
         "variant": "block",
         "width": 420,
         "letterSpacing": "$font.tracking.wider",
@@ -215,7 +237,7 @@
       "type": "menuItem",
       "id": "garage",
       "x": 83,
-      "y": 114,
+      "y": 162,
       "anchor": "left",
       "effects": {
         "enter": { "motion": "slide-right", "duration": 0.35 },
@@ -235,9 +257,19 @@
     },
     {
       "type": "component",
+      "id": "best6",
+      "x": 540,
+      "y": 90,
+      "anchor": "left",
+      "effects": { "enter": { "motion": "fade", "duration": 0.35 } },
+      "component": "bestLap",
+      "properties": { "circuit": "circuit6", "color": "#9aa0bd" }
+    },
+    {
+      "type": "component",
       "id": "car",
       "x": 540,
-      "y": 114,
+      "y": 162,
       "anchor": "left",
       "effects": { "enter": { "motion": "fade", "duration": 0.35 } },
       "component": "carInGarage",
@@ -247,7 +279,7 @@
       "type": "menuItem",
       "id": "settings",
       "x": 83,
-      "y": 162,
+      "y": 210,
       "anchor": "left",
       "effects": {
         "enter": { "motion": "slide-right", "duration": 0.35 },
@@ -273,7 +305,7 @@
       "anchor": "bottom-left",
       "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
-        "text": "Arrows drive · Space drifts · X nitro · Enter replays your best lap",
+        "text": "Arrows steer · Space drifts · X nitro · Enter replays your best lap",
         "fontSize": "$font.size.caption",
         "letterSpacing": "$font.tracking.wide",
         "color": "rgba(199, 203, 224, 0.5)"

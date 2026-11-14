@@ -1,0 +1,1022 @@
+{
+  "version": 4,
+  "name": "circuit6",
+  "type": "level",
+  "title": "Permafrost GP",
+  "gameType": "topDown",
+  "world": {
+    "width": 12346,
+    "height": 8321,
+    "gravity": { "x": 0, "y": 0 },
+    "camera": { "lerp": 0.085, "bounds": "world" },
+    "lighting": { "ambient": "#3a4058" },
+    "post": {
+      "bloom": { "threshold": 0.62, "strength": 0.85, "blur": 26 },
+      "vignette": { "strength": 0.56, "start": 0.55 },
+      "grade": {
+        "shadows": "#121a30",
+        "highlights": "#dff0ff",
+        "amount": 0.3,
+        "saturation": 0.85,
+        "contrast": 1.08
+      }
+    },
+    "music": { "track": "game" }
+  },
+  "assets": {
+    "images": {
+      "carRed": { "url": "textures/car_red_1.png" },
+      "carBlue": { "url": "textures/car_blue_1.png" },
+      "carGreen": { "url": "textures/car_green_1.png" },
+      "carBlack": { "url": "textures/car_black_3.png" },
+      "carYellow": { "url": "textures/car_yellow_3.png" },
+      "cone": { "url": "textures/cone_straight.png" },
+      "coneDown": { "url": "textures/cone_down.png" },
+      "barrel": { "url": "textures/barrel_blue.png" },
+      "barrelDown": { "url": "textures/barrel_blue_down.png" },
+      "barrelRed": { "url": "textures/barrel_red.png" },
+      "barrelRedDown": { "url": "textures/barrel_red_down.png" },
+      "oil": { "url": "textures/oil.png" },
+      "arrow": { "url": "textures/arrow_yellow.png" },
+      "barrierWhite": { "url": "textures/barrier_white.png" },
+      "barrierRed": { "url": "textures/barrier_red.png" },
+      "curbWhite": { "url": "textures/barrier_white_race.png" },
+      "curbRed": { "url": "textures/barrier_red_race.png" },
+      "tiresWhite": { "url": "textures/tires_white.png" },
+      "tiresRed": { "url": "textures/tires_red.png" },
+      "treeSmall": { "url": "textures/tree_small.png" },
+      "treeLarge": { "url": "textures/tree_large.png" },
+      "tribune": { "url": "textures/tribune_full.png" },
+      "tent": { "url": "textures/tent_blue.png" },
+      "rock": { "url": "textures/rock1.png" },
+      "lamp": { "url": "textures/light_white.png" },
+      "grass": { "url": "textures/land_grass.png" },
+      "dirt": { "url": "textures/land_dirt.png" },
+      "sand": { "url": "textures/land_sand.png" }
+    },
+    "sounds": {
+      "checkpoint": { "url": "sounds/confirmation_001.ogg" },
+      "lap": { "url": "sounds/maximize_008.ogg" },
+      "boost": { "url": "sounds/maximize_006.ogg" },
+      "count": { "url": "sounds/minimize_008.ogg" },
+      "go": { "url": "sounds/maximize_006.ogg" },
+      "barrel": { "url": "sounds/error_008.ogg" },
+      "hit": { "url": "sounds/error_008.ogg" },
+      "spill": { "url": "sounds/drop_003.ogg" },
+      "cone": { "url": "sounds/drop_003.ogg" },
+      "drift": { "url": "sounds/minimize_006.ogg" },
+      "tyres": { "url": "sounds/tyre_squeal_loop.wav" }
+    },
+    "music": { "game": { "url": "music/evelon-longing-for-rain.ogg", "volume": 0.6 } }
+  },
+  "prefabs": {
+    "road": { "actor": "Road", "physics": { "bodyType": "static", "isSensor": true } },
+    "director": { "actor": "RaceDirector", "physics": { "bodyType": "static", "isSensor": true } },
+    "ice": { "actor": "IceStretch", "physics": { "bodyType": "static", "isSensor": true } },
+    "tunnel": { "actor": "Tunnel", "physics": { "bodyType": "static", "isSensor": true } },
+    "boost": {
+      "actor": "BoostPad",
+      "physics": { "bodyType": "static", "isSensor": true },
+      "properties": { "image": "arrow" }
+    },
+    "oil": {
+      "actor": "OilSlick",
+      "physics": { "bodyType": "static", "shape": "circle", "isSensor": true },
+      "properties": { "image": "oil" }
+    },
+    "checkpoint": { "actor": "Checkpoint", "physics": { "bodyType": "static", "isSensor": true } },
+    "traffic": {
+      "actor": "TrafficCar",
+      "physics": { "bodyType": "kinematic", "friction": 0.2 },
+      "properties": { "image": "carYellow" }
+    },
+    "gate": {
+      "actor": "GateArm",
+      "physics": { "bodyType": "kinematic", "friction": 0.2 },
+      "properties": { "image": "curbRed" }
+    },
+    "cone": {
+      "actor": "Cone",
+      "physics": { "bodyType": "dynamic", "friction": 0.4, "frictionAir": 0.06 },
+      "properties": { "up": "cone", "down": "coneDown" }
+    },
+    "barrel": {
+      "actor": "Barrel",
+      "physics": {
+        "bodyType": "dynamic",
+        "shape": "circle",
+        "friction": 0.4,
+        "frictionAir": 0.05,
+        "restitution": 0.3
+      },
+      "properties": { "blue": "barrel", "blueDown": "barrelDown", "red": "barrelRed", "redDown": "barrelRedDown" }
+    }
+  },
+  "layers": [
+    {
+      "name": "course",
+      "objects": [
+        {
+          "id": "road-1",
+          "prefab": "road",
+          "x": 0,
+          "y": 0,
+          "width": 16,
+          "height": 16,
+          "properties": {
+            "path": "road",
+            "layer": "ground",
+            "art": {
+              "grass": "grass",
+              "dirt": "dirt",
+              "sand": "sand",
+              "barrierWhite": "barrierWhite",
+              "barrierRed": "barrierRed",
+              "curbWhite": "curbWhite",
+              "curbRed": "curbRed",
+              "tiresWhite": "tiresWhite",
+              "tiresRed": "tiresRed",
+              "treeSmall": "treeSmall",
+              "treeLarge": "treeLarge",
+              "tribune": "tribune",
+              "tent": "tent",
+              "rock": "rock",
+              "lamp": "lamp"
+            },
+            "ground": "dirt",
+            "asphalt": "#2a2e3c",
+            "worn": "#242836",
+            "shoulder": "#2a2d33",
+            "edge": "rgba(225, 238, 255, 0.9)",
+            "dash": "rgba(160, 210, 255, 0.6)",
+            "lampColor": "#cfe8ff",
+            "decor": { "treeLarge": 30, "treeSmall": 40, "rock": 80, "tent": 2, "tribune": 4 },
+            "lampEvery": 560,
+            "seed": 606
+          }
+        },
+        {
+          "id": "road-2",
+          "prefab": "road",
+          "x": 0,
+          "y": 0,
+          "width": 16,
+          "height": 16,
+          "properties": {
+            "path": "road",
+            "layer": "over",
+            "art": {
+              "grass": "grass",
+              "dirt": "dirt",
+              "sand": "sand",
+              "barrierWhite": "barrierWhite",
+              "barrierRed": "barrierRed",
+              "curbWhite": "curbWhite",
+              "curbRed": "curbRed",
+              "tiresWhite": "tiresWhite",
+              "tiresRed": "tiresRed",
+              "treeSmall": "treeSmall",
+              "treeLarge": "treeLarge",
+              "tribune": "tribune",
+              "tent": "tent",
+              "rock": "rock",
+              "lamp": "lamp"
+            },
+            "ground": "dirt",
+            "asphalt": "#2a2e3c",
+            "worn": "#242836",
+            "shoulder": "#2a2d33",
+            "edge": "rgba(225, 238, 255, 0.9)",
+            "dash": "rgba(160, 210, 255, 0.6)",
+            "lampColor": "#cfe8ff",
+            "decor": { "treeLarge": 30, "treeSmall": 40, "rock": 80, "tent": 2, "tribune": 4 },
+            "lampEvery": 560,
+            "seed": 606
+          }
+        },
+        {
+          "id": "director-1",
+          "prefab": "director",
+          "x": 0,
+          "y": 0,
+          "width": 16,
+          "height": 16,
+          "properties": {
+            "path": "road",
+            "cars": {
+              "carRed": "carRed",
+              "carBlue": "carBlue",
+              "carGreen": "carGreen",
+              "carBlack": "carBlack",
+              "carYellow": "carYellow"
+            },
+            "ghost": "carBlack",
+            "pace": 1.3
+          }
+        },
+        {
+          "id": "ice-1",
+          "prefab": "ice",
+          "x": 0,
+          "y": 0,
+          "width": 16,
+          "height": 16,
+          "properties": { "path": "road", "from": 0.3, "to": 0.37 }
+        },
+        {
+          "id": "ice-2",
+          "prefab": "ice",
+          "x": 0,
+          "y": 0,
+          "width": 16,
+          "height": 16,
+          "properties": { "path": "road", "from": 0.82, "to": 0.87 }
+        },
+        {
+          "id": "tunnel-1",
+          "prefab": "tunnel",
+          "x": 0,
+          "y": 0,
+          "width": 16,
+          "height": 16,
+          "properties": { "path": "road", "from": 0.6, "to": 0.68 }
+        }
+      ]
+    },
+    {
+      "name": "props",
+      "objects": [
+        {
+          "id": "boost-1",
+          "prefab": "boost",
+          "x": 11677,
+          "y": 4396,
+          "width": 90,
+          "height": 54,
+          "angle": 2.336
+        },
+        {
+          "id": "boost-2",
+          "prefab": "boost",
+          "x": 503,
+          "y": 4181,
+          "width": 90,
+          "height": 54,
+          "angle": -1.335
+        },
+        {
+          "id": "boost-3",
+          "prefab": "boost",
+          "x": 3114,
+          "y": 5957,
+          "width": 90,
+          "height": 54,
+          "angle": -2.17
+        },
+        {
+          "id": "boost-4",
+          "prefab": "boost",
+          "x": 9231,
+          "y": 2364,
+          "width": 90,
+          "height": 54,
+          "angle": 0.972
+        },
+        {
+          "id": "boost-5",
+          "prefab": "boost",
+          "x": 3052,
+          "y": 2559,
+          "width": 90,
+          "height": 54,
+          "angle": -0.296
+        },
+        {
+          "id": "boost-6",
+          "prefab": "boost",
+          "x": 9293,
+          "y": 5762,
+          "width": 90,
+          "height": 54,
+          "angle": 2.845
+        },
+        {
+          "id": "boost-7",
+          "prefab": "boost",
+          "x": 877,
+          "y": 4745,
+          "width": 90,
+          "height": 54,
+          "angle": -2.638
+        },
+        {
+          "id": "oil-1",
+          "prefab": "oil",
+          "x": 8761,
+          "y": 7444,
+          "width": 88,
+          "height": 88,
+          "angle": 2.035,
+          "properties": { "radius": 55 }
+        },
+        {
+          "id": "oil-2",
+          "prefab": "oil",
+          "x": 4908,
+          "y": 663,
+          "width": 96,
+          "height": 96,
+          "angle": 0.401,
+          "properties": { "radius": 60 }
+        },
+        {
+          "id": "checkpoint-1",
+          "prefab": "checkpoint",
+          "x": 6660,
+          "y": 7266,
+          "width": 26,
+          "height": 201,
+          "angle": -2.645,
+          "properties": { "index": 0, "finish": false }
+        },
+        {
+          "id": "checkpoint-2",
+          "prefab": "checkpoint",
+          "x": 503,
+          "y": 4181,
+          "width": 26,
+          "height": 156,
+          "angle": -1.335,
+          "properties": { "index": 1, "finish": false }
+        },
+        {
+          "id": "checkpoint-3",
+          "prefab": "checkpoint",
+          "x": 5685,
+          "y": 1054,
+          "width": 26,
+          "height": 201,
+          "angle": 0.497,
+          "properties": { "index": 2, "finish": false }
+        },
+        {
+          "id": "checkpoint-4",
+          "prefab": "checkpoint",
+          "x": 11836,
+          "y": 4160,
+          "width": 26,
+          "height": 156,
+          "angle": 1.857,
+          "properties": { "index": 3, "finish": true }
+        },
+        {
+          "id": "traffic-1",
+          "prefab": "traffic",
+          "x": 8549,
+          "y": 7658,
+          "width": 48,
+          "height": 26,
+          "constraints": {
+            "path": {
+              "type": "PathFollow",
+              "params": {
+                "path": "traffic-1",
+                "stopAtPoints": false,
+                "speed": 230,
+                "waitTime": 900,
+                "acceleration": 230
+              }
+            }
+          }
+        },
+        {
+          "id": "traffic-2",
+          "prefab": "traffic",
+          "x": 4347,
+          "y": 472,
+          "width": 48,
+          "height": 26,
+          "constraints": {
+            "path": {
+              "type": "PathFollow",
+              "params": {
+                "path": "traffic-2",
+                "stopAtPoints": false,
+                "speed": 220,
+                "waitTime": 900,
+                "acceleration": 220
+              }
+            }
+          }
+        },
+        {
+          "id": "gate-1",
+          "prefab": "gate",
+          "x": 8885,
+          "y": 6575,
+          "width": 48,
+          "height": 14,
+          "angle": 3.049,
+          "constraints": {
+            "path": {
+              "type": "PathFollow",
+              "params": {
+                "path": "gate-1",
+                "stopAtPoints": false,
+                "speed": 110.406,
+                "waitTime": 650,
+                "acceleration": 260
+              }
+            }
+          }
+        },
+        {
+          "id": "gate-2",
+          "prefab": "gate",
+          "x": 983,
+          "y": 4850,
+          "width": 51,
+          "height": 14,
+          "angle": -1.142,
+          "constraints": {
+            "path": {
+              "type": "PathFollow",
+              "params": {
+                "path": "gate-2",
+                "stopAtPoints": false,
+                "speed": 112.07,
+                "waitTime": 650,
+                "acceleration": 260
+              }
+            }
+          }
+        },
+        {
+          "id": "gate-3",
+          "prefab": "gate",
+          "x": 9450,
+          "y": 2862,
+          "width": 62,
+          "height": 14,
+          "angle": 2.509,
+          "constraints": {
+            "path": {
+              "type": "PathFollow",
+              "params": {
+                "path": "gate-3",
+                "stopAtPoints": false,
+                "speed": 116.473,
+                "waitTime": 650,
+                "acceleration": 260
+              }
+            }
+          }
+        },
+        {
+          "id": "cone-1",
+          "prefab": "cone",
+          "x": 10441,
+          "y": 5199,
+          "width": 13,
+          "height": 13,
+          "angle": 2.563
+        },
+        {
+          "id": "cone-2",
+          "prefab": "cone",
+          "x": 10424,
+          "y": 5210,
+          "width": 13,
+          "height": 13,
+          "angle": 2.565
+        },
+        {
+          "id": "cone-3",
+          "prefab": "cone",
+          "x": 10388,
+          "y": 5234,
+          "width": 13,
+          "height": 13,
+          "angle": 2.562
+        },
+        {
+          "id": "cone-4",
+          "prefab": "cone",
+          "x": 10369,
+          "y": 5246,
+          "width": 13,
+          "height": 13,
+          "angle": 2.557
+        },
+        {
+          "id": "cone-5",
+          "prefab": "cone",
+          "x": 10350,
+          "y": 5259,
+          "width": 13,
+          "height": 13,
+          "angle": 2.553
+        },
+        {
+          "id": "cone-6",
+          "prefab": "cone",
+          "x": 10313,
+          "y": 5283,
+          "width": 13,
+          "height": 13,
+          "angle": 2.549
+        },
+        {
+          "id": "cone-7",
+          "prefab": "cone",
+          "x": 7417,
+          "y": 7703,
+          "width": 13,
+          "height": 13,
+          "angle": -2.74
+        },
+        {
+          "id": "cone-8",
+          "prefab": "cone",
+          "x": 7397,
+          "y": 7694,
+          "width": 13,
+          "height": 13,
+          "angle": -2.729
+        },
+        {
+          "id": "cone-9",
+          "prefab": "cone",
+          "x": 7377,
+          "y": 7685,
+          "width": 13,
+          "height": 13,
+          "angle": -2.719
+        },
+        {
+          "id": "cone-10",
+          "prefab": "cone",
+          "x": 7336,
+          "y": 7667,
+          "width": 13,
+          "height": 13,
+          "angle": -2.702
+        },
+        {
+          "id": "cone-11",
+          "prefab": "cone",
+          "x": 7316,
+          "y": 7657,
+          "width": 13,
+          "height": 13,
+          "angle": -2.694
+        },
+        {
+          "id": "cone-12",
+          "prefab": "cone",
+          "x": 7295,
+          "y": 7647,
+          "width": 13,
+          "height": 13,
+          "angle": -2.687
+        },
+        {
+          "id": "cone-13",
+          "prefab": "cone",
+          "x": 1861,
+          "y": 5032,
+          "width": 13,
+          "height": 13,
+          "angle": -2.94
+        },
+        {
+          "id": "cone-14",
+          "prefab": "cone",
+          "x": 1817,
+          "y": 5022,
+          "width": 13,
+          "height": 13,
+          "angle": -2.932
+        },
+        {
+          "id": "cone-15",
+          "prefab": "cone",
+          "x": 1795,
+          "y": 5018,
+          "width": 13,
+          "height": 13,
+          "angle": -2.928
+        },
+        {
+          "id": "cone-16",
+          "prefab": "cone",
+          "x": 1773,
+          "y": 5013,
+          "width": 13,
+          "height": 13,
+          "angle": -2.923
+        },
+        {
+          "id": "cone-17",
+          "prefab": "cone",
+          "x": 1730,
+          "y": 5003,
+          "width": 13,
+          "height": 13,
+          "angle": -2.911
+        },
+        {
+          "id": "cone-18",
+          "prefab": "cone",
+          "x": 1628,
+          "y": 3242,
+          "width": 13,
+          "height": 13,
+          "angle": -0.568
+        },
+        {
+          "id": "cone-19",
+          "prefab": "cone",
+          "x": 1647,
+          "y": 3230,
+          "width": 13,
+          "height": 13,
+          "angle": -0.571
+        },
+        {
+          "id": "cone-20",
+          "prefab": "cone",
+          "x": 1684,
+          "y": 3206,
+          "width": 13,
+          "height": 13,
+          "angle": -0.576
+        },
+        {
+          "id": "cone-21",
+          "prefab": "cone",
+          "x": 1702,
+          "y": 3194,
+          "width": 13,
+          "height": 13,
+          "angle": -0.578
+        },
+        {
+          "id": "cone-22",
+          "prefab": "cone",
+          "x": 1720,
+          "y": 3183,
+          "width": 13,
+          "height": 13,
+          "angle": -0.58
+        },
+        {
+          "id": "cone-23",
+          "prefab": "cone",
+          "x": 1755,
+          "y": 3159,
+          "width": 13,
+          "height": 13,
+          "angle": -0.582
+        },
+        {
+          "id": "cone-24",
+          "prefab": "cone",
+          "x": 5406,
+          "y": 937,
+          "width": 13,
+          "height": 13,
+          "angle": 0.499
+        },
+        {
+          "id": "cone-25",
+          "prefab": "cone",
+          "x": 5445,
+          "y": 958,
+          "width": 13,
+          "height": 13,
+          "angle": 0.508
+        },
+        {
+          "id": "cone-26",
+          "prefab": "cone",
+          "x": 5464,
+          "y": 969,
+          "width": 13,
+          "height": 13,
+          "angle": 0.512
+        },
+        {
+          "id": "cone-27",
+          "prefab": "cone",
+          "x": 5502,
+          "y": 991,
+          "width": 13,
+          "height": 13,
+          "angle": 0.517
+        },
+        {
+          "id": "cone-28",
+          "prefab": "cone",
+          "x": 5521,
+          "y": 1002,
+          "width": 13,
+          "height": 13,
+          "angle": 0.518
+        },
+        {
+          "id": "cone-29",
+          "prefab": "cone",
+          "x": 9914,
+          "y": 3108,
+          "width": 13,
+          "height": 13,
+          "angle": 0.231
+        },
+        {
+          "id": "cone-30",
+          "prefab": "cone",
+          "x": 9961,
+          "y": 3119,
+          "width": 13,
+          "height": 13,
+          "angle": 0.229
+        },
+        {
+          "id": "cone-31",
+          "prefab": "cone",
+          "x": 9985,
+          "y": 3125,
+          "width": 13,
+          "height": 13,
+          "angle": 0.229
+        },
+        {
+          "id": "cone-32",
+          "prefab": "cone",
+          "x": 10010,
+          "y": 3130,
+          "width": 13,
+          "height": 13,
+          "angle": 0.23
+        },
+        {
+          "id": "cone-33",
+          "prefab": "cone",
+          "x": 10035,
+          "y": 3136,
+          "width": 13,
+          "height": 13,
+          "angle": 0.232
+        },
+        {
+          "id": "cone-34",
+          "prefab": "cone",
+          "x": 10078,
+          "y": 3146,
+          "width": 13,
+          "height": 13,
+          "angle": 0.227
+        },
+        { "id": "barrel-1", "prefab": "barrel", "x": 8854, "y": 5961, "width": 22, "height": 22 },
+        {
+          "id": "barrel-2",
+          "prefab": "barrel",
+          "x": 8829,
+          "y": 6003,
+          "width": 22,
+          "height": 22,
+          "properties": { "rusted": true }
+        },
+        { "id": "barrel-3", "prefab": "barrel", "x": 8819, "y": 6025, "width": 22, "height": 22 },
+        {
+          "id": "barrel-4",
+          "prefab": "barrel",
+          "x": 8805,
+          "y": 6065,
+          "width": 22,
+          "height": 22,
+          "properties": { "rusted": true }
+        },
+        { "id": "barrel-5", "prefab": "barrel", "x": 2903, "y": 5453, "width": 22, "height": 22 },
+        {
+          "id": "barrel-6",
+          "prefab": "barrel",
+          "x": 2892,
+          "y": 5439,
+          "width": 22,
+          "height": 22,
+          "properties": { "rusted": true }
+        },
+        { "id": "barrel-7", "prefab": "barrel", "x": 2870, "y": 5412, "width": 22, "height": 22 },
+        { "id": "barrel-8", "prefab": "barrel", "x": 906, "y": 3774, "width": 22, "height": 22 },
+        {
+          "id": "barrel-9",
+          "prefab": "barrel",
+          "x": 942,
+          "y": 3749,
+          "width": 22,
+          "height": 22,
+          "properties": { "rusted": true }
+        },
+        { "id": "barrel-10", "prefab": "barrel", "x": 960, "y": 3737, "width": 22, "height": 22 },
+        {
+          "id": "barrel-11",
+          "prefab": "barrel",
+          "x": 978,
+          "y": 3724,
+          "width": 22,
+          "height": 22,
+          "properties": { "rusted": true }
+        },
+        { "id": "barrel-12", "prefab": "barrel", "x": 6536, "y": 1266, "width": 22, "height": 22 },
+        {
+          "id": "barrel-13",
+          "prefab": "barrel",
+          "x": 6558,
+          "y": 1269,
+          "width": 22,
+          "height": 22,
+          "properties": { "rusted": true }
+        },
+        { "id": "barrel-14", "prefab": "barrel", "x": 6601, "y": 1276, "width": 22, "height": 22 }
+      ]
+    }
+  ],
+  "paths": {
+    "road": {
+      "points": [
+        { "x": 11836.007, "y": 4160.056, "w": 52.767 },
+        { "x": 11578.997, "y": 4491.159, "w": 48.238 },
+        { "x": 11167.919, "y": 4776.63, "w": 49.54 },
+        { "x": 10761.353, "y": 5020.754, "w": 56.325 },
+        { "x": 10420.393, "y": 5242.321, "w": 66.773 },
+        { "x": 10106.368, "y": 5444.118, "w": 78.087 },
+        { "x": 9759.385, "y": 5609.662, "w": 87.233 },
+        { "x": 9381.979, "y": 5733.147, "w": 91.762 },
+        { "x": 9053.661, "y": 5852.339, "w": 90.46 },
+        { "x": 8865.101, "y": 6044.848, "w": 83.675 },
+        { "x": 8830.629, "y": 6377.506, "w": 73.227 },
+        { "x": 8856.079, "y": 6842.799, "w": 61.913 },
+        { "x": 8792.185, "y": 7336.205, "w": 52.767 },
+        { "x": 8532.559, "y": 7702.809, "w": 48.238 },
+        { "x": 8079.787, "y": 7828.137, "w": 49.54 },
+        { "x": 7531.319, "y": 7709.775, "w": 56.325 },
+        { "x": 7002.832, "y": 7456.224, "w": 66.773 },
+        { "x": 6554.036, "y": 7212.412, "w": 78.087 },
+        { "x": 6172.541, "y": 7066.369, "w": 87.233 },
+        { "x": 5816.982, "y": 7004.896, "w": 91.762 },
+        { "x": 5470.577, "y": 6946.78, "w": 90.46 },
+        { "x": 5153.698, "y": 6821.718, "w": 83.675 },
+        { "x": 4888.349, "y": 6629.858, "w": 73.227 },
+        { "x": 4656.15, "y": 6436.394, "w": 61.913 },
+        { "x": 4398.822, "y": 6310.576, "w": 52.767 },
+        { "x": 4068.765, "y": 6263.209, "w": 48.238 },
+        { "x": 3684.968, "y": 6235.258, "w": 49.54 },
+        { "x": 3336.03, "y": 6145.614, "w": 56.325 },
+        { "x": 3113.964, "y": 5956.572, "w": 66.773 },
+        { "x": 3026.068, "y": 5702.285, "w": 78.087 },
+        { "x": 2961.192, "y": 5457.907, "w": 87.233 },
+        { "x": 2751.091, "y": 5276.87, "w": 91.762 },
+        { "x": 2291.959, "y": 5148.748, "w": 90.46 },
+        { "x": 1636.991, "y": 5010.764, "w": 83.675 },
+        { "x": 985.21, "y": 4800.323, "w": 73.227 },
+        { "x": 567.499, "y": 4503.321, "w": 61.913 },
+        { "x": 509.075, "y": 4160.056, "w": 52.767 },
+        { "x": 766.085, "y": 3828.954, "w": 48.238 },
+        { "x": 1177.163, "y": 3543.482, "w": 49.54 },
+        { "x": 1583.729, "y": 3299.358, "w": 56.325 },
+        { "x": 1924.689, "y": 3077.792, "w": 66.773 },
+        { "x": 2238.714, "y": 2875.995, "w": 78.087 },
+        { "x": 2585.698, "y": 2710.451, "w": 87.233 },
+        { "x": 2963.103, "y": 2586.966, "w": 91.762 },
+        { "x": 3291.422, "y": 2467.774, "w": 90.46 },
+        { "x": 3479.981, "y": 2275.264, "w": 83.675 },
+        { "x": 3514.453, "y": 1942.606, "w": 73.227 },
+        { "x": 3489.003, "y": 1477.314, "w": 61.913 },
+        { "x": 3552.898, "y": 983.907, "w": 52.767 },
+        { "x": 3812.523, "y": 617.304, "w": 48.238 },
+        { "x": 4265.295, "y": 491.976, "w": 49.54 },
+        { "x": 4813.764, "y": 610.338, "w": 56.325 },
+        { "x": 5342.251, "y": 863.888, "w": 66.773 },
+        { "x": 5791.046, "y": 1107.701, "w": 78.087 },
+        { "x": 6172.541, "y": 1253.744, "w": 87.233 },
+        { "x": 6528.1, "y": 1315.216, "w": 91.762 },
+        { "x": 6874.505, "y": 1373.333, "w": 90.46 },
+        { "x": 7191.384, "y": 1498.395, "w": 83.675 },
+        { "x": 7456.733, "y": 1690.254, "w": 73.227 },
+        { "x": 7688.932, "y": 1883.719, "w": 61.913 },
+        { "x": 7946.26, "y": 2009.537, "w": 52.767 },
+        { "x": 8276.317, "y": 2056.904, "w": 48.238 },
+        { "x": 8660.114, "y": 2084.854, "w": 49.54 },
+        { "x": 9009.052, "y": 2174.499, "w": 56.325 },
+        { "x": 9231.118, "y": 2363.541, "w": 66.773 },
+        { "x": 9319.014, "y": 2617.828, "w": 78.087 },
+        { "x": 9383.89, "y": 2862.205, "w": 87.233 },
+        { "x": 9593.992, "y": 3043.242, "w": 91.762 },
+        { "x": 10053.123, "y": 3171.365, "w": 90.46 },
+        { "x": 10708.091, "y": 3309.348, "w": 83.675 },
+        { "x": 11359.872, "y": 3519.79, "w": 73.227 },
+        { "x": 11777.583, "y": 3816.792, "w": 61.913 }
+      ],
+      "closed": true,
+      "smooth": true
+    },
+    "traffic-1": {
+      "points": [
+        { "x": 8549.096, "y": 7657.744 },
+        { "x": 8433.77, "y": 7728.923 },
+        { "x": 8317.443, "y": 7770.684 },
+        { "x": 8168.035, "y": 7797.564 },
+        { "x": 8041.815, "y": 7801.412 },
+        { "x": 7900.806, "y": 7784.898 },
+        { "x": 7773.382, "y": 7756.774 },
+        { "x": 7644.738, "y": 7719.844 },
+        { "x": 7500.565, "y": 7670.955 },
+        { "x": 7381.678, "y": 7620.65 },
+        { "x": 7262.736, "y": 7562.635 },
+        { "x": 7126.68, "y": 7491.523 },
+        { "x": 7014.701, "y": 7433.092 },
+        { "x": 6876.805, "y": 7358.784 },
+        { "x": 6763.514, "y": 7294.423 },
+        { "x": 6636.066, "y": 7224.237 },
+        { "x": 6521.656, "y": 7168.823 },
+        { "x": 6376.802, "y": 7107.593 },
+        { "x": 6238.413, "y": 7058.863 },
+        { "x": 6113.635, "y": 7025.007 },
+        { "x": 5964.993, "y": 6999.996 },
+        { "x": 5821.195, "y": 6979.24 },
+        { "x": 5688.575, "y": 6960.03 },
+        { "x": 5559.669, "y": 6940.381 }
+      ]
+    },
+    "traffic-2": {
+      "points": [
+        { "x": 4346.718, "y": 471.504 },
+        { "x": 4474.752, "y": 490.038 },
+        { "x": 4606.132, "y": 520.696 },
+        { "x": 4758.285, "y": 566.333 },
+        { "x": 4882.627, "y": 610.312 },
+        { "x": 5024.799, "y": 673.107 },
+        { "x": 5144.685, "y": 733.339 },
+        { "x": 5260.759, "y": 794.417 },
+        { "x": 5393.867, "y": 863.638 },
+        { "x": 5512.055, "y": 928.608 },
+        { "x": 5642.923, "y": 1002.929 },
+        { "x": 5749.641, "y": 1060.602 },
+        { "x": 5885.832, "y": 1124.345 },
+        { "x": 6006.005, "y": 1173.441 },
+        { "x": 6140.776, "y": 1219.452 },
+        { "x": 6283.626, "y": 1254.517 },
+        { "x": 6407.553, "y": 1273.394 },
+        { "x": 6553.814, "y": 1295.114 },
+        { "x": 6685.129, "y": 1313.492 },
+        { "x": 6837.968, "y": 1339.478 },
+        { "x": 6964.543, "y": 1375.539 },
+        { "x": 7106.872, "y": 1430.187 }
+      ]
+    },
+    "gate-1": { "points": [{ "x": 8885.171, "y": 6574.54 }, { "x": 8801.189, "y": 6582.36 }] },
+    "gate-2": { "points": [{ "x": 983.199, "y": 4849.694 }, { "x": 1021.09, "y": 4766.712 }] },
+    "gate-3": { "points": [{ "x": 9449.851, "y": 2861.736 }, { "x": 9361.592, "y": 2926.415 }] }
+  },
+  "hud": [
+    {
+      "type": "text",
+      "id": "title",
+      "x": 20,
+      "y": 16,
+      "anchor": "top-left",
+      "properties": { "text": "PERMAFROST GP", "fontSize": "18px", "color": "#ffd34d", "letterSpacing": 2 }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": 0,
+      "y": -18,
+      "anchor": "bottom",
+      "properties": {
+        "text": "Arrows steer · Down brakes · Space drifts · X nitro · R restart · Enter replay best · O settings",
+        "fontSize": "13px",
+        "color": "#8292ae",
+        "align": "center"
+      }
+    },
+    {
+      "type": "component",
+      "id": "race",
+      "x": 0,
+      "y": 0,
+      "anchor": "top-left",
+      "component": "raceHud"
+    },
+    {
+      "type": "component",
+      "id": "touch",
+      "x": 0,
+      "y": 0,
+      "anchor": "top-left",
+      "component": "touchControls"
+    }
+  ]
+}

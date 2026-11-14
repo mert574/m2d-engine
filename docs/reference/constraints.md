@@ -148,6 +148,8 @@ Hedgerow Court is the worked example.
 | --- | --- | --- |
 | `keys` | arrows, `Space`, `KeyX` | `{ throttle, brake, left, right, handbrake, nitro }` as key codes. Partial overrides are merged |
 | `manual` | `false` | Ignore the keyboard; a driver supplies `setControls({ throttle, brake, steer, handbrake, nitro })` |
+| `autoThrottle` | `false` | The throttle is held for the driver: full drive whenever the brake is not, so the player steers and drifts and never lifts off. The throttle key is ignored; a `manual` driver's `throttle` too |
+| `handbrakeDrag` | `0` | Speed the handbrake takes off while held, 1/s. With it one button both slows the car and sets it sliding, which a touch screen with two buttons wants |
 | `acceleration` | `420` | Forward drive, px/s² |
 | `maxSpeed` | `560` | Forward cap, px/s |
 | `brake` | `780` | Braking, px/s². Held past the stop it reverses, capped at `maxReverse` |

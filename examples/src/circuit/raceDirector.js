@@ -45,6 +45,7 @@ export class RaceDirector extends Entity {
     cars: s.record(s.ref('image'), { description: 'The cars that may be driven, by the sprite name cars.js gives them' }),
     ghost: s.ref('image', { description: 'The personal-best ghost' }),
     roadGrip: s.number({ positive: true, initial: 1, description: 'Grip of the asphalt itself: 1 dry, less in the rain' }),
+    pace: s.number({ positive: true, initial: 1, description: 'How much faster than the base car this circuit is driven: scales top speed and acceleration' }),
     countdown: s.number({ positive: true, initial: 3.2, unit: 's', description: 'Held on the grid before the inputs go live' })
   };
 
@@ -52,14 +53,16 @@ export class RaceDirector extends Entity {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
-    // The director stands in the world without being part of it.
+    // The director stands in the world without being part of it; what it
+    // draws is the ghost, over the road and under the barriers.
     body.setCollisionFilter({ category: 0, mask: 0 });
-    this.visible = false;
+    this.zIndex = 2;
 
     this.roadPath = options.path ?? 'road';
     this.art = options.cars ?? {};
     this.ghost = new GhostCar(game, options.ghost ?? null);
     this.roadGrip = options.roadGrip ?? 1;
+    this.pace = options.pace ?? 1;
     this.countdownSeconds = options.countdown ?? COUNTDOWN_SECONDS;
 
     this.carSpec = selectedCar();
@@ -81,6 +84,8 @@ export class RaceDirector extends Entity {
 
     /** What the HUD is showing, and whether it stays up. */
     this.announcement = '';
+    /** A quiet line at the top of the HUD: that a replay is driving, and how it ended. */
+    this.tag = '';
     /** A white flash, decayed per frame; the scene binds the post effect to it. */
     this.flash = 0;
 
@@ -169,6 +174,7 @@ export class RaceDirector extends Entity {
     this.#buildWalls();
 
     this.mode = 'countdown';
+    this.tag = '';
     this.roundSpills = (replay ? replay.spills : this.spills).map((spill) => ({ ...spill }));
     this.roundFrames = [];
     this.activeCar = (replay?.car && CARS.find((car) => car.id === replay.car)) || this.carSpec;
@@ -230,13 +236,15 @@ export class RaceDirector extends Entity {
 
   #greenLight(replay) {
     const game = this.game;
+    // Held on the grid through the countdown; from here the car drives itself.
+    this.car.drive.autoThrottle = true;
     // The personal-best ghost sets off with you, every round it exists.
     if (this.best?.ghost?.length) this.ghost.start(this.best.ghost);
     if (replay) {
       this.mode = 'replay';
       this.playback = new Player(game, replay.inputs, replay.checks);
       this.playback.car = this.car;
-      this.announce('REPLAY · the recording is driving', true);
+      this.tag = 'replay · the recording is driving · Enter stops it';
     } else {
       this.mode = 'live';
       game.input.setSnapshotSource(null);
@@ -256,16 +264,34 @@ export class RaceDirector extends Entity {
       angle: pose.angle,
       friction: 0.1, frictionAir: 0, restitution: 0.25, density: 0.004
     });
+    // The gas is the car's own once the lights go green (see #greenLight):
+    // the driver steers, drifts and boosts. The circuit's pace scales how
+    // fast that is.
+    const base = { maxSpeed: 560, acceleration: 420, ...(this.activeCar?.control ?? {}) };
     this.car = new RaceCar(body, null, game, {
       image: this.art[this.activeCar?.sprite ?? 'carBlue'] ?? Object.values(this.art)[0],
       track, marks: marksFor(scene),
-      control: this.activeCar?.control ?? {},
+      control: { ...base, handbrakeDrag: 0.35, maxSpeed: base.maxSpeed * this.pace, acceleration: base.acceleration * this.pace },
       roadGrip: this.roadGrip,
+      surfaceAt: this.#surfaceAt(),
       // The boost shows itself: a flash the scene's post binding reads,
       // the streaks and the exhaust. No caption.
       onBoost: () => { this.flash = 1; }
     });
     this.#add(this.car);
+  }
+
+  /** What the circuit lays over its asphalt, asked per tick: the ice stretches, if it has any. */
+  #surfaceAt() {
+    const ice = [...this.game.entities].filter((entity) => entity.name === 'IceStretch');
+    if (!ice.length) return null;
+    const track = this.track;
+    return (x, y) => (ice.some((stretch) => stretch.covers(track, x, y)) ? 'ice' : null);
+  }
+
+  /** The director draws one thing: the personal-best ghost. */
+  draw() {
+    this.ghost.draw();
   }
 
   #add(entity) {
@@ -399,7 +425,7 @@ export class RaceDirector extends Entity {
       if (this.playback.done) {
         this.mode = 'done';
         this.lastVerdict = this.playback.verdict;
-        this.announce(this.playback.verdict, true);
+        this.tag = this.playback.verdict;
         this.playback.stop();
         this.playback = null;
         this.timers.push(this.game.time.after(3, () => this.newRound()));

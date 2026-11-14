@@ -130,6 +130,22 @@ An element is a hit target only when it has a positive `width` and `height`.
 
 `isSelected` is true when hovered **or** focused: the pointer and the d-pad light up the same line the same way. `selectedAmount` eases between 0 and 1 and drives the bar, the brightening and the step.
 
+## UIKeyButton
+
+`new UIKeyButton(options)` from `keyButton.js`. An on-screen key: pressing it pushes a `keydown` for its `code` through `game.input.push`, the seam the real keyboard uses, and releasing it a `keyup`, so any constraint bound to that code moves on a touchscreen and a replay that records keys records the thumb too. The pointer that pressed it releases it wherever it lifts, cancelled or not, and each finger holds its own button.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `code` | required | The physical key code it stands for |
+| `label` | `''` | Drawn on it |
+| `zone` | `false` | Draw nothing at rest and a faint wash while held: an area (half the screen) that holds a key while a finger rests on it |
+| `shape` | `'round'` | `round` or `rect` |
+| `background`, `heldBackground` | a translucent white, `$color.accent.default` | Fill at rest and while held |
+| `color`, `fontSize` | `$color.text.primary`, `$font.size.subheading` | The label |
+| `width`, `height` | `72`, `72` | |
+
+Fields: `held`, `code`. Methods: `press()`, `release()`. A game registers it as a UI component and its scenes place it (`registerUIComponent`), as the touch guide's demo and Night Circuit's touch controls do.
+
 ## UIText
 
 `new UIText(options)` from `text.js`. Measures itself, so it has a real box and can be nested and hit-tested.

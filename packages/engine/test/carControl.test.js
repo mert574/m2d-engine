@@ -213,6 +213,46 @@ describe('CarControl', () => {
     expect(body.velocity.x).toBeCloseTo(400, 3);
   });
 
+  it('holds the throttle itself with autoThrottle, lifting only to brake', () => {
+    const { game, entity, drive } = makeCar({ autoThrottle: true, acceleration: 400, maxSpeed: 300 });
+    run(game, entity, 2);
+    expect(drive.forwardSpeed).toBeGreaterThan(250);
+
+    holdKeys(game, 'ArrowDown');
+    run(game, entity, 0.5);
+    expect(drive.forwardSpeed).toBeLessThan(50);
+    releaseKeys(game);
+
+    const manual = makeCar({ autoThrottle: true, manual: true, acceleration: 400, maxSpeed: 300 });
+    manual.drive.setControls({ throttle: 0 });
+    run(manual.game, manual.entity, 2);
+    expect(manual.drive.forwardSpeed).toBeGreaterThan(250);
+  });
+
+  it('sheds speed on the handbrake only when handbrakeDrag asks it to', () => {
+    const free = makeCar();
+    const dragged = makeCar({ handbrakeDrag: 1.2 });
+    const auto = makeCar({ autoThrottle: true, handbrakeDrag: 1.2 });
+    for (const car of [free, dragged, auto]) {
+      holdKeys(car.game, 'ArrowUp');
+      run(car.game, car.entity, 3);
+      releaseKeys(car.game);
+    }
+    const before = dragged.drive.forwardSpeed;
+    // Coasting on the handbrake; the auto-throttle car keeps driving through it.
+    for (const car of [free, dragged, auto]) {
+      holdKeys(car.game, 'Space');
+      run(car.game, car.entity, 1);
+      releaseKeys(car.game);
+    }
+    // Without it the handbrake costs only the coasting drag.
+    expect(free.drive.forwardSpeed).toBeCloseTo(before * Math.exp(-0.6), 0);
+    expect(dragged.drive.forwardSpeed).toBeLessThan(free.drive.forwardSpeed * 0.5);
+    // Driven through the slide, the car settles below the cap rather than stopping.
+    expect(auto.drive.forwardSpeed).toBeLessThan(before * 0.85);
+    expect(auto.drive.forwardSpeed).toBeGreaterThan(before * 0.5);
+  });
+
   it('drives from setControls when manual', () => {
     const { game, body, entity } = makeCar({ manual: true });
     const drive = entity.getConstraint('drive');
