@@ -140,6 +140,32 @@ if (game.actions.down('boost', this.input)) this.burn(dt);
 
 The settings menu lists every action under Controls. Enter on a row waits for the next key and binds the action to it; Escape keeps the old one, and Reset controls returns every action to the project's keys. A player's bindings persist in the browser, per game, and never change the project file. Code rebinds with `game.actions.rebind(name, codes)` and restores with `game.actions.reset()`. Without the `actions` option the game has none.
 
+## Gamepad
+
+A gamepad is read as keys. The Gamepad API has no events, so the engine polls the connected pads at the top of every frame, works out which controls are held and translates each through a table into a physical key code, pushing the edges through the same seam the keyboard uses. Every constraint, rule, named action, menu and replay then works from a pad without knowing one is there.
+
+The default table is the arcade convention:
+
+| Control | Key |
+| --- | --- |
+| D-pad, left stick | `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight` |
+| A | `Space` |
+| B, Start | `Escape` |
+| X | `KeyX` |
+| Y | `KeyE` |
+| LB, RB | `ShiftLeft`, `ShiftRight` |
+| LT, RT | `ArrowDown`, `ArrowUp` |
+| Back | `KeyO` (the settings menu) |
+| Right stick, L3, R3, Guide | nothing |
+
+A game changes it control by control, in the project file or the `gamepad` option; an empty string makes a control do nothing, and `gamepad: false` reads no pads. The controls are `A`, `B`, `X`, `Y`, `LB`, `RB`, `LT`, `RT`, `Back`, `Start`, `L3`, `R3`, `Guide`, `Up`, `Down`, `Left`, `Right`, and `LeftStickUp`, `LeftStickDown`, `LeftStickLeft`, `LeftStickRight` with the same four for `RightStick`.
+
+```json
+"input": { "actions": { "replay": ["Enter"] }, "gamepad": { "Y": "Enter", "LB": "KeyR" } }
+```
+
+Sticks and triggers count past 0.6 of their travel and let go under 0.4, so one resting near the edge does not chatter. Two controls that stand for the same key hold it together: the key goes down with the first and up with the last. A press while the settings menu waits for a key binds the action to the key the control stands for, and the row shows that key.
+
 ## Replacing the engine loop
 
 A game that runs its own `requestAnimationFrame` loop must call `game.input.beginFrame(now)` at the start of each frame and `game.input.endFrame()` at the end. `beginFrame` delivers buffered pointer moves and fires time-based gestures. `endFrame` retires the `justPressed` and `justReleased` edges. `game.fixedUpdate` samples the snapshot; a loop that runs ticks some other way calls `game.input.sample()` itself at the start of each. See [Game loop](./game-loop).

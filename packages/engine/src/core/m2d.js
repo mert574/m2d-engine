@@ -94,6 +94,14 @@ const defaultOptions = {
    */
   pointerLock: false,
   /**
+   * What each gamepad control stands for, as a key code, over the arcade
+   * defaults (the d-pad and left stick are the arrows, A is Space, B and
+   * Start are Escape...): `{ Y: 'Enter' }`. `false` reads no pads. A
+   * project declares it in `m2d.project.json` (`input.gamepad`). See
+   * core/input/gamepad.js.
+   */
+  gamepad: {},
+  /**
    * Seconds per simulation tick. Every `fixedUpdate` and every physics step
    * sees exactly this dt no matter how long a frame took: the loop runs as
    * many ticks as the elapsed time paid for. That is what makes the game
@@ -359,7 +367,8 @@ export class M2D {
      */
     this.input = new InputManager(this, {
       pointerLock: this.options.pointerLock,
-      preventDefault: this.options.preventDefaultKeys
+      preventDefault: this.options.preventDefaultKeys,
+      gamepad: this.options.gamepad
     });
 
     /**

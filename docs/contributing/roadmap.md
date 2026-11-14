@@ -23,7 +23,6 @@ The big picture, one line per item. Each large item's plan, backlog and record l
 
 - **Visibility culling**: off-screen entities issue no draws, at every aspect mode and resolution.
 - **Tile layers**: indices validated against the sheet; batched draws.
-- **Gamepad**: a fourth input source alongside named actions.
 - **Web Audio mixing**: master, music and effects gains, persisted volumes.
 - **Extension guide**: adding an actor, a constraint, a scene and a renderer backend from a fresh checkout.
 

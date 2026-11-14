@@ -46,6 +46,7 @@
 import { mapPointer, uiToView } from '../viewport.js';
 import { PointerSource } from './pointerSource.js';
 import { Keyboard } from './keyboard.js';
+import { GamepadSource } from './gamepad.js';
 import { Cursor } from './cursor.js';
 import { GestureRecognizer } from './gestures.js';
 import { InputRouter } from './router.js';
@@ -64,6 +65,9 @@ export class InputManager {
    *   canvas and draw a virtual cursor (see cursor.js)
    * @param {Iterable<string>} [options.preventDefault] - Key codes whose
    *   browser default is suppressed
+   * @param {Record<string, string>|false} [options.gamepad] - What each
+   *   gamepad control stands for, over the defaults; `false` for no pads
+   *   (see gamepad.js)
    */
   constructor(game, options = {}) {
     this.game = game;
@@ -126,6 +130,8 @@ export class InputManager {
     const sink = { push: (record) => this.push(record), flush: () => this.flush() };
     this.pointerSource = new PointerSource(game.canvas, sink);
     this.keyboard = new Keyboard(game.canvas, sink, options);
+    /** Gamepads, read as keys and polled each frame. */
+    this.gamepads = new GamepadSource(sink, options.gamepad);
 
     /**
      * Live pointer state for code that polls instead of subscribing.
@@ -244,6 +250,7 @@ export class InputManager {
    * @param {number} now - Frame timestamp in ms
    */
   beginFrame(now) {
+    this.gamepads.poll(now);
     this.flush();
     this.recognizer.update(now);
     this.edgesSampled = false;
@@ -357,6 +364,8 @@ export class InputManager {
   }
 
   destroy() {
+    this.gamepads.release();
+    this.flush();
     this.destroyed = true;
     this.pointerSource.destroy();
     this.keyboard.destroy();

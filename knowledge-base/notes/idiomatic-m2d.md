@@ -19,7 +19,7 @@ Everything else is scene data, which the editor and MCP can read and change:
 - camera, lighting, post, the day/night cycle, sounds and music;
 - the HUD, and menus as UI scenes;
 - flow and outcomes as `world.rules`, with counters for what is counted;
-- keys as named actions (`input.actions` in the project): rules and code read an action, never a raw key code.
+- keys as named actions (`input.actions` in the project): rules and code read an action, never a raw key code. Every other device is keys too: an on-screen `UIKeyButton` and a gamepad control each stand for a key code and push it through the keyboard's seam, so nothing downstream knows which device it was (`input.gamepad` maps the pad).
 
 Use the engine's helpers (Quest, Npc, the UI components) before writing your own. A HUD widget of the game's own is registered with `registerUIComponent` and placed by the scene's `hud`, not added by a hook. Something another game could want becomes an engine feature, not demo code. A hook keeps only what has no data form, and says why.
 

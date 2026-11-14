@@ -41,6 +41,7 @@ export function projectOptions(project, { basePath = '' } = {}) {
   return {
     ...Object.fromEntries(DISPLAY_KEYS.filter((key) => display[key] !== undefined).map((key) => [key, display[key]])),
     ...(project.input?.actions && { actions: project.input.actions }),
+    ...(project.input?.gamepad && { gamepad: project.input.gamepad }),
     ...(project.initialScene && { initialScene: project.initialScene }),
     ...(project.music && {
       music: Object.fromEntries(Object.entries(project.music).map(([key, track]) => [key, { src: basePath + track.url, volume: track.volume ?? 1 }]))

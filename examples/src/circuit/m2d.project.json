@@ -21,6 +21,10 @@
       "replay": [
         "Enter"
       ]
+    },
+    "gamepad": {
+      "Y": "Enter",
+      "LB": "KeyR"
     }
   }
 }

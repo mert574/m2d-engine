@@ -83,7 +83,7 @@ export function makeTestGame(options = {}) {
   // The real input system, minus a DOM to listen to. Pointer lock stays off:
   // on, it would switch the virtual cursor on and make every
   // synthesized position relative.
-  game.input = new InputManager(game, { pointerLock: false });
+  game.input = new InputManager(game, { pointerLock: false, gamepad: engineOptions.gamepad });
   // The real event bus, so a test sees what a game sees: simulation raises
   // events, presentation hears them when they are delivered.
   game.events = new WorldEvents(game);

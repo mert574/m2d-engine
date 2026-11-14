@@ -37,6 +37,9 @@ export const PROJECT_SCHEMA = s.object({
   input: s.object({
     actions: s.record(s.array(s.string({ nonEmpty: true }), { minLength: 1, message: 'must be a list of key codes, e.g. ["Escape"]' }), {
       label: 'Actions', description: 'Action name to the physical key codes that perform it; rules fire on them and the settings menu rebinds them'
+    }),
+    gamepad: s.record(s.string(), {
+      label: 'Gamepad', description: 'Gamepad control (A, B, X, Y, LB, RB, LT, RT, Back, Start, Up, Down, Left, Right, LeftStickUp…) to the key code it stands for, over the defaults; an empty string for nothing'
     })
   }, { label: 'Input' }),
   settings: s.union([
