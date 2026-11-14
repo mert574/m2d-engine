@@ -13,7 +13,7 @@ Pass sounds and music to the engine options. Each key becomes a name to play by.
 
 ```javascript
 import jumpSound from './assets/jump.mp3';
-import menuMusic from '../shared/music/menu.mp3';
+import menuMusic from './assets/menu.mp3';
 
 const game = new M2D(canvas, {
   sounds: { jump: jumpSound, coin: coinSound, step: { src: stepSound, volume: 0.7 } },
@@ -62,12 +62,12 @@ A scene says what plays while it shows. `world.music` (a level) or `music` (a UI
 
 A rule plays an effect with `{ "do": "sound", "key": "levelComplete" }`. See [the scene format](../reference/scene-format#world).
 
-## Generated effects
+## The examples' sound
 
-The example games synthesize their sound effects in `examples/src/shared/audio.js` and ship free music tracks. Credits and license terms are in `THIRD_PARTY_NOTICES.md` at the repository root.
+The example games ship free sampled effects (Kenney's *Interface Sounds*, CC0) and free music tracks, each copied into the project's own `sounds/` and `music/` folders beside the scenes that name them. One effect is synthesized: Night Circuit's electric motor whine (`examples/src/circuit/evSound.js`), pure tones that must slide with speed. Credits and license terms are in `THIRD_PARTY_NOTICES.md` at the repository root.
 
 ## Demo source
 
-The `synthesize` function is the same approach the examples use. A sound URL can be anything an audio element plays, including a data URL.
+The demo below synthesizes its sounds so the page needs no audio files. A sound URL can be anything an audio element plays, including a data URL.
 
 <<< @/demos/sound.js

@@ -8,7 +8,8 @@
  * kept in each game's own `music/` folder.
  * Sound effects are Kenney's *Interface Sounds* (CC0): clean, short
  * synthetic tones — instrument readouts, not arcade noises — that sit with
- * the music rather than fight it. Credits and sources are in
+ * the music rather than fight it. Each game keeps its own copies in its
+ * `sounds/` folder, named by its scenes. Credits and sources are in
  * THIRD_PARTY_NOTICES.md and docs/examples/music-credits.md.
  */
 
@@ -33,16 +34,3 @@ export function audioOption(game) {
     description: 'Music and sound effects.'
   };
 }
-
-// Sound effects — Kenney Interface Sounds, CC0. Picked by measurement, not
-// by name: every sample is under half a second and keeps its spectral
-// centroid below ~700 Hz, so nothing in the set is shrill.
-export { default as jumpSound } from './sfx/bong_001.ogg';
-export { default as coinSound } from './sfx/confirmation_001.ogg';
-export { default as solvedSound } from './sfx/maximize_006.ogg';
-export { default as levelCompleteSound } from './sfx/maximize_008.ogg';
-export { default as attackSound } from './sfx/minimize_008.ogg';
-export { default as damageSound } from './sfx/error_008.ogg';
-export { default as gameOverSound } from './sfx/error_006.ogg';
-export { default as spawnSound } from './sfx/drop_003.ogg';
-export { default as removeSound } from './sfx/minimize_006.ogg';
