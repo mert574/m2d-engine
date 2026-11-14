@@ -3,20 +3,27 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { Entity } from 'm2d-engine/core/entity.js';
 import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
 import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
+
+/** The pads on screen, so a release anywhere lets go of every one. */
+const pads = new Set();
+function releaseAll() { for (const pad of pads) pad.release(); }
 
 /**
  * An on-screen button that acts as a key. Pressing it pushes a keydown
  * record into the input system, the same seam the real keyboard uses, so
- * KeyboardControl cannot tell the two apart.
+ * KeyboardControl cannot tell the two apart. The scene's HUD places one
+ * per direction as a `pad` component.
  */
 class PadButton extends UIElement {
-  constructor(x, y, code, label, options = {}) {
-    super({ ...options, x, y, width: 56, height: 56 });
+  constructor(code, label, options = {}) {
+    super({ ...options, width: 56, height: 56 });
     this.code = code;
     this.label = label;
     this.held = false;
   }
+
+  onMount() { pads.add(this); }
+  onUnmount() { pads.delete(this); }
 
   press() {
     if (this.held) return;
@@ -45,9 +52,6 @@ class PadButton extends UIElement {
   }
 }
 
-const pads = [];
-function releaseAll() { for (const pad of pads) pad.release(); }
-
 class Ball extends Entity {
   name = 'Player';
 
@@ -71,9 +75,15 @@ class Wall extends Entity {
   }
 }
 
+/** The D-pad: one pad per direction, anchored to the bottom-left corner. */
+const pad = (id, dx, dy, code, label) => ({
+  type: 'component', id, component: 'pad', anchor: 'bottom-left', x: 96 + dx * 60, y: -96 + dy * 60, properties: { code, label }
+});
+
 const scene = {
   version: 4, type: 'level', name: 'main',
-  world: { gravity: { x: 0, y: 0 } },
+  // The camera follows the player and, bounded by a one-screen world, stays centred on it.
+  world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, player: 'ball', camera: { bounds: 'world' } },
   prefabs: {
     wall: { actor: 'Wall', physics: { bodyType: 'static' } },
     ball: { actor: 'Ball', physics: { bodyType: 'character', shape: 'circle' } }
@@ -84,42 +94,27 @@ const scene = {
     { id: 'wall-left', prefab: 'wall', x: 5, y: 180, width: 10, height: 360 },
     { id: 'wall-right', prefab: 'wall', x: 635, y: 180, width: 10, height: 360 },
     { id: 'ball', prefab: 'ball', x: 400, y: 180, width: 28, height: 28 }
-  ] }]
+  ] }],
+  hud: [
+    { type: 'text', id: 'status', anchor: 'top-right', x: -16, y: 16,
+      properties: { text: 'arrow keys or the pad move the ball', align: 'right', fontSize: '14px', color: '#cfd8dc' } },
+    pad('pad-up', 0, -1, 'ArrowUp', '▲'),
+    pad('pad-down', 0, 1, 'ArrowDown', '▼'),
+    pad('pad-left', -1, 0, 'ArrowLeft', '◀'),
+    pad('pad-right', 1, 0, 'ArrowRight', '▶')
+  ]
 };
 
 export default async function start(canvas) {
   await initPhysics();
-  const game = new M2D(canvas, {
-    width: 640, height: 360, worldWidth: 640, worldHeight: 360,
-    initialScene: 'main', performanceStats: false
-  });
-  // The camera follows the entity named Player. Bounds the size of the
-  // view keep it centred on the one-screen world.
-  game.camera.bounds = { left: 0, top: 0, right: 640, bottom: 360 };
+  const game = new M2D(canvas, { width: 640, height: 360, initialScene: 'main', performanceStats: false });
   game.registerActor('Ball', Ball);
   game.registerActor('Wall', Wall);
+  game.registerUIComponent('pad', (_scene, element) => new PadButton(element.properties.code, element.properties.label, element));
 
-  let status = null;
-  game.sceneManager.addScene('main', {
-    fetch: async () => scene,
-    onEnter() {
-      const ui = game.sceneManager.getCurrentScene().ui;
-      status = ui.add(new UIText({
-        x: -16,
-        y: 16,
-        text: 'arrow keys or the pad move the ball',
-        anchor: 'top-right',
-        align: 'right',
-        fontSize: '14px',
-        color: '#cfd8dc'
-      }));
-      // A D-pad anchored to the bottom-left corner.
-      pads.length = 0;
-      for (const [dx, dy, code, label] of [[0, -1, 'ArrowUp', '▲'], [0, 1, 'ArrowDown', '▼'], [-1, 0, 'ArrowLeft', '◀'], [1, 0, 'ArrowRight', '▶']]) {
-        pads.push(ui.add(new PadButton(80 + dx * 60, -80 + dy * 60, code, label, { anchor: 'bottom-left' })));
-      }
-    }
-  });
+  game.sceneManager.addScene('main', { fetch: async () => scene });
+
+  const status = (text) => game.sceneManager.getCurrentScene().hud.setText('status', text);
 
   // A finger that slides off a pad releases somewhere else. Releasing
   // anywhere lets go of every pad, including a cancelled pointer.
@@ -127,14 +122,14 @@ export default async function start(canvas) {
 
   // A long press on a touchscreen stands in for a right click.
   game.input.on('rightclick', (event) => {
-    status.text = `${event.pointerType} ${event.type}: teleport`;
+    status(`${event.pointerType} ${event.type}: teleport`);
     game.player.body.setPosition(event.world);
   });
   game.input.on('pinch', (event) => {
-    status.text = `pinch scale ${event.scale.toFixed(2)}, rotation ${(event.rotation * 180 / Math.PI).toFixed(0)}°`;
+    status(`pinch scale ${event.scale.toFixed(2)}, rotation ${(event.rotation * 180 / Math.PI).toFixed(0)}°`);
   });
   game.input.on('pointerdown', (event) => {
-    status.text = `${event.pointerType} down at ${Math.round(event.world.x)}, ${Math.round(event.world.y)}`;
+    status(`${event.pointerType} down at ${Math.round(event.world.x)}, ${Math.round(event.world.y)}`);
   });
 
   await game.start();

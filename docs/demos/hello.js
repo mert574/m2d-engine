@@ -25,12 +25,19 @@ class Floor extends Entity {
 }
 
 // A scene names the actors it uses as prefabs and places them in layers.
+// Its world says how big it is and how it is seen: the camera stays
+// inside the world's bounds, so a one-screen level opens centred on it.
 const scene = {
   version: 4, type: 'level', name: 'main',
-  world: { gravity: { x: 0, y: 1000 } },
+  world: { width: 640, height: 360, gravity: { x: 0, y: 1000 }, camera: { bounds: 'world' } },
   prefabs: {
     floor: { actor: 'Floor', physics: { bodyType: 'static' } },
-    ball: { actor: 'Ball', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.7 } }
+    // A behaviour attached from data: the engine's Grabbable, so a ball
+    // can be dragged and flung with no code written for it.
+    ball: {
+      actor: 'Ball', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.7 },
+      constraints: { grab: { type: 'Grabbable' } }
+    }
   },
   // Every object carries an id that is unique in the scene and stays the
   // same when the file is reordered or saved again.
@@ -51,20 +58,10 @@ export default async function start(canvas) {
     initialScene: 'main',
     performanceStats: false
   });
-  game.camera.x = 320;                // a fixed camera, centred on the world
-  game.camera.y = 180;
 
   game.registerActor('Ball', Ball);
   game.registerActor('Floor', Floor);
   game.sceneManager.addScene('main', { fetch: async () => scene });
-
-  // Clicking drops another ball at the pointer.
-  game.input.on('click', (event) => {
-    const ball = game.createEntity('Ball', event.world.x, event.world.y, 32, 32, null, {},
-      { bodyType: 'dynamic', shape: 'circle', restitution: 0.7 });
-    game.entities.add(ball);
-    game.physics.add(ball.body);
-  });
 
   await game.start();
   return game;

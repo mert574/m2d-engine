@@ -1,6 +1,5 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
 
 const RESOLUTIONS = [0.25, 0.5, 'native'];
 const SAMPLE = 'HP 73/100 · AMMO 12 · 00:42';
@@ -23,7 +22,23 @@ function drawDetail(target, cx, cy, title) {
   target.drawText({ x: cx, y: cy + 10, text: SAMPLE, fillStyle: '#ffe082', fontSize: '12px', textAlign: 'center', textBaseline: 'middle' });
 }
 
-const scene = { version: 4, type: 'level', name: 'main', world: { gravity: { x: 0, y: 0 } } };
+const resolutionLabel = (resolution) => `resolution ${resolution === 'native' ? 'native' : resolution + 'x'}`;
+
+const scene = {
+  version: 4, type: 'level', name: 'main',
+  world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, camera: { bounds: 'world' } },
+  // A HUD: UI elements, drawn at display resolution whatever the world is set to.
+  hud: [
+    { type: 'text', id: 'caption', anchor: 'top', x: 0, y: 10,
+      properties: { text: 'left: the world pass · right: the world overlay', align: 'center', fontSize: '13px', color: '#cfd8dc' } },
+    { type: 'text', id: 'sample', anchor: 'bottom-left', x: 16, y: -48, properties: { text: SAMPLE, fontSize: '12px', color: '#ffe082' } },
+    { type: 'text', id: 'sharp', anchor: 'bottom-left', x: 16, y: -30, properties: { text: 'UI text at 12px, always sharp', fontSize: '12px', color: '#9fb6d0' } },
+    { type: 'button', id: 'resolution', anchor: 'bottom-right', x: -96, y: -70,
+      properties: { text: resolutionLabel(RESOLUTIONS[0]), action: 'resolution', width: 160, height: 32, variant: 'secondary', fontSize: '13px' } },
+    { type: 'button', id: 'filter', anchor: 'bottom-right', x: -96, y: -30,
+      properties: { text: 'filter linear', action: 'filter', width: 160, height: 32, variant: 'secondary', fontSize: '13px' } }
+  ]
+};
 
 export default async function start(canvas) {
   await initPhysics();
@@ -31,47 +46,20 @@ export default async function start(canvas) {
     width: 640, height: 360, initialScene: 'main', performanceStats: false,
     resolution: RESOLUTIONS[0]        // start coarse, so the difference is visible at once
   });
-  game.camera.x = 320;
-  game.camera.y = 180;
 
   let index = 0;
-  let label = null;
-  const describe = () => {
-    const resolution = RESOLUTIONS[index];
-    label.text = `world resolution ${resolution === 'native' ? 'native' : resolution + 'x'} · filter ${game.worldFilter} · click to change, right-click for the filter`;
-  };
-
   game.sceneManager.addScene('main', {
     fetch: async () => scene,
-    onEnter() {
-      const ui = game.sceneManager.getCurrentScene().ui;
-      label = ui.add(new UIText({
-        x: 0,
-        y: 10,
-        text: '',
-        anchor: 'top',
-        align: 'center',
-        fontSize: '13px',
-        color: '#cfd8dc'
-      }));
-      // A HUD: UI elements, drawn at display resolution whatever the world is set to.
-      ui.add(new UIText({
-        x: 16,
-        y: -48,
-        text: SAMPLE,
-        anchor: 'bottom-left',
-        fontSize: '12px',
-        color: '#ffe082'
-      }));
-      ui.add(new UIText({
-        x: 16,
-        y: -30,
-        text: 'UI text at 12px, always sharp',
-        anchor: 'bottom-left',
-        fontSize: '12px',
-        color: '#9fb6d0'
-      }));
-      describe();
+    onAction(name) {
+      const buttons = game.sceneManager.getCurrentScene().hud.elements;
+      if (name === 'resolution') {
+        index = (index + 1) % RESOLUTIONS.length;
+        game.setResolution(RESOLUTIONS[index]);
+        buttons.get('resolution').text = resolutionLabel(RESOLUTIONS[index]);
+      } else if (name === 'filter') {
+        game.setWorldFilter(game.worldFilter === 'linear' ? 'nearest' : 'linear');
+        buttons.get('filter').text = `filter ${game.worldFilter}`;
+      }
     },
     onDraw() {
       // Left: the world pass. Rasterized at the world render resolution.
@@ -79,16 +67,6 @@ export default async function start(canvas) {
       // Right: the world overlay. World coordinates, display resolution.
       drawDetail(game.worldOverlay, 470, 180, 'world overlay');
     }
-  });
-
-  game.input.on('click', () => {
-    index = (index + 1) % RESOLUTIONS.length;
-    game.setResolution(RESOLUTIONS[index]);
-    describe();
-  });
-  game.input.on('rightclick', () => {
-    game.setWorldFilter(game.worldFilter === 'linear' ? 'nearest' : 'linear');
-    describe();
   });
 
   await game.start();

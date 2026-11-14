@@ -18,14 +18,16 @@ Physics is a WebAssembly module that `initPhysics()` loads at runtime. No bundle
 ## A minimal game
 
 <Demo name="hello">
-Three balls and a floor. Click to drop more.
+Three balls and a floor. Drag a ball and let it go.
 </Demo>
 
 A game has three kinds of pieces.
 
 - **Actors** are classes that extend `Entity`. Each owns a physics body and decides how it moves and draws.
-- **Scenes** describe a level or a menu. A level scene lists prefabs and places them in layers. A prefab names an actor and its physics settings.
+- **Scenes** describe a level or a menu. A level scene lists prefabs and places them in layers. A prefab names an actor, its physics settings and the constraints it carries, and the scene's `world` says how big the level is and how the camera sees it.
 - **The engine instance** owns the canvas, the physics world, the camera, the input system and the scene manager. It runs the game loop.
+
+The balls can be dragged because their prefab attaches the engine's `Grabbable` constraint, and the camera opens centred on the level because the world has a size and the camera is bounded by it. Neither needed a line of code: what a level looks like and how it behaves is the scene's to say.
 
 The demo above is this file:
 

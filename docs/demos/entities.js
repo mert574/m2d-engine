@@ -73,7 +73,7 @@ const CRATES = [[120, 318], [200, 318], [160, 270], [460, 318], [540, 318], [500
 
 const scene = {
   version: 4, type: 'level', name: 'main',
-  world: { gravity: { x: 0, y: 1000 } },
+  world: { width: 640, height: 360, gravity: { x: 0, y: 1000 }, camera: { bounds: 'world' } },
   prefabs: {
     floor: { actor: 'Floor', physics: { bodyType: 'static' } },
     crate: { actor: 'Crate', physics: { bodyType: 'dynamic', friction: 0.8 } }
@@ -89,26 +89,22 @@ const scene = {
 export default async function start(canvas) {
   await initPhysics();
   const game = new M2D(canvas, { width: 640, height: 360, initialScene: 'main', performanceStats: false });
-  game.camera.x = 320;
-  game.camera.y = 180;
   game.registerActor('Floor', Floor);
   game.registerActor('Crate', Crate);
 
   let emptyFor = 0;
   game.sceneManager.addScene('main', {
     fetch: async () => scene,
-    // When every crate is gone, create new ones at runtime. Spawning is
-    // simulation, so it runs per tick.
+    // When every crate is gone, spawn the scene's crate prefab again, so
+    // the body comes from the scene file. Spawning is simulation, so it
+    // runs per tick.
     onFixedUpdate(dt) {
-      const crates = [...game.entities].filter((entity) => entity.name === 'Crate');
-      emptyFor = crates.length === 0 ? emptyFor + dt : 0;
+      const current = game.sceneManager.getCurrentScene();
+      const left = [...game.entities].some((entity) => entity.prefab === 'crate');
+      emptyFor = left ? 0 : emptyFor + dt;
       if (emptyFor < 1) return;
       emptyFor = 0;
-      for (const [x, y] of CRATES) {
-        const crate = game.createEntity({ type: 'Crate', x, y: y - 200, width: 44, height: 44, physics: { friction: 0.8 } });
-        game.entities.add(crate);
-        game.physics.add(crate.body);
-      }
+      for (const [x, y] of CRATES) current.spawnPrefab('crate', { x, y: y - 200, width: 44 });
     }
   });
 

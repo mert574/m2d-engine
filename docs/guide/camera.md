@@ -3,12 +3,12 @@
 `game.camera` decides which part of the world is visible. Its `width` and `height` are the view size in world units, which come from the engine's `width` and `height` options in `letterbox` mode and widen with the display in `expand` mode. The camera's `x` and `y` are the world position at the centre of the view.
 
 <Demo name="camera">
-The camera follows a mover through a world larger than the view. Click to turn the bounds off and on. Without them the view shows the space past the world's edge.
+The camera follows a mover through a world larger than the view, as the scene's `world.camera` says. The button turns the bounds off and on through the camera API. Without them the view shows the space past the world's edge.
 </Demo>
 
 ## Following an entity
 
-The scene makes the camera follow the entity named `Player`. To follow something else, call `follow`.
+The scene makes the camera follow its `world.player`, or the object `world.camera.follow` names, with `lerp` and `bounds` from the same block. To follow something else from code, call `follow`.
 
 ```javascript
 game.camera.follow(entity);

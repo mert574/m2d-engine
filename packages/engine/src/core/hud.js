@@ -1,4 +1,5 @@
 import { UIText } from './ui/text.js';
+import { UIButton } from './ui/button.js';
 import { UIMeter } from './ui/meter.js';
 import { UIMinimap } from './ui/minimap.js';
 import { UIAbilityBar } from './ui/abilityBar.js';
@@ -20,9 +21,11 @@ import { keyLabel } from './input/actions.js';
  * fields on an object (the player's health by default), a `notice` that
  * rules write to and that fades after a moment, a `minimap` that plots the
  * prefabs it names, an `abilityBar` over an `Abilities` constraint, and a
- * `dialogue` that `say` rules open. A text's `{name}` shows the level's
- * counter of that name. Built in edit mode too, so the editor shows the
- * HUD over the level; a meter then reads the entity's starting values.
+ * `dialogue` that `say` rules open, and a `button`, an on-screen control
+ * whose `action` reaches the scene's `onAction` as a UI scene's does. A
+ * text's `{name}` shows the level's counter of that name. Built in edit
+ * mode too, so the editor shows the HUD over the level; a meter then
+ * reads the entity's starting values.
  */
 
 /** A text that shows for a while and fades. */
@@ -160,6 +163,13 @@ export class SceneHud {
         }
         return make(this.scene, { ...placed(common), properties });
       }
+      case 'button':
+        return new UIButton({
+          ...common, width: properties.width ?? 200, height: properties.height ?? 44, text: properties.text,
+          onClick: () => this.scene.runButtonAction(properties),
+          variant: properties.variant, background: properties.background, textColor: properties.textColor,
+          fontSize: properties.fontSize, fontFamily: properties.fontFamily, fontWeight: properties.fontWeight, fontStyle: properties.fontStyle
+        });
       case 'image':
         return element.sprite
           ? new UIImage({ ...common, image: this.scene.sprites.get(element.sprite), width: properties.width, height: properties.height, imageScale: properties.scale })

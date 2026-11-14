@@ -1,6 +1,5 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
 
 const FRAME = 32;
 
@@ -25,7 +24,25 @@ function makeSheet() {
   return image;
 }
 
-const scene = { version: 4, type: 'level', name: 'main', world: { gravity: { x: 0, y: 0 } } };
+/** A caption under each drawing, as HUD text. */
+const caption = (id, x, row, text) => ({
+  type: 'text', id, x, y: 150 + row * 170, properties: { text, align: 'center', fontSize: '13px', color: '#9fb6d0' }
+});
+
+const scene = {
+  version: 4, type: 'level', name: 'main',
+  world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, camera: { bounds: 'world' } },
+  hud: [
+    caption('frame-0', 90, 0, 'frame 0'),
+    caption('flip', 230, 0, 'flipX'),
+    caption('rotation', 370, 0, 'rotation'),
+    caption('scaled', 510, 0, 'scaled 2x'),
+    caption('animated', 90, 1, 'frames 0 to 3'),
+    caption('tint', 230, 1, 'tint'),
+    caption('alpha', 370, 1, 'globalAlpha'),
+    caption('layered', 510, 1, 'drawn twice')
+  ]
+};
 
 export default async function start(canvas) {
   await initPhysics();
@@ -33,32 +50,14 @@ export default async function start(canvas) {
     width: 640, height: 360, initialScene: 'main', performanceStats: false,
     worldFilter: 'nearest'
   });
-  game.camera.x = 320;
-  game.camera.y = 180;
 
   const image = makeSheet();
   await new Promise((resolve) => { image.onload = resolve; });
   const tile = { image, tileWidth: FRAME, tileHeight: FRAME };
-  const labels = [];
   let time = 0;
 
   game.sceneManager.addScene('main', {
     fetch: async () => scene,
-    onEnter() {
-      const ui = game.sceneManager.getCurrentScene().ui;
-      for (const [x, text] of [[90, 'frame 0'], [230, 'flipX'], [370, 'rotation'], [510, 'scaled 2x'],
-        [90, 'frames 0 to 3'], [230, 'tint'], [370, 'globalAlpha'], [510, 'drawn twice']]) {
-        const row = labels.length < 4 ? 0 : 1;
-        labels.push(ui.add(new UIText({
-          x: x,
-          y: 150 + row * 170,
-          text: text,
-          align: 'center',
-          fontSize: '13px',
-          color: '#9fb6d0'
-        })));
-      }
-    },
     onUpdate(deltaTime) { time += deltaTime; },
     onDraw() {
       const renderer = game.renderer;

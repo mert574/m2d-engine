@@ -1,6 +1,7 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { PathFollow } from 'm2d-engine/constraints/pathFollow.js';
 
 const COLORS = {
@@ -12,6 +13,12 @@ const COLORS = {
 
 /** Draws its body as a flat shape in the color of its body type. */
 class Block extends Entity {
+  static properties = {
+    label: s.string({ initial: '', description: 'Written over the block (or under it)' }),
+    labelBelow: s.boolean({ initial: false, label: 'Label below' }),
+    path: s.object(PathFollow.params, { label: 'Path', description: 'A kinematic block patrols it' })
+  };
+
   name = 'Block';
 
   constructor(body, sprite, game, options = {}) {
@@ -52,10 +59,20 @@ class Block extends Entity {
 
 /** A character body that walks until something stops it, then turns around. */
 class Walker extends Block {
+  static properties = {
+    speed: s.number({ positive: true, initial: 90, unit: 'px/s' }),
+    patrol: s.object({ left: s.number({ initial: 80 }), right: s.number({ initial: 560 }) }, { description: 'Where it turns back, in x' })
+  };
+
   name = 'Walker';
   direction = 1;
-  speed = 90;
   stuckFor = 0;
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game, options);
+    this.speed = options.speed ?? 90;
+    this.patrol = { left: 80, right: 560, ...options.patrol };
+  }
 
   // Movement decisions are simulation, so they run per tick with the
   // fixed dt and come out the same at every frame rate.
@@ -73,7 +90,7 @@ class Walker extends Block {
 
     // Turn at a wall, when pushing has stalled, or at the ends of the patrol.
     const { x } = this.position;
-    const atEnd = (this.direction > 0 && x > 560) || (this.direction < 0 && x < 80);
+    const atEnd = (this.direction > 0 && x > this.patrol.right) || (this.direction < 0 && x < this.patrol.left);
     if (wall || atEnd || this.stuckFor > 0.4) {
       this.direction = -this.direction;
       this.stuckFor = 0;
@@ -84,11 +101,12 @@ class Walker extends Block {
 
 const SCENE = {
   version: 4, name: 'bodies', type: 'level',
-  world: { gravity: { x: 0, y: 1000 } },
+  world: { width: 640, height: 360, gravity: { x: 0, y: 1000 }, camera: { bounds: 'world' } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.6 } },
-    box: { actor: 'Block', physics: { bodyType: 'dynamic', friction: 0.6 } },
-    ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.5 } },
+    // The dynamic bodies can be picked up and thrown: the engine's Grabbable, attached from data.
+    box: { actor: 'Block', physics: { bodyType: 'dynamic', friction: 0.6 }, constraints: { grab: { type: 'Grabbable' } } },
+    ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.5 }, constraints: { grab: { type: 'Grabbable' } } },
     platform: { actor: 'Block', physics: { bodyType: 'kinematic', friction: 1 } },
     walker: { actor: 'Walker', physics: { bodyType: 'character', shape: 'capsule' } }
   },
@@ -113,35 +131,10 @@ const SCENE = {
 export default async function start(canvas) {
   await initPhysics();
 
-  const game = new M2D(canvas, {
-    width: 640, height: 360,
-    worldWidth: 640, worldHeight: 360,
-    initialScene: 'bodies',
-    performanceStats: false
-  });
-  game.camera.x = 320;
-  game.camera.y = 180;
-
+  const game = new M2D(canvas, { width: 640, height: 360, initialScene: 'bodies', performanceStats: false });
   game.registerActor('Block', Block);
   game.registerActor('Walker', Walker);
   game.sceneManager.addScene('bodies', { fetch: async () => SCENE });
-
-  // Click anywhere to drop a ball at the pointer's world position.
-  const balls = [];
-  game.input.on('click', (event) => {
-    const ball = game.createEntity({
-      type: 'Block', x: event.world.x, y: event.world.y, width: 20, height: 20,
-      physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.5 }
-    });
-    game.entities.add(ball);
-    game.physics.add(ball.body);
-    balls.push(ball);
-    if (balls.length > 150) {
-      const oldest = balls.shift();
-      game.entities.delete(oldest);
-      game.physics.remove(oldest.body);
-    }
-  });
 
   await game.start();
   return game;

@@ -13,7 +13,7 @@ Lowering the render resolution makes the world coarser. It does not show more or
 A number is a **fraction of native**, the way a game's resolution-scale slider reads: `0.5` is half the linear resolution this display would show, so it means 1920x1080 on a 4K panel and 640x360 on a 720p one. A `{ width, height }` preset is absolute: it names the surface, which is what pixel art wants. `1` and `'native'` are the same thing.
 
 <Demo name="display">
-The world starts at a quarter of the display resolution. The left drawing goes through the world renderer and is blurred with it. The right drawing goes through the world overlay and the HUD at the bottom-left is UI, both at display resolution. Click to cycle the world resolution. Right-click or long-press to switch between linear and nearest filtering.
+The world starts at a quarter of the display resolution. The left drawing goes through the world renderer and is blurred with it. The right drawing goes through the world overlay and the HUD at the bottom-left is UI, both at display resolution. The buttons cycle the world resolution and switch between linear and nearest filtering.
 </Demo>
 
 ```javascript

@@ -1,7 +1,5 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { UIButton } from 'm2d-engine/core/ui/button.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
 
 /** Builds a short WAV from a list of sine-wave notes and returns it as a data URL. */
 function synthesize(notes, noteSeconds = 0.12) {
@@ -29,12 +27,33 @@ function synthesize(notes, noteSeconds = 0.12) {
   return `data:audio/wav;base64,${btoa(binary)}`;
 }
 
+const EFFECTS = ['jump', 'coin', 'damage'];
+const BUTTON = { variant: 'secondary', fontSize: '16px' };
+
+// A UI scene: every control is an element with an action, which the
+// scene's onAction hook receives and answers through the sound manager.
 const scene = {
   version: 4, type: 'ui', name: 'main',
   elements: [
     { type: 'rect', id: 'background', fill: true, color: '#1b2a38' },
     { type: 'text', id: 'title', anchor: 'top', x: 0, y: 16,
-      properties: { text: 'Sound', fontSize: '28px', align: 'center', color: '#ffffff' } }
+      properties: { text: 'Sound', fontSize: '28px', align: 'center', color: '#ffffff' } },
+    { type: 'text', id: 'status', anchor: 'center', x: 0, y: -60,
+      properties: { text: 'click a pad', fontSize: '16px', align: 'center', color: '#9fb6d0' } },
+    ...EFFECTS.map((name, i) => ({
+      type: 'button', id: name, anchor: 'center', x: -160 + i * 160, y: 0,
+      properties: { text: name, action: name, width: 130, height: 48, ...BUTTON }
+    })),
+    { type: 'button', id: 'music', anchor: 'center', x: -90, y: 70,
+      properties: { text: 'play music', action: 'music', width: 160, height: 40, ...BUTTON } },
+    { type: 'text', id: 'volume', anchor: 'center', x: 90, y: 62,
+      properties: { text: '', fontSize: '14px', align: 'center', color: '#9fb6d0' } },
+    { type: 'button', id: 'quieter', anchor: 'center', x: 40, y: 90,
+      properties: { text: '-', action: 'quieter', width: 44, height: 32, ...BUTTON } },
+    { type: 'button', id: 'louder', anchor: 'center', x: 140, y: 90,
+      properties: { text: '+', action: 'louder', width: 44, height: 32, ...BUTTON } },
+    { type: 'button', id: 'mute', anchor: 'bottom', x: 0, y: -32,
+      properties: { text: 'mute', action: 'mute', width: 120, height: 36, ...BUTTON } }
   ]
 };
 
@@ -53,108 +72,44 @@ export default async function start(canvas) {
     }
   });
 
+  const sound = game.soundManager;
+  const element = (id) => game.sceneManager.getCurrentScene().uiById.get(id);
+  let playing = false;
+  let volume = 0.5;
+  const setVolume = (value) => {
+    volume = Math.min(1, Math.max(0, value));
+    sound.setMusicVolume(volume);
+    element('volume').text = `music volume ${volume.toFixed(1)}`;
+  };
+  const stopMusic = () => {
+    playing = false;
+    element('music').text = 'play music';
+  };
+
   game.sceneManager.addScene('main', {
     fetch: async () => scene,
     onEnter() {
-      const ui = game.sceneManager.getCurrentScene().ui;
-      const sound = game.soundManager;
-      const style = { variant: 'secondary', fontSize: '16px' };
-      const status = ui.add(new UIText({
-        x: 0,
-        y: -60,
-        text: 'click a pad',
-        anchor: 'center',
-        align: 'center',
-        fontSize: '16px',
-        color: '#9fb6d0'
-      }));
-
-      // One-shot effects. Overlapping plays are allowed.
-      ['jump', 'coin', 'damage'].forEach((name, i) => {
-        ui.add(new UIButton({
-          x: -160 + i * 160,
-          y: 0,
-          width: 130,
-          height: 48,
-          text: name,
-          onClick: () => {
-            sound.playSound(name);
-            status.text = `playSound('${name}')`;
-          },
-          ...style,
-          anchor: 'center'
-        }));
-      });
-
-      // Looping music, started and stopped.
-      let playing = false;
-      const music = ui.add(new UIButton({
-        x: -90,
-        y: 70,
-        width: 160,
-        height: 40,
-        text: 'play music',
-        onClick: () => {
-          playing = !playing;
-          if (playing) sound.playMusic('theme'); else sound.stopMusic();
-          music.text = playing ? 'stop music' : 'play music';
-          status.text = playing ? "playMusic('theme')" : 'stopMusic()';
-        },
-        ...style,
-        anchor: 'center'
-      }));
-
-      let volume = 0.5;
-      const volumeLabel = ui.add(new UIText({
-        x: 90,
-        y: 62,
-        text: '',
-        anchor: 'center',
-        align: 'center',
-        fontSize: '14px',
-        color: '#9fb6d0'
-      }));
-      const setVolume = (value) => {
-        volume = Math.min(1, Math.max(0, value));
-        sound.setMusicVolume(volume);
-        volumeLabel.text = `music volume ${volume.toFixed(1)}`;
-      };
-      ui.add(new UIButton({
-        x: 40,
-        y: 90,
-        width: 44,
-        height: 32,
-        text: '-',
-        onClick: () => setVolume(volume - 0.1),
-        ...style,
-        anchor: 'center'
-      }));
-      ui.add(new UIButton({
-        x: 140,
-        y: 90,
-        width: 44,
-        height: 32,
-        text: '+',
-        onClick: () => setVolume(volume + 0.1),
-        ...style,
-        anchor: 'center'
-      }));
       setVolume(volume);
-
-      ui.add(new UIButton({
-        x: 0,
-        y: -32,
-        width: 120,
-        height: 36,
-        text: 'mute',
-        onClick: () => {
-          sound.toggleMute();
-          status.text = sound.isMuted ? 'muted. music stopped' : 'unmuted';
-          if (sound.isMuted) { playing = false; music.text = 'play music'; }
-        },
-        ...style,
-        anchor: 'bottom'
-      }));
+    },
+    onAction(name) {
+      const status = element('status');
+      if (EFFECTS.includes(name)) {
+        // One-shot effects. Overlapping plays are allowed.
+        sound.playSound(name);
+        status.text = `playSound('${name}')`;
+      } else if (name === 'music') {
+        // Looping music, started and stopped.
+        if (playing) { sound.stopMusic(); stopMusic(); } else { sound.playMusic('theme'); playing = true; element('music').text = 'stop music'; }
+        status.text = playing ? "playMusic('theme')" : 'stopMusic()';
+      } else if (name === 'quieter') {
+        setVolume(volume - 0.1);
+      } else if (name === 'louder') {
+        setVolume(volume + 0.1);
+      } else if (name === 'mute') {
+        sound.toggleMute();
+        status.text = sound.isMuted ? 'muted. music stopped' : 'unmuted';
+        if (sound.isMuted) stopMusic();
+      }
     }
   });
 

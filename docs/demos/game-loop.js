@@ -1,7 +1,7 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { Entity } from 'm2d-engine/core/entity.js';
-import { UIButton } from 'm2d-engine/core/ui/button.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { UIText } from 'm2d-engine/core/ui/text.js';
 
 class Block extends Entity {
@@ -20,33 +20,94 @@ class Block extends Entity {
   }
 }
 
+/**
+ * Drops one of the scene's prefabs across its own width on a cadence.
+ * Simulation, so it runs per tick and draws its position from the seeded
+ * generator; it spawns the prefab, so the ball's body comes from the scene.
+ */
+class Dropper extends Entity {
+  static properties = {
+    prefab: s.ref('prefab', { required: true, description: 'What drops: a prefab of the scene' }),
+    every: s.number({ positive: true, initial: 0.5, unit: 's', description: 'Seconds between drops' }),
+    limit: s.integer({ min: 0, initial: 40, description: 'How many it drops in all' }),
+    dropSize: s.number({ positive: true, initial: 24, unit: 'px', label: 'Drop size' })
+  };
+
+  name = 'Dropper';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    this.prefab = options.prefab;
+    this.every = options.every ?? 0.5;
+    this.limit = options.limit ?? 40;
+    this.dropSize = options.dropSize ?? 24;
+    this.dropped = 0;
+    this.nextIn = 0;
+    this.visible = false;
+  }
+
+  fixedUpdate(dt) {
+    super.fixedUpdate(dt);
+    this.nextIn -= dt;
+    if (this.nextIn > 0 || this.dropped >= this.limit) return;
+    this.nextIn = this.every;
+    this.dropped += 1;
+    const { x, y } = this.position;
+    const half = this.size.x / 2;
+    this.game.sceneManager.getCurrentScene().spawnPrefab(this.prefab, {
+      x: this.game.rng.range(x - half, x + half), y, width: this.dropSize
+    });
+  }
+}
+
+/** The loop's counters, read every frame: UI ticks outside the pause gate. */
+class LoopReadout extends UIText {
+  constructor(game, recorded, options) {
+    super({ ...options, text: '' });
+    this.recorded = recorded;
+  }
+
+  update(deltaTime) {
+    const { time } = this.game;
+    this.text = `frame ${time.frame} · tick ${time.steps} · time scale ${time.scale} · ${this.recorded()} ticks recorded`;
+    super.update(deltaTime);
+  }
+}
+
+const BUTTON = { width: 100, height: 36, variant: 'secondary', fontSize: '15px' };
+
 const scene = {
   version: 4, type: 'level', name: 'main',
-  world: { gravity: { x: 0, y: 900 } },
+  world: { width: 640, height: 360, gravity: { x: 0, y: 900 }, camera: { bounds: 'world' } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.3 } },
-    ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.8 } }
+    ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.8 } },
+    dropper: { actor: 'Dropper', physics: { bodyType: 'static', isSensor: true } }
   },
   layers: [{ name: 'main', objects: [
     { id: 'floor', prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
     { id: 'wall-left', prefab: 'wall', x: 10, y: 180, width: 20, height: 360 },
     { id: 'wall-right', prefab: 'wall', x: 630, y: 180, width: 20, height: 360 },
     { id: 'ramp-lower', prefab: 'wall', x: 200, y: 200, width: 200, height: 14, angle: 0.3 },
-    { id: 'ramp-upper', prefab: 'wall', x: 440, y: 120, width: 200, height: 14, angle: -0.3 }
-  ] }]
+    { id: 'ramp-upper', prefab: 'wall', x: 440, y: 120, width: 200, height: 14, angle: -0.3 },
+    { id: 'dropper', prefab: 'dropper', x: 320, y: 20, width: 400, height: 8, properties: { prefab: 'ball' } }
+  ] }],
+  // The controls are HUD buttons; their actions land in the scene's onAction.
+  hud: [
+    { type: 'component', id: 'readout', component: 'loopReadout', anchor: 'top', x: 0, y: 12,
+      properties: { align: 'center', fontSize: '14px', color: '#cfd8dc' } },
+    { type: 'button', id: 'pause', anchor: 'bottom', x: -165, y: -30, properties: { text: 'pause', action: 'pause', ...BUTTON } },
+    { type: 'button', id: 'step', anchor: 'bottom', x: -55, y: -30, properties: { text: 'step', action: 'step', ...BUTTON } },
+    { type: 'button', id: 'slow', anchor: 'bottom', x: 55, y: -30, properties: { text: 'slow motion', action: 'slow', ...BUTTON } },
+    { type: 'button', id: 'rewind', anchor: 'bottom', x: 165, y: -30, properties: { text: 'rewind 2 s', action: 'rewind', ...BUTTON } }
+  ]
 };
 
 export default async function start(canvas) {
   await initPhysics();
   const game = new M2D(canvas, { width: 640, height: 360, initialScene: 'main', performanceStats: false });
-  game.camera.x = 320;
-  game.camera.y = 180;
   game.registerActor('Block', Block);
-
-  let readout = null;
-  let pauseButton = null;
-  let spawnIn = 0;
-  const balls = [];
+  game.registerActor('Dropper', Dropper);
 
   // Rewinding. After every frame that stepped physics, the position, angle
   // and velocity of each ball are recorded. Rewinding restores one snapshot
@@ -54,8 +115,9 @@ export default async function start(canvas) {
   const history = [];
   const HISTORY = 300;                       // five seconds at 60 frames per second
   let rewindLeft = 0;
+  const balls = () => [...game.entities].filter((entity) => entity.body.bodyType === 'dynamic');
   function record() {
-    history.push(balls.map((ball) => ({
+    history.push(balls().map((ball) => ({
       ball, position: ball.body.position, angle: ball.body.angle, velocity: ball.body.velocity
     })));
     if (history.length > HISTORY) history.shift();
@@ -64,11 +126,10 @@ export default async function start(canvas) {
     const snapshot = history.pop();
     if (!snapshot) return false;
     const alive = new Set(snapshot.map((entry) => entry.ball));
-    for (const ball of [...balls]) {
+    for (const ball of balls()) {
       if (alive.has(ball)) continue;
       game.entities.delete(ball);
       game.physics.remove(ball.body);
-      balls.splice(balls.indexOf(ball), 1);
     }
     for (const { ball, position, angle, velocity } of snapshot) {
       ball.body.setPosition(position);
@@ -77,85 +138,27 @@ export default async function start(canvas) {
     }
     return true;
   }
+
+  game.registerUIComponent('loopReadout', (_scene, element) => new LoopReadout(game, () => history.length, { ...element, ...element.properties }));
+
   game.sceneManager.addScene('main', {
     fetch: async () => scene,
-    onEnter() {
-      const ui = game.sceneManager.getCurrentScene().ui;
-      const style = { variant: 'secondary', fontSize: '15px' };
-      readout = ui.add(new UIText({
-        x: 0,
-        y: 12,
-        text: '',
-        anchor: 'top',
-        align: 'center',
-        fontSize: '14px',
-        color: '#cfd8dc'
-      }));
-      pauseButton = ui.add(new UIButton({
-        x: -110,
-        y: -30,
-        width: 100,
-        height: 36,
-        text: 'pause',
-        onClick: () => {
-          game.togglePause();
-          pauseButton.text = game.paused ? 'resume' : 'pause';
-        },
-        ...style,
-        anchor: 'bottom'
-      }));
-      // One simulation tick while paused. Only a custom loop can offer this.
-      ui.add(new UIButton({
-        x: 0,
-        y: -30,
-        width: 100,
-        height: 36,
-        text: 'step',
-        onClick: () => {
-          if (!game.paused) return;
-          game.time.stepOnce(tick);
-        },
-        ...style,
-        anchor: 'bottom'
-      }));
-      ui.add(new UIButton({
-        x: 110,
-        y: -30,
-        width: 100,
-        height: 36,
-        text: 'slow motion',
-        onClick: () => {
-          game.time.scale = game.time.scale === 1 ? 0.2 : 1;
-        },
-        ...style,
-        anchor: 'bottom'
-      }));
-      // Play the last two seconds backwards, then stay paused.
-      ui.add(new UIButton({
-        x: 220,
-        y: -30,
-        width: 100,
-        height: 36,
-        text: 'rewind 2 s',
-        onClick: () => {
-          rewindLeft = 120;
-          game.pause();
-          pauseButton.text = 'resume';
-        },
-        ...style,
-        anchor: 'bottom'
-      }));
-    },
-    // A ball every half second, forty in total. Simulation, so it runs per
-    // tick and draws its position from the seeded generator.
-    onFixedUpdate(dt) {
-      spawnIn -= dt;
-      if (spawnIn > 0 || balls.length >= 40) return;
-      spawnIn = 0.5;
-      const ball = game.createEntity('Block', game.rng.range(120, 520), 20, 24, 24, null, {}, { shape: 'circle', restitution: 0.8 });
-      game.entities.add(ball);
-      game.physics.add(ball.body);
-      balls.push(ball);
+    onAction(name) {
+      const buttons = game.sceneManager.getCurrentScene().hud.elements;
+      if (name === 'pause') {
+        game.togglePause();
+        buttons.get('pause').text = game.paused ? 'resume' : 'pause';
+      } else if (name === 'step') {
+        // One simulation tick while paused. Only a custom loop can offer this.
+        if (game.paused) game.time.stepOnce(tick);
+      } else if (name === 'slow') {
+        game.time.scale = game.time.scale === 1 ? 0.2 : 1;
+      } else if (name === 'rewind') {
+        // Play the last two seconds backwards, then stay paused.
+        rewindLeft = 120;
+        game.pause();
+        buttons.get('pause').text = 'resume';
+      }
     }
   });
 
@@ -194,19 +197,18 @@ export default async function start(canvas) {
       if (!rewindStep()) rewindLeft = 0;
     }
 
-    const scene = game.sceneManager.getCurrentScene();
+    const current = game.sceneManager.getCurrentScene();
     if (!game.paused && !rewinding) {
       game.camera.update(deltaTime);
-      scene.update(game.time.delta);
+      current.update(game.time.delta);
     }
     game.renderer.clear('#000');
-    scene.updateUI(deltaTime);
-    game.drawWorld(scene, deltaTime);
-    game.drawUI(scene, deltaTime);
+    current.updateUI(deltaTime);
+    game.drawWorld(current, deltaTime);
+    game.drawUI(current, deltaTime);
     game.motion.update(deltaTime);
     game.ui.update(deltaTime);
     game.drawOverlays(deltaTime);
-    readout.text = `frame ${game.time.frame} · tick ${game.time.steps} · time scale ${game.time.scale} · ${history.length} ticks recorded`;
 
     game.input.endFrame();
     // Kept on the game so destroy() can cancel this loop too.

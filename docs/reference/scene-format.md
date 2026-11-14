@@ -147,6 +147,7 @@ A level's overlay, drawn over the world and shown in the editor: a list of eleme
 | `abilityBar` | The slots of an `Abilities` constraint, `bind { object, constraint }` (the player's `abilities` by default), at the bottom centre unless placed. `icons` maps an ability id to a key in `assets.images` (or a sprite sheet). `properties.slot` (50), `gap` (8), `background`, `borderColor` |
 | `dialogue` | Spoken lines, typed out, opened by a rule's `say` action. `width` (720), `height` (128), at the bottom centre unless placed; `properties.advance`, the input action that advances it (`interact`; E when the project declares none), or a click, and an empty string when game code drives the conversation; `clock` (`frame`, or `game` to type on game time, for a conversation the tick drives); `charsPerSecond` (46), `textColor`, `nameColor`, `background`, `borderColor` |
 | `component` | A UI widget of the game's own, registered with `game.registerUIComponent(name, make)`: `component` names it, `properties` is handed to it with the element's position. A name nobody registered is refused at load (a headless game, which builds no HUD, does not check) |
+| `button` | An on-screen control over the level, with a UI scene [`button`](#button)'s `properties`: exactly one of `onClick` (a scene to switch to) and `action` (`settings` opens the settings menu; anything else reaches the scene's `onAction` hook). A pause button a touch game wants, a step for a tool |
 | `image`, `rect` | As in a UI scene |
 
 ## `assets.images`

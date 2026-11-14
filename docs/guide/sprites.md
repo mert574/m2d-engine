@@ -84,7 +84,7 @@ game.renderer.drawSprite({ image, x, y, tileX: 2, tileY: 0, tileWidth: 32, tileH
 
 ## Backgrounds
 
-A level's `background` tiles one frame across the whole world behind everything else. The world size comes from the `worldWidth` and `worldHeight` engine options. The grid step is `frameWidth` on both axes, so use square frames.
+A level's `background` tiles one frame across the whole world behind everything else. The world size is the level's `world.width` and `world.height` (the `worldWidth` and `worldHeight` engine options when a level leaves them out). The grid step is `frameWidth` on both axes, so use square frames.
 
 ```json
 { "background": { "spritesheet": "tiles", "tileX": 0, "tileY": 0 } }

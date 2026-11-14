@@ -5,12 +5,12 @@ Screen-space UI is drawn through `game.uiRenderer` at the display's full resolut
 The [UI components reference](../reference/ui) lists every component, option and theme token.
 
 <Demo name="ui">
-Text and a background from scene JSON. Buttons, a counter and a custom progress bar added from code. The buttons are anchored to the bottom corners and the bottom centre.
+Everything from scene JSON: text, a background, three buttons anchored to the bottom corners and the bottom centre, a counter they change through the scene's onAction hook, and a custom progress bar the game registers as a component.
 </Demo>
 
 ## Adding elements from code
 
-Add elements in the scene's `onEnter` hook. Every component takes one options object, and `add` returns the element so it can be captured.
+A game's screens are scene data, which the editor and an agent can change; a widget the file cannot describe is registered with `game.registerUIComponent(name, make)` and placed as a `component` element, the way the demo's progress bar is. Code can still add elements to any scene, in its `onEnter` hook. Every component takes one options object, and `add` returns the element so it can be captured.
 
 ```javascript
 import { UIButton } from 'm2d-engine/core/ui/button.js';

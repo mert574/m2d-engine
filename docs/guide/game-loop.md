@@ -1,7 +1,7 @@
 # Game loop
 
 <Demo name="game-loop">
-A custom loop. Pause freezes the simulation while drawing continues, step runs exactly one simulation tick while paused, slow motion changes the time scale and rewind plays the last two seconds backwards. The readout counts frames and ticks.
+A custom loop. Pause freezes the simulation while drawing continues, step runs exactly one simulation tick while paused, slow motion changes the time scale and rewind plays the last two seconds backwards. The readout counts frames and ticks. The buttons are HUD elements of the scene; their actions reach the scene's `onAction` hook.
 </Demo>
 
 `game.start()` loads sounds, switches to the initial scene and begins the frame loop. Each frame the engine applies pending display changes, delivers buffered input and ticks `game.time`, which runs as many simulation ticks as the frame paid for. Each tick samples the input, runs every `fixedUpdate` and steps physics once. The frame then updates the camera and the scene's per-frame presentation, draws the world, the UI and the overlays and retires per-frame input state. [Time, ticks and timers](./time) describes the tick.
@@ -90,7 +90,7 @@ function frame(now) {
 
 The demo at the top of this page is a loop like this one. It skips `start()` and does its three steps by hand, so the engine loop never runs. It stores its frame handle on `game.frameHandle`, which is what `destroy()` cancels.
 
-The rewind shows what owning the loop allows. The demo's `step` wraps `game.fixedUpdate` and records each body's position, angle and velocity after every tick. Rewinding restores one snapshot per frame through `setPosition`, `setAngle` and `setVelocity`, and removes bodies that were created after the snapshot. The step button calls `game.time.stepOnce` with the same wrapper to run one tick while paused.
+The rewind shows what owning the loop allows. The demo's `step` wraps `game.fixedUpdate` and records each body's position, angle and velocity after every tick. Rewinding restores one snapshot per frame through `setPosition`, `setAngle` and `setVelocity`, and removes bodies that were created after the snapshot. The step button calls `game.time.stepOnce` with the same wrapper to run one tick while paused. The balls come from a `Dropper` actor placed in the scene, which spawns the scene's ball prefab on its own cadence in `fixedUpdate`; the readout is a UI component the demo registers and the scene's HUD places.
 
 The engine loop does three more things. It draws a loading screen while `game.sceneManager.loading` is true, and does not tick `game.time` on those frames. It draws the game-over screen and handles its R and M keys when `game.isGameOver` is set. It skips simulation on the first frame to seed its clock. A custom loop that wants those does them itself.
 

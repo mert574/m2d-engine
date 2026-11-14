@@ -1,17 +1,26 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { Entity } from 'm2d-engine/core/entity.js';
-import { UIButton } from 'm2d-engine/core/ui/button.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { UIText } from 'm2d-engine/core/ui/text.js';
 
 class Block extends Entity {
+  static properties = {
+    color: s.string({ editor: 'color', initial: '#ffa726', label: 'Colour' })
+  };
+
   name = 'Block';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    this.color = options.color ?? '#ffa726';
+  }
 
   draw() {
     const { x, y } = this.renderPosition;
     const renderer = this.game.renderer;
     if (this.body.shape === 'circle') {
-      renderer.drawArc({ x, y, radius: this.size.x / 2, fillStyle: this.color ?? '#ffa726' });
+      renderer.drawArc({ x, y, radius: this.size.x / 2, fillStyle: this.color });
       return;
     }
     renderer.pushTransform({ x, y, rotation: this.renderAngle });
@@ -31,11 +40,14 @@ class ClockReadout extends UIText {
   }
 }
 
+const BUTTON = { width: 118, height: 36, variant: 'secondary', fontSize: '15px' };
+
 const scene = {
   version: 4, type: 'level', name: 'main',
-  world: { gravity: { x: 0, y: 900 } },
+  world: { width: 640, height: 360, gravity: { x: 0, y: 900 }, camera: { bounds: 'world' } },
   prefabs: {
-    wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.3 } }
+    wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.3 } },
+    ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.8 } }
   },
   layers: [{ name: 'main', objects: [
     { id: 'floor', prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
@@ -43,23 +55,28 @@ const scene = {
     { id: 'wall-right', prefab: 'wall', x: 630, y: 180, width: 20, height: 360 },
     { id: 'ramp-lower', prefab: 'wall', x: 200, y: 200, width: 200, height: 14, angle: 0.3 },
     { id: 'ramp-upper', prefab: 'wall', x: 440, y: 120, width: 200, height: 14, angle: -0.3 }
-  ] }]
+  ] }],
+  hud: [
+    { type: 'component', id: 'clocks', component: 'clockReadout', anchor: 'top', x: 0, y: 12,
+      properties: { align: 'center', fontSize: '14px', color: '#cfd8dc' } },
+    { type: 'text', id: 'banner', anchor: 'top', x: 0, y: 40, properties: { text: '', align: 'center', fontSize: '16px', color: '#ffd54f' } },
+    { type: 'button', id: 'pause', anchor: 'bottom', x: -195, y: -30, properties: { text: 'pause', action: 'pause', ...BUTTON } },
+    { type: 'button', id: 'slow', anchor: 'bottom', x: -65, y: -30, properties: { text: 'slow motion', action: 'slow', ...BUTTON } },
+    { type: 'button', id: 'burst', anchor: 'bottom', x: 65, y: -30, properties: { text: 'burst in 2 s', action: 'burst', ...BUTTON } },
+    { type: 'button', id: 'toast', anchor: 'bottom', x: 195, y: -30, properties: { text: 'toast', action: 'toast', ...BUTTON } }
+  ]
 };
 
 export default async function start(canvas) {
   await initPhysics();
   const game = new M2D(canvas, { width: 640, height: 360, initialScene: 'main', performanceStats: false });
-  game.camera.x = 320;
-  game.camera.y = 180;
   game.registerActor('Block', Block);
+  game.registerUIComponent('clockReadout', (_scene, element) => new ClockReadout({ ...element, ...element.properties, text: '' }));
 
   const balls = [];
   function drop(color) {
-    const ball = game.createEntity('Block', game.rng.range(120, 520), 20, 24, 24, null, {}, { shape: 'circle', restitution: 0.8 });
-    ball.color = color;
-    game.entities.add(ball);
-    game.physics.add(ball.body);
-    balls.push(ball);
+    const current = game.sceneManager.getCurrentScene();
+    balls.push(current.spawnPrefab('ball', { x: game.rng.range(120, 520), y: 20, width: 24, properties: { color } }));
     if (balls.length > 60) {
       const oldest = balls.shift();
       game.entities.delete(oldest);
@@ -67,49 +84,30 @@ export default async function start(canvas) {
     }
   }
 
+  let hide = null;
   game.sceneManager.addScene('main', {
     fetch: async () => scene,
     onEnter() {
-      const ui = game.sceneManager.getCurrentScene().ui;
-      const style = { variant: 'secondary', fontSize: '15px', width: 118, height: 36, anchor: 'bottom', y: -30 };
-
-      ui.add(new ClockReadout({ x: 0, y: 12, text: '', anchor: 'top', align: 'center', fontSize: '14px', color: '#cfd8dc' }));
-      const banner = ui.add(new UIText({ x: 0, y: 40, text: '', anchor: 'top', align: 'center', fontSize: '16px', color: '#ffd54f' }));
-
+      balls.length = 0;
       // Game time: a ball every 0.6 s. Freezes with pause, stretches in slow motion.
       game.time.every(0.6, () => drop('#ffa726'));
-
-      const pauseButton = ui.add(new UIButton({
-        x: -195, text: 'pause', ...style,
-        onClick: () => {
-          game.togglePause();
-          pauseButton.text = game.paused ? 'resume' : 'pause';
-        }
-      }));
-
-      ui.add(new UIButton({
-        x: -65, text: 'slow motion', ...style,
-        onClick: () => { game.time.scale = game.time.scale === 1 ? 0.25 : 1; }
-      }));
-
-      // A one-shot on game time. Pause before it fires and it waits.
-      ui.add(new UIButton({
-        x: 65, text: 'burst in 2 s', ...style,
-        onClick: () => {
-          game.time.after(2, () => { for (let i = 0; i < 8; i++) drop('#4fc3f7'); });
-        }
-      }));
-
-      // Wall time: a message that goes away after 1.5 s even while paused.
-      let hide = null;
-      ui.add(new UIButton({
-        x: 195, text: 'toast', ...style,
-        onClick: () => {
-          banner.text = 'This toast runs on wall time';
-          hide?.cancel();
-          hide = game.time.after(1.5, () => { banner.text = ''; }, { unscaled: true });
-        }
-      }));
+    },
+    onAction(name) {
+      const hud = game.sceneManager.getCurrentScene().hud;
+      if (name === 'pause') {
+        game.togglePause();
+        hud.elements.get('pause').text = game.paused ? 'resume' : 'pause';
+      } else if (name === 'slow') {
+        game.time.scale = game.time.scale === 1 ? 0.25 : 1;
+      } else if (name === 'burst') {
+        // A one-shot on game time. Pause before it fires and it waits.
+        game.time.after(2, () => { for (let i = 0; i < 8; i++) drop('#4fc3f7'); });
+      } else if (name === 'toast') {
+        // Wall time: a message that goes away after 1.5 s even while paused.
+        hud.setText('banner', 'This toast runs on wall time');
+        hide?.cancel();
+        hide = game.time.after(1.5, () => hud.setText('banner', ''), { unscaled: true });
+      }
     }
   });
 

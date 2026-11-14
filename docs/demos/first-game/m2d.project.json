@@ -1,0 +1,6 @@
+{
+  "name": "First game",
+  "definition": "game.js",
+  "initialScene": "level1",
+  "display": { "width": 1280, "height": 720, "performanceStats": false }
+}

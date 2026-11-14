@@ -3,7 +3,7 @@
 Everything that exists in a level is an entity. An entity owns a physics body, optionally a sprite sheet and a set of constraints that give it behaviour. Actors are the entity classes a game defines.
 
 <Demo name="entities">
-Crates built from the Health, DamageFlash and Interactive constraints plus a custom one that rocks them. Hover a crate to highlight it and click to damage it. When all are gone, new ones are created at runtime.
+Crates built from the Health, DamageFlash and Interactive constraints plus a custom one that rocks them. Hover a crate to highlight it and click to damage it. When all are gone, the scene's crate prefab is spawned again at runtime.
 </Demo>
 
 ## Writing an actor

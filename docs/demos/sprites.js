@@ -1,6 +1,7 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 const FRAME = 32;
 
@@ -39,6 +40,11 @@ function makeTile() {
 
 /** Walks back and forth, stepping its frames and flipping to face the way it goes. */
 class Walker extends Entity {
+  static properties = {
+    speed: s.number({ positive: true, initial: 80, unit: 'px/s' }),
+    patrol: s.object({ left: s.number({ initial: 40 }), right: s.number({ initial: 600 }) }, { description: 'Where it turns back, in x' })
+  };
+
   name = 'Walker';
   direction = 1;
   time = 0;
@@ -46,6 +52,7 @@ class Walker extends Entity {
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     this.speed = options.speed ?? 80;
+    this.patrol = { left: 40, right: 600, ...options.patrol };
     this.setAnimation('walk');
   }
 
@@ -53,8 +60,8 @@ class Walker extends Entity {
   fixedUpdate(dt) {
     super.fixedUpdate(dt);
     const { x } = this.position;
-    if (x > 600) this.direction = -1;
-    if (x < 40) this.direction = 1;
+    if (x > this.patrol.right) this.direction = -1;
+    if (x < this.patrol.left) this.direction = 1;
     this.body.setVelocity({ x: this.direction * this.speed, y: 0 });
   }
 
@@ -76,18 +83,16 @@ class Walker extends Entity {
 export default async function start(canvas) {
   await initPhysics();
   const game = new M2D(canvas, {
-    width: 640, height: 360, worldWidth: 640, worldHeight: 360,
-    initialScene: 'main', performanceStats: false,
+    width: 640, height: 360, initialScene: 'main', performanceStats: false,
     worldFilter: 'nearest'     // keep the pixels square when upscaled
   });
-  game.camera.x = 320;
-  game.camera.y = 180;
   game.registerActor('Walker', Walker);
 
   game.sceneManager.addScene('main', {
     fetch: async () => ({
       version: 4, type: 'level', name: 'main',
-      world: { gravity: { x: 0, y: 0 } },
+      // The world's size is what the background tiles across.
+      world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, camera: { bounds: 'world' } },
       assets: { spritesheets: {
         walker: { url: makeWalkerSheet(), frameWidth: FRAME, frameHeight: FRAME, animations: { walk: { frames: [[0, 0]] } } },
         ground: { url: makeTile(), frameWidth: FRAME, frameHeight: FRAME }

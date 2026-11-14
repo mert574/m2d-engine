@@ -73,6 +73,7 @@ A demo that spans several files lives in `docs/demos/<name>/` with a `main.js` e
 
 Rules for demo modules:
 
+- Idiomatic m2d, as the examples are (see [Adding a demo](./adding-a-demo)): the world's size, the camera, the HUD and its buttons are the scene's, a widget the file cannot describe is a registered UI component the scene places, and a page that teaches a raw API (the game loop, timers, draw calls, the pointer events) keeps code for that API only.
 - Leave `pointerLock` off. A page must not capture the pointer.
 - Pass `performanceStats: false` unless the readout is the point.
 - Draw with primitives or build textures at runtime. Image files are not committed.

@@ -1010,27 +1010,27 @@ function refineButton(element, { path, fail }) {
 /** The kinds of element a UI scene may hold. */
 export const UI_KINDS = ['button', 'menuItem', 'text', 'image', 'rect', 'backdrop', 'component'];
 
+/** A button's own fields, in a UI scene and in a level's HUD alike. */
+const BUTTON_PROPERTIES = s.object({
+  text: styled('text', 'Label'),
+  // Cross-references the scene this button switches to. The check that
+  // would have caught the platformer's Settings button, which pointed
+  // at a scene nobody registered and failed only on click.
+  onClick: s.ref('scene', { label: 'Switch to scene' }),
+  action: s.string({ label: 'Action', description: 'settings opens the settings menu; anything else goes to the scene\'s onAction' }),
+  width: styled('size'),
+  height: styled('size'),
+  variant: s.enumOf(BUTTON_VARIANTS),
+  fontSize: styled('size'),
+  fontFamily: styled('font'),
+  fontWeight: styled('font'),
+  fontStyle: styled('font'),
+  background: styled('color'),
+  textColor: styled('color')
+});
+
 const ELEMENTS = s.tagged('type', {
-  button: s.object({
-    ...UI_COMMON,
-    properties: s.object({
-      text: styled('text', 'Label'),
-      // Cross-references the scene this button switches to. The check that
-      // would have caught the platformer's Settings button, which pointed
-      // at a scene nobody registered and failed only on click.
-      onClick: s.ref('scene', { label: 'Switch to scene' }),
-      action: s.string({ label: 'Action' }),
-      width: styled('size'),
-      height: styled('size'),
-      variant: s.enumOf(BUTTON_VARIANTS),
-      fontSize: styled('size'),
-      fontFamily: styled('font'),
-      fontWeight: styled('font'),
-      fontStyle: styled('font'),
-      background: styled('color'),
-      textColor: styled('color')
-    })
-  }, { refine: refineButton }),
+  button: s.object({ ...UI_COMMON, properties: BUTTON_PROPERTIES }, { refine: refineButton }),
 
   text: s.object({
     ...UI_COMMON,
@@ -1123,7 +1123,7 @@ const ELEMENTS = s.tagged('type', {
 });
 
 /** The kinds of element a level's HUD may hold. */
-export const HUD_KINDS = ['text', 'notice', 'meter', 'minimap', 'abilityBar', 'dialogue', 'component', 'image', 'rect'];
+export const HUD_KINDS = ['text', 'notice', 'meter', 'minimap', 'abilityBar', 'dialogue', 'component', 'button', 'image', 'rect'];
 
 /** A style a minimap plots with: what `UIMinimap` draws for one entity. */
 const PLOT_STYLE = {
@@ -1216,6 +1216,7 @@ const HUD_ELEMENTS = s.tagged('type', {
       borderColor: colour({ label: 'Border colour' })
     })
   }),
+  button: s.object({ ...ELEMENT_COMMON, properties: BUTTON_PROPERTIES }, { refine: refineButton, label: 'Button', description: 'An on-screen control over the level: a pause button a touch game wants, a step for a tool. action goes to the scene\'s onAction, onClick switches scenes' }),
   image: s.object({ ...ELEMENT_COMMON, sprite: s.string({ required: true, editor: 'asset' }), properties: s.object({ width: styled('size'), height: styled('size'), scale: styled('size') }) }),
   rect: s.object({ ...ELEMENT_COMMON, width: styled('size'), height: styled('size'), color: styled('color'), fill: s.boolean({ label: 'Fill the screen' }), properties: s.object({}) })
 }, {

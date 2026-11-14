@@ -14,7 +14,7 @@ const game = new M2D(canvas, { width: 1280, height: 720 });
 ## Body types
 
 <Demo name="bodies">
-Static walls and a tilted ramp, a stack of dynamic boxes, a kinematic platform carrying a box and a character body that walks and turns around. Click inside the canvas to drop a ball.
+Static walls and a tilted ramp, a stack of dynamic boxes, a kinematic platform carrying a box and a character body that walks and turns around. Drag a box or the ball and let go to throw it: the dynamic prefabs carry the engine's `Grabbable` constraint, and nothing else can be picked up.
 </Demo>
 
 | Type | Behaviour |

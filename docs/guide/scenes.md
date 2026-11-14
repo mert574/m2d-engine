@@ -5,7 +5,7 @@ A scene is a JSON document that describes a level or a menu. The engine validate
 For the complete list of fields see the [scene format reference](../reference/scene-format).
 
 <Demo name="scenes">
-A UI scene and a level scene. Start level switches scenes with a button's onClick. About runs a named action that the scene's onAction hook receives. The level adds a Menu button from code and switches back on its own once the ball reaches the goal.
+A UI scene and a level scene. Start level switches scenes with a button's onClick. About runs a named action that the scene's onAction hook receives. The level's Menu button is a HUD element, and a rule switches back once the ball reaches the goal: the level has no hooks at all.
 </Demo>
 
 ## Level scenes
@@ -149,7 +149,7 @@ The inner scene's tile layers, background, HUD, rules, camera and look stay with
 
 ## UI scenes
 
-A UI scene has `"type": "ui"` and an `elements` array instead of layers. Element types are `button`, `text`, `image` and `rect`.
+A UI scene has `"type": "ui"` and an `elements` array instead of layers. Element types are `button`, `menuItem`, `text`, `image`, `rect`, `backdrop` and `component`; a level's [`hud`](../reference/scene-format#hud) takes the same kinds and more. Code reaches a built element through `scene.uiById`, a map by id, and a HUD's through `scene.hud.elements`.
 
 ```json
 {
@@ -225,7 +225,7 @@ The name `mainMenu` is special in two places. The game-over screen's M key switc
 | `onDrawBackground(deltaTime)` | Every frame inside the world pass, before the background layer and the entities draw, with the camera applied |
 | `onDraw(deltaTime)` | Every frame inside the world pass, after entities draw, with the camera applied |
 | `onResize(width, height, viewport)` | After the display size or resolution changes |
-| `onAction(name)` | When a scene button with an `action` is clicked and the engine did not handle it |
+| `onAction(name)` | When a button with an `action` is clicked, in a UI scene or a level's HUD, and the engine did not handle it |
 
 `onEnter`, `onFixedUpdate` and `onExit` are simulation and run in a [headless game](./headless) too. `onShow`, `onHide` and the per-frame hooks are presentation: camera setup, lights, post effects, HUD and music go there. A game that never runs headless can keep everything in `onEnter` and `onExit`.
 

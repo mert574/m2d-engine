@@ -399,6 +399,37 @@ describe('a level\'s own HUD widgets and its lighting fallback', () => {
     game.destroy();
   });
 
+  it('places a HUD button whose action reaches the scene\'s onAction, and whose onClick switches scenes', async () => {
+    const actions = [];
+    const renderer = new RecordingRenderer();
+    const game = new M2D(displayCanvas(320, 180), { width: 320, height: 180, renderer, devConsole: false, performanceStats: false });
+    game.registerActor('Dot', Dot);
+    const hud = [
+      { type: 'button', id: 'pause', x: 0, y: -30, anchor: 'bottom', properties: { text: 'pause', action: 'pause', width: 100, height: 36 } },
+      { type: 'button', id: 'menu', x: -60, y: 30, anchor: 'top-right', properties: { text: 'Menu', onClick: 'other' } }
+    ];
+    game.sceneManager.addScene('look', { fetch: async () => level({}, { hud }), onAction: (name) => actions.push(name) });
+    game.sceneManager.addScene('other', { fetch: async () => level({}, { name: 'other' }) });
+    await game.sceneManager.switchTo('look');
+    const scene = game.sceneManager.getCurrentScene();
+    const pause = scene.hud.elements.get('pause');
+    expect(pause.text).toBe('pause');
+    pause.onClick();
+    expect(actions).toEqual(['pause']);
+    scene.hud.elements.get('menu').onClick();
+    await vi.waitFor(() => expect(game.sceneManager.getCurrentScene().config.name).toBe('other'));
+    game.destroy();
+  });
+
+  it('refuses a HUD button that does nothing or two things', () => {
+    const loader = new SceneLoader({ actors: new Map([['Dot', Dot]]), sceneManager: { scenes: new Map([['other', {}]]), scenesToLoad: [] } });
+    const withButton = (properties) => level({}, { hud: [{ type: 'button', id: 'b', x: 0, y: 0, properties }] });
+    expect(() => loader.load(withButton({ text: 'idle' }), 'look')).toThrow(/neither action nor onClick/);
+    expect(() => loader.load(withButton({ text: 'both', action: 'a', onClick: 'other' }), 'look')).toThrow(/both action/);
+    expect(() => loader.load(withButton({ text: 'lost', onClick: 'nowhere' }), 'look')).toThrow(/no scene named 'nowhere'/);
+    expect(() => loader.load(withButton({ text: 'ok', onClick: 'other' }), 'look')).not.toThrow();
+  });
+
   it('lays the fallback wash over the view only where the renderer has no lights', async () => {
     const { game, renderer, scene } = await show(level({ lighting: { ambient: '#334', fallback: 'rgba(0, 0, 40, 0.3)' } }));
     const washes = () => renderer.optionsFor('drawRect').filter((rect) => rect.fillStyle === 'rgba(0, 0, 40, 0.3)');

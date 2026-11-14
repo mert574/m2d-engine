@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { writeScene, writeManifest } from 'm2d-editor-core';
 
 const examples = fileURLToPath(new URL('../src', import.meta.url));
-const docsDemo = fileURLToPath(new URL('../../docs/demos/first-game', import.meta.url));
+const docsDemo = fileURLToPath(new URL('../../docs/demos/first-game/scenes', import.meta.url));
 
 const files = [];
 for (const example of readdirSync(examples)) {

@@ -1,8 +1,7 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { Entity } from 'm2d-engine/core/entity.js';
-import { UIButton } from 'm2d-engine/core/ui/button.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 class Block extends Entity {
   name = 'Block';
@@ -20,14 +19,17 @@ class Block extends Entity {
   }
 }
 
-/** A sensor. When the ball reaches it, the level reports success. */
+/** A sensor that lights up once reached. A rule sets `reached`; the actor only draws it. */
 class Goal extends Entity {
-  name = 'Goal';
-  reached = false;
+  static properties = {
+    reached: s.boolean({ initial: false })
+  };
 
-  onCollisionStart(other) {
-    super.onCollisionStart(other);
-    if (other.entity?.name === 'Block') this.reached = true;
+  name = 'Goal';
+
+  constructor(body, sprite, game, options = {}) {
+    super(body, sprite, game);
+    this.reached = options.reached ?? false;
   }
 
   draw() {
@@ -51,15 +53,27 @@ const menu = {
         fontSize: '18px', variant: 'primary' } },
     { type: 'button', id: 'about', anchor: 'center', x: 0, y: 46,
       properties: { text: 'About', action: 'about', width: 200, height: 44,
-        fontSize: '18px', variant: 'secondary' } }
+        fontSize: '18px', variant: 'secondary' } },
+    // Code writes the last action here, through the scene's elements by id.
+    { type: 'text', id: 'status', anchor: 'center', x: 0, y: 110,
+      properties: { text: '', fontSize: '16px', align: 'center', color: '#9fb6d0' } }
   ]
 };
 
 // A level scene: prefabs placed in layers. The ball rolls down the ramp
-// into the goal.
+// into the goal. What happens then is a rule, and the way back is a
+// button in the HUD: the level needs no hooks at all.
 const level = {
   version: 4, type: 'level', name: 'level',
-  world: { gravity: { x: 0, y: 900 } },
+  world: {
+    width: 640, height: 360, gravity: { x: 0, y: 900 }, player: 'ball', camera: { bounds: 'world' },
+    rules: [
+      { when: { event: 'enter', object: 'goal' }, then: [
+        { do: 'set', object: 'goal', property: 'reached', value: true },
+        { do: 'switch', scene: 'mainMenu', after: 1.5 }
+      ] }
+    ]
+  },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.4 } },
     ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', friction: 0.4 } },
@@ -71,7 +85,11 @@ const level = {
     { id: 'ramp-lower', prefab: 'wall', x: 440, y: 290, width: 200, height: 16, angle: -0.25 },
     { id: 'ball', prefab: 'ball', x: 60, y: 80, width: 28, height: 28 },
     { id: 'goal', prefab: 'goal', x: 600, y: 324, width: 48, height: 32 }
-  ] }]
+  ] }],
+  hud: [
+    { type: 'button', id: 'menu', anchor: 'top-right', x: -76, y: 34,
+      properties: { text: 'Menu', onClick: 'mainMenu', width: 120, height: 36, background: '#37474f' } }
+  ]
 };
 
 export default async function start(canvas) {
@@ -79,61 +97,18 @@ export default async function start(canvas) {
   const game = new M2D(canvas, {
     width: 640, height: 360, initialScene: 'mainMenu', performanceStats: false
   });
-  game.camera.x = 320;
-  game.camera.y = 180;
   game.registerActor('Block', Block);
   game.registerActor('Goal', Goal);
 
-  let status = null;
   game.sceneManager.addScene('mainMenu', {
     fetch: async () => menu,
-    onEnter() {
-      // Elements can also be added from code. This one shows the last action.
-      const ui = game.sceneManager.getCurrentScene().ui;
-      status = ui.add(new UIText({
-        x: 0,
-        y: 110,
-        text: '',
-        anchor: 'center',
-        align: 'center',
-        fontSize: '16px',
-        color: '#9fb6d0'
-      }));
-    },
     // A button with "action": "about" lands here. A mounted SettingsMenu would
     // take "settings" first; this demo has none.
     onAction(name) {
-      status.text = `action "${name}" received by onAction`;
+      game.sceneManager.getCurrentScene().uiById.get('status').text = `action "${name}" received by onAction`;
     }
   });
-
-  let goal = null;
-  let doneFor = 0;
-  game.sceneManager.addScene('level', {
-    fetch: async () => level,
-    onEnter() {
-      goal = [...game.entities].find((entity) => entity.name === 'Goal');
-      doneFor = 0;
-      const ui = game.sceneManager.getCurrentScene().ui;
-      // Buttons are centred on their position, so offset by half the size.
-      ui.add(new UIButton({
-        x: -76,
-        y: 34,
-        width: 120,
-        height: 36,
-        text: 'Menu',
-        onClick: () => game.sceneManager.switchTo('mainMenu'),
-        anchor: 'top-right',
-        background: '#37474f'
-      }));
-    },
-    // Scene-level logic that is not an entity. Switch back once the goal is reached.
-    onFixedUpdate(dt) {
-      if (!goal?.reached) return;
-      doneFor += dt;
-      if (doneFor > 1.5) game.sceneManager.switchTo('mainMenu');
-    }
-  });
+  game.sceneManager.addScene('level', { fetch: async () => level });
 
   await game.start();
   return game;

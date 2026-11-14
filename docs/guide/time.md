@@ -3,7 +3,7 @@
 `game.time` holds the engine's clocks, runs the simulation tick and schedules timers on top of them.
 
 <Demo name="time">
-A ball drops every 0.6 s on a game-time interval. Pause freezes it and the clocks, slow motion stretches it. "Burst in 2 s" arms a one-shot on game time, so pausing before it fires makes it wait. The toast is on wall time and goes away while paused. The readout at the top shows both clocks, the frame count, the tick count and the time scale.
+A ball drops every 0.6 s on a game-time interval. Pause freezes it and the clocks, slow motion stretches it. "Burst in 2 s" arms a one-shot on game time, so pausing before it fires makes it wait. The toast is on wall time and goes away while paused. The readout at the top shows both clocks, the frame count, the tick count and the time scale. The buttons and the toast's line are the scene's HUD; the timers are the code.
 </Demo>
 
 ## Two clocks

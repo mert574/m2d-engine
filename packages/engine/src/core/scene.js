@@ -1046,7 +1046,8 @@ export class Scene {
   }
 
   /**
-   * What a scene-JSON button does when clicked.
+   * What a scene-JSON button does when clicked, in a UI scene or a
+   * level's HUD.
    *
    * `"action"` names a behaviour rather than a scene: `'settings'` opens the
    * mounted settings menu (`game.settings`), anything else is handed to the
@@ -1055,7 +1056,7 @@ export class Scene {
    * unhandled rejection inside a click handler, which is how the platformer's
    * Settings button sat broken without anything saying so.
    */
-  #runButtonAction({ action, onClick }) {
+  runButtonAction({ action, onClick }) {
     if (action) {
       if (action === 'settings' && this.game.settings) {
         this.game.settings.open();
@@ -1109,7 +1110,7 @@ export class Scene {
             width: properties.width ?? 200,
             height: properties.height ?? 44,
             text: properties.text,
-            onClick: () => this.#runButtonAction(properties),
+            onClick: () => this.runButtonAction(properties),
             variant: properties.variant,
             background: properties.background,
             textColor: properties.textColor,
@@ -1164,7 +1165,7 @@ export class Scene {
             width: properties.width ?? 340,
             height: properties.height ?? 44,
             text: properties.text,
-            onSelect: () => this.#runButtonAction(properties),
+            onSelect: () => this.runButtonAction(properties),
             variant: properties.variant,
             align: properties.align,
             ...defined({

@@ -1,13 +1,11 @@
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
-import { UIButton } from 'm2d-engine/core/ui/button.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
 
 /** A custom element: a bar that fills over time. Clicking it resets it. */
 class ProgressBar extends UIElement {
-  constructor(x, y, options = {}) {
-    super({ ...options, x, y, width: 260, height: 18 });
+  constructor(options = {}) {
+    super({ ...options, width: 260, height: 18 });
     this.value = 0;
   }
 
@@ -28,7 +26,10 @@ class ProgressBar extends UIElement {
   }
 }
 
-// Scene JSON positions elements against anchors.
+const BUTTON = { width: 100, height: 40, variant: 'secondary', fontSize: '16px' };
+
+// Scene JSON positions elements against anchors. The buttons name actions
+// the scene's onAction hook counts; the bar is a component the game registers.
 const scene = {
   version: 4, type: 'ui', name: 'main',
   elements: [
@@ -38,73 +39,29 @@ const scene = {
     { type: 'text', id: 'corner', anchor: 'top-left', x: 16, y: 16,
       properties: { text: 'top-left', fontSize: '14px', color: '#90a4ae' } },
     { type: 'text', id: 'corner2', anchor: 'top-right', x: -16, y: 16,
-      properties: { text: 'top-right', fontSize: '14px', align: 'right', color: '#90a4ae' } }
+      properties: { text: 'top-right', fontSize: '14px', align: 'right', color: '#90a4ae' } },
+    { type: 'text', id: 'count', anchor: 'center', x: 0, y: -40,
+      properties: { text: 'count 0', fontSize: '32px', align: 'center', color: '#ffffff' } },
+    { type: 'button', id: 'down', anchor: 'bottom-left', x: 70, y: -36, properties: { text: '-1', action: 'down', ...BUTTON } },
+    { type: 'button', id: 'reset', anchor: 'bottom', x: 0, y: -36, properties: { text: 'reset', action: 'reset', ...BUTTON } },
+    { type: 'button', id: 'up', anchor: 'bottom-right', x: -70, y: -36, properties: { text: '+1', action: 'up', ...BUTTON } },
+    { type: 'component', id: 'progress', component: 'progressBar', anchor: 'center', x: 0, y: 30 },
+    { type: 'text', id: 'hint', anchor: 'center', x: 0, y: 50,
+      properties: { text: 'click the bar to reset it', fontSize: '13px', align: 'center', color: '#90a4ae' } }
   ]
 };
 
 export default async function start(canvas) {
   await initPhysics();
   const game = new M2D(canvas, { width: 640, height: 360, initialScene: 'main', performanceStats: false });
+  game.registerUIComponent('progressBar', (_scene, element) => new ProgressBar(element));
 
+  let count = 0;
   game.sceneManager.addScene('main', {
     fetch: async () => scene,
-    // The rest is added from code.
-    onEnter() {
-      const ui = game.sceneManager.getCurrentScene().ui;
-      let count = 0;
-      const counter = ui.add(new UIText({
-        x: 0,
-        y: -40,
-        text: 'count 0',
-        anchor: 'center',
-        align: 'center',
-        fontSize: '32px',
-        color: '#ffffff'
-      }));
-      const set = (value) => { count = value; counter.text = `count ${count}`; };
-
-      const style = { variant: 'secondary', fontSize: '16px' };
-      ui.add(new UIButton({
-        x: 70,
-        y: -36,
-        width: 100,
-        height: 40,
-        text: '-1',
-        onClick: () => set(count - 1),
-        ...style,
-        anchor: 'bottom-left'
-      }));
-      ui.add(new UIButton({
-        x: 0,
-        y: -36,
-        width: 100,
-        height: 40,
-        text: 'reset',
-        onClick: () => set(0),
-        ...style,
-        anchor: 'bottom'
-      }));
-      ui.add(new UIButton({
-        x: -70,
-        y: -36,
-        width: 100,
-        height: 40,
-        text: '+1',
-        onClick: () => set(count + 1),
-        ...style,
-        anchor: 'bottom-right'
-      }));
-
-      ui.add(new ProgressBar(0, 30, { anchor: 'center' }));
-      ui.add(new UIText({
-        x: 0,
-        y: 50,
-        text: 'click the bar to reset it',
-        anchor: 'center',
-        align: 'center',
-        fontSize: '13px',
-        color: '#90a4ae'
-      }));
+    onAction(name) {
+      count = name === 'reset' ? 0 : name === 'up' ? count + 1 : count - 1;
+      game.sceneManager.getCurrentScene().uiById.get('count').text = `count ${count}`;
     }
   });
 

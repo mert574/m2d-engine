@@ -2,9 +2,7 @@ import { Entity } from 'm2d-engine/core/entity.js';
 import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
 
 export class Hero extends Entity {
-  // The scene stores the entity named 'Player' as game.player and makes
-  // the camera follow it.
-  name = 'Player';
+  name = 'Hero';
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);

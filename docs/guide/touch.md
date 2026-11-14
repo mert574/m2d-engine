@@ -28,7 +28,7 @@ game.input.push({ kind: 'keydown', code: 'ArrowLeft', key: 'ArrowLeft', time: pe
 game.input.flush();
 ```
 
-With that, an on-screen button is a UI element that pushes `keydown` on press and `keyup` on release. Any `KeyboardControl` bound to that code moves the entity, and `game.input.isDown('ArrowLeft')` reports it held. The demo's `PadButton` is the complete pattern.
+With that, an on-screen button is a UI element that pushes `keydown` on press and `keyup` on release. Any `KeyboardControl` bound to that code moves the entity, and `game.input.isDown('ArrowLeft')` reports it held. The demo's `PadButton` is the complete pattern; the game registers it as a UI component and the scene's HUD places one per direction, so where the pad sits is the scene's to say.
 
 Releasing is the part to get right. A finger that slides off a button lifts somewhere else, so the button's own `onPointerUp` never runs. The demo releases every pad on any `pointerup` through a subscriber. The same subscriber receives a `pointerup` with `cancelled` set when the browser cancels the touch.
 

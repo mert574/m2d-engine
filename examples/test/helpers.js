@@ -100,11 +100,11 @@ export function sceneFiles() {
         .map(f => ({ example, name: `${example}/${f}`, path: join(dir, f) }));
     });
 
-  const docsDemo = join(import.meta.dirname, '..', '..', 'docs', 'demos', 'first-game');
+  const docsDemo = join(import.meta.dirname, '..', '..', 'docs', 'demos', 'first-game', 'scenes');
   if (existsSync(docsDemo)) {
     files.push(...readdirSync(docsDemo)
       .filter(f => f.endsWith('.json'))
-      .map(f => ({ example: 'first-game', name: `docs/demos/first-game/${f}`, path: join(docsDemo, f) })));
+      .map(f => ({ example: 'first-game', name: `docs/demos/first-game/scenes/${f}`, path: join(docsDemo, f) })));
   }
   return files;
 }
