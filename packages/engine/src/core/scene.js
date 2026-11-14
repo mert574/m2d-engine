@@ -6,7 +6,7 @@ import { geometryFor } from './renderers/geometry/primitives.js';
 import { placeLight, instanceEmissive, toLinear } from './presentation3d.js';
 import { parseColor } from './renderers/geometry/color.js';
 import { SceneRules } from './rules.js';
-import { SceneHud } from './hud.js';
+import { SceneHud, sceneButton } from './hud.js';
 import { SceneCounters } from './counters.js';
 import { SceneBackdrop } from './sceneBackdrop.js';
 import { SceneAmbience } from './sceneAmbience.js';
@@ -25,7 +25,6 @@ import { presentationGuard } from './headless.js';
 import { Container } from './ui/container.js';
 import { FocusManager } from './ui/focus.js';
 import { MovingPlatform } from '../actors/movingPlatform.js';
-import { UIButton } from './ui/button.js';
 import { UIText } from './ui/text.js';
 import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
@@ -1105,20 +1104,7 @@ export class Scene {
 
       switch (element.type) {
         case 'button':
-          made = new UIButton({
-            ...common,
-            width: properties.width ?? 200,
-            height: properties.height ?? 44,
-            text: properties.text,
-            onClick: () => this.runButtonAction(properties),
-            variant: properties.variant,
-            background: properties.background,
-            textColor: properties.textColor,
-            fontSize: properties.fontSize,
-            fontFamily: properties.fontFamily,
-            fontWeight: properties.fontWeight,
-            fontStyle: properties.fontStyle
-          });
+          made = sceneButton(this, common, properties);
           break;
 
         case 'text':

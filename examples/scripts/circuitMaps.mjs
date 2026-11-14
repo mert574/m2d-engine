@@ -1,5 +1,5 @@
 /**
- * The six circuits, as the shapes they are seeded from.
+ * The circuits, as the shapes they are seeded from.
  *
  * `scripts/buildCircuitScenes.mjs` runs this once and writes the roads
  * into `src/circuit/scenes/*.json` as closed smooth paths; nothing here

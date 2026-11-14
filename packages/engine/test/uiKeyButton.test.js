@@ -48,6 +48,17 @@ describe('UIKeyButton', () => {
     expect(game.input.isDown('ArrowLeft')).toBe(false);
   });
 
+  it('belongs to the finger that pressed it: another finger tapping it changes nothing', () => {
+    const { game, left } = mount();
+    pointerDown(game, 100, 500, { pointerId: 1, pointerType: 'touch' });
+    pointerDown(game, 100, 500, { pointerId: 2, pointerType: 'touch' });
+    pointerUp(game, 100, 500, { pointerId: 2, pointerType: 'touch' });
+    expect(left.held).toBe(true);
+    expect(game.input.isDown('ArrowLeft')).toBe(true);
+    pointerUp(game, 100, 500, { pointerId: 1, pointerType: 'touch' });
+    expect(left.held).toBe(false);
+  });
+
   it('lets go when it leaves the tree', () => {
     const { game, root, left } = mount();
     pointerDown(game, 100, 500, { pointerId: 1, pointerType: 'touch' });

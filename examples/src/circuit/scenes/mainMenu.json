@@ -44,7 +44,7 @@
       "anchor": "left",
       "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
-        "text": "SIX CIRCUITS · DRIFT, BOOST, REPLAY",
+        "text": "NIGHT TIME TRIALS · DRIFT, BOOST, REPLAY",
         "fontSize": "$font.size.caption",
         "fontWeight": "$font.weight.medium",
         "letterSpacing": "$font.tracking.widest",

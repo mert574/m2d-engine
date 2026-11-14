@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { Track, WALL_SPACING } from '../src/circuit/track.js';
 
 /**
@@ -8,7 +8,7 @@ import { Track, WALL_SPACING } from '../src/circuit/track.js';
  * than the spacing is a wall across the road.
  */
 
-const CIRCUITS = ['circuit1', 'circuit2', 'circuit3', 'circuit4', 'circuit5', 'circuit6'];
+const CIRCUITS = readdirSync(new URL('../src/circuit/scenes/', import.meta.url)).filter((f) => /^circuit\d+\.json$/.test(f)).map((f) => f.replace('.json', ''));
 const road = (name) => JSON.parse(readFileSync(new URL(`../src/circuit/scenes/${name}.json`, import.meta.url), 'utf8')).paths.road.points;
 
 /** On the outside of a tight corner the edge outruns the centreline, so a piece may reach about twice the spacing. */

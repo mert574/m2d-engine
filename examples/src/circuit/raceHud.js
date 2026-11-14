@@ -1,5 +1,6 @@
 import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
 import { lapTime } from './menuParts.js';
+import { TouchControls } from './touchControls.js';
 
 /** Seconds a checkpoint's split stays up. */
 const SPLIT_SECONDS = 2.6;
@@ -51,7 +52,7 @@ export class RaceHud extends UIElement {
     this.#clock(race, centre, bottom - 118);
     this.#speed(race.car.drive, centre, bottom - 70);
     // The corners are the thumbs' on a touchscreen: the count moves up beside the title line.
-    const touch = this.scene.hud?.elements.get('touch')?.active;
+    const touch = [...(this.scene.hud?.elements.values() ?? [])].some((element) => element instanceof TouchControls && element.active);
     this.#checkpoints(race, view.x + view.width - 24, touch ? view.y + 44 : bottom - 52);
     this.#callouts(race, centre, view.y + view.height * 0.19);
     this.#split(race, centre, view.y + view.height * 0.34);

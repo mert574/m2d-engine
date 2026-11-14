@@ -81,6 +81,7 @@ const level = {
   },
   layers: [{ name: 'main', objects: [
     { id: 'floor', prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
+    { id: 'wall-right', prefab: 'wall', x: 634, y: 180, width: 12, height: 360 },
     { id: 'ramp-upper', prefab: 'wall', x: 200, y: 160, width: 360, height: 16, angle: 0.35 },
     { id: 'ramp-lower', prefab: 'wall', x: 440, y: 290, width: 200, height: 16, angle: -0.25 },
     { id: 'ball', prefab: 'ball', x: 60, y: 80, width: 28, height: 28 },

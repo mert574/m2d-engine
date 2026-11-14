@@ -17,9 +17,11 @@ import { relative } from 'node:path';
  * @param {URL} url - The scene file, relative to the calling script
  * @returns {string}
  */
-export function seedTarget(url) {
+export function seedTarget(url, { skip = false } = {}) {
   const path = fileURLToPath(url);
   if (!existsSync(path) || process.argv.includes('--force')) return path;
+  // A builder of several scenes seeds the ones that are missing and passes the rest by.
+  if (skip) return null;
   if (!process.argv.includes('--missing')) {
     console.log(`${relative(process.cwd(), path)} exists, and it is the editor's now: this script only seeds it. ` +
       'Pass --force to rebuild it from the script, discarding every edit made since.');

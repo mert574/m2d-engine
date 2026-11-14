@@ -657,6 +657,7 @@ class RoadStretch extends Entity {
     this.roadPath = options.path ?? 'road';
     this.from = options.from ?? 0;
     this.to = options.to ?? 0;
+    if (!(this.to > this.from)) throw new Error(`${this.name}: 'to' (${this.to}) must come after 'from' (${this.from}) along the lap`);
     this.track = null;
   }
 
@@ -676,9 +677,10 @@ class RoadStretch extends Entity {
     return s >= this.from * this.track.length && s <= this.to * this.track.length;
   }
 
-  /** Whether a world point is on the stretch: on the road and inside it along the lap. */
-  covers(track, x, y) {
+  /** Whether a world point is on the stretch: on the road, and inside it along the lap. */
+  covers(track, x, y, margin = 0) {
     const sample = track.samples[track.nearest(x, y)];
+    if (Math.hypot(sample.x - x, sample.y - y) > sample.w + margin) return false;
     const length = track.length;
     return sample.s >= this.from * length && sample.s <= this.to * length;
   }
@@ -838,7 +840,7 @@ export class Tunnel extends RoadStretch {
     }
 
     const car = this.car;
-    if (!car || !this.covers(this.track, car.position.x, car.position.y)) return;
+    if (!car || !this.covers(this.track, car.position.x, car.position.y, 34)) return;
     const pos = car.renderPosition;
     const angle = car.renderAngle;
     const cos = Math.cos(angle);

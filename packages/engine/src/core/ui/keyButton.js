@@ -58,13 +58,15 @@ export class UIKeyButton extends UIElement {
     this.release();
   }
 
+  /** The first finger owns the button; a second one tapping it changes nothing. */
   onPointerDown(event) {
+    if (this.held) return;
     this.pointerId = event.pointerId ?? -1;
     this.press();
   }
 
-  onPointerUp() {
-    this.release();
+  onPointerUp(event) {
+    if ((event.pointerId ?? -1) === this.pointerId) this.release();
   }
 
   /** Put the key down, as the keyboard would. */

@@ -84,6 +84,16 @@ class UISceneMinimap extends UIMinimap {
   }
 }
 
+/** A `button` element as `UIButton` takes it; what it does on a click is the scene's (`runButtonAction`). */
+export function sceneButton(scene, common, properties) {
+  return new UIButton({
+    ...common, width: properties.width ?? 200, height: properties.height ?? 44, text: properties.text,
+    onClick: () => scene.runButtonAction(properties),
+    variant: properties.variant, background: properties.background, textColor: properties.textColor,
+    fontSize: properties.fontSize, fontFamily: properties.fontFamily, fontWeight: properties.fontWeight, fontStyle: properties.fontStyle
+  });
+}
+
 export class SceneHud {
   /**
    * @param {import('./scene.js').Scene} scene
@@ -164,12 +174,7 @@ export class SceneHud {
         return make(this.scene, { ...placed(common), properties });
       }
       case 'button':
-        return new UIButton({
-          ...common, width: properties.width ?? 200, height: properties.height ?? 44, text: properties.text,
-          onClick: () => this.scene.runButtonAction(properties),
-          variant: properties.variant, background: properties.background, textColor: properties.textColor,
-          fontSize: properties.fontSize, fontFamily: properties.fontFamily, fontWeight: properties.fontWeight, fontStyle: properties.fontStyle
-        });
+        return sceneButton(this.scene, common, properties);
       case 'image':
         return element.sprite
           ? new UIImage({ ...common, image: this.scene.sprites.get(element.sprite), width: properties.width, height: properties.height, imageScale: properties.scale })

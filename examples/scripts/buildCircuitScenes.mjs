@@ -1,5 +1,5 @@
 /**
- * Lays out Night Circuit's six tracks: `node scripts/buildCircuitScenes.mjs`.
+ * Lays out Night Circuit's tracks: `node scripts/buildCircuitScenes.mjs`.
  *
  * A map's road was a radial loop built at boot from a handful of sine
  * harmonics, which meant no editor could open a circuit and no one could
@@ -15,8 +15,7 @@
  * Every sprite is a free, open asset under `src/circuit/textures/` (see
  * THIRD_PARTY_NOTICES.md).
  */
-import { writeFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { writeFileSync } from 'node:fs';
 import { writeScene } from 'm2d-editor-core';
 import { seedTarget, placer } from './seedScene.mjs';
 import { MAPS, trackFor } from './circuitMaps.mjs';
@@ -259,10 +258,9 @@ function roadLook(map) {
 const round = (n) => Math.round(n * 1000) / 1000;
 
 for (const map of MAPS) {
-  const url = new URL(`../src/circuit/scenes/${map.name}.json`, import.meta.url);
   // A circuit seeded already is the editor's; a new one in the list is seeded beside it.
-  if (existsSync(fileURLToPath(url)) && !process.argv.includes('--force')) continue;
-  const out = seedTarget(url);
+  const out = seedTarget(new URL(`../src/circuit/scenes/${map.name}.json`, import.meta.url), { skip: true });
+  if (!out) continue;
   const scene = circuitScene(map);
   writeFileSync(out, writeScene(scene));
   console.log(`${map.name}: ${scene.layers[1].objects.length} props, ${scene.paths.road.points.length} road points → ${out}`);

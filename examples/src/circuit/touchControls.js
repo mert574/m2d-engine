@@ -23,6 +23,8 @@ export class TouchControls extends UIElement {
       return;
     }
     const keys = options.properties?.keys ?? {};
+    /** The HUD text written for a keyboard, hidden while the thumbs drive. */
+    this.hintId = options.properties?.hint ?? 'hint';
     this.left = this.add(new UIKeyButton({ code: keys.left ?? 'ArrowLeft', zone: true, anchor: 'left', pivot: 'left', x: 0, y: 0 }));
     this.right = this.add(new UIKeyButton({ code: keys.right ?? 'ArrowRight', zone: true, anchor: 'right', pivot: 'right', x: 0, y: 0 }));
     const button = { width: 104, height: 104, fontSize: '$font.size.caption', background: 'rgba(12, 14, 26, 0.55)' };
@@ -32,9 +34,8 @@ export class TouchControls extends UIElement {
 
   /** Whether this screen is touched rather than pointed at. */
   static wanted() {
-    if (typeof navigator === 'undefined') return false;
-    if (navigator.maxTouchPoints > 0) return true;
-    return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    if (typeof matchMedia === 'function') return matchMedia('(pointer: coarse)').matches;
+    return typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
   }
 
   update(deltaTime) {
@@ -48,7 +49,7 @@ export class TouchControls extends UIElement {
       zone.width = box.width / 2;
       zone.height = box.height;
     }
-    const hint = this.scene.hud?.elements.get('hint');
+    const hint = this.scene.hud?.elements.get(this.hintId);
     if (hint) hint.visible = false;
   }
 }

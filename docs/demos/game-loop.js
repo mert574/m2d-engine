@@ -29,7 +29,7 @@ class Dropper extends Entity {
   static properties = {
     prefab: s.ref('prefab', { required: true, description: 'What drops: a prefab of the scene' }),
     every: s.number({ positive: true, initial: 0.5, unit: 's', description: 'Seconds between drops' }),
-    limit: s.integer({ min: 0, initial: 40, description: 'How many it drops in all' }),
+    limit: s.integer({ min: 0, initial: 40, description: 'How many of them it keeps in the world' }),
     dropSize: s.number({ positive: true, initial: 24, unit: 'px', label: 'Drop size' })
   };
 
@@ -41,7 +41,6 @@ class Dropper extends Entity {
     this.every = options.every ?? 0.5;
     this.limit = options.limit ?? 40;
     this.dropSize = options.dropSize ?? 24;
-    this.dropped = 0;
     this.nextIn = 0;
     this.visible = false;
   }
@@ -49,9 +48,10 @@ class Dropper extends Entity {
   fixedUpdate(dt) {
     super.fixedUpdate(dt);
     this.nextIn -= dt;
-    if (this.nextIn > 0 || this.dropped >= this.limit) return;
+    if (this.nextIn > 0) return;
+    const inWorld = [...this.game.entities].filter((entity) => entity.prefab === this.prefab).length;
+    if (inWorld >= this.limit) return;
     this.nextIn = this.every;
-    this.dropped += 1;
     const { x, y } = this.position;
     const half = this.size.x / 2;
     this.game.sceneManager.getCurrentScene().spawnPrefab(this.prefab, {

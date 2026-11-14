@@ -1013,9 +1013,7 @@ export const UI_KINDS = ['button', 'menuItem', 'text', 'image', 'rect', 'backdro
 /** A button's own fields, in a UI scene and in a level's HUD alike. */
 const BUTTON_PROPERTIES = s.object({
   text: styled('text', 'Label'),
-  // Cross-references the scene this button switches to. The check that
-  // would have caught the platformer's Settings button, which pointed
-  // at a scene nobody registered and failed only on click.
+  // Cross-references the scene, so a button to an unregistered scene fails at load, not on click.
   onClick: s.ref('scene', { label: 'Switch to scene' }),
   action: s.string({ label: 'Action', description: 'settings opens the settings menu; anything else goes to the scene\'s onAction' }),
   width: styled('size'),

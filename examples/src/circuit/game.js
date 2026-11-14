@@ -10,7 +10,7 @@ import { registerMenuParts } from './menuParts.js';
  * Night Circuit's definition: the cast the circuits place, and nothing
  * that shows them. See m2d.project.json.
  *
- * The six tracks are scene files, seeded once by
+ * The tracks are scene files, seeded once by
  * `scripts/buildCircuitScenes.mjs`: each one's road is a closed smooth
  * path whose points carry the width of the asphalt, and the cones,
  * barrels, slicks, pads, gates, traffic and checkpoints are placed on it.
