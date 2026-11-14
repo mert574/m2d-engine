@@ -13,7 +13,6 @@ import { StreetFront } from './menuBackdrop.js';
 
 /** Register the cast and its assets, on a displayed game or the editor's. */
 export function register(game) {
-  // The main menu's painting, which its scene's backdrop names.
   game.registerBackdropLayer('streetFront', () => new StreetFront());
   for (const [name, actor] of Object.entries({
     ObliquePlayer: Rogue, Ghost: Thug, Lamp, Bound, Street, Foreground, Trigger

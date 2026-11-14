@@ -43,7 +43,6 @@ const SPREAD = [[0, 0], [64, 0], [-64, 0], [0, 64], [64, 64], [-64, 64], [128, 0
 
 /** Register the cast and the intents, on a displayed game, a headless one or a client. */
 export function registerKeep(game) {
-  // The main menu's painting, which its scene's backdrop names.
   game.registerBackdropLayer('vaultPlan', () => new VaultPlan());
   for (const [name, actor] of Object.entries({
     ObliquePlayer: Knight, Ghost: Creature, Wall, Torch, Coin: Ember, Trigger: Stair, Quartermaster
@@ -54,7 +53,7 @@ export function registerKeep(game) {
   game.registerIntents(keepIntents);
   // The satchel strip, which the keep's hud places by name. Only ever
   // built where there is a screen to show it on.
-  game.registerHudComponent('satchel', (scene, element) => new SatchelBar(scene.game.players.local, element));
+  game.registerUIComponent('satchel', (scene, element) => new SatchelBar(scene.game.players.local, element));
 }
 
 /** Everyone who should hear about the keep's progress. */

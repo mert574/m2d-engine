@@ -9,7 +9,6 @@ import { FieldWindow } from './menuBackdrop.js';
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
-  // The main menu's painting, which its scene's backdrop names.
   game.registerBackdropLayer('fieldWindow', () => new FieldWindow());
   for (const [name, actor] of Object.entries({
     Ship, Meteor, Drone, Salvage, Gate, Bound, Sky

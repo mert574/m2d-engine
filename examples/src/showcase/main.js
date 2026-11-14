@@ -34,9 +34,7 @@ const game = new M2D(canvas, {
 /** @type {Showcase|null} */
 let showcase = null;
 
-// The main menu, as a UI scene: the harness has no project file, so its
-// scene is written here, as data all the same. The harbour at night
-// behind it is the one painting it brings; the menu music is the game's.
+// The harness has no project file, so its menu scene is written here.
 game.registerBackdropLayer('harbourNight', () => new HarbourNight());
 game.sceneManager.addScene('mainMenu', {
   fetch: async () => ({

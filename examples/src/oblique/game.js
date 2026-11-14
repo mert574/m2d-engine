@@ -13,7 +13,6 @@ import { TreeLine } from './menuBackdrop.js';
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
-  // The main menu's painting, which its scene's backdrop names.
   game.registerBackdropLayer('treeLine', () => new TreeLine());
   for (const [name, actor] of Object.entries({
     ObliquePlayer: Wanderer, Ghost: Wisp, Tree, Decor, Bound, Pond,

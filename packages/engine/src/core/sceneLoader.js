@@ -430,8 +430,8 @@ export class SceneLoader {
       refs.constraint = scope(this.game.constraintTypes.keys(),
         (name, known) => `constraint '${name}' is not registered (registered: ${known.join(', ') || 'none'})`);
     }
-    // Presentation names: a headless game builds no UI and registers none
-    // of the widgets or paintings, so it has nothing to check them against.
+    // A headless game builds no UI, so a server need not register the
+    // widgets and paintings a scene names.
     const shows = !this.game?.headless;
     if (this.game?.uiComponents && shows) {
       refs.uiComponent = scope(this.game.uiComponents.keys(),

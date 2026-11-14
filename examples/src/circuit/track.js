@@ -27,12 +27,7 @@ const BUCKET = 256;
 /** Half-width of the asphalt when no point of the road gives one, px. */
 const DEFAULT_WIDTH = 100;
 
-/**
- * The loop with a half-width on every point. A point without one — added
- * or dragged in an editor that only knows `x` and `y` — takes it from the
- * nearest points either side that have one, blended by how far round the
- * loop each is.
- */
+/** The loop with a half-width on every point: a point without one blends its nearest neighbours' that have one. */
 function withWidths(controls) {
   const n = controls.length;
   const known = (i) => Number.isFinite(controls[((i % n) + n) % n].w);
@@ -192,9 +187,8 @@ export class Track {
       for (let i = 0; i <= this.samples.length; i++) {
         const sample = this.samples[i % this.samples.length];
         const here = edge(sample);
-        // A sample with no position breaks the run here. Carried on, the
-        // run never reached a spacing again and the loop's closing piece
-        // spanned the whole stretch — a wall straight across the start line.
+        // A run carried across a bad sample never closes until the loop
+        // does, as one piece spanning the road.
         if (!Number.isFinite(here.x) || !Number.isFinite(here.y)) { start = null; continue; }
         if (!start) { start = here; run = 0; continue; }
         run += Math.hypot(here.x - start.x, here.y - start.y);

@@ -4,14 +4,14 @@ The demos play tracks from **IDMf001: InDepthMelodics**, the first compilation r
 
 | Track | Artist | Used for |
 | --- | --- | --- |
-| Stars at Dawn | Nathan Rain | Platformer menu, Beeline menu |
+| Stars at Dawn | Nathan Rain | Platformer, Night Circuit and Beeline menus |
 | Perfect Union | The Get | Platformer level, Beeline level |
-| Last Transmission | Kloquewurk | Top-down menu, showcase menu, Cinder Keep menu |
+| Last Transmission | Kloquewurk | Ash Row, Cinder Keep, Top-down and showcase menus |
 | November | Chaotic Pulse | Top-down level, Cinder Keep level |
 | Symmetrical Tree | Binary Pulse | Hedgerow Court menu, Salvage Run menu |
 | Redux | Halogen | Hedgerow Court level, Salvage Run level |
-| G2 (Cockboymattt Remix) | GBSR | Showcase, Ash Row level (its menu plays Last Transmission) |
-| Longing for Rain | Evelon | Night Circuit level (its menu plays Stars at Dawn) |
+| G2 (Cockboymattt Remix) | GBSR | Showcase, Ash Row level |
+| Longing for Rain | Evelon | Night Circuit level |
 
 Hollow Grove plays two tracks by [Matthew Pablo](https://www.matthewpablo.com) from OpenGameArt, both [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/): [Woodland Fantasy](https://opengameart.org/content/woodland-fantasy) in the grove and [Enchanted Festival](https://opengameart.org/content/enchanted-festival) on its menu.
 

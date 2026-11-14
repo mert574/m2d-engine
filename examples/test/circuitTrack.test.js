@@ -3,18 +3,15 @@ import { readFileSync } from 'node:fs';
 import { Track, WALL_SPACING } from '../src/circuit/track.js';
 
 /**
- * Night Circuit's roads are scene paths a person edits, and the barriers
- * are cut from them. Whatever the path, the barrier is short pieces along
- * the edges: a piece far longer than the spacing is a wall across the
- * road. That is what an editor that dropped a point's width once built —
- * a run of points without `w`, and one piece from the end of the run to
- * the start line.
+ * Night Circuit's barriers are cut from the road path a person edits.
+ * Whatever the path, they are short pieces along the edges: one far longer
+ * than the spacing is a wall across the road.
  */
 
 const CIRCUITS = ['circuit1', 'circuit2', 'circuit3', 'circuit4', 'circuit5'];
 const road = (name) => JSON.parse(readFileSync(new URL(`../src/circuit/scenes/${name}.json`, import.meta.url), 'utf8')).paths.road.points;
 
-/** The longest barrier piece. On the outside of a tight corner the edge outruns the centreline, so a piece can stretch to about twice the spacing; the wall across the road was 5000 px. */
+/** On the outside of a tight corner the edge outruns the centreline, so a piece may reach about twice the spacing. */
 const longestWall = (track) => Math.max(...track.walls.map((wall) => wall.length));
 
 describe('Night Circuit\'s track', () => {

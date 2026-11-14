@@ -194,12 +194,6 @@ export class UIBackdrop extends UIElement {
     for (const layer of this.layers) layer.draw?.(this.paint, frame);
   }
 
-  /**
-   * Every shipped menu with a picture behind it darkens where its type
-   * sits: Control keeps its list on a near-black panel, Portal 2 lets the
-   * environment go dark on the left. Without it a bright skyline or a
-   * sweep passing under the title makes the type flicker in and out.
-   */
   #drawWash(width, height) {
     if (!this.wash || !(this.wash.strength > 0)) return;
     const { side, strength } = this.wash;

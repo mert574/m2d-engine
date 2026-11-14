@@ -49,16 +49,18 @@ its original code and artwork, not these recordings.
 - Files are the release's Ogg Vorbis encodes, included unchanged and renamed.
   Playback volume is reduced and playback repeats in the demos.
 
+Each game keeps its own copies in its `music/` folder, beside the scenes that name them.
+
 | Track | Artist | Used for | File |
 | --- | --- | --- | --- |
-| Stars at Dawn | Nathan Rain | Platformer menu, Night Circuit menu, Beeline menu | `examples/src/shared/music/nathanrain-stars-at-dawn.ogg` |
-| Perfect Union | The Get | Platformer level, Beeline level | `examples/src/shared/music/theget-perfect-union.ogg` |
-| Last Transmission | Kloquewurk | Top-down menu, showcase menu | `examples/src/shared/music/kloquewurk-last-transmission.ogg` |
-| November | Chaotic Pulse | Top-down level | `examples/src/shared/music/chaoticpulse-november.ogg` |
-| Symmetrical Tree | Binary Pulse | Maze menu | `examples/src/shared/music/binarypulse-symmetrical-tree.ogg` |
-| Redux | Halogen | Maze level | `examples/src/shared/music/halogen-redux.ogg` |
-| G2 (Cockboymattt Remix) | GBSR | Showcase | `examples/src/shared/music/gbsr-g2-cockboymattt-remix.ogg` |
-| Longing for Rain | Evelon | Night Circuit level | `examples/src/shared/music/evelon-longing-for-rain.ogg` |
+| Stars at Dawn | Nathan Rain | Platformer, Night Circuit and Beeline menus | `examples/src/{platformer,circuit,scroller}/music/nathanrain-stars-at-dawn.ogg` |
+| Perfect Union | The Get | Platformer and Beeline levels | `examples/src/{platformer,scroller}/music/theget-perfect-union.ogg` |
+| Last Transmission | Kloquewurk | Ash Row, Cinder Keep, Top-down and showcase menus | `examples/src/{belt,iso,topdown}/music/kloquewurk-last-transmission.ogg`, `examples/src/shared/music/kloquewurk-last-transmission.ogg` |
+| November | Chaotic Pulse | Top-down and Cinder Keep levels | `examples/src/{topdown,iso}/music/chaoticpulse-november.ogg` |
+| Symmetrical Tree | Binary Pulse | Hedgerow Court and Salvage Run menus | `examples/src/{maze,drift}/music/binarypulse-symmetrical-tree.ogg` |
+| Redux | Halogen | Hedgerow Court and Salvage Run levels | `examples/src/{maze,drift}/music/halogen-redux.ogg` |
+| G2 (Cockboymattt Remix) | GBSR | Showcase, Ash Row level | `examples/src/belt/music/gbsr-g2-cockboymattt-remix.ogg`, `examples/src/shared/music/gbsr-g2-cockboymattt-remix.ogg` |
+| Longing for Rain | Evelon | Night Circuit level | `examples/src/circuit/music/evelon-longing-for-rain.ogg` |
 
 The Hollow Grove demo plays tracks by **Matthew Pablo** (https://www.matthewpablo.com),
 from [OpenGameArt](https://opengameart.org), released under
@@ -67,8 +69,8 @@ The MP3 encodes are included unchanged and renamed; playback volume is reduced a
 
 | Track | Used for | Source | File |
 | --- | --- | --- | --- |
-| Woodland Fantasy | Hollow Grove level | https://opengameart.org/content/woodland-fantasy | `examples/src/shared/music/matthewpablo-woodland-fantasy.mp3` |
-| Enchanted Festival | Hollow Grove menu | https://opengameart.org/content/enchanted-festival | `examples/src/shared/music/matthewpablo-enchanted-festival.mp3` |
+| Woodland Fantasy | Hollow Grove level | https://opengameart.org/content/woodland-fantasy | `examples/src/oblique/music/matthewpablo-woodland-fantasy.mp3` |
+| Enchanted Festival | Hollow Grove menu | https://opengameart.org/content/enchanted-festival | `examples/src/oblique/music/matthewpablo-enchanted-festival.mp3` |
 
 Credits are also published at https://mert574.github.io/m2d-engine/examples/music-credits.
 

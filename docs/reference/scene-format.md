@@ -475,7 +475,7 @@ A line of a game menu: type, with a mark that eases in when it is selected. `pro
 | `text` | | Label |
 | `onClick`, `action` | | As a `button`'s; exactly one |
 | `variant` | `bar` | How selection shows: `bar` (a bar in the margin, the line stepping right), `bracket` (chevrons either side), `underline` (a rule growing from the middle), `block` (a filled band behind inverted type) or `dot` (a bead before it) |
-| `align` | `left` | `left`, `center` or `right` |
+| `align` | `left` | `left`, `center` or `right`. Left or right, the label sits 13 in from that edge, past the selection bar's margin: an item lines up with a title above it when placed 13 outside the title's edge |
 | `width`, `height` | `340`, `44` | |
 | `uppercase` | `true` | |
 | `fontSize`, `fontFamily`, `fontWeight`, `letterSpacing` | `$font.size.subheading`, the UI face, `$font.weight.medium`, `$font.tracking.wide` | |

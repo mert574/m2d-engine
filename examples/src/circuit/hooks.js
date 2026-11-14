@@ -1,16 +1,20 @@
-import { CARS, selectCar } from './cars.js';
+import { selectCar, selectedCar } from './cars.js';
+import { carOfAction } from './menuParts.js';
 
 /**
- * Night Circuit's one hook: picking a car in the garage. The garage is a
- * scene file (`scenes/garage.json`) whose lines run `car:<id>`; which car
- * a player drives is theirs, kept between sessions, so it has no data
- * form — the line picks it and the player is back on the grid.
+ * The garage's lines run `car:<id>`. Which car a player drives is theirs,
+ * kept between sessions, so it has no data form.
  */
 export function sceneHooks(game) {
   return {
     garage: {
+      onShow() {
+        const scene = game.sceneManager.getCurrentScene();
+        const line = scene.config.elements.find((element) => carOfAction(element.properties?.action) === selectedCar());
+        if (line) scene.focus.focus(scene.uiById.get(line.id));
+      },
       onAction(action) {
-        const car = CARS.find((each) => action === `car:${each.id}`);
+        const car = carOfAction(action);
         if (!car) return;
         selectCar(car);
         game.sceneManager.switchTo('mainMenu');

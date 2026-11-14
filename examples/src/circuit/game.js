@@ -19,7 +19,6 @@ import { registerMenuParts } from './menuParts.js';
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
-  // The main menu's painting, which its scene's backdrop names.
   game.registerBackdropLayer('nightLap', () => new NightLap());
   for (const [name, actor] of Object.entries({
     Road, RaceDirector, TrafficCar, Cone, Barrel, OilSlick, BoostPad, GateArm, Checkpoint

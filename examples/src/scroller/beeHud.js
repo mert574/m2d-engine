@@ -7,7 +7,7 @@ import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
  * Everything on it is the bee's state rather than the scene's — a sting
  * costs a heart *and* scatters pollen the lane already counted as taken,
  * so a tally of the grains would disagree with what the bee is carrying.
- * One widget, registered with `registerHudComponent`, placed by the lane's
+ * One widget, registered with `registerUIComponent`, placed by the lane's
  * `hud`; it reads the player each frame and changes nothing.
  */
 export class BeeStatus extends UIElement {

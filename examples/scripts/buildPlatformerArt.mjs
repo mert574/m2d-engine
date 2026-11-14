@@ -9,9 +9,8 @@
  * left exactly as it is, so hand-swapped art survives — as long as it has
  * the shape the scene addresses: an 8x2 grid of 70px tiles, and a strip of
  * nine 32px coin frames that `spin` plays end to end. A file of another
- * shape is moved aside into the cache's `replaced/` and built again; a
- * strip of the wrong length plays the wrong frames, which once put a
- * sparkle into every turn of the coin.
+ * shape is moved aside into the cache's `replaced/` and built again: a
+ * strip of the wrong length plays the wrong frames.
  *
  * What it builds:
  * - `tiles.png` (560x140): twelve tiles of Kenney's **Platformer Art
@@ -46,28 +45,36 @@ const TILES = [
   ['Tiles/grass.png', 'Tiles/grassMid.png', 'Tiles/grassHalf.png', 'Tiles/dirtCenter.png', 'Tiles/stoneCenter.png', 'Tiles/fence.png', 'Tiles/signRight.png', 'Items/plant.png']
 ];
 
-/** The sheets' shapes, as the scene's spritesheets address them. */
+/** The grid of 70px tiles and the strip of coin frames the scene addresses. */
+const TILE = 70;
+const COIN = { size: 32, frames: 9 };
 const SHAPES = {
-  'tiles.png': { width: 560, height: 140 },
-  'coin.png': { width: 288, height: 32 }
+  'tiles.png': { width: 8 * TILE, height: 2 * TILE },
+  'coin.png': { width: COIN.frames * COIN.size, height: COIN.size }
 };
-const COIN_FRAMES = 9;
 
-/**
- * Whether `name` needs building: always without `--missing`, and with it
- * when the file is absent or of a shape the scene cannot address — which
- * is moved aside first, never deleted.
- */
-async function wanted(name) {
+/** Whether `name` exists in the shape the scene addresses. */
+async function fits(name) {
   const file = join(assets, name);
-  if (!process.argv.includes('--missing') || !existsSync(file)) return true;
+  if (!existsSync(file)) return false;
   const { width, height } = await sharp(file).metadata();
-  const shape = SHAPES[name];
-  if (width === shape.width && height === shape.height) return false;
+  return width === SHAPES[name].width && height === SHAPES[name].height;
+}
+
+/** Keep a sheet of the wrong shape, out of the way, rather than delete it. */
+async function moveAside(name) {
+  const file = join(assets, name);
+  if (!existsSync(file)) return;
   const aside = join(cache, 'replaced', `${Date.now()}-${name}`);
   await mkdir(dirname(aside), { recursive: true });
   await rename(file, aside);
-  console.log(`buildPlatformerArt: ${name} is ${width}x${height}, not the ${shape.width}x${shape.height} the scene addresses; moved to ${aside}`);
+  console.log(`buildPlatformerArt: ${name} is not the shape the scene addresses; moved to ${aside}`);
+}
+
+/** Whether to build `name`: always without `--missing`, and with it when it is absent or misshapen. */
+async function wanted(name) {
+  if (process.argv.includes('--missing') && await fits(name)) return false;
+  await moveAside(name);
   return true;
 }
 
@@ -102,21 +109,21 @@ if (wantTiles) {
       return null;
     }
     return sharp(await readFile(file))
-      .resize(70, 70, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .resize(TILE, TILE, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png().toBuffer();
   }));
   await sharp({ create: { ...SHAPES['tiles.png'], channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-    .composite(cells.flatMap((buffer, i) => (buffer ? [{ input: buffer, left: (i % 8) * 70, top: Math.floor(i / 8) * 70 }] : [])))
+    .composite(cells.flatMap((buffer, i) => (buffer ? [{ input: buffer, left: (i % 8) * TILE, top: Math.floor(i / 8) * TILE }] : [])))
     .png().toFile(join(assets, 'tiles.png'));
   console.log('built src/platformer/assets/tiles.png');
 }
 
 if (wantCoin) {
   const dir = await fetched('coin', SOURCES.coin);
-  const frames = await Promise.all(Array.from({ length: COIN_FRAMES }, (_, i) =>
-    sharp(join(dir, `goldCoin${i + 1}.png`)).resize(32, 32).png().toBuffer()));
+  const frames = await Promise.all(Array.from({ length: COIN.frames }, (_, i) =>
+    sharp(join(dir, `goldCoin${i + 1}.png`)).resize(COIN.size, COIN.size).png().toBuffer()));
   await sharp({ create: { ...SHAPES['coin.png'], channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-    .composite(frames.map((buffer, i) => ({ input: buffer, left: i * 32, top: 0 })))
+    .composite(frames.map((buffer, i) => ({ input: buffer, left: i * COIN.size, top: 0 })))
     .png().toFile(join(assets, 'coin.png'));
   console.log('built src/platformer/assets/coin.png');
 }

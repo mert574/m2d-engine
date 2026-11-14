@@ -40,8 +40,6 @@ const assetsPlugin = {
     // Vite cannot discover as imports, so each example's folders of them
     // are copied beside its page in the build's output folder.
     const out = output.dir ?? resolve(import.meta.dirname, 'dist');
-    // Every example page, read off the folders: a hand-kept list once left
-    // two converted projects shipping their scenes without the files they name.
     const examples = readdirSync(resolve(import.meta.dirname, 'src'))
       .filter((name) => existsSync(resolve(import.meta.dirname, `src/${name}/index.html`)));
     for (const example of examples) {

@@ -25,10 +25,9 @@ export const BEELINE_INPUT = new InputSchema({
 
 /** Register the cast on a game, displayed or headless. */
 export function register(game) {
-  // The main menu's painting, which its scene's backdrop names.
   game.registerBackdropLayer('meadowRest', () => new MeadowRest());
   for (const [name, actor] of Object.entries(ACTORS)) game.registerActor(name, actor);
   // The bee's readout, which the lane's hud places by name. Only ever
   // built where there is a screen to show it on.
-  game.registerHudComponent('beeStatus', (scene, element) => new BeeStatus(scene, element));
+  game.registerUIComponent('beeStatus', (scene, element) => new BeeStatus(scene, element));
 }

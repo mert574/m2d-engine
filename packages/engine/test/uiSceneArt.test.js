@@ -94,6 +94,21 @@ describe('a backdrop\'s wash', () => {
   });
 });
 
+describe('a UI scene\'s text', () => {
+  it('takes its letter spacing, as a number or a tracking token', async () => {
+    const made = game();
+    const scene = await show(made, menu([
+      { type: 'text', id: 'tracked', x: 0, y: 0, properties: { text: 'A', letterSpacing: 4 } },
+      { type: 'text', id: 'token', x: 0, y: 0, properties: { text: 'B', letterSpacing: '$font.tracking.widest' } },
+      { type: 'text', id: 'plain', x: 0, y: 0, properties: { text: 'C' } }
+    ]));
+    expect(scene.uiById.get('tracked').letterSpacing).toBe(4);
+    expect(scene.uiById.get('token').letterSpacing).toBe('$font.tracking.widest');
+    expect(scene.uiById.get('plain').letterSpacing).not.toBe(4);
+    made.destroy();
+  });
+});
+
 describe('a UI scene\'s components', () => {
   class Badge extends UIElement {
     constructor(options) {

@@ -28,7 +28,7 @@ export const LENGTH = 8400;
 export const HEIGHT = 540;
 /** The window's pace rightward, px/s: the scroll velocity the seeded camera gets. */
 export const SPEED = 130;
-/** Where the bee may fly, as the seeded bee's band: below the sky's margin, above the verge. */
+/** Where the bee may fly, for laying the pollen out: the bee's own default band. */
 export const BAND = { top: 80, bottom: 450 };
 
 /** Act boundaries, for the layout and for anyone pacing music or light. */

@@ -4,24 +4,18 @@
  * EV's note is pure tones that must slide with speed.
  *
  * Music is from the IDMf netlabel's first compilation, *InDepthMelodics*
- * (CC BY 3.0), one pair of tracks per demo so each has its own room tone.
+ * (CC BY 3.0), one pair of tracks per demo so each has its own room tone,
+ * kept in each game's own `music/` folder.
  * Sound effects are Kenney's *Interface Sounds* (CC0): clean, short
  * synthetic tones — instrument readouts, not arcade noises — that sit with
  * the music rather than fight it. Credits and sources are in
  * THIRD_PARTY_NOTICES.md and docs/examples/music-credits.md.
  */
 
-// Music — IDMf001: InDepthMelodics, CC BY 3.0.
-export { default as starsAtDawn } from './music/nathanrain-stars-at-dawn.ogg';
-export { default as perfectUnion } from './music/theget-perfect-union.ogg';
+// The showcase's music (IDMf001: InDepthMelodics, CC BY 3.0). The project
+// games keep their tracks in their own folders, named by their scenes.
 export { default as lastTransmission } from './music/kloquewurk-last-transmission.ogg';
-export { default as november } from './music/chaoticpulse-november.ogg';
-export { default as symmetricalTree } from './music/binarypulse-symmetrical-tree.ogg';
-export { default as redux } from './music/halogen-redux.ogg';
 export { default as g2Remix } from './music/gbsr-g2-cockboymattt-remix.ogg';
-export { default as longingForRain } from './music/evelon-longing-for-rain.ogg';
-export { default as woodlandFantasy } from './music/matthewpablo-woodland-fantasy.mp3';
-export { default as enchantedFestival } from './music/matthewpablo-enchanted-festival.mp3';
 
 /**
  * The Audio row every demo adds to its settings panel — the one game-side

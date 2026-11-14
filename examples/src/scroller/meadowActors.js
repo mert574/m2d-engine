@@ -78,10 +78,9 @@ export class Bee extends Entity {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
-    /** Where the bee may fly: below the sky's margin, above the verge. */
-    this.band = { top: options.bandTop ?? 80, bottom: options.bandBottom ?? 450 };
-    // Quick against a 130 px/s window: the bee must feel faster than the
-    // world it is being carried through.
+    const { bandTop, bandBottom } = Bee.properties;
+    this.band = { top: options.bandTop ?? bandTop.initial, bottom: options.bandBottom ?? bandBottom.initial };
+    // Well above the scroll's pace: the bee must feel faster than the world carrying it.
     this.addConstraint('movement', new KeyboardControl(this, {
       verticalMovement: true, continuous: true, acceleration: 2700, maxSpeed: 430
     }));

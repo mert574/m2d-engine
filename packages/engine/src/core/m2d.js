@@ -1049,12 +1049,12 @@ export class M2D {
     this.uiComponents.set(name, make);
   }
 
-  /** The name `registerUIComponent` had when only a HUD could place one; the same registry. */
+  /** Alias of `registerUIComponent`, kept for published callers. */
   registerHudComponent(name, make) {
     this.registerUIComponent(name, make);
   }
 
-  /** The HUD's view of `uiComponents`, under its older name. */
+  /** Alias of `uiComponents`, kept for published callers. */
   get hudComponents() {
     return this.uiComponents;
   }

@@ -66,9 +66,7 @@ yarn-error.log*
 # Free demo sound loops (credits in THIRD_PARTY_NOTICES.md)
 !/examples/src/*/sounds/*.wav
 
-# Free demo music in mp3 (credits in THIRD_PARTY_NOTICES.md)
-!/examples/src/shared/music/*.mp3
-# Each project's own copies of the tracks its scenes name
+# Free demo music in mp3, in each game's folder (credits in THIRD_PARTY_NOTICES.md)
 !/examples/src/*/music/*.mp3
 
 # Local gameplay captures (drag into the GitHub README editor to publish)

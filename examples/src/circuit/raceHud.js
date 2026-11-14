@@ -1,4 +1,5 @@
 import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
+import { lapTime } from './menuParts.js';
 
 /**
  * The circuit's live readout: the lap clock, the best and last laps, the
@@ -27,11 +28,9 @@ export class RaceHud extends UIElement {
     return this.director;
   }
 
-  /** A lap time as minutes and hundredths, from ticks — never from wall time. */
+  /** From ticks, never from wall time. */
   #clock(ticks) {
-    const seconds = ticks * this.scene.game.time.fixedTimestep;
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes}:${(seconds - minutes * 60).toFixed(2).padStart(5, '0')}`;
+    return lapTime(ticks * this.scene.game.time.fixedTimestep);
   }
 
   draw() {

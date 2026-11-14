@@ -79,10 +79,7 @@ const STRIKES = [
 /** How long a strike's flash and knock last, seconds. */
 const STRIKE = 0.55;
 
-/**
- * Where the front can be held, as fractions of it: before it arrives, and
- * at full blow between two strikes (a hold on a strike would flash forever).
- */
+/** Where the front can be held, as fractions of it: before it arrives, and at full blow. A held front never strikes. */
 const FRONT_HOLDS = { calm: 0, squall: 0.53 };
 
 /** What `holdHour` takes: the light turning, or one of its hours. */

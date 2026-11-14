@@ -146,11 +146,11 @@
     {
       "type": "component",
       "id": "onShow",
-      "x": 220,
-      "y": -20,
+      "x": 260,
+      "y": -10,
       "anchor": "center",
       "component": "carOnShow",
-      "properties": { "portraits": { "carRed": "carRed", "carBlue": "carBlue", "carGreen": "carGreen" } }
+      "properties": { "accent": "#ffd34d" }
     },
     {
       "type": "text",
