@@ -8,6 +8,7 @@
 import { isPlainObject, valueAt, type PathSegment } from './descriptors.ts';
 import type { Op } from './edits.ts';
 
+/** A path's point as the editor positions it; a document's point may carry more (a road's half-width `w`), which the edits below keep. */
 export interface PathPoint { x: number; y: number; z?: number }
 
 /** A list of points the editor can draw and drag, and where it lives in the document. */
@@ -111,9 +112,40 @@ export function pointListsFor(doc: unknown, selected: PathSegment[]): PointList[
   return lists;
 }
 
-/** Insert a point after `index` in the list at `points`. */
-export function insertPoint(points: PathSegment[], index: number, point: PathPoint): Op[] {
-  return [{ op: 'insert', path: points, index: index + 1, value: point }];
+/**
+ * Move point `index` to `to`, keeping everything else the point carries:
+ * a road's half-width `w`, say, which the pointer knows nothing about.
+ */
+export function movePoint(doc: unknown, points: PathSegment[], index: number, to: PathPoint): Op[] {
+  const current = valueAt(doc, [...points, index]);
+  return [{ op: 'set', path: [...points, index], value: { ...(isPlainObject(current) ? current : {}), ...to } }];
+}
+
+/**
+ * Insert `point` after `index` in `list`. The fields its neighbours carry
+ * besides the position come with it, numbers blended halfway, so a point
+ * added to a road is as wide as the road around it rather than of no width.
+ */
+export function insertPoint(doc: unknown, list: PointList, index: number, point: PathPoint): Op[] {
+  const existing = valueAt(doc, list.points);
+  const points = Array.isArray(existing) ? existing : [];
+  const before = points[index];
+  const after = index + 1 < points.length ? points[index + 1] : list.closed ? points[0] : undefined;
+  return [{ op: 'insert', path: list.points, index: index + 1, value: { ...carried(before, after), ...point } }];
+}
+
+/** What two neighbouring points share besides their position: numbers averaged, the rest from the first. */
+function carried(before: unknown, after: unknown): Record<string, unknown> {
+  const a = isPlainObject(before) ? before : {};
+  const b = isPlainObject(after) ? after : {};
+  const out: Record<string, unknown> = {};
+  for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (key === 'x' || key === 'y' || key === 'z') continue;
+    out[key] = typeof a[key] === 'number' && typeof b[key] === 'number'
+      ? ((a[key] as number) + (b[key] as number)) / 2
+      : key in a ? a[key] : b[key];
+  }
+  return out;
 }
 
 /** Remove point `index`, refusing to leave fewer than two: a path of one point is no path. */

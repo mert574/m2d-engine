@@ -1,7 +1,6 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
 import { makeRng, range } from '../shared/rng.js';
-import { LENGTH, HEIGHT } from './meadow.js';
 
 /**
  * Beeline's meadow, in depth and in time.
@@ -24,9 +23,10 @@ import { LENGTH, HEIGHT } from './meadow.js';
  * clock freely: presentation only, nothing the simulation sees.
  */
 
-/** Where the run is, 0 at the gate to 1 with the camera parked at the hive. */
-export function progress(camera) {
-  return Math.min(1, Math.max(0, (camera.x - 480) / (LENGTH - 960)));
+/** Where the run is, 0 at the gate to 1 with the camera parked at the hive at the lane's end. */
+export function progress(game) {
+  const length = game.options.worldWidth;
+  return Math.min(1, Math.max(0, (game.camera.x - 480) / (length - 960)));
 }
 
 /** Lerp two hex colours; cheap enough to run per frame. */
@@ -64,7 +64,7 @@ function makeStrip(rng, period, sprites, minSize, maxSize, spacingMin = 0.45, sp
 }
 
 /** Draw one strip, repeated across the view at its parallax. */
-function drawStrip(renderer, camera, area, time, { clumps, period, parallax, baseY, swayAmount = 0.03, alpha = 1, contactShadow = 0, shadowLean = 0 }) {
+function drawStrip(renderer, camera, area, time, { clumps, period, parallax, baseY, floor, swayAmount = 0.03, alpha = 1, contactShadow = 0, shadowLean = 0 }) {
   const offset = shift(camera, parallax);
   const left = area.left - offset;
   const first = Math.floor((left - 400) / period) * period;
@@ -78,7 +78,7 @@ function drawStrip(renderer, camera, area, time, { clumps, period, parallax, bas
       // The clump's shadow pools at its roots and leans away from the sun,
       // longer as it sets.
       if (contactShadow > 0) {
-        renderer.pushTransform({ x: x - clump.size * 0.1 - shadowLean, y: Math.min(baseY, HEIGHT - 6), scaleX: 1, scaleY: 0.22 });
+        renderer.pushTransform({ x: x - clump.size * 0.1 - shadowLean, y: Math.min(baseY, floor - 6), scaleX: 1, scaleY: 0.22 });
         renderer.drawArc({
           x: 0, y: 0, radius: clump.size * (0.3 + shadowLean * 0.004),
           fillStyle: `rgba(26, 36, 18, ${contactShadow})`
@@ -158,13 +158,13 @@ export class Meadow extends Entity {
     const area = camera.getVisibleArea();
     const time = game.time.elapsed;
     const width = area.right - area.left;
-    const t = progress(camera);
+    const t = progress(this.game);
 
     // The sky keeps the run's time: gold at the gate, violet at the hive.
     renderer.drawRect({
-      x: area.left, y: area.top, width, height: HEIGHT,
+      x: area.left, y: area.top, width, height: this.game.options.worldHeight,
       fillStyle: {
-        type: 'linear', x0: 0, y0: area.top, x1: 0, y1: HEIGHT,
+        type: 'linear', x0: 0, y0: area.top, x1: 0, y1: this.game.options.worldHeight,
         stops: [
           { offset: 0, color: mixColor(SKY.top[0], SKY.top[1], t) },
           { offset: 0.55, color: mixColor(SKY.mid[0], SKY.mid[1], t) },
@@ -215,7 +215,7 @@ export class Meadow extends Entity {
       for (const star of this.stars) {
         const twinkle = 0.55 + 0.45 * Math.sin(time * 1.3 + star.twinkle);
         renderer.drawArc({
-          x: area.left + star.at * width, y: area.top + star.y * HEIGHT,
+          x: area.left + star.at * width, y: area.top + star.y * this.game.options.worldHeight,
           radius: star.size,
           fillStyle: '#fff6e8',
           globalAlpha: starAlpha * twinkle * (0.9 - star.y)
@@ -237,13 +237,14 @@ export class Meadow extends Entity {
 
     // The treeline past the fields, sunk in haze.
     drawStrip(renderer, camera, area, time, {
-      clumps: this.trees, period: this.treePeriod, parallax: 0.06, baseY: HEIGHT - 118, swayAmount: 0.008, alpha: 0.85
+      floor: this.game.options.worldHeight,
+      clumps: this.trees, period: this.treePeriod, parallax: 0.06, baseY: this.game.options.worldHeight - 118, swayAmount: 0.008, alpha: 0.85
     });
     // Aerial perspective: the sky laid thinly back over the distance.
     renderer.drawRect({
-      x: area.left, y: HEIGHT - 230, width, height: 230,
+      x: area.left, y: this.game.options.worldHeight - 230, width, height: 230,
       fillStyle: {
-        type: 'linear', x0: 0, y0: HEIGHT - 230, x1: 0, y1: HEIGHT - 40,
+        type: 'linear', x0: 0, y0: this.game.options.worldHeight - 230, x1: 0, y1: this.game.options.worldHeight - 40,
         stops: [
           { offset: 0, color: 'rgba(255, 220, 160, 0)' },
           { offset: 1, color: mixColor('#ffdfa2', '#b06a6e', t).replace('rgb', 'rgba').replace(')', ', 0.42)') }
@@ -252,27 +253,30 @@ export class Meadow extends Entity {
     });
 
     drawStrip(renderer, camera, area, time, {
-      clumps: this.far, period: this.farPeriod, parallax: 0.15, baseY: HEIGHT - 86, swayAmount: 0.015, alpha: 0.92
+      floor: this.game.options.worldHeight,
+      clumps: this.far, period: this.farPeriod, parallax: 0.15, baseY: this.game.options.worldHeight - 86, swayAmount: 0.015, alpha: 0.92
     });
     drawStrip(renderer, camera, area, time, {
-      clumps: this.mid, period: this.midPeriod, parallax: 0.45, baseY: HEIGHT - 38, swayAmount: 0.02,
+      floor: this.game.options.worldHeight,
+      clumps: this.mid, period: this.midPeriod, parallax: 0.45, baseY: this.game.options.worldHeight - 38, swayAmount: 0.02,
       contactShadow: 0.16, shadowLean: 4 + t * 10
     });
 
     // The verge the flowers grow from, its lip catching the low sun.
     renderer.drawRect({
-      x: area.left, y: HEIGHT - 34, width, height: 34,
+      x: area.left, y: this.game.options.worldHeight - 34, width, height: 34,
       fillStyle: {
-        type: 'linear', x0: 0, y0: HEIGHT - 34, x1: 0, y1: HEIGHT,
+        type: 'linear', x0: 0, y0: this.game.options.worldHeight - 34, x1: 0, y1: this.game.options.worldHeight,
         stops: [{ offset: 0, color: '#6aa14a' }, { offset: 1, color: '#41712c' }]
       }
     });
     renderer.drawRect({
-      x: area.left, y: HEIGHT - 35, width, height: 2.5,
+      x: area.left, y: this.game.options.worldHeight - 35, width, height: 2.5,
       fillStyle: mixColor('#b8d87e', '#8a6a9a', t), globalAlpha: 0.8
     });
     drawStrip(renderer, camera, area, time, {
-      clumps: this.verge, period: this.vergePeriod, parallax: 1, baseY: HEIGHT + 4,
+      floor: this.game.options.worldHeight,
+      clumps: this.verge, period: this.vergePeriod, parallax: 1, baseY: this.game.options.worldHeight + 4,
       contactShadow: 0.28, shadowLean: 6 + t * 16
     });
 
@@ -324,10 +328,11 @@ export class ForeMeadow extends Entity {
     const area = camera.getVisibleArea();
     const time = game.time.elapsed;
     const width = area.right - area.left;
-    const t = progress(camera);
+    const t = progress(this.game);
 
     drawStrip(renderer, camera, area, time, {
-      clumps: this.clumps, period: this.period, parallax: 1.3, baseY: HEIGHT + 56, swayAmount: 0.04
+      floor: this.game.options.worldHeight,
+      clumps: this.clumps, period: this.period, parallax: 1.3, baseY: this.game.options.worldHeight + 56, swayAmount: 0.04
     });
 
     // The dusk itself: a violet scrim rising with the run, under the HUD
@@ -335,11 +340,11 @@ export class ForeMeadow extends Entity {
     // canvas backend too.
     if (t > 0.02) {
       renderer.drawRect({
-        x: area.left, y: area.top, width, height: HEIGHT,
+        x: area.left, y: area.top, width, height: this.game.options.worldHeight,
         fillStyle: `rgba(44, 34, 84, ${0.26 * t})`
       });
       renderer.drawRect({
-        x: area.left, y: area.top, width, height: HEIGHT,
+        x: area.left, y: area.top, width, height: this.game.options.worldHeight,
         fillStyle: `rgba(255, 120, 60, ${0.05 * t})`, blend: this.blend
       });
     }

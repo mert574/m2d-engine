@@ -8,6 +8,8 @@ The rules for code itself. What a game's code should contain is in [[idiomatic-m
 - **Don't shadow a built-in name.** `registerActor('Platform', Hedge)` hides the engine's actor of that name from every scene in the game. A game's own class registers under its own name; `core/builtins.js` is the list to check against.
 - **State added to a long-lived object says what clears it.** A cache or counter hung on `Scene` (the ids `spawnPrefab` hands out, a lazily built lookup) is cleared where the scene unloads, or it leaks into the next one.
 - **After splitting a module, chase the constants across the seam.** A conversion that moves drawing out of a page copies numbers with it: three wing hearts in the actor and another three in the HUD, a world size in the definition and in the scene, a scene id the builder emits and the headless entry looks up. One of the two is the source; the other reads it, or finds the thing by what it is.
+- **An edit writes back only what it knows.** A tool that sets a whole object from what the pointer gave (a path point from `{x, y}`) erases the fields a game hangs on it; merge into the document's value instead. Night Circuit's road lost its widths this way and grew a wall across the start line.
+- **Machine-local art is addressed by shape, and the seeder enforces it.** A scene that names frames of an ignored, built file must match what the seeder builds, and the seeder rebuilds a file of another shape rather than trusting whatever sits there.
 - **Fixes come with a repro.** Pin a rendering fix with a small scene that reproduces it, rather than growing the showcase. Optional renderer features are declared through capabilities and aren't required of every backend.
 
 Related: [[working-style]]

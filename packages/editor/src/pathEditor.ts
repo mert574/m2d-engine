@@ -165,7 +165,7 @@ export function createPathTool(panel: HTMLElement, viewport: Viewport, callbacks
     if (!drag) return;
     const moved = fromClient(event.clientX, event.clientY, drag.start);
     if (!moved) return;
-    drag.at = snapped(moved, event.ctrlKey);
+    drag.at = { ...drag.start, ...snapped(moved, event.ctrlKey) };
     render();
   });
   const finish = (commit: boolean): void => {
@@ -173,7 +173,7 @@ export function createPathTool(panel: HTMLElement, viewport: Viewport, callbacks
     const { list, index, start, at } = drag;
     drag = null;
     const moved = at.x !== start.x || at.y !== start.y || at.z !== start.z;
-    if (commit && moved) callbacks.apply([{ op: 'set', path: [...list.points, index], value: at }], `Move point ${index + 1} of ${describe(list)}`);
+    if (commit && moved) callbacks.apply(paths.movePoint(callbacks.doc(), list.points, index, at), `Move point ${index + 1} of ${describe(list)}`);
     render();
   };
   svg.addEventListener('pointerup', () => finish(true));
@@ -203,7 +203,7 @@ export function createPathTool(panel: HTMLElement, viewport: Viewport, callbacks
     const route = new Path({ points: hit.points, closed: hit.list.closed, smooth: hit.list.smooth });
     const along = route.nearest(at);
     const after = route.stops.findLastIndex((stop) => stop <= along);
-    callbacks.apply(paths.insertPoint(hit.list.points, Math.max(0, after), snapped(at, false)), `Add a point to ${describe(hit.list)}`);
+    callbacks.apply(paths.insertPoint(callbacks.doc(), hit.list, Math.max(0, after), snapped(at, false)), `Add a point to ${describe(hit.list)}`);
     return true;
   };
 

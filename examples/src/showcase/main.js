@@ -2,6 +2,7 @@ import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
 import { Showcase } from './showcase.js';
+import { HOUR_MODES, FRONT_MODES } from './weather.js';
 import moteSprite from './assets/mote.png';
 import reedSprite from './assets/reed.png';
 import lanternSprite from './assets/lantern.png';
@@ -37,7 +38,7 @@ let showcase = null;
 registerMainMenu(game, {
   title: 'Showcase',
   subtitle: 'renderer comparison',
-  hint: '[ and ] change load · 1-9 toggle layers · P pauses the camera · H hides the HUD',
+  hint: '[ and ] change load · 1-9 toggle layers · C holds the hour · W holds the weather · P pauses the camera · H hides the HUD',
   backdrop: menuBackdrop,
   items: () => [
     { text: 'Start', onSelect: () => game.sceneManager.switchTo('showcase') },
@@ -83,6 +84,8 @@ game.sceneManager.addScene('showcase', {
     game.soundManager.playMusic('game');
     const scene = game.sceneManager.getCurrentScene();
     showcase = new Showcase(game, { spriteSheets: scene.spriteSheets, bounds: WORLD });
+    showcase.weather.holdHour(game.cvars.get('g_hour'));
+    showcase.weather.holdFront(game.cvars.get('g_weather'));
     showcase.attachUI(scene.ui);
   },
 
@@ -99,11 +102,34 @@ game.sceneManager.addScene('showcase', {
   }
 });
 
+// The two cycles the harbour runs on — the hour and the front crossing it —
+// can each be held, so two backends can be compared on one look rather
+// than whatever moment each happened to reach. Kept across the reload a
+// backend swap makes; the HUD says when either is held.
+game.cvars.register('g_hour', {
+  type: 'string', choices: HOUR_MODES, default: 'cycle', persist: true,
+  description: 'The showcase\'s light: cycle through the hours, or hold one',
+  onChange: (mode) => showcase?.weather.holdHour(mode)
+});
+game.cvars.register('g_weather', {
+  type: 'string', choices: FRONT_MODES, default: 'cross', persist: true,
+  description: 'The showcase\'s weather: a front crossing, or held calm or at its squall',
+  onChange: (mode) => showcase?.weather.holdFront(mode)
+});
+
+/** Set a choice cvar to the choice after its current one, wrapping. */
+function stepChoice(name) {
+  const { choices } = game.cvars.describe(name);
+  game.cvars.set(name, choices[(choices.indexOf(game.cvars.get(name)) + 1) % choices.length]);
+}
+
 // Keyboard shortcuts, by physical key code so the bracket and digit keys
 // stay where they are drawn on the HUD whatever layout the player uses.
 const SHORTCUTS = {
   BracketLeft: () => showcase.stepLoad(-1),
   BracketRight: () => showcase.stepLoad(1),
+  KeyC: () => stepChoice('g_hour'),
+  KeyW: () => stepChoice('g_weather'),
   KeyP: () => showcase.toggleCamera(),
   KeyH: () => showcase.toggleHud()
 };

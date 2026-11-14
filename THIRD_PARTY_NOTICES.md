@@ -264,7 +264,7 @@ addresses.
 
 `assets/coin.png` is the **Spinning Gold Coin** by MedicineStorm, released
 under [Creative Commons Attribution 3.0](https://creativecommons.org/licenses/by/3.0/),
-its nine frames resized to 16px in one strip; the glow around it is drawn
+its nine 32px frames in one strip; the glow around it is drawn
 by the demo's own code.
 
 - Source: https://opengameart.org/content/spinning-gold-coin

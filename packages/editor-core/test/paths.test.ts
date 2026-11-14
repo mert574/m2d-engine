@@ -58,9 +58,25 @@ describe('paths in the editor core', () => {
     expect(added.name).toBe('lift-2');
     expect(structure.valueAt(doc, ['paths', 'lift-2'])).toEqual({ points: [{ x: 10, y: 20 }, { x: 110, y: 20 }] });
 
-    applyOps(doc, paths.insertPoint(['paths', 'lift-2', 'points'], 0, { x: 60, y: 0 }));
+    applyOps(doc, paths.insertPoint(doc, { points: ['paths', 'lift-2', 'points'], closed: false, smooth: false }, 0, { x: 60, y: 0 }));
     expect(structure.valueAt(doc, ['paths', 'lift-2', 'points', 1])).toEqual({ x: 60, y: 0 });
     applyOps(doc, paths.removePoint(doc, ['paths', 'lift-2', 'points'], 1));
     expect(() => paths.removePoint(doc, ['paths', 'lift-2', 'points'], 0)).toThrow(/at least two points/);
+  });
+
+  it('keeps what a point carries through a move, and gives a new point its neighbours\' width', () => {
+    const doc = scene();
+    const road = { points: ['paths', 'road', 'points'], name: 'road', closed: true, smooth: true };
+    (doc.paths as Record<string, unknown>).road = {
+      points: [{ x: 0, y: 0, w: 100 }, { x: 400, y: 0, w: 80 }, { x: 200, y: 300, w: 120 }], closed: true, smooth: true
+    };
+    applyOps(doc, paths.movePoint(doc, road.points, 1, { x: 450, y: 20 }));
+    expect(structure.valueAt(doc, ['paths', 'road', 'points', 1])).toEqual({ x: 450, y: 20, w: 80 });
+
+    applyOps(doc, paths.insertPoint(doc, road, 0, { x: 220, y: 5 }));
+    expect(structure.valueAt(doc, ['paths', 'road', 'points', 1])).toEqual({ x: 220, y: 5, w: 90 });
+    // After the last point of a closed loop, the neighbours are the last and the first.
+    applyOps(doc, paths.insertPoint(doc, road, 3, { x: 100, y: 150 }));
+    expect(structure.valueAt(doc, ['paths', 'road', 'points', 4])).toEqual({ x: 100, y: 150, w: 110 });
   });
 });

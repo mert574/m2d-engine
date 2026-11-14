@@ -1,14 +1,14 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
-import { LENGTH, HEIGHT, SPEED, BAND } from './meadow.js';
+import { s } from 'm2d-engine/core/schema.js';
 import { progress } from './meadowScenery.js';
 
 /**
  * Beeline's cast. The rule that shapes everything: the camera scrolls on
  * wall time and is presentation, so no `fixedUpdate` ever reads it. The
  * `ScrollFront` is the simulation's own copy of the window — advanced per
- * tick at the same `SPEED` from the same start — and every push and clamp
- * reads the front. See docs/contributing/determinism.md.
+ * tick at the scene camera's own `scrollVelocity`, from the same start, to
+ * the end of the world — and every push and clamp reads the front. See docs/contributing/determinism.md.
  *
  * The game in one breath: three wing hearts, a dash with a moment of
  * grace, pollen that chains into a combo while you keep collecting, wasps
@@ -32,9 +32,17 @@ export class ScrollFront extends Entity {
     this.visible = false;
   }
 
+  /**
+   * The window's pace, px/s: the scene camera's, read from the scene's data
+   * rather than the camera, so a headless lane keeps the same time.
+   */
+  get speed() {
+    return this.game.sceneManager.getCurrentScene()?.config.world?.camera?.scrollVelocity?.x ?? 0;
+  }
+
   fixedUpdate(dt) {
     super.fixedUpdate(dt);
-    this.centre = Math.min(this.centre + SPEED * dt, LENGTH - HALF_VIEW);
+    this.centre = Math.min(this.centre + this.speed * dt, this.game.options.worldWidth - HALF_VIEW);
 
     const player = this.game.player;
     if (!player || player.dead) return;
@@ -61,10 +69,17 @@ export class ScrollFront extends Entity {
  * stop.
  */
 export class Bee extends Entity {
+  static properties = {
+    bandTop: s.number({ initial: 80, unit: 'px', description: 'The top of the flight band: the sky the bee may not climb into' }),
+    bandBottom: s.number({ initial: 450, unit: 'px', description: 'The bottom of the flight band: the verge it may not sink into' })
+  };
+
   name = 'Player';
 
-  constructor(body, sprite, game) {
+  constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
+    /** Where the bee may fly: below the sky's margin, above the verge. */
+    this.band = { top: options.bandTop ?? 80, bottom: options.bandBottom ?? 450 };
     // Quick against a 130 px/s window: the bee must feel faster than the
     // world it is being carried through.
     this.addConstraint('movement', new KeyboardControl(this, {
@@ -131,11 +146,11 @@ export class Bee extends Entity {
 
     // The flight band: sky above, verge below.
     const pos = this.position;
-    if (pos.y < BAND.top) {
-      this.body.setPosition({ x: pos.x, y: BAND.top });
+    if (pos.y < this.band.top) {
+      this.body.setPosition({ x: pos.x, y: this.band.top });
       if (this.body.velocity.y < 0) this.body.setVelocity({ x: this.body.velocity.x, y: 0 });
-    } else if (pos.y > BAND.bottom) {
-      this.body.setPosition({ x: pos.x, y: BAND.bottom });
+    } else if (pos.y > this.band.bottom) {
+      this.body.setPosition({ x: pos.x, y: this.band.bottom });
       if (this.body.velocity.y > 0) this.body.setVelocity({ x: this.body.velocity.x, y: 0 });
     }
   }
@@ -318,10 +333,10 @@ export class Flower extends Entity {
     const pos = this.renderPosition;
     const w = this.size.x;
     const h = this.size.y;
-    const t = progress(this.game.camera);
+    const t = progress(this.game);
 
     // The flower's shadow pools at its roots and stretches as the sun sets.
-    renderer.pushTransform({ x: pos.x - w * 0.12 - t * 14, y: HEIGHT - 5, scaleX: 1, scaleY: 0.2 });
+    renderer.pushTransform({ x: pos.x - w * 0.12 - t * 14, y: this.game.options.worldHeight - 5, scaleX: 1, scaleY: 0.2 });
     renderer.drawArc({ x: 0, y: 0, radius: w * (0.3 + t * 0.12), fillStyle: 'rgba(24, 34, 16, 0.32)' });
     renderer.popTransform();
 
@@ -426,9 +441,9 @@ export class Thistle extends Entity {
     const sway = Math.sin(this.clock * 0.7) * 0.04;
 
     // The stem, down to the verge, with one leaf pair.
-    const footY = HEIGHT - 8;
+    const footY = this.game.options.worldHeight - 8;
     const lean = Math.sin(this.clock * 0.7) * 6;
-    const t = progress(this.game.camera);
+    const t = progress(this.game);
     renderer.pushTransform({ x: pos.x - 10 - t * 12, y: footY + 2, scaleX: 1, scaleY: 0.2 });
     renderer.drawArc({ x: 0, y: 0, radius: size * (0.34 + t * 0.12), fillStyle: 'rgba(24, 34, 16, 0.35)' });
     renderer.popTransform();
@@ -672,8 +687,8 @@ export class Web extends Entity {
       const topX = pos.x + side * (w / 2 + 8) + sway * side * 0.3;
       renderer.drawPath({
         points: [
-          { x: pos.x + side * (w / 2 + 14), y: HEIGHT - 6 },
-          { x: pos.x + side * (w / 2 + 20), y: HEIGHT - 6 },
+          { x: pos.x + side * (w / 2 + 14), y: this.game.options.worldHeight - 6 },
+          { x: pos.x + side * (w / 2 + 20), y: this.game.options.worldHeight - 6 },
           { x: topX + 2, y: pos.y - h / 2 - 14 },
           { x: topX - 2, y: pos.y - h / 2 - 14 }
         ],
@@ -760,7 +775,7 @@ export class Hive extends Entity {
     const clock = this.game.time.elapsed;
 
     renderer.drawRect({
-      x: pos.x - 5, y: pos.y + 30, width: 10, height: HEIGHT - (pos.y + 30) - 18,
+      x: pos.x - 5, y: pos.y + 30, width: 10, height: this.game.options.worldHeight - (pos.y + 30) - 18,
       fillStyle: '#6b4c2c'
     });
     for (const [dy, rx, tone] of [[26, 26, '#c98f3e'], [12, 34, '#dba54c'], [-3, 37, '#e8b659'], [-18, 33, '#dba54c'], [-30, 24, '#c98f3e'], [-39, 13, '#b87d34']]) {

@@ -26,7 +26,7 @@ import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
 import { RaceCar, GhostCar, CAR } from './actors.js';
 import { Recorder, Player, saveBest, loadBest } from './replay.js';
-import { trackFor } from './track.js';
+import { trackFor, WALL_THICKNESS } from './track.js';
 import { marksFor } from './road.js';
 import { selectedCar, CARS } from './cars.js';
 
@@ -35,9 +35,6 @@ const COUNTDOWN_SECONDS = 3.2;
 
 /** The scene layer a round rebuilds: the cones, barrels, gates and the rest. */
 const PROPS_LAYER = 'props';
-
-/** Wall collision thickness, px — the barriers the round puts back. */
-const WALL_THICKNESS = 18;
 
 /** Session-wide oil: map name -> spills. Survives rounds, not reloads. */
 const sessionSpills = new Map();

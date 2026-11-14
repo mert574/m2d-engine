@@ -82,11 +82,13 @@
       "tiles": { "url": "assets/tiles.png", "frameWidth": 70, "frameHeight": 70 },
       "coin": {
         "url": "assets/coin.png",
-        "frameWidth": 16,
-        "frameHeight": 16,
+        "frameWidth": 32,
+        "frameHeight": 32,
         "animations": {
-          "spin": { "frames": [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0]], "fps": 12 },
-          "collect": { "frames": [[8, 0], [9, 0], [10, 0]], "fps": 18, "loop": false }
+          "spin": {
+            "frames": [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0]],
+            "fps": 12
+          }
         }
       }
     },

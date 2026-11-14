@@ -14,7 +14,7 @@
 import { writeFileSync } from 'node:fs';
 import { writeScene } from 'm2d-editor-core';
 import { seedTarget, placer } from './seedScene.mjs';
-import { LENGTH, HEIGHT, SPEED, buildMeadow } from '../src/scroller/meadow.js';
+import { LENGTH, HEIGHT, SPEED, buildMeadow } from './meadowLayout.mjs';
 
 // A seed: writes the scene only when it is not there; see seedScene.mjs.
 const out = seedTarget(new URL('../src/scroller/scenes/lane.json', import.meta.url));

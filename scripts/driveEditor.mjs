@@ -324,6 +324,61 @@ const SUITES = {
       await undoToClean(page, report);
     }),
 
+  /** Night Circuit's road: a dragged or added point keeps the road's width, the field the pointer knows nothing of. */
+  circuitRoad: (context, report, out) =>
+    drive(context, report, join(repo, 'examples/src/circuit'), 'scenes/circuit2.json', async (page) => {
+      await page.evaluate(() => { window.m2dEditor.viewport.frame('checkpoint-1'); window.m2dEditor.select({ path: ['paths', 'road'] }); });
+      await page.waitForTimeout(300);
+      // Two neighbouring points both on screen, to drag one and add one between them.
+      const pair = await page.evaluate(() => {
+        const { viewport, remote } = window.m2dEditor;
+        const canvas = document.querySelector('canvas').getBoundingClientRect();
+        const inside = (c) => c && c.x > canvas.left + 40 && c.x < canvas.right - 40 && c.y > canvas.top + 40 && c.y < canvas.bottom - 40;
+        const points = remote.doc.data.paths.road.points;
+        for (let i = 0; i + 1 < points.length; i++) {
+          const a = viewport.groundToClient(points[i].x, points[i].y);
+          const b = viewport.groundToClient(points[i + 1].x, points[i + 1].y);
+          if (inside(a) && inside(b)) return { index: i, a, b, before: points[i], after: points[i + 1] };
+        }
+        return null;
+      });
+      report.check('two road points are on screen', pair !== null);
+      if (!pair) return;
+
+      const handle = await page.locator('svg.paths .path-point').nth(pair.index + 1).boundingBox();
+      const from = { x: handle.x + handle.width / 2, y: handle.y + handle.height / 2 };
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      for (let step = 1; step <= 6; step++) await page.mouse.move(from.x + step * 5, from.y + step * 3);
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+      const moved = await page.evaluate((i) => window.m2dEditor.remote.doc.data.paths.road.points[i], pair.index + 1);
+      report.check('a dragged road point moved and kept its width', moved.x !== pair.after.x && moved.w === pair.after.w, JSON.stringify(moved));
+
+      // The road is smooth, so a point on the chord is off the line: take the drawn line's nearest vertex.
+      // An object under the pointer wins over the line, so aim a quarter of the way along, away from the
+      // checkpoint the view is framed on.
+      const mid = await page.evaluate((i) => {
+        const { viewport, remote } = window.m2dEditor;
+        const [a, b] = remote.doc.data.paths.road.points.slice(i, i + 2).map((p) => viewport.groundToClient(p.x, p.y));
+        const checkpoint = viewport.placement('checkpoint-1').center;
+        const along = (t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+        const away = (p) => Math.hypot(p.x - checkpoint.x, p.y - checkpoint.y);
+        const chord = away(along(0.25)) > away(along(0.75)) ? along(0.25) : along(0.75);
+        const line = document.querySelector('svg.paths .path-line.active');
+        const box = line.ownerSVGElement.getBoundingClientRect();
+        const vertices = [...line.points].map((p) => ({ x: p.x + box.left, y: p.y + box.top }));
+        return vertices.reduce((best, p) => (Math.hypot(p.x - chord.x, p.y - chord.y) < Math.hypot(best.x - chord.x, best.y - chord.y) ? p : best));
+      }, pair.index);
+      await page.mouse.dblclick(mid.x, mid.y);
+      await page.waitForTimeout(300);
+      const added = await page.evaluate((i) => window.m2dEditor.remote.doc.data.paths.road.points[i], pair.index + 1);
+      report.check('an added road point is as wide as its neighbours', (await history(page)).undo === 'Add a point to road'
+        && Math.abs(added.w - (pair.before.w + pair.after.w) / 2) < 1e-9, JSON.stringify(added));
+      await shoot(page, out, 'circuit-road-edited', report);
+      await undoToClean(page, report);
+    }),
+
   /** Ember Valley: play from the middle of the view, a prefab on its stage restarting on an edit. */
   playtest: (context, report, out) =>
     drive(context, report, join(repo, 'examples/src/platformer'), 'scenes/level1.json', async (page) => {

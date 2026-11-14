@@ -24,6 +24,30 @@ const WALL_SPACING = 56;
 const WALL_THICKNESS = 18;
 /** Culling grid cell, px. */
 const BUCKET = 256;
+/** Half-width of the asphalt when no point of the road gives one, px. */
+const DEFAULT_WIDTH = 100;
+
+/**
+ * The loop with a half-width on every point. A point without one — added
+ * or dragged in an editor that only knows `x` and `y` — takes it from the
+ * nearest points either side that have one, blended by how far round the
+ * loop each is.
+ */
+function withWidths(controls) {
+  const n = controls.length;
+  const known = (i) => Number.isFinite(controls[((i % n) + n) % n].w);
+  if (!controls.some((_, i) => known(i))) return controls.map((point) => ({ ...point, w: DEFAULT_WIDTH }));
+  return controls.map((point, i) => {
+    if (known(i)) return { ...point };
+    let back = 1;
+    while (!known(i - back)) back++;
+    let ahead = 1;
+    while (!known(i + ahead)) ahead++;
+    const from = controls[(i - back + n) % n].w;
+    const to = controls[(i + ahead) % n].w;
+    return { ...point, w: from + (to - from) * (back / (back + ahead)) };
+  });
+}
 
 /** Catmull-Rom point for segment p1→p2 at parameter u. */
 function catmullRom(p0, p1, p2, p3, u) {
@@ -40,13 +64,14 @@ function catmullRom(p0, p1, p2, p3, u) {
 
 export class Track {
   /**
-   * @param {Array<{x: number, y: number, w: number}>} controls - The closed
-   *   loop, in driving order. The lap runs from the first point.
+   * @param {Array<{x: number, y: number, w?: number}>} controls - The closed
+   *   loop, in driving order. The lap runs from the first point; a point
+   *   without a width takes its neighbours'.
    */
   constructor(controls) {
-    /** The control points as given: the scene's road path, kept for anyone redrawing it. */
-    this.controls = controls.map((point) => ({ ...point }));
-    this.samples = this.#sample(controls);
+    /** The control points, each with its width: the scene's road path, kept for anyone redrawing it. */
+    this.controls = withWidths(controls);
+    this.samples = this.#sample(this.controls);
     this.length = this.samples[this.samples.length - 1].s +
       Math.hypot(this.samples[0].x - this.samples[this.samples.length - 1].x,
         this.samples[0].y - this.samples[this.samples.length - 1].y);
@@ -166,8 +191,12 @@ export class Track {
       });
       for (let i = 0; i <= this.samples.length; i++) {
         const sample = this.samples[i % this.samples.length];
-        if (!start) { start = edge(sample); run = 0; continue; }
         const here = edge(sample);
+        // A sample with no position breaks the run here. Carried on, the
+        // run never reached a spacing again and the loop's closing piece
+        // spanned the whole stretch — a wall straight across the start line.
+        if (!Number.isFinite(here.x) || !Number.isFinite(here.y)) { start = null; continue; }
+        if (!start) { start = here; run = 0; continue; }
         run += Math.hypot(here.x - start.x, here.y - start.y);
         if (run >= WALL_SPACING || i === this.samples.length) {
           const cx = (start.x + here.x) / 2;
@@ -249,7 +278,7 @@ export class Track {
   }
 }
 
-export { WALL_THICKNESS };
+export { WALL_THICKNESS, WALL_SPACING };
 
 /** Each scene's track, built once from its road path. */
 const tracks = new WeakMap();

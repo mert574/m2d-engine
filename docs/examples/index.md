@@ -139,7 +139,7 @@ The engine's first 3D scene, on the WebGPU renderer. The yard is primitive shape
 
 A batching stress test and a side-by-side comparison of the two renderer backends. The scene is a harbour at night. It has thousands of batched sprites, a reed bank with per-sprite tint, a text storm, a flock playing an animated sheet across three bands of parallax, and a lighthouse beam built from nested clips. Rain is a packed particle buffer, the lanterns are lights with bloom and a chart nests clips in screen space. The engine's own backdrop sits behind it all — a sky, seeded star and cloud layers at their own parallax, and fireflies and sparks as 2D particle fields.
 
-Over that steady load the weather turns. A front crosses the harbour every two and a half minutes: the wind gets up and leans the rain and the reed bank, the sea breathes in a slow camera zoom and a fraction of a degree of roll, the colour goes cold and grainy behind the rain, and lightning flashes the frame and knocks the camera. The light runs on its own longer cycle, dusk through night to first light, and the full post stack — bloom, vignette, colour grade, chromatic aberration, grain and blur — moves with both. The lighthouse beam is a shadowed spot light, so the lantern posts throw shadows that swing as it sweeps. The overlay names the weather and the hour, which is what lets two backends be compared at the same moment.
+Over that steady load the weather turns. A front crosses the harbour every two and a half minutes: the wind gets up and leans the rain and the reed bank, the sea breathes in a slow camera zoom and a fraction of a degree of roll, the colour goes cold and grainy behind the rain, and lightning flashes the frame and knocks the camera. The light runs on its own longer cycle, dusk through night to first light, and the full post stack — bloom, vignette, colour grade, chromatic aberration, grain and blur — moves with both. The lighthouse beam is a shadowed spot light, so the lantern posts throw shadows that swing as it sweeps. The overlay names the weather and the hour, which is what lets two backends be compared at the same moment. Either cycle can be held from the keyboard or the developer console (`g_hour`, `g_weather`), so a comparison can stay on one look; a hold is kept across the reload a backend swap makes, and the overlay marks it.
 
 The overlay reports frames per second, primitives, draw calls and state changes. It also lists the optional capabilities the active backend supports. On WebGL2 the scene collapses into a handful of draw calls. On Canvas each primitive is one call, and tint, particles, lights and post effects drop out.
 
@@ -149,6 +149,8 @@ The scene is deterministic. Layers are built from a seeded random generator, the
 | --- | --- |
 | `[` and `]` | Decrease and increase load |
 | `1` to `9` | Toggle layers: drift, reeds, labels, flock, chart, rain, lights, post, weather |
+| `C` | Hold the light at dusk, night or first light, or let it cycle again (cvar `g_hour`) |
+| `W` | Hold the weather calm or at its squall, or let the front cross again (cvar `g_weather`) |
 | `P` | Pause the camera pan |
 | `H` | Hide the overlay |
 

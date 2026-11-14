@@ -79,6 +79,17 @@ const STRIKES = [
 /** How long a strike's flash and knock last, seconds. */
 const STRIKE = 0.55;
 
+/**
+ * Where the front can be held, as fractions of it: before it arrives, and
+ * at full blow between two strikes (a hold on a strike would flash forever).
+ */
+const FRONT_HOLDS = { calm: 0, squall: 0.53 };
+
+/** What `holdHour` takes: the light turning, or one of its hours. */
+export const HOUR_MODES = ['cycle', ...HOURS.states.map((state) => state.name)];
+/** What `holdFront` takes: the front crossing, or held at one point of it. */
+export const FRONT_MODES = ['cross', ...Object.keys(FRONT_HOLDS)];
+
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 /** Smooth 0→1 between two edges. */
 const ramp = (v, from, to) => clamp01((v - from) / (to - from)) ** 2 * (3 - 2 * clamp01((v - from) / (to - from)));
@@ -91,11 +102,35 @@ export class Weather {
     this.clock = 0;
     this.cycle = { ...HOURS, phase: 0, count: HOURS.states.length, target: 0 };
     this.enabled = true;
+    /** The hour the light is held at, as a phase; null while it turns. */
+    this.hourHeld = null;
+    /** The point the front is held at, 0 to 1; null while it crosses. */
+    this.frontHeld = null;
+  }
+
+  /**
+   * Hold the light at one hour, or let it turn again from there with
+   * `'cycle'`. One of `HOUR_MODES`.
+   */
+  holdHour(mode) {
+    const index = HOURS.states.findIndex((state) => state.name === mode);
+    this.hourHeld = index >= 0 ? index : null;
+    if (index >= 0) this.cycle.phase = index;
+  }
+
+  /** Hold the front calm or at its squall, or let it cross with `'cross'`. One of `FRONT_MODES`. */
+  holdFront(mode) {
+    this.frontHeld = FRONT_HOLDS[mode] ?? null;
+  }
+
+  /** Whether the hour or the weather is being held rather than running. */
+  get held() {
+    return this.hourHeld !== null || this.frontHeld !== null;
   }
 
   /** How far through the front we are, 0 to 1. */
   get front() {
-    return (this.clock % FRONT) / FRONT;
+    return this.frontHeld ?? (this.clock % FRONT) / FRONT;
   }
 
   /**
@@ -133,7 +168,7 @@ export class Weather {
 
   /** The strike happening now and how far through it, or null. */
   get strike() {
-    if (!this.enabled) return null;
+    if (!this.enabled || this.frontHeld !== null) return null;
     const t = this.front;
     for (const strike of STRIKES) {
       const since = (t - strike.at) * FRONT;
@@ -145,7 +180,7 @@ export class Weather {
   /** @param {number} unscaled - Wall seconds since the last frame */
   update(unscaled) {
     this.clock += unscaled;
-    if (this.enabled) this.cycle.phase = advanceCycle(this.cycle, unscaled);
+    if (this.enabled && this.hourHeld === null) this.cycle.phase = advanceCycle(this.cycle, unscaled);
   }
 
   /**

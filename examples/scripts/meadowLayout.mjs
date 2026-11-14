@@ -1,7 +1,12 @@
-import { makeRng, range } from '../shared/rng.js';
+import { makeRng, range } from '../src/shared/rng.js';
 
 /**
- * The lane Beeline flies down, laid out ahead of time from a fixed seed.
+ * The lane Beeline flies down, laid out from a fixed seed — once:
+ * `buildLaneScene.mjs` writes it into `src/scroller/scenes/lane.json`,
+ * and from then on the scene file is the lane. Nothing in the game reads
+ * this module; the actors take the window's pace from the scene camera,
+ * its length from the world and the flight band from the bee.
+ *
  * The auto-scroller rule (see docs/contributing/determinism.md) is that
  * nothing is spawned against the camera: every flower, grain, thistle, wasp
  * and web is placed now, and the simulation only asks where the scroll
@@ -21,9 +26,9 @@ import { makeRng, range } from '../shared/rng.js';
 
 export const LENGTH = 8400;
 export const HEIGHT = 540;
-/** The window's pace rightward, px/s — both the camera's and the front's. */
+/** The window's pace rightward, px/s: the scroll velocity the seeded camera gets. */
 export const SPEED = 130;
-/** Where the bee may fly: below the sky's margin, above the verge. */
+/** Where the bee may fly, as the seeded bee's band: below the sky's margin, above the verge. */
 export const BAND = { top: 80, bottom: 450 };
 
 /** Act boundaries, for the layout and for anyone pacing music or light. */

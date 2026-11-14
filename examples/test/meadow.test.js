@@ -1,58 +1,76 @@
 import { describe, it, expect } from 'vitest';
-import { LENGTH, HEIGHT, BAND, ACTS, buildMeadow } from '../src/scroller/meadow.js';
+import { readFileSync } from 'node:fs';
+import { Bee } from '../src/scroller/meadowActors.js';
 
 /**
- * Beeline's lane is generated, and the scroll window only moves forward, so
- * a few properties are load-bearing: everything collectable sits inside the
- * flight band (or a perfect run is impossible), the hazards keep to their
- * acts, and the layout is a pure function of its seed (or the determinism
- * contract breaks at the source).
+ * Beeline's lane is a scene file a person edits, and the scroll window
+ * only moves forward, so what has to hold is a property of the file, not
+ * of the script that seeded it: everything collectable sits inside the
+ * bee's flight band and the world (or a perfect run is impossible), the
+ * hive is the end of the lane with nothing hostile at its door, and every
+ * web leaves a way past.
  */
-describe('the meadow lane', () => {
-  const meadow = buildMeadow();
 
-  it('keeps every pollen grain inside the flight band', () => {
-    for (const grain of meadow.pollen) {
-      expect(grain.y).toBeGreaterThanOrEqual(BAND.top);
-      expect(grain.y).toBeLessThanOrEqual(BAND.bottom);
-      expect(grain.x).toBeGreaterThan(0);
-      expect(grain.x).toBeLessThan(LENGTH);
+const LANE = JSON.parse(readFileSync(new URL('../src/scroller/scenes/lane.json', import.meta.url), 'utf8'));
+const objects = LANE.layers.flatMap((layer) => layer.objects);
+const placed = (...prefabs) => objects.filter((object) => prefabs.includes(object.prefab));
+
+/** The bee's flight band as the lane gives it: the placed bee's own, or its actor's defaults. */
+function band() {
+  const bee = placed('player')[0];
+  const initial = (name) => Bee.properties[name].initial;
+  return {
+    top: bee?.properties?.bandTop ?? initial('bandTop'),
+    bottom: bee?.properties?.bandBottom ?? initial('bandBottom')
+  };
+}
+
+describe('the meadow lane', () => {
+  const { width, height } = LANE.world;
+  const flight = band();
+
+  it('scrolls forward along a lane that has an end', () => {
+    expect(LANE.world.camera.mode).toBe('scroll');
+    expect(LANE.world.camera.scrollVelocity.x).toBeGreaterThan(0);
+    expect(placed('player')).toHaveLength(1);
+    expect(placed('front')).toHaveLength(1);
+  });
+
+  it('keeps every pollen grain inside the flight band and the world', () => {
+    const pollen = placed('pollen');
+    expect(pollen.length).toBeGreaterThan(0);
+    for (const grain of pollen) {
+      expect(grain.y, grain.id).toBeGreaterThanOrEqual(flight.top);
+      expect(grain.y, grain.id).toBeLessThanOrEqual(flight.bottom);
+      expect(grain.x, grain.id).toBeGreaterThan(0);
+      expect(grain.x, grain.id).toBeLessThan(width);
     }
   });
 
-  it('keeps each hazard to its act and out of the dusk glide', () => {
-    for (const thistle of meadow.thistles) {
-      expect(thistle.x).toBeGreaterThanOrEqual(ACTS.thistles);
-      expect(thistle.x).toBeLessThan(ACTS.hollow);
+  it('keeps each wasp\'s swing inside the world', () => {
+    for (const wasp of placed('wasp')) {
+      const amp = wasp.properties?.amp ?? 80;
+      expect(wasp.y - amp, wasp.id).toBeGreaterThan(0);
+      expect(wasp.y + amp, wasp.id).toBeLessThan(height);
     }
-    for (const wasp of meadow.wasps) {
-      expect(wasp.x).toBeGreaterThanOrEqual(ACTS.wasps);
-      expect(wasp.x).toBeLessThan(ACTS.hollow);
-      expect(wasp.y - wasp.amp).toBeGreaterThan(0);
-      expect(wasp.y + wasp.amp).toBeLessThan(HEIGHT);
-    }
-    for (const web of meadow.webs) {
-      expect(web.x).toBeGreaterThanOrEqual(ACTS.hollow);
-      expect(web.x).toBeLessThan(ACTS.glide);
-    }
-    // Nothing hostile near the hive, so the arrival is an arrival.
-    const plaza = meadow.hive.x - 400;
-    for (const list of [meadow.thistles, meadow.wasps, meadow.webs]) {
-      expect(list.every(thing => thing.x < plaza)).toBe(true);
+  });
+
+  it('ends at the hive, with nothing hostile at its door', () => {
+    const [hive] = placed('hive');
+    expect(hive.x).toBeLessThan(width);
+    const plaza = hive.x - 400;
+    for (const thing of placed('bramble-a', 'bramble-b', 'wasp', 'web')) {
+      expect(thing.x, thing.id).toBeLessThan(plaza);
     }
   });
 
   it('leaves room to pass every web', () => {
     // A web never seals the band: above or below it, at least a bee's
     // height and a half of clear air remains.
-    for (const web of meadow.webs) {
-      const above = (web.y - web.h / 2) - BAND.top;
-      const below = BAND.bottom - (web.y + web.h / 2);
-      expect(Math.max(above, below)).toBeGreaterThan(40);
+    for (const web of placed('web')) {
+      const above = (web.y - web.height / 2) - flight.top;
+      const below = flight.bottom - (web.y + web.height / 2);
+      expect(Math.max(above, below), web.id).toBeGreaterThan(40);
     }
-  });
-
-  it('builds the same lane every time', () => {
-    expect(buildMeadow()).toEqual(meadow);
   });
 });
