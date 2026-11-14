@@ -4,8 +4,8 @@
   "type": "ui",
   "title": "Main Menu",
   "assets": { "music": { "menu": { "url": "music/binarypulse-symmetrical-tree.ogg", "volume": 0.6 } } },
-  "transition": { "enter": "slide-up", "exit": "fade", "duration": 0.3 },
-  "stagger": 0.08,
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.3 },
+  "stagger": 0.06,
   "music": { "track": "menu" },
   "elements": [
     {
@@ -15,7 +15,6 @@
         "from": "#06070f",
         "to": "#0b0c1c",
         "angle": 160,
-        "scanlines": 0.18,
         "vignette": 0.5,
         "layers": ["fieldWindow"],
         "wash": { "side": "right", "strength": 0.85 }
@@ -24,39 +23,40 @@
     {
       "type": "text",
       "id": "title",
-      "x": -80,
-      "y": -150,
+      "x": -96,
+      "y": -140,
       "anchor": "right",
-      "effects": { "enter": { "motion": "slide-left", "duration": 0.4 } },
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "Salvage Run",
         "fontSize": "$font.size.title",
         "fontWeight": "$font.weight.light",
         "letterSpacing": "$font.tracking.tight",
-        "color": "#cfe8ff",
+        "color": "#e6f3ff",
         "align": "right"
       }
     },
     {
       "type": "text",
       "id": "subtitle",
-      "x": -80,
-      "y": -102,
+      "x": -96,
+      "y": -86,
       "anchor": "right",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "A ROTATING TOP-DOWN VIEW",
         "fontSize": "$font.size.caption",
         "fontWeight": "$font.weight.medium",
         "letterSpacing": "$font.tracking.widest",
-        "color": "#9fe2ff",
+        "color": "#8fb3d1",
         "align": "right"
       }
     },
     {
       "type": "menuItem",
       "id": "launch",
-      "x": -80,
-      "y": -20,
+      "x": -83,
+      "y": -24,
       "anchor": "right",
       "effects": {
         "enter": { "motion": "slide-left", "duration": 0.35 },
@@ -70,16 +70,16 @@
         "align": "right",
         "width": 300,
         "letterSpacing": "$font.tracking.wider",
-        "color": "#7fa7c9",
+        "color": "#8fb3d1",
         "selectedColor": "#06070f",
-        "accentColor": "#9fe2ff"
+        "accentColor": "#bfe6ff"
       }
     },
     {
       "type": "menuItem",
       "id": "settings",
-      "x": -80,
-      "y": 30,
+      "x": -83,
+      "y": 26,
       "anchor": "right",
       "effects": {
         "enter": { "motion": "slide-left", "duration": 0.35 },
@@ -93,22 +93,23 @@
         "align": "right",
         "width": 300,
         "letterSpacing": "$font.tracking.wider",
-        "color": "#7fa7c9",
+        "color": "#8fb3d1",
         "selectedColor": "#06070f",
-        "accentColor": "#9fe2ff"
+        "accentColor": "#bfe6ff"
       }
     },
     {
       "type": "text",
       "id": "hint",
-      "x": -80,
+      "x": -96,
       "y": -56,
       "anchor": "bottom-right",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "Arrows steer and thrust · X fires · C boosts · O for settings",
         "fontSize": "$font.size.caption",
         "letterSpacing": "$font.tracking.wide",
-        "color": "rgba(159, 226, 255, 0.55)",
+        "color": "rgba(191, 230, 255, 0.5)",
         "align": "right"
       }
     }

@@ -5,7 +5,7 @@
   "title": "Main Menu",
   "assets": { "music": { "menu": { "url": "music/kloquewurk-last-transmission.ogg", "volume": 0.7 } } },
   "transition": { "enter": "fade", "exit": "fade", "duration": 0.3 },
-  "stagger": 0.14,
+  "stagger": 0.06,
   "music": { "track": "menu" },
   "elements": [
     {
@@ -17,47 +17,48 @@
         "angle": 160,
         "vignette": 0.6,
         "layers": ["vaultPlan"],
-        "wash": { "side": "left", "strength": 0.8 }
+        "wash": { "side": "left", "strength": 0.82 }
       }
     },
     {
       "type": "text",
       "id": "title",
-      "x": 110,
-      "y": -300,
+      "x": 112,
+      "y": -296,
       "anchor": "bottom-left",
-      "effects": { "enter": { "motion": "fade", "duration": 0.8 } },
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "Cinder Keep",
         "fontSize": "$font.size.title",
         "fontWeight": "$font.weight.semibold",
         "letterSpacing": "$font.tracking.tight",
-        "color": "#ffd9a8"
+        "color": "#f4f0ea"
       }
     },
     {
       "type": "text",
       "id": "subtitle",
       "x": 112,
-      "y": -252,
+      "y": -244,
       "anchor": "bottom-left",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "AN ISOMETRIC VIEW",
         "fontSize": "$font.size.caption",
         "fontWeight": "$font.weight.medium",
         "letterSpacing": "$font.tracking.widest",
-        "color": "#ff8a3d"
+        "color": "#d9452f"
       }
     },
     {
       "type": "menuItem",
       "id": "descend",
-      "x": 110,
-      "y": -200,
+      "x": 99,
+      "y": -196,
       "anchor": "bottom-left",
       "effects": {
-        "enter": { "motion": "fade", "duration": 0.5 },
-        "select": "glow",
+        "enter": { "motion": "fade", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
@@ -65,20 +66,21 @@
         "onClick": "keep",
         "variant": "dot",
         "fontSize": "$font.size.subheading",
-        "color": "#b89a7a",
-        "selectedColor": "#ffe2b8",
-        "accentColor": "#ff8a3d"
+        "letterSpacing": "$font.tracking.wide",
+        "color": "#a9a39b",
+        "selectedColor": "#f4f0ea",
+        "accentColor": "#d9452f"
       }
     },
     {
       "type": "menuItem",
       "id": "settings",
-      "x": 110,
-      "y": -152,
+      "x": 99,
+      "y": -148,
       "anchor": "bottom-left",
       "effects": {
-        "enter": { "motion": "fade", "duration": 0.5 },
-        "select": "glow",
+        "enter": { "motion": "fade", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
@@ -86,9 +88,10 @@
         "action": "settings",
         "variant": "dot",
         "fontSize": "$font.size.subheading",
-        "color": "#b89a7a",
-        "selectedColor": "#ffe2b8",
-        "accentColor": "#ff8a3d"
+        "letterSpacing": "$font.tracking.wide",
+        "color": "#a9a39b",
+        "selectedColor": "#f4f0ea",
+        "accentColor": "#d9452f"
       }
     },
     {
@@ -97,11 +100,12 @@
       "x": 112,
       "y": -64,
       "anchor": "bottom-left",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "Click to walk · Arrows move · X swings · 1 2 3 abilities · Wheel zooms · O for settings",
         "fontSize": "$font.size.caption",
         "letterSpacing": "$font.tracking.wide",
-        "color": "rgba(255, 217, 168, 0.5)"
+        "color": "rgba(244, 240, 234, 0.45)"
       }
     }
   ]

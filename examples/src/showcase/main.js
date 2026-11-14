@@ -56,7 +56,8 @@ game.sceneManager.addScene('mainMenu', {
         properties: { text: 'RENDERER COMPARISON', fontSize: '$font.size.caption', fontWeight: '$font.weight.medium', letterSpacing: '$font.tracking.widest', color: '$color.text.accent' }
       },
       ...[['start', 'Start', { onClick: 'showcase' }, 20], ['settings', 'Settings', { action: 'settings' }, 64]].map(([id, text, does, y]) => ({
-        type: 'menuItem', id, x: 96, y, anchor: 'left',
+        // The label sits 13 in from the item's edge (its bar's margin), on the title's.
+        type: 'menuItem', id, x: 83, y, anchor: 'left',
         effects: { enter: { motion: 'slide-right', duration: 0.35 }, select: 'none', exit: { motion: 'fade', duration: 0.2 } },
         properties: { text, ...does, variant: 'bar' }
       })),

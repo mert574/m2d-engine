@@ -5,7 +5,7 @@
   "title": "Main Menu",
   "assets": { "music": { "menu": { "url": "music/binarypulse-symmetrical-tree.ogg" } } },
   "transition": { "enter": "fade", "exit": "fade", "duration": 0.3 },
-  "stagger": 0.1,
+  "stagger": 0.06,
   "music": { "track": "menu" },
   "elements": [
     {
@@ -16,121 +16,97 @@
         "to": "#2a3b1c",
         "angle": 120,
         "motes": 14,
-        "vignette": 0.5,
-        "layers": ["gardenPlan"]
+        "vignette": 0.55,
+        "layers": ["gardenPlan"],
+        "wash": { "side": "left", "strength": 0.85 }
       }
-    },
-    {
-      "type": "rect",
-      "id": "board",
-      "x": 0,
-      "y": 150,
-      "anchor": "top",
-      "effects": { "enter": { "motion": "drop", "duration": 0.5 } },
-      "width": 520,
-      "height": 160,
-      "color": "rgba(58, 40, 22, 0.9)"
     },
     {
       "type": "text",
       "id": "title",
-      "x": 0,
-      "y": 130,
-      "anchor": "top",
-      "effects": { "enter": { "motion": "drop", "duration": 0.5 } },
+      "x": 64,
+      "y": -96,
+      "anchor": "left",
+      "effects": { "enter": { "motion": "slide-right", "duration": 0.35 } },
       "properties": {
         "text": "Hedgerow Court",
         "fontSize": "$font.size.title",
         "fontWeight": "$font.weight.semibold",
-        "letterSpacing": "$font.tracking.none",
-        "color": "#f3ead0",
-        "align": "center"
+        "letterSpacing": "$font.tracking.tight",
+        "color": "#ffffff"
       }
     },
     {
       "type": "text",
       "id": "subtitle",
-      "x": 0,
-      "y": 192,
-      "anchor": "top",
-      "effects": { "enter": { "motion": "drop", "duration": 0.5 } },
+      "x": 64,
+      "y": -46,
+      "anchor": "left",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "A GARDEN IN THREE COURTS",
         "fontSize": "$font.size.caption",
         "fontWeight": "$font.weight.medium",
         "letterSpacing": "$font.tracking.widest",
-        "color": "#e8c75a",
-        "align": "center"
+        "color": "#d6e86a"
       }
-    },
-    {
-      "type": "rect",
-      "id": "plank",
-      "x": 0,
-      "y": 96,
-      "anchor": "center",
-      "width": 400,
-      "height": 140,
-      "color": "rgba(22, 32, 15, 0.82)"
     },
     {
       "type": "menuItem",
       "id": "start",
-      "x": 0,
-      "y": 70,
-      "anchor": "center",
+      "x": 51,
+      "y": 22,
+      "anchor": "left",
       "effects": {
-        "enter": { "motion": "scale", "duration": 0.35 },
-        "select": "pulse",
+        "enter": { "motion": "slide-right", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
         "text": "Start Game",
         "onClick": "court1",
         "variant": "bar",
-        "align": "center",
-        "width": 320,
+        "width": 280,
         "letterSpacing": "$font.tracking.wider",
-        "color": "#dfe8c8",
+        "color": "#c3cbb2",
         "selectedColor": "#ffffff",
-        "accentColor": "#e8c75a"
+        "accentColor": "#d6e86a"
       }
     },
     {
       "type": "menuItem",
       "id": "settings",
-      "x": 0,
-      "y": 122,
-      "anchor": "center",
+      "x": 51,
+      "y": 66,
+      "anchor": "left",
       "effects": {
-        "enter": { "motion": "scale", "duration": 0.35 },
-        "select": "pulse",
+        "enter": { "motion": "slide-right", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
         "text": "Settings",
         "action": "settings",
         "variant": "bar",
-        "align": "center",
-        "width": 320,
+        "width": 280,
         "letterSpacing": "$font.tracking.wider",
-        "color": "#dfe8c8",
+        "color": "#c3cbb2",
         "selectedColor": "#ffffff",
-        "accentColor": "#e8c75a"
+        "accentColor": "#d6e86a"
       }
     },
     {
       "type": "text",
       "id": "hint",
-      "x": 0,
-      "y": -56,
-      "anchor": "bottom",
+      "x": 64,
+      "y": -60,
+      "anchor": "bottom-left",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "Press an arrow to set off, the same one to stop · tend the beds · O for settings",
         "fontSize": "$font.size.caption",
         "letterSpacing": "$font.tracking.wide",
-        "color": "rgba(243, 234, 208, 0.6)",
-        "align": "center"
+        "color": "rgba(255, 255, 255, 0.5)"
       }
     }
   ]

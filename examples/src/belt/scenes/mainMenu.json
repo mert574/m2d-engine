@@ -4,8 +4,8 @@
   "type": "ui",
   "title": "Main Menu",
   "assets": { "music": { "menu": { "url": "music/kloquewurk-last-transmission.ogg", "volume": 0.7 } } },
-  "transition": { "enter": "scale", "exit": "fade", "duration": 0.35 },
-  "stagger": 0.08,
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.3 },
+  "stagger": 0.06,
   "music": { "track": "menu" },
   "elements": [
     {
@@ -15,24 +15,24 @@
         "from": "#79b7e8",
         "to": "#cfe6f4",
         "angle": 180,
-        "vignette": 0.3,
+        "vignette": 0.35,
         "layers": ["streetFront"],
-        "wash": { "side": "bottom", "strength": 0.85 }
+        "wash": { "side": "bottom", "strength": 0.9 }
       }
     },
     {
       "type": "text",
       "id": "title",
       "x": 0,
-      "y": 64,
+      "y": 72,
       "anchor": "top",
-      "effects": { "enter": { "motion": "drop", "duration": 0.6 } },
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "ASH ROW",
         "fontSize": "$font.size.display",
         "fontWeight": "$font.weight.black",
-        "letterSpacing": "$font.tracking.wider",
-        "color": "#fff4d6",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "#ffffff",
         "align": "center"
       }
     },
@@ -40,14 +40,15 @@
       "type": "text",
       "id": "subtitle",
       "x": 0,
-      "y": 150,
+      "y": 152,
       "anchor": "top",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "A BELT SCROLLER",
         "fontSize": "$font.size.caption",
         "fontWeight": "$font.weight.semibold",
         "letterSpacing": "$font.tracking.widest",
-        "color": "#ffcf6b",
+        "color": "#f2c94c",
         "align": "center"
       }
     },
@@ -55,11 +56,11 @@
       "type": "menuItem",
       "id": "start",
       "x": 0,
-      "y": -200,
+      "y": -196,
       "anchor": "bottom",
       "effects": {
-        "enter": { "motion": "fade", "duration": 0.3 },
-        "select": "pulse",
+        "enter": { "motion": "fade", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
@@ -68,12 +69,12 @@
         "variant": "bracket",
         "align": "center",
         "width": 420,
-        "fontSize": "$font.size.heading",
+        "fontSize": "$font.size.subheading",
         "fontWeight": "$font.weight.bold",
         "letterSpacing": "$font.tracking.wider",
-        "color": "#f3e6c8",
+        "color": "#c9ced6",
         "selectedColor": "#ffffff",
-        "accentColor": "#ff5a3c"
+        "accentColor": "#f2c94c"
       }
     },
     {
@@ -83,8 +84,8 @@
       "y": -146,
       "anchor": "bottom",
       "effects": {
-        "enter": { "motion": "fade", "duration": 0.3 },
-        "select": "pulse",
+        "enter": { "motion": "fade", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
@@ -93,12 +94,12 @@
         "variant": "bracket",
         "align": "center",
         "width": 420,
-        "fontSize": "$font.size.heading",
+        "fontSize": "$font.size.subheading",
         "fontWeight": "$font.weight.bold",
         "letterSpacing": "$font.tracking.wider",
-        "color": "#f3e6c8",
+        "color": "#c9ced6",
         "selectedColor": "#ffffff",
-        "accentColor": "#ff5a3c"
+        "accentColor": "#f2c94c"
       }
     },
     {
@@ -107,11 +108,12 @@
       "x": 0,
       "y": -64,
       "anchor": "bottom",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "Arrows move · Space jumps · X chains punches · C sweeps · air X drop-kicks",
         "fontSize": "$font.size.caption",
         "letterSpacing": "$font.tracking.wide",
-        "color": "rgba(255, 244, 214, 0.7)",
+        "color": "rgba(255, 255, 255, 0.55)",
         "align": "center"
       }
     }

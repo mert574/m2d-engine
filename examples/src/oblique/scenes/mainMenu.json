@@ -5,7 +5,7 @@
   "title": "Main Menu",
   "assets": { "music": { "menu": { "url": "music/matthewpablo-enchanted-festival.mp3", "volume": 0.5 } } },
   "transition": { "enter": "fade", "exit": "fade", "duration": 0.3 },
-  "stagger": 0.2,
+  "stagger": 0.06,
   "music": { "track": "menu" },
   "elements": [
     {
@@ -14,30 +14,18 @@
       "properties": { "from": "#2a1a2e", "to": "#0a1410", "angle": 170, "vignette": 0.55, "layers": ["treeLine"] }
     },
     {
-      "type": "rect",
-      "id": "page",
-      "x": 0,
-      "y": 10,
-      "anchor": "center",
-      "effects": { "enter": { "motion": "scale", "duration": 0.4 } },
-      "width": 560,
-      "height": 360,
-      "color": "rgba(242, 230, 207, 0.93)"
-    },
-    {
       "type": "text",
       "id": "title",
       "x": 0,
-      "y": -100,
+      "y": -116,
       "anchor": "center",
-      "effects": { "enter": { "motion": "type", "duration": 0.6 } },
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "Hollow Grove",
-        "fontSize": "$font.size.title",
-        "fontWeight": "$font.weight.light",
-        "fontStyle": "italic",
-        "letterSpacing": "$font.tracking.none",
-        "color": "#3b2a1e",
+        "fontSize": "$font.size.display",
+        "fontWeight": "$font.weight.thin",
+        "letterSpacing": "$font.tracking.tight",
+        "color": "#f2f6fa",
         "align": "center"
       }
     },
@@ -45,13 +33,15 @@
       "type": "text",
       "id": "subtitle",
       "x": 0,
-      "y": -52,
+      "y": -40,
       "anchor": "center",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
-        "text": "a three-quarter view · a small quest",
-        "fontSize": "$font.size.label",
-        "fontStyle": "italic",
-        "color": "#7a5a3a",
+        "text": "A THREE-QUARTER VIEW · A SMALL QUEST",
+        "fontSize": "$font.size.caption",
+        "fontWeight": "$font.weight.medium",
+        "letterSpacing": "$font.tracking.widest",
+        "color": "#9fd3b4",
         "align": "center"
       }
     },
@@ -59,11 +49,11 @@
       "type": "menuItem",
       "id": "enter",
       "x": 0,
-      "y": 40,
+      "y": 34,
       "anchor": "center",
       "effects": {
-        "enter": { "motion": "type", "duration": 0.5 },
-        "select": "lift",
+        "enter": { "motion": "fade", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
@@ -71,25 +61,23 @@
         "onClick": "grove",
         "variant": "underline",
         "align": "center",
-        "width": 380,
-        "uppercase": false,
-        "fontSize": "$font.size.heading",
-        "fontWeight": "$font.weight.regular",
-        "letterSpacing": "$font.tracking.none",
-        "color": "#5a4030",
-        "selectedColor": "#2a1a10",
-        "accentColor": "#8a3b2a"
+        "width": 360,
+        "fontSize": "$font.size.subheading",
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#b7c2cc",
+        "selectedColor": "#f2f6fa",
+        "accentColor": "#9fd3b4"
       }
     },
     {
       "type": "menuItem",
       "id": "settings",
       "x": 0,
-      "y": 92,
+      "y": 84,
       "anchor": "center",
       "effects": {
-        "enter": { "motion": "type", "duration": 0.5 },
-        "select": "lift",
+        "enter": { "motion": "fade", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
@@ -97,14 +85,12 @@
         "action": "settings",
         "variant": "underline",
         "align": "center",
-        "width": 380,
-        "uppercase": false,
-        "fontSize": "$font.size.heading",
-        "fontWeight": "$font.weight.regular",
-        "letterSpacing": "$font.tracking.none",
-        "color": "#5a4030",
-        "selectedColor": "#2a1a10",
-        "accentColor": "#8a3b2a"
+        "width": 360,
+        "fontSize": "$font.size.subheading",
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#b7c2cc",
+        "selectedColor": "#f2f6fa",
+        "accentColor": "#9fd3b4"
       }
     },
     {
@@ -113,11 +99,12 @@
       "x": 0,
       "y": -56,
       "anchor": "bottom",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "Arrows move · Space hops · X swings · 1 2 3 abilities · E talks · Wheel zooms",
         "fontSize": "$font.size.caption",
         "letterSpacing": "$font.tracking.wide",
-        "color": "rgba(242, 230, 207, 0.6)",
+        "color": "rgba(242, 246, 250, 0.5)",
         "align": "center"
       }
     }

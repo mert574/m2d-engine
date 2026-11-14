@@ -4,7 +4,7 @@
   "type": "ui",
   "title": "Main Menu",
   "transition": { "enter": "fade", "exit": "fade", "duration": 0.3 },
-  "stagger": 0.18,
+  "stagger": 0.06,
   "elements": [
     {
       "type": "backdrop",
@@ -15,47 +15,48 @@
         "angle": 120,
         "vignette": 0.55,
         "layers": ["galtonBoard"],
-        "wash": { "side": "left", "strength": 0.8 }
+        "wash": { "side": "left", "strength": 0.85 }
       }
     },
     {
       "type": "text",
       "id": "title",
       "x": 96,
-      "y": 110,
-      "anchor": "top-left",
-      "effects": { "enter": { "motion": "drop", "duration": 0.7 } },
+      "y": -110,
+      "anchor": "left",
+      "effects": { "enter": { "motion": "slide-right", "duration": 0.35 } },
       "properties": {
         "text": "Physics",
         "fontSize": "$font.size.display",
         "fontWeight": "$font.weight.black",
         "letterSpacing": "$font.tracking.tight",
-        "color": "#f6e3c6"
+        "color": "#f4f0ea"
       }
     },
     {
       "type": "text",
       "id": "subtitle",
-      "x": 100,
-      "y": 196,
-      "anchor": "top-left",
+      "x": 96,
+      "y": -34,
+      "anchor": "left",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "A PLAYGROUND",
         "fontSize": "$font.size.caption",
         "fontWeight": "$font.weight.semibold",
         "letterSpacing": "$font.tracking.widest",
-        "color": "#f0a54a"
+        "color": "#d8d2c8"
       }
     },
     {
       "type": "menuItem",
       "id": "start",
-      "x": 96,
-      "y": -232,
-      "anchor": "bottom-left",
+      "x": 83,
+      "y": 40,
+      "anchor": "left",
       "effects": {
-        "enter": { "motion": "drop", "duration": 0.6 },
-        "select": "shake",
+        "enter": { "motion": "slide-right", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
@@ -63,23 +64,22 @@
         "onClick": "workshop",
         "variant": "block",
         "width": 300,
-        "height": 52,
-        "fontSize": "$font.size.subheading",
         "fontWeight": "$font.weight.bold",
-        "color": "#e9c9a0",
-        "selectedColor": "#110904",
-        "accentColor": "#f0a54a"
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#d8d2c8",
+        "selectedColor": "#120c06",
+        "accentColor": "#ece6dc"
       }
     },
     {
       "type": "menuItem",
       "id": "settings",
-      "x": 96,
-      "y": -172,
-      "anchor": "bottom-left",
+      "x": 83,
+      "y": 90,
+      "anchor": "left",
       "effects": {
-        "enter": { "motion": "drop", "duration": 0.6 },
-        "select": "shake",
+        "enter": { "motion": "slide-right", "duration": 0.35 },
+        "select": "none",
         "exit": { "motion": "fade", "duration": 0.2 }
       },
       "properties": {
@@ -87,25 +87,25 @@
         "action": "settings",
         "variant": "block",
         "width": 300,
-        "height": 52,
-        "fontSize": "$font.size.subheading",
         "fontWeight": "$font.weight.bold",
-        "color": "#e9c9a0",
-        "selectedColor": "#110904",
-        "accentColor": "#f0a54a"
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#d8d2c8",
+        "selectedColor": "#120c06",
+        "accentColor": "#ece6dc"
       }
     },
     {
       "type": "text",
       "id": "hint",
-      "x": 100,
+      "x": 96,
       "y": -64,
       "anchor": "bottom-left",
+      "effects": { "enter": { "motion": "fade", "duration": 0.4 } },
       "properties": {
         "text": "Drag to grab · Right-click removes · Click or Space drops · ↑ ↓ gravity · O for settings",
         "fontSize": "$font.size.caption",
         "letterSpacing": "$font.tracking.wide",
-        "color": "rgba(246, 227, 198, 0.5)"
+        "color": "rgba(244, 240, 234, 0.45)"
       }
     }
   ]
