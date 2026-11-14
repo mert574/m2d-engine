@@ -63,6 +63,8 @@ Each event is offered to three bands in order: the engine's own UI (`game.ui`: t
 
 UI elements receive events through their `on*` methods and consume what they handle by default. See [UI](./ui).
 
+A `pointerup` is the one event that reaches every subscriber whether or not a band consumed it. A release is cleanup, not an action: whatever is holding something for that pointer, such as an on-screen key under a thumb that slid onto another element, must hear that the finger lifted.
+
 ### World hit testing
 
 Entities take part in hit testing only when they carry the `Interactive` constraint. A scene without one never asks the physics world what is under the pointer.

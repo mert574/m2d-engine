@@ -666,23 +666,32 @@ class RoadStretch extends Entity {
     if (this.track) return true;
     const scene = this.game.sceneManager.getCurrentScene();
     if (!scene) return false;
-    this.track = trackFor(scene, this.roadPath);
-    this.span = this.track.samples.map((sample, i) => i).filter((i) => this.coversDistance(this.track.samples[i].s));
+    const track = trackFor(scene, this.roadPath);
+    const span = track.samples.map((sample, i) => i).filter((i) => this.coversDistance(track, track.samples[i].s));
+    if (span.length < 2) {
+      // Shorter than the road's sampling: nothing to draw or drive on, said once.
+      console.warn(`${this.name} ${this.from}..${this.to} on '${this.roadPath}' is shorter than one road sample; ignored`);
+      this.visible = false;
+      this.from = this.to = -1;
+      return false;
+    }
+    this.track = track;
+    this.span = span;
     this.prepare();
     return true;
   }
 
-  /** Whether a distance along the lap lies in the stretch. */
-  coversDistance(s) {
-    return s >= this.from * this.track.length && s <= this.to * this.track.length;
+  /** Whether a distance along `track`'s lap lies in the stretch. */
+  coversDistance(track, s) {
+    return s >= this.from * track.length && s <= this.to * track.length;
   }
 
-  /** Whether a world point is on the stretch: on the road, and inside it along the lap. */
-  covers(track, x, y, margin = 0) {
-    const sample = track.samples[track.nearest(x, y)];
+  /** Whether a world point is on the stretch: on its road, and inside it along the lap. */
+  covers(x, y, margin = 0) {
+    if (!this.ready()) return false;
+    const sample = this.track.samples[this.track.nearest(x, y)];
     if (Math.hypot(sample.x - x, sample.y - y) > sample.w + margin) return false;
-    const length = track.length;
-    return sample.s >= this.from * length && sample.s <= this.to * length;
+    return this.coversDistance(this.track, sample.s);
   }
 
   prepare() {}
@@ -840,7 +849,7 @@ export class Tunnel extends RoadStretch {
     }
 
     const car = this.car;
-    if (!car || !this.covers(this.track, car.position.x, car.position.y, 34)) return;
+    if (!car || !this.covers(car.position.x, car.position.y, 34)) return;
     const pos = car.renderPosition;
     const angle = car.renderAngle;
     const cos = Math.cos(angle);

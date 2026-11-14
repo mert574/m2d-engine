@@ -39,7 +39,7 @@ async function circuit({ ice = false } = {}) {
   const body = game.physics.createBox({ x: 0, y: 0, width: CAR.bodyLength, height: CAR.bodyWidth, friction: 0.1, frictionAir: 0, restitution: 0.25, density: 0.004 });
   const car = new RaceCar(body, null, game, {
     track, marks: null, control: { autoThrottle: true },
-    surfaceAt: stretches.length ? (x, y) => (stretches.some((stretch) => stretch.covers(track, x, y)) ? 'ice' : null) : null
+    surfaceAt: stretches.length ? (x, y) => (stretches.some((stretch) => stretch.covers(x, y)) ? 'ice' : null) : null
   });
   game.entities.add(car);
   game.physics.add(body);

@@ -51,9 +51,9 @@ export class RaceHud extends UIElement {
     this.#tag(race, centre, view.y + 22);
     this.#clock(race, centre, bottom - 118);
     this.#speed(race.car.drive, centre, bottom - 70);
-    // The corners are the thumbs' on a touchscreen: the count moves up beside the title line.
+    // The corners are the thumbs' on a touchscreen: the count moves up under the director's row.
     const touch = [...(this.scene.hud?.elements.values() ?? [])].some((element) => element instanceof TouchControls && element.active);
-    this.#checkpoints(race, view.x + view.width - 24, touch ? view.y + 44 : bottom - 52);
+    this.#checkpoints(race, view.x + view.width - 24, touch ? view.y + 74 : bottom - 52);
     this.#callouts(race, centre, view.y + view.height * 0.19);
     this.#split(race, centre, view.y + view.height * 0.34);
     if (race.wrongWayFor > 0.7) {

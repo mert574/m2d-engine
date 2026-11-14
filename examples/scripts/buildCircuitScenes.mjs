@@ -214,7 +214,7 @@ const HINT = 'Arrows steer · Down brakes · Space drifts · X nitro · R restar
 /**
  * Boost pads `lead` px before the `count` sharpest corners, where the
  * track turns hardest over a stretch of samples. A corner is counted once:
- * its neighbours within a quarter of the lead are the same bend.
+ * its neighbours within a lead of it are the same bend.
  */
 function boostsBeforeCorners(track, spec) {
   if (!spec) return [];
@@ -231,7 +231,7 @@ function boostsBeforeCorners(track, spec) {
   const corners = [];
   for (const i of ranked) {
     if (corners.length >= spec.count) break;
-    if (corners.some((j) => Math.abs(samples[j].s - samples[i].s) < spec.lead / 4 || track.length - Math.abs(samples[j].s - samples[i].s) < spec.lead / 4)) continue;
+    if (corners.some((j) => Math.abs(samples[j].s - samples[i].s) < spec.lead || track.length - Math.abs(samples[j].s - samples[i].s) < spec.lead)) continue;
     corners.push(i);
   }
   return corners.map((i) => ({ t: (((samples[i].s - spec.lead) % track.length) + track.length) % track.length / track.length, o: 0 }));

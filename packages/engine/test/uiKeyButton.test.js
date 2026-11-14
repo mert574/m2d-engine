@@ -59,6 +59,24 @@ describe('UIKeyButton', () => {
     expect(left.held).toBe(false);
   });
 
+  it('lets go when the finger lifts over another element that consumes the release', () => {
+    const { game, left, jump } = mount();
+    pointerDown(game, 100, 500, { pointerId: 3, pointerType: 'touch' });
+    // The thumb slid across and lifted on the other button, which consumed the pointerup.
+    pointerUp(game, 700, 500, { pointerId: 3, pointerType: 'touch' });
+    expect(jump.held).toBe(false);
+    expect(left.held).toBe(false);
+    expect(game.input.isDown('ArrowLeft')).toBe(false);
+  });
+
+  it('presses reach keydown subscribers, as the keyboard\'s do', () => {
+    const { game } = mount();
+    const codes = [];
+    game.input.on('keydown', (event) => codes.push(event.code));
+    pointerDown(game, 700, 500, { pointerId: 1, pointerType: 'touch' });
+    expect(codes).toEqual(['Space']);
+  });
+
   it('lets go when it leaves the tree', () => {
     const { game, root, left } = mount();
     pointerDown(game, 100, 500, { pointerId: 1, pointerType: 'touch' });

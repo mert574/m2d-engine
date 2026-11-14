@@ -24,6 +24,7 @@
  */
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
+import { CarControl } from 'm2d-engine/constraints/carControl.js';
 import { RaceCar, GhostCar, CAR } from './actors.js';
 import { Recorder, Player, saveBest, loadBest, raceSignature } from './replay.js';
 import { trackFor, WALL_THICKNESS } from './track.js';
@@ -238,8 +239,9 @@ export class RaceDirector extends Entity {
     const game = this.game;
     // Held on the grid through the countdown; from here the car drives itself.
     this.car.drive.autoThrottle = true;
-    // The personal-best ghost sets off with you, every round it exists.
-    if (this.best?.ghost?.length) this.ghost.start(this.best.ghost);
+    // The personal-best ghost sets off with you every live round; under a
+    // replay of that very lap it would only sit on top of the car.
+    if (!replay && this.best?.ghost?.length) this.ghost.start(this.best.ghost);
     if (replay) {
       this.mode = 'replay';
       this.playback = new Player(game, replay.inputs, replay.checks);
@@ -267,7 +269,7 @@ export class RaceDirector extends Entity {
     // The gas is the car's own once the lights go green (see #greenLight):
     // the driver steers, drifts and boosts. The circuit's pace scales how
     // fast that is.
-    const base = { maxSpeed: 560, acceleration: 420, ...(this.activeCar?.control ?? {}) };
+    const base = { maxSpeed: CarControl.params.maxSpeed.initial, acceleration: CarControl.params.acceleration.initial, ...(this.activeCar?.control ?? {}) };
     this.car = new RaceCar(body, null, game, {
       image: this.art[this.activeCar?.sprite ?? 'carBlue'] ?? Object.values(this.art)[0],
       track, marks: marksFor(scene),
@@ -285,12 +287,12 @@ export class RaceDirector extends Entity {
   #surfaceAt() {
     const ice = [...this.game.entities].filter((entity) => entity.name === 'IceStretch');
     if (!ice.length) return null;
-    const track = this.track;
-    return (x, y) => (ice.some((stretch) => stretch.covers(track, x, y)) ? 'ice' : null);
+    return (x, y) => (ice.some((stretch) => stretch.covers(x, y)) ? 'ice' : null);
   }
 
   /** The director draws one thing: the personal-best ghost. */
   draw() {
+    if (this.dead || !this.visible) return;
     this.ghost.draw();
   }
 

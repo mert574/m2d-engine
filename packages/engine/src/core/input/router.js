@@ -141,6 +141,15 @@ export class InputRouter {
    * @param {object} event - A built input event
    */
   dispatch(event) {
+    const notified = this.#route(event);
+    // A release is cleanup, not an action: whatever is holding something
+    // for that pointer (an on-screen key under a thumb that slid away) must
+    // hear it, whichever band took the event.
+    if (event.type === 'pointerup' && !notified) this.#notifySubscribers(event, true);
+  }
+
+  /** The bands, then the subscribers. Returns whether the subscribers were told. */
+  #route(event) {
     // The engine's own UI is modal: a blocking screen takes the event before
     // any target gets a chance at it, which is the whole of "the menu blocks
     // the game". The stack decides which of its layers that is; the router
@@ -149,7 +158,7 @@ export class InputRouter {
     if (event.consumed) {
       // Tells the input manager to keep this press out of the simulation.
       event.handledByUI = true;
-      return;
+      return false;
     }
 
     // Resolved before the subject runs, so a dragged entity's own onDrop can
@@ -162,18 +171,23 @@ export class InputRouter {
     event.target = target;
     if (target) {
       target.handleInput(event);
-      if (event.consumed) return;
+      if (event.consumed) return false;
     }
 
     if (event.type === 'drop' && event.dropTarget && event.dropTarget !== target) {
       event.dropTarget.handleInput(event);
-      if (event.consumed) return;
+      if (event.consumed) return false;
     }
 
-    this.#notifySubscribers(event);
+    this.#notifySubscribers(event, event.type === 'pointerup');
+    return true;
   }
 
-  #notifySubscribers(event) {
+  /**
+   * @param {object} event
+   * @param {boolean} [all=false] - Tell every subscriber, even once one has consumed the event
+   */
+  #notifySubscribers(event, all = false) {
     const set = this.subscribers.get(event.type);
     if (!set || set.size === 0) return;
     // Snapshot: a handler is allowed to unsubscribe itself, or anything else.
@@ -181,7 +195,7 @@ export class InputRouter {
       (a, b) => BANDS.indexOf(a.band) - BANDS.indexOf(b.band));
     for (const { handler } of entries) {
       handler(event);
-      if (event.consumed) return;
+      if (event.consumed && !all) return;
     }
   }
 

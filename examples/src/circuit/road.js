@@ -145,7 +145,7 @@ export class Road extends Entity {
     const tunnels = [...this.game.entities].filter((entity) => entity.name === 'Tunnel' && entity.ready());
     this.lamps = [];
     for (let s = 0, i = 0; s < track.length - this.lampEvery / 2; s += this.lampEvery, i++) {
-      if (tunnels.some((tunnel) => tunnel.coversDistance(s))) continue;
+      if (tunnels.some((tunnel) => tunnel.coversDistance(track, s))) continue;
       const side = i % 2 === 0 ? -1 : 1;
       const pose = track.pose(s / track.length, 0);
       const offset = (pose.width + 30) * side;

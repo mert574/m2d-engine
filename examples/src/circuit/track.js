@@ -274,7 +274,7 @@ export class Track {
 
 export { WALL_THICKNESS, WALL_SPACING };
 
-/** Each scene's track, built once from its road path. */
+/** Each scene's tracks, one per path name, built once. @type {WeakMap<object, Map<string, Track>>} */
 const tracks = new WeakMap();
 
 /**
@@ -288,12 +288,12 @@ const tracks = new WeakMap();
  * @returns {Track}
  */
 export function trackFor(scene, name = 'road') {
-  let track = tracks.get(scene);
-  if (!track) {
+  if (!tracks.has(scene)) tracks.set(scene, new Map());
+  const byName = tracks.get(scene);
+  if (!byName.has(name)) {
     const road = scene.paths.get(name);
     if (!road) throw new Error(`Night Circuit: scene '${scene.config.name}' has no '${name}' path`);
-    track = new Track(road.points);
-    tracks.set(scene, track);
+    byName.set(name, new Track(road.points));
   }
-  return track;
+  return byName.get(name);
 }
