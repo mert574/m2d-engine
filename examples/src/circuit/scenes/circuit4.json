@@ -906,28 +906,6 @@
     },
     {
       "type": "text",
-      "id": "speedLabel",
-      "x": -20,
-      "y": 16,
-      "anchor": "top-right",
-      "properties": {
-        "text": "KM/H",
-        "fontSize": "12px",
-        "color": "#9fb0cc",
-        "align": "right",
-        "letterSpacing": 2
-      }
-    },
-    {
-      "type": "text",
-      "id": "nitroLabel",
-      "x": -26,
-      "y": 76,
-      "anchor": "top-right",
-      "properties": { "text": "X", "fontSize": "12px", "color": "#9fb0cc", "align": "right" }
-    },
-    {
-      "type": "text",
       "id": "hint",
       "x": 0,
       "y": -18,

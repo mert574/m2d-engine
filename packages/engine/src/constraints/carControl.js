@@ -57,6 +57,9 @@ import { s } from '../core/schema.js';
  * @param {number[]} [options.driftBoostSpeed=[1.12, 1.26]] - Speed, as a
  *   multiple of `maxSpeed`, the car is shoved to when a drift ends at each
  *   level — the kart-racer mini-turbo.
+ * @param {number} [options.overspeedDecay=1.4] - How fast speed above the
+ *   cap bleeds away, 1/s: a boost pad or a mini-turbo carries the car past
+ *   `maxSpeed` and it settles back over about a second.
  * @param {(active: boolean) => void} [options.onDrift] - Drift started or
  *   ended. Called as a method of the constraint.
  * @param {(level: number) => void} [options.onDriftBoost] - A drift ended
@@ -83,6 +86,7 @@ export class CarControl extends Constraint {
     nitroCooldown: s.number({ initial: 5, min: 0, unit: 's' }),
     driftBoost: s.tuple([s.number(), s.number()], { label: 'Drift boost thresholds, seconds' }),
     driftBoostSpeed: s.tuple([s.number(), s.number()], { label: 'Drift boost speed multipliers' }),
+    overspeedDecay: s.number({ initial: 1.4, min: 0, description: 'How fast speed above the cap bleeds away, 1/s' }),
     keys: KEY_BINDINGS
   };
 
@@ -125,6 +129,7 @@ export class CarControl extends Constraint {
     this.onDrift = options.onDrift ?? null;
     this.onDriftBoost = options.onDriftBoost ?? null;
     this.onNitro = options.onNitro ?? null;
+    this.overspeedDecay = options.overspeedDecay ?? 1.4;
 
     /**
      * What the world does to the tyres this tick: 1 on asphalt, lower on
@@ -133,6 +138,13 @@ export class CarControl extends Constraint {
      * oil slick is not just slippery but also deaf to the wheel.
      */
     this.surfaceGrip = 1;
+
+    /**
+     * What the surface takes off the speed this tick, 1/s: 0 on asphalt.
+     * Set per tick like `surfaceGrip`; a slick that should cost a little
+     * speed as well as grip sets both.
+     */
+    this.surfaceDrag = 0;
 
     /**
      * The driver's inputs for this tick, when `manual`. Axes clamp to
@@ -213,6 +225,13 @@ export class CarControl extends Constraint {
     });
   }
 
+  /** Over the cap, speed bleeds back to it rather than stopping dead there; the engine adds none. */
+  #capped(forward, cap, dt) {
+    if (forward < -this.maxReverse) return -this.maxReverse;
+    if (forward <= cap) return forward;
+    return cap + (forward - cap) * Math.exp(-this.overspeedDecay * dt);
+  }
+
   #readControls() {
     if (this.manual) return this.controls;
     const input = this.entity.input;
@@ -253,8 +272,8 @@ export class CarControl extends Constraint {
     // walking pace turns into reverse, so one pedal reads naturally.
     const thrust = boosting ? this.acceleration * this.nitroThrust : this.acceleration;
     const cap = boosting ? this.maxSpeed * this.nitroBoost : this.maxSpeed;
-    if (throttle > 0) {
-      forward += throttle * thrust * surface * dt;
+    if (throttle > 0 && forward < cap) {
+      forward = Math.min(cap, forward + throttle * thrust * surface * dt);
     }
     if (braking > 0) {
       if (forward > 1) {
@@ -267,7 +286,8 @@ export class CarControl extends Constraint {
       // Coasting: exponential so it never overshoots past zero.
       forward *= Math.exp(-this.drag * dt);
     }
-    forward = Math.min(cap, Math.max(-this.maxReverse, forward));
+    if (this.surfaceDrag > 0) forward *= Math.exp(-this.surfaceDrag * dt);
+    forward = this.#capped(forward, cap, dt);
 
     // Grip kills the lateral part. The handbrake swaps in the drift grip;
     // the surface scales either, so oil under a handbrake slide is ice.

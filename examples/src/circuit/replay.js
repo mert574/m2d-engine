@@ -136,6 +136,7 @@ export function saveBest(mapName, best) {
       lapEnd: best.lapEnd,
       inputs: rle(best.inputs),
       checks: best.checks,
+      splits: best.splits ?? [],
       spills: best.spills,
       car: best.car,
       // The ghost rounds to a tenth of a pixel: display precision, a

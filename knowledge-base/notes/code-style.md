@@ -12,6 +12,7 @@ The rules for code itself. What a game's code should contain is in [[idiomatic-m
 - **Machine-local art is addressed by shape, and the seeder enforces it.** A scene that names frames of an ignored, built file must match what the seeder builds, and the seeder rebuilds a file of another shape rather than trusting whatever sits there.
 - **A comment never tells history.** "Once", "used to", "the first pass", the bug a guard was added for: that is the commit message's and the project record's. What stays is the trap the code still guards, in a line.
 - **A widget reads the player's storage when it is built, not when it draws.** A menu is rebuilt each time it opens; a `get text()` that decodes a saved replay is that decode sixty times a second, per line.
+- **A scene is visited again.** The manager keeps a loaded scene and loads it anew on the next visit, so whatever its last visit left on the objects it keeps (a container its exit faded out) is still there. A check that only opens each screen once misses it; open one, leave, and come back.
 - **Fixes come with a repro.** Pin a rendering fix with a small scene that reproduces it, rather than growing the showcase. Optional renderer features are declared through capabilities and aren't required of every backend.
 
 Related: [[working-style]]

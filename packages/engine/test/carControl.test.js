@@ -162,8 +162,45 @@ describe('CarControl', () => {
     expect(drive.igniteNitro()).toBe(false);          // still cooling down
 
     run(game, entity, 2);
-    expect(drive.forwardSpeed).toBeCloseTo(300, 0);   // cap is back
+    expect(drive.forwardSpeed).toBeLessThan(320);     // settling back to the cap
     expect(drive.nitroReady).toBe(true);
+    run(game, entity, 3);
+    expect(drive.forwardSpeed).toBeCloseTo(300, 0);
+    releaseKeys(game);
+  });
+
+  it('carries a boost past the cap and lets it bleed back, never pushing past it on throttle alone', () => {
+    const { game, entity, drive } = makeCar({ maxSpeed: 300, overspeedDecay: 1.5 });
+    holdKeys(game, 'ArrowUp');
+    run(game, entity, 3);
+    expect(drive.forwardSpeed).toBeCloseTo(300, 0);
+    run(game, entity, 2);
+    expect(drive.forwardSpeed).toBeLessThanOrEqual(300);
+
+    drive.applyBoost(450);
+    run(game, entity, 0.2);
+    expect(drive.forwardSpeed).toBeGreaterThan(400);  // the pad's speed, barely touched
+    run(game, entity, 1);
+    expect(drive.forwardSpeed).toBeLessThan(350);
+    expect(drive.forwardSpeed).toBeGreaterThan(300);
+    run(game, entity, 4);
+    expect(drive.forwardSpeed).toBeCloseTo(300, 0);
+    releaseKeys(game);
+  });
+
+  it('loses speed to a surface\'s drag', () => {
+    const { game, entity, drive } = makeCar({ maxSpeed: 300 });
+    holdKeys(game, 'ArrowUp');
+    run(game, entity, 3);
+    drive.surfaceDrag = 2;
+    tick(game, entity);
+    const first = drive.forwardSpeed;
+    expect(first).toBeLessThan(300);
+    run(game, entity, 0.25);
+    expect(drive.forwardSpeed).toBeLessThan(first);
+    drive.surfaceDrag = 0;
+    run(game, entity, 3);
+    expect(drive.forwardSpeed).toBeCloseTo(300, 0);
     releaseKeys(game);
   });
 

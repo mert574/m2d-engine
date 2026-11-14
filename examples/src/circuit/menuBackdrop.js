@@ -47,10 +47,23 @@ export class NightLap {
     }
   }
 
+  /** Where a car `t` of the way along is: between two path points, facing along the road. */
   #pose(t) {
     const n = this.path.length - 1;
     const wrapped = ((t % 1) + 1) % 1;
-    return this.path[Math.round(wrapped * n)];
+    const at = wrapped * n;
+    const i = Math.min(n - 1, Math.floor(at));
+    const a = this.path[i];
+    const b = this.path[i + 1];
+    const f = at - i;
+    // Seen arriving and leaving rather than appearing at the ribbon's ends.
+    const edge = Math.min(wrapped, 1 - wrapped) / 0.06;
+    return {
+      x: a.x + (b.x - a.x) * f,
+      y: a.y + (b.y - a.y) * f,
+      angle: Math.atan2(b.y - a.y, b.x - a.x),
+      alpha: Math.min(1, edge)
+    };
   }
 
   update(deltaTime) {
@@ -129,29 +142,29 @@ export class NightLap {
     const size = roadWidth * 0.42;
     const cos = Math.cos(pose.angle);
     const sin = Math.sin(pose.angle);
+    const at = (along, across) => ({ x: pose.x + cos * along - sin * across, y: pose.y + sin * along + cos * across });
     if (beams) {
-      // Headlight cones ahead of the car.
       for (const side of [-0.35, 0.35]) {
-        const ox = pose.x - sin * size * side;
-        const oy = pose.y + cos * size * side;
+        const origin = at(size * 0.9, size * side);
         const reach = roadWidth * 3.4;
         const spread = 0.28;
         paint.drawPath({
           points: [
-            { x: ox, y: oy },
-            { x: ox + Math.cos(pose.angle - spread) * reach, y: oy + Math.sin(pose.angle - spread) * reach },
-            { x: ox + Math.cos(pose.angle + spread) * reach, y: oy + Math.sin(pose.angle + spread) * reach }
+            origin,
+            { x: origin.x + Math.cos(pose.angle - spread) * reach, y: origin.y + Math.sin(pose.angle - spread) * reach },
+            { x: origin.x + Math.cos(pose.angle + spread) * reach, y: origin.y + Math.sin(pose.angle + spread) * reach }
           ],
           closed: true,
-          fillStyle: 'rgba(255, 238, 190, 0.14)'
+          fillStyle: 'rgba(255, 238, 190, 0.14)',
+          globalAlpha: pose.alpha
         });
       }
     }
-    paint.drawRect({
-      x: pose.x - size, y: pose.y - size * 0.55,
-      width: size * 2, height: size * 1.1,
-      fillStyle: color, cornerRadius: size * 0.3
+    paint.drawPath({
+      points: [at(size, -size * 0.55), at(size, size * 0.55), at(-size, size * 0.55), at(-size, -size * 0.55)],
+      closed: true, fillStyle: color, globalAlpha: pose.alpha
     });
-    paint.drawArc({ x: pose.x + cos * size, y: pose.y + sin * size, radius: size * 0.3, fillStyle: '#fff2cf' });
+    const nose = at(size, 0);
+    paint.drawArc({ x: nose.x, y: nose.y, radius: size * 0.3, fillStyle: '#fff2cf', globalAlpha: pose.alpha });
   }
 }

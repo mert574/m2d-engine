@@ -160,10 +160,11 @@ Hedgerow Court is the worked example.
 | `driftThreshold` | `90` | Lateral px/s that counts as drifting |
 | `nitroThrust`, `nitroBoost` | `2.1`, `1.35` | Acceleration and speed-cap multipliers while the nitro burns |
 | `nitroDuration`, `nitroCooldown` | `1.1`, `5` | Burn and recharge, seconds |
+| `overspeedDecay` | `1.4` | How fast speed above the cap bleeds away, 1/s. The throttle never pushes past the cap; a boost pad, a mini-turbo or the end of a nitro burn carries the car over it, and it settles back over about a second |
 | `onDrift(active)` | | Drift started or ended |
 | `onNitro()` | | Nitro ignited |
 
-Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lower on oil or grass; it scales grip, steering and drive together), `drifting`, `forwardSpeed`, `lateralSpeed`, `speed`, `boostLeft`, `nitroReady`, `igniteNitro()`, `applyBoost(speed)` (a shove along the heading up to `speed`, what a boost pad does), `setControls(controls)`.
+Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lower on oil or grass; it scales grip, steering and drive together), `surfaceDrag` (set it per tick too: speed the surface takes away, 1/s, 0 on asphalt), `drifting`, `forwardSpeed`, `lateralSpeed`, `speed`, `boostLeft`, `nitroReady`, `igniteNitro()`, `applyBoost(speed)` (a shove along the heading up to `speed`, what a boost pad does; it may pass the cap, and `overspeedDecay` brings it back), `setControls(controls)`.
 
 ## Interactive
 

@@ -117,6 +117,7 @@ export class Scene {
       await this.setupUIScene();
       if (!headless && !this.game.editMode) {
         this.#attachMenuFocus();
+        this.#restUI();
         this.effects = new SceneEffects(this.game, this.config, this.uiById, this.ui);
         this.effects.enter();
         if (this.config.music?.track) {
@@ -1219,6 +1220,16 @@ export class Scene {
       if (!make) throw new Error(`M2D: backdrop layer '${name}' is not registered (game.registerBackdropLayer)`);
       return make();
     });
+  }
+
+  /**
+   * A scene visited again keeps its container, which its last exit left
+   * faded out; an entrance animates from its values to the current ones,
+   * so it would fade from nothing to nothing.
+   */
+  #restUI() {
+    this.game.motion?.cancel(this.ui);
+    Object.assign(this.ui, { opacity: 1, offsetX: 0, offsetY: 0, scaleX: 1, scaleY: 1 });
   }
 
   /** The listeners `#attachMenuFocus` registered, dropped on unload. */

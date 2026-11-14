@@ -88,6 +88,9 @@ export class RaceDirector extends Entity {
     this.lastLapTicks = null;
     this.lapStartStep = null;
     this.nextCheckpoint = 0;
+    this.lapSplits = [];
+    /** The last checkpoint crossed, for the HUD: its time and how it stands against the best lap's. */
+    this.split = null;
     this.lapFrames = [];
     this.wrongWayFor = 0;
     this.stopListening = null;
@@ -171,6 +174,8 @@ export class RaceDirector extends Entity {
     this.activeCar = (replay?.car && CARS.find((car) => car.id === replay.car)) || this.carSpec;
     this.lapStartStep = null;
     this.nextCheckpoint = 0;
+    this.lapSplits = [];
+    this.split = null;
     this.lapFrames = [];
     this.wrongWayFor = 0;
 
@@ -320,13 +325,13 @@ export class RaceDirector extends Entity {
   // === Lap logic ===
 
   #crossCheckpoint(index) {
-    if (this.lapStartStep === null) return;
-    if (index === this.nextCheckpoint) {
-      this.nextCheckpoint++;
-      this.game.soundManager.playSound('checkpoint');
-      const split = this.ticksToSeconds(this.lapTicks);
-      this.announce(`checkpoint ${index + 1} · ${split.toFixed(2)}s`);
-    }
+    if (this.lapStartStep === null || index !== this.nextCheckpoint) return;
+    this.nextCheckpoint++;
+    this.game.soundManager.playSound('checkpoint');
+    const ticks = this.lapTicks;
+    this.lapSplits.push(ticks);
+    const best = this.best?.splits?.[index];
+    this.split = { index, ticks, delta: best === undefined ? null : ticks - best, step: this.game.time.steps };
   }
 
   #crossFinish() {
@@ -334,15 +339,15 @@ export class RaceDirector extends Entity {
     if (this.lapStartStep === null) {
       this.lapStartStep = steps;
       this.lapFrames = [];
+      this.lapSplits = [];
       this.nextCheckpoint = 0;
-      this.announce('lap armed — go');
       return;
     }
     if (this.nextCheckpoint < this.checkpoints) return; // shortcut or spin
 
     const ticks = steps - this.lapStartStep;
     this.lastLapTicks = ticks;
-    const seconds = this.ticksToSeconds(ticks);
+    this.split = { index: null, ticks, delta: this.best ? ticks - this.best.lapTicks : null, step: steps };
     this.game.soundManager.playSound('lap');
 
     const isBest = this.mode === 'live' && (!this.best || ticks < this.best.lapTicks);
@@ -353,6 +358,7 @@ export class RaceDirector extends Entity {
         lapEnd: this.recorder.inputs.length,
         inputs: this.recorder.inputs.slice(),
         checks: this.recorder.checks.slice(),
+        splits: this.lapSplits.slice(),
         spills: this.roundSpills.map((spill) => ({ ...spill })),
         car: this.carSpec?.id ?? 'balanced',
         // The ghost is the whole round from the green light, so it sets off
@@ -360,14 +366,13 @@ export class RaceDirector extends Entity {
         ghost: this.roundFrames.slice()
       };
       saveBest(this.circuit, this.best);
-      this.announce(`★ best lap ${seconds.toFixed(2)}s — Enter replays it`, true);
-    } else {
-      this.announce(`lap ${seconds.toFixed(2)}s`, true);
+      this.announce('NEW BEST LAP · ENTER REPLAYS IT');
     }
 
     // The next lap is already running (flying start).
     this.lapStartStep = steps;
     this.nextCheckpoint = 0;
+    this.lapSplits = [];
     this.lapFrames = [];
   }
 

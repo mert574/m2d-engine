@@ -14,8 +14,19 @@ import { s } from 'm2d-engine/core/schema.js';
 /** Visual size of a car, px. The physics box is a whisker smaller. */
 export const CAR = { width: 30, length: 54, bodyWidth: 26, bodyLength: 48 };
 
-/** Grip multipliers by surface. What the tyres believe. */
-export const SURFACE = { road: 1, grass: 0.45, oil: 0.16 };
+/** What each surface does to the tyres: grip as a multiple, drag in 1/s. */
+const SURFACE = {
+  road: { grip: 1, drag: 0 },
+  grass: { grip: 0.45, drag: 0 },
+  oil: { grip: 0.16, drag: 1.1 }
+};
+
+/** Steepest hit on a barrier, from the wall, that scrapes along it rather than stopping. */
+const SCRAPE_MAX_ANGLE = Math.PI / 4;
+/** Share of the speed a scrape at that steepest angle costs; a shallower one costs less. */
+const SCRAPE_LOSS = 0.45;
+/** Share of the gap between heading and wall closed per tick of scraping. */
+const SCRAPE_ALIGN = 0.35;
 
 /** Seconds the boost streaks and the "BOOST" readout linger after a boost. */
 const BOOST_FX_SECONDS = 0.9;
@@ -96,9 +107,12 @@ export class RaceCar extends Entity {
     const { x, y } = this.body.position;
     this.surface = this.oilCount > 0 ? 'oil'
       : this.track.onRoad(x, y, 6) ? 'road' : 'grass';
-    this.drive.surfaceGrip = SURFACE[this.surface] * (this.surface === 'road' ? this.roadGrip : 1);
+    const surface = SURFACE[this.surface];
+    this.drive.surfaceGrip = surface.grip * (this.surface === 'road' ? this.roadGrip : 1);
+    this.drive.surfaceDrag = surface.drag;
 
     super.fixedUpdate(dt);
+    this.#scrapeBarrier();
 
     this.braking = this.input.isDown(this.drive.keys.brake);
 
@@ -116,6 +130,38 @@ export class RaceCar extends Entity {
       );
       if (this.marks.length > 2600) this.marks.splice(0, this.marks.length - 2600);
     }
+  }
+
+  /**
+   * Left to the solver, a barrier met at any angle stops the car within a
+   * second: the drive re-aims the velocity into the wall each tick and the
+   * contact takes that part away again. A shallow hit scrapes along instead,
+   * keeping the speed along the wall and turning the nose toward it.
+   */
+  #scrapeBarrier() {
+    const { x, y } = this.body.position;
+    const wall = this.track.samples[this.track.nearest(x, y)];
+    const offset = (x - wall.x) * wall.nx + (y - wall.y) * wall.ny;
+    const side = Math.sign(offset) || 1;
+    const nose = this.body.angle;
+    const toward = Math.abs(Math.cos(nose) * wall.nx + Math.sin(nose) * wall.ny);
+    const reach = toward * CAR.bodyLength / 2 + Math.sqrt(1 - toward * toward) * CAR.bodyWidth / 2;
+    if (Math.abs(offset) + reach < wall.w - 2) return;
+
+    const v = this.body.velocity;
+    const speed = Math.hypot(v.x, v.y);
+    const into = (v.x * wall.nx + v.y * wall.ny) * side;
+    if (into <= 0 || speed < 1) return;
+    const incidence = Math.asin(Math.min(1, into / speed));
+    if (incidence > SCRAPE_MAX_ANGLE) return;
+
+    const forward = Math.sign(v.x * wall.tx + v.y * wall.ty) || 1;
+    const kept = speed * (1 - SCRAPE_LOSS * incidence / SCRAPE_MAX_ANGLE);
+    this.body.setVelocity({ x: wall.tx * forward * kept, y: wall.ty * forward * kept });
+
+    const along = Math.atan2(wall.ty * forward, wall.tx * forward);
+    const gap = Math.atan2(Math.sin(along - nose), Math.cos(along - nose));
+    if (Math.abs(gap) < Math.PI / 2) this.body.setAngle(nose + gap * SCRAPE_ALIGN);
   }
 
   /** Per-frame presentation: the sound loops and the boost fade. */
@@ -397,7 +443,7 @@ export class Barrel extends Entity {
         x: rest.x + Math.cos(this.spillAngle) * 46,
         y: rest.y + Math.sin(this.spillAngle) * 46,
         angle: this.spillAngle,
-        radius: 52
+        radius: 40
       };
       this.game.soundManager.playSound('spill');
       this.onSpill?.(spill);
@@ -427,7 +473,7 @@ export class Barrel extends Entity {
 export class OilSlick extends Entity {
   static properties = {
     image: s.ref('image'),
-    radius: s.number({ positive: true, initial: 55, unit: 'px', description: 'How far the slick spreads' })
+    radius: s.number({ positive: true, initial: 40, unit: 'px', description: 'How far the slick spreads' })
   };
 
   name = 'OilSlick';
@@ -439,7 +485,7 @@ export class OilSlick extends Entity {
     this.image = options.image;
     // Placed at an angle on the road; the body carries it.
     this.angle = body.angle ?? 0;
-    this.radius = options.radius ?? 55;
+    this.radius = options.radius ?? OilSlick.properties.radius.initial;
   }
 
   onCollisionStart(other) {
@@ -487,7 +533,7 @@ export class BoostPad extends Entity {
     const car = other.entity;
     if (car?.name !== 'RaceCar') return;
     car.drive.applyBoost(PAD_BOOST);
-    this.game.soundManager.playSound('boost');
+    car.boosted('BOOST');
   }
 
   draw() {

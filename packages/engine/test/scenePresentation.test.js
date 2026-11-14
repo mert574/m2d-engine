@@ -316,6 +316,20 @@ describe('a UI scene\'s menu', () => {
     game.destroy();
   });
 
+  it('fades in again on a second visit, not from where its last exit left it', async () => {
+    const { game, scene } = await show(menu());
+    game.motion.update(1);
+    const away = game.sceneManager.switchTo('other');
+    game.motion.update(1);
+    await away;
+    expect(scene.ui.opacity).toBe(0);
+    await game.sceneManager.switchTo('menu');
+    expect(game.sceneManager.getCurrentScene()).toBe(scene);
+    game.motion.update(1);
+    expect(scene.ui.opacity).toBe(1);
+    game.destroy();
+  });
+
   it('refuses a menu item that does nothing', () => {
     const bad = menu();
     bad.elements[1].properties = { text: 'Nothing' };
