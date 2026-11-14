@@ -1,0 +1,112 @@
+{
+  "version": 4,
+  "name": "mainMenu",
+  "type": "ui",
+  "title": "Main Menu",
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.3 },
+  "stagger": 0.18,
+  "elements": [
+    {
+      "type": "backdrop",
+      "id": "scene",
+      "properties": {
+        "from": "#110904",
+        "to": "#2c1a0d",
+        "angle": 120,
+        "vignette": 0.55,
+        "layers": ["galtonBoard"],
+        "wash": { "side": "left", "strength": 0.8 }
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 96,
+      "y": 110,
+      "anchor": "top-left",
+      "effects": { "enter": { "motion": "drop", "duration": 0.7 } },
+      "properties": {
+        "text": "Physics",
+        "fontSize": "$font.size.display",
+        "fontWeight": "$font.weight.black",
+        "letterSpacing": "$font.tracking.tight",
+        "color": "#f6e3c6"
+      }
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 100,
+      "y": 196,
+      "anchor": "top-left",
+      "properties": {
+        "text": "A PLAYGROUND",
+        "fontSize": "$font.size.caption",
+        "fontWeight": "$font.weight.semibold",
+        "letterSpacing": "$font.tracking.widest",
+        "color": "#f0a54a"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "start",
+      "x": 96,
+      "y": -232,
+      "anchor": "bottom-left",
+      "effects": {
+        "enter": { "motion": "drop", "duration": 0.6 },
+        "select": "shake",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Start Game",
+        "onClick": "workshop",
+        "variant": "block",
+        "width": 300,
+        "height": 52,
+        "fontSize": "$font.size.subheading",
+        "fontWeight": "$font.weight.bold",
+        "color": "#e9c9a0",
+        "selectedColor": "#110904",
+        "accentColor": "#f0a54a"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "settings",
+      "x": 96,
+      "y": -172,
+      "anchor": "bottom-left",
+      "effects": {
+        "enter": { "motion": "drop", "duration": 0.6 },
+        "select": "shake",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Settings",
+        "action": "settings",
+        "variant": "block",
+        "width": 300,
+        "height": 52,
+        "fontSize": "$font.size.subheading",
+        "fontWeight": "$font.weight.bold",
+        "color": "#e9c9a0",
+        "selectedColor": "#110904",
+        "accentColor": "#f0a54a"
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": 100,
+      "y": -64,
+      "anchor": "bottom-left",
+      "properties": {
+        "text": "Drag to grab · Right-click removes · Click or Space drops · ↑ ↓ gravity · O for settings",
+        "fontSize": "$font.size.caption",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "rgba(246, 227, 198, 0.5)"
+      }
+    }
+  ]
+}

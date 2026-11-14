@@ -175,7 +175,7 @@ describe('inspector rows', () => {
 
     const ui = { version: 4, type: 'ui', elements: [{ type: 'rect', id: 'bg', fill: true }] };
     const [element] = inspectNode(ui, ['elements']);
-    expect(element!.alternatives?.map((a) => a.label)).toEqual(['button', 'text', 'image', 'menuItem', 'backdrop', 'rect']);
+    expect(element!.alternatives?.map((a) => a.label)).toEqual(['button', 'text', 'image', 'menuItem', 'backdrop', 'component', 'rect']);
     expect(element!.alternatives?.find((a) => a.label === 'button')?.value).toMatchObject({ type: 'button' });
 
     const sheet = { ...doc(), assets: { spritesheets: { hero: { url: 'h.png', frameWidth: 8, frameHeight: 8, animations: { run: { frames: [[0, 0], [1, 0]] } } } } } };
@@ -261,6 +261,10 @@ describe('UI elements', () => {
     expect(() => addElement(d, 'image')).toThrow(/sprite/);
     run(d, addElement(d, 'image', { sprite: 'logo' }).ops);
     expect((d.elements as Array<{ sprite?: string }>)[5]!.sprite).toBe('logo');
+    // A component needs a widget the game registered.
+    expect(() => addElement(d, 'component')).toThrow(/registerUIComponent/);
+    run(d, addElement(d, 'component', { component: 'bestLap' }).ops);
+    expect((d.elements as Array<Record<string, unknown>>)[6]).toMatchObject({ type: 'component', id: 'component', component: 'bestLap', anchor: 'center' });
   });
 
   it('adds menu items like buttons, and a backdrop first with no position', async () => {

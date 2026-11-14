@@ -1,0 +1,114 @@
+{
+  "version": 4,
+  "name": "mainMenu",
+  "type": "ui",
+  "title": "Main Menu",
+  "assets": { "music": { "menu": { "url": "music/nathanrain-stars-at-dawn.ogg" } } },
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.5 },
+  "stagger": 0.08,
+  "music": { "track": "menu" },
+  "elements": [
+    {
+      "type": "backdrop",
+      "id": "scene",
+      "properties": {
+        "motes": 28,
+        "moteColor": "#ffd27a",
+        "vignette": 0.5,
+        "layers": ["duskValley"],
+        "wash": { "side": "bottom", "strength": 0.7 }
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 0,
+      "y": 140,
+      "anchor": "top",
+      "effects": { "enter": { "motion": "fade", "duration": 0.9 } },
+      "properties": {
+        "text": "Platformer",
+        "fontSize": "$font.size.display",
+        "fontWeight": "$font.weight.thin",
+        "letterSpacing": "$font.tracking.tight",
+        "color": "#fff2dc",
+        "align": "center"
+      }
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 0,
+      "y": 232,
+      "anchor": "top",
+      "properties": {
+        "text": "A DEMONSTRATION",
+        "fontSize": "$font.size.caption",
+        "fontWeight": "$font.weight.medium",
+        "letterSpacing": "$font.tracking.widest",
+        "color": "#ffcf8a",
+        "align": "center"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "start",
+      "x": -150,
+      "y": -150,
+      "anchor": "bottom",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.4 },
+        "select": "glow",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Start Game",
+        "onClick": "level1",
+        "variant": "underline",
+        "align": "center",
+        "width": 260,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#f2d6b0",
+        "selectedColor": "#fff8ec",
+        "accentColor": "#ffb35c"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "settings",
+      "x": 150,
+      "y": -150,
+      "anchor": "bottom",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.4 },
+        "select": "glow",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Settings",
+        "action": "settings",
+        "variant": "underline",
+        "align": "center",
+        "width": 260,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#f2d6b0",
+        "selectedColor": "#fff8ec",
+        "accentColor": "#ffb35c"
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": 0,
+      "y": -72,
+      "anchor": "bottom",
+      "properties": {
+        "text": "Arrows move · Space jumps · X attacks · O for settings",
+        "fontSize": "$font.size.caption",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "rgba(255, 242, 220, 0.6)",
+        "align": "center"
+      }
+    }
+  ]
+}

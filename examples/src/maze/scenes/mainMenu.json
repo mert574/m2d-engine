@@ -1,0 +1,137 @@
+{
+  "version": 4,
+  "name": "mainMenu",
+  "type": "ui",
+  "title": "Main Menu",
+  "assets": { "music": { "menu": { "url": "music/binarypulse-symmetrical-tree.ogg" } } },
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.3 },
+  "stagger": 0.1,
+  "music": { "track": "menu" },
+  "elements": [
+    {
+      "type": "backdrop",
+      "id": "scene",
+      "properties": {
+        "from": "#16200f",
+        "to": "#2a3b1c",
+        "angle": 120,
+        "motes": 14,
+        "vignette": 0.5,
+        "layers": ["gardenPlan"]
+      }
+    },
+    {
+      "type": "rect",
+      "id": "board",
+      "x": 0,
+      "y": 150,
+      "anchor": "top",
+      "effects": { "enter": { "motion": "drop", "duration": 0.5 } },
+      "width": 520,
+      "height": 160,
+      "color": "rgba(58, 40, 22, 0.9)"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 0,
+      "y": 130,
+      "anchor": "top",
+      "effects": { "enter": { "motion": "drop", "duration": 0.5 } },
+      "properties": {
+        "text": "Hedgerow Court",
+        "fontSize": "$font.size.title",
+        "fontWeight": "$font.weight.semibold",
+        "letterSpacing": "$font.tracking.none",
+        "color": "#f3ead0",
+        "align": "center"
+      }
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 0,
+      "y": 192,
+      "anchor": "top",
+      "effects": { "enter": { "motion": "drop", "duration": 0.5 } },
+      "properties": {
+        "text": "A GARDEN IN THREE COURTS",
+        "fontSize": "$font.size.caption",
+        "fontWeight": "$font.weight.medium",
+        "letterSpacing": "$font.tracking.widest",
+        "color": "#e8c75a",
+        "align": "center"
+      }
+    },
+    {
+      "type": "rect",
+      "id": "plank",
+      "x": 0,
+      "y": 96,
+      "anchor": "center",
+      "width": 400,
+      "height": 140,
+      "color": "rgba(22, 32, 15, 0.82)"
+    },
+    {
+      "type": "menuItem",
+      "id": "start",
+      "x": 0,
+      "y": 70,
+      "anchor": "center",
+      "effects": {
+        "enter": { "motion": "scale", "duration": 0.35 },
+        "select": "pulse",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Start Game",
+        "onClick": "court1",
+        "variant": "bar",
+        "align": "center",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#dfe8c8",
+        "selectedColor": "#ffffff",
+        "accentColor": "#e8c75a"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "settings",
+      "x": 0,
+      "y": 122,
+      "anchor": "center",
+      "effects": {
+        "enter": { "motion": "scale", "duration": 0.35 },
+        "select": "pulse",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Settings",
+        "action": "settings",
+        "variant": "bar",
+        "align": "center",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#dfe8c8",
+        "selectedColor": "#ffffff",
+        "accentColor": "#e8c75a"
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": 0,
+      "y": -56,
+      "anchor": "bottom",
+      "properties": {
+        "text": "Press an arrow to set off, the same one to stop · tend the beds · O for settings",
+        "fontSize": "$font.size.caption",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "rgba(243, 234, 208, 0.6)",
+        "align": "center"
+      }
+    }
+  ]
+}

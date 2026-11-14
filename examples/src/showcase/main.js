@@ -9,8 +9,7 @@ import lanternSprite from './assets/lantern.png';
 import lighthouseSprite from './assets/lighthouse.png';
 import rainSprite from './assets/rain.png';
 import gullSprite from './assets/gull.png';
-import { registerMainMenu } from '../shared/mainMenu.js';
-import { menuBackdrop } from './menuBackdrop.js';
+import { HarbourNight } from './menuBackdrop.js';
 import { lastTransmission, g2Remix, audioOption } from '../shared/audio.js';
 
 const VIEW = { width: 1280, height: 720 };
@@ -35,16 +34,41 @@ const game = new M2D(canvas, {
 /** @type {Showcase|null} */
 let showcase = null;
 
-registerMainMenu(game, {
-  title: 'Showcase',
-  subtitle: 'renderer comparison',
-  hint: '[ and ] change load · 1-9 toggle layers · C holds the hour · W holds the weather · P pauses the camera · H hides the HUD',
-  backdrop: menuBackdrop,
-  items: () => [
-    { text: 'Start', onSelect: () => game.sceneManager.switchTo('showcase') },
-    { text: 'Settings', onSelect: () => game.settings.open() }
-  ],
-  onEnter: () => game.soundManager.playMusic('menu')
+// The main menu, as a UI scene: the harness has no project file, so its
+// scene is written here, as data all the same. The harbour at night
+// behind it is the one painting it brings; the menu music is the game's.
+game.registerBackdropLayer('harbourNight', () => new HarbourNight());
+game.sceneManager.addScene('mainMenu', {
+  fetch: async () => ({
+    version: 4, name: 'mainMenu', type: 'ui', title: 'Main Menu',
+    transition: { enter: 'fade', exit: 'fade', duration: 0.3 },
+    stagger: 0.07,
+    music: { track: 'menu' },
+    elements: [
+      { type: 'backdrop', id: 'harbour', properties: { vignette: 0.62, layers: ['harbourNight'], wash: { side: 'left', strength: 0.8 } } },
+      {
+        type: 'text', id: 'title', x: 96, y: -120, anchor: 'left',
+        effects: { enter: { motion: 'slide-right', duration: 0.45 } },
+        properties: { text: 'Showcase', fontSize: '$font.size.display', fontWeight: '$font.weight.thin', letterSpacing: '$font.tracking.tight', color: '$color.text.primary' }
+      },
+      {
+        type: 'text', id: 'subtitle', x: 98, y: -48, anchor: 'left',
+        properties: { text: 'RENDERER COMPARISON', fontSize: '$font.size.caption', fontWeight: '$font.weight.medium', letterSpacing: '$font.tracking.widest', color: '$color.text.accent' }
+      },
+      ...[['start', 'Start', { onClick: 'showcase' }, 20], ['settings', 'Settings', { action: 'settings' }, 64]].map(([id, text, does, y]) => ({
+        type: 'menuItem', id, x: 96, y, anchor: 'left',
+        effects: { enter: { motion: 'slide-right', duration: 0.35 }, select: 'none', exit: { motion: 'fade', duration: 0.2 } },
+        properties: { text, ...does, variant: 'bar' }
+      })),
+      {
+        type: 'text', id: 'hint', x: 98, y: -76, anchor: 'bottom-left',
+        properties: {
+          text: '[ and ] change load · 1-9 toggle layers · C holds the hour · W holds the weather · P pauses the camera · H hides the HUD',
+          fontSize: '$font.size.caption', letterSpacing: '$font.tracking.wide', color: '$color.text.muted'
+        }
+      }
+    ]
+  })
 });
 
 game.sceneManager.addScene('showcase', {

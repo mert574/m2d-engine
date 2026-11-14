@@ -12,7 +12,7 @@ const ASPHALT = 'rgba(56, 61, 78, 0.95)';
 const EDGE = 'rgba(214, 220, 234, 0.35)';
 const DASH = 'rgba(255, 211, 77, 0.4)';
 
-class NightLap {
+export class NightLap {
   constructor(seed = 9) {
     this.rng = makeRng(seed);
     this.size = { width: 0, height: 0 };
@@ -155,11 +155,3 @@ class NightLap {
     paint.drawArc({ x: pose.x + cos * size, y: pose.y + sin * size, radius: size * 0.3, fillStyle: '#fff2cf' });
   }
 }
-
-/** `UIBackdrop` options for the circuit's menu. */
-export const menuBackdrop = {
-  gradient: { from: '#0b0d1c', to: '#232743', angle: 160 },
-  layers: [new NightLap()],
-  motes: 14,
-  vignette: 0.5
-};

@@ -4,8 +4,11 @@
  * maze. Returns a boolean grid, true = wall. Cells and walls both occupy one
  * grid square, which is why the dimensions must be odd.
  *
- * Shared by the level (as physics bodies) and the main menu (as a survey
- * drawing), so the two are recognisably the same kind of place.
+ * Not the level's: the courts are scene files, carved once by
+ * `scripts/courtyards.mjs` with this, and the files are the courts. What
+ * still draws from it live is the main menu's survey of a garden (the
+ * `gardenPlan` backdrop layer), so the menu and the courts are
+ * recognisably the same kind of place.
  *
  * @param {number} cols
  * @param {number} rows

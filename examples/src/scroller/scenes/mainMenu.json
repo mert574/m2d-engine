@@ -1,0 +1,112 @@
+{
+  "version": 4,
+  "name": "mainMenu",
+  "type": "ui",
+  "title": "Main Menu",
+  "assets": { "music": { "menu": { "url": "music/nathanrain-stars-at-dawn.ogg", "volume": 0.7 } } },
+  "transition": { "enter": "slide-up", "exit": "fade", "duration": 0.4 },
+  "stagger": 0.08,
+  "music": { "track": "menu" },
+  "elements": [
+    {
+      "type": "backdrop",
+      "id": "scene",
+      "properties": {
+        "from": "#f4b45c",
+        "to": "#f9dda0",
+        "angle": 170,
+        "vignette": 0.42,
+        "layers": ["meadowRest"],
+        "wash": { "side": "left", "strength": 0.55 }
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 120,
+      "y": -170,
+      "anchor": "left",
+      "effects": { "enter": { "motion": "slide-up", "duration": 0.6 } },
+      "properties": {
+        "text": "Beeline",
+        "fontSize": "$font.size.display",
+        "fontWeight": "$font.weight.light",
+        "letterSpacing": "$font.tracking.tight",
+        "color": "#fffaf0"
+      }
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 124,
+      "y": -96,
+      "anchor": "left",
+      "properties": {
+        "text": "AN AUTO-SCROLLER INTO THE DUSK",
+        "fontSize": "$font.size.caption",
+        "fontWeight": "$font.weight.semibold",
+        "letterSpacing": "$font.tracking.widest",
+        "color": "#ffe7a8"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "fly",
+      "x": 120,
+      "y": 30,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.45 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Fly the lane",
+        "onClick": "lane",
+        "variant": "dot",
+        "width": 300,
+        "fontSize": "$font.size.subheading",
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#fff1d8",
+        "selectedColor": "#ffffff",
+        "accentColor": "#ffd23f"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "settings",
+      "x": 220,
+      "y": 96,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.45 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Settings",
+        "action": "settings",
+        "variant": "dot",
+        "width": 300,
+        "fontSize": "$font.size.subheading",
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#fff1d8",
+        "selectedColor": "#ffffff",
+        "accentColor": "#ffd23f"
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": 124,
+      "y": -56,
+      "anchor": "bottom-left",
+      "properties": {
+        "text": "Arrows fly · Space dashes · chain pollen, read the wasps, tear the webs",
+        "fontSize": "$font.size.caption",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "rgba(255, 250, 240, 0.75)"
+      }
+    }
+  ]
+}

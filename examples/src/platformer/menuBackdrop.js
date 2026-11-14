@@ -150,13 +150,3 @@ export class DuskValley {
     }
   }
 }
-
-/** `UIBackdrop` options for the platformer's menu. */
-export const menuBackdrop = {
-  gradient: null,
-  layers: [new DuskValley()],
-  // Fireflies over the near slope.
-  motes: 28,
-  moteColor: '#ffd27a',
-  vignette: 0.5
-};

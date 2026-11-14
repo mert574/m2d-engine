@@ -4,6 +4,7 @@ import {
   EmberPlayer, DuskPlatform, DuskMovingPlatform, GlowCoin, DuskBee, ValleyGate
 } from './duskActors.js';
 import { ValleyBackdrop } from './valleyBackdrop.js';
+import { DuskValley } from './menuBackdrop.js';
 
 /**
  * Ember Valley's definition: the cast and the options its simulation
@@ -12,6 +13,8 @@ import { ValleyBackdrop } from './valleyBackdrop.js';
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
+  // The main menu's painting, which its scene's backdrop names.
+  game.registerBackdropLayer('duskValley', () => new DuskValley());
   for (const [name, actor] of Object.entries({
     Player: EmberPlayer, Bee: DuskBee, Platform: DuskPlatform,
     MovingPlatform: DuskMovingPlatform, Coin: GlowCoin, Trigger: ValleyGate, ValleyBackdrop

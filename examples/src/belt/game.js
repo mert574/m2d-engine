@@ -3,6 +3,7 @@ import { AttackSwing, HitBurst } from '../shared/effects.js';
 import { Rogue, Thug, Lamp, Bound } from './rowActors.js';
 import { Street, Foreground } from './streetScenery.js';
 import assetManifest from './assets.json';
+import { StreetFront } from './menuBackdrop.js';
 
 /**
  * Ash Row's definition: the cast, the asset manifest its scene binds by
@@ -12,6 +13,8 @@ import assetManifest from './assets.json';
 
 /** Register the cast and its assets, on a displayed game or the editor's. */
 export function register(game) {
+  // The main menu's painting, which its scene's backdrop names.
+  game.registerBackdropLayer('streetFront', () => new StreetFront());
   for (const [name, actor] of Object.entries({
     ObliquePlayer: Rogue, Ghost: Thug, Lamp, Bound, Street, Foreground, Trigger
   })) game.registerActor(name, actor);

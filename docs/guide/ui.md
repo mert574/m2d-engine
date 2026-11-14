@@ -202,7 +202,7 @@ screen.add(new UIBackdrop({
 }));
 ```
 
-The built-in layers give every menu the same depth. `layers` is where a menu becomes a place: anything the game draws itself goes between the gradient and the motes. A layer is an object with `draw(paint, frame)` and an optional `update(deltaTime, frame)`, where `frame` is `{ width, height, elapsed }`. It draws through the backdrop's painter, so theme tokens resolve and it fades with the screen. Each example game ships one in its `menuBackdrop.js`: a dusk skyline, a garden plan walked by a bee, a running simulation.
+The built-in layers give every menu the same depth. `layers` is where a menu becomes a place: anything the game draws itself goes between the gradient and the motes. A layer is an object with `draw(paint, frame)` and an optional `update(deltaTime, frame)`, where `frame` is `{ width, height, elapsed }`. It draws through the backdrop's painter, so theme tokens resolve and it fades with the screen. In a UI scene a layer is named rather than built: the game registers it with `game.registerBackdropLayer('nightLap', () => new NightLap())`, and the scene's `backdrop` lists it in `properties.layers`, beside the gradient, motes, vignette and `wash` it sets as data — so the editor draws the menu as it plays. Each example game registers one from its `menuBackdrop.js`: a dusk skyline, a garden plan walked by a bee, a running simulation.
 
 ```javascript
 const horizon = {

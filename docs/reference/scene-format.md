@@ -146,7 +146,7 @@ A level's overlay, drawn over the world and shown in the editor: a list of eleme
 | `minimap` | `size` (width; the height follows the world's shape, or `bounds`), `plot`: prefab name (or `players`, the other players) to a dot colour or `{ shape: dot\|ring\|square\|area\|trail, color, size, by }`. `area` draws a disc the entity's size and `trail` the line the entity gives as its `trail` (an array of points, a worn track). `by { property, values }` changes the style with an entity property: `values` maps the property's value, as text, to the fields that differ (`{ "true": { "color": "#9a70ff" } }` for a sealed gate). `target` (an object id) is ringed, the objective. `properties.background`, `borderColor` |
 | `abilityBar` | The slots of an `Abilities` constraint, `bind { object, constraint }` (the player's `abilities` by default), at the bottom centre unless placed. `icons` maps an ability id to a key in `assets.images` (or a sprite sheet). `properties.slot` (50), `gap` (8), `background`, `borderColor` |
 | `dialogue` | Spoken lines, typed out, opened by a rule's `say` action. `width` (720), `height` (128), at the bottom centre unless placed; `properties.advance`, the input action that advances it (`interact`; E when the project declares none), or a click, and an empty string when game code drives the conversation; `clock` (`frame`, or `game` to type on game time, for a conversation the tick drives); `charsPerSecond` (46), `textColor`, `nameColor`, `background`, `borderColor` |
-| `component` | A HUD widget of the game's own, registered with `game.registerHudComponent(name, make)`: `component` names it, `properties` is handed to it with the element's position |
+| `component` | A UI widget of the game's own, registered with `game.registerUIComponent(name, make)`: `component` names it, `properties` is handed to it with the element's position. A name nobody registered is refused at load (a headless game, which builds no HUD, does not check) |
 | `image`, `rect` | As in a UI scene |
 
 ## `assets.images`
@@ -438,7 +438,7 @@ An array of UI elements. Every element accepts these keys.
 
 | Key | Required | Meaning |
 | --- | --- | --- |
-| `type` | yes | `"button"`, `"menuItem"`, `"text"`, `"image"`, `"rect"` or `"backdrop"` |
+| `type` | yes | `"button"`, `"menuItem"`, `"text"`, `"image"`, `"rect"`, `"backdrop"` or `"component"` |
 | `id` | yes | Identity, unique within the scene. Same spelling rules as an object's |
 | `x`, `y` | yes for all but a filled rect | Offset from the anchor, in UI units |
 | `anchor` | no | One of `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`, `bottom-right`. Default `top-left` |
@@ -492,6 +492,8 @@ What a menu sits on: the whole screen, under everything after it. It has no posi
 | `motes`, `moteColor` | `0` | Drifting specks, at most 240 |
 | `scanlines`, `vignette` | `0`, `0` | A fine grille, darkness at the edges, 0 to 1 |
 | `seed` | `1` | Which layout of motes |
+| `layers` | | Painting of the game's own, drawn over the gradient and under the motes, in order: names the game registers with `game.registerBackdropLayer(name, make)`, each made fresh for the scene. Drawn in the editor too. A name nobody registered is refused at load |
+| `wash` | | `{ side, strength }`: darkness against one edge (`left`, `right`, `top` or `bottom`, default `left`) fading out across most of the screen, `strength` 0 to 1 (default 0.8), drawn over the layers and under the motes, so type set against that edge stays legible over a busy picture |
 
 ### `text`
 
@@ -504,8 +506,13 @@ What a menu sits on: the whole screen, under everything after it. It has no posi
 | `fontFamily` | The theme's UI face | |
 | `fontWeight` | `$font.weight.regular` | `100`–`900`; the shipped face is variable, so every step is a real weight |
 | `fontStyle` | `normal` | `italic` for italic |
+| `letterSpacing` | `0` | In UI units, or a `$font.tracking` token |
 | `color` | `$color.text.primary` | |
 | `align` | `left` | `left`, `center` or `right` |
+
+### `component`
+
+A widget of the game's own, placed like any element: what a menu shows that the file cannot say, such as a player's best lap. `component` names one the game registers with `game.registerUIComponent(name, make)` — the same registry a level's HUD places from — and `properties` is handed to it. `make(scene, element)` returns the UI element; `element` carries `x`, `y`, `anchor` and `properties`. A name nobody registered is refused at load.
 
 ### `image`
 

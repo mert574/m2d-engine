@@ -95,10 +95,3 @@ export class TreeLine {
     }
   }
 }
-
-export const menuBackdrop = {
-  gradient: { from: '#2a1a2e', to: '#0a1410', angle: 170 },
-  layers: [new TreeLine()],
-  motes: 0,
-  vignette: 0.55
-};

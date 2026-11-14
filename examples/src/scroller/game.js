@@ -2,6 +2,7 @@ import { InputSchema } from 'm2d-engine/net/input.js';
 import { Meadow, ForeMeadow } from './meadowScenery.js';
 import { ScrollFront, Bee, Flower, Pollen, Thistle, Wasp, Web, Hive } from './meadowActors.js';
 import { BeeStatus } from './beeHud.js';
+import { MeadowRest } from './menuBackdrop.js';
 
 /**
  * Beeline's definition: the cast, the input a client may send, and
@@ -24,6 +25,8 @@ export const BEELINE_INPUT = new InputSchema({
 
 /** Register the cast on a game, displayed or headless. */
 export function register(game) {
+  // The main menu's painting, which its scene's backdrop names.
+  game.registerBackdropLayer('meadowRest', () => new MeadowRest());
   for (const [name, actor] of Object.entries(ACTORS)) game.registerActor(name, actor);
   // The bee's readout, which the lane's hud places by name. Only ever
   // built where there is a screen to show it on.

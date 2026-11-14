@@ -153,9 +153,9 @@ export class SceneHud {
         return made;
       }
       case 'component': {
-        const make = this.game.hudComponents?.get(element.component);
+        const make = this.game.uiComponents?.get(element.component);
         if (!make) {
-          console.warn(`M2D hud: no HUD component '${element.component}' is registered (game.registerHudComponent)`);
+          console.warn(`M2D hud: no UI component '${element.component}' is registered (game.registerUIComponent)`);
           return null;
         }
         return make(this.scene, { ...placed(common), properties });

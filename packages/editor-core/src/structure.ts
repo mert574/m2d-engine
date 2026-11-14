@@ -514,7 +514,7 @@ export function demoteObjectToProp(doc: unknown, objectPath: PathSegment[]): { o
 // --- UI elements (E9) ------------------------------------------------------
 
 /** What each element kind starts as: a valid value the loader accepts whole. */
-export const ELEMENT_KINDS = ['button', 'menuItem', 'text', 'image', 'rect', 'backdrop'] as const;
+export const ELEMENT_KINDS = ['button', 'menuItem', 'text', 'image', 'rect', 'backdrop', 'component'] as const;
 export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
 /**
@@ -522,10 +522,11 @@ export type ElementKind = (typeof ELEMENT_KINDS)[number];
  * a unique id, a position, a centre anchor, and for a button one thing to
  * do — `onClick` to `scene` when the project has a level to go to, else a
  * named `action` for the game's `onAction` hook. An image needs a sprite;
- * `sprite` names one (the caller usually passes the first sheet).
+ * `sprite` names one (the caller usually passes the first sheet). A
+ * component needs a widget the game registered; `component` names one.
  */
 export function addElement(
-  doc: unknown, kind: ElementKind, options: { scene?: string; sprite?: string } = {}
+  doc: unknown, kind: ElementKind, options: { scene?: string; sprite?: string; component?: string } = {}
 ): { ops: Op[]; id: string; index: number } {
   const id = uniqueId(doc, kind);
   const element: Record<string, unknown> = kind === 'backdrop' ? { type: kind, id } : { type: kind, id, x: 0, y: 0, anchor: 'center' };
@@ -539,6 +540,9 @@ export function addElement(
   } else if (kind === 'image') {
     if (!options.sprite) throw new Error('an image element needs a sprite sheet; add one to assets.spritesheets first');
     element.sprite = options.sprite;
+  } else if (kind === 'component') {
+    if (!options.component) throw new Error('a component element needs a UI component; the game registers one with game.registerUIComponent');
+    element.component = options.component;
   } else {
     element.width = 200;
     element.height = 100;
@@ -559,7 +563,7 @@ export function addElement(
  * Change an element's kind, keeping what every kind shares — id, position,
  * anchor — instead of wiping them the way a raw variant swap would.
  */
-export function changeElementType(doc: unknown, elementPath: PathSegment[], kind: ElementKind, options: { scene?: string; sprite?: string } = {}): Op[] {
+export function changeElementType(doc: unknown, elementPath: PathSegment[], kind: ElementKind, options: { scene?: string; sprite?: string; component?: string } = {}): Op[] {
   const element = valueAt(doc, elementPath);
   if (!isPlainObject(element)) throw new Error('not a UI element');
   const { ops } = addElement({ elements: [] }, kind, options);

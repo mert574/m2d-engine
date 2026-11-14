@@ -3,6 +3,7 @@ import { AttackSwing, HitBurst } from '../shared/effects.js';
 import { Wall, Torch, Ember, Stair, Creature, Knight, Quartermaster } from './keepActors.js';
 import { keepIntents, newPurse } from './keepIntents.js';
 import { SatchelBar } from './satchelUI.js';
+import { VaultPlan } from './menuBackdrop.js';
 
 /**
  * Cinder Keep's simulation: the actors, the intents and the keep's rules,
@@ -42,6 +43,8 @@ const SPREAD = [[0, 0], [64, 0], [-64, 0], [0, 64], [64, 64], [-64, 64], [128, 0
 
 /** Register the cast and the intents, on a displayed game, a headless one or a client. */
 export function registerKeep(game) {
+  // The main menu's painting, which its scene's backdrop names.
+  game.registerBackdropLayer('vaultPlan', () => new VaultPlan());
   for (const [name, actor] of Object.entries({
     ObliquePlayer: Knight, Ghost: Creature, Wall, Torch, Coin: Ember, Trigger: Stair, Quartermaster
   })) game.registerActor(name, actor);

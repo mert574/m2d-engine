@@ -149,7 +149,7 @@ describe('every kind has a control', () => {
     inspector().show('elements', inspectNode(ui, ['elements']));
     const variant = container.querySelector<HTMLSelectElement>('[data-key="0"] select.variant, .card-head select.variant')!;
     expect(variant).toBeTruthy();
-    expect([...variant.options].map((o) => o.textContent)).toEqual(['button', 'text', 'image', 'menuItem', 'backdrop', 'rect']);
+    expect([...variant.options].map((o) => o.textContent)).toEqual(['button', 'text', 'image', 'menuItem', 'backdrop', 'component', 'rect']);
     expect(variant.selectedOptions[0]?.textContent).toBe('rect');
     variant.value = '0';
     variant.dispatchEvent(new Event('change'));

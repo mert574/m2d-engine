@@ -241,11 +241,3 @@ function segmentDistance(px, py, ax, ay, bx, by) {
   const t = length === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / length));
   return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
 }
-
-/** `UIBackdrop` options for the garden's menu. */
-export const menuBackdrop = {
-  gradient: { from: '#16200f', to: '#2a3b1c', angle: 120 },
-  layers: [new GardenPlan()],
-  motes: 14,
-  vignette: 0.5
-};

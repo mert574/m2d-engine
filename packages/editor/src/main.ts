@@ -311,6 +311,8 @@ const inspector = createInspector(inspectorPanel, {
     if (scope === 'environment') return keys(assetBlock.environments);
     if (scope === 'actor') return [...(viewport.registries.actors?.keys() ?? [])];
     if (scope === 'constraint') return [...(viewport.registries.constraintTypes?.keys() ?? [])];
+    if (scope === 'uiComponent') return [...(viewport.registries.uiComponents?.keys() ?? [])];
+    if (scope === 'backdropLayer') return [...(viewport.registries.backdropLayers?.keys() ?? [])];
     if (scope === 'scene') return project?.scenes.flatMap((scene) => (scene.name ? [scene.name] : [])) ?? [];
     return [];
   }
@@ -1073,7 +1075,8 @@ function addElementOf(kind: structure.ElementKind): void {
     const assetsBlock = isPlainObject(remote.doc.data.assets) ? remote.doc.data.assets : {};
     const sheets = Object.keys(isPlainObject(assetsBlock.spritesheets) ? assetsBlock.spritesheets : {});
     const scene = project?.scenes.find((each) => each.name && each.path !== entry?.path)?.name ?? undefined;
-    const { ops, id } = structure.addElement(remote.doc.data, kind, { scene, sprite: sheets[0] });
+    const component = [...(viewport.registries.uiComponents?.keys() ?? [])][0];
+    const { ops, id } = structure.addElement(remote.doc.data, kind, { scene, sprite: sheets[0], component });
     edit({ label: `Add ${kind} ${id}`, ops });
     select({ ids: [id] });
   } catch (error) {

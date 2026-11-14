@@ -969,6 +969,9 @@ export const SELECT_EFFECTS = ['none', 'glow', 'shake', 'pulse', 'lift'];
 /** How a whole UI scene arrives and leaves; see ui/transitions.js. */
 export const SCENE_TRANSITIONS = ['none', 'fade', 'slide-up', 'slide-down', 'scale'];
 
+/** The edge a backdrop's wash darkens, where a menu's type sits. */
+export const BACKDROP_WASH_SIDES = ['left', 'right', 'top', 'bottom'];
+
 /** How a menu item shows that it is selected; see ui/menuItem.js. */
 export const MENU_ITEM_VARIANTS = ['bar', 'bracket', 'underline', 'block', 'dot'];
 
@@ -1005,7 +1008,7 @@ function refineButton(element, { path, fail }) {
 }
 
 /** The kinds of element a UI scene may hold. */
-export const UI_KINDS = ['button', 'menuItem', 'text', 'image', 'rect', 'backdrop'];
+export const UI_KINDS = ['button', 'menuItem', 'text', 'image', 'rect', 'backdrop', 'component'];
 
 const ELEMENTS = s.tagged('type', {
   button: s.object({
@@ -1037,6 +1040,7 @@ const ELEMENTS = s.tagged('type', {
       fontFamily: styled('font'),
       fontWeight: styled('font'),
       fontStyle: styled('font'),
+      letterSpacing: styled('size', 'Letter spacing'),
       color: styled('color'),
       align: styled('align')
     })
@@ -1088,9 +1092,20 @@ const ELEMENTS = s.tagged('type', {
       moteColor: colour({ label: 'Mote colour' }),
       scanlines: s.number({ min: 0, max: 1, initial: 0 }),
       vignette: s.number({ min: 0, max: 1, initial: 0 }),
-      seed: s.integer({ min: 0, initial: 1 })
+      seed: s.integer({ min: 0, initial: 1 }),
+      layers: s.array(s.ref('backdropLayer'), { description: 'Painting of the game\'s own, drawn over the gradient and under the motes: names the game registers with game.registerBackdropLayer' }),
+      wash: s.object({
+        side: s.enumOf(BACKDROP_WASH_SIDES, { initial: 'left', description: 'The edge the type sits against' }),
+        strength: s.number({ min: 0, max: 1, initial: 0.8, description: 'How dark it is at that edge' })
+      }, { label: 'Wash', description: 'Darkness behind the type, fading toward the art, so a busy picture never takes the menu with it' })
     })
   }, { label: 'Backdrop' }),
+
+  component: s.object({
+    ...UI_COMMON,
+    component: s.ref('uiComponent', { required: true, description: 'A UI widget the game registers with game.registerUIComponent' }),
+    properties: s.any({ description: 'Handed to the widget' })
+  }, { label: 'Component' }),
 
   rect: s.object({
     ...UI_COMMON,
@@ -1184,7 +1199,7 @@ const HUD_ELEMENTS = s.tagged('type', {
   }),
   component: s.object({
     ...ELEMENT_COMMON,
-    component: s.string({ required: true, nonEmpty: true, description: 'A HUD widget the game registers with game.registerHudComponent' }),
+    component: s.ref('uiComponent', { required: true, description: 'A UI widget the game registers with game.registerUIComponent' }),
     properties: s.any({ description: 'Handed to the widget' })
   }, { label: 'Component' }),
   dialogue: s.object({

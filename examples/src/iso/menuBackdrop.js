@@ -57,10 +57,3 @@ export class VaultPlan {
     }
   }
 }
-
-export const menuBackdrop = {
-  gradient: { from: '#1a1210', to: '#07060a', angle: 160 },
-  layers: [new VaultPlan()],
-  motes: 0,
-  vignette: 0.6
-};

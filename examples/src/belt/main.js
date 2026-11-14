@@ -12,12 +12,13 @@
  * - a flat texture stretched into a projected tile layer (`stretch`);
  * - waves spawned from scene data through `game.createEntity`, and the
  *   depth sort putting whoever is lower on the street in front.
+ *
+ * The page boots the project (m2d.project.json); the main menu is a scene
+ * too (`scenes/mainMenu.json`): an arcade marquee.
  */
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { bootProject } from 'm2d-engine/core/project.js';
-import { registerMainMenu } from '../shared/mainMenu.js';
-import { lastTransmission, audioOption } from '../shared/audio.js';
-import { menuBackdrop } from './menuBackdrop.js';
+import { audioOption } from '../shared/audio.js';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 
@@ -27,19 +28,7 @@ const game = await bootProject(document.getElementById('screen'), {
   scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
   // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'belt/',
-  options: { music: { menu: { src: lastTransmission, volume: 0.7 } } },
   setup(game) {
-    registerMainMenu(game, {
-      title: 'Ash Row',
-      subtitle: 'a belt scroller',
-      hint: 'Arrows move · Space jumps · X chains punches · C sweeps · air X drop-kicks',
-      backdrop: menuBackdrop,
-      items: () => [
-        { text: 'Walk the row', onSelect: () => game.sceneManager.switchTo('row') },
-        { text: 'Settings', onSelect: () => game.settings.open() }
-      ],
-      onEnter: () => game.soundManager.playMusic('menu')
-    });
     game.settings.addOption(audioOption(game));
   }
 });

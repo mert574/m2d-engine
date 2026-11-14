@@ -82,6 +82,10 @@ export class UIBackdrop extends UIElement {
    * @param {number} [options.vignette=0] - Strength of the edge darkening
    * @param {number} [options.seed=1] - Fixes the mote layout, so a menu looks
    *   the same every time it is opened
+   * @param {{side?: 'left'|'right'|'top'|'bottom', strength?: number}|null} [options.wash]
+   *   - Darkness against one edge, fading out across most of the frame,
+   *   drawn over the layers and under the motes: the type set against that
+   *   edge stays legible over a busy picture
    */
   constructor(options = {}) {
     super({ pivot: 'top-left', ...options });
@@ -97,6 +101,7 @@ export class UIBackdrop extends UIElement {
     this.moteColor = options.moteColor ?? '$color.text.accent';
     this.scanlines = options.scanlines ?? 0;
     this.vignette = options.vignette ?? 0;
+    this.wash = options.wash ? { side: options.wash.side ?? 'left', strength: options.wash.strength ?? 0.8 } : null;
     this.layers = (options.layers ?? []).map((layer) =>
       typeof layer === 'function' ? { draw: layer } : layer
     );
@@ -168,6 +173,7 @@ export class UIBackdrop extends UIElement {
     this.#drawImage(width, height);
     this.#drawGradient(width, height);
     this.#drawLayers();
+    this.#drawWash(width, height);
     this.#drawMotes(width, height);
     this.#drawScanlines(width, height);
     this.#drawVignette(width, height);
@@ -186,6 +192,36 @@ export class UIBackdrop extends UIElement {
     if (this.layers.length === 0) return;
     const frame = this.#layerFrame();
     for (const layer of this.layers) layer.draw?.(this.paint, frame);
+  }
+
+  /**
+   * Every shipped menu with a picture behind it darkens where its type
+   * sits: Control keeps its list on a near-black panel, Portal 2 lets the
+   * environment go dark on the left. Without it a bright skyline or a
+   * sweep passing under the title makes the type flicker in and out.
+   */
+  #drawWash(width, height) {
+    if (!this.wash || !(this.wash.strength > 0)) return;
+    const { side, strength } = this.wash;
+    const across = side === 'left' || side === 'right' ? width : height;
+    const reach = across * 0.62;
+    const [x0, y0, x1, y1] = {
+      left: [0, 0, reach, 0],
+      right: [width, 0, width - reach, 0],
+      top: [0, 0, 0, reach],
+      bottom: [0, height, 0, height - reach]
+    }[side];
+    this.paint.drawRect({
+      x: 0, y: 0, width, height,
+      fillStyle: {
+        type: 'linear', x0, y0, x1, y1,
+        stops: [
+          { offset: 0, color: `rgba(3, 5, 9, ${strength})` },
+          { offset: 0.5, color: `rgba(3, 5, 9, ${strength * 0.55})` },
+          { offset: 1, color: 'rgba(3, 5, 9, 0)' }
+        ]
+      }
+    });
   }
 
   #drawGradient(width, height) {

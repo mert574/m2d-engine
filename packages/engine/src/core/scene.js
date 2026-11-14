@@ -1128,7 +1128,8 @@ export class Scene {
             fontFamily: properties.fontFamily,
             fontWeight: properties.fontWeight,
             fontStyle: properties.fontStyle,
-            align: properties.align
+            align: properties.align,
+            ...defined({ letterSpacing: properties.letterSpacing })
           });
           break;
 
@@ -1191,14 +1192,32 @@ export class Scene {
               moteColor: properties.moteColor,
               scanlines: properties.scanlines,
               vignette: properties.vignette,
-              seed: properties.seed
+              seed: properties.seed,
+              wash: properties.wash,
+              layers: properties.layers?.length ? this.#backdropLayers(properties.layers) : undefined
             })
           });
           break;
+
+        case 'component': {
+          const make = this.game.uiComponents?.get(element.component);
+          if (!make) throw new Error(`M2D: UI component '${element.component}' is not registered (game.registerUIComponent)`);
+          made = make(this, { ...common, properties });
+          break;
+        }
       }
       if (!made) return;
       this.ui.add(made);
       if (element.id) this.uiById.set(element.id, made);
+    });
+  }
+
+  /** Fresh layers for a backdrop, each made by the painter its name is registered under. */
+  #backdropLayers(names) {
+    return names.map((name) => {
+      const make = this.game.backdropLayers?.get(name);
+      if (!make) throw new Error(`M2D: backdrop layer '${name}' is not registered (game.registerBackdropLayer)`);
+      return make();
     });
   }
 

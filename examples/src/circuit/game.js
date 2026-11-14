@@ -2,6 +2,8 @@ import { RaceDirector } from './raceDirector.js';
 import { Road } from './road.js';
 import { RaceHud } from './raceHud.js';
 import { TrafficCar, Cone, Barrel, OilSlick, BoostPad, GateArm, Checkpoint } from './actors.js';
+import { NightLap } from './menuBackdrop.js';
+import { registerMenuParts } from './menuParts.js';
 
 /**
  * Night Circuit's definition: the cast the circuits place, and nothing
@@ -17,9 +19,12 @@ import { TrafficCar, Cone, Barrel, OilSlick, BoostPad, GateArm, Checkpoint } fro
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
+  // The main menu's painting, which its scene's backdrop names.
+  game.registerBackdropLayer('nightLap', () => new NightLap());
   for (const [name, actor] of Object.entries({
     Road, RaceDirector, TrafficCar, Cone, Barrel, OilSlick, BoostPad, GateArm, Checkpoint
   })) game.registerActor(name, actor);
   // The live readout, which each circuit's hud places by name.
-  game.registerHudComponent('raceHud', (scene, element) => new RaceHud(scene, element));
+  game.registerUIComponent('raceHud', (scene, element) => new RaceHud(scene, element));
+  registerMenuParts(game);
 }

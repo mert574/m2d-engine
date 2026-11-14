@@ -1,0 +1,108 @@
+{
+  "version": 4,
+  "name": "mainMenu",
+  "type": "ui",
+  "title": "Main Menu",
+  "assets": { "music": { "menu": { "url": "music/kloquewurk-last-transmission.ogg", "volume": 0.7 } } },
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.3 },
+  "stagger": 0.14,
+  "music": { "track": "menu" },
+  "elements": [
+    {
+      "type": "backdrop",
+      "id": "scene",
+      "properties": {
+        "from": "#1a1210",
+        "to": "#07060a",
+        "angle": 160,
+        "vignette": 0.6,
+        "layers": ["vaultPlan"],
+        "wash": { "side": "left", "strength": 0.8 }
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 110,
+      "y": -300,
+      "anchor": "bottom-left",
+      "effects": { "enter": { "motion": "fade", "duration": 0.8 } },
+      "properties": {
+        "text": "Cinder Keep",
+        "fontSize": "$font.size.title",
+        "fontWeight": "$font.weight.semibold",
+        "letterSpacing": "$font.tracking.tight",
+        "color": "#ffd9a8"
+      }
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 112,
+      "y": -252,
+      "anchor": "bottom-left",
+      "properties": {
+        "text": "AN ISOMETRIC VIEW",
+        "fontSize": "$font.size.caption",
+        "fontWeight": "$font.weight.medium",
+        "letterSpacing": "$font.tracking.widest",
+        "color": "#ff8a3d"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "descend",
+      "x": 110,
+      "y": -200,
+      "anchor": "bottom-left",
+      "effects": {
+        "enter": { "motion": "fade", "duration": 0.5 },
+        "select": "glow",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Descend",
+        "onClick": "keep",
+        "variant": "dot",
+        "fontSize": "$font.size.subheading",
+        "color": "#b89a7a",
+        "selectedColor": "#ffe2b8",
+        "accentColor": "#ff8a3d"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "settings",
+      "x": 110,
+      "y": -152,
+      "anchor": "bottom-left",
+      "effects": {
+        "enter": { "motion": "fade", "duration": 0.5 },
+        "select": "glow",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Settings",
+        "action": "settings",
+        "variant": "dot",
+        "fontSize": "$font.size.subheading",
+        "color": "#b89a7a",
+        "selectedColor": "#ffe2b8",
+        "accentColor": "#ff8a3d"
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": 112,
+      "y": -64,
+      "anchor": "bottom-left",
+      "properties": {
+        "text": "Click to walk · Arrows move · X swings · 1 2 3 abilities · Wheel zooms · O for settings",
+        "fontSize": "$font.size.caption",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "rgba(255, 217, 168, 0.5)"
+      }
+    }
+  ]
+}

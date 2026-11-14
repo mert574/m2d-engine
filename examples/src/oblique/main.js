@@ -19,11 +19,12 @@
  *   `UIDialogue`, `UIMinimap`, `UIAbilityBar` and `UIMeter` components;
  * - an `Attack` swung at the heading, so it reaches above and below;
  * - per-clip volumes in the `sounds` and `music` options, and camera zoom.
+ *
+ * The page boots the project (m2d.project.json); the main menu is a scene
+ * too (`scenes/mainMenu.json`): a page of a storybook.
  */
 import { bootProject } from 'm2d-engine/core/project.js';
-import { registerMainMenu } from '../shared/mainMenu.js';
-import { enchantedFestival, audioOption } from '../shared/audio.js';
-import { menuBackdrop } from './menuBackdrop.js';
+import { audioOption } from '../shared/audio.js';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 import * as hooks from './hooks.js';
@@ -35,19 +36,7 @@ const game = await bootProject(document.getElementById('screen'), {
   scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
   // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'oblique/',
-  options: { music: { menu: { src: enchantedFestival, volume: 0.5 } } },
   setup(game) {
-    registerMainMenu(game, {
-      title: 'Hollow Grove',
-      subtitle: 'a three-quarter view · a small quest',
-      hint: 'Arrows move · Space hops · X swings · 1 2 3 abilities · E talks · Wheel zooms',
-      backdrop: menuBackdrop,
-      items: () => [
-        { text: 'Enter the grove', onSelect: () => game.sceneManager.switchTo('grove') },
-        { text: 'Settings', onSelect: () => game.settings.open() }
-      ],
-      onEnter: () => game.soundManager.playMusic('menu')
-    });
     game.settings.addOption(audioOption(game));
   }
 });

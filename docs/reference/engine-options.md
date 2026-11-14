@@ -63,7 +63,8 @@
 | Property | What it is |
 | --- | --- |
 | `game.headless` | True for a game built with `headless: true` |
-| `game.hudComponents` | The game's own HUD widgets by name; see `registerHudComponent` |
+| `game.uiComponents` | The game's own UI widgets by name, which a level's `hud` and a UI scene's `elements` place; see `registerUIComponent`. `game.hudComponents` is the same map |
+| `game.backdropLayers` | The game's own painted backdrop layers by name; see `registerBackdropLayer` |
 | `game.actions` | The named input actions: `pressed(name, snapshot)`, `down(name, snapshot)`, `codes(name)`, `rebind(name, codes)`, `reset()`. See [Named actions](../guide/input#named-actions) |
 | `game.players` | The players: `local` and, on a server, one per connection. See [Players](../guide/headless#players) |
 | `game.replica` | True while the game is a client of a server, showing state it does not simulate. See [Multiplayer](../guide/multiplayer#the-client) |
@@ -106,7 +107,9 @@
 | Method | What it does |
 | --- | --- |
 | `start()` | Load sounds, switch to the initial scene and start the loop. Returns a promise. Headless, it switches to the initial scene and starts no loop |
-| `registerHudComponent(name, make)` | Register a HUD widget a level's `hud` places as `{ "type": "component", "component": name }`. `make(scene, element)` returns the UI element; `element` carries `x`, `y`, `anchor` and `properties`. Never called headless |
+| `registerUIComponent(name, make)` | Register a UI widget a level's `hud` or a UI scene places as `{ "type": "component", "component": name }`. `make(scene, element)` returns the UI element; `element` carries `x`, `y`, `anchor` and `properties`. Never called headless |
+| `registerHudComponent(name, make)` | The same as `registerUIComponent`, under the name it had when only a HUD could place one |
+| `registerBackdropLayer(name, make)` | Register a painted layer a UI scene's `backdrop` lists in `properties.layers`. `make()` returns a fresh `{ draw(paint, frame), update?(deltaTime, frame) }` for each scene that names it (see [UI backdrops](../guide/ui)) |
 | `step(ticks)` | Run `ticks` whole ticks now (default 1) and return how many ran. Stops early when a tick requests a scene switch. Not gated on `paused`. A headless game's only way to advance |
 | `reset()` | Destroy constraints, clear entities, physics and layers, reset the camera to defaults, stop music. See [Game loop](../guide/game-loop#resetting) |
 | `destroy()` | Stop the loop and release every listener and resource |

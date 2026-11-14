@@ -429,12 +429,19 @@ export class M2D {
     this.rng = new Rng(this.options.seed);
 
     /**
-     * The game's own HUD widgets, by name: what a level's `hud` places
-     * with `{ "type": "component", "component": name }`. See
-     * `registerHudComponent`.
+     * The game's own UI widgets, by name: what a level's `hud` or a UI
+     * scene's `elements` place with `{ "type": "component", "component":
+     * name }`. See `registerUIComponent`.
      * @type {Map<string, (scene: object, element: object) => object>}
      */
-    this.hudComponents = new Map();
+    this.uiComponents = new Map();
+
+    /**
+     * Painting of the game's own behind a UI scene, by name: what a
+     * `backdrop` element's `layers` list. See `registerBackdropLayer`.
+     * @type {Map<string, () => object>}
+     */
+    this.backdropLayers = new Map();
 
     /**
      * Named input actions (`menu`, `interact`) to the keys that perform
@@ -1029,16 +1036,42 @@ export class M2D {
   }
 
   /**
-   * Register a HUD widget of the game's own, which a level's `hud` places
-   * by name: `{ "type": "component", "component": "satchel", "x": ..., "properties": {...} }`.
-   * `make(scene, element)` returns the UI element, positioned from the
-   * element's `x`, `y` and `anchor` (passed in `element`). Presentation:
-   * a headless game never calls it.
+   * Register a UI widget of the game's own, which a level's `hud` or a UI
+   * scene places by name: `{ "type": "component", "component": "satchel",
+   * "x": ..., "properties": {...} }`. `make(scene, element)` returns the UI
+   * element, positioned from the element's `x`, `y` and `anchor` (passed
+   * in `element`). Presentation: a headless game never calls it. A scene
+   * naming a component nobody registered is refused at load.
    * @param {string} name
    * @param {(scene: import('./scene.js').Scene, element: object) => import('./ui/uiElement.js').UIElement} make
    */
+  registerUIComponent(name, make) {
+    this.uiComponents.set(name, make);
+  }
+
+  /** The name `registerUIComponent` had when only a HUD could place one; the same registry. */
   registerHudComponent(name, make) {
-    this.hudComponents.set(name, make);
+    this.registerUIComponent(name, make);
+  }
+
+  /** The HUD's view of `uiComponents`, under its older name. */
+  get hudComponents() {
+    return this.uiComponents;
+  }
+
+  /**
+   * Register a painted layer for UI backdrops: a menu's skyline, a radar
+   * sweep, a lap running behind the type. A `backdrop` element lists it
+   * by name in `properties.layers`, drawn between the gradient and the
+   * motes, in the editor too. `make()` returns a fresh layer,
+   * `{ draw(paint, frame), update?(deltaTime, frame) }` (see
+   * `ui/backdrop.js`), so two scenes never share one's state. A scene
+   * naming a layer nobody registered is refused at load.
+   * @param {string} name
+   * @param {() => {draw: Function, update?: Function}} make
+   */
+  registerBackdropLayer(name, make) {
+    this.backdropLayers.set(name, make);
   }
 
   registerActor(type, ActorClass) {

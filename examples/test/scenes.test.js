@@ -47,4 +47,17 @@ describe('each declared game loads its scenes with its own classes', async () =>
     const data = JSON.parse(readFileSync(path, 'utf8'));
     expect(() => new SceneLoader(game).load(data)).not.toThrow();
   });
+
+  // A headless game builds no UI, so the loader leaves presentation names
+  // to a displayed one; the definition registers them all the same.
+  it.each(cases)('$label names only widgets and paintings its game registers', ({ game, path }) => {
+    const data = JSON.parse(readFileSync(path, 'utf8'));
+    const elements = [...(data.elements ?? []), ...(data.hud ?? [])];
+    for (const element of elements) {
+      if (element.type === 'component') expect(game.uiComponents.has(element.component), `${element.id}: ${element.component}`).toBe(true);
+      for (const layer of element.properties?.layers ?? []) {
+        if (element.type === 'backdrop') expect(game.backdropLayers.has(layer), `${element.id}: ${layer}`).toBe(true);
+      }
+    }
+  });
 });

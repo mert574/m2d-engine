@@ -159,11 +159,3 @@ export class MotionTracker {
     });
   }
 }
-
-/** `UIBackdrop` options for the top-down game's menu. */
-export const menuBackdrop = {
-  gradient: { from: '#080412', to: '#1a0e2c', angle: 115 },
-  layers: [new MotionTracker()],
-  motes: 0,
-  vignette: 0.62
-};

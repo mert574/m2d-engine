@@ -60,10 +60,3 @@ export class StreetFront {
     }
   }
 }
-
-export const menuBackdrop = {
-  gradient: { from: '#79b7e8', to: '#cfe6f4', angle: 180 },
-  layers: [new StreetFront()],
-  motes: 0,
-  vignette: 0.3
-};

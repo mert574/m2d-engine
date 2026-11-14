@@ -323,6 +323,14 @@ export interface ShowOptions {
   };
 }
 
+/** The names a shown game resolves a scene's references against. */
+export type Registries = {
+  actors?: Map<string, unknown>;
+  constraintTypes?: Map<string, unknown>;
+  uiComponents?: Map<string, unknown>;
+  backdropLayers?: Map<string, unknown>;
+};
+
 export class Viewport {
   /**
    * The canvas the current game draws on. Each show gets a fresh one:
@@ -1329,9 +1337,9 @@ export class Viewport {
    * `properties` and `params` the way the loader did. Empty before a game
    * is up, which leaves those regions free-form.
    */
-  get registries(): { actors?: Map<string, unknown>; constraintTypes?: Map<string, unknown> } {
-    const game = this.#game as unknown as { actors?: Map<string, unknown>; constraintTypes?: Map<string, unknown> } | null;
-    return game ? { actors: game.actors, constraintTypes: game.constraintTypes } : {};
+  get registries(): Registries {
+    const game = this.#game as unknown as Registries | null;
+    return game ? { actors: game.actors, constraintTypes: game.constraintTypes, uiComponents: game.uiComponents, backdropLayers: game.backdropLayers } : {};
   }
 
   /** Nothing of a game may outlive this; see the engine's teardown rule. */

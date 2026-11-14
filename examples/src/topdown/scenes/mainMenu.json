@@ -1,0 +1,110 @@
+{
+  "version": 4,
+  "name": "mainMenu",
+  "type": "ui",
+  "title": "Main Menu",
+  "assets": { "music": { "menu": { "url": "music/kloquewurk-last-transmission.ogg" } } },
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.2 },
+  "stagger": 0.12,
+  "music": { "track": "menu" },
+  "elements": [
+    {
+      "type": "backdrop",
+      "id": "scene",
+      "properties": {
+        "from": "#080412",
+        "to": "#1a0e2c",
+        "angle": 115,
+        "scanlines": 0.22,
+        "vignette": 0.62,
+        "layers": ["motionTracker"],
+        "wash": { "side": "left", "strength": 0.7 }
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 96,
+      "y": 96,
+      "anchor": "top-left",
+      "effects": { "enter": { "motion": "type", "duration": 0.5 } },
+      "properties": {
+        "text": "> TOP-DOWN",
+        "fontSize": "$font.size.title",
+        "fontFamily": "$font.mono",
+        "color": "#b48cff"
+      }
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 100,
+      "y": 152,
+      "anchor": "top-left",
+      "effects": { "enter": { "motion": "type", "duration": 0.4 } },
+      "properties": {
+        "text": "// a demonstration",
+        "fontSize": "$font.size.label",
+        "fontFamily": "$font.mono",
+        "color": "#6f5a96"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "start",
+      "x": 96,
+      "y": 230,
+      "anchor": "top-left",
+      "effects": {
+        "enter": { "motion": "type", "duration": 0.35 },
+        "select": "shake",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Start Game",
+        "onClick": "level1",
+        "variant": "bracket",
+        "fontFamily": "$font.mono",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "#8f7ab8",
+        "selectedColor": "#efe6ff",
+        "accentColor": "#b48cff"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "settings",
+      "x": 96,
+      "y": 278,
+      "anchor": "top-left",
+      "effects": {
+        "enter": { "motion": "type", "duration": 0.35 },
+        "select": "shake",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Settings",
+        "action": "settings",
+        "variant": "bracket",
+        "fontFamily": "$font.mono",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "#8f7ab8",
+        "selectedColor": "#efe6ff",
+        "accentColor": "#b48cff"
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": 100,
+      "y": -56,
+      "anchor": "bottom-left",
+      "properties": {
+        "text": "Arrows move · X attacks · O for settings",
+        "fontSize": "$font.size.caption",
+        "fontFamily": "$font.mono",
+        "color": "rgba(180, 140, 255, 0.5)"
+      }
+    }
+  ]
+}

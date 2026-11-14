@@ -1,5 +1,6 @@
 import { AmberBall, WoodCrate, Housing, Girder, Peg, Spout } from './machineActors.js';
 import { WorkshopBackdrop } from './workshopBackdrop.js';
+import { GaltonBoard } from './menuBackdrop.js';
 
 /**
  * The playground's definition: the cast the workshop places, and nothing
@@ -12,6 +13,8 @@ import { WorkshopBackdrop } from './workshopBackdrop.js';
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
+  // The main menu's painting, which its scene's backdrop names.
+  game.registerBackdropLayer('galtonBoard', () => new GaltonBoard());
   for (const [name, actor] of Object.entries({
     Ball: AmberBall, Box: WoodCrate, Housing, Girder, Peg, Spout, WorkshopBackdrop
   })) game.registerActor(name, actor);

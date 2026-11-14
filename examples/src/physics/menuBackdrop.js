@@ -246,11 +246,3 @@ export class GaltonBoard {
     }
   }
 }
-
-/** `UIBackdrop` options for the physics playground's menu. */
-export const menuBackdrop = {
-  gradient: { from: '#110904', to: '#2c1a0d', angle: 120 },
-  layers: [new GaltonBoard()],
-  motes: 0,
-  vignette: 0.55
-};

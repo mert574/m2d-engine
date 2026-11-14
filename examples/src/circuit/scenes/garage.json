@@ -1,0 +1,167 @@
+{
+  "version": 4,
+  "name": "garage",
+  "type": "ui",
+  "title": "Garage",
+  "assets": {
+    "images": {
+      "carRed": { "url": "textures/car_red_1.png" },
+      "carBlue": { "url": "textures/car_blue_1.png" },
+      "carGreen": { "url": "textures/car_green_1.png" }
+    }
+  },
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.2 },
+  "stagger": 0.05,
+  "elements": [
+    {
+      "type": "backdrop",
+      "id": "scene",
+      "properties": {
+        "from": "#0b0d1c",
+        "to": "#232743",
+        "angle": 160,
+        "vignette": 0.5,
+        "layers": ["nightLap"],
+        "wash": { "side": "left", "strength": 0.94 }
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 96,
+      "y": 120,
+      "anchor": "top-left",
+      "properties": {
+        "text": "Choose a car",
+        "fontSize": "$font.size.title",
+        "fontWeight": "$font.weight.thin",
+        "letterSpacing": "$font.tracking.tight",
+        "color": "#ffffff"
+      }
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 98,
+      "y": 172,
+      "anchor": "top-left",
+      "properties": {
+        "text": "SPEED AGAINST HANDLING",
+        "fontSize": "$font.size.caption",
+        "fontWeight": "$font.weight.medium",
+        "letterSpacing": "$font.tracking.widest",
+        "color": "#ffd34d"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "car-sprint",
+      "x": 96,
+      "y": 240,
+      "anchor": "top-left",
+      "effects": {
+        "enter": { "motion": "slide-right", "duration": 0.3 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Sprint",
+        "action": "car:sprint",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "car-balanced",
+      "x": 96,
+      "y": 290,
+      "anchor": "top-left",
+      "effects": {
+        "enter": { "motion": "slide-right", "duration": 0.3 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Tourer",
+        "action": "car:balanced",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "car-drift",
+      "x": 96,
+      "y": 340,
+      "anchor": "top-left",
+      "effects": {
+        "enter": { "motion": "slide-right", "duration": 0.3 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Slider",
+        "action": "car:drift",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "back",
+      "x": 96,
+      "y": 420,
+      "anchor": "top-left",
+      "effects": {
+        "enter": { "motion": "slide-right", "duration": 0.3 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Back to the grid",
+        "onClick": "mainMenu",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "component",
+      "id": "onShow",
+      "x": 220,
+      "y": -20,
+      "anchor": "center",
+      "component": "carOnShow",
+      "properties": { "portraits": { "carRed": "carRed", "carBlue": "carBlue", "carGreen": "carGreen" } }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": 98,
+      "y": -48,
+      "anchor": "bottom-left",
+      "properties": {
+        "text": "Enter picks · Back keeps the car you have",
+        "fontSize": "$font.size.caption",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "rgba(199, 203, 224, 0.5)"
+      }
+    }
+  ]
+}

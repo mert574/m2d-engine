@@ -113,7 +113,7 @@ These games ship with the engine. Each exercises a different part of it. Sources
 
 </div>
 
-Each example opens on a main menu with a scene of its own behind the type, drawn in code through `UIBackdrop` layers, and plays its own pair of tracks from the IDMf netlabel ([credits](./music-credits)). Every example mounts the settings menu, opened with O. Its renderer row reloads the page with `?renderer=canvas` or `?renderer=webgl`, and the same parameter can be typed into the URL. The showcase skips its menu when the parameter is present.
+Each example opens on a main menu that is a UI scene in its project (`scenes/mainMenu.json`), each composed its own way — an arcade marquee, a ship's console, a storybook page, a starting grid — over a painting of its own that the game registers as a backdrop layer, and plays its own pair of tracks from the IDMf netlabel ([credits](./music-credits)). Every example mounts the settings menu, opened with O. Its renderer row reloads the page with `?renderer=canvas` or `?renderer=webgl`, and the same parameter can be typed into the URL. The showcase skips its menu when the parameter is present.
 
 No example locks the pointer; they all leave it free. It is off by default, and a game that wants it asks for it (see [Pointer lock](../guide/input#pointer-lock)).
 

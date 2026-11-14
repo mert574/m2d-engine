@@ -58,13 +58,28 @@ export function makeGame({ actors = [], scenes = [], constraints = [], manifest 
   };
 }
 
-/** The game stub for one demo, its manifest loaded when it ships one. */
+/**
+ * The game stub for one demo, its manifest loaded when it ships one and
+ * its scenes registered as its project registers them, by name — so a
+ * menu's `onClick` to a level of its own resolves, and one to a scene the
+ * game does not have is refused as it would be in play.
+ */
 export function gameFor(example) {
   return makeGame({
     actors: DEMO_ACTORS[example],
     constraints: DEMO_CONSTRAINTS[example],
-    manifest: manifestFor(example)
+    manifest: manifestFor(example),
+    scenes: sceneNamesOf(example)
   });
+}
+
+/** The names of the scene files a demo ships. */
+function sceneNamesOf(example) {
+  const dir = join(import.meta.dirname, '..', 'src', example, 'scenes');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((f) => f.endsWith('.json'))
+    .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')).name)
+    .filter(Boolean);
 }
 
 /** A demo's asset manifest, if it ships one beside its scenes. */
@@ -116,13 +131,15 @@ export async function projectGames() {
     await initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
     const game = new M2D(null, { ...options, headless: true });
     definition.register(game);
-    const scenes = join(root, config.scenes ?? 'scenes');
-    return {
-      name: config.name,
-      root,
-      game,
-      scenes: readdirSync(scenes).filter(f => f.endsWith('.json')).map(f => join(scenes, f))
-    };
+    const sceneDir = join(root, config.scenes ?? 'scenes');
+    const scenes = readdirSync(sceneDir).filter(f => f.endsWith('.json')).map(f => join(sceneDir, f));
+    // Registered by name, as bootProject registers them: a menu's onClick
+    // to a level of the game's resolves, and a typo is refused.
+    for (const path of scenes) {
+      const data = JSON.parse(readFileSync(path, 'utf8'));
+      game.sceneManager.addScene(data.name, { fetch: async () => data });
+    }
+    return { name: config.name, root, game, scenes };
   }));
 }
 

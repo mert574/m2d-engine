@@ -430,6 +430,17 @@ export class SceneLoader {
       refs.constraint = scope(this.game.constraintTypes.keys(),
         (name, known) => `constraint '${name}' is not registered (registered: ${known.join(', ') || 'none'})`);
     }
+    // Presentation names: a headless game builds no UI and registers none
+    // of the widgets or paintings, so it has nothing to check them against.
+    const shows = !this.game?.headless;
+    if (this.game?.uiComponents && shows) {
+      refs.uiComponent = scope(this.game.uiComponents.keys(),
+        (name, known) => `UI component '${name}' is not registered (game.registerUIComponent; registered: ${known.join(', ') || 'none'})`);
+    }
+    if (this.game?.backdropLayers && shows) {
+      refs.backdropLayer = scope(this.game.backdropLayers.keys(),
+        (name, known) => `backdrop layer '${name}' is not registered (game.registerBackdropLayer; registered: ${known.join(', ') || 'none'})`);
+    }
     if (this.game?.actors) {
       refs.actor = scope(this.game.actors.keys(),
         (name, known) => `actor '${name}' is not registered (registered: ${known.join(', ') || 'none'})`);

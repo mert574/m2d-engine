@@ -94,11 +94,3 @@ export class MeadowRest {
     paint.drawArc({ x: bee.x + 4.5, y: bee.y - 0.5, radius: 2.8, fillStyle: '#e8b23c' });
   }
 }
-
-/** `UIBackdrop` options for Beeline's menu. */
-export const menuBackdrop = {
-  gradient: { from: '#f4b45c', to: '#f9dda0', angle: 170 },
-  layers: [new MeadowRest()],
-  motes: 0,
-  vignette: 0.42
-};

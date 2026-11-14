@@ -59,10 +59,3 @@ export class FieldWindow {
     paint.drawRect({ x: 0, y: height - 6, width, height: 6, fillStyle: 'rgba(140, 190, 255, 0.35)' });
   }
 }
-
-export const menuBackdrop = {
-  gradient: { from: '#06070f', to: '#0b0c1c', angle: 160 },
-  layers: [new FieldWindow()],
-  motes: 0,
-  vignette: 0.5
-};

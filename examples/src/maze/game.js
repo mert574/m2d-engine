@@ -1,5 +1,6 @@
 import { HedgeWall, Gardener, Fountain, FlowerBed } from './gardenActors.js';
 import { GardenBackdrop } from './gardenBackdrop.js';
+import { GardenPlan } from './menuBackdrop.js';
 
 /**
  * Hedgerow Court's definition: the cast the courts place, and nothing
@@ -13,6 +14,8 @@ import { GardenBackdrop } from './gardenBackdrop.js';
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
+  // The main menu's painting, which its scene's backdrop names.
+  game.registerBackdropLayer('gardenPlan', () => new GardenPlan());
   for (const [name, actor] of Object.entries({
     Gardener, Hedge: HedgeWall, Fountain, FlowerBed, GardenBackdrop
   })) game.registerActor(name, actor);

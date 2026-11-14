@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
-import { cpSync, existsSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { ensureDevCert } from './scripts/devCert.mjs';
 
 // Custom plugin to generate sprites
@@ -40,7 +40,11 @@ const assetsPlugin = {
     // Vite cannot discover as imports, so each example's folders of them
     // are copied beside its page in the build's output folder.
     const out = output.dir ?? resolve(import.meta.dirname, 'dist');
-    for (const example of ['platformer', 'maze', 'physics', 'topdown', 'oblique', 'iso', 'belt', 'drift', 'showcase', 'yard']) {
+    // Every example page, read off the folders: a hand-kept list once left
+    // two converted projects shipping their scenes without the files they name.
+    const examples = readdirSync(resolve(import.meta.dirname, 'src'))
+      .filter((name) => existsSync(resolve(import.meta.dirname, `src/${name}/index.html`)));
+    for (const example of examples) {
       for (const folder of ['assets', 'textures', 'models', 'sounds', 'music', 'library']) {
         const source = resolve(import.meta.dirname, `src/${example}/${folder}`);
         if (existsSync(source)) {

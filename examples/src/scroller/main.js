@@ -12,13 +12,11 @@
  * dusk on three wing hearts. The simulation never reads the camera — the
  * `ScrollFront` entity is the window it believes in (see
  * docs/contributing/determinism.md) — so the same lane runs headless on a
- * server (simulate.mjs). Only the main menu is still a code screen, added
- * here until it becomes a UI scene.
+ * server (simulate.mjs). The main menu is a scene too
+ * (`scenes/mainMenu.json`): its lines are flowers along the bee's way.
  */
 import { bootProject } from 'm2d-engine/core/project.js';
-import { registerMainMenu } from '../shared/mainMenu.js';
-import { starsAtDawn, audioOption } from '../shared/audio.js';
-import { menuBackdrop } from './menuBackdrop.js';
+import { audioOption } from '../shared/audio.js';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 
@@ -28,19 +26,7 @@ const game = await bootProject(document.getElementById('screen'), {
   scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
   // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'scroller/',
-  options: { music: { menu: { src: starsAtDawn, volume: 0.7 } } },
   setup(game) {
-    registerMainMenu(game, {
-      title: 'Beeline',
-      subtitle: 'an auto-scroller into the dusk',
-      hint: 'Arrows fly · Space dashes · chain pollen, read the wasps, tear the webs',
-      backdrop: menuBackdrop,
-      items: () => [
-        { text: 'Fly the lane', onSelect: () => game.sceneManager.switchTo('lane') },
-        { text: 'Settings', onSelect: () => game.settings.open() }
-      ],
-      onEnter: () => game.soundManager.playMusic('menu')
-    });
     game.settings.addOption(audioOption(game));
   }
 });

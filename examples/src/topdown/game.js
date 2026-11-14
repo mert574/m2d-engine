@@ -4,6 +4,7 @@ import {
 } from './facilityActors.js';
 import { FloorMarks, CeilingLamp } from './facilityFloor.js';
 import { Sonar } from './sonar.js';
+import { MotionTracker } from './menuBackdrop.js';
 
 /**
  * The facility's definition: the cast and the options its simulation
@@ -12,6 +13,8 @@ import { Sonar } from './sonar.js';
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
+  // The main menu's painting, which its scene's backdrop names.
+  game.registerBackdropLayer('motionTracker', () => new MotionTracker());
   for (const [name, actor] of Object.entries({
     TopDownPlayer: ScannerAgent, Ghost: SpecterGhost, Platform: FacilityWall,
     Coin: DataCore, Trigger: ExtractionPad, Turret: SentryTurret, FloorMarks, CeilingLamp

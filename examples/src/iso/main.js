@@ -23,18 +23,17 @@
  *   pausing (satchelUI.js);
  * - the same keep played online: the rules live in game.js, which
  *   keepMatch.js runs on an m2d-server (server.mjs), and with
- *   `?online=ws://host:port` this page joins it as a client. The keep's
- *   camera, light, HUD and the stair's news are its scene's (keep.json);
- *   hooks.js opens the satchel and the shop. This file is the page around
- *   it: the project boot, the menu and the connection to a match.
+ *   `?online=ws://host:port` this page joins it as a client on load. The
+ *   keep's camera, light, HUD and the stair's news are its scene's
+ *   (keep.json), and so is the main menu (mainMenu.json); hooks.js opens
+ *   the satchel and the shop. This file is the page around it: the
+ *   project boot and the connection to a match.
  */
 import { bootProject } from 'm2d-engine/core/project.js';
 import { UIText } from 'm2d-engine/core/ui/text.js';
 import { UIScreen } from 'm2d-engine/core/ui/screen.js';
 import { NetClient } from 'm2d-engine/net/client.js';
-import { registerMainMenu } from '../shared/mainMenu.js';
-import { lastTransmission, audioOption } from '../shared/audio.js';
-import { menuBackdrop } from './menuBackdrop.js';
+import { audioOption } from '../shared/audio.js';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 import * as hooks from './hooks.js';
@@ -48,7 +47,6 @@ const game = await bootProject(document.getElementById('screen'), {
   scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
   // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'iso/',
-  options: { music: { menu: { src: lastTransmission, volume: 0.7 } } },
   setup
 });
 
@@ -91,23 +89,14 @@ function leaveMatch() {
 }
 
 function setup(game) {
-  registerMainMenu(game, {
-    title: 'Cinder Keep',
-    subtitle: 'an isometric view',
-    hint: 'Click to walk · Arrows move · X swings · 1 2 3 abilities · Wheel zooms · O for settings',
-    backdrop: menuBackdrop,
-    items: () => [
-      { text: 'Descend', onSelect: () => game.sceneManager.switchTo('keep') },
-      ...(ONLINE ? [{ text: 'Descend together', onSelect: () => playOnline() }] : []),
-      { text: 'Settings', onSelect: () => game.settings.open() }
-    ],
-    onEnter: () => game.soundManager.playMusic('menu')
-  });
   game.settings.addOption(audioOption(game));
   game.input.on('keydown', (event) => {
     if (game.net && game.actions.codes('menu').includes(event.code)) { leaveMatch(); event.consume(); }
   });
   game.players.local.on('descended', () => { if (game.net) game.time.after(3, leaveMatch, { unscaled: true }); });
 }
+
+// The address of a match is the page's to know: given one, join it at once.
+if (ONLINE) playOnline();
 
 if (new URLSearchParams(location.search).has('debug')) window.cinderKeep = { game };

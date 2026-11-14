@@ -228,11 +228,3 @@ export class HarbourNight {
     paint.drawArc({ x: towerX, y: lampY, radius: 2.5, fillStyle: '#fff4d6' });
   }
 }
-
-/** `UIBackdrop` options for the showcase's menu. */
-export const menuBackdrop = {
-  gradient: null,
-  layers: [new HarbourNight()],
-  motes: 0,
-  vignette: 0.62
-};

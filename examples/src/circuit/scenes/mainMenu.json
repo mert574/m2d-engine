@@ -1,0 +1,275 @@
+{
+  "version": 4,
+  "name": "mainMenu",
+  "type": "ui",
+  "title": "Main Menu",
+  "assets": { "music": { "menu": { "url": "music/nathanrain-stars-at-dawn.ogg", "volume": 0.7 } } },
+  "transition": { "enter": "fade", "exit": "fade", "duration": 0.25 },
+  "stagger": 0.06,
+  "music": { "track": "menu" },
+  "elements": [
+    {
+      "type": "backdrop",
+      "id": "scene",
+      "properties": {
+        "from": "#0b0d1c",
+        "to": "#232743",
+        "angle": 160,
+        "motes": 14,
+        "vignette": 0.5,
+        "layers": ["nightLap"],
+        "wash": { "side": "left", "strength": 0.88 }
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 96,
+      "y": 56,
+      "anchor": "top-left",
+      "effects": { "enter": { "motion": "slide-right", "duration": 0.4 } },
+      "properties": {
+        "text": "Night Circuit",
+        "fontSize": "$font.size.title",
+        "fontWeight": "$font.weight.thin",
+        "letterSpacing": "$font.tracking.tight",
+        "color": "#ffffff"
+      }
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 98,
+      "y": 108,
+      "anchor": "top-left",
+      "properties": {
+        "text": "FIVE CIRCUITS · DRIFT, BOOST, REPLAY",
+        "fontSize": "$font.size.caption",
+        "fontWeight": "$font.weight.medium",
+        "letterSpacing": "$font.tracking.widest",
+        "color": "#ffd34d"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "circuit1",
+      "x": 96,
+      "y": -170,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.35 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "P1  Sundown Ring",
+        "onClick": "circuit1",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "component",
+      "id": "best1",
+      "x": 110,
+      "y": -138,
+      "anchor": "left",
+      "component": "bestLap",
+      "properties": { "circuit": "circuit1", "color": "rgba(199, 203, 224, 0.55)" }
+    },
+    {
+      "type": "menuItem",
+      "id": "circuit2",
+      "x": 470,
+      "y": -108,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.35 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "P2  Riverside Run",
+        "onClick": "circuit2",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "component",
+      "id": "best2",
+      "x": 484,
+      "y": -76,
+      "anchor": "left",
+      "component": "bestLap",
+      "properties": { "circuit": "circuit2", "color": "rgba(199, 203, 224, 0.55)" }
+    },
+    {
+      "type": "menuItem",
+      "id": "circuit3",
+      "x": 96,
+      "y": -46,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.35 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "P3  Old Town Sprint",
+        "onClick": "circuit3",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "component",
+      "id": "best3",
+      "x": 110,
+      "y": -14,
+      "anchor": "left",
+      "component": "bestLap",
+      "properties": { "circuit": "circuit3", "color": "rgba(199, 203, 224, 0.55)" }
+    },
+    {
+      "type": "menuItem",
+      "id": "circuit4",
+      "x": 470,
+      "y": 16,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.35 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "P4  Harbour Lights",
+        "onClick": "circuit4",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "component",
+      "id": "best4",
+      "x": 484,
+      "y": 48,
+      "anchor": "left",
+      "component": "bestLap",
+      "properties": { "circuit": "circuit4", "color": "rgba(199, 203, 224, 0.55)" }
+    },
+    {
+      "type": "menuItem",
+      "id": "circuit5",
+      "x": 96,
+      "y": 78,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.35 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "P5  Nightfall Gauntlet",
+        "onClick": "circuit5",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "component",
+      "id": "best5",
+      "x": 110,
+      "y": 110,
+      "anchor": "left",
+      "component": "bestLap",
+      "properties": { "circuit": "circuit5", "color": "rgba(199, 203, 224, 0.55)" }
+    },
+    {
+      "type": "menuItem",
+      "id": "garage",
+      "x": 470,
+      "y": 140,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.35 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Garage",
+        "onClick": "garage",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "component",
+      "id": "car",
+      "x": 484,
+      "y": 172,
+      "anchor": "left",
+      "component": "carInGarage",
+      "properties": { "color": "#ffd34d" }
+    },
+    {
+      "type": "menuItem",
+      "id": "settings",
+      "x": 96,
+      "y": 202,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-up", "duration": 0.35 },
+        "select": "lift",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "Settings",
+        "action": "settings",
+        "variant": "block",
+        "width": 320,
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#c7cbe0",
+        "selectedColor": "#0b0d1c",
+        "accentColor": "#ffd34d"
+      }
+    },
+    {
+      "type": "text",
+      "id": "hint",
+      "x": 98,
+      "y": -48,
+      "anchor": "bottom-left",
+      "properties": {
+        "text": "Arrows drive · Space drifts · X nitro · Enter replays your best lap",
+        "fontSize": "$font.size.caption",
+        "letterSpacing": "$font.tracking.wide",
+        "color": "rgba(199, 203, 224, 0.5)"
+      }
+    }
+  ]
+}
