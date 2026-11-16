@@ -91,6 +91,7 @@ export class Session {
   /** Journal writes per path, in order: two in flight at once would interleave on disk. */
   #journalling = new Map<string, Promise<void>>();
   #listeners = new Set<(event: ChangeEvent) => void>();
+  #closed = false;
 
   constructor(project: Project) {
     this.project = project;
@@ -205,10 +206,14 @@ export class Session {
    * for the next host to find.
    */
   async close(): Promise<void> {
+    this.#closed = true;
     this.#open.clear();
     this.#listeners.clear();
+    // A document still being read when the session closed would land after
+    // it, and an edit on it would journal after it: wait for the reads, and
+    // for every journal write, which `#journal` no longer starts.
+    await Promise.allSettled(this.#loading.values());
     await Promise.allSettled(this.#journalling.values());
-    this.#journalling.clear();
   }
 
   async #step(path: string, who: Origin, kind: 'undo' | 'redo'): Promise<ChangeEvent | null> {
@@ -236,6 +241,7 @@ export class Session {
    * and a later write never lands under an earlier, longer one.
    */
   #journal(path: string, open: Open): Promise<void> {
+    if (this.#closed) return Promise.resolve();
     const snapshot: Journal | null = open.applied.length || open.undone.length
       ? { base: hashOf(open.disk), edits: [...open.applied] }
       : null;
@@ -308,7 +314,7 @@ export class Session {
         const doc = SceneDocument.parse(disk, path);
         const fresh: Open = { doc, revision: 0, disk, applied: [], undone: [] };
         await this.#restore(path, fresh);
-        this.#open.set(path, fresh);
+        if (!this.#closed) this.#open.set(path, fresh);
         return fresh;
       })().finally(() => this.#loading.delete(path));
       this.#loading.set(path, loading);

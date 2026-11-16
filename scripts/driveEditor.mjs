@@ -237,11 +237,16 @@ const SUITES = {
    */
   async examples(context, report, out) {
     const src = join(repo, 'examples/src');
+    const has = async (folder, file) => access(join(src, folder, file)).then(() => true, () => false);
+    const games = [];
     const folders = [];
     for (const folder of await readdir(src)) {
-      try { await access(join(src, folder, 'm2d.project.json')); folders.push(folder); } catch { /* not a project */ }
+      if (await has(folder, 'index.html')) games.push(folder);
+      if (await has(folder, 'm2d.project.json')) folders.push(folder);
     }
-    report.check('every example is a project', folders.length >= 11, `${folders.length} projects`);
+    // The renderer showcase is the one game that is not a project: the code-driven comparison harness.
+    const without = games.filter((folder) => !folders.includes(folder));
+    report.check('every example but the showcase is a project', without.join() === 'showcase', `without a project: ${without.join(', ') || 'none'}`);
     for (const folder of folders.sort()) {
       const project = JSON.parse(await readFile(join(src, folder, 'm2d.project.json'), 'utf8'));
       const scene = `${project.scenes ?? 'scenes'}/${project.initialScene}.json`;

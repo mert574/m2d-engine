@@ -128,7 +128,7 @@ describe('the examples are idiomatic m2d', () => {
 
   describe('the audit', () => {
     const companions = [];
-    afterAll(() => { for (const companion of companions) companion.close(); });
+    afterAll(() => Promise.all(companions.map((companion) => companion.close())));
 
     it('finds nothing missing or unused in any project, except where allowed', { timeout: 60000 }, async () => {
       const projects = await projectGames();

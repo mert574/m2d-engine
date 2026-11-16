@@ -268,7 +268,7 @@ export class Wisp extends Ghost {
     chase.suspended = this.repelled > 0;
     if (this.repelled > 0) {
       this.repelled -= dt;
-      const player = this.game.player;
+      const player = this.game.players.nearestAvatar(this.position);
       if (player) {
         const dx = this.position.x - player.position.x;
         const dy = this.position.y - player.position.y;

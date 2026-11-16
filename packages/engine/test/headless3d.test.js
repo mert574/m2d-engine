@@ -3,6 +3,7 @@ import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { initPhysics } from '../src/core/physics/index.js';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
+import { Scene } from '../src/core/scene.js';
 
 /**
  * A level that runs in three dimensions, headless.
@@ -210,6 +211,15 @@ describe('a 3D level, headless', () => {
 });
 
 describe('a scene that disagrees with its game', () => {
+  it('lets a UI scene, which has no world, into a 3D game', async () => {
+    const game = new M2D(null, { headless: true, dimensions: 3 });
+    const menu = new Scene(game, { version: SCENE_VERSION, type: 'ui', name: 'mainMenu', elements: [] });
+    expect(() => menu.setupScene()).not.toThrow();
+    const level = new Scene(game, { version: SCENE_VERSION, type: 'level', name: 'flat', world: { dimensions: 2 }, prefabs: {}, layers: [] });
+    expect(() => level.setupScene()).toThrow(/scene is 2D but the game runs 3D physics/);
+    game.destroy();
+  });
+
   it('refuses a 3D scene in a 2D game, saying how to fix it', async () => {
     const game = new M2D(null, { headless: true, worldWidth: 100, worldHeight: 100 });
     game.registerActor('Ground', Ground);

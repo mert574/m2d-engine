@@ -24,6 +24,7 @@
 import { s } from './schema.js';
 import { ANCHOR_ORIGINS } from './ui/uiElement.js';
 import { PROJECTION_TYPES } from './projection.js';
+import { choiceValue } from './projectSchema.js';
 
 /**
  * The scene format version this engine reads and writes. A scene declares
@@ -1004,8 +1005,19 @@ const UI_COMMON = { ...ELEMENT_COMMON, effects: EFFECTS };
  */
 const SET = s.object({
   choice: s.ref('choice', { required: true, label: 'Choice', description: 'A choice the project declares (m2d.project.json choices)' }),
-  value: s.union([s.string(), s.number(), s.boolean()], { required: true, description: 'What it is set to: one of the values the choice offers' })
-}, { label: 'Set', description: 'A choice this line records before it switches or acts. A menu opens with the line whose set matches the value in force focused' });
+  value: choiceValue({ required: true, description: 'What it is set to: one of the values the choice offers' })
+}, {
+  label: 'Set',
+  description: 'A choice this line records before it switches or acts. A menu opens with the line whose set matches the value in force focused',
+  // The value must be one the choice offers: the name is a ref, the value
+  // depends on it, so it is checked here against the game's declaration.
+  refine(set, { path, fail, context }) {
+    const offered = context.choices?.values(set.choice);
+    if (offered?.length && !offered.includes(set.value)) {
+      fail(`${path}.value`, `${JSON.stringify(set.value)} is not a value '${set.choice}' offers (${offered.map((value) => JSON.stringify(value)).join(', ')})`);
+    }
+  }
+});
 
 /** A button must do something, switch to one place at most, and the places must exist. */
 function refineButton(element, { path, fail }) {

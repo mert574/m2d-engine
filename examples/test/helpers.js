@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { expect } from 'vitest';
 import { join } from 'node:path';
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
@@ -152,4 +153,69 @@ export function manifestFiles() {
   return readdirSync(examples)
     .map(example => ({ example, name: `${example}/assets.json`, path: join(examples, example, 'assets.json') }))
     .filter(({ path }) => existsSync(path));
+}
+
+/**
+ * One example played headless: its real definition and the scene asked
+ * for, booted as `bootProject` boots it, a stand-in for the menu (a
+ * headless game has no UI, and a rule's `switch` needs somewhere to go),
+ * collision handlers on, and the input fed by the test. What comes back
+ * is the game and the few moves every playthrough makes.
+ */
+export async function playHeadless(folder, sceneName, { seed = 1 } = {}) {
+  const { M2D } = await import('m2d-engine/core/m2d.js');
+  const { initPhysics } = await import('m2d-engine/core/physics/index.js');
+  const { projectOptions } = await import('m2d-engine/core/project.js');
+  const root = join(import.meta.dirname, '..', 'src', folder);
+  const config = JSON.parse(readFileSync(join(root, 'm2d.project.json'), 'utf8'));
+  const definition = await import(join(root, config.definition));
+  const options = definition.GAME ?? {};
+  const dimensions = options.dimensions === 3 ? 3 : 2;
+  await initPhysics(dimensions === 3 ? { dimensions: 3 } : undefined);
+  const game = new M2D(null, { ...options, ...projectOptions(config), headless: true, seed });
+  definition.register(game);
+  const data = JSON.parse(readFileSync(join(root, config.scenes ?? 'scenes', `${sceneName}.json`), 'utf8'));
+  game.sceneManager.addScene(sceneName, { fetch: async () => data });
+  game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: data.version, type: 'level', name: 'mainMenu', world: { dimensions }, prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });
+  await game.sceneManager.switchTo(sceneName);
+  game.setupCollisionHandlers();
+  const scene = game.sceneManager.getCurrentScene();
+
+  let held = { down: [], pressed: [], heading: 0 };
+  game.input.setSnapshotSource(() => held);
+  /** Run ticks, and insist they all ran: a game stops ticking while a scene loads, and a stray switch would otherwise freeze a test into passing. */
+  const run = (ticks) => { expect(game.step(ticks)).toBe(ticks); };
+
+  return {
+    game, scene, data, run,
+    /** Hold keys for some ticks, the view facing `heading`. */
+    hold(codes, ticks, heading = 0) {
+      held = { down: codes, pressed: [], heading };
+      run(ticks);
+      held = { down: [], pressed: [], heading };
+    },
+    /** Press keys for one tick, with a quiet tick after; the quiet one may not run if the press switched scenes. */
+    press(...codes) {
+      held = { down: codes, pressed: codes, heading: 0 };
+      run(1);
+      held = { down: [], pressed: [], heading: 0 };
+      game.step(1);
+    },
+    /** Put the player somewhere, still, and let the contacts register. */
+    standAt({ x, y }) {
+      game.player.body.setPosition({ x, y });
+      game.player.body.setVelocity({ x: 0, y: 0 });
+      run(3);
+    },
+    /** The objects the file places from a prefab. */
+    placed: (prefab) => data.layers.flatMap((layer) => layer.objects).filter((object) => object.prefab === prefab),
+    /** The scene's rule on an event. */
+    rule: (event) => scene.rules.rules.find((candidate) => candidate.when.event === event),
+    /** How many ticks a rule's `switch` waits before it runs. */
+    switchDelay: (event) => Math.round((scene.rules.rules.find((candidate) => candidate.when.event === event).then.find((action) => action.do === 'switch').after ?? 0) / game.time.fixedTimestep),
+    /** The scene showing now, by name. */
+    current: () => game.sceneManager.getCurrentScene().config.name,
+    /** A switch that has begun has finished. */
+    settled: () => new Promise((done) => setTimeout(done, 0))
+  };
 }

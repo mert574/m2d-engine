@@ -7,7 +7,7 @@
  * (see matchHost.js), so a match that throws, loops or runs out of memory
  * takes down its own thread and nothing else.
  *
- * From the main thread: `join`, `in`, `do`, `drop` (the connection closed),
+ * From the main thread: `join`, `in`, `do`, `choose`, `drop` (the connection closed),
  * `stop`. To it: `ready`, `welcome`, `send`, `kick`, `beat`, `ended`.
  */
 
@@ -130,6 +130,8 @@ function receive(pid, kind, payload) {
   if (!seat?.connected) return;
   if (kind === 'in') {
     seat.gate.submit(payload);
+  } else if (kind === 'choose') {
+    choose(seat, payload);
   } else if (seat.player.intents) {
     const filed = seat.player.intents.submit(payload);
     // Refused before it could run: answer now, if there is a seq to answer.
@@ -138,6 +140,20 @@ function receive(pid, kind, payload) {
     }
   }
   if (seat.meter.exceeded) kick(seat, CLOSE.violation, 'too many invalid messages');
+}
+
+/**
+ * The player's choices as their client recorded them (the car, a
+ * difficulty): each the match's game offers goes into their state, where
+ * the simulation reads it; anything else counts against them.
+ */
+function choose(seat, payload) {
+  const entries = payload !== null && typeof payload === 'object' && !Array.isArray(payload) ? Object.entries(payload) : null;
+  if (!entries) { seat.meter.record(game.time.steps); return; }
+  for (const [name, value] of entries) {
+    if (game.choices.has(name) && game.choices.values(name).includes(value)) seat.player.state[name] = value;
+    else seat.meter.record(game.time.steps);
+  }
 }
 
 let stopped = false;
@@ -205,6 +221,7 @@ parentPort.on('message', (message) => {
     case 'join': join(message.pid); break;
     case 'in': receive(message.pid, 'in', message.m); break;
     case 'do': receive(message.pid, 'do', message.m); break;
+    case 'choose': receive(message.pid, 'choose', message.m); break;
     case 'drop': {
       const seat = seats.get(message.pid);
       if (!seat) break;

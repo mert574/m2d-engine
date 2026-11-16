@@ -93,13 +93,12 @@ runs:
     # arrived.
     - name: Check whether anything was fetched
       id: fetched
-      if: always()
       shell: bash
       run: |
         if [ -n "$(ls -A examples/assets-src 2>/dev/null)" ]; then echo "any=yes" >> "$GITHUB_OUTPUT"; fi
 
     - name: Save fetched asset sources
-      if: steps.fetched.outputs.any == 'yes' && steps.sources.outputs.cache-hit != 'true'
+      if: steps.fetched.outputs.any == 'yes' && steps.sources.outcome != 'skipped' && steps.sources.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
         path: examples/assets-src

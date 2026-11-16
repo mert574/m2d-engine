@@ -18,6 +18,9 @@ const pause = (ms) => new Promise((done) => setTimeout(done, ms));
 const reason = (what, error) =>
   new Error(`${what}: ${error.cause?.code ?? error.message}`, { cause: error });
 
+/** Whether a failure came from the wire (a reset, a timeout, a body cut short) rather than from what arrived. */
+const fromTheWire = (error) => error?.cause?.code !== undefined || error?.name === 'TypeError';
+
 /** Whether the server's own answer is worth asking for again. */
 const worthRepeating = (status) => status === 408 || status === 429 || status >= 500;
 
@@ -44,6 +47,8 @@ export async function request(url, read, { what = url, headers } = {}) {
       continue;
     }
     if (!response.ok) {
+      // The body is not wanted; left unread it would pin the connection.
+      void response.body?.cancel();
       const refused = new Error(`${what}: ${response.status}`);
       if (!worthRepeating(response.status)) throw refused;
       last = refused;
@@ -52,6 +57,8 @@ export async function request(url, read, { what = url, headers } = {}) {
     try {
       return await read(response);
     } catch (error) {
+      // A body cut short is the wire; malformed content will not improve.
+      if (!fromTheWire(error)) throw reason(what, error);
       last = reason(what, error);
     }
   }

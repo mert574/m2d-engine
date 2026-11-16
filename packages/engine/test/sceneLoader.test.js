@@ -314,6 +314,13 @@ describe('SceneLoader', () => {
         'elements[0].properties.set.choice', /no choice named 'car'.*the project declares: none/);
     });
 
+    it('rejects a set with a value the choice does not offer', () => {
+      const knows = new SceneLoader(makeGame({ scenes: ['menu'], choices: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } } }));
+      let thrown;
+      try { knows.load(button({ text: 'Tank', set: { choice: 'car', value: 'tank' }, onClick: 'menu' })); } catch (error) { thrown = error; }
+      expect(String(thrown)).toMatch(/elements\[0\]\.properties\.set\.value: "tank" is not a value 'car' offers \("tourer", "sprint"\)/);
+    });
+
     it('accepts a button that only records a choice', () => {
       const knows = new SceneLoader(makeGame({ scenes: ['menu'], choices: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } } }));
       expect(() => knows.load(button({ text: 'Sprint', set: { choice: 'car', value: 'sprint' } }))).not.toThrow();

@@ -112,14 +112,15 @@ export class Thug extends Ghost {
     }
     super.fixedUpdate(dt);
     if (this.dead) return;
-    // The swing: wind up in reach, strike at the end of the windup.
-    const player = this.game.player;
+    // The swing: wind up in reach, strike at the end of the windup, at the
+    // nearest living avatar — never `game.player`, which a server has not got.
+    const player = this.game.players.nearestAvatar(this.position);
     this.strikeWait = Math.max(0, this.strikeWait - dt);
     this.strikeHold = Math.max(0, this.strikeHold - dt);
     if (this.windup > 0) {
       this.windup -= dt;
       this.body.setVelocity({ x: 0, y: 0 });
-      if (this.windup <= 0 && player && !player.dead) {
+      if (this.windup <= 0 && player) {
         const dx = player.position.x - this.position.x;
         const dy = player.position.y - this.position.y;
         this.heading = Math.atan2(dy, dx);
@@ -129,7 +130,7 @@ export class Thug extends Ghost {
         this.strikeWait = 1.4 + this.game.rng.next() * 0.8;
         this.strikeFlash = 0.3;
       }
-    } else if (player && !player.dead && this.strikeWait <= 0 && this.elevation === 0) {
+    } else if (player && this.strikeWait <= 0 && this.elevation === 0) {
       const dist = Math.hypot(player.position.x - this.position.x, player.position.y - this.position.y);
       if (dist < this.reach) {
         this.windup = this.windupTime;

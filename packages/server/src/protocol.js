@@ -33,7 +33,7 @@ export const CLOSE = Object.freeze({
   shutdown: 1001
 });
 
-const TYPES = new Set(['in', 'do', 'ping']);
+const TYPES = new Set(['in', 'do', 'choose', 'ping']);
 
 /**
  * Parse and check one client frame. Never throws.

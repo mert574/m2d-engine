@@ -20,9 +20,10 @@ export async function startServer(fixture = 'arenaMatch', options = {}) {
 }
 
 /** A client game connected as `player`, ticking in real time. */
-export async function joinAs(env, player, { match = 'm1', held = () => [] } = {}) {
+export async function joinAs(env, player, { match = 'm1', held = () => [], choices = {} } = {}) {
   await initPhysics();
   const game = new M2D(null, { headless: true, ...GAME_OPTIONS });
+  for (const [name, value] of Object.entries(choices)) game.choices.set(name, value);
   // A test reads its failures from assertions, not from the client's
   // join banner, which would be one block per test in the suite's output.
   game.netLogLevel = 0;

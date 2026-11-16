@@ -16,7 +16,7 @@ export class Choices {
    * @param {(name: string, value: string|number|boolean) => void} [options.onChange]
    */
   constructor(declared = {}, { storageKey = null, onChange = null } = {}) {
-    this.declared = declared;
+    this.declared = structuredClone(declared);
     this.storageKey = storageKey;
     this.onChange = onChange;
     /** @type {Map<string, string|number|boolean>} */

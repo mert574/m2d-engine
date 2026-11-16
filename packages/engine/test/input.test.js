@@ -373,6 +373,15 @@ describe('input', () => {
     });
   });
 
+  describe('the view\'s heading', () => {
+    it('is sampled from a camera that faces somewhere, and is 0 for one that does not', () => {
+      expect(game.input.sample().heading).toBe(0);
+      game.camera.forward = { x: 1, y: 0, z: 0 };
+      expect(game.input.sample().heading).toBeCloseTo(Math.PI / 2);
+      delete game.camera.forward;
+    });
+  });
+
   describe('world hit testing', () => {
     it('resolves the entity under the pointer through its physics body', () => {
       const clicked = [];

@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+// A spy on the console is undone however the test ends, so a failure cannot mute the rest of the file.
+afterEach(() => vi.restoreAllMocks());
 
 import { Entity } from '../src/core/entity.js';
 import { Projectile } from '../src/core/projectile.js';
@@ -132,7 +135,6 @@ describe('engine draw calls', () => {
 
       expect(renderer.callsTo('drawSprite')).toHaveLength(0);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('missing'));
-      warn.mockRestore();
     });
   });
 

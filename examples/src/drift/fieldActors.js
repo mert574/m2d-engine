@@ -344,8 +344,8 @@ export class Drone extends Entity {
   fixedUpdate(dt) {
     super.fixedUpdate(dt);
     if (this.dead) return;
-    const player = this.game.player;
-    if (!player || player.dead) return;
+    const player = this.game.players.nearestAvatar(this.position);
+    if (!player) return;
     const dx = player.position.x - this.position.x;
     const dy = player.position.y - this.position.y;
     const dist = Math.hypot(dx, dy);
@@ -398,7 +398,7 @@ export class Salvage extends Entity {
 
   onCollisionStart(other) {
     super.onCollisionStart(other);
-    if (other.entity === this.game.player && this.game.entities.has(this)) {
+    if (this.game.players.isAvatar(other.entity) && this.game.entities.has(this)) {
       this.game.soundManager.playSound('salvage');
       this.game.entities.delete(this);
       this.game.physics.remove(this.body);

@@ -756,7 +756,7 @@ async function buildValidator(): Promise<void> {
   try {
     const options = definition.GAME ?? {};
     await initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
-    const game = new M2D(null, { ...options, headless: true });
+    const game = new M2D(null, { ...options, choices: project?.choices ?? {}, headless: true });
     definition.register(game);
     // The project's scene names, so a button's onClick or a rule's switch
     // naming a sibling scene checks as registered — the viewport's game

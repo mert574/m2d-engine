@@ -24,8 +24,15 @@ const qualityAxis = (label, unit, description) => s.object({
  * MCP `read_project` tool both draw from this, and `bootProject` refuses
  * a file that fails it.
  */
-/** A choice's value: a name, a number or a flag, as the game likes. */
-const CHOICE_VALUE = s.union([s.string(), s.number(), s.boolean()], { required: true, description: 'What a new player has chosen', message: 'must be a string, a number or a boolean' });
+/**
+ * A choice's value: a name, a number or a flag, as the game likes. Each
+ * branch says what it matches, or the first would claim every value.
+ */
+export const choiceValue = (options = {}) => s.union([
+  s.string({ match: (value) => typeof value === 'string' }),
+  s.number({ match: (value) => typeof value === 'number' }),
+  s.boolean({ match: (value) => typeof value === 'boolean' })
+], { message: 'must be a string, a number or a boolean', ...options });
 
 /** A choice starts on one of its own values. */
 function refineChoice(choice, { path, fail }) {
@@ -42,8 +49,8 @@ export const PROJECT_SCHEMA = s.object({
   basePath: s.string({ initial: '.', description: 'What asset URLs in the scenes are relative to' }),
   initialScene: s.ref('scene', { label: 'Initial scene', description: 'The scene the game opens on: a scene file\'s name' }),
   choices: s.record(s.object({
-    values: s.array(CHOICE_VALUE, { required: true, description: 'What may be chosen, in the order a screen would list them' }),
-    initial: CHOICE_VALUE,
+    values: s.array(choiceValue({ required: true }), { required: true, description: 'What may be chosen, in the order a screen would list them' }),
+    initial: choiceValue({ required: true, description: 'What a new player has chosen' }),
     label: s.string({ description: 'What to call it on a screen' })
   }, { refine: refineChoice }), {
     label: 'Choices',

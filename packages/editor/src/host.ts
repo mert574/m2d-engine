@@ -35,19 +35,22 @@ export interface HostProject {
   display: Record<string, unknown>;
   /** Named input actions to key codes, as `input.actions` declares them. */
   actions: Record<string, string[]>;
+  /** The player's choices, as `choices` declares them. */
+  choices: Record<string, unknown>;
   scenes: SceneEntry[];
 }
 
 /**
  * The M2D options the project file contributes to a game the editor
  * makes, played or edited: its actions (so a rule on one fires in play),
- * its clear colour and filters, over the hooks module's `OPTIONS`.
+ * its choices (so a menu's `set` has something to set), its clear colour
+ * and filters, over the hooks module's `OPTIONS`.
  */
 export function projectGameOptions(project: HostProject, hooksOptions?: Record<string, unknown>): Record<string, unknown> {
   const display = project.display ?? {};
   const pick = (key: string) => (display[key] !== undefined ? { [key]: display[key] } : {});
-  const actions = Object.keys(project.actions ?? {}).length ? { actions: project.actions } : {};
-  return { ...hooksOptions, ...pick('clearColor'), ...pick('textureFilter'), ...pick('worldFilter'), ...actions };
+  const declared = (key: 'actions' | 'choices') => (Object.keys(project[key] ?? {}).length ? { [key]: project[key] } : {});
+  return { ...hooksOptions, ...pick('clearColor'), ...pick('textureFilter'), ...pick('worldFilter'), ...declared('actions'), ...declared('choices') };
 }
 
 /** What a game-definition module exports; see m2d.project.json. */

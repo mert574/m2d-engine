@@ -185,6 +185,28 @@ describe('a connected client that misbehaves', () => {
 });
 
 describe('connections come and go', () => {
+  it('a player\'s choices seat with them, and one the match does not offer counts against them', async () => {
+    const env = await server();
+    const { ws, messages, opened, closed } = rawSocket(env.url, { ticket: env.ticket('ann') });
+    await opened;
+    const welcome = await until(() => messages.find((message) => message.t === 'welcome'));
+    expect(welcome.full.me.car).toBe('tourer');
+    const seen = messages.length;
+    ws.send(JSON.stringify({ t: 'choose', m: { car: 'sprint' } }));
+    const told = await until(() => messages.slice(seen).find((message) => message.me?.car === 'sprint'));
+    expect(told.me.car).toBe('sprint');
+    // A value the project does not offer, a choice it does not declare, and a shape that is no record.
+    for (let i = 0; i < 30; i++) ws.send(JSON.stringify({ t: 'choose', m: i % 3 === 0 ? { car: 'tank' } : i % 3 === 1 ? { seat: 'left' } : [1] }));
+    expect((await closed).code).toBe(CLOSE.violation);
+
+    // A real client sends its choices after the welcome, whose `me` first
+    // put it at the initial; once in sync and settled, the choice stands.
+    const bob = await join(env, 'bob', { choices: { car: 'sprint' } });
+    await until(() => bob.game.player);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(bob.game.players.local.state.car).toBe('sprint');
+  });
+
   it('a player who reconnects in time keeps their avatar and their state', async () => {
     const env = await server();
     const first = await join(env, 'ann');

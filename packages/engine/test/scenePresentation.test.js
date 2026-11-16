@@ -258,6 +258,10 @@ describe('the settings menu a project mounts', () => {
     expect(projectIssues({ name: 'g', settings: { pauseWhenOpen: true } })).toEqual([]);
     expect(projectIssues({ name: 'g', settings: false })).toEqual([]);
     expect(projectIssues({ name: 'g', settings: 'yes' })[0].message).toMatch(/must be true, false or/);
+    // A choice takes names, numbers or flags; its initial must be one of them.
+    expect(projectIssues({ name: 'g', choices: { car: { values: ['sprint', 'tourer'], initial: 'tourer' }, laps: { values: [1, 3, 5], initial: 3 }, ghost: { values: [true, false], initial: true } } })).toEqual([]);
+    expect(projectIssues({ name: 'g', choices: { laps: { values: [1, 3], initial: 5 } } })[0]).toMatchObject({ path: 'choices.laps.initial', message: expect.stringMatching(/5 is not among the values offered/) });
+    expect(projectIssues({ name: 'g', choices: { laps: { values: [1, null], initial: 1 } } })[0].message).toMatch(/must be a string, a number or a boolean/);
   });
 });
 

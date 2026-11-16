@@ -142,7 +142,7 @@ describe('the project declaration', () => {
     expect(await project.declared()).toBe(true);
     expect(await project.config()).toEqual({
       name: 'Rooms', definition: 'src/game.js', hooks: null, scenes: 'scenes', basePath: '.',
-      initialScene: null, display: {}, actions: {}
+      initialScene: null, display: {}, actions: {}, choices: {}
     });
     await rm(join(root, 'm2d.project.json'));
   });
@@ -485,6 +485,24 @@ describe('the journal of unsaved edits', () => {
       expect(clean.state.history).toEqual([]);
       expect((clean.data.layers as Array<{ objects: Array<{ x: number }> }>)[0]!.objects[0]!.x).toBe(40);
       await third.close();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('closes after an edit that was still reading its file, and journals nothing more', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'm2d-editor-journal-'));
+    try {
+      await mkdir(join(dir, 'scenes'), { recursive: true });
+      await writeFile(join(dir, 'scenes', 'room.json'), level());
+      const host = new Companion({ root: dir });
+      // Not awaited: the edit is mid-read when the host closes.
+      const editing = host.session.edit('scenes/room.json', { label: 'Move floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: 40 }] }, { origin: 'editor' });
+      await host.close();
+      await editing;
+      await new Promise((done) => setTimeout(done, 50));
+      await expect(readFile(join(dir, '.m2d', 'journal', 'scenes__room.json'), 'utf8')).rejects.toThrow(/ENOENT/);
+      expect(host.session.isDirty('scenes/room.json')).toBe(false);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

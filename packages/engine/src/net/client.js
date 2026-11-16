@@ -258,6 +258,10 @@ export class NetClient {
     this.#apply(message.full);
     for (const queued of this.#queue.splice(0)) this.#apply(queued);
     this.#synced = true;
+    // The player's choices are theirs to send: the server seats a joining
+    // player at the initials and puts these into their state.
+    const chosen = this.game.choices.all;
+    if (Object.keys(chosen).length) this.#send('choose', chosen);
     this.log(1, `joined as '${this.you}' · scene '${message.scene}' · ${this.tickRate} Hz · state every ${this.sendEvery} tick${this.sendEvery === 1 ? '' : 's'}`
       + ` · ${this.predictor ? 'predicting' : 'not predicting'} · drawing ${this.view.delay} ticks behind`);
     if (this.predicts && !this.predictor?.entity) {

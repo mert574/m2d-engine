@@ -151,7 +151,8 @@ export class SceneLoader {
         spritesheets: scene.assets?.spritesheets ?? {},
         prefabs: scene.prefabs ?? {},
         constraintTypes: this.game?.constraintTypes ?? null,
-        actors: this.game?.actors ?? null
+        actors: this.game?.actors ?? null,
+        choices: this.game?.choices ?? null
       }
     });
     // Composition expands after the document validates on its own terms,

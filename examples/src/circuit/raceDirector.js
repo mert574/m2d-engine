@@ -389,7 +389,7 @@ export class RaceDirector extends Entity {
         checks: this.recorder.checks.slice(),
         splits: this.lapSplits.slice(),
         spills: this.roundSpills.map((spill) => ({ ...spill })),
-        car: this.carSpec?.id ?? 'balanced',
+        car: this.activeCar.id,
         // The ghost is the whole round from the green light, so it sets off
         // alongside the player next time rather than waiting for the line.
         ghost: this.roundFrames.slice()

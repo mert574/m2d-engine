@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+// A spy on the console is undone however the test ends, so a failure cannot mute the rest of the file.
+afterEach(() => vi.restoreAllMocks());
 import { defineIntents, IntentQueue, reject, int, slot, num, bool, str, oneOf, list, entity } from '../src/net/intents.js';
 import { ViolationMeter, InputSchema, InputGate } from '../src/net/input.js';
 import { Rng } from '../src/core/rng.js';
@@ -384,7 +387,6 @@ describe('IntentQueue', () => {
       tick++;
       expect(() => fuzz.apply(tick, me, game)).not.toThrow();
       for (const [line] of reported.mock.calls) expect(line).toContain("'broken' threw");
-      reported.mockRestore();
     });
   });
 });

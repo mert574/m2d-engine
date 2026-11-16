@@ -178,6 +178,8 @@ A client builds the scene itself, so the server sends only changes:
 
 A client is not sent the level it has just built for itself: the stream is seeded with the scene's own build, so a join carries only what has changed since the match began.
 
+A client sends three things: its input (`in`), its intents (`do`), and, once it is in sync, the project's [choices](./editor#the-project-file) as the player made them (`choose`). The server puts each choice the match's game offers into the player's `state`, from where the simulation reads it and the next state message carries it back; a choice it does not declare, or a value it does not offer, counts against the client like an invalid input.
+
 ## Close codes
 
 | Code | Name | When |

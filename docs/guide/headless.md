@@ -95,7 +95,7 @@ A simulation that reads one of these on the server would simulate a different ga
 
 ## Players
 
-`game.players` holds the players. Every game has `game.players.local`, the player at the keyboard, whose snapshot is `game.input.snapshot`. A player's `state` starts with the project's [choices](./editor#the-project-file): the local player's as they stand, a joining player's at their initial, so a race reads `player.state.car` on a client and a server alike. A server adds one player per connection:
+`game.players` holds the players. Every game has `game.players.local`, the player at the keyboard, whose snapshot is `game.input.snapshot`. A player's `state` starts with the project's [choices](./editor#the-project-file): the local player's as they stand, a joining player's at their initial until their client sends theirs (see [What is sent](./multiplayer#what-is-sent)), so a race reads `player.state.car` on a client and a server alike. A match's `join` adds to that state rather than replacing it. A server adds one player per connection:
 
 ```javascript
 const player = game.players.add(connectionId, { meter });

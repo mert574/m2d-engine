@@ -58,8 +58,7 @@ class Hero extends Entity {
   fixedUpdate(dt) {
     super.fixedUpdate(dt);
     const input = this.input;
-    // Which way the view faced when the tick was sampled: input, not the
-    // camera, so the walk is deterministic and a headless yard walks too.
+    // Which way the view faced when the tick was sampled: input, never the camera.
     const forward = { x: Math.sin(input.heading), y: 0, z: Math.cos(input.heading) };
     const right = { x: -forward.z, y: 0, z: forward.x };
     const move = { x: 0, y: 0, z: 0 };

@@ -27,16 +27,17 @@ const md5 = (buffer) => createHash('md5').update(buffer).digest('hex');
 /** One file, checked; returns whether it was fetched (false: already there). */
 export async function download(url, to, expectedMd5) {
   if (existsSync(to) && md5(readFileSync(to)) === expectedMd5) return false;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  // A whole body with the wrong sum is almost always the file having
+  // changed upstream, so it is asked for once more and no more.
+  for (let attempt = 1; attempt <= 2; attempt++) {
     const bytes = Buffer.from(await fetchBytes(url));
     if (md5(bytes) === expectedMd5) {
       mkdirSync(dirname(to), { recursive: true });
       writeFileSync(to, bytes);
       return true;
     }
-    if (attempt === 3) throw new Error(`${url}: checksum mismatch after ${attempt} attempts`);
   }
-  return false;
+  throw new Error(`${url}: checksum mismatch, twice`);
 }
 
 /** The library's types, as Poly Haven names them. */

@@ -1,4 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+
+// A spy on the console is undone however the test ends, so a failure cannot mute the rest of the file.
+afterEach(() => vi.restoreAllMocks());
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { Constraint } from '../src/core/constraint.js';
@@ -380,7 +383,6 @@ describe('spawnPrefab', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(scene.spawnPrefab('nothing', { x: 0, y: 0 })).toBeNull();
     expect(error).toHaveBeenCalledWith(expect.stringContaining('nothing'));
-    error.mockRestore();
     game.destroy();
   });
 });

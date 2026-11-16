@@ -42,7 +42,7 @@ export const SCENE = {
   ] }]
 };
 
-export const GAME_OPTIONS = { worldWidth: 1280, worldHeight: 2000, seed: 3 };
+export const GAME_OPTIONS = { worldWidth: 1280, worldHeight: 2000, seed: 3, choices: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } } };
 
 /** Register everything, on the server's game or a client's. */
 export function registerArena(game, hooks = {}) {

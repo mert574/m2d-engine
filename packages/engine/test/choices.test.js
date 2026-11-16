@@ -37,6 +37,17 @@ describe('choices', () => {
     expect(new Choices(narrowed, { storageKey: 'm2d.choices:test' }).get('car')).toBe('tourer');
   });
 
+  it('takes numbers and flags as readily as names, and keeps its own copy of the declaration', () => {
+    const declared = { laps: { values: [1, 3, 5], initial: 3 }, ghost: { values: [true, false], initial: true } };
+    const choices = new Choices(declared);
+    choices.set('laps', 5);
+    choices.set('ghost', false);
+    expect(choices.all).toEqual({ laps: 5, ghost: false });
+    expect(() => choices.set('laps', '5')).toThrow(/cannot be "5"/);
+    declared.laps.values.push(7);
+    expect(() => choices.set('laps', 7)).toThrow(/cannot be 7/);
+  });
+
   it('is the local player\'s state in a headless game too, where nothing is stored', () => {
     const game = new M2D(null, { headless: true, choices: CAR });
     expect(game.players.local.state.car).toBe('tourer');
