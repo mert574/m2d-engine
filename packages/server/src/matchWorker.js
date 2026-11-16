@@ -144,15 +144,20 @@ function receive(pid, kind, payload) {
 
 /**
  * The player's choices as their client recorded them (the car, a
- * difficulty): each the match's game offers goes into their state, where
- * the simulation reads it; anything else counts against them.
+ * difficulty): each the match's game offers, and the match itself allows
+ * at this moment, goes into their state, where the simulation reads it.
+ * A message costs at most one violation, so a client built against an
+ * older project is not kicked by the size of its message.
  */
 function choose(seat, payload) {
   if (!isRecord(payload)) { seat.meter.record(game.time.steps); return; }
+  let refused = false;
   for (const [name, value] of Object.entries(payload)) {
-    if (game.choices.has(name) && game.choices.values(name).includes(value)) seat.player.state[name] = value;
-    else seat.meter.record(game.time.steps);
+    if (!game.choices.has(name) || !game.choices.values(name).includes(value)) { refused = true; continue; }
+    // The match says when: a car may be chosen in the lobby, not mid-race.
+    if (match.choose(game, seat.player, name, value) !== false) seat.player.state[name] = value;
   }
+  if (refused) seat.meter.record(game.time.steps);
 }
 
 let stopped = false;

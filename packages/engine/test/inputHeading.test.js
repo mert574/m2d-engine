@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { InputSnapshot, headingOf } from '../src/core/input/inputManager.js';
+import { snapHeading } from '../src/core/input/snapshot.js';
+import { InputSchema, InputGate } from '../src/net/input.js';
 
 /**
  * The tick's heading: which way the view faced when the tick was sampled,
@@ -15,6 +17,25 @@ describe('the snapshot\'s heading', () => {
     const heading = facing(Math.SQRT1_2, Math.SQRT1_2);
     expect(Math.sin(heading)).toBeCloseTo(Math.SQRT1_2);
     expect(Math.cos(heading)).toBeCloseTo(Math.SQRT1_2);
+  });
+
+  it('is one number on both sides of the wire: sampled to a grid, wrapped into the turn', () => {
+    const steps = 4096;
+    expect(snapHeading(0)).toBe(0);
+    expect(snapHeading(Math.PI * 2)).toBe(0);
+    expect(snapHeading(Math.PI * 2 + 1)).toBeCloseTo(snapHeading(1), 12);
+    expect(Math.abs(snapHeading(5))).toBeLessThanOrEqual(Math.PI);
+    // Every sample lands on the grid, and the grid is fine enough to steer by.
+    const sampled = headingOf({ forward: { x: 0.37, y: 0, z: 0.93 } });
+    expect(Math.abs(sampled * steps / (Math.PI * 2) % 1)).toBeLessThan(1e-9);
+    expect(Math.abs(sampled - Math.atan2(0.37, 0.93))).toBeLessThan(Math.PI * 2 / steps);
+    // What the client predicts from and what the server simulates from is the same number.
+    const schema = new InputSchema({ keys: ['KeyW'], heading: true });
+    const message = schema.encode(1, InputSnapshot.from({ down: ['KeyW'], heading: sampled }));
+    expect(message.heading).toBe(sampled);
+    const gate = new InputGate(schema, { maxAhead: 4 });
+    gate.submit(JSON.parse(JSON.stringify(message)));
+    expect(gate.take(1).heading).toBe(sampled);
   });
 
   it('is 0 for a 2D camera, which has no forward, and for no camera at all', () => {

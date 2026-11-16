@@ -10,6 +10,22 @@
  * Immutable input state for one simulation tick. The same reading API as
  * the live keyboard, over a copy taken by `InputManager.sample`.
  */
+/**
+ * Steps of a turn a heading is sampled to. A client predicts from its own
+ * snapshot and the server simulates from the number that crossed the wire;
+ * on a shared grid those are the same number, and a replay reproduces it.
+ */
+const HEADING_STEPS = 4096;
+const TURN = Math.PI * 2;
+
+/** An angle wrapped into the turn and snapped to the grid above. */
+export function snapHeading(heading) {
+  if (!Number.isFinite(heading)) return 0;
+  const steps = Math.round((heading / TURN) * HEADING_STEPS) % HEADING_STEPS;
+  const wrapped = steps > HEADING_STEPS / 2 ? steps - HEADING_STEPS : steps <= -HEADING_STEPS / 2 ? steps + HEADING_STEPS : steps;
+  return (wrapped / HEADING_STEPS) * TURN;
+}
+
 export class InputSnapshot {
   /**
    * @param {object} state

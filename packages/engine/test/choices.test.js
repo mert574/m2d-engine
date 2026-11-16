@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Choices } from '../src/core/choices.js';
 import { M2D } from '../src/core/m2d.js';
 
@@ -18,6 +18,7 @@ describe('choices', () => {
       setItem: (key, value) => stored.set(key, String(value))
     });
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   it('starts every choice at its initial and refuses what the project did not offer', () => {
     const choices = new Choices(CAR);
@@ -35,6 +36,12 @@ describe('choices', () => {
 
     const narrowed = { car: { values: ['tourer', 'sprint'], initial: 'tourer' } };
     expect(new Choices(narrowed, { storageKey: 'm2d.choices:test' }).get('car')).toBe('tourer');
+
+    // Picking what happens to be today's initial is still a choice: it
+    // stands when the project's default moves on.
+    new Choices(CAR, { storageKey: 'm2d.choices:test' }).set('car', 'tourer');
+    const moved = { car: { values: ['tourer', 'sprint', 'slider'], initial: 'slider' } };
+    expect(new Choices(moved, { storageKey: 'm2d.choices:test' }).get('car')).toBe('tourer');
   });
 
   it('takes numbers and flags as readily as names, and keeps its own copy of the declaration', () => {

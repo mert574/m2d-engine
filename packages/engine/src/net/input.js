@@ -61,7 +61,7 @@
  * Nothing here knows about a socket or the DOM.
  */
 
-import { InputSnapshot } from '../core/input/snapshot.js';
+import { InputSnapshot, snapHeading } from '../core/input/snapshot.js';
 
 /** Bits in a held mask. JavaScript's bitwise operators work on 32. */
 const MAX_KEYS = 32;
@@ -268,7 +268,7 @@ export class InputSchema {
         buttons: ((snapshot.pointer.buttons ?? 0) | (snapshot.pointer.pressedButtons ?? 0)) & buttonMask
       };
     }
-    if (this.heading) message.heading = Math.atan2(Math.sin(snapshot.heading), Math.cos(snapshot.heading));
+    if (this.heading) message.heading = snapHeading(snapshot.heading);
     return message;
   }
 

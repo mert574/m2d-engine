@@ -1266,14 +1266,15 @@ export class Scene {
     else this.focus.focusFirst();
   }
 
-  /** The focusable element whose `set` names its choice's current value, if any. */
+  /** The element whose `set` names its choice's current value, if focus can go there. */
   #chosenLine() {
     const choices = this.game.choices;
+    const canFocus = new Set(this.focus.candidates());
     for (const element of this.config.elements ?? []) {
       const set = element.properties?.set;
       if (!set || !choices.has(set.choice) || choices.get(set.choice) !== set.value) continue;
       const built = this.uiById?.get(element.id);
-      if (built?.focusable) return built;
+      if (canFocus.has(built)) return built;
     }
     return null;
   }

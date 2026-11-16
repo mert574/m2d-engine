@@ -112,14 +112,15 @@ export class Thug extends Ghost {
     }
     super.fixedUpdate(dt);
     if (this.dead) return;
-    // The swing: wind up in reach, strike at the end of the windup.
-    const player = this.game.players.nearestAvatar(this.position);
+    // The swing: wind up in reach, strike at the end of the windup. The
+    // avatar is asked for on the two ticks that use one, not every tick.
     this.strikeWait = Math.max(0, this.strikeWait - dt);
     this.strikeHold = Math.max(0, this.strikeHold - dt);
     if (this.windup > 0) {
       this.windup -= dt;
       this.body.setVelocity({ x: 0, y: 0 });
-      if (this.windup <= 0 && player) {
+      const player = this.windup <= 0 ? this.game.players.nearestAvatar(this.position) : null;
+      if (player) {
         const dx = player.position.x - this.position.x;
         const dy = player.position.y - this.position.y;
         this.heading = Math.atan2(dy, dx);
@@ -129,8 +130,9 @@ export class Thug extends Ghost {
         this.strikeWait = 1.4 + this.game.rng.next() * 0.8;
         this.strikeFlash = 0.3;
       }
-    } else if (player && this.strikeWait <= 0 && this.elevation === 0) {
-      const dist = Math.hypot(player.position.x - this.position.x, player.position.y - this.position.y);
+    } else if (this.strikeWait <= 0 && this.elevation === 0) {
+      const player = this.game.players.nearestAvatar(this.position);
+      const dist = player ? Math.hypot(player.position.x - this.position.x, player.position.y - this.position.y) : Infinity;
       if (dist < this.reach) {
         this.windup = this.windupTime;
         this.animTime = 0;

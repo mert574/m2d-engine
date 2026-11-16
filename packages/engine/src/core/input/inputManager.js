@@ -50,7 +50,7 @@ import { GamepadSource } from './gamepad.js';
 import { Cursor } from './cursor.js';
 import { GestureRecognizer } from './gestures.js';
 import { InputRouter } from './router.js';
-import { InputSnapshot } from './snapshot.js';
+import { InputSnapshot, snapHeading } from './snapshot.js';
 
 export { InputSnapshot };
 
@@ -60,7 +60,7 @@ const NO_MODIFIERS = Object.freeze({ shift: false, ctrl: false, alt: false, meta
 /** A 3D camera's yaw off its flattened forward vector (`{ x: sin, z: cos }` is forward again); 0 for a 2D camera. */
 export function headingOf(camera) {
   const forward = camera?.forward;
-  return forward ? Math.atan2(forward.x, forward.z) : 0;
+  return forward ? snapHeading(Math.atan2(forward.x, forward.z)) : 0;
 }
 
 export class InputManager {

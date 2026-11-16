@@ -64,7 +64,9 @@ runs:
       env:
         FAILED: ${{ steps.build.outputs.failed }}
       run: |
-        if [ "$FAILED" = yes ]; then echo "suffix=-part-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"; fi
+        # One partial entry a run: an attempt that saved one already holds
+        # most of the work, and entries this size would evict the good cache.
+        if [ "$FAILED" = yes ]; then echo "suffix=-part-$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"; fi
         if [ -n "$(ls -A examples/assets-src 2>/dev/null)" ]; then echo "fetched=yes" >> "$GITHUB_OUTPUT"; fi
 
     - name: Save built example assets

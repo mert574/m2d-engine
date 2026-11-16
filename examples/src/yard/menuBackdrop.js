@@ -17,6 +17,9 @@ const HORIZON = 0.62;
 /** The colonnade: pillars across the right half, as fractions of the width. */
 const PILLARS = [0.5, 0.57, 0.64, 0.71, 0.78, 0.85, 0.92];
 
+/** The crate stack, in crates from the stack's foot: two down, one on top. */
+const CRATES = [[0, 0], [1.05, 0], [0.5, -1]];
+
 export class YardAfternoon {
   draw(paint, { width, height }) {
     const horizon = height * HORIZON;
@@ -81,7 +84,6 @@ export class YardAfternoon {
     // The stack throws one shadow, from its outline, before any crate.
     const crate = unit * 0.07;
     const stack = { x: width * 0.3, y: horizon + height * 0.16 };
-    const crates = [[0, 0], [crate * 1.05, 0], [crate * 0.5, -crate]];
     const foot = { left: stack.x, right: stack.x + crate * 2.05, y: stack.y };
     paint.drawPath({
       points: [
@@ -90,9 +92,9 @@ export class YardAfternoon {
       ],
       closed: true, fillStyle: '#4a3f33', globalAlpha: 0.5
     });
-    for (const [dx, dy] of crates) {
-      const cx = stack.x + dx;
-      const cy = stack.y + dy;
+    for (const [dx, dy] of CRATES) {
+      const cx = stack.x + dx * crate;
+      const cy = stack.y + dy * crate;
       paint.drawRect({ x: cx, y: cy - crate, width: crate, height: crate, fillStyle: '#b86a2a' });
       paint.drawRect({ x: cx, y: cy - crate, width: crate, height: crate * 0.08, fillStyle: '#d98a45' });
       paint.drawRect({ x: cx, y: cy - crate, width: crate * 0.08, height: crate, fillStyle: '#8a4d1c' });

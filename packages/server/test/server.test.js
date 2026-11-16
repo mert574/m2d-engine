@@ -195,6 +195,12 @@ describe('connections come and go', () => {
     ws.send(JSON.stringify({ t: 'choose', m: { car: 'sprint' } }));
     const told = await until(() => messages.slice(seen).find((message) => message.me?.car === 'sprint'));
     expect(told.me.car).toBe('sprint');
+    // One message costs one violation however many choices it carries, so a
+    // client built against an older project is not kicked by its size.
+    ws.send(JSON.stringify({ t: 'choose', m: Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`gone${i}`, 1])) }));
+    await until(() => messages.length > seen);
+    expect(ws.readyState).toBe(ws.OPEN);
+
     // A value the project does not offer, a choice it does not declare, and a shape that is no record.
     const bad = [{ car: 'tank' }, { seat: 'left' }, [1]];
     for (let i = 0; i < 30; i++) ws.send(JSON.stringify({ t: 'choose', m: bad[i % bad.length] }));
@@ -207,6 +213,15 @@ describe('connections come and go', () => {
     const synced = bob.net.stats.messagesIn;
     await until(() => bob.net.stats.messagesIn >= synced + 10);
     expect(bob.game.players.local.state.car).toBe('sprint');
+  });
+
+  it('lets the match say when a choice may be made', async () => {
+    const env = await server('arenaStrictMatch');
+    // The client sends its choice after the welcome, by which time it is
+    // racing: the match refuses, and the server's state is what stands.
+    const ann = await join(env, 'ann', { choices: { car: 'sprint' } });
+    await until(() => ann.game.players.local.state.car === 'tourer');
+    expect(ann.net.open).toBe(true);
   });
 
   it('a player who reconnects in time keeps their avatar and their state', async () => {

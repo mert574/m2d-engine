@@ -7,6 +7,8 @@
 
 const ATTEMPTS = 5;
 const FIRST_PAUSE_MS = 1000;
+/** How long one attempt may take, body and all: a connection that goes quiet is not a connection. */
+const TIMEOUT_MS = 10 * 60 * 1000;
 
 /** The wait before attempt `n` (2 and up): one second, doubling. */
 const backOff = (attempt) => new Promise((done) => setTimeout(done, FIRST_PAUSE_MS * 2 ** (attempt - 2)));
@@ -16,7 +18,8 @@ const reason = (what, error) =>
   new Error(`${what}: ${error.cause?.code ?? error.message}`, { cause: error });
 
 /** Whether a failure came from the wire (a reset, a timeout, a body cut short) rather than from what arrived. */
-const fromTheWire = (error) => error?.cause?.code !== undefined || error?.message === 'terminated';
+const fromTheWire = (error) =>
+  error?.cause?.code !== undefined || error?.message === 'terminated' || error?.name === 'TimeoutError';
 
 /** Whether the server's own answer is worth asking for again. */
 const worthRepeating = (status) => status === 408 || status === 429 || status >= 500;
@@ -27,18 +30,19 @@ const worthRepeating = (status) => status === 408 || status === 429 || status >=
  *
  * @param {string} url
  * @param {(response: Response) => Promise<T>} read `(response) => response.json()`, and such
- * @param {{ what?: string, headers?: Record<string, string>, pause?: (attempt: number) => Promise<void> }} [options]
- *   `what` names the URL in an error; `pause` is the wait before a retry, for a test that has no time to wait
+ * @param {{ what?: string, headers?: Record<string, string>, pause?: (attempt: number) => Promise<void>, timeoutMs?: number }} [options]
+ *   `what` names the URL in an error; `pause` is the wait before a retry and `timeoutMs` the limit on one attempt, both for a test that has no time to wait
  * @returns {Promise<T>}
  * @template T
  */
-export async function request(url, read, { what = url, headers, pause = backOff } = {}) {
+export async function request(url, read, { what = url, headers, pause = backOff, timeoutMs = TIMEOUT_MS } = {}) {
   let last;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     if (attempt > 1) await pause(attempt);
     let response;
+    const signal = AbortSignal.timeout(timeoutMs);
     try {
-      response = await fetch(url, headers ? { headers } : undefined);
+      response = await fetch(url, { signal, ...(headers && { headers }) });
     } catch (error) {
       last = reason(what, error);
       continue;

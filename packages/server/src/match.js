@@ -20,6 +20,8 @@ import { InputSchema } from 'm2d-engine/net/input.js';
  * @param {(game, context: {matchId: string}) => Promise<void>|void} definition.setup - Register everything and enter the first scene
  * @param {(game, player) => void} definition.join - A player arrived: give them an avatar (`player.avatar`) and any state
  * @param {(game, player) => void} [definition.leave] - A player is gone for good. By default their entities are removed
+ * @param {(game, player, name: string, value: string|number|boolean) => boolean} [definition.choose] - Whether a player may
+ *   record this choice now (the project's `choices`, sent by their client). By default they always may
  * @param {number} [definition.maxPlayers=8]
  * @param {number} [definition.sendEvery=2] - Ticks between state messages
  * @param {number} [definition.reconnectSeconds=10] - How long a dropped player's avatar waits for them
@@ -42,6 +44,7 @@ export function defineMatch(definition) {
     maxEntities: 5000,
     interest: null,
     leave: removeEntitiesOf,
+    choose: () => true,
     ...definition
   };
   if (match.interest !== null) {
