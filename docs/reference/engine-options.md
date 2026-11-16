@@ -19,7 +19,7 @@
 | `performanceStats` | `true` | Add the frame-rate readout to the engine's debug layer |
 | `performanceStatsHotkey` | `'F3'` | Physical key code that expands the readout. `null` binds no key |
 | `devConsole` | `true` | Mount the [developer console](./console) (backquote). The cvar and command registries exist either way |
-| `saveId` | the page's pathname | Scope for what the engine keeps for a player (persisted cvars, rebound actions and [choices](../guide/editor#the-project-file)), so two games on one origin keep separate ones |
+| `saveId` | the page's pathname | Scope for what the engine keeps for a player (persisted cvars, rebound actions and [choices](../guide/editor#the-project-file)), so two games on one origin keep separate ones. `bootProject` and the editor's play set it to the project's `name`, so renaming a project leaves what players kept behind |
 | `theme` | `null` | Design tokens for every piece of UI. A partial token tree is merged over the engine's default, or pass a `Theme`. See [Theme tokens](./ui#theme-tokens) |
 
 ## Scenes and assets
@@ -142,6 +142,20 @@
 | `addView(canvas)` | A second live view of the world on another canvas, drawn every frame from a camera of its own (the returned view's `camera`, sized to the canvas — a `Camera3D` in 3D, a `Camera` in 2D). In 3D the frame's heavy half — assembly, culling, the shadow maps — is shared across views and each pays only its main pass and post stack, with temporal state (TAA history, exposure) per view; shadows stay fitted to the main camera. In 2D the scene is walked once more per view through a renderer of the same backend. Views draw no HUD and take no input: they are cameras, not screens. An editor's side viewports are the consumer; `yard?views=2` shows one live |
 | `removeView(view)` | Drop a view from `addView` and everything it holds. The canvas stays |
 | `invalidate()` | Draw the next frame. Only edit mode draws on demand, so only edit mode needs it: an editor calls it after a change the engine cannot see, such as a camera it moved by hand |
+
+## Choices: `game.choices`
+
+The player's [choices](../guide/editor#the-project-file), as the `choices` option declares them. Simulation code reads a choice from the player's `state`; these are for screens and tests.
+
+| Member | Returns |
+| --- | --- |
+| `names` | Every choice's name, in declaration order |
+| `has(name)` | Whether the project declares it |
+| `values(name)` | The values it offers; empty for one not declared |
+| `initial(name)` | What a new player has |
+| `get(name)` | The value in force locally |
+| `set(name, value)` | Record a choice. Offline it is the local player's state at once; connected it is sent to the server, whose next state message writes the player's state. Refused for a name not declared or a value not offered |
+| `all`, `initials` | Every choice as it stands, and every choice at its initial, as plain records |
 
 ## Random numbers
 

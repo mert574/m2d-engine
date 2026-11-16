@@ -130,6 +130,7 @@ The engine's first 3D scene, on the WebGPU renderer. The yard is primitive shape
 | `W` `A` `S` `D` or arrows | Walk the fox, relative to the camera; it runs when it can |
 | `Space` | Jump |
 | `T` | Afternoon to dusk and back |
+| `Escape` | Main menu |
 | `O` | Settings |
 | `F3` | Frame statistics |
 

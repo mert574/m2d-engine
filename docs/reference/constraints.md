@@ -117,7 +117,7 @@ The attack draws nothing of its own: what a swing looks like depends on the game
 | `onJump()` | | Every tick the jump key is held |
 | `onAttack()` | | Every tick the attack key is held |
 
-Diagonal movement is normalized. Input pressing straight into a wall is dropped before normalizing. Keys are read from `game.input.snapshot`, the state sampled for the tick.
+Diagonal movement is normalized. Input pressing straight into a wall is dropped before normalizing. Keys are read from `entity.input`, the owning player's snapshot,, the state sampled for the tick.
 
 `inputSpace: 'screen'` moves along the screen's axes through the scene's projection, so Up walks toward the top of an isometric view, and at a steady pace on screen: `maxSpeed` is then the on-screen speed, scaled on the ground so a walk up the view is no slower than one across it. Default `'world'`.
 
@@ -125,7 +125,7 @@ With `verticalMovement` on, `maxSpeed` caps the whole velocity vector, so a diag
 
 ## GlideControl
 
-`constraints/glideControl.js`. One-press gliding on a corridor grid: tap a direction and the body keeps going until a wall, a new direction or the same key again: Pac-Man's movement, for cosy mazes. A turn pressed early is buffered and taken at the next opening; one pressed a beat late snaps back to the junction just passed and takes it anyway. Openness is asked of the physics world (`physics.overlaps` one cell over, sensors ignored), so the constraint needs no map, only the grid the corridors are built on. The body parks on the centre of the last open cell at a wall, and is held to the corridor's centre line while gliding. Runs in `fixedUpdate` on `game.input.snapshot`.
+`constraints/glideControl.js`. One-press gliding on a corridor grid: tap a direction and the body keeps going until a wall, a new direction or the same key again: Pac-Man's movement, for cosy mazes. A turn pressed early is buffered and taken at the next opening; one pressed a beat late snaps back to the junction just passed and takes it anyway. Openness is asked of the physics world (`physics.overlaps` one cell over, sensors ignored), so the constraint needs no map, only the grid the corridors are built on. The body parks on the centre of the last open cell at a wall, and is held to the corridor's centre line while gliding. Runs in `fixedUpdate` on `entity.input`, the owning player's snapshot.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -142,7 +142,7 @@ Hedgerow Court is the worked example.
 
 ## CarControl
 
-`constraints/carControl.js`. Arcade top-down car handling on a dynamic body. Each tick the body's velocity splits along its heading: throttle and brakes act on the forward part, grip decays the lateral part, and the handbrake swaps in a much lower grip so the car slides while the nose turns, a drift. Steering drives angular velocity and scales with speed, so the car cannot pivot in place. Runs in `fixedUpdate` on `game.input.snapshot`, so the same inputs always drive the same path.
+`constraints/carControl.js`. Arcade top-down car handling on a dynamic body. Each tick the body's velocity splits along its heading: throttle and brakes act on the forward part, grip decays the lateral part, and the handbrake swaps in a much lower grip so the car slides while the nose turns, a drift. Steering drives angular velocity and scales with speed, so the car cannot pivot in place. Runs in `fixedUpdate` on `entity.input`, the owning player's snapshot, so the same inputs always drive the same path and a server drives each car from its own player.
 
 | Option | Default | Meaning |
 | --- | --- | --- |

@@ -35,7 +35,7 @@ A project is a folder with an `m2d.project.json`.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `name` | the folder's name | Shown in the editor's bar |
+| `name` | the folder's name | Shown in the editor's bar, and the scope a player's settings, bindings and choices are kept under; renaming the project leaves them behind |
 | `definition` | none | The module that registers the game: exports `register(game)` and may export `GAME`, the M2D options the simulation needs, and `sceneHooks(game)`, each scene's simulation hooks (`onEnter`, `onFixedUpdate`, `onExit`), which a headless server runs too |
 | `hooks` | none | The module with each scene's presentation hooks: exports `sceneHooks(game)`, which returns `{ [sceneName]: { onEnter, onShow, onRender, ... } }`. It may also export `OPTIONS`, M2D options the game's look depends on (a `textureFilter`), which the editor applies when it edits and plays and the page spreads into its own options |
 | `scenes` | `scenes` | The folder the scene JSON lives in |
@@ -44,7 +44,7 @@ A project is a folder with an `m2d.project.json`.
 | `display` | | `width`, `height` (the design size, 1280 by 720), `aspectMode` (`letterbox` or `expand`), `textureFilter`, `worldFilter` (`linear` or `nearest`), `pointerLock`, `performanceStats`, `clearColor` |
 | `input.actions` | none | Named input actions to the key codes that perform them. Rules fire on them and the settings menu rebinds them. See [Named actions](./input#named-actions) |
 | `input.gamepad` | the arcade defaults | What each gamepad control stands for, as a key code: `{ "Y": "Enter" }`. See [Gamepad](./input#gamepad) |
-| `choices` | none | What a player picks on a screen and keeps, each `{ values, initial, label }`: `{ "car": { "values": ["sprint", "balanced", "drift"], "initial": "balanced" } }`. A UI line records one with `set`, it is remembered between sessions and the simulation reads it as `player.state.car`. Online the server decides what the state holds (see [Multiplayer](./multiplayer#what-is-sent)) |
+| `choices` | none | What a player picks on a screen and keeps, each `{ values, initial }`: `{ "car": { "values": ["sprint", "balanced", "drift"], "initial": "balanced" } }`. A UI line records one with `set`, it is remembered between sessions and the simulation reads it as `player.state.car`. Online the server decides what the state holds (see [Multiplayer](./multiplayer#what-is-sent)) |
 | `settings` | `true` | Mount the settings menu (O). `{ "pauseWhenOpen": true }` also holds the game still while it is up, which a race or a timed level wants; `false` leaves it out |
 | `music` | none | Tracks by key, `{ url, volume }`, loaded at boot for screens that are not scenes |
 | `quality` | none | Texture and model levels the game's models are built at, offered as settings. See [Texture and model quality](./display#texture-and-model-quality) |
@@ -148,7 +148,7 @@ Drag a panel's edge to resize it, double-click to reset, Alt+1/2/3 to hide and s
 
 ## Problems
 
-The editor checks the scene after every change against the game's real classes, booted with the project's actions and choices. Every problem the loader finds is listed in the Problems tab, counted on the tree and marked on the field it names. Click a problem to select its object and open the inspector tab its field is in. A scene with problems keeps its last good picture in the viewport.
+The editor checks the scene after every change against the game's real classes, booted with the project's actions and choices, when the definition module loads; when it does not, the checks are structural and the status line says so. Every problem the loader finds is listed in the Problems tab, counted on the tree and marked on the field it names. Click a problem to select its object and open the inspector tab its field is in. A scene with problems keeps its last good picture in the viewport.
 
 ## Assets
 

@@ -9,8 +9,7 @@
         "balanced",
         "drift"
       ],
-      "initial": "balanced",
-      "label": "Car"
+      "initial": "balanced"
     }
   },
   "settings": {

@@ -50,8 +50,7 @@ export const PROJECT_SCHEMA = s.object({
   initialScene: s.ref('scene', { label: 'Initial scene', description: 'The scene the game opens on: a scene file\'s name' }),
   choices: s.record(s.object({
     values: s.array(choiceValue({ required: true }), { required: true, description: 'What may be chosen, in the order a screen would list them' }),
-    initial: choiceValue({ required: true, description: 'What a new player has chosen' }),
-    label: s.string({ description: 'What to call it on a screen' })
+    initial: choiceValue({ required: true, description: 'What a new player has chosen' })
   }, { refine: refineChoice }), {
     label: 'Choices',
     description: 'What a player picks on a screen and keeps: the car in the garage, a difficulty. A UI line records one with set, it is remembered between sessions, and the simulation reads it as player.state.<name>'

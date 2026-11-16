@@ -20,6 +20,13 @@ packages/engine/src/
 │   ├── assets.js         The asset database: assets by uid
 │   ├── sceneLoader.js    Validates scene JSON against the scene schema
 │   ├── sceneManager.js   Registration, caching, switching
+│   ├── rules.js          A scene's rules: events, conditions, actions
+│   ├── counters.js       A scene's counters, plain and tallies
+│   ├── hud.js            A level's HUD from scene data
+│   ├── players.js        Players, their avatars, state and input
+│   ├── choices.js        The player's choices, kept and seeded into their state
+│   ├── project.js        bootProject and the project file's options
+│   ├── projectSchema.js  The project file format, as descriptors
 │   ├── quest.js          A quest as a line of stages
 │   ├── projection.js     Ground plane to render plane (isometric)
 │   ├── camera.js
@@ -119,7 +126,7 @@ A scene declares the format version it was written for and the loader accepts ex
 
 Writing the format as descriptors rather than as validation code is what lets tooling read it. Validation and an inspector panel need the same facts about each property, and a tool that restates them keeps a copy that drifts from the loader. `refScopesOf` reports which namespaces a format points into, `fieldsOf` walks an object's properties. `test/schema.test.js` covers the vocabulary, `test/sceneLoader.test.js` the scene format. `examples/test/scenes.test.js` validates every scene JSON under `examples/src/` and the scene files of the first-game demo under `docs/demos/`, and loads each declared game's scenes with that game's real classes.
 
-`Scene` creates entities through `game.createEntity`, which builds the body from the prefab's physics block and the object's placement and passes `properties` to the actor constructor. The entity named `Player` is stored as `game.player` and followed by the camera. A prefab `footprint` makes the body a short box at the bottom of the object and hangs `body.frame` on it, which the `Entity` constructor turns into `size` and `frameOffset`; that is the only thing on a body handle beyond the physics contract besides `entity`.
+`Scene` creates entities through `game.createEntity`, which builds the body from the prefab's physics block and the object's placement and passes `properties` to the actor constructor. The entity named `Player` is stored as `game.player` and followed by the camera; that is presentation's handle, and simulation code asks `game.players` (`nearestAvatar`, `isAvatar`) instead, which a server has too. A prefab `footprint` makes the body a short box at the bottom of the object and hangs `body.frame` on it, which the `Entity` constructor turns into `size` and `frameOffset`; that is the only thing on a body handle beyond the physics contract besides `entity`.
 
 `Scene.drawWorld` draws tile layers and entities in one ascending order, `zIndex` then `depth`, rebuilt every frame because bodies move and the set changes. `LayerManager` keeps its layers sorted by `zIndex`, applies each layer's parallax as a shift of `camera · (1 - parallax)` and skips tiles outside `camera.getVisibleArea()`. The background hook runs before every layer, so ground detail that must sit above the floor layer is an entity at the floor's `zIndex`.
 

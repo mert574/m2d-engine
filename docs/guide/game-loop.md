@@ -96,7 +96,7 @@ The engine loop does three more things. It draws a loading screen while `game.sc
 
 ## Snapshots
 
-`game.snapshot()` captures the whole simulation between ticks. `game.restore(snapshot)` puts it back. Given the same input, the ticks after a restore are bit-identical to the ticks after the snapshot was taken. A snapshot can be restored any number of times.
+`game.snapshot()` captures the whole simulation between ticks. `game.restore(snapshot)` puts it back, and puts the project's choices back into each player's state when the snapshot predates them. Given the same input, the ticks after a restore are bit-identical to the ticks after the snapshot was taken. A snapshot can be restored any number of times.
 
 ```javascript
 const before = game.snapshot();

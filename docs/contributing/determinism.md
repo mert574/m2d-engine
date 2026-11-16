@@ -15,7 +15,7 @@ Simulation code (`fixedUpdate(dt)` on entities and constraints, `onFixedUpdate(d
 
 It may never read:
 
-- **The camera.** `camera.x`, `getVisibleArea()`, `isVisible()`, zoom and rotation all move per frame, on wall time, and differ between a 30 Hz and a 144 Hz run of the same ticks. A character steered relative to the view reads the tick's `snapshot.heading`, sampled from the camera with the keys, as the pointer's `world` is.
+- **The camera.** `camera.x`, `getVisibleArea()`, `isVisible()`, zoom and rotation all move per frame, on wall time, and differ between a 30 Hz and a 144 Hz run of the same ticks. A character steered relative to the view reads the tick's `snapshot.heading`, sampled from the camera with the keys and snapped to a grid of the turn, so a client and a server compute from the same number.
 - **Render state.** `renderPosition`, `renderAnchor`, `renderAngle` and `elevation`'s blended counterpart `renderElevation` are interpolated for the frame being drawn. Draw with them; decide with `position` and `angle`.
 - **Wall time.** `performance.now()`, `Date.now()`, `setTimeout`, `requestAnimationFrame`, `game.time`'s wall clock.
 - **`Math.random()`**, for anything the simulation sees.

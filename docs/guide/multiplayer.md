@@ -49,7 +49,7 @@ export default defineMatch({
 | `join(game, player)` | required | A player arrived. Give them an avatar (`player.avatar`), usually spawned with `game.spawn` and owned by `player.id`, and any `player.state` |
 | `leave(game, player)` | removes the player's entities | The player is gone for good |
 | `choose(game, player, name, value)` | always true | Whether the player may record one of the project's [choices](./editor#the-project-file) now (a car in the lobby, not mid-race). A hook that throws refuses, and the error is logged once per match |
-| `game` | `{}` | `M2D` options for the headless game |
+| `game` | `{}` | `M2D` options for the headless game, the project's `choices` among them; a choice the server's game does not declare is refused when a client sends it |
 | `maxPlayers` | `8` | A player past this is turned away with `full` |
 | `sendEvery` | `2` | Ticks between state messages |
 | `reconnectSeconds` | `10` | How long a dropped player's avatar waits for them to come back |
