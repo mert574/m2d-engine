@@ -560,11 +560,12 @@ export class Scene {
 
   setupScene() {
     // The engine builds its physics world once, at the dimension the game
-    // was constructed with, so a scene cannot quietly ask for the other
+    // was constructed with, so a level cannot quietly ask for the other
     // one. Saying so here beats a level half-building into the wrong
-    // solver and failing on the first shape it cannot make.
+    // solver and failing on the first shape it cannot make. A UI scene has
+    // no world and belongs to whichever game shows it.
     const wanted = this.config.world?.dimensions ?? 2;
-    if (wanted !== this.game.physics.dimensions) {
+    if (this.config.type === 'level' && wanted !== this.game.physics.dimensions) {
       throw new Error(`M2D scene '${this.config.name}': the scene is ${wanted}D ` +
         `but the game runs ${this.game.physics.dimensions}D physics — ` +
         `construct M2D with { dimensions: ${wanted} } and await ` +
@@ -1046,6 +1047,7 @@ export class Scene {
    * What a scene-JSON button does when clicked, in a UI scene or a
    * level's HUD.
    *
+   * `"set"` records a choice first: one of the project's takes the value. Then
    * `"action"` names a behaviour rather than a scene: `'settings'` opens the
    * mounted settings menu (`game.settings`), anything else is handed to the
    * scene config's `onAction(action)` hook. `"onClick"` switches scenes, as
@@ -1053,7 +1055,8 @@ export class Scene {
    * unhandled rejection inside a click handler, which is how the platformer's
    * Settings button sat broken without anything saying so.
    */
-  runButtonAction({ action, onClick }) {
+  runButtonAction({ action, onClick, set }) {
+    if (set) this.game.choices.set(set.choice, set.value);
     if (action) {
       if (action === 'settings' && this.game.settings) {
         this.game.settings.open();
@@ -1258,7 +1261,23 @@ export class Scene {
         this.focus.focus(target);
       }
     }));
-    this.focus.focusFirst();
+    // A menu of choices opens on the one in force: the line whose `set`
+    // names the value its choice holds now. Any other menu opens on its first.
+    const chosen = this.#chosenLine();
+    if (chosen) this.focus.focus(chosen);
+    else this.focus.focusFirst();
+  }
+
+  /** The focusable element whose `set` names its choice's current value, if any. */
+  #chosenLine() {
+    const choices = this.game.choices;
+    for (const element of this.config.elements ?? []) {
+      const set = element.properties?.set;
+      if (!set || !choices.has(set.choice) || choices.get(set.choice) !== set.value) continue;
+      const built = this.uiById?.get(element.id);
+      if (built?.focusable) return built;
+    }
+    return null;
   }
 
   /** Whether this is a level a server simulates for this replica. */

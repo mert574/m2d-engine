@@ -5,8 +5,8 @@
  * against handling. Every number is a `CarControl` option, so the choice is
  * configuration, not code, and the replay stores which car drove.
  *
- * Nothing here touches a screen: the race director reads it in the tick,
- * and `carSelect.js` is what shows it.
+ * Nothing here touches a screen: the race director reads the chosen one
+ * in the tick, and the garage scene's parts show them.
  */
 
 
@@ -45,18 +45,15 @@ export const CARS = [
   }
 ];
 
-const STORE_KEY = 'm2d-circuit:car';
-
-/** The chosen car, remembered between sessions. */
-export function selectedCar() {
-  try {
-    const id = localStorage.getItem(STORE_KEY);
-    return CARS.find((car) => car.id === id) ?? CARS[1];
-  } catch {
-    return CARS[1];
-  }
+/** A car by its id, or null. */
+export function carById(id) {
+  return CARS.find((car) => car.id === id) ?? null;
 }
 
-export function selectCar(car) {
-  try { localStorage.setItem(STORE_KEY, car.id); } catch { /* storage blocked */ }
+/**
+ * The car the player chose in the garage: the project's `car` choice,
+ * carried as the local player's state, the Tourer until they choose.
+ */
+export function chosenCar(game) {
+  return carById(game.players.local.state.car) ?? CARS[1];
 }

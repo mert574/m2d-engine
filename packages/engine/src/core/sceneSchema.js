@@ -996,15 +996,26 @@ const EFFECTS = s.object({
 /** What every element of a UI scene has. */
 const UI_COMMON = { ...ELEMENT_COMMON, effects: EFFECTS };
 
-/** A button must do exactly one thing, and the thing must exist. */
+/**
+ * A choice a button records before whatever else it does: one of the
+ * project's `choices` set to a value, kept between sessions and read by the
+ * simulation as the player's state. A garage's lines or a difficulty
+ * screen's are data this way, not a hook.
+ */
+const SET = s.object({
+  choice: s.ref('choice', { required: true, label: 'Choice', description: 'A choice the project declares (m2d.project.json choices)' }),
+  value: s.union([s.string(), s.number(), s.boolean()], { required: true, description: 'What it is set to: one of the values the choice offers' })
+}, { label: 'Set', description: 'A choice this line records before it switches or acts. A menu opens with the line whose set matches the value in force focused' });
+
+/** A button must do something, switch to one place at most, and the places must exist. */
 function refineButton(element, { path, fail }) {
-  const { action, onClick } = element.properties ?? {};
+  const { action, onClick, set } = element.properties ?? {};
   if (action && onClick) {
     fail(path, `has both action '${action}' and onClick '${onClick}'; ` +
       'a button does one or the other');
   }
-  if (!action && !onClick) {
-    fail(path, 'has neither action nor onClick, so clicking it does nothing');
+  if (!action && !onClick && !set) {
+    fail(path, 'has none of onClick, action and set, so clicking it does nothing');
   }
 }
 
@@ -1017,6 +1028,7 @@ const BUTTON_PROPERTIES = s.object({
   // Cross-references the scene, so a button to an unregistered scene fails at load, not on click.
   onClick: s.ref('scene', { label: 'Switch to scene' }),
   action: s.string({ label: 'Action', description: 'settings opens the settings menu; anything else goes to the scene\'s onAction' }),
+  set: SET,
   width: styled('size'),
   height: styled('size'),
   variant: s.enumOf(BUTTON_VARIANTS),
@@ -1061,6 +1073,7 @@ const ELEMENTS = s.tagged('type', {
       text: styled('text', 'Label'),
       onClick: s.ref('scene', { label: 'Switch to scene' }),
       action: s.string({ label: 'Action', description: 'settings opens the settings menu; anything else goes to the scene\'s onAction' }),
+      set: SET,
       variant: s.enumOf(MENU_ITEM_VARIANTS, { description: 'How selection shows: a bar in the margin, brackets, an underline, a filled block, a dot' }),
       align: s.enumOf(['left', 'center', 'right']),
       width: styled('size'),

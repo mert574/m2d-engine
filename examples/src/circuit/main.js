@@ -19,12 +19,10 @@ import { audioOption } from '../shared/audio.js';
 import { evMotorLoop, roadNoiseLoop } from './evSound.js';
 import project from './m2d.project.json';
 import * as definition from './game.js';
-import * as hooks from './hooks.js';
 
 const game = await bootProject(document.getElementById('gameCanvas'), {
   project,
   definition,
-  hooks,
   scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
   // Vite's BASE_URL is '/' on the dev server and '/m2d-engine/examples/' in the build.
   basePath: import.meta.env.BASE_URL + 'circuit/',

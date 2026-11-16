@@ -11,7 +11,8 @@
  * jumps, T turns the afternoon to dusk and back, O opens settings, F3
  * shows the frame statistics.
  *
- * `?scene=lot` opens the lot instead: the corner of a small town where
+ * The page opens on a menu that offers both scenes. `?scene=lot` opens the
+ * lot straight away: the corner of a small town where
  * two roads cross, laid out as a place by `scripts/buildLotScene.mjs` —
  * corner shops with the milk truck delivering, a terrace with its
  * gardens, a works depot, a park with a plaza, allotments, woodland with
@@ -33,6 +34,8 @@ function loadingPlate(scene) {
   const plate = document.getElementById('loading');
   const shown = scene.onShow;
   scene.onLoadProgress = ({ loaded, total, name: model }) => {
+    // The menu comes first and loads nothing; the plate returns for the lot.
+    plate.classList.remove('done');
     plate.querySelector('.bar span').style.width = `${total ? (loaded / total) * 100 : 0}%`;
     plate.querySelector('small').textContent = loaded < total
       ? `Loading ${model ? model.replaceAll('_', ' ') : 'models'}… ${loaded} / ${total}`

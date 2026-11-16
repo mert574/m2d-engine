@@ -14,7 +14,7 @@ The big picture, one line per item. Each large item's plan, backlog and record l
 
 | Item | Project |
 | --- | --- |
-| The editor, with MCP as an equal client: author, play and ship any m2d game. Current: every example and docs demo on idiomatic m2d | `projects/editor` |
+| The editor, with MCP as an equal client: author, play and ship any m2d game. Every example and docs demo is on idiomatic m2d (Nov 2026); next from the project's backlog | `projects/editor` |
 | Networking: 3D online, then datagrams | `projects/networking` |
 | 3D places: terrain, decals, water, atmosphere | `projects/3d` |
 | An asset library of open materials and models | `projects/3d` |

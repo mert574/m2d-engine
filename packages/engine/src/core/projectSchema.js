@@ -24,6 +24,16 @@ const qualityAxis = (label, unit, description) => s.object({
  * MCP `read_project` tool both draw from this, and `bootProject` refuses
  * a file that fails it.
  */
+/** A choice's value: a name, a number or a flag, as the game likes. */
+const CHOICE_VALUE = s.union([s.string(), s.number(), s.boolean()], { required: true, description: 'What a new player has chosen', message: 'must be a string, a number or a boolean' });
+
+/** A choice starts on one of its own values. */
+function refineChoice(choice, { path, fail }) {
+  if (Array.isArray(choice.values) && !choice.values.includes(choice.initial)) {
+    fail(`${path}.initial`, `${JSON.stringify(choice.initial)} is not among the values offered`);
+  }
+}
+
 export const PROJECT_SCHEMA = s.object({
   name: s.string({ required: true, nonEmpty: true }),
   definition: s.string({ nonEmpty: true, description: 'The game-definition module: exports register(game), and may export GAME (its simulation options)' }),
@@ -31,6 +41,14 @@ export const PROJECT_SCHEMA = s.object({
   scenes: s.string({ initial: 'scenes', description: 'The folder the scene files are in' }),
   basePath: s.string({ initial: '.', description: 'What asset URLs in the scenes are relative to' }),
   initialScene: s.ref('scene', { label: 'Initial scene', description: 'The scene the game opens on: a scene file\'s name' }),
+  choices: s.record(s.object({
+    values: s.array(CHOICE_VALUE, { required: true, description: 'What may be chosen, in the order a screen would list them' }),
+    initial: CHOICE_VALUE,
+    label: s.string({ description: 'What to call it on a screen' })
+  }, { refine: refineChoice }), {
+    label: 'Choices',
+    description: 'What a player picks on a screen and keeps: the car in the garage, a difficulty. A UI line records one with set, it is remembered between sessions, and the simulation reads it as player.state.<name>'
+  }),
   display: s.object({
     width: s.number({ positive: true, unit: 'px', initial: 1280, description: 'The design width the UI and view are laid out for' }),
     height: s.number({ positive: true, unit: 'px', initial: 720 }),

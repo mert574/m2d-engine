@@ -148,7 +148,7 @@ A level's overlay, drawn over the world and shown in the editor: a list of eleme
 | `abilityBar` | The slots of an `Abilities` constraint, `bind { object, constraint }` (the player's `abilities` by default), at the bottom centre unless placed. `icons` maps an ability id to a key in `assets.images` (or a sprite sheet). `properties.slot` (50), `gap` (8), `background`, `borderColor` |
 | `dialogue` | Spoken lines, typed out, opened by a rule's `say` action. `width` (720), `height` (128), at the bottom centre unless placed; `properties.advance`, the input action that advances it (`interact`; E when the project declares none), or a click, and an empty string when game code drives the conversation; `clock` (`frame`, or `game` to type on game time, for a conversation the tick drives); `charsPerSecond` (46), `textColor`, `nameColor`, `background`, `borderColor` |
 | `component` | A UI widget of the game's own, registered with `game.registerUIComponent(name, make)`: `component` names it, `properties` is handed to it with the element's position. A name nobody registered is refused at load (a headless game, which builds no HUD, does not check) |
-| `button` | An on-screen control over the level, with a UI scene [`button`](#button)'s `properties`: exactly one of `onClick` (a scene to switch to) and `action` (`settings` opens the settings menu; anything else reaches the scene's `onAction` hook). A pause button a touch game wants, a step for a tool |
+| `button` | An on-screen control over the level, with a UI scene [`button`](#button)'s `properties`: `onClick` (a scene to switch to) or `action` (`settings` opens the settings menu; anything else reaches the scene's `onAction` hook), and `set` to record a choice. A pause button a touch game wants, a step for a tool |
 | `image`, `rect` | As in a UI scene |
 
 ## `assets.images`
@@ -460,13 +460,14 @@ Every colour and size accepts a [theme token](./ui#theme-tokens) such as `"$colo
 | `text` | | Label |
 | `onClick` | | Scene name to switch to. Must be registered |
 | `action` | | Behaviour name. `settings` opens the mounted settings menu. Others, and `settings` with no menu mounted, go to the scene's `onAction` hook |
+| `set` | | `{ choice, value }`: one of the project's `choices` recorded before the switch or the action, kept between sessions and read by the simulation as `player.state.<choice>`. A menu opens with the line whose `set` matches the value in force focused |
 | `width`, `height` | `200`, `44` | Size in UI units |
 | `variant` | `secondary` | `primary`, `secondary`, `ghost` or `danger`. What the button *means*; the theme decides how each looks in every interaction state |
 | `background`, `textColor` | from the variant | Override the resting fill or label colour. The hover and pressed states stay intact |
 | `fontSize`, `fontFamily` | `$font.size.body`, the theme's UI face | |
 | `fontWeight`, `fontStyle` | from the variant, `normal` | `fontStyle: "italic"` for italic |
 
-Exactly one of `onClick` and `action` is required.
+At most one of `onClick` and `action`, and at least one of `onClick`, `action` and `set`.
 
 ### `menuItem`
 
@@ -475,7 +476,7 @@ A line of a game menu: type, with a mark that eases in when it is selected. `pro
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `text` | | Label |
-| `onClick`, `action` | | As a `button`'s; exactly one |
+| `onClick`, `action`, `set` | | As a `button`'s |
 | `variant` | `bar` | How selection shows: `bar` (a bar in the margin, the line stepping right), `bracket` (chevrons either side), `underline` (a rule growing from the middle), `block` (a filled band behind inverted type) or `dot` (a bead before it) |
 | `align` | `left` | `left`, `center` or `right`. Left or right, the label sits 13 in from that edge, past the selection bar's margin: an item lines up with a title above it when placed 13 outside the title's edge |
 | `width`, `height` | `340`, `44` | |

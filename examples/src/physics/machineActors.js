@@ -198,9 +198,11 @@ export class Housing extends MachinePart {
 export class AmberBall extends Entity {
   name = 'Ball';
 
+  /** Additive where the backend blends; read at draw time, since a headless game has no renderer. */
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
   }
 
   draw() {
@@ -247,9 +249,11 @@ export class AmberBall extends Entity {
 export class WoodCrate extends Entity {
   name = 'Box';
 
+  /** Additive where the backend blends; read at draw time, since a headless game has no renderer. */
+  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    this.blend = game.renderer.supports('blendModes') ? 'additive' : undefined;
     this.grain = makeRng(seedFrom(body.position))();
   }
 

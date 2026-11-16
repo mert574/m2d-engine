@@ -79,7 +79,7 @@ Type-specific fields:
 | `pinchstart`, `pinch`, `pinchend` | `scale`, `scaleDelta`, `rotation`, `rotationDelta`, `distance` and `centre` as `{ ui, world }`. The event's own `ui` and `world` are the pinch centre |
 | `scroll` | `scroll`, `{ x, y }` in pixels |
 
-Every event's `world` is on the ground plane: through the camera and then the inverse of the scene's projection, if it has one. The snapshot's `pointer` carries `pressed` (a button went down since the last tick) and `pressedButtons` (which, as a mask, even if released again before the tick), so a click that lands inside one frame still reaches the simulation.
+Every event's `world` is on the ground plane: through the camera and then the inverse of the scene's projection, if it has one. The snapshot's `pointer` carries `pressed` (a button went down since the last tick) and `pressedButtons` (which, as a mask, even if released again before the tick), so a click that lands inside one frame still reaches the simulation. The snapshot's `heading` is the view's yaw on the ground plane at the sample, for a character steered relative to the view; a recording carries it, and a fed snapshot may give it.
 | `keydown`, `keyup` | `code`, the physical key code, and `key`, the character the layout produced. `modifiers` is filled in, so Shift+Tab is distinguishable from Tab |
 | `pointerlockchange` | `locked` |
 

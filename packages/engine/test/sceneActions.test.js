@@ -33,6 +33,12 @@ async function sceneWithButton(game, properties, config = {}) {
 describe('scene button actions', () => {
   let game;
 
+  /** A game whose project offers a choice of car. */
+  const gameWithChoices = () => new M2D(displayCanvas(1280, 720), {
+    width: 1280, height: 720, renderer: new RecordingRenderer(),
+    choices: { car: { values: ['tourer', 'sprint', 'slider'], initial: 'tourer' } }
+  });
+
   beforeAll(stubDocumentListeners);
 
   beforeEach(() => {
@@ -67,6 +73,33 @@ describe('scene button actions', () => {
     button.onClick();
 
     expect(onAction).toHaveBeenCalledWith('credits');
+  });
+
+  it('records a choice before it switches, and the player\'s state carries it', async () => {
+    game = gameWithChoices();
+    game.sceneManager.switchTo = vi.fn(async () => {});
+    const { button } = await sceneWithButton(game, { set: { choice: 'car', value: 'sprint' }, onClick: 'mainMenu' });
+
+    button.onClick();
+
+    expect(game.choices.get('car')).toBe('sprint');
+    expect(game.players.local.state.car).toBe('sprint');
+    expect(game.sceneManager.switchTo).toHaveBeenCalledWith('mainMenu');
+  });
+
+  it('opens a menu of choices on the line in force', async () => {
+    game = gameWithChoices();
+    game.choices.set('car', 'slider');
+    const line = (id, value) => ({ type: 'menuItem', id, x: 640, y: 300, properties: { text: id, set: { choice: 'car', value }, onClick: 'mainMenu' } });
+    game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: SCENE_VERSION, type: 'ui', name: 'mainMenu', elements: [] }) });
+    game.sceneManager.addScene('garage', { fetch: async () => ({
+      version: SCENE_VERSION, type: 'ui', name: 'garage',
+      elements: [line('tourer', 'tourer'), line('sprint', 'sprint'), line('slider', 'slider')]
+    }) });
+    await game.sceneManager.switchTo('garage');
+    const scene = game.sceneManager.getCurrentScene();
+
+    expect(scene.focus.focused).toBe(scene.uiById.get('slider'));
   });
 
   it('still switches scenes through onClick', async () => {

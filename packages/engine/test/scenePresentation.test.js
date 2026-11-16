@@ -333,7 +333,7 @@ describe('a UI scene\'s menu', () => {
   it('refuses a menu item that does nothing', () => {
     const bad = menu();
     bad.elements[1].properties = { text: 'Nothing' };
-    expect(() => new SceneLoader(null).load(bad, 'menu')).toThrow(/neither action nor onClick/);
+    expect(() => new SceneLoader(null).load(bad, 'menu')).toThrow(/none of onClick, action and set/);
   });
 });
 
@@ -424,7 +424,7 @@ describe('a level\'s own HUD widgets and its lighting fallback', () => {
   it('refuses a HUD button that does nothing or two things', () => {
     const loader = new SceneLoader({ actors: new Map([['Dot', Dot]]), sceneManager: { scenes: new Map([['other', {}]]), scenesToLoad: [] } });
     const withButton = (properties) => level({}, { hud: [{ type: 'button', id: 'b', x: 0, y: 0, properties }] });
-    expect(() => loader.load(withButton({ text: 'idle' }), 'look')).toThrow(/neither action nor onClick/);
+    expect(() => loader.load(withButton({ text: 'idle' }), 'look')).toThrow(/none of onClick, action and set/);
     expect(() => loader.load(withButton({ text: 'both', action: 'a', onClick: 'other' }), 'look')).toThrow(/both action/);
     expect(() => loader.load(withButton({ text: 'lost', onClick: 'nowhere' }), 'look')).toThrow(/no scene named 'nowhere'/);
     expect(() => loader.load(withButton({ text: 'ok', onClick: 'other' }), 'look')).not.toThrow();

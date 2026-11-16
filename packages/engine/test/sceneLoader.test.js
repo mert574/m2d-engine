@@ -3,6 +3,7 @@ import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { initPhysics } from '../src/core/physics/index.js';
 import { SceneLoader, SceneValidationError, SCENE_VERSION } from '../src/core/sceneLoader.js';
+import { Choices } from '../src/core/choices.js';
 
 /**
  * Scene validation.
@@ -17,9 +18,10 @@ import { SceneLoader, SceneValidationError, SCENE_VERSION } from '../src/core/sc
  */
 
 /** A game stub exposing only what the loader cross-references. */
-function makeGame({ actors = [], scenes = [] } = {}) {
+function makeGame({ actors = [], scenes = [], choices = {} } = {}) {
   return {
     actors: new Map(actors.map(name => [name, class {}])),
+    choices: new Choices(choices),
     sceneManager: { scenes: new Map(), scenesToLoad: scenes.map(name => ({ name })) }
   };
 }
@@ -292,7 +294,7 @@ describe('SceneLoader', () => {
     });
 
     it('rejects a button that does nothing', () => {
-      expectError(button({ text: 'Play' }), 'elements[0]', /neither action nor onClick/);
+      expectError(button({ text: 'Play' }), 'elements[0]', /none of onClick, action and set/);
     });
 
     it('rejects a button that tries to do both', () => {
@@ -305,6 +307,16 @@ describe('SceneLoader', () => {
     it('rejects a scene switch to a scene that is not registered', () => {
       expectError(button({ text: 'Settings', onClick: 'settings' }),
         'elements[0].properties.onClick', /no scene named 'settings'.*registered: menu, level1/);
+    });
+
+    it('rejects a set naming a choice the project does not declare', () => {
+      expectError(button({ text: 'Sprint', set: { choice: 'car', value: 'sprint' }, onClick: 'level1' }),
+        'elements[0].properties.set.choice', /no choice named 'car'.*the project declares: none/);
+    });
+
+    it('accepts a button that only records a choice', () => {
+      const knows = new SceneLoader(makeGame({ scenes: ['menu'], choices: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } } }));
+      expect(() => knows.load(button({ text: 'Sprint', set: { choice: 'car', value: 'sprint' } }))).not.toThrow();
     });
 
     it('skips the scene check when there is no scene manager to ask', () => {

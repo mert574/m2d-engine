@@ -81,7 +81,7 @@ that covers it in the same change, following
 | `notes/demo-standards.md` | The quality and art bar for examples: native AAA, every demo a showcase, bright new demos, distinct menus per game, free open assets and how to word them. |
 | `notes/working-style.md` | Parallel agents (a new port and temp dir after every owner message; never touch another agent's work), native Chrome when under WSL, waiting for background work before a turn ends, no symlinks in a worktree, a share of the machine, never all of it, one model build at a time (a `vite.config.js` edit restarts every dev server), the session summary at completion, MCP parity for editor features, one commit per phase, plain names over plan codes, and where roadmap, projects, docs and notes each live. |
 | `projects/editor/editor.md` | The editor project: its decisions, the active sub-project, the backlog, and links to the shipped phase plans (`editor-e0` … `editor-e7b-e8-e9`, `editor-host`) beside it. |
-| `projects/editor/idiomatic-examples.md` | Active: moving every example and docs demo onto idiomatic m2d, in phases 0 to 6, with the engine features and per-project work it needs. |
+| `projects/editor/idiomatic-examples.md` | Shipped Nov 2026: every example and docs demo moved onto idiomatic m2d in phases 0 to 6; its decisions (the allow-list, what stays a hook, choices as player state, menus as UI scenes) and the record of each phase. |
 | `projects/networking/networking.md` | Server-authoritative networking: the decision, the 3D online gaps, WebTransport datagrams, and what shipped. |
 | `projects/3d/3d.md` | 3D places and the asset library: backlog and record, with the renderer's plan `3d-and-editor` beside it. |
 
@@ -171,7 +171,7 @@ npx playwright install chromium   # once, for test:browser
   the editor refuses to edit it until the field is deleted.
 - An editor project is one game's folder with an `m2d.project.json`
   (`name`, `definition`, optionally `hooks`, `scenes`, `basePath`,
-  `initialScene`, `display`, `input.actions`, `settings` and `music`;
+  `initialScene`, `display`, `input.actions`, `choices`, `settings` and `music`;
   `core/projectSchema.js` is its schema). Its
   definition module exports `register(game)` (actors, constraints,
   intents, asset manifest) and optionally `GAME`; it never draws, so a

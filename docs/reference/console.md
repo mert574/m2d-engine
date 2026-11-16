@@ -13,6 +13,8 @@ The grammar is Quake's: a known command runs; a bare cvar prints its value; a cv
 
 ## CVars: `game.cvars`
 
+A cvar is a setting: the engine's, or a knob the game offers the player beside them. What a player picks *in* the game and the simulation reads — the car, a difficulty — is a project [choice](../guide/editor#the-project-file), not a cvar, so a headless game and a server see it too.
+
 From `core/console/cvars.js`. A cvar is a name, a type, a way to read, a way to write and a description: the wiring every settings surface needs, done once. The settings menu is a view onto this registry.
 
 ```javascript

@@ -20,7 +20,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile, readdir, readFile, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -229,6 +229,46 @@ async function pickAndMove(page, report) {
 // --- Suites -----------------------------------------------------------------
 
 const SUITES = {
+  /**
+   * Every example opens: each project's opening scene loads in the editor
+   * without error, draws, plays and stops, and the document is clean after.
+   * The close of the idiomatic-examples plan: an example the editor cannot
+   * open is not an editor project.
+   */
+  async examples(context, report, out) {
+    const src = join(repo, 'examples/src');
+    const folders = [];
+    for (const folder of await readdir(src)) {
+      try { await access(join(src, folder, 'm2d.project.json')); folders.push(folder); } catch { /* not a project */ }
+    }
+    report.check('every example is a project', folders.length >= 11, `${folders.length} projects`);
+    for (const folder of folders.sort()) {
+      const project = JSON.parse(await readFile(join(src, folder, 'm2d.project.json'), 'utf8'));
+      const scene = `${project.scenes ?? 'scenes'}/${project.initialScene}.json`;
+      try {
+        await drive(context, report, join(src, folder), scene, async (page) => {
+          const opened = await page.evaluate(() => ({
+            type: window.m2dEditor.remote.doc.data.type,
+            dimensions: window.m2dEditor.viewport.dimensions
+          }));
+          report.ok(`${project.name} opens on ${project.initialScene}`, `${opened.type}, ${opened.dimensions}D viewport`);
+          await shoot(page, out, `example-${folder}`, report);
+          await page.keyboard.press('F5');
+          await until(page, () => window.m2dEditor.playing);
+          await page.evaluate(() => window.m2dEditor.idle());
+          await page.waitForTimeout(1200);
+          await shoot(page, out, `example-${folder}-playing`, report);
+          await page.keyboard.press('F5');
+          await until(page, () => !window.m2dEditor.playing);
+          await page.evaluate(() => window.m2dEditor.idle());
+          report.check(`${project.name} stops clean`, !(await history(page)).dirty);
+        });
+      } catch (error) {
+        report.check(`${project.name} opens`, false, String(error.message ?? error).split('\n')[0]);
+      }
+    }
+  },
+
   /** The yard's lot: 3D on WebGPU, pick, move, isolate. */
   lot: (context, report, out) =>
     drive(context, report, join(repo, 'examples/src/yard'), 'scenes/lot.json', async (page) => {

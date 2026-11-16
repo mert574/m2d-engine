@@ -17,11 +17,21 @@ export class InputSnapshot {
    * @param {Set<string>} state.pressed
    * @param {Set<string>} state.released
    * @param {object} state.pointer
+   * @param {number} [state.heading=0]
    */
-  constructor({ down, pressed, released, pointer }) {
+  constructor({ down, pressed, released, pointer, heading = 0 }) {
     this.down = down;
     this.pressed = pressed;
     this.released = released;
+    /**
+     * Which way the view faced on the ground plane when the tick was
+     * sampled, in radians: the yaw a 3D camera had, 0 in 2D and headless.
+     * A character steered relative to the view reads this, never the
+     * camera, so the tick stays deterministic and a replay reproduces the
+     * walk. Like the pointer's `world`, it is where the player's intent met
+     * the view, sampled on the presentation side and handed in as input.
+     */
+    this.heading = heading;
     /**
      * `{ ui, world, isDown, pressed, pressedButtons, buttons, type }` as of
      * the sample. `world` is on the ground plane (through the scene's
@@ -39,7 +49,8 @@ export class InputSnapshot {
       down: new Set(),
       pressed: new Set(),
       released: new Set(),
-      pointer: { ui: { x: 0, y: 0 }, world: { x: 0, y: 0 }, isDown: false, pressed: false, pressedButtons: 0, buttons: 0, type: 'mouse' }
+      pointer: { ui: { x: 0, y: 0 }, world: { x: 0, y: 0 }, isDown: false, pressed: false, pressedButtons: 0, buttons: 0, type: 'mouse' },
+      heading: 0
     });
   }
 
@@ -61,7 +72,8 @@ export class InputSnapshot {
         pressedButtons: this.pointer.pressedButtons ?? 0,
         buttons: this.pointer.buttons,
         type: this.pointer.type
-      }
+      },
+      heading: this.heading
     };
   }
 
@@ -85,7 +97,8 @@ export class InputSnapshot {
         pressedButtons: pointer.pressedButtons ?? 0,
         buttons: pointer.buttons ?? 0,
         type: pointer.type ?? 'mouse'
-      }
+      },
+      heading: json.heading ?? 0
     });
   }
 

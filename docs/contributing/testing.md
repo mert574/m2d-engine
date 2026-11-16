@@ -19,7 +19,7 @@ Both load `test/helpers/setupPhysics.js`, which awaits `initPhysics()` once per 
 
 A suite that constructs an `M2D` in the node project installs a `window` global with `installWindowStub()` from `test/helpers/environment.js`. The stub carries the real `performance` object, which Rapier's WASM glue reads its clock through whenever `window` exists. A stub without it panics on the first physics step. See [Troubleshooting](./troubleshooting#development-environment).
 
-In the examples workspace, `examples/test/scenes.test.js` validates every example scene JSON against the loader twice: once against stub registries, for structure and cross-references, and once in a real headless game for every example folder with an `m2d.project.json`, with that game's own `register(game)`, so an actor property or constraint param its class does not declare fails the suite rather than the game. `sceneWriter.test.js` holds the scenes to the canonical writer's form.
+In the examples workspace, `examples/test/scenes.test.js` validates every example scene JSON against the loader twice: once against stub registries, for structure and cross-references, and once in a real headless game for every example folder with an `m2d.project.json`, with that game's own `register(game)`, so an actor property or constraint param its class does not declare fails the suite rather than the game. `sceneWriter.test.js` holds the scenes to the canonical writer's form. Every example is also played headless with its real scene and cast (`rowWaves`, `fieldGate`, `keepIntents`, `groveTicks`, `beelineHeadless`, `circuitDriving`, `courtyards`, `valleyRun`, `facilityRun`, `workshopDrops`, `yardWalk`): the objective taken, the exit reached, the menu returned to on Escape. A headless run is what catches a presentation read in simulation code — a renderer asked in a constructor, a camera read in a tick — which no other suite can.
 
 ## Layers
 
@@ -120,7 +120,8 @@ sudo apt-get install libnspr4 libnss3 libasound2t64
 `scripts/driveEditor.mjs` (`npm run test:editor`) drives the real editor. It starts an editor host for each suite, opens it in a Chrome with the GPU, and uses real pointer input: click to pick, a gizmo drag that must commit one edit, isolate, play and stop, and undo back to clean. It saves nothing. The example projects are driven in place, and unsaved edits only touch the git-ignored `.m2d/journal/`. A suite refuses a scene that opens with unsaved edits, such as a journal replayed from an earlier session, because undoing back to clean would walk into them and the host would then drop the journal. The template suite makes a fresh project in a temp folder.
 
 ```bash
-npm run test:editor                       # every suite: lot, platformer, paths, playtest, settle, look, search, template2d
+npm run test:editor                       # every suite: examples, lot, platformer, paths, circuitRoad, playtest, settle, look, search, template2d
+node scripts/driveEditor.mjs examples     # every example project opens on its first scene, plays and stops clean
 node scripts/driveEditor.mjs lot --headed # one suite, with the window shown
 node scripts/driveEditor.mjs --out shots  # keep the screenshots somewhere known
 ```

@@ -29,7 +29,7 @@ import { RaceCar, GhostCar, CAR } from './actors.js';
 import { Recorder, Player, saveBest, loadBest, raceSignature } from './replay.js';
 import { trackFor, WALL_THICKNESS } from './track.js';
 import { marksFor } from './road.js';
-import { selectedCar, CARS } from './cars.js';
+import { chosenCar, carById } from './cars.js';
 
 /** Seconds of countdown before the inputs go live: 3 · 2 · 1 · GO. */
 const COUNTDOWN_SECONDS = 3.2;
@@ -66,7 +66,7 @@ export class RaceDirector extends Entity {
     this.pace = options.pace ?? 1;
     this.countdownSeconds = options.countdown ?? COUNTDOWN_SECONDS;
 
-    this.carSpec = selectedCar();
+    this.carSpec = chosenCar(game);
     /** The car driving this round: the chosen one, or a replay's. */
     this.activeCar = this.carSpec;
     /** Every car pose since the green light, for the PB ghost. */
@@ -178,7 +178,7 @@ export class RaceDirector extends Entity {
     this.tag = '';
     this.roundSpills = (replay ? replay.spills : this.spills).map((spill) => ({ ...spill }));
     this.roundFrames = [];
-    this.activeCar = (replay?.car && CARS.find((car) => car.id === replay.car)) || this.carSpec;
+    this.activeCar = (replay?.car && carById(replay.car)) || this.carSpec;
     this.lapStartStep = null;
     this.nextCheckpoint = 0;
     this.lapSplits = [];

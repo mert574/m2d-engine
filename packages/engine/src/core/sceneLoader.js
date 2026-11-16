@@ -441,6 +441,10 @@ export class SceneLoader {
       refs.backdropLayer = scope(this.game.backdropLayers.keys(),
         (name, known) => `backdrop layer '${name}' is not registered (game.registerBackdropLayer; registered: ${known.join(', ') || 'none'})`);
     }
+    if (this.game?.choices) {
+      refs.choice = scope(this.game.choices.names,
+        (name, known) => `no choice named '${name}' (the project declares: ${known.join(', ') || 'none'})`);
+    }
     if (this.game?.actors) {
       refs.actor = scope(this.game.actors.keys(),
         (name, known) => `actor '${name}' is not registered (registered: ${known.join(', ') || 'none'})`);

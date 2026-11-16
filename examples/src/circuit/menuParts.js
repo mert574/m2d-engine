@@ -1,5 +1,5 @@
 import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
-import { CARS, selectedCar } from './cars.js';
+import { CARS, carById, chosenCar } from './cars.js';
 import { loadBest } from './replay.js';
 
 /**
@@ -15,9 +15,10 @@ export function lapTime(seconds) {
   return `${minutes}:${(seconds - minutes * 60).toFixed(2).padStart(5, '0')}`;
 }
 
-/** The car a garage line picks, from its `car:<id>` action. */
-export function carOfAction(action) {
-  return CARS.find((car) => action === `car:${car.id}`) ?? null;
+/** The car a garage line records, from its `set` of the project's `car` choice. */
+export function carOfLine(element) {
+  const set = element?.properties?.set;
+  return set?.choice === 'car' ? carById(set.value) : null;
 }
 
 class Caption extends UIElement {
@@ -45,7 +46,7 @@ function bestLap(scene, options) {
 }
 
 function carInGarage(scene, options) {
-  return new Caption(selectedCar().name.toUpperCase(), options);
+  return new Caption(chosenCar(scene.game).name.toUpperCase(), options);
 }
 
 /** The car whose garage line has focus, turning slowly, with its blurb and stats. */
@@ -53,7 +54,7 @@ export class CarOnShow extends UIElement {
   constructor(scene, options) {
     super({ pivot: 'center', width: 320, height: 300, ...options });
     this.scene = scene;
-    this.fallback = selectedCar();
+    this.fallback = chosenCar(scene.game);
     this.accent = options.properties?.accent ?? '$color.accent.default';
     this.spin = 0;
     for (const car of CARS) {
@@ -64,7 +65,7 @@ export class CarOnShow extends UIElement {
   get car() {
     const focused = this.scene.focus?.focused;
     const line = this.scene.config.elements.find((element) => this.scene.uiById.get(element.id) === focused);
-    return carOfAction(line?.properties?.action) ?? this.fallback;
+    return carOfLine(line) ?? this.fallback;
   }
 
   update(deltaTime) {

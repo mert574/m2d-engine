@@ -1,8 +1,18 @@
 {
   "name": "Night Circuit",
   "definition": "game.js",
-  "hooks": "hooks.js",
   "initialScene": "mainMenu",
+  "choices": {
+    "car": {
+      "values": [
+        "sprint",
+        "balanced",
+        "drift"
+      ],
+      "initial": "balanced",
+      "label": "Car"
+    }
+  },
   "settings": {
     "pauseWhenOpen": true
   },

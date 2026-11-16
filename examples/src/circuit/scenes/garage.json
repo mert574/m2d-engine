@@ -68,7 +68,8 @@
       },
       "properties": {
         "text": "Sprint",
-        "action": "car:sprint",
+        "onClick": "mainMenu",
+        "set": { "choice": "car", "value": "sprint" },
         "variant": "block",
         "width": 320,
         "letterSpacing": "$font.tracking.wider",
@@ -90,7 +91,8 @@
       },
       "properties": {
         "text": "Tourer",
-        "action": "car:balanced",
+        "onClick": "mainMenu",
+        "set": { "choice": "car", "value": "balanced" },
         "variant": "block",
         "width": 320,
         "letterSpacing": "$font.tracking.wider",
@@ -112,7 +114,8 @@
       },
       "properties": {
         "text": "Slider",
-        "action": "car:drift",
+        "onClick": "mainMenu",
+        "set": { "choice": "car", "value": "drift" },
         "variant": "block",
         "width": 320,
         "letterSpacing": "$font.tracking.wider",

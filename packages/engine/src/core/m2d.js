@@ -17,6 +17,7 @@ import { Time } from './time.js';
 import { Rng } from './rng.js';
 import { InputManager } from './input/index.js';
 import { InputActions } from './input/actions.js';
+import { Choices } from './choices.js';
 import { LayerManager } from './layerManager.js';
 import { AssetDatabase } from './assets.js';
 import { CollisionCategories } from './constants.js';
@@ -476,6 +477,17 @@ export class M2D {
     this.actions = new InputActions(this.options.actions ?? {}, {
       // A player's rebinding is theirs, per game; an edited or headless game keeps none.
       storageKey: this.editMode || this.headless ? null : `m2d.actions:${this.options.saveId ?? defaultSaveId()}`
+    });
+
+    /**
+     * The player's choices (the car, a difficulty), from the project's
+     * `choices`: a UI line records one, and the local player's state
+     * carries it into the simulation. See core/choices.js.
+     * @type {Choices}
+     */
+    this.choices = new Choices(this.options.choices ?? {}, {
+      storageKey: this.editMode || this.headless ? null : `m2d.choices:${this.options.saveId ?? defaultSaveId()}`,
+      onChange: (name, value) => { if (this.players?.local) this.players.local.state[name] = value; }
     });
 
     /**

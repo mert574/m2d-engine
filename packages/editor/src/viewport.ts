@@ -329,6 +329,7 @@ export type Registries = {
   constraintTypes?: Map<string, unknown>;
   uiComponents?: Map<string, unknown>;
   backdropLayers?: Map<string, unknown>;
+  choices?: { names: string[] };
 };
 
 export class Viewport {
@@ -1339,7 +1340,7 @@ export class Viewport {
    */
   get registries(): Registries {
     const game = this.#game as unknown as Registries | null;
-    return game ? { actors: game.actors, constraintTypes: game.constraintTypes, uiComponents: game.uiComponents, backdropLayers: game.backdropLayers } : {};
+    return game ? { actors: game.actors, constraintTypes: game.constraintTypes, uiComponents: game.uiComponents, backdropLayers: game.backdropLayers, choices: game.choices } : {};
   }
 
   /** Nothing of a game may outlive this; see the engine's teardown rule. */

@@ -42,6 +42,7 @@
 | `gamepad` | `{}` | What each gamepad control stands for, as a key code, over the arcade defaults; `false` reads no pads. See [Gamepad](../guide/input#gamepad) |
 | `preventDefaultKeys` | built-in list | Key codes whose browser default is suppressed. Replaces the list of Space, Tab, Enter, the arrows, PageUp, PageDown, Home, End and Backspace |
 | `actions` | `{}` | Named input actions: action name to the key codes that perform it. A project sets them from `input.actions`. See [Named actions](../guide/input#named-actions) |
+| `choices` | `{}` | The player's choices, each `{ values, initial }`, kept under `saveId` and carried as the local player's state. A project sets them from `choices`. See [The project file](../guide/editor#the-project-file) |
 
 ## Physics
 

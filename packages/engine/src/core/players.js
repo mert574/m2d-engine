@@ -189,6 +189,9 @@ export class Players {
     if (typeof id !== 'string' || id === '') throw new Error('M2D players: a player id must be a non-empty string');
     if (this.map.has(id)) throw new Error(`M2D players: '${id}' is already a player`);
     const player = new Player(this.game, id, local);
+    // The project's choices are the first facts a player's state holds: the
+    // local player's as they stand, a joining player's at their initial.
+    Object.assign(player.state, local ? this.game.choices?.all : this.game.choices?.initials);
     if (this.intentSet) player.intents = this.#queueFor(meter);
     player.meter = meter ?? null;
     this.map.set(id, player);

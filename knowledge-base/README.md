@@ -10,7 +10,7 @@ The repository's memory — the only one an agent has, and the place to write an
   - [[demo-standards]]: quality, art direction, menus, assets;
   - [[working-style]]: worktrees, GPU checks, waiting on background work, no symlinks, a share of the machine, one model build at a time, MCP parity, commits, where things live.
 - Projects:
-  - [[editor]], with the active [[idiomatic-examples]];
+  - [[editor]], with [[idiomatic-examples]] (shipped Nov 2026);
   - [[networking]];
   - [[3d]].
 

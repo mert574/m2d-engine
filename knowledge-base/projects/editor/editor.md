@@ -9,7 +9,7 @@ Goal: a Godot-like editor in which every m2d game is built, played and shipped, 
 
 ## Active
 
-- [[idiomatic-examples]]: every example and docs demo moved onto idiomatic m2d
+Nothing at the moment; the next piece comes from the backlog.
 
 ## Backlog
 
@@ -28,4 +28,4 @@ Each item ships with MCP support.
 
 ## Record
 
-The phase plans that built it, kept as written: [[editor-e0]] (enablement), [[editor-host]], [[editor-e1]] (viewer), [[editor-e2]] (edit and save), [[editor-e3-e5]] (assets, play, build), [[editor-e6-e9]] (structure, selection), [[editor-e7b-e8-e9]] (props, 2D authoring, UI scenes). After them: thumbnails, paths, the Look tab, playtests, search and audit, view helpers, the GUI harness and MCP screenshots (Nov 2026).
+The phase plans that built it, kept as written: [[editor-e0]] (enablement), [[editor-host]], [[editor-e1]] (viewer), [[editor-e2]] (edit and save), [[editor-e3-e5]] (assets, play, build), [[editor-e6-e9]] (structure, selection), [[editor-e7b-e8-e9]] (props, 2D authoring, UI scenes). After them: thumbnails, paths, the Look tab, playtests, search and audit, view helpers, the GUI harness and MCP screenshots (Nov 2026). Then [[idiomatic-examples]] (13 to 16 Nov 2026): every example and docs demo on idiomatic m2d, and the engine features that took — project boot, named actions, choices, the UI scene and HUD elements, rules and counters, camera controls, ambience, 2D backdrops and particles.

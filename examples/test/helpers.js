@@ -121,6 +121,7 @@ export function sceneFiles() {
 export async function projectGames() {
   const { M2D } = await import('m2d-engine/core/m2d.js');
   const { initPhysics } = await import('m2d-engine/core/physics/index.js');
+  const { projectOptions } = await import('m2d-engine/core/project.js');
   const src = join(import.meta.dirname, '..', 'src');
   const folders = readdirSync(src).filter(name => existsSync(join(src, name, 'm2d.project.json')));
   return Promise.all(folders.map(async (folder) => {
@@ -129,7 +130,9 @@ export async function projectGames() {
     const definition = await import(join(root, config.definition));
     const options = definition.GAME ?? {};
     await initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
-    const game = new M2D(null, { ...options, headless: true });
+    // Booted as bootProject boots it: the project's actions and choices are
+    // what its scenes may name.
+    const game = new M2D(null, { ...options, ...projectOptions(config), headless: true });
     definition.register(game);
     const sceneDir = join(root, config.scenes ?? 'scenes');
     const scenes = readdirSync(sceneDir).filter(f => f.endsWith('.json')).map(f => join(sceneDir, f));

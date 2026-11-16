@@ -313,6 +313,7 @@ const inspector = createInspector(inspectorPanel, {
     if (scope === 'constraint') return [...(viewport.registries.constraintTypes?.keys() ?? [])];
     if (scope === 'uiComponent') return [...(viewport.registries.uiComponents?.keys() ?? [])];
     if (scope === 'backdropLayer') return [...(viewport.registries.backdropLayers?.keys() ?? [])];
+    if (scope === 'choice') return viewport.registries.choices?.names ?? [];
     if (scope === 'scene') return project?.scenes.flatMap((scene) => (scene.name ? [scene.name] : [])) ?? [];
     return [];
   }

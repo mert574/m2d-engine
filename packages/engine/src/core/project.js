@@ -42,6 +42,7 @@ export function projectOptions(project, { basePath = '' } = {}) {
     ...Object.fromEntries(DISPLAY_KEYS.filter((key) => display[key] !== undefined).map((key) => [key, display[key]])),
     ...(project.input?.actions && { actions: project.input.actions }),
     ...(project.input?.gamepad && { gamepad: project.input.gamepad }),
+    ...(project.choices && { choices: project.choices }),
     ...(project.initialScene && { initialScene: project.initialScene }),
     ...(project.quality && { quality: project.quality }),
     ...(project.music && {

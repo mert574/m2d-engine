@@ -79,7 +79,7 @@ Presentation is not stubbed quietly. Each part throws on first use, naming what 
 
 | Throws when used | Holds |
 | --- | --- |
-| `game.camera`, `game.renderer`, `game.uiRenderer`, `game.viewport` | The view |
+| `game.camera`, `game.renderer`, `game.uiRenderer`, `game.viewport` | The view. A character steered relative to it reads `snapshot.heading`, which the tick samples from the camera |
 | `game.ui`, `scene.ui`, `game.worldOverlay`, `game.motion`, `game.theme` | UI and overlays |
 | `game.layers` | Tile layers |
 | `game.cvars`, `game.commands`, `game.console` | The developer console |
@@ -95,7 +95,7 @@ A simulation that reads one of these on the server would simulate a different ga
 
 ## Players
 
-`game.players` holds the players. Every game has `game.players.local`, the player at the keyboard, whose snapshot is `game.input.snapshot`. A server adds one player per connection:
+`game.players` holds the players. Every game has `game.players.local`, the player at the keyboard, whose snapshot is `game.input.snapshot`. A player's `state` starts with the project's [choices](./editor#the-project-file): the local player's as they stand, a joining player's at their initial, so a race reads `player.state.car` on a client and a server alike. A server adds one player per connection:
 
 ```javascript
 const player = game.players.add(connectionId, { meter });

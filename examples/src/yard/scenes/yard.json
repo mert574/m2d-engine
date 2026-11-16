@@ -2,6 +2,7 @@
   "version": 4,
   "name": "yard",
   "type": "level",
+  "title": "The Yard",
   "world": {
     "dimensions": 3,
     "gravity": { "x": 0, "y": -20, "z": 0 },
@@ -76,6 +77,10 @@
     },
     "ambience": [{ "sound": "wind", "fadeIn": 2 }],
     "rules": [
+      {
+        "when": { "event": "action", "action": "menu" },
+        "then": [{ "do": "switch", "scene": "mainMenu" }]
+      },
       {
         "when": { "event": "action", "action": "turn" },
         "then": [{ "do": "cycle", "target": 1, "toggle": true }],
@@ -572,7 +577,7 @@
       "y": -16,
       "anchor": "bottom-right",
       "properties": {
-        "text": "Drag orbits · Scroll zooms · WASD walks the fox · Space jumps · T dusk · O settings · F3 stats · ` console (noclip)",
+        "text": "Drag orbits · Scroll zooms · WASD walks the fox · Space jumps · T dusk · Esc menu · O settings · F3 stats · ` console (noclip)",
         "fontSize": "13px",
         "color": "rgba(255, 248, 236, 0.75)",
         "align": "right",
