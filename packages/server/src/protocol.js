@@ -40,6 +40,9 @@ const TYPES = new Set(['in', 'do', 'choose', 'ping']);
  * @param {string} text
  * @returns {{ok: true, t: string, m: unknown} | {ok: false}}
  */
+/** A plain object, as a message body must be. */
+export const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
 export function decodeEnvelope(text) {
   let value;
   try {
@@ -47,7 +50,7 @@ export function decodeEnvelope(text) {
   } catch {
     return { ok: false };
   }
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return { ok: false };
+  if (!isRecord(value)) return { ok: false };
   const keys = Object.keys(value);
   if (keys.length !== 2 || !('t' in value) || !('m' in value)) return { ok: false };
   if (typeof value.t !== 'string' || !TYPES.has(value.t)) return { ok: false };

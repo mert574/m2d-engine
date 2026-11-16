@@ -27,8 +27,8 @@ describe('the garage', () => {
     expect(carOfLine(undefined)).toBeNull();
   });
 
-  it('races the car the player\'s state names, the Tourer until they choose', () => {
-    const game = (car) => ({ players: { local: { state: car === undefined ? {} : { car } } } });
+  it('races the car the player\'s state names, the project\'s initial until they choose', () => {
+    const game = (car) => ({ players: { local: { state: car === undefined ? {} : { car } } }, choices: { initial: () => PROJECT.choices[CAR_CHOICE].initial } });
     expect(chosenCar(game(undefined)).name).toBe('Tourer');
     expect(chosenCar(game('drift')).name).toBe('Slider');
     expect(chosenCar(game('tank')).name).toBe('Tourer');

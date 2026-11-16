@@ -997,20 +997,14 @@ const EFFECTS = s.object({
 /** What every element of a UI scene has. */
 const UI_COMMON = { ...ELEMENT_COMMON, effects: EFFECTS };
 
-/**
- * A choice a button records before whatever else it does: one of the
- * project's `choices` set to a value, kept between sessions and read by the
- * simulation as the player's state. A garage's lines or a difficulty
- * screen's are data this way, not a hook.
- */
+/** A choice a button records before whatever else it does; see core/choices.js. */
 const SET = s.object({
   choice: s.ref('choice', { required: true, label: 'Choice', description: 'A choice the project declares (m2d.project.json choices)' }),
   value: choiceValue({ required: true, description: 'What it is set to: one of the values the choice offers' })
 }, {
   label: 'Set',
   description: 'A choice this line records before it switches or acts. A menu opens with the line whose set matches the value in force focused',
-  // The value must be one the choice offers: the name is a ref, the value
-  // depends on it, so it is checked here against the game's declaration.
+  // The value depends on the ref beside it, so it is checked here.
   refine(set, { path, fail, context }) {
     const offered = context.choices?.values(set.choice);
     if (offered?.length && !offered.includes(set.value)) {

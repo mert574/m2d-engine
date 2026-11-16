@@ -203,15 +203,13 @@ export class Session {
   /**
    * Forget every document, unsaved edits included, once their journals
    * have landed: an edit made just before the host stops must be on disk
-   * for the next host to find.
+   * for the next host to find. A read still in flight is waited for and
+   * then refused, so nothing is applied or journalled after this.
    */
   async close(): Promise<void> {
     this.#closed = true;
     this.#open.clear();
     this.#listeners.clear();
-    // A document still being read when the session closed would land after
-    // it, and an edit on it would journal after it: wait for the reads, and
-    // for every journal write, which `#journal` no longer starts.
     await Promise.allSettled(this.#loading.values());
     await Promise.allSettled(this.#journalling.values());
   }
@@ -264,6 +262,7 @@ export class Session {
   }
 
   async #dropJournal(path: string): Promise<void> {
+    if (this.#closed) return;
     const previous = this.#journalling.get(path) ?? Promise.resolve();
     const next = previous.then(() => this.project.removeFile(journalPath(path)).catch(() => undefined));
     this.#journalling.set(path, next);
@@ -304,6 +303,7 @@ export class Session {
   }
 
   async #get(path: string): Promise<Open> {
+    if (this.#closed) throw new Error('the session is closed');
     const open = this.#open.get(path);
     if (open) return open;
     // Two clients opening the same scene at once share one read.
@@ -314,7 +314,8 @@ export class Session {
         const doc = SceneDocument.parse(disk, path);
         const fresh: Open = { doc, revision: 0, disk, applied: [], undone: [] };
         await this.#restore(path, fresh);
-        if (!this.#closed) this.#open.set(path, fresh);
+        if (this.#closed) throw new Error('the session is closed');
+        this.#open.set(path, fresh);
         return fresh;
       })().finally(() => this.#loading.delete(path));
       this.#loading.set(path, loading);

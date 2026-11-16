@@ -62,10 +62,10 @@ export class YardAfternoon {
     // then the pillar, its sunward face light and the other in shade.
     const pillarHeight = height * 0.19;
     const pillarWidth = width * 0.014;
+    const base = horizon + height * 0.012;
+    const reach = { x: -pillarHeight * 1.9, y: pillarHeight * 0.55 };
     for (const at of PILLARS) {
       const x = width * at;
-      const base = horizon + height * 0.012;
-      const reach = { x: -pillarHeight * 1.9, y: pillarHeight * 0.55 };
       paint.drawPath({
         points: [
           { x, y: base }, { x: x + pillarWidth, y: base },

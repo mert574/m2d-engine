@@ -1050,10 +1050,8 @@ export class Scene {
    * `"set"` records a choice first: one of the project's takes the value. Then
    * `"action"` names a behaviour rather than a scene: `'settings'` opens the
    * mounted settings menu (`game.settings`), anything else is handed to the
-   * scene config's `onAction(action)` hook. `"onClick"` switches scenes, as
-   * before — but a missing scene now logs an error instead of surfacing as an
-   * unhandled rejection inside a click handler, which is how the platformer's
-   * Settings button sat broken without anything saying so.
+   * scene config's `onAction(action)` hook. `"onClick"` switches scenes; a
+   * missing scene logs an error rather than rejecting inside a click handler.
    */
   runButtonAction({ action, onClick, set }) {
     if (set) this.game.choices.set(set.choice, set.value);

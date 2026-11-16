@@ -179,10 +179,10 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
     const loaded = await loadModules();
     if (!loaded) return null;
     const options = loaded.definition.GAME ?? {};
-    const config = await companion.project.config();
+    const declared = await companion.project.config();
     await loaded.physics.initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
     // Booted as the page boots it: the project's actions and choices are what its scenes may name.
-    const made = new loaded.engine.M2D(null, { ...options, actions: config.actions, choices: config.choices, headless: true });
+    const made = new loaded.engine.M2D(null, { ...options, actions: declared.actions, choices: declared.choices, headless: true });
     loaded.definition.register?.(made);
     // The project's scenes as the session holds them: cross-scene refs (a
     // button's onClick, a rule's switch) check as registered, and a level
@@ -529,6 +529,6 @@ console.log(`            MCP: http://localhost:${port}/mcp`);
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    void Promise.all([companion.close(), closePreview(), camera.close()]).then(() => server.close()).then(() => process.exit(0));
+    void Promise.all([companion.close(), closePreview(), camera.close()]).then(() => server.close()).then(() => process.exit(0), () => process.exit(1));
   });
 }

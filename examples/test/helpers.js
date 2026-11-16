@@ -120,22 +120,10 @@ export function sceneFiles() {
  * actor rejects passes against it.
  */
 export async function projectGames() {
-  const { M2D } = await import('m2d-engine/core/m2d.js');
-  const { initPhysics } = await import('m2d-engine/core/physics/index.js');
-  const { projectOptions } = await import('m2d-engine/core/project.js');
   const src = join(import.meta.dirname, '..', 'src');
   const folders = readdirSync(src).filter(name => existsSync(join(src, name, 'm2d.project.json')));
   return Promise.all(folders.map(async (folder) => {
-    const root = join(src, folder);
-    const config = JSON.parse(readFileSync(join(root, 'm2d.project.json'), 'utf8'));
-    const definition = await import(join(root, config.definition));
-    const options = definition.GAME ?? {};
-    await initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
-    // Booted as bootProject boots it: the project's actions and choices are
-    // what its scenes may name.
-    const game = new M2D(null, { ...options, ...projectOptions(config), headless: true });
-    definition.register(game);
-    const sceneDir = join(root, config.scenes ?? 'scenes');
+    const { game, config, root, sceneDir } = await bootHeadless(folder);
     const scenes = readdirSync(sceneDir).filter(f => f.endsWith('.json')).map(f => join(sceneDir, f));
     // Registered by name, as bootProject registers them: a menu's onClick
     // to a level of the game's resolves, and a typo is refused.
@@ -156,13 +144,11 @@ export function manifestFiles() {
 }
 
 /**
- * One example played headless: its real definition and the scene asked
- * for, booted as `bootProject` boots it, a stand-in for the menu (a
- * headless game has no UI, and a rule's `switch` needs somewhere to go),
- * collision handlers on, and the input fed by the test. What comes back
- * is the game and the few moves every playthrough makes.
+ * An example's headless game, booted as `bootProject` boots it (its
+ * definition's options, the project's actions and choices) with its cast
+ * registered; what every headless test of an example starts from.
  */
-export async function playHeadless(folder, sceneName, { seed = 1 } = {}) {
+export async function bootHeadless(folder, { seed } = {}) {
   const { M2D } = await import('m2d-engine/core/m2d.js');
   const { initPhysics } = await import('m2d-engine/core/physics/index.js');
   const { projectOptions } = await import('m2d-engine/core/project.js');
@@ -172,9 +158,20 @@ export async function playHeadless(folder, sceneName, { seed = 1 } = {}) {
   const options = definition.GAME ?? {};
   const dimensions = options.dimensions === 3 ? 3 : 2;
   await initPhysics(dimensions === 3 ? { dimensions: 3 } : undefined);
-  const game = new M2D(null, { ...options, ...projectOptions(config), headless: true, seed });
+  const game = new M2D(null, { ...options, ...projectOptions(config), headless: true, ...(seed !== undefined && { seed }) });
   definition.register(game);
-  const data = JSON.parse(readFileSync(join(root, config.scenes ?? 'scenes', `${sceneName}.json`), 'utf8'));
+  return { game, config, root, dimensions, sceneDir: join(root, config.scenes ?? 'scenes') };
+}
+
+/**
+ * One example played headless: the scene asked for, a stand-in for the
+ * menu (a headless game has no UI, and a rule's `switch` needs somewhere
+ * to go), collision handlers on, and the input fed by the test. What
+ * comes back is the game and the few moves every playthrough makes.
+ */
+export async function playHeadless(folder, sceneName, { seed = 1 } = {}) {
+  const { game, dimensions, sceneDir } = await bootHeadless(folder, { seed });
+  const data = JSON.parse(readFileSync(join(sceneDir, `${sceneName}.json`), 'utf8'));
   game.sceneManager.addScene(sceneName, { fetch: async () => data });
   game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: data.version, type: 'level', name: 'mainMenu', world: { dimensions }, prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });
   await game.sceneManager.switchTo(sceneName);
@@ -184,7 +181,7 @@ export async function playHeadless(folder, sceneName, { seed = 1 } = {}) {
   let held = { down: [], pressed: [], heading: 0 };
   game.input.setSnapshotSource(() => held);
   /** Run ticks, and insist they all ran: a game stops ticking while a scene loads, and a stray switch would otherwise freeze a test into passing. */
-  const run = (ticks) => { expect(game.step(ticks)).toBe(ticks); };
+  const run = (ticks) => { expect(game.step(ticks), 'a scene switch stopped the ticks').toBe(ticks); };
 
   return {
     game, scene, data, run,
@@ -212,10 +209,14 @@ export async function playHeadless(folder, sceneName, { seed = 1 } = {}) {
     /** The scene's rule on an event. */
     rule: (event) => scene.rules.rules.find((candidate) => candidate.when.event === event),
     /** How many ticks a rule's `switch` waits before it runs. */
-    switchDelay: (event) => Math.round((scene.rules.rules.find((candidate) => candidate.when.event === event).then.find((action) => action.do === 'switch').after ?? 0) / game.time.fixedTimestep),
+    switchDelay(event) {
+      const rule = scene.rules.rules.find((candidate) => candidate.when.event === event);
+      const after = rule.then.find((action) => action.do === 'switch').after ?? 0;
+      return Math.round(after / game.time.fixedTimestep);
+    },
     /** The scene showing now, by name. */
     current: () => game.sceneManager.getCurrentScene().config.name,
-    /** A switch that has begun has finished. */
-    settled: () => new Promise((done) => setTimeout(done, 0))
+    /** A switch that has begun has finished: the stand-in scenes load in microtasks alone. */
+    async settled() { while (game.sceneManager.loading) await Promise.resolve(); }
   };
 }

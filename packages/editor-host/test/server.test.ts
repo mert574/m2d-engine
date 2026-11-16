@@ -499,8 +499,7 @@ describe('the journal of unsaved edits', () => {
       // Not awaited: the edit is mid-read when the host closes.
       const editing = host.session.edit('scenes/room.json', { label: 'Move floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: 40 }] }, { origin: 'editor' });
       await host.close();
-      await editing;
-      await new Promise((done) => setTimeout(done, 50));
+      await expect(editing).rejects.toThrow(/session is closed/);
       await expect(readFile(join(dir, '.m2d', 'journal', 'scenes__room.json'), 'utf8')).rejects.toThrow(/ENOENT/);
       expect(host.session.isDirty('scenes/room.json')).toBe(false);
     } finally {

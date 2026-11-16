@@ -43,6 +43,7 @@
  * | `tick` | Not a whole number from 1 up | Yes |
  * | `held` | Not a whole number inside the key list's mask | Yes |
  * | `pointer` | Missing, extra, non-finite, out of bounds or bad buttons | Yes |
+ * | `heading` | Missing, extra or not a finite angle, in a schema that carries one | Yes |
  * | `conflict` | A second, different message for a tick already filed | Yes |
  * | `duplicate` | The same message again (resends are normal) | No |
  * | `late` | For a tick already taken | No |
@@ -70,7 +71,7 @@ const MAX_BUTTONS = 5;
 const MESSAGE_FIELDS = ['tick', 'held'];
 const POINTER_FIELDS = ['buttons', 'x', 'y'];
 
-const VIOLATIONS = new Set(['shape', 'tick', 'held', 'pointer', 'conflict']);
+const VIOLATIONS = new Set(['shape', 'tick', 'held', 'pointer', 'heading', 'conflict']);
 
 /** Exactly these own keys, in any order, on a plain object. */
 function hasExactFields(value, fields) {
@@ -136,9 +137,12 @@ export class ViolationMeter {
  * @param {false|{bounds: {left: number, top: number, right: number, bottom: number}, buttons?: number}} [options.pointer=false]
  *   - The world rectangle a pointer may point into and how many buttons
  *   it has (1 to 5, default 3). False for a game with no pointer.
+ * @param {boolean} [options.heading=false] - Whether the view's heading
+ *   rides along: a 3D game whose characters steer relative to the view.
  */
 export class InputSchema {
-  constructor({ keys, pointer = false } = {}) {
+  constructor({ keys, pointer = false, heading = false } = {}) {
+    this.heading = heading === true;
     if (!Array.isArray(keys) || keys.length === 0) {
       throw new Error('M2D net: an InputSchema needs a non-empty keys array');
     }
@@ -187,7 +191,7 @@ export class InputSchema {
   }
 
   #decode(message) {
-    const fields = this.pointer ? [...MESSAGE_FIELDS, 'pointer'] : MESSAGE_FIELDS;
+    const fields = this.#fields;
     if (!hasExactFields(message, fields)) {
       return reject('shape', `expected a plain object with exactly ${fields.join(', ')}`);
     }
@@ -220,7 +224,23 @@ export class InputSchema {
       // -0 and 0 are the same position; keep the simulation from ever seeing a signed zero it did not make.
       pointer = { x: x + 0, y: y + 0, buttons };
     }
-    return { ok: true, value: { tick, held: held >>> 0, pointer } };
+    const value = { tick, held: held >>> 0, pointer };
+    if (this.heading) {
+      const { heading } = message;
+      if (typeof heading !== 'number' || !Number.isFinite(heading) || Math.abs(heading) > Math.PI) {
+        return reject('heading', 'heading must be a finite angle within ±π');
+      }
+      value.heading = heading + 0;
+    }
+    return { ok: true, value };
+  }
+
+  /** The fields a message has, exactly. */
+  get #fields() {
+    const fields = [...MESSAGE_FIELDS];
+    if (this.pointer) fields.push('pointer');
+    if (this.heading) fields.push('heading');
+    return fields;
   }
 
   /**
@@ -248,6 +268,7 @@ export class InputSchema {
         buttons: ((snapshot.pointer.buttons ?? 0) | (snapshot.pointer.pressedButtons ?? 0)) & buttonMask
       };
     }
+    if (this.heading) message.heading = Math.atan2(Math.sin(snapshot.heading), Math.cos(snapshot.heading));
     return message;
   }
 
@@ -308,6 +329,8 @@ export class InputGate {
 
   #held;
   #pointer;
+  /** The heading of the last message, held while none arrives. */
+  #heading = 0;
 
   /** True once the meter's limit was passed. Stays true. */
   get exceeded() {
@@ -372,8 +395,10 @@ export class InputGate {
     const held = input ? input.held : before;
     const prevPointer = this.#pointer;
     const pointer = input?.pointer ?? prevPointer;
+    const heading = input ? input.heading ?? 0 : this.#heading;
     this.#held = held;
     this.#pointer = pointer;
+    this.#heading = heading;
 
     const schema = this.schema;
     const pointerState = pointer
@@ -392,7 +417,8 @@ export class InputGate {
       down: new Set(schema.codes(held)),
       pressed: new Set(schema.codes(held & ~before)),
       released: new Set(schema.codes(before & ~held)),
-      pointer: pointerState
+      pointer: pointerState,
+      heading
     });
   }
 

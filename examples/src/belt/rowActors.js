@@ -112,8 +112,7 @@ export class Thug extends Ghost {
     }
     super.fixedUpdate(dt);
     if (this.dead) return;
-    // The swing: wind up in reach, strike at the end of the windup, at the
-    // nearest living avatar — never `game.player`, which a server has not got.
+    // The swing: wind up in reach, strike at the end of the windup.
     const player = this.game.players.nearestAvatar(this.position);
     this.strikeWait = Math.max(0, this.strikeWait - dt);
     this.strikeHold = Math.max(0, this.strikeHold - dt);

@@ -195,11 +195,13 @@ export class Housing extends MachinePart {
   }
 }
 
+/** Additive where the backend blends; asked at draw time, since a headless game has no renderer. */
+const additiveIfSupported = (game) => (game.renderer.supports('blendModes') ? 'additive' : undefined);
+
 export class AmberBall extends Entity {
   name = 'Ball';
 
-  /** Additive where the backend blends; read at draw time, since a headless game has no renderer. */
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  get blend() { return additiveIfSupported(this.game); }
 
   draw() {
     if (this.dead || !this.visible) return;
@@ -245,8 +247,7 @@ export class AmberBall extends Entity {
 export class WoodCrate extends Entity {
   name = 'Box';
 
-  /** Additive where the backend blends; read at draw time, since a headless game has no renderer. */
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  get blend() { return additiveIfSupported(this.game); }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);

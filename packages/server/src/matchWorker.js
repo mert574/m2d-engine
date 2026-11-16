@@ -17,7 +17,7 @@ import { M2D } from 'm2d-engine/core/m2d.js';
 import { InputGate, ViolationMeter } from 'm2d-engine/net/input.js';
 import { IntentQueue } from 'm2d-engine/net/intents.js';
 import { Replicator, StateFrame } from 'm2d-engine/net/replication.js';
-import { CLOSE } from './protocol.js';
+import { CLOSE, isRecord } from './protocol.js';
 
 const post = (message) => parentPort.postMessage(message);
 
@@ -148,9 +148,8 @@ function receive(pid, kind, payload) {
  * the simulation reads it; anything else counts against them.
  */
 function choose(seat, payload) {
-  const entries = payload !== null && typeof payload === 'object' && !Array.isArray(payload) ? Object.entries(payload) : null;
-  if (!entries) { seat.meter.record(game.time.steps); return; }
-  for (const [name, value] of entries) {
+  if (!isRecord(payload)) { seat.meter.record(game.time.steps); return; }
+  for (const [name, value] of Object.entries(payload)) {
     if (game.choices.has(name) && game.choices.values(name).includes(value)) seat.player.state[name] = value;
     else seat.meter.record(game.time.steps);
   }

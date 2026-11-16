@@ -47,6 +47,22 @@ describe('InputSchema', () => {
     expect(schema.decode(message)).toEqual({ ok: true, value: message });
   });
 
+  it('carries the view\'s heading when asked to, within the circle, and refuses what is not an angle', () => {
+    const steering = new InputSchema({ keys: KEYS, heading: true });
+    const message = steering.encode(3, InputSnapshot.from({ down: ['ArrowLeft'], heading: 4 }));
+    expect(message.heading).toBeCloseTo(4 - 2 * Math.PI);
+    expect(steering.decode(message)).toEqual({ ok: true, value: { tick: 3, held: BIT.ArrowLeft, pointer: null, heading: message.heading } });
+    expect(steering.decode({ tick: 3, held: 0 }).ok).toBe(false);
+    for (const heading of [NaN, Infinity, 4, 'north']) expect(steering.decode({ tick: 3, held: 0, heading })).toMatchObject({ ok: false, reason: 'heading' });
+    expect(steering.decode({ tick: 3, held: 0, heading: -0 }).value.heading).toBe(0);
+    // Without it in the schema, nothing is sent and the gate steers at 0.
+    expect('heading' in keysOnly.encode(3, InputSnapshot.from({ heading: 1 }))).toBe(false);
+    const gate = new InputGate(steering, { maxAhead: 8 });
+    gate.submit({ tick: 1, held: 0, heading: 1.5 });
+    expect(gate.take(1).heading).toBe(1.5);
+    expect(gate.take(2).heading).toBe(1.5);
+  });
+
   it('latches a tap shorter than a tick: pressed and released before the sample still sends as held', () => {
     const tapped = InputSnapshot.from({ down: [], pressed: ['Space'], pointer: { world: { x: 5, y: 6 }, buttons: 0, pressedButtons: 1 } });
     expect(schema.encode(3, tapped)).toEqual({ tick: 3, held: BIT.Space, pointer: { x: 5, y: 6, buttons: 1 } });

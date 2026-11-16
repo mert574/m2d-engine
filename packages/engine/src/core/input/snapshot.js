@@ -25,11 +25,8 @@ export class InputSnapshot {
     this.released = released;
     /**
      * Which way the view faced on the ground plane when the tick was
-     * sampled, in radians: the yaw a 3D camera had, 0 in 2D and headless.
-     * A character steered relative to the view reads this, never the
-     * camera, so the tick stays deterministic and a replay reproduces the
-     * walk. Like the pointer's `world`, it is where the player's intent met
-     * the view, sampled on the presentation side and handed in as input.
+     * sampled, in radians (a 3D camera's yaw; 0 in 2D and headless), so a
+     * character steered relative to the view never reads the camera.
      */
     this.heading = heading;
     /**

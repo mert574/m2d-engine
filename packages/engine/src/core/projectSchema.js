@@ -36,7 +36,7 @@ export const choiceValue = (options = {}) => s.union([
 
 /** A choice starts on one of its own values. */
 function refineChoice(choice, { path, fail }) {
-  if (Array.isArray(choice.values) && !choice.values.includes(choice.initial)) {
+  if (choice.initial !== undefined && Array.isArray(choice.values) && !choice.values.includes(choice.initial)) {
     fail(`${path}.initial`, `${JSON.stringify(choice.initial)} is not among the values offered`);
   }
 }

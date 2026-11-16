@@ -191,6 +191,11 @@ export class NetClient {
     else console.info(`[net] ${message}`);
   }
 
+  /** Tell the server the player's choices (`{ name: value }`); nothing is sent before the welcome. */
+  choose(choices) {
+    if (this.#synced && Object.keys(choices).length) this.#send('choose', choices);
+  }
+
   #send(type, payload) {
     if (!this.open || this.socket.readyState !== 1) return false;
     const text = JSON.stringify({ t: type, m: payload });
@@ -258,10 +263,11 @@ export class NetClient {
     this.#apply(message.full);
     for (const queued of this.#queue.splice(0)) this.#apply(queued);
     this.#synced = true;
-    // The player's choices are theirs to send: the server seats a joining
-    // player at the initials and puts these into their state.
+    // The welcome seats the player at the initials; their own choices stand
+    // locally and go to the server, whose next state carries them back.
     const chosen = this.game.choices.all;
-    if (Object.keys(chosen).length) this.#send('choose', chosen);
+    Object.assign(this.game.players.local.state, chosen);
+    this.choose(chosen);
     this.log(1, `joined as '${this.you}' · scene '${message.scene}' · ${this.tickRate} Hz · state every ${this.sendEvery} tick${this.sendEvery === 1 ? '' : 's'}`
       + ` · ${this.predictor ? 'predicting' : 'not predicting'} · drawing ${this.view.delay} ticks behind`);
     if (this.predicts && !this.predictor?.entity) {

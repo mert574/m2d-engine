@@ -57,12 +57,7 @@ export { InputSnapshot };
 const NO_MODIFIERS = Object.freeze({ shift: false, ctrl: false, alt: false, meta: false });
 
 
-/**
- * Which way a camera faces on the ground plane, in radians, for the tick's
- * snapshot: a 3D camera's yaw, read off its flattened forward vector so
- * `{ x: sin, z: cos }` of it is forward again; 0 for a 2D camera, which
- * has none.
- */
+/** A 3D camera's yaw off its flattened forward vector (`{ x: sin, z: cos }` is forward again); 0 for a 2D camera. */
 export function headingOf(camera) {
   const forward = camera?.forward;
   return forward ? Math.atan2(forward.x, forward.z) : 0;

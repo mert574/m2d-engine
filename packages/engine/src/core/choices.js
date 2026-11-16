@@ -17,6 +17,7 @@ export class Choices {
    */
   constructor(declared = {}, { storageKey = null, onChange = null } = {}) {
     this.declared = structuredClone(declared);
+    for (const choice of Object.values(this.declared)) Object.freeze(choice.values);
     this.storageKey = storageKey;
     this.onChange = onChange;
     /** @type {Map<string, string|number|boolean>} */
@@ -41,13 +42,19 @@ export class Choices {
   }
 
   get(name) {
-    if (!this.has(name)) throw new Error(`M2D choices: no choice named '${name}' (declared: ${this.names.join(', ') || 'none'})`);
+    this.#known(name);
     return this.current.get(name);
+  }
+
+  /** What a choice starts at. */
+  initial(name) {
+    this.#known(name);
+    return this.declared[name].initial;
   }
 
   /** Record a choice, and keep it. Refused for a value the project did not offer. */
   set(name, value) {
-    if (!this.has(name)) throw new Error(`M2D choices: no choice named '${name}' (declared: ${this.names.join(', ') || 'none'})`);
+    this.#known(name);
     const allowed = this.values(name);
     if (!allowed.includes(value)) throw new Error(`M2D choices: '${name}' cannot be ${JSON.stringify(value)} (offered: ${allowed.map((v) => JSON.stringify(v)).join(', ')})`);
     this.current.set(name, value);
@@ -63,6 +70,10 @@ export class Choices {
   /** Every choice at its initial: what a player who joins from elsewhere starts with. */
   get initials() {
     return Object.fromEntries(Object.entries(this.declared).map(([name, choice]) => [name, choice.initial]));
+  }
+
+  #known(name) {
+    if (!this.has(name)) throw new Error(`M2D choices: no choice named '${name}' (declared: ${this.names.join(', ') || 'none'})`);
   }
 
   #stored() {

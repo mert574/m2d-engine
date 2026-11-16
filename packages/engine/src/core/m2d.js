@@ -479,15 +479,13 @@ export class M2D {
       storageKey: this.editMode || this.headless ? null : `m2d.actions:${this.options.saveId ?? defaultSaveId()}`
     });
 
-    /**
-     * The player's choices (the car, a difficulty), from the project's
-     * `choices`: a UI line records one, and the local player's state
-     * carries it into the simulation. See core/choices.js.
-     * @type {Choices}
-     */
+    /** The player's choices, from the project's `choices`. See core/choices.js. @type {Choices} */
     this.choices = new Choices(this.options.choices ?? {}, {
       storageKey: this.editMode || this.headless ? null : `m2d.choices:${this.options.saveId ?? defaultSaveId()}`,
-      onChange: (name, value) => { if (this.players?.local) this.players.local.state[name] = value; }
+      onChange: (name, value) => {
+        if (this.players?.local) this.players.local.state[name] = value;
+        this.net?.choose({ [name]: value });
+      }
     });
 
     /**

@@ -233,8 +233,7 @@ const SUITES = {
    * Every example opens: each project's opening scene loads in the editor
    * without error, draws, plays and stops, and the document is clean after;
    * then every other scene of the project opens with no problem the editor
-   * can name. The close of the idiomatic-examples plan: an example the
-   * editor cannot open is not an editor project.
+   * can name. An example the editor cannot open is not an editor project.
    */
   async examples(context, report, out) {
     const src = join(repo, 'examples/src');
@@ -250,7 +249,8 @@ const SUITES = {
     report.check('every example but the showcase is a project', without.join() === 'showcase', `without a project: ${without.join(', ') || 'none'}`);
     for (const folder of folders.sort()) {
       const project = JSON.parse(await readFile(join(src, folder, 'm2d.project.json'), 'utf8'));
-      const scene = `${project.scenes ?? 'scenes'}/${project.initialScene}.json`;
+      const scenesDir = project.scenes ?? 'scenes';
+      const scene = `${scenesDir}/${project.initialScene}.json`;
       try {
         await drive(context, report, join(src, folder), scene, async (page) => {
           const opened = await page.evaluate(() => ({
@@ -271,11 +271,15 @@ const SUITES = {
 
           // The rest of the project's scenes, each on the editor's verdict:
           // loaded, and nothing in the problems list.
-          const others = (await readdir(join(src, folder, project.scenes ?? 'scenes'))).filter((file) => file.endsWith('.json')).map((file) => `${project.scenes ?? 'scenes'}/${file}`).filter((path) => path !== scene).sort();
+          const others = (await readdir(join(src, folder, scenesDir))).filter((file) => file.endsWith('.json')).map((file) => `${scenesDir}/${file}`).filter((path) => path !== scene).sort();
           for (const other of others) {
-            await page.evaluate((path) => window.m2dEditor.openScene(path), other);
-            const verdict = await page.evaluate(() => ({ error: window.m2dEditor.loadError, issues: window.m2dEditor.issues.map((issue) => `${issue.path}: ${issue.message}`) }));
-            report.check(`${project.name}: ${other} opens clean`, !verdict.error && verdict.issues.length === 0, verdict.error ?? verdict.issues.slice(0, 2).join(' | '));
+            try {
+              await page.evaluate((path) => window.m2dEditor.openScene(path), other);
+              const verdict = await page.evaluate(() => ({ error: window.m2dEditor.loadError, issues: window.m2dEditor.issues.map((issue) => `${issue.path}: ${issue.message}`) }));
+              report.check(`${project.name}: ${other} opens clean`, !verdict.error && verdict.issues.length === 0, verdict.error ?? verdict.issues.slice(0, 2).join(' | '));
+            } catch (error) {
+              report.check(`${project.name}: ${other} opens clean`, false, String(error.message ?? error).split('\n')[0]);
+            }
           }
         });
       } catch (error) {

@@ -8,36 +8,35 @@ description: >
 runs:
   using: composite
   steps:
-    # The cache key covers what decides the output: the scripts that build
-    # it, the compiler they call, the scenes that name the models, the
-    # project that declares their quality levels, and the dependencies that
-    # compile them. Only the default levels are built here: the files the
-    # scenes name, which the tests check and the site ships. A miss still
-    # restores the newest cache for this runner through the restore-key,
-    # and the build below fills in only what changed — a rerun downloads
-    # and compiles nothing.
+    # The built set, under a key of everything that decides it. A miss
+    # restores the newest cache through the restore-key, and the build fills
+    # in only what changed.
+    - name: Name what is cached
+      shell: bash
+      run: |
+        {
+          echo 'BUILT_ASSETS<<EOF'
+          echo 'examples/src/yard/models/ph'
+          echo 'examples/src/yard/models/dev'
+          echo 'examples/src/yard/textures'
+          echo 'examples/src/yard/environments'
+          echo 'examples/src/showcase/assets'
+          echo 'examples/src/platformer/assets'
+          echo 'EOF'
+        } >> "$GITHUB_ENV"
+
     - name: Restore built example assets
       id: built
       uses: actions/cache/restore@v4
       with:
-        path: |
-          examples/src/yard/models/ph
-          examples/src/yard/models/dev
-          examples/src/yard/textures
-          examples/src/yard/environments
-          examples/src/showcase/assets
-          examples/src/platformer/assets
+        path: ${{ env.BUILT_ASSETS }}
         key: example-assets-${{ runner.os }}-${{ hashFiles('examples/scripts/**', 'packages/editor-host/src/pipeline/**', 'examples/src/*/scenes/*.json', 'examples/src/*/m2d.project.json', 'package-lock.json') }}
         restore-keys: |
           example-assets-${{ runner.os }}-
 
-    # The compiler's sources — about 3 GB of photoscans — are cached apart
-    # from the built set, under a key that only the list of assets moves,
-    # so recompiling at a new quality or after a scene change downloads
-    # nothing. Two entries this size sit inside the repository's 10 GB of
-    # cache; a third would evict the oldest, which costs a download, not a
-    # build. A run whose built set is already complete needs none of this
-    # and does not restore it.
+    # The compiler's sources, about 3 GB, cached apart from the built set and
+    # only when something is to be built; two such entries fit the
+    # repository's 10 GB, a third evicts the oldest.
     - name: Restore fetched asset sources
       id: sources
       if: steps.built.outputs.cache-hit != 'true'
@@ -48,65 +47,43 @@ runs:
         restore-keys: |
           example-sources-${{ runner.os }}-
 
-    # A build that dies partway — a reset download, a runner that runs out
-    # of time — still leaves hours of work worth keeping, so its failure is
-    # recorded here and raised after the caches below are written.
+    # A build that dies partway still leaves work worth keeping: its failure
+    # is recorded here and raised after the caches are saved.
     - name: Build missing example assets
       id: build
       shell: bash
       run: npm run build-assets || echo "failed=yes" >> "$GITHUB_OUTPUT"
 
-    # Saving is a step of its own, not `actions/cache`'s post step, which
-    # runs only when the whole job succeeds: a test failing later in the
-    # job would otherwise throw the build away and leave the rerun cold.
-    # What a failed build got as far as is saved under a key of its own
-    # that the restore-keys above still find, because the full key must
-    # mean a complete set.
-    - name: Save built example assets
-      if: steps.build.outputs.failed != 'yes' && steps.built.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          examples/src/yard/models/ph
-          examples/src/yard/models/dev
-          examples/src/yard/textures
-          examples/src/yard/environments
-          examples/src/showcase/assets
-          examples/src/platformer/assets
-        key: ${{ steps.built.outputs.cache-primary-key }}
-
-    - name: Save what the failed build had built
-      if: steps.build.outputs.failed == 'yes' && steps.built.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          examples/src/yard/models/ph
-          examples/src/yard/models/dev
-          examples/src/yard/textures
-          examples/src/yard/environments
-          examples/src/showcase/assets
-          examples/src/platformer/assets
-        key: ${{ steps.built.outputs.cache-primary-key }}-part-${{ github.run_id }}-${{ github.run_attempt }}
-
-    # Nothing is fetched when the built set was already complete, and the
-    # cache refuses an empty path, so the sources are saved only when some
-    # arrived.
-    - name: Check whether anything was fetched
-      id: fetched
+    # Saved by steps of their own, not `actions/cache`'s post step, which
+    # runs only when the whole job succeeds. What a failed build reached is
+    # saved under a key the restore-keys still find, so the full key keeps
+    # meaning a complete set.
+    - name: Name the save
+      id: keys
       shell: bash
+      env:
+        FAILED: ${{ steps.build.outputs.failed }}
       run: |
-        if [ -n "$(ls -A examples/assets-src 2>/dev/null)" ]; then echo "any=yes" >> "$GITHUB_OUTPUT"; fi
+        if [ "$FAILED" = yes ]; then echo "suffix=-part-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"; fi
+        if [ -n "$(ls -A examples/assets-src 2>/dev/null)" ]; then echo "fetched=yes" >> "$GITHUB_OUTPUT"; fi
+
+    - name: Save built example assets
+      if: steps.built.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ env.BUILT_ASSETS }}
+        key: ${{ steps.built.outputs.cache-primary-key }}${{ steps.keys.outputs.suffix }}
 
     - name: Save fetched asset sources
-      if: steps.fetched.outputs.any == 'yes' && steps.sources.outcome != 'skipped' && steps.sources.outputs.cache-hit != 'true'
+      if: steps.keys.outputs.fetched == 'yes' && steps.sources.outcome == 'success' && steps.sources.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
         path: examples/assets-src
-        key: ${{ steps.build.outputs.failed == 'yes' && format('{0}-part-{1}-{2}', steps.sources.outputs.cache-primary-key, github.run_id, github.run_attempt) || steps.sources.outputs.cache-primary-key }}
+        key: ${{ steps.sources.outputs.cache-primary-key }}${{ steps.keys.outputs.suffix }}
 
     - name: Report a failed build
       if: steps.build.outputs.failed == 'yes'
       shell: bash
       run: |
-        echo "::error::Building the example assets failed; what it got as far as is cached for the next run."
+        echo "::error::Building the example assets failed; what it reached is cached for the next run."
         exit 1

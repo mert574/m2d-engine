@@ -42,7 +42,7 @@ const intents = defineIntents({
 
 function build() {
   const game = new M2D(null, { headless: true, worldWidth: 1280, worldHeight: 2000, seed: 4 });
-  // A join banner per test says nothing a failing assertion would not.
+  // The join banner would be one block per test in the suite's output.
   game.netLogLevel = 0;
   for (const actor of [...ARENA_ACTORS, Beacon]) game.registerActor(actor.name, actor);
   game.sceneManager.addScene('arena', { fetch: async () => SCENE });

@@ -386,6 +386,7 @@ describe('IntentQueue', () => {
       expect(accepted).toBeGreaterThan(0);
       tick++;
       expect(() => fuzz.apply(tick, me, game)).not.toThrow();
+      expect(reported).toHaveBeenCalled();
       for (const [line] of reported.mock.calls) expect(line).toContain("'broken' threw");
     });
   });

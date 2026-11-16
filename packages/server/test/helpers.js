@@ -24,8 +24,7 @@ export async function joinAs(env, player, { match = 'm1', held = () => [], choic
   await initPhysics();
   const game = new M2D(null, { headless: true, ...GAME_OPTIONS });
   for (const [name, value] of Object.entries(choices)) game.choices.set(name, value);
-  // A test reads its failures from assertions, not from the client's
-  // join banner, which would be one block per test in the suite's output.
+  // The join banner would be one block per test in the suite's output.
   game.netLogLevel = 0;
   registerArena(game);
   game.input.setSnapshotSource(() => ({ down: held() }));

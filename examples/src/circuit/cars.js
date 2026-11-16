@@ -52,10 +52,7 @@ export function carById(id) {
   return CARS.find((car) => car.id === id) ?? null;
 }
 
-/**
- * The car the player chose in the garage, carried as the local player's
- * state; the Tourer, the project's initial, when the state has none.
- */
+/** The car the player chose in the garage, carried as the local player's state; the project's initial when the state has none. */
 export function chosenCar(game) {
-  return carById(game.players.local.state[CAR_CHOICE]) ?? CARS[1];
+  return carById(game.players.local.state[CAR_CHOICE]) ?? carById(game.choices.initial(CAR_CHOICE));
 }

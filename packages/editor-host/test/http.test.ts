@@ -23,24 +23,30 @@ async function serving(...plan: Array<(req: import('node:http').IncomingMessage,
 const reset = (req: import('node:http').IncomingMessage) => req.socket.destroy();
 const status = (code: number) => (_req: unknown, res: import('node:http').ServerResponse) => { res.writeHead(code); res.end(); };
 const body = (text: string) => (_req: unknown, res: import('node:http').ServerResponse) => { res.writeHead(200); res.end(text); };
-const truncated = (text: string) => (_req: unknown, res: import('node:http').ServerResponse) => { res.writeHead(200, { 'content-length': text.length * 2 }); res.write(text); res.socket?.destroy(); };
+/** Half the promised body, then the socket dropped once that half is on the wire. */
+const truncated = (text: string) => (_req: unknown, res: import('node:http').ServerResponse) => {
+  res.writeHead(200, { 'content-length': text.length * 2 });
+  res.write(text, () => setTimeout(() => res.socket?.destroy(), 20));
+};
+/** No waiting between attempts: the test is about what is retried, not how long it takes. */
+const atOnce = { pause: () => Promise.resolve() };
 
 describe('a request that survives the network', () => {
   it('asks again after a reset, a body cut short and a 503, and gets the file', async () => {
     const { url, hits } = await serving(reset, truncated('half'), status(503), body('the file'));
-    expect(Buffer.from(await bytes(url)).toString()).toBe('the file');
+    expect(Buffer.from(await bytes(url, atOnce)).toString()).toBe('the file');
     expect(hits()).toBe(4);
-  }, 20000);
+  });
 
   it('gives up at once on a 404', async () => {
     const { url, hits } = await serving(status(404));
-    await expect(request(url, (response) => response.text(), { what: 'the file' })).rejects.toThrow(/^the file: 404$/);
+    await expect(request(url, (response) => response.text(), { what: 'the file', ...atOnce })).rejects.toThrow(/^the file: 404$/);
     expect(hits()).toBe(1);
   });
 
   it('does not ask again for content that arrived whole and made no sense', async () => {
     const { url, hits } = await serving(body('not json'));
-    await expect(request(url, (response) => response.json())).rejects.toThrow(/Unexpected token|not valid JSON/);
+    await expect(request(url, (response) => response.json(), atOnce)).rejects.toThrow(/Unexpected token|not valid JSON/);
     expect(hits()).toBe(1);
   });
 

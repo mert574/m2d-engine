@@ -240,6 +240,7 @@ export const INPUT = new InputSchema({
 | --- | --- | --- |
 | `keys` | required | Physical key codes, at most 32. Their order defines the bits of `held` |
 | `pointer` | `false` | `{ bounds, buttons }`: the world rectangle a pointer may point into and its button count, 1 to 5 (default 3) |
+| `heading` | `false` | Whether the snapshot's `heading` rides along, for a 3D game whose characters steer relative to the view |
 
 `schema.encode(tick, snapshot)` builds the message a client sends from the snapshot it sampled. `schema.decode(message)` checks one and never throws.
 

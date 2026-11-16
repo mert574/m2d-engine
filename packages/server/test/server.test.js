@@ -196,14 +196,16 @@ describe('connections come and go', () => {
     const told = await until(() => messages.slice(seen).find((message) => message.me?.car === 'sprint'));
     expect(told.me.car).toBe('sprint');
     // A value the project does not offer, a choice it does not declare, and a shape that is no record.
-    for (let i = 0; i < 30; i++) ws.send(JSON.stringify({ t: 'choose', m: i % 3 === 0 ? { car: 'tank' } : i % 3 === 1 ? { seat: 'left' } : [1] }));
+    const bad = [{ car: 'tank' }, { seat: 'left' }, [1]];
+    for (let i = 0; i < 30; i++) ws.send(JSON.stringify({ t: 'choose', m: bad[i % bad.length] }));
     expect((await closed).code).toBe(CLOSE.violation);
 
-    // A real client sends its choices after the welcome, whose `me` first
-    // put it at the initial; once in sync and settled, the choice stands.
+    // A real client's choice stands through the welcome and the server's
+    // state messages that follow it.
     const bob = await join(env, 'bob', { choices: { car: 'sprint' } });
     await until(() => bob.game.player);
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    const synced = bob.net.stats.messagesIn;
+    await until(() => bob.net.stats.messagesIn >= synced + 10);
     expect(bob.game.players.local.state.car).toBe('sprint');
   });
 

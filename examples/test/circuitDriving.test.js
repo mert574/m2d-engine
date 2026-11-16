@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { register } from '../src/circuit/game.js';
+import { bootHeadless } from './helpers.js';
 import { RaceCar, CAR, IceStretch } from '../src/circuit/actors.js';
 import { trackFor } from '../src/circuit/track.js';
 import { saveBest, loadBest, raceSignature } from '../src/circuit/replay.js';
@@ -28,8 +27,7 @@ async function circuit({ ice = false } = {}) {
     scene.prefabs.ice = { actor: 'IceStretch', physics: { bodyType: 'static', isSensor: true } };
     scene.layers[0].objects.push({ id: 'ice-1', prefab: 'ice', x: 0, y: 0, width: 16, height: 16, properties: { path: 'road', from: 0.08, to: 0.2 } });
   }
-  const game = new M2D(null, { headless: true, seed: 1 });
-  register(game);
+  const { game } = await bootHeadless('circuit', { seed: 1 });
   game.sceneManager.addScene('c', { fetch: async () => scene });
   await game.sceneManager.switchTo('c');
   game.input.setSnapshotSource(() => ({ down: ['ArrowUp'] }));
@@ -127,10 +125,9 @@ describe('a lap\'s splits', () => {
   });
 
   async function round() {
-    const game = new M2D(null, { headless: true, seed: 1 });
+    const { game } = await bootHeadless('circuit', { seed: 1 });
     Object.defineProperty(game, 'camera', { value: { follow() {}, x: 0, y: 0 } });
     game.input.on = () => () => {};
-    register(game);
     game.sceneManager.addScene('circuit2', { fetch: async () => structuredClone(SCENE) });
     await game.sceneManager.switchTo('circuit2');
     game.setupCollisionHandlers();

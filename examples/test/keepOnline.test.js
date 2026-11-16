@@ -36,7 +36,7 @@ afterAll(async () => {
 /** A client game for `player`; `script()` says what is held and clicked each tick. */
 async function join(player) {
   const game = new M2D(null, { headless: true, ...KEEP_GAME });
-  // The join banner is one block per test in the suite's output.
+  // The join banner would be one block per test in the suite's output.
   game.netLogLevel = 0;
   registerKeep(game);
   game.sceneManager.addScene('keep', { fetch: async () => KEEP, ...sceneHooks(game).keep });
