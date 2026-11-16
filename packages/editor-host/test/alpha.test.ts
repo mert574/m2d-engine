@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,6 +16,12 @@ async function images(dir: string) {
 }
 
 describe('folding alpha maps', () => {
+  // The compiler reports each material it re-marks, which belongs in an
+  // asset build's output and not in the suite's.
+  let reported: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => { reported = vi.spyOn(console, 'log').mockImplementation(() => {}); });
+  afterEach(() => { reported.mockRestore(); });
+
   it('gives a shared atlas\'s map to the material marked as cut out, not to the opaque body beside it', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'm2d-alpha-'));
     try {

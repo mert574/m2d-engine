@@ -72,12 +72,10 @@ describe('a lot-sized frame', () => {
     };
 
     const day = await draw(false);
-    console.log('afternoon:', JSON.stringify(day));
     expect(luma(day.floor), `afternoon floor is lit: ${day.floor}`).toBeGreaterThan(60);
     expect(luma(day.cube), `afternoon cube is lit: ${day.cube}`).toBeGreaterThan(40);
 
     const dusk = await draw(true);
-    console.log('dusk:', JSON.stringify(dusk));
     // Standing a few metres from a lamp at (0, 3.3, 0): its pool lights the floor.
     expect(luma(dusk.floor), `dusk floor catches the lamp: ${dusk.floor}`).toBeGreaterThan(25);
     r.destroy();

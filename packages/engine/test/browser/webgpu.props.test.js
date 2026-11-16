@@ -91,7 +91,6 @@ describe('a prop lantern', () => {
     const lit = at(-1.5, 0, 1);
     const shadowed = at(2.6, 0, 0);
     const shell = at(0, 3, 0.11);
-    console.log(`lantern: lit floor ${lit}, shadowed floor ${shadowed}, shell ${shell}`);
     for (const px of [lit, shadowed, shell]) for (const c of px) expect(Number.isFinite(c) && c >= 0).toBe(true);
     expect(luma(lit), `the floor under the lamp is lit: ${lit}`).toBeGreaterThan(60);
     // Warm, as the lamp's colour says: red over blue.

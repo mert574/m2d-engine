@@ -25,14 +25,8 @@ export class Player extends Entity {
 
     this.addConstraint('health', new Health(this, {
       maxHealth: 100,
-      onDeath: () => {
-        console.log('Game Over!');
-        this.game.gameOver();
-      },
-      onDamage: (amount) => {
-        console.log(`Player took ${amount} damage!`);
-        this.game.soundManager.playSound('damage');
-      }
+      onDeath: () => this.game.gameOver(),
+      onDamage: () => this.game.soundManager.playSound('damage')
     }));
 
     this.addConstraint('attack', new Attack(this, {

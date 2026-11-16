@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { defineIntents, IntentQueue, reject, int, slot, num, bool, str, oneOf, list, entity } from '../src/net/intents.js';
 import { ViolationMeter, InputSchema, InputGate } from '../src/net/input.js';
 import { Rng } from '../src/core/rng.js';
@@ -344,6 +344,9 @@ describe('IntentQueue', () => {
     });
 
     it('survives seeded random garbage without throwing or running anything undeclared', () => {
+      // 'broken' is one of the names the fuzzer picks, and a throwing intent
+      // is reported; the run would otherwise print a stack per throw.
+      const reported = vi.spyOn(console, 'error').mockImplementation(() => {});
       const rng = new Rng(77);
       const atoms = [0, -1, 1, 1.5, NaN, Infinity, 2 ** 53, '', 'x', 'moveItem', 'sell', true, null, undefined, [], {}, 5n];
       const pick = (arr) => arr[Math.floor(rng.next() * arr.length)];
@@ -380,6 +383,8 @@ describe('IntentQueue', () => {
       expect(accepted).toBeGreaterThan(0);
       tick++;
       expect(() => fuzz.apply(tick, me, game)).not.toThrow();
+      for (const [line] of reported.mock.calls) expect(line).toContain("'broken' threw");
+      reported.mockRestore();
     });
   });
 });

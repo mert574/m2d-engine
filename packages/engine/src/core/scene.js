@@ -109,10 +109,8 @@ export class Scene {
     }
 
     if (this.config.type === 'level') {
-      console.debug('Setting up level scene');
       await this.setupLevelScene();
     } else {
-      console.debug('Setting up UI scene');
       await this.setupUIScene();
       if (!headless && !this.game.editMode) {
         this.#attachMenuFocus();
@@ -1379,7 +1377,6 @@ export class Scene {
         const handled = this.rules?.rules.some((rule) => rule.when?.event === 'fall');
         if (handled) this.rules.fell = true;
         else {
-          console.log('Game Over!');
           this.game.gameOver();
           return;
         }

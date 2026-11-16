@@ -1323,7 +1323,6 @@ export class M2D {
       return null;
     }
 
-    console.debug(`Creating ${type} at ${x}, ${y} with size ${width}x${height}`);
 
     // Prefabs size every actor as a box, so `shape` only changes which
     // collider that box is filled with: a circle takes its diameter from the

@@ -23,6 +23,9 @@ export async function startServer(fixture = 'arenaMatch', options = {}) {
 export async function joinAs(env, player, { match = 'm1', held = () => [] } = {}) {
   await initPhysics();
   const game = new M2D(null, { headless: true, ...GAME_OPTIONS });
+  // A test reads its failures from assertions, not from the client's
+  // join banner, which would be one block per test in the suite's output.
+  game.netLogLevel = 0;
   registerArena(game);
   game.input.setSnapshotSource(() => ({ down: held() }));
   const net = await NetClient.connect(game, { url: env.url, ticket: env.ticket(player, match), schema: INPUT });

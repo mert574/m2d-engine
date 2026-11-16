@@ -47,8 +47,11 @@ const DYNAMIC_ROOM = {
   prefabs: { ...ROOM.prefabs, knight: { actor: 'ObliquePlayer', physics: { bodyType: 'dynamic', lockRotation: true, frictionAir: 0.2 } } }
 };
 
-function build(scene) {
+function build(scene, netLog = 0) {
   const game = new M2D(null, { headless: true, worldWidth: 1280, worldHeight: 960, seed: 11 });
+  // A join banner per test says nothing a failing assertion would not;
+  // `netLog: null` leaves the engine's own default, which one test reads.
+  if (netLog !== null) game.netLogLevel = netLog;
   for (const actor of [ObliquePlayer, Platform]) game.registerActor(actor.name, actor);
   game.sceneManager.addScene('room', { fetch: async () => scene });
   return game;
@@ -61,8 +64,8 @@ function build(scene) {
  * runs n ticks on both sides, carrying messages across the wire as their
  * delay expires.
  */
-async function pair({ delay = 9, scene = ROOM, predict = true, sendEvery = 2 } = {}) {
-  const server = build(scene);
+async function pair({ delay = 9, scene = ROOM, predict = true, sendEvery = 2, netLog = 0 } = {}) {
+  const server = build(scene, netLog);
   await server.sceneManager.switchTo('room');
   server.setupCollisionHandlers();
   const meter = new ViolationMeter();
@@ -78,7 +81,7 @@ async function pair({ delay = 9, scene = ROOM, predict = true, sendEvery = 2 } =
   player.avatar = avatar;
   const replicator = new Replicator(server, player);
 
-  const client = build(scene);
+  const client = build(scene, netLog);
   const held = { codes: [], click: null };
   client.input.setSnapshotSource(() => {
     const click = held.click;
@@ -321,7 +324,7 @@ describe('client prediction', () => {
     console.info = (...args) => all.push(['info', args.join(' ')]);
     console.debug = (...args) => all.push(['debug', args.join(' ')]);
     try {
-      const { client, net, held, advance } = await pair({ delay: 14 });
+      const { client, net, held, advance } = await pair({ delay: 14, netLog: null });
       // Level 1 by default: joining and what was joined, not the detail.
       expect(lines.some(([, text]) => text.includes('joined as'))).toBe(true);
       expect(lines.every(([kind]) => kind === 'info')).toBe(true);

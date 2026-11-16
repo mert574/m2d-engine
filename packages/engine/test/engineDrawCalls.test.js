@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { Entity } from '../src/core/entity.js';
 import { Projectile } from '../src/core/projectile.js';
@@ -127,9 +127,12 @@ describe('engine draw calls', () => {
 
     it('draws nothing for an unknown animation', () => {
       const sprite = new SpriteSheet({ width: 64, height: 64 }, 16, 16, game);
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       sprite.draw('missing', 10, 20);
 
       expect(renderer.callsTo('drawSprite')).toHaveLength(0);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('missing'));
+      warn.mockRestore();
     });
   });
 

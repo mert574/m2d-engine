@@ -55,6 +55,8 @@ beforeAll(async () => {
 
 function build() {
   const game = new M2D(null, { headless: true, dimensions: 3, worldWidth: 20, worldHeight: 20, seed: 11 });
+  // A join banner per test says nothing a failing assertion would not.
+  game.netLogLevel = 0;
   for (const actor of [Ground, Crate, Hero]) game.registerActor(actor.name, actor);
   game.sceneManager.addScene('yard', { fetch: async () => YARD });
   return game;

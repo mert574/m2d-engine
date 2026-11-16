@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { Constraint } from '../src/core/constraint.js';
@@ -377,7 +377,10 @@ describe('spawnPrefab', () => {
   it('refuses a prefab the scene does not have', async () => {
     const { game } = await build(level());
     const scene = game.sceneManager.getCurrentScene();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(scene.spawnPrefab('nothing', { x: 0, y: 0 })).toBeNull();
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('nothing'));
+    error.mockRestore();
     game.destroy();
   });
 });

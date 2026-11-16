@@ -40,8 +40,7 @@ describe('light vs camera orientation', () => {
     for (const shadow of [false, true]) {
       const facing = await shoot(-10, shadow);   // looking at the lamp
       const away = await shoot(10, shadow);      // lamp behind the camera
-      console.log(`shadow=${shadow}: floor luma facing ${facing.toFixed(1)}, facing away ${away.toFixed(1)}`);
-      expect(away, `floor still lit with the lamp behind the camera (shadow=${shadow})`).toBeGreaterThan(facing * 0.45);
+      expect(away, `floor still lit with the lamp behind the camera (shadow=${shadow}): facing ${facing.toFixed(1)}, facing away ${away.toFixed(1)}`).toBeGreaterThan(facing * 0.45);
     }
     r.destroy();
   });

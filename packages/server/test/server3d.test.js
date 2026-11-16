@@ -20,6 +20,9 @@ afterEach(async () => {
 async function joinYard(env, player, { held = () => [] } = {}) {
   await initPhysics({ dimensions: 3 });
   const game = new M2D(null, { headless: true, ...GAME_OPTIONS });
+  // A test reads its failures from assertions, not from the client's
+  // join banner, which would be one block per test in the suite's output.
+  game.netLogLevel = 0;
   registerYard(game);
   game.input.setSnapshotSource(() => ({ down: held() }));
   const net = await NetClient.connect(game, { url: env.url, ticket: env.ticket(player, 'm1'), schema: INPUT });

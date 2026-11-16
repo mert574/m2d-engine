@@ -129,6 +129,12 @@ Each suite writes screenshots and a `report.json` to `--out`, a temp folder by d
 
 The Canvas backend's conformance run is repeated in the browser project so the suite's tolerances are proven against Chromium's rasterizer. A test that fails only there is a tolerance problem.
 
+## A passing test is quiet
+
+Output belongs to failures. A test that expects the engine to refuse something silences the line it provokes — `const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})`, then assert what was said and restore — and a test that only happens to build a net client turns the client's own logging off with `game.netLogLevel = 0`. Numbers a reader would want when a check fails go in the assertion's message, which prints only then, rather than in a `console.log` beside it.
+
+This is easy to miss: under an agent's terminal Vitest picks a minimal reporter that hides what passing tests print, so the suite looks silent here and floods the CI log. Run `npx vitest run --reporter=default` to see what CI sees.
+
 ## Keeping the suite honest
 
 The suite was checked by mutation testing. Ten bugs were injected into the Canvas backend, among them swapped flips, an ignored `isScreenSpace`, a dropped `cornerRadius`, transposed tiles, a `popTransform` that did not restore and an ignored `globalAlpha`. All ten were caught. Repeat that exercise after adding tests to confirm they can fail.
