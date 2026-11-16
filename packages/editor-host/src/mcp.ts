@@ -29,5 +29,5 @@ console.error(`m2d-editor: project ${companion.project.root}`);
 await companion.mcp.connect(new StdioServerTransport());
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.on(signal, () => { companion.close(); process.exit(0); });
+  process.on(signal, () => { void companion.close().then(() => process.exit(0)); });
 }

@@ -80,12 +80,12 @@ export class Companion {
     return () => { this.#listeners.delete(listener); };
   }
 
-  /** Stop watching and let the process exit. */
-  close(): void {
+  /** Stop watching and let the process exit; settles when the journal is on disk. */
+  close(): Promise<void> {
     this.#watcher?.close();
     this.#watcher = null;
     this.#listeners.clear();
-    this.session.close();
+    return this.session.close();
   }
 
   #watch(): void {

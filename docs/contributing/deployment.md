@@ -10,7 +10,11 @@ The site at [mert574.github.io/m2d-engine](https://mert574.github.io/m2d-engine/
 
 ## The Pages workflow
 
-`.github/workflows/pages.yml` runs on every push to `master` and on manual dispatch. It installs dependencies, installs Chromium, builds the examples' uncommitted assets (`.github/actions/example-assets`, restored from a cache keyed on what decides them), runs `npm test`, runs `npm run build`, uploads `site/` as the Pages artifact and deploys it. The lot's models are built at the yard's default quality levels only, and the published yard offers no quality settings. A failing test or build stops the deployment.
+`.github/workflows/pages.yml` runs on every push to `master` and on manual dispatch. It installs dependencies, installs Chromium, builds the examples' uncommitted assets (`.github/actions/example-assets`), runs `npm test`, runs `npm run build`, uploads `site/` as the Pages artifact and deploys it. The lot's models are built at the yard's default quality levels only, and the published yard offers no quality settings. A failing test or build stops the deployment.
+
+### The asset caches
+
+`.github/actions/example-assets` keeps two caches: the built assets, keyed on everything that decides them (the build scripts, the compiler, the scenes that name the models, the projects and `package-lock.json`), and the sources the compiler reads, keyed on the list of assets alone so a scene change recompiles without downloading. Both are saved in a step of the action rather than by `actions/cache`'s own post step, which runs only when the whole job succeeds — a failing test would otherwise throw away the build. A build that fails partway saves what it reached under a key the restore-keys still find, so the next attempt carries on from it, while the full key keeps meaning a complete set.
 
 To enable it on a fork, set Settings, Pages, Build and deployment, Source to GitHub Actions. If the `github-pages` environment restricts branches, allow `master`. No token is needed.
 

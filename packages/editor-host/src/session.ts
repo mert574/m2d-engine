@@ -199,10 +199,16 @@ export class Session {
     return this.#open.get(path)?.doc.dirty ?? false;
   }
 
-  /** Forget every document, unsaved edits included. */
-  close(): void {
+  /**
+   * Forget every document, unsaved edits included, once their journals
+   * have landed: an edit made just before the host stops must be on disk
+   * for the next host to find.
+   */
+  async close(): Promise<void> {
     this.#open.clear();
     this.#listeners.clear();
+    await Promise.allSettled(this.#journalling.values());
+    this.#journalling.clear();
   }
 
   async #step(path: string, who: Origin, kind: 'undo' | 'redo'): Promise<ChangeEvent | null> {

@@ -13,17 +13,14 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { request, bytes as fetchBytes } from './http.mjs';
 
 export const SOURCE = 'polyhaven';
 export const LICENSE = 'CC0';
 
 const API = 'https://api.polyhaven.com';
 
-const api = async (path) => {
-  const response = await fetch(`${API}${path}`);
-  if (!response.ok) throw new Error(`Poly Haven API ${path}: ${response.status}`);
-  return response.json();
-};
+const api = (path) => request(`${API}${path}`, (response) => response.json(), { what: `Poly Haven API ${path}` });
 
 const md5 = (buffer) => createHash('md5').update(buffer).digest('hex');
 
@@ -31,9 +28,7 @@ const md5 = (buffer) => createHash('md5').update(buffer).digest('hex');
 export async function download(url, to, expectedMd5) {
   if (existsSync(to) && md5(readFileSync(to)) === expectedMd5) return false;
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`${url}: ${response.status}`);
-    const bytes = Buffer.from(await response.arrayBuffer());
+    const bytes = Buffer.from(await fetchBytes(url));
     if (md5(bytes) === expectedMd5) {
       mkdirSync(dirname(to), { recursive: true });
       writeFileSync(to, bytes);

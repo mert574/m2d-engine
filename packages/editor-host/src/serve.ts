@@ -527,7 +527,6 @@ console.log(`            MCP: http://localhost:${port}/mcp`);
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    companion.close();
-    void Promise.all([closePreview(), camera.close()]).then(() => server.close()).then(() => process.exit(0));
+    void Promise.all([companion.close(), closePreview(), camera.close()]).then(() => server.close()).then(() => process.exit(0));
   });
 }

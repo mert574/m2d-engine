@@ -52,7 +52,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await client?.close();
-  companion?.close();
+  await companion?.close();
   await rm(root, { recursive: true, force: true });
 });
 
@@ -463,9 +463,7 @@ describe('the journal of unsaved edits', () => {
       await first.session.edit('scenes/room.json', { label: 'Move floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: 40 }] }, { origin: 'editor' });
       await first.session.edit('scenes/room.json', { label: 'Lift floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'y'], value: 9 }] }, { origin: 'agent' });
       await first.session.undo('scenes/room.json', { origin: 'editor' });
-      // Give the journal write a tick; it is fire-and-forget behind the event.
-      await new Promise((done) => setTimeout(done, 50));
-      first.close();
+      await first.close();
 
       // The host died. The next one finds the journal and starts where the last left off.
       const second = new Companion({ root: dir });
@@ -478,8 +476,7 @@ describe('the journal of unsaved edits', () => {
       expect(second.session.isDirty('scenes/room.json')).toBe(false);
       await second.session.redo('scenes/room.json', { origin: 'editor' });
       await second.session.save('scenes/room.json', { origin: 'editor' });
-      await new Promise((done) => setTimeout(done, 50));
-      second.close();
+      await second.close();
 
       // Saved: nothing journaled, and a third host opens a clean document.
       const third = new Companion({ root: dir });
@@ -487,7 +484,7 @@ describe('the journal of unsaved edits', () => {
       expect(clean.state.dirty).toBe(false);
       expect(clean.state.history).toEqual([]);
       expect((clean.data.layers as Array<{ objects: Array<{ x: number }> }>)[0]!.objects[0]!.x).toBe(40);
-      third.close();
+      await third.close();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -500,14 +497,13 @@ describe('the journal of unsaved edits', () => {
       await writeFile(join(dir, 'scenes', 'room.json'), level());
       const first = new Companion({ root: dir });
       await first.session.edit('scenes/room.json', { label: 'Move floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: 40 }] }, { origin: 'editor' });
-      await new Promise((done) => setTimeout(done, 50));
-      first.close();
+      await first.close();
       await writeFile(join(dir, 'scenes', 'room.json'), level({ title: 'edited elsewhere' }));
       const second = new Companion({ root: dir });
       const snapshot = await second.session.snapshot('scenes/room.json');
       expect(snapshot.state.dirty).toBe(false);
       expect(snapshot.state.history).toEqual([]);
-      second.close();
+      await second.close();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

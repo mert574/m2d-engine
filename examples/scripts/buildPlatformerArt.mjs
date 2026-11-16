@@ -29,6 +29,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import sharp from 'sharp';
+import { bytes } from 'm2d-editor-host/pipeline/http.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const assets = join(here, '..', 'src', 'platformer', 'assets');
@@ -86,9 +87,8 @@ async function fetched(name, url) {
   const file = join(cache, `${name}.zip`);
   if (!existsSync(file)) {
     await mkdir(cache, { recursive: true });
-    const response = await fetch(url, { headers: { 'User-Agent': 'm2d-engine asset builder' } });
-    if (!response.ok) throw new Error(`fetching ${url}: ${response.status}`);
-    await writeFile(file, Buffer.from(await response.arrayBuffer()));
+    const zip = await bytes(url, { what: `fetching ${url}`, headers: { 'User-Agent': 'm2d-engine asset builder' } });
+    await writeFile(file, Buffer.from(zip));
   }
   const dir = join(cache, name);
   if (!existsSync(dir)) {
