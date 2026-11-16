@@ -22,8 +22,11 @@ const TURN = Math.PI * 2;
 export function snapHeading(heading) {
   if (!Number.isFinite(heading)) return 0;
   const steps = Math.round((heading / TURN) * HEADING_STEPS) % HEADING_STEPS;
-  const wrapped = steps > HEADING_STEPS / 2 ? steps - HEADING_STEPS : steps <= -HEADING_STEPS / 2 ? steps + HEADING_STEPS : steps;
-  return (wrapped / HEADING_STEPS) * TURN;
+  let wrapped = steps;
+  if (wrapped > HEADING_STEPS / 2) wrapped -= HEADING_STEPS;
+  else if (wrapped <= -HEADING_STEPS / 2) wrapped += HEADING_STEPS;
+  // A turn of nothing is +0, never -0, so two sides compare equal.
+  return wrapped === 0 ? 0 : (wrapped / HEADING_STEPS) * TURN;
 }
 
 export class InputSnapshot {
@@ -111,7 +114,7 @@ export class InputSnapshot {
         buttons: pointer.buttons ?? 0,
         type: pointer.type ?? 'mouse'
       },
-      heading: json.heading ?? 0
+      heading: snapHeading(json.heading ?? 0)
     });
   }
 

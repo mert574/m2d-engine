@@ -13,7 +13,7 @@ export default defineMatch({
     await game.sceneManager.switchTo('arena');
   },
   join(game, player) {
-    player.state.charms = 0;
+    player.state = { charms: 0 };
     player.avatar = game.spawn({
       type: 'Player', x: 300 + 200 * (joined++ % 4), y: 640, width: 32, height: 48,
       physics: { bodyType: 'dynamic', lockRotation: true, friction: 0.6 }, playerId: player.id

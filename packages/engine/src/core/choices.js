@@ -89,9 +89,10 @@ export class Choices {
   #store() {
     if (!this.storageKey || typeof localStorage === 'undefined') return;
     // Every choice, the ones that match today's initial included: a player
-    // who picked the default meant it, and the default may change.
+    // who picked the default meant it, and the default may change. Another
+    // game on this origin may share the key; its names are left alone.
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.all));
+      localStorage.setItem(this.storageKey, JSON.stringify({ ...this.#stored(), ...this.all }));
     } catch {
       // A private window may refuse storage; the choice still holds for this session.
     }

@@ -483,8 +483,11 @@ export class M2D {
     this.choices = new Choices(this.options.choices ?? {}, {
       storageKey: this.editMode || this.headless ? null : `m2d.choices:${this.options.saveId ?? defaultSaveId()}`,
       onChange: (name, value) => {
-        if (this.players?.local) this.players.local.state[name] = value;
-        this.net?.choose({ [name]: value });
+        // Offline the choice is the player's at once; connected, it is the
+        // server's answer that writes their state, so a refusal is not
+        // something the client goes on believing.
+        if (this.net) this.net.choose({ [name]: value });
+        else if (this.players?.local) this.players.local.state[name] = value;
       }
     });
 

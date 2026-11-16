@@ -1013,7 +1013,7 @@ const SET = s.object({
   }
 });
 
-/** A button must do something, switch to one place at most, and the places must exist. */
+/** A button does something, switches to one place at most, and the places exist. */
 function refineButton(element, { path, fail }) {
   const { action, onClick, set } = element.properties ?? {};
   if (action && onClick) {

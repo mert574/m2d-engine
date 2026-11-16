@@ -198,8 +198,11 @@ describe('connections come and go', () => {
     // One message costs one violation however many choices it carries, so a
     // client built against an older project is not kicked by its size.
     ws.send(JSON.stringify({ t: 'choose', m: Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`gone${i}`, 1])) }));
-    await until(() => messages.length > seen);
-    expect(ws.readyState).toBe(ws.OPEN);
+    const outcome = await Promise.race([
+      closed.then(() => 'kicked'),
+      until(() => messages.length >= seen + 5).then(() => 'still here')
+    ]);
+    expect(outcome).toBe('still here');
 
     // A value the project does not offer, a choice it does not declare, and a shape that is no record.
     const bad = [{ car: 'tank' }, { seat: 'left' }, [1]];
@@ -213,6 +216,11 @@ describe('connections come and go', () => {
     const synced = bob.net.stats.messagesIn;
     await until(() => bob.net.stats.messagesIn >= synced + 10);
     expect(bob.game.players.local.state.car).toBe('sprint');
+
+    // And one recorded while connected: sent, kept by the server, and the
+    // player's state is what the server says it is.
+    bob.game.choices.set('car', 'drift');
+    await until(() => bob.game.players.local.state.car === 'drift');
   });
 
   it('lets the match say when a choice may be made', async () => {
@@ -220,8 +228,25 @@ describe('connections come and go', () => {
     // The client sends its choice after the welcome, by which time it is
     // racing: the match refuses, and the server's state is what stands.
     const ann = await join(env, 'ann', { choices: { car: 'sprint' } });
-    await until(() => ann.game.players.local.state.car === 'tourer');
+    await until(() => ann.game.player);
+    const settle = async () => {
+      const seen = ann.net.stats.messagesIn;
+      await until(() => ann.net.stats.messagesIn >= seen + 10);
+    };
+    // The match's answer throws for this one: a refusal, and the match lives.
+    await settle();
+    expect(ann.game.players.local.state.car).toBe('tourer');
     expect(ann.net.open).toBe(true);
+
+    // And its plain refusal, for a player who is already racing.
+    ann.game.choices.set('car', 'drift');
+    await settle();
+    expect(ann.game.players.local.state.car).toBe('tourer');
+    expect(ann.net.open).toBe(true);
+    // The match is still there for the next player.
+    const bob = await join(env, 'bob');
+    await until(() => bob.game.player);
+    expect(bob.net.open).toBe(true);
   });
 
   it('a player who reconnects in time keeps their avatar and their state', async () => {

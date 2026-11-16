@@ -168,6 +168,10 @@ describe('the project declaration', () => {
       expect(refused.isError).toBe(true);
       expect(textOf(refused)).toMatch(/display.aspectMode/);
       expect(await readFile(join(root, 'm2d.project.json'), 'utf8')).toBe(onDisk);
+
+      // The choices a scene's `set` may name, which the host builds its game with.
+      await client.callTool({ name: 'edit_project', arguments: { ops: [{ op: 'set', path: ['choices'], value: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } } }] } });
+      expect((await new Project(root).config()).choices).toEqual({ car: { values: ['tourer', 'sprint'], initial: 'tourer' } });
     } finally {
       await rm(join(root, 'm2d.project.json'));
     }
@@ -500,8 +504,42 @@ describe('the journal of unsaved edits', () => {
       const editing = host.session.edit('scenes/room.json', { label: 'Move floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: 40 }] }, { origin: 'editor' });
       await host.close();
       await expect(editing).rejects.toThrow(/session is closed/);
+
+      // And on a document already open, where there is no read to wait for.
+      const second = new Companion({ root: dir });
+      await second.session.document('scenes/room.json');
+      const late = second.session.edit('scenes/room.json', { label: 'Lift floor', ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'y'], value: 9 }] }, { origin: 'editor' });
+      await second.close();
+      await expect(late).rejects.toThrow(/session is closed/);
       await expect(readFile(join(dir, '.m2d', 'journal', 'scenes__room.json'), 'utf8')).rejects.toThrow(/ENOENT/);
       expect(host.session.isDirty('scenes/room.json')).toBe(false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps an edit that lands while the file is being written', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'm2d-editor-journal-'));
+    try {
+      await mkdir(join(dir, 'scenes'), { recursive: true });
+      await writeFile(join(dir, 'scenes', 'room.json'), level());
+      const host = new Companion({ root: dir });
+      const move = (x: number) => host.session.edit('scenes/room.json', { label: `Move ${x}`, ops: [{ op: 'set', path: ['layers', 0, 'objects', 0, 'x'], value: x }] }, { origin: 'editor' });
+      await move(40);
+      const saving = host.session.save('scenes/room.json', { origin: 'editor' });
+      await move(80);
+      await saving;
+
+      // The file holds what was written; the edit that came after it is
+      // still the session's, still dirty, and still journalled.
+      expect(JSON.parse(await readFile(join(dir, 'scenes', 'room.json'), 'utf8')).layers[0].objects[0].x).toBe(40);
+      expect(host.session.isDirty('scenes/room.json')).toBe(true);
+      await host.close();
+      const next = new Companion({ root: dir });
+      const snapshot = await next.session.snapshot('scenes/room.json');
+      expect((snapshot.data.layers as Array<{ objects: Array<{ x: number }> }>)[0]!.objects[0]!.x).toBe(80);
+      expect(snapshot.state.dirty).toBe(true);
+      await next.close();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

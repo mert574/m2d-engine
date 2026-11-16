@@ -85,8 +85,12 @@ export class SceneDocument {
     return validateScene(this.data, game);
   }
 
-  /** Note the current state as saved; the caller writes `text` where it belongs. */
-  markSaved(): void {
-    this.#saved = this.commands.position;
+  /**
+   * Note a state as saved; the caller writes `text` where it belongs. `at`
+   * is the command position that text was taken at, so an edit that lands
+   * while the file is being written leaves the document dirty.
+   */
+  markSaved(at: object | null = this.commands.position): void {
+    this.#saved = at;
   }
 }

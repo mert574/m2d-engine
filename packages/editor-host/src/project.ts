@@ -233,8 +233,9 @@ export class Project {
         "edit that script, or delete the scene's 'generator' field to detach it");
     }
     const text = doc.text;
+    const at = doc.commands.position;
     await writeFile(this.resolve(doc.path), text);
-    doc.markSaved();
+    doc.markSaved(at);
     return text;
   }
 

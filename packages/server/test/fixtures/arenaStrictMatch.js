@@ -21,5 +21,9 @@ export default defineMatch({
       physics: { bodyType: 'dynamic', lockRotation: true, friction: 0.6 }, playerId: player.id
     });
   },
-  choose: (game, player) => !player.avatar
+  choose: (game, player, name, value) => {
+    // A match whose answer blows up refuses; it does not end for everyone.
+    if (value === 'sprint') throw new Error('boom');
+    return !player.avatar;
+  }
 });

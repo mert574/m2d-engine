@@ -120,7 +120,7 @@ export class Session {
    * the edit that detaches it by deleting `generator`.
    */
   async edit(path: string, edit: Edit, who: Origin): Promise<ChangeEvent> {
-    const open = await this.#get(path);
+    const open = await this.#opened(path);
     if (!Array.isArray(edit?.ops) || typeof edit.label !== 'string') {
       throw new Error('an edit is { label, ops: [...] }');
     }
@@ -148,12 +148,15 @@ export class Session {
 
   /** Write the document to its file, canonically. */
   async save(path: string, who: Origin): Promise<ChangeEvent> {
-    const open = await this.#get(path);
+    const open = await this.#opened(path);
+    // What the written text holds; an edit that lands while the file is
+    // being written is not in it, and stays in the journal.
+    const written = open.applied.length;
     open.disk = await this.project.saveScene(open.doc);
-    // Saved: the journal has nothing left to carry.
-    open.applied = [];
+    open.applied = open.applied.slice(written);
     open.undone = [];
-    await this.#dropJournal(path);
+    if (open.applied.length) await this.#journal(path, open);
+    else await this.#dropJournal(path);
     return this.#emit(path, open, { kind: 'saved', ...who }, false);
   }
 
@@ -215,7 +218,7 @@ export class Session {
   }
 
   async #step(path: string, who: Origin, kind: 'undo' | 'redo'): Promise<ChangeEvent | null> {
-    const open = await this.#get(path);
+    const open = await this.#opened(path);
     const stack = open.doc.commands;
     const command = (kind === 'undo' ? stack.top : stack.next) as EditCommand | null;
     if (!command) return null;
@@ -300,6 +303,13 @@ export class Session {
     const event: ChangeEvent = { path, revision: open.revision, state: stateOf(open.doc), ...change };
     for (const listener of this.#listeners) listener(event);
     return event;
+  }
+
+  /** The open document, refused when the session closed while it was being read. */
+  async #opened(path: string): Promise<Open> {
+    const open = await this.#get(path);
+    if (this.#closed) throw new Error('the session is closed');
+    return open;
   }
 
   async #get(path: string): Promise<Open> {

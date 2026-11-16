@@ -267,9 +267,13 @@ export function validate(desc, value, ctx) {
       if (typeof value !== 'object' || Array.isArray(value)) reject(expected(desc, key));
       const out = {};
       for (const [name, entry] of Object.entries(value)) {
+        // `out.__proto__ = entry` sets a prototype and keeps nothing, so a
+        // document may not name one: it would vanish on the way through.
+        if (name === '__proto__') { isolate(() => fail(join(path, name), "'__proto__' cannot be a key")); continue; }
         out[name] = isolate(() => validate(desc.value, entry,
           { ...ctx, path: join(path, name), key: name, parent: value }), entry);
       }
+      if (desc.refine) isolate(() => desc.refine(out, { path, fail, refs: ctx.refs, context: ctx.context }));
       return out;
     }
 

@@ -2369,6 +2369,8 @@ Object.assign(window, {
     },
     get scenePath() { return entry?.path ?? null; },
     get loadError() { return loadError; },
+    /** Whether problems are checked against the game's own classes, or structurally only. */
+    get checksWithGame() { return Boolean(validator); },
     get remote() { return remote; }, get issues() { return issues; }, get playing() { return playing; }
   }
 });

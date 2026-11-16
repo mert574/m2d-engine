@@ -44,8 +44,8 @@ export class ScrollFront extends Entity {
     super.fixedUpdate(dt);
     this.centre = Math.min(this.centre + this.speed * dt, this.game.options.worldWidth - HALF_VIEW);
 
-    const player = this.game.player;
-    if (!player || player.dead) return;
+    const player = this.game.players.nearestAvatar({ x: this.centre, y: this.position.y });
+    if (!player) return;
     const pos = player.position;
     // The trailing edge is a soft broom, the leading edge a firm pane.
     const left = this.centre - HALF_VIEW + 50;
@@ -524,7 +524,7 @@ export class Wasp extends Entity {
     this.clock += dt;
     this.stateT += dt;
     this.cooldown = Math.max(0, this.cooldown - dt);
-    const player = this.game.player;
+    const player = this.game.players.nearestAvatar(this.body.position);
     const pos = this.body.position;
 
     if (this.state === 'patrol') {

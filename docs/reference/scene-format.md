@@ -554,7 +554,8 @@ The checks, in addition to key lists and types:
 - `prefabs.*.defaultAnimation` exists on that sheet
 - every `objects[].id` and `elements[].id` is present, well-formed and unique within the scene
 - `button.onClick` names a registered scene
-- `button` has exactly one of `onClick` and `action`
+- `button` has at most one of `onClick` and `action`, and at least one of `onClick`, `action` and `set`
+- `button.set.choice` names a choice the project declares, and `set.value` one of the values it offers
 - `button.variant` takes a listed value
 - `physics.bodyType` and `physics.shape` take listed values
 - `anchor` takes a listed value

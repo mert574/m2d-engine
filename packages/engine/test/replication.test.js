@@ -41,7 +41,7 @@ const intents = defineIntents({
 });
 
 function build() {
-  const game = new M2D(null, { headless: true, worldWidth: 1280, worldHeight: 2000, seed: 4 });
+  const game = new M2D(null, { headless: true, worldWidth: 1280, worldHeight: 2000, seed: 4, choices: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } } });
   // The join banner would be one block per test in the suite's output.
   game.netLogLevel = 0;
   for (const actor of [...ARENA_ACTORS, Beacon]) game.registerActor(actor.name, actor);
@@ -57,7 +57,6 @@ async function pair() {
   server.setupCollisionHandlers();
   const meter = new ViolationMeter();
   const ann = server.players.add('ann', { meter });
-  ann.state = {};
   const gate = new InputGate(SCHEMA, { meter, startTick: server.time.steps });
   ann.setSnapshotSource(() => gate.take(server.time.steps));
   const avatar = server.spawn({ type: 'Player', x: 300, y: 600, width: 32, height: 48, physics: { bodyType: 'dynamic', lockRotation: true, friction: 0.6 }, playerId: 'ann' });
@@ -175,7 +174,8 @@ describe('replication', () => {
     expect(await lit).toEqual({ ok: true });
     expect(await wrong).toEqual({ ok: false, reason: 'not-a-beacon' });
     expect(await junk).toEqual({ ok: false, reason: 'args' });
-    expect(client.players.local.state).toEqual({ lit: 1 });
+    // The car is the project's choice, there from the moment a player exists.
+    expect(client.players.local.state).toEqual({ car: 'tourer', lit: 1 });
     expect(heard).toEqual([{ id: beacon.netId }]);
     expect(client.entityById(beacon.netId).lit).toBe(true);
   });
@@ -217,6 +217,29 @@ describe('replication', () => {
     const net = new NetClient(client, socket, { schema: SCHEMA });
     socket.deliver({ t: 'welcome', you: 'ann', tick: 0, tickRate: 30, scene: 'arena', signature: 0, full: {} });
     await expect(net.ready).rejects.toThrow(/30 Hz/);
+  });
+
+  it('says nothing before the welcome: a choice made while joining waits for it', async () => {
+    const client = build();
+    const socket = fakeSocket();
+    const net = new NetClient(client, socket, { schema: SCHEMA, lead: 0 });
+    client.choices.set('car', 'sprint');
+    expect(socket.outbox.filter((message) => message.t === 'choose')).toEqual([]);
+    expect(net.open).toBe(true);
+  });
+
+  it('sends the player\'s choices when it joins, and again whenever one changes', async () => {
+    const { client, socket } = await pair();
+    expect(socket.outbox.filter((message) => message.t === 'choose').map((message) => message.m)).toEqual([{ car: 'tourer' }]);
+    socket.outbox.length = 0;
+
+    client.choices.set('car', 'sprint');
+    expect(socket.outbox.filter((message) => message.t === 'choose').map((message) => message.m)).toEqual([{ car: 'sprint' }]);
+    // Connected, the player's state is the server's to write: until it
+    // answers, the player has what the server last said they had.
+    expect(client.players.local.state.car).toBe('tourer');
+    socket.deliver({ t: 'state', tick: 1, me: { car: 'sprint' } });
+    expect(client.players.local.state.car).toBe('sprint');
   });
 
   it('intents in flight resolve offline when the connection drops', async () => {

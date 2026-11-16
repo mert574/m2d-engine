@@ -44,11 +44,15 @@ describe('the snapshot\'s heading', () => {
   });
 
   it('rides a recording and comes back, and a fed snapshot may leave it out', () => {
-    const taken = new InputSnapshot({ down: new Set(['KeyW']), pressed: new Set(), released: new Set(), pointer: InputSnapshot.empty().pointer, heading: 1.25 });
+    const onGrid = snapHeading(1.25);
+    const taken = new InputSnapshot({ down: new Set(['KeyW']), pressed: new Set(), released: new Set(), pointer: InputSnapshot.empty().pointer, heading: onGrid });
     const replayed = InputSnapshot.from(JSON.parse(JSON.stringify(taken.toJSON())));
-    expect(replayed.heading).toBe(1.25);
+    expect(replayed.heading).toBe(onGrid);
     expect(replayed.isDown('KeyW')).toBe(true);
     expect(InputSnapshot.from({ down: ['KeyW'] }).heading).toBe(0);
+    // Whatever a recording holds, a tick reads an angle on the grid.
+    expect(InputSnapshot.from({ heading: 'north' }).heading).toBe(0);
+    expect(InputSnapshot.from({ heading: 1.2345678 }).heading).toBe(snapHeading(1.2345678));
     expect(InputSnapshot.empty().heading).toBe(0);
   });
 });

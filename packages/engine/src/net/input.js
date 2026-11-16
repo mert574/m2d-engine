@@ -230,7 +230,9 @@ export class InputSchema {
       if (typeof heading !== 'number' || !Number.isFinite(heading) || Math.abs(heading) > Math.PI) {
         return reject('heading', 'heading must be a finite angle within ±π');
       }
-      value.heading = heading + 0;
+      // Held to the grid the sampler uses, so a client that sends something
+      // off it still simulates on the number everyone else has.
+      value.heading = snapHeading(heading);
     }
     return { ok: true, value };
   }
@@ -310,7 +312,7 @@ export class InputGate {
     /** Filed messages by tick, never more than `maxAhead` of them. */
     this.pending = new Map();
     /** Refusals and drops by outcome. */
-    this.counts = { shape: 0, tick: 0, held: 0, pointer: 0, conflict: 0, duplicate: 0, late: 0, early: 0 };
+    this.counts = { shape: 0, tick: 0, held: 0, pointer: 0, heading: 0, conflict: 0, duplicate: 0, late: 0, early: 0 };
     /** Ticks taken with no message for them. */
     this.missed = 0;
     /**
@@ -430,7 +432,7 @@ export class InputGate {
 }
 
 function sameInput(a, b) {
-  if (a.held !== b.held) return false;
+  if (a.held !== b.held || a.heading !== b.heading) return false;
   if (!a.pointer) return !b.pointer;
   return a.pointer.x === b.pointer.x && a.pointer.y === b.pointer.y && a.pointer.buttons === b.pointer.buttons;
 }

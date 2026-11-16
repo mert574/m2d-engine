@@ -105,7 +105,7 @@ A game with `dimensions: 3` gets a `Camera3D` as `game.camera`: an eye, a point 
 - `'orbit'` (the default) circles a target at a `distance`, by a `yaw` around the up axis and a `pitch` above the ground. `follow(entity)` sets the target and `targetOffset` lifts the look-at point off its feet; `orbit(deltaYaw, deltaPitch)` and `zoom(factor)` are what a drag and a scroll call. `minDistance`, `maxDistance`, `minPitch` and `maxPitch` bound it and `lerp` eases the look-at point.
 - `'free'` leaves `position` and `lookAt` to game code: a flying camera, a first-person view.
 
-`fov` is the vertical field of view in radians, `near` and `far` the clip planes. `forward` and `right` are the view direction flattened to the ground, for steering a character relative to the camera. `resetConfig`, `init`, `follow`, `update` and `resize` are called by the engine as for the 2D camera.
+`fov` is the vertical field of view in radians, `near` and `far` the clip planes. `forward` and `right` are the view direction flattened to the ground, for presentation. Simulation code steers by the tick's `snapshot.heading`, which is sampled from them — see [Input in the tick](./input#input-in-the-tick). `resetConfig`, `init`, `follow`, `update` and `resize` are called by the engine as for the 2D camera.
 
 | Method | Converts |
 | --- | --- |

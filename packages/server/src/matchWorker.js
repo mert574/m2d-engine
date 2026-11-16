@@ -105,6 +105,11 @@ function join(pid) {
   const fresh = { player, meter, gate: null, replicator: null, connected: false, leaveAt: null, reported: { missed: 0, late: 0, early: 0 } };
   seats.set(pid, fresh);
   match.join(game, player);
+  // A match that replaces `player.state` rather than adding to it would
+  // drop the choices they joined with; they are the player's, so they stay.
+  for (const [name, value] of Object.entries(game.choices.initials)) {
+    if (!(name in player.state)) player.state[name] = value;
+  }
   connect(fresh);
 }
 
@@ -149,13 +154,24 @@ function receive(pid, kind, payload) {
  * A message costs at most one violation, so a client built against an
  * older project is not kicked by the size of its message.
  */
+let choiceHookBroken = false;
 function choose(seat, payload) {
   if (!isRecord(payload)) { seat.meter.record(game.time.steps); return; }
   let refused = false;
   for (const [name, value] of Object.entries(payload)) {
     if (!game.choices.has(name) || !game.choices.values(name).includes(value)) { refused = true; continue; }
     // The match says when: a car may be chosen in the lobby, not mid-race.
-    if (match.choose(game, seat.player, name, value) !== false) seat.player.state[name] = value;
+    // Its answer is a refusal if asking for it throws; one player's choice
+    // does not end the match for everyone.
+    let allowed = false;
+    try {
+      allowed = match.choose(game, seat.player, name, value) !== false;
+    } catch (error) {
+      // Said once: a hook that throws would otherwise say it per message.
+      if (!choiceHookBroken) console.error(`m2d-server: a match's choose('${name}') threw; every choice is refused`, error);
+      choiceHookBroken = true;
+    }
+    if (allowed) seat.player.state[name] = value;
   }
   if (refused) seat.meter.record(game.time.steps);
 }

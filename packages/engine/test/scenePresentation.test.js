@@ -262,6 +262,7 @@ describe('the settings menu a project mounts', () => {
     expect(projectIssues({ name: 'g', choices: { car: { values: ['sprint', 'tourer'], initial: 'tourer' }, laps: { values: [1, 3, 5], initial: 3 }, ghost: { values: [true, false], initial: true } } })).toEqual([]);
     expect(projectIssues({ name: 'g', choices: { laps: { values: [1, 3], initial: 5 } } })[0]).toMatchObject({ path: 'choices.laps.initial', message: expect.stringMatching(/5 is not among the values offered/) });
     expect(projectIssues({ name: 'g', choices: { laps: { values: [1, null], initial: 1 } } })[0].message).toMatch(/must be a string, a number or a boolean/);
+    expect(projectIssues({ name: 'g', choices: JSON.parse('{"__proto__": {"values": [1], "initial": 1}}') })[0]).toMatchObject({ path: 'choices.__proto__', message: "'__proto__' cannot be a key" });
   });
 });
 

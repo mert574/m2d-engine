@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InputSchema, InputGate } from '../src/net/input.js';
+import { snapHeading } from '../src/core/input/snapshot.js';
 import { InputSnapshot } from '../src/core/input/snapshot.js';
 import { Rng } from '../src/core/rng.js';
 
@@ -58,9 +59,17 @@ describe('InputSchema', () => {
     // Without it in the schema, nothing is sent and the gate steers at 0.
     expect('heading' in keysOnly.encode(3, InputSnapshot.from({ heading: 1 }))).toBe(false);
     const gate = new InputGate(steering, { maxAhead: 8 });
-    gate.submit({ tick: 1, held: 0, heading: 1.5 });
-    expect(gate.take(1).heading).toBe(1.5);
-    expect(gate.take(2).heading).toBe(1.5);
+    gate.submit({ tick: 1, held: 0, heading: snapHeading(1.5) });
+    expect(gate.take(1).heading).toBe(snapHeading(1.5));
+    // A tick that never arrived keeps the last heading, as it keeps the keys.
+    expect(gate.take(2).heading).toBe(snapHeading(1.5));
+    // A refusal is counted under its own name, and two headings for one tick conflict.
+    gate.submit({ tick: 3, held: 0, heading: 'north' });
+    expect(gate.counts.heading).toBe(1);
+    gate.submit({ tick: 4, held: 0, heading: 0 });
+    gate.submit({ tick: 4, held: 0, heading: snapHeading(1) });
+    expect(gate.counts.conflict).toBe(1);
+    expect(gate.counts.duplicate).toBe(0);
   });
 
   it('latches a tap shorter than a tick: pressed and released before the sample still sends as held', () => {

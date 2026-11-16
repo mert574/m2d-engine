@@ -19,7 +19,7 @@
 | `performanceStats` | `true` | Add the frame-rate readout to the engine's debug layer |
 | `performanceStatsHotkey` | `'F3'` | Physical key code that expands the readout. `null` binds no key |
 | `devConsole` | `true` | Mount the [developer console](./console) (backquote). The cvar and command registries exist either way |
-| `saveId` | the page's pathname | Scope for persisted cvars, so two games on one origin keep separate settings |
+| `saveId` | the page's pathname | Scope for what the engine keeps for a player — persisted cvars, rebound actions and [choices](../guide/editor#the-project-file) — so two games on one origin keep separate ones |
 | `theme` | `null` | Design tokens for every piece of UI. A partial token tree is merged over the engine's default, or pass a `Theme`. See [Theme tokens](./ui#theme-tokens) |
 
 ## Scenes and assets

@@ -258,6 +258,8 @@ const SUITES = {
             dimensions: window.m2dEditor.viewport.dimensions
           }));
           report.ok(`${project.name} opens on ${project.initialScene}`, `${opened.type}, ${opened.dimensions}D viewport`);
+          // Without the game's classes every scene checks clean, which is not the same as clean.
+          report.check(`${project.name} checks against its own classes`, await page.evaluate(() => window.m2dEditor.checksWithGame));
           await shoot(page, out, `example-${folder}`, report);
           await page.keyboard.press('F5');
           await until(page, () => window.m2dEditor.playing);

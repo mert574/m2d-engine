@@ -44,6 +44,32 @@ describe('choices', () => {
     expect(new Choices(moved, { storageKey: 'm2d.choices:test' }).get('car')).toBe('tourer');
   });
 
+  it('leaves the choices of another game that shares the key alone', () => {
+    const racer = new Choices(CAR, { storageKey: 'm2d.choices:/' });
+    const dungeon = new Choices({ difficulty: { values: ['kind', 'hard'], initial: 'kind' } }, { storageKey: 'm2d.choices:/' });
+    racer.set('car', 'slider');
+    dungeon.set('difficulty', 'hard');
+    expect(JSON.parse(stored.get('m2d.choices:/'))).toEqual({ car: 'slider', difficulty: 'hard' });
+    expect(new Choices(CAR, { storageKey: 'm2d.choices:/' }).get('car')).toBe('slider');
+  });
+
+  it('plays on when the storage refuses or holds nonsense', () => {
+    vi.stubGlobal('localStorage', {
+      getItem() { throw new Error('blocked'); },
+      setItem() { throw new Error('blocked'); }
+    });
+    const blocked = new Choices(CAR, { storageKey: 'm2d.choices:test' });
+    expect(blocked.get('car')).toBe('tourer');
+    expect(() => blocked.set('car', 'sprint')).not.toThrow();
+    expect(blocked.get('car')).toBe('sprint');
+
+    stored.set('m2d.choices:test', 'not json');
+    vi.stubGlobal('localStorage', { getItem: (key) => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, String(value)) });
+    expect(new Choices(CAR, { storageKey: 'm2d.choices:test' }).get('car')).toBe('tourer');
+    stored.set('m2d.choices:test', JSON.stringify(['tourer']));
+    expect(new Choices(CAR, { storageKey: 'm2d.choices:test' }).get('car')).toBe('tourer');
+  });
+
   it('takes numbers and flags as readily as names, and keeps its own copy of the declaration', () => {
     const declared = { laps: { values: [1, 3, 5], initial: 3 }, ghost: { values: [true, false], initial: true } };
     const choices = new Choices(declared);
