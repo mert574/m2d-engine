@@ -15,7 +15,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A cold asset cache fetches and compiles the lot's photoscans, which is
+    # the better part of an hour; a warm one is minutes.
+    timeout-minutes: 60
     # Manual runs must also publish the production branch.
     if: github.ref == 'refs/heads/master'
     steps:
@@ -33,6 +35,9 @@ jobs:
 
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium
+
+      - name: Build example assets
+        uses: ./.github/actions/example-assets
 
       - name: Run Node and browser tests
         run: npm test

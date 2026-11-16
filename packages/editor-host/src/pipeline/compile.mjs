@@ -28,7 +28,7 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { cloneDocument, mergeDocuments, dedup, weld, simplifyPrimitive, compactPrimitive, prune, textureCompress, unpartition } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
 import { ktx2Parallel } from './ktx2Pool.mjs';
-import { cardsOf, foliageLevel } from './foliage.mjs';
+import { cardsOf, cardCosts, foliageLevel, alphaOf } from './foliage.mjs';
 import sharp from 'sharp';
 
 /** Kinds of model, by their triangle budget. */
@@ -157,18 +157,19 @@ const isFoliage = (prim) => prim.getMaterial()?.getAlphaMode() === 'MASK' && !!p
  * simplified by `woodRatio` at the level's error; foliage is made by
  * `foliageLevel` (quads, then thinning), and what stays triangles is
  * reduced by `foliageRatio`, which past level 0 is 1: a leaf keeps the
- * shape level 0 gave it.
+ * shape level 0 gave it. `thin` is level 0's own foliage plan, when its
+ * budget cannot hold every card (see `level0Split`).
  */
-async function reduceLevel(doc, level, woodRatio, foliageRatio, level0Error) {
+async function reduceLevel(doc, level, woodRatio, foliageRatio, level0Error, thin = null) {
   await MeshoptSimplifier.ready;
   const prims = doc.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives().map((prim) => [mesh, prim]));
   const cards = prims.filter(([, prim]) => isFoliage(prim)).reduce((total, [, prim]) => total + cardsOf(prim).length, 0);
   const keep = Math.min(1, Math.max(level.cards ?? 1, MIN_CARDS / Math.max(cards, 1)));
-  const grow = keep < 1 ? Math.min(1 / Math.sqrt(keep), CARD_GROWTH) : 1;
+  const plan = thin ?? { keep, grow: keep < 1 ? Math.min(1 / Math.sqrt(keep), CARD_GROWTH) : 1, quads: !!level.quads };
   for (const [mesh, prim] of prims) {
     const foliage = isFoliage(prim);
-    if (foliage && (keep < 1 || level.quads)) foliageLevel(doc, mesh, prim, { keep, grow, quads: !!level.quads });
-    const ratio = foliage ? foliageRatio : woodRatio;
+    if (foliage && (plan.keep < 1 || plan.quads)) foliageLevel(doc, mesh, prim, { ...plan, alpha: await alphaOf(prim.getMaterial()) });
+    const ratio = foliage ? foliageRatio : (typeof woodRatio === 'function' ? woodRatio(prim) : woodRatio);
     // Past level 0, wood and stone may collapse across their uv seams: a
     // scan is cut into dozens of uv islands, every seam is a border the
     // strict simplifier will not cross, and a branch or a boulder stopped
@@ -176,6 +177,10 @@ async function reduceLevel(doc, level, woodRatio, foliageRatio, level0Error) {
     // where those levels draw, a stretched texel at a seam is invisible.
     const simplifier = foliage || level.distance === 0 ? MeshoptSimplifier : SEAMLESS;
     if (ratio < 1 && prim.getIndices()?.getCount()) simplifyPrimitive(prim, { simplifier, ratio, error: foliage ? level0Error : level.error });
+    // Thinning drops cards' triangles, not their vertices; the simplifier
+    // compacts what it touches, and a thinned level 0 it never touches
+    // would otherwise carry every vertex of the scan's foliage.
+    else if (foliage && plan.keep < 1 && prim.getIndices()?.getCount()) compactPrimitive(prim);
     if (!prim.getIndices() || prim.getIndices().getCount() === 0) { mesh.removePrimitive(prim); prim.dispose(); }
   }
   await doc.transform(prune());
@@ -315,6 +320,79 @@ function dropUnreadMaterialData(doc) {
 const triangles = (doc) => doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives())
   .reduce((n, p) => n + (p.getIndices()?.getCount() ?? p.getAttribute('POSITION').getCount()) / 3, 0);
 
+/** The least share of level 0's budget wood keeps, when it has that much. */
+const WOOD_FLOOR = 0.4;
+
+/**
+ * What each of `sizes` keeps of a budget: all of itself, or an equal
+ * share of what the ones smaller than their share leave. A pine's trunk
+ * is four times its branches, and in proportion the branches kept a few
+ * hundred triangles and its needles hung in the air.
+ * @param {Map<K, number>} sizes
+ * @returns {Map<K, number>} The triangles each keeps
+ * @template K
+ */
+function fairShares(sizes, budget) {
+  const kept = new Map();
+  let left = [...sizes].filter(([, count]) => count > 0);
+  let remaining = budget;
+  while (left.length) {
+    const share = remaining / left.length;
+    const small = left.filter(([, count]) => count <= share);
+    if (!small.length) {
+      for (const [key] of left) kept.set(key, share);
+      break;
+    }
+    for (const [key, count] of small) { kept.set(key, count); remaining -= count; }
+    left = left.filter(([, count]) => count > share);
+  }
+  return kept;
+}
+
+/**
+ * How level 0's budget is shared between wood (everything opaque) and
+ * foliage. In proportion, except that wood keeps at least `WOOD_FLOOR`
+ * of the budget, or all of itself when it is less: a pine's needles
+ * outnumber its trunk and branches sixty to one, and in proportion the
+ * trunk kept a few hundred triangles and the branches none. Foliage the
+ * budget is shared between its materials the same way, so a branch is not
+ * starved by the trunk it hangs on. Foliage the budget cannot hold at two
+ * triangles a card is thinned to whole cards,
+ * as the far levels are, rather than simplified into the fragments of
+ * cards it would otherwise become; the share kept is the budget over what
+ * the cards cost whole, two triangles for a card that becomes a quad and
+ * its own count for one that cannot (see `cardCosts`).
+ * @returns {Promise<{woodRatio: (prim: object) => number, foliageRatio: number, thin: {keep: number, grow: number, quads: boolean}|null}>}
+ */
+async function level0Split(doc, budget) {
+  let wood = 0, foliage = 0, cards = 0;
+  /** Wood by the material it draws with, which is what a branch and a trunk are to each other. */
+  const woodSizes = new Map();
+  for (const prim of doc.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives())) {
+    const count = (prim.getIndices()?.getCount() ?? prim.getAttribute('POSITION').getCount()) / 3;
+    if (isFoliage(prim)) { foliage += count; cards += cardsOf(prim).length; continue; }
+    wood += count;
+    const material = prim.getMaterial()?.getName() ?? '';
+    woodSizes.set(material, (woodSizes.get(material) ?? 0) + count);
+  }
+  const materialOf = (prim) => prim.getMaterial()?.getName() ?? '';
+  if (wood + foliage <= budget) return { woodRatio: () => 1, foliageRatio: 1, thin: null };
+  const woodTarget = Math.min(wood, Math.max(budget * wood / (wood + foliage), budget * WOOD_FLOOR));
+  const foliageTarget = budget - woodTarget;
+  const shares = fairShares(woodSizes, woodTarget);
+  const woodRatio = (prim) => {
+    const material = materialOf(prim);
+    return woodSizes.get(material) ? Math.min(1, shares.get(material) / woodSizes.get(material)) : 1;
+  };
+  if (!foliage || foliageTarget >= 2 * cards) return { woodRatio, foliageRatio: foliage ? foliageTarget / foliage : 1, thin: null };
+  let whole = 0;
+  for (const prim of doc.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives()).filter(isFoliage)) {
+    whole += cardCosts(prim, { quads: true, alpha: await alphaOf(prim.getMaterial()) });
+  }
+  const keep = Math.min(1, Math.max(MIN_CARDS / cards, foliageTarget / whole));
+  return { woodRatio, foliageRatio: 1, thin: { keep, grow: Math.min(1 / Math.sqrt(keep), CARD_GROWTH), quads: true } };
+}
+
 /**
  * Cut one piece out of a kit.
  *
@@ -348,23 +426,73 @@ function cutPiece(doc, keep, id) {
   }
 }
 
-export async function compileModel({ source, to, kind = 'prop', label, name, authors = [], keep = null, textureSize = null }) {
-  const side = Math.min(TEXTURE_CAP, textureSize ?? TEXTURE_SIZE[kind] ?? TEXTURE_SIZE.prop);
+/**
+ * One source to one `.glb`: see `compileVariants`, which this is with a
+ * single output. `textureSize` is the model's own largest side over its
+ * kind's; `maxTextureSize` and `maxTriangles` cap the kind's and the
+ * model's own sizes, as a game's quality levels do.
+ */
+export async function compileModel({ to, maxTextureSize = null, maxTriangles = null, ...model }) {
+  const [result] = await compileVariants({ ...model, outputs: [{ to, maxTextureSize, maxTriangles }] });
+  return result;
+}
+
+/**
+ * One source to several `.glb` files at once, each under its own caps:
+ * the texture side and level-0 triangles a game's quality levels name
+ * (see core/quality.js in the engine). The source is read once, each
+ * distinct triangle budget's levels of detail are built once, and each
+ * distinct texture is encoded once however many files share it, so the
+ * nine files of three texture levels by three model levels cost about
+ * three builds, not nine.
+ * @param {Object} model
+ * @param {string} model.source - The glTF to compile
+ * @param {Array<{to: string, maxTextureSize?: number|null, maxTriangles?: number|null}>} model.outputs
+ * @returns {Promise<Array<{id: string, to: string, bytes: number, sourceTriangles: number, lods: object[], seconds: number}>>} In the outputs' order
+ */
+export async function compileVariants({ source, outputs, kind = 'prop', label, name, authors = [], keep = null, textureSize = null }) {
   const id = label ?? source;
   if (!existsSync(source)) throw new Error(`${id}: no source at ${source}`);
   const started = performance.now();
+  const base = await readSource(source, { keep, id });
+  const encoded = new Map();
+  const results = new Array(outputs.length);
+  const byBudget = Map.groupBy(outputs.map((output, i) => ({ output, i })),
+    ({ output }) => Math.min(BUDGET[kind] ?? BUDGET.prop, output.maxTriangles ?? Infinity));
+  for (const [budget, group] of byBudget) {
+    const levels = await buildLevels(base, { kind, budget });
+    for (const { output, i } of group) {
+      const side = Math.min(TEXTURE_CAP, textureSize ?? TEXTURE_SIZE[kind] ?? TEXTURE_SIZE.prop, output.maxTextureSize ?? Infinity);
+      const bytes = await writeModel(cloneDocument(levels.doc), { to: output.to, side, kind, id, encoded, extras: { source: label ?? null, name: name ?? null, authors, sourceTriangles: levels.sourceTriangles, lods: levels.lodInfo, ...(keep && { piece: keep.map(String) }) } });
+      results[i] = { id, to: output.to, bytes, sourceTriangles: levels.sourceTriangles, lods: levels.lodInfo, seconds: (performance.now() - started) / 1000 };
+    }
+  }
+  return results;
+}
+
+/** The source as every output starts from it: cut to its piece, its unread data dropped, its cut-outs folded, welded. */
+async function readSource(source, { keep, id }) {
   const base = await io.read(source);
   if (keep) cutPiece(base, keep, id);
   dropUnreadMaterialData(base);
   await foldAlpha(base, dirname(source));
-  await base.transform(dedup(), weld());
-  const sourceTriangles = triangles(base);
-  const budget = BUDGET[kind] ?? BUDGET.prop;
+  // A cut piece leaves the kit's other meshes in the document, drawn by
+  // nothing: pruned here, before the levels are built to a budget, they
+  // neither take a share of it nor cost the time to simplify.
+  await base.transform(prune(), dedup(), weld());
+  return base;
+}
 
-  // Level 0 from the welded source, cut to its budget; every level after
-  // from level 0 (see `reduceLevel`). The levels are folded into one
-  // document as they are made — level 0's scene, then each level's roots
-  // under a node named for it.
+/**
+ * The chain of levels for one level-0 budget, folded into one document as
+ * they are made — level 0's scene, then each level's roots under a node
+ * named for it — with the source's textures, which `writeModel` sizes.
+ * Level 0 is the welded source cut to its budget; every level after is
+ * made from level 0 (see `reduceLevel`).
+ */
+async function buildLevels(base, { kind, budget }) {
+  const sourceTriangles = triangles(base);
+  const hasFoliage = base.getRoot().listMeshes().flatMap((mesh) => mesh.listPrimitives()).some(isFoliage);
   const lodInfo = [];
   const level0 = Math.min(sourceTriangles, budget);
   let out = null;
@@ -378,11 +506,15 @@ export async function compileModel({ source, to, kind = 'prop', label, name, aut
   const bounds = getBounds(base.getRoot().listScenes()[0]);
   const radius = Math.hypot(...bounds.max.map((v, k) => v - bounds.min[k])) / 2;
   const levels = LEVELS[kind] ?? LEVELS.prop;
+  const split = await level0Split(base, level0);
   let level0Doc = null;
   for (const [i, level] of levels.entries()) {
     const doc = cloneDocument(i === 0 ? base : level0Doc);
-    if (i === 0) await reduceLevel(doc, level, level0 / sourceTriangles, level0 / sourceTriangles, level.error);
-    else await reduceLevel(doc, level, level.ratio, 1, levels[0].error);
+    if (i === 0) await reduceLevel(doc, level, split.woodRatio, split.foliageRatio, level.error, split.thin);
+    // Wood never thins faster than the foliage it carries: at the first
+    // switch a tree kept every leaf card and a third of its branches, and
+    // the leaves hung in the air where the branches had been.
+    else await reduceLevel(doc, level, Math.max(level.ratio, hasFoliage ? level.cards ?? 1 : 0), 1, levels[0].error);
     if (i === 0) level0Doc = cloneDocument(doc);
     const count = Math.round(triangles(doc));
     // A level that saved little over the one before is not a level: skip it,
@@ -401,6 +533,11 @@ export async function compileModel({ source, to, kind = 'prop', label, name, aut
     for (const s of merged) { for (const child of s.listChildren()) s.removeChild(child); s.dispose(); }
     wrap(children, `LOD${lodInfo.length - 1}`);
   }
+  return { doc: out, lodInfo, sourceTriangles };
+}
+
+/** One chain of levels with its textures at `side` and encoded, written to `to`. Returns its size in bytes. */
+async function writeModel(out, { to, side, kind, id, encoded, extras }) {
   // The textures and materials the copies share, folded back together.
   // The resize runs as lossless PNG; the KTX2 encode is the lossy step.
   await out.transform(
@@ -408,7 +545,7 @@ export async function compileModel({ source, to, kind = 'prop', label, name, aut
     textureCompress({ encoder: sharp, targetFormat: 'png', resize: [side, side] }),
     roundToBlock(),
     // On a pool of threads: see ktx2Pool.mjs for the settings by slot.
-    ktx2Parallel(),
+    ktx2Parallel({ cache: encoded }),
     prune(),
     // The merged levels each brought a buffer; a .glb holds one.
     unpartition()
@@ -421,12 +558,9 @@ export async function compileModel({ source, to, kind = 'prop', label, name, aut
       if (material.getAlphaMode() === 'MASK') material.setExtras({ ...material.getExtras(), m2d: { ...material.getExtras()?.m2d, foliage: true } });
     }
   }
-  out.getRoot().getAsset().extras = {
-    ...out.getRoot().getAsset().extras,
-    m2d: { source: label ?? null, name: name ?? null, authors, sourceTriangles, lods: lodInfo, ...(keep && { piece: keep.map(String) }) }
-  };
+  out.getRoot().getAsset().extras = { ...out.getRoot().getAsset().extras, m2d: extras };
   const glb = await io.writeBinary(out);
   mkdirSync(dirname(to), { recursive: true });
   writeFileSync(to, glb);
-  return { id, to, bytes: glb.byteLength, sourceTriangles, lods: lodInfo, seconds: (performance.now() - started) / 1000 };
+  return glb.byteLength;
 }

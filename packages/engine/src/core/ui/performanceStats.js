@@ -24,6 +24,17 @@ import { UIElement } from './uiElement.js';
  * container, arrive with the debug layer.
  */
 
+/**
+ * A world position as the readout shows it and `teleport` takes it back:
+ * whole pixels in 2D, metres to a tenth in 3D, separated by spaces.
+ * @param {{x: number, y: number, z?: number}} position
+ */
+export function positionText(position) {
+  const axes = 'z' in position ? [position.x, position.y, position.z] : [position.x, position.y];
+  const digits = 'z' in position ? 1 : 0;
+  return axes.map((value) => (Object.is(Math.round(value * 10 ** digits), -0) ? 0 : value).toFixed(digits)).join(' ');
+}
+
 /** Frame rates above and below which the readout changes colour. */
 const FPS_GOOD = 55;
 const FPS_FAIR = 30;
@@ -81,6 +92,8 @@ export class PerformanceStats extends UIElement {
     super({ pivot: 'top-left', ...options });
     this.expanded = options.expanded ?? false;
     this.graph = options.graph ?? true;
+    /** A line with the player's position, for reading a place off the screen (`cl_showpos`). */
+    this.showPosition = options.showPosition ?? true;
 
     /** Geometry, in UI units. Not themed: this is a fixed-pitch readout. */
     this.lineHeight = 15;
@@ -105,11 +118,18 @@ export class PerformanceStats extends UIElement {
     return this.game?.renderer?.dimensions === 3 ? DETAIL_ROWS_3D : DETAIL_ROWS;
   }
 
+  /** The player's position line, when it is asked for and there is a player. */
+  get #position() {
+    const position = this.showPosition ? this.game?.player?.body?.position : null;
+    return position ? positionText(position) : null;
+  }
+
   /** Height the panel needs at the current size. */
   get panelHeight() {
-    if (!this.expanded) return 24;
+    const position = this.#position ? this.lineHeight : 0;
+    if (!this.expanded) return 24 + position;
     const rows = 1 + this.rows.length + (this.#net ? NET_ROWS.length + 1 : 0);
-    return 10 + rows * this.lineHeight + (this.graph ? this.graphHeight + 8 : 0) + 6;
+    return 10 + rows * this.lineHeight + position + (this.graph ? this.graphHeight + 8 : 0) + 6;
   }
 
   update() {
@@ -126,21 +146,30 @@ export class PerformanceStats extends UIElement {
     const renderer = this.game.renderer;
     const fps = renderer.getFPS();
     const frame = this.frame;
+    const position = this.#position;
 
     this.paint.drawRect({
       ...frame,
       fillStyle: '$color.surface.default',
       strokeStyle: '$color.border.subtle',
       lineWidth: '$border.hairline',
-      cornerRadius: this.expanded ? '$radius.md' : '$radius.pill'
+      cornerRadius: this.expanded || position ? '$radius.md' : '$radius.pill'
     });
 
     const left = frame.x + 10;
+    const right = frame.x + frame.width - 10;
     let y = frame.y + (this.expanded ? 8 : 5);
 
     this.#row(left, y, 'fps', `${fps}`, fpsColour(fps));
-    this.#value(frame.x + frame.width - 10, y, `${frameMs(fps)} ms`, '$color.debug.label', 'right');
+    this.#value(right, y, `${frameMs(fps)} ms`, '$color.debug.label', 'right');
     y += this.lineHeight;
+
+    // Right-aligned, as wide as three signed coordinates need.
+    if (position) {
+      this.#value(left, y, 'pos', '$color.debug.label', 'left');
+      this.#value(right, y, position, '$color.debug.value', 'right');
+      y += this.lineHeight;
+    }
 
     if (!this.expanded) return;
 

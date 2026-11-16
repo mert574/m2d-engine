@@ -1654,7 +1654,8 @@ export class Scene {
 
     // A skinned or animated model gets an animator on first sight, playing
     // what the mesh block asked for; it advances on the frame, never the tick.
-    let animator = entity?.animator ?? null;
+    // A model swapped under its key (another quality level) gets an animator of its own.
+    let animator = entity?.animator?.model === model ? entity.animator : null;
     if (!animator && entity && (model.skinned || model.animations.length)) {
       animator = entity.animator = new Animator3D(model);
       const first = mesh.animation?.clip ?? model.animations[0]?.name;

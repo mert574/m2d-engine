@@ -69,6 +69,11 @@ export class SceneProps {
      * @type {Set<string>}
      */
     this.failed = new Set();
+    /**
+     * Bumped when the quality levels change (`requality`): a load begun
+     * before the change fetched the old file, and fetches again on landing.
+     */
+    this.generation = 0;
     /** Every prop instance position per model key, as flat xyz, for the distance test. @type {Map<string, number[]>} */
     this.spots = new Map();
     /** Set once `setup` has run; before it there is nothing to add batches to. */
@@ -155,11 +160,10 @@ export class SceneProps {
     if (scene.models.has(key)) return Promise.resolve(scene.models.get(key));
     let pending = this.loading.get(key);
     if (pending) return pending;
-    const url = scene.config.assets.models[key].url;
-    // Off the main thread where there is a worker: parsing and transcoding
-    // a scan is a dropped frame otherwise, and streaming does it mid-game.
-    pending = loadModel(scene.game.options.basePath + url, { transcodeTarget: scene.game.renderer?.transcodeTarget }).then((model) => {
+    const generation = this.generation;
+    pending = this.fetchModel(key).then((model) => {
       this.loading.delete(key);
+      if (generation !== this.generation && scene.config.assets.models[key].quality) return this.loadModel(key);
       // The scene may have unloaded, or the streamer changed its mind,
       // while this was in the air; dropping it here is cheaper than
       // uploading a model nothing will draw.
@@ -228,6 +232,45 @@ export class SceneProps {
       } else if (this.scene.models.has(key)) {
         this.dropModel(key);
       }
+    }
+  }
+
+  /**
+   * Fetch one model key's file, at the quality levels chosen now. Off the
+   * main thread where there is a worker: parsing and transcoding a scan is
+   * a dropped frame otherwise, and streaming does it mid-game.
+   */
+  fetchModel(key) {
+    const game = this.scene.game;
+    const asset = this.scene.config.assets.models[key];
+    const url = game.quality?.url(asset) ?? asset.url;
+    return loadModel(game.options.basePath + url, { transcodeTarget: game.renderer?.transcodeTarget });
+  }
+
+  /**
+   * The quality levels changed: fetch every resident model that is built
+   * at levels again, and swap each in as it lands, its batches rebuilt and
+   * the old one's GPU memory released. Until then the old one draws, and
+   * if a fetch fails it stays. Loads still in the air fetch again when
+   * they land; see `loadModel`.
+   */
+  requality() {
+    const scene = this.scene;
+    if (scene.game.headless) return;
+    const generation = ++this.generation;
+    for (const key of [...scene.models.keys()]) {
+      if (!scene.config.assets?.models?.[key]?.quality) continue;
+      this.fetchModel(key).then((model) => {
+        const old = scene.models.get(key);
+        // Superseded by a later change, or let go while this was fetched.
+        if (this.gone || generation !== this.generation || !old) return;
+        scene.models.set(key, model);
+        this.batches = this.batches.filter((batch) => batch.modelKey !== key);
+        this.addModelBatches(key);
+        scene.game.renderer?.unloadModel?.(old);
+      }, (error) => {
+        console.warn(`M2D: model '${key}' failed to load at the new quality; the old one stays: ${error.message}`);
+      });
     }
   }
 

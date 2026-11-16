@@ -173,6 +173,26 @@ describe('the project declaration', () => {
     }
   });
 
+  it('sets the quality levels over MCP, and refuses a default that names no level', async () => {
+    await writeFile(join(root, 'm2d.project.json'), JSON.stringify({ name: 'Rooms' }));
+    try {
+      const read = JSON.parse(textOf(await client.callTool({ name: 'read_project', arguments: {} })));
+      expect(read.fields.map((field: { key: string }) => field.key)).toContain('quality');
+      const quality = { textures: { levels: { '2k': 2048, '0.5k': 512 }, default: '0.5k' } };
+      const set = await client.callTool({ name: 'edit_project', arguments: { ops: [{ op: 'set', path: ['quality'], value: quality }] } });
+      expect(set.isError).toBeFalsy();
+      const onDisk = await readFile(join(root, 'm2d.project.json'), 'utf8');
+      expect(JSON.parse(onDisk).quality).toEqual(quality);
+
+      const refused = await client.callTool({ name: 'edit_project', arguments: { ops: [{ op: 'set', path: ['quality', 'textures', 'default'], value: '4k' }] } });
+      expect(refused.isError).toBe(true);
+      expect(textOf(refused)).toMatch(/quality\.textures\.default.*names no level/);
+      expect(await readFile(join(root, 'm2d.project.json'), 'utf8')).toBe(onDisk);
+    } finally {
+      await rm(join(root, 'm2d.project.json'));
+    }
+  });
+
   it('refuses to edit a project file that does not parse, leaving it as it is', async () => {
     await writeFile(join(root, 'm2d.project.json'), '{ "name": "Rooms", }');
     try {

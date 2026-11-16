@@ -6,11 +6,18 @@
  */
 
 import { s, validate } from './schema.js';
+import { qualityIssues } from './quality.js';
 
 /** The file that makes a folder a project. */
 export const PROJECT_FILE = 'm2d.project.json';
 
 const colour = (options = {}) => s.string({ editor: 'color', ...options });
+
+/** One quality axis: its levels by name, each the number the asset compiler caps at, and the one shown first. */
+const qualityAxis = (label, unit, description) => s.object({
+  levels: s.record(s.integer({ positive: true, unit }), { required: true, description: 'Level name to its cap, highest first: the settings menu lists them in this order' }),
+  default: s.string({ required: true, nonEmpty: true, description: 'The level a player starts on, and the one built at each model\'s own url' })
+}, { label, description });
 
 /**
  * What `m2d.project.json` may hold. The editor's project panel and the
@@ -48,6 +55,13 @@ export const PROJECT_SCHEMA = s.object({
       pauseWhenOpen: s.boolean({ initial: false, label: 'Pause while open', description: 'Hold the game still while the menu is up: what a race or a timed level wants' })
     }, { match: (value) => typeof value === 'object' && value !== null })
   ], { initial: true, label: 'Settings', description: 'Mount the settings menu (O), with a Controls section for the actions. An object mounts it and tunes it', message: 'must be true, false or { pauseWhenOpen }' }),
+  quality: s.object({
+    textures: qualityAxis('Textures', 'px', 'The largest texture side a model keeps'),
+    models: qualityAxis('Models', 'triangles', 'The most triangles a model keeps up close')
+  }, {
+    label: 'Quality',
+    description: 'Levels the models marked quality are built at, every combination in a folder of its own beside each model; the settings menu offers them unless the game is booted with offerQuality: false'
+  }),
   music: s.record(s.object({
     url: s.string({ required: true, nonEmpty: true, description: 'Relative to basePath' }),
     volume: s.number({ min: 0, max: 1, initial: 1 })
@@ -80,6 +94,7 @@ export function projectIssues(project) {
       return true;
     }
   });
+  if (!issues.length) issues.push(...qualityIssues(project?.quality));
   return issues;
 }
 

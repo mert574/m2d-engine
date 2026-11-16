@@ -1,8 +1,14 @@
 /**
  * Compiles source models into what the game loads:
- * `node --max-old-space-size=4096 scripts/compileModel.mjs [ids...]`.
- * One model at a time is kind to memory; a shell loop over the ids is
- * how the whole set is built.
+ * `node --max-old-space-size=4096 scripts/compileModel.mjs [--quality all|default] [--missing] [ids...]`.
+ * One model at a time is kind to memory; `buildModels.mjs` runs several.
+ *
+ * Every model is built at each combination of the yard's quality levels
+ * (`quality` in `src/yard/m2d.project.json`): the defaults to
+ * `models/ph/<id>.glb`, which the scenes name, and the rest to a folder
+ * per combination beside it (`models/ph/1k-70k/<id>.glb`), which the
+ * settings menu's Texture and Model quality rows switch to. `--quality
+ * default` builds only the first, as the published site and CI do.
  *
  * A photoscanned tree arrives as millions of triangles and nine 4k
  * textures, which no frame can afford per instance. For each model this
@@ -40,9 +46,10 @@
  * is how a whole build once shipped 4k PNGs while every status said
  * KTX2; `assertEncoded` refuses to write such a file.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { compileModel as compile } from 'm2d-editor-host/pipeline/compile.mjs';
+import { compileVariants } from 'm2d-editor-host/pipeline/compile.mjs';
+import { qualityVariants, variantUrl } from 'm2d-engine/core/quality.js';
 import { SOURCE_DIR, ASSETS, PIECES } from './fetchPolyHaven.mjs';
 
 /** Where the compiled lot models go; ignored by git, rebuilt by `buildModels.mjs`. */
@@ -55,8 +62,26 @@ export const OUT_DIR = resolve(import.meta.dirname, '..', 'src', 'yard', 'models
  * 6: textures sized by kind (`TEXTURE_SIZE` in the compiler), not all at 3072.
  * 7: levels switch at distances by kind; far foliage is quads, a tree's last level a few thousand triangles.
  * 8: a tree's level 0 is 150k triangles, not 300k; clearcoat factors are kept.
+ * 9: built at every quality level; level 0 keeps a floor of wood and thins foliage to whole cards; a quad shows only its own card.
  */
-export const FORMAT = 8;
+export const FORMAT = 9;
+
+/** The levels the lot is built at: the yard project's `quality` block. */
+export const QUALITY = JSON.parse(readFileSync(resolve(import.meta.dirname, '..', 'src', 'yard', 'm2d.project.json'), 'utf8')).quality ?? null;
+
+/**
+ * Every file one model key is built to, with the caps its levels set:
+ * all the combinations, or only the defaults.
+ * @param {string} id
+ * @param {'all'|'default'} [quality='all']
+ */
+export function outputsOf(id, quality = 'all') {
+  return qualityVariants(QUALITY).filter((variant) => quality === 'all' || variant.folder === null).map((variant) => ({
+    to: resolve(OUT_DIR, variantUrl(`${id}.glb`, variant.folder)),
+    maxTextureSize: variant.levels.textures?.value ?? null,
+    maxTriangles: variant.levels.models?.value ?? null
+  }));
+}
 
 /**
  * Models whose textures outgrow their kind's size: the fort's pieces are
@@ -81,17 +106,17 @@ export const KINDS = {
 export const sourceOf = (id) => PIECES[id]?.from ?? id;
 
 /**
- * One of the lot's sources into `OUT_DIR`. The compiler itself is the
- * editor host's (`m2d-editor-host/pipeline/compile.mjs`), which the
- * editor's library import runs too; this names the lot's paths and kinds.
- * A key in `PIECES` compiles its kit with only the piece's nodes kept.
+ * One of the lot's sources into `OUT_DIR`, at the given outputs. The
+ * compiler itself is the editor host's (`m2d-editor-host/pipeline/compile.mjs`),
+ * which the editor's library import runs too; this names the lot's paths
+ * and kinds. A key in `PIECES` compiles its kit with only the piece's nodes kept.
  */
-export async function compileModel(id) {
+export async function compileModel(id, outputs = outputsOf(id)) {
   const source = sourceOf(id);
   const info = JSON.parse(readFileSync(resolve(SOURCE_DIR, source, 'info.json'), 'utf8'));
-  return compile({
+  return compileVariants({
     source: resolve(SOURCE_DIR, source, `${source}.gltf`),
-    to: resolve(OUT_DIR, `${id}.glb`),
+    outputs,
     kind: KINDS[id] ?? 'prop',
     label: `polyhaven:${source}`,
     name: info.name,
@@ -102,12 +127,23 @@ export async function compileModel(id) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
-  const ids = process.argv.slice(2).length ? process.argv.slice(2) : [...Object.keys(ASSETS), ...Object.keys(PIECES)];
-  let total = 0;
+  const args = process.argv.slice(2);
+  const qualityArg = args.indexOf('--quality');
+  const quality = qualityArg >= 0 ? args[qualityArg + 1] : 'all';
+  if (!['all', 'default'].includes(quality)) throw new Error(`--quality: all or default, not '${quality}'`);
+  const missing = args.includes('--missing');
+  const named = args.filter((a, i) => !a.startsWith('--') && (qualityArg < 0 || i !== qualityArg + 1));
+  const ids = named.length ? named : [...Object.keys(ASSETS), ...Object.keys(PIECES)];
+  let total = 0, files = 0;
   for (const id of ids) {
-    const r = await compileModel(id);
-    total += r.bytes;
-    console.log(`${id}: ${(r.sourceTriangles / 1e3).toFixed(0)}k tris -> ${r.lods.map((l) => `${(l.triangles / 1e3).toFixed(0)}k`).join(' / ')}, ${(r.bytes / 1e6).toFixed(1)} MB in ${r.seconds.toFixed(1)} s`);
+    const outputs = outputsOf(id, quality).filter((output) => !missing || !existsSync(output.to));
+    if (!outputs.length) continue;
+    const results = await compileModel(id, outputs);
+    const bytes = results.reduce((sum, r) => sum + r.bytes, 0);
+    total += bytes;
+    files += results.length;
+    const r = results[0];
+    console.log(`${id}: ${(r.sourceTriangles / 1e3).toFixed(0)}k tris, ${results.length} file${results.length === 1 ? '' : 's'}, ${(bytes / 1e6).toFixed(1)} MB in ${results[results.length - 1].seconds.toFixed(1)} s`);
   }
-  console.log(`${ids.length} models, ${(total / 1e6).toFixed(0)} MB in ${OUT_DIR}`);
+  console.log(`${files} files, ${(total / 1e6).toFixed(0)} MB in ${OUT_DIR}`);
 }

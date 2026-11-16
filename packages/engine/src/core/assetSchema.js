@@ -85,11 +85,13 @@ const PREFAB_DATA = s.object({
 }, { required: true });
 
 /**
- * Import settings for a model: a glTF 2.0 `.glb`. Nothing to say yet — the
- * file is in metres with y up, as the 3D world is — but the block exists
- * so an editor has somewhere to put a scale or a material override later.
+ * Import settings for a model: a glTF 2.0 `.glb`, in metres with y up, as
+ * the 3D world is. They are spread into the scene's inline model asset, so
+ * a flag here means what it means there.
  */
-const MODEL_IMPORT = s.object({});
+const MODEL_IMPORT = s.object({
+  quality: s.boolean({ label: 'Quality levels', description: 'Built at every level the project\'s quality block declares, each combination in a folder beside the file; the levels the player chose pick which loads, and the defaults load the file itself' })
+});
 
 const ASSET = s.tagged('type', {
   model: s.object({

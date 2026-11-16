@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { CVarRegistry } from '../src/core/console/cvars.js';
-import { CommandRegistry, tokenize } from '../src/core/console/commands.js';
+import { CommandRegistry, tokenize, registerBuiltins } from '../src/core/console/commands.js';
+import { positionText } from '../src/core/ui/performanceStats.js';
+import { initPhysics, createPhysicsWorld } from '../src/core/physics/index.js';
 import { M2D } from '../src/core/m2d.js';
 import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
 import { keyDown, keyUp } from './helpers/input.js';
@@ -483,5 +485,72 @@ describe('DevConsole', () => {
     game.destroy();
     keyDown(game, 'Backquote');
     expect(game.console.isOpen).toBe(false);
+  });
+});
+
+describe('teleport and the position readout', () => {
+  beforeAll(async () => {
+    stubDocumentListeners();
+    await initPhysics();
+    await initPhysics({ dimensions: 3 });
+  });
+  beforeEach(() => installWindowStub());
+
+  const makeGame = () => new M2D(displayCanvas(1280, 720), { width: 1280, height: 720, renderer: 'canvas' });
+  /** Run a line, returning what the console would show. */
+  const run = (commands, line) => {
+    const out = [];
+    commands.execute(line, { print: (text) => out.push(['print', text]), warn: (text) => out.push(['warn', text]), error: (text) => out.push(['error', text]) });
+    return out;
+  };
+  /** A displayed 2D game whose player is one dynamic box. */
+  function withPlayer() {
+    const game = makeGame();
+    const body = game.physics.createBox({ x: 10, y: 20, width: 16, height: 16, bodyType: 'dynamic' });
+    game.physics.add(body);
+    game.player = { body };
+    return { game, body };
+  }
+
+  it('shows a position as teleport takes it back: whole pixels in 2D, tenths of a metre in 3D', () => {
+    expect(positionText({ x: 319.6, y: -0.4 })).toBe('320 0');
+    expect(positionText({ x: 12.345, y: 1, z: -0.04 })).toBe('12.3 1.0 0.0');
+  });
+
+  it('moves the player to a 2D point and stops it there', () => {
+    const { game, body } = withPlayer();
+    body.setVelocity({ x: 50, y: -30 });
+    expect(run(game.commands, 'teleport 300 -40')).toEqual([['print', 'teleported to 300 -40']]);
+    expect(body.position).toMatchObject({ x: 300, y: -40 });
+    expect(body.velocity).toMatchObject({ x: 0, y: 0 });
+  });
+
+  it('moves the player to a 3D point, the y axis up', () => {
+    const world = createPhysicsWorld({ dimensions: 3 });
+    const body = world.createBox({ x: 0, y: 1, z: 0, width: 1, height: 1, depth: 1, bodyType: 'dynamic' });
+    world.add(body);
+    const commands = new CommandRegistry(new CVarRegistry({ storage: null }));
+    registerBuiltins(commands, { player: { body } });
+    expect(run(commands, 'teleport 122 4.5 77')).toEqual([['print', 'teleported to 122.0 4.5 77.0']]);
+    expect(body.position).toMatchObject({ x: 122, y: 4.5, z: 77 });
+  });
+
+  it('refuses a wrong count or a word, naming the axes, and a game with no player', () => {
+    const { game, body } = withPlayer();
+    expect(run(game.commands, 'teleport 1 2 3')).toEqual([['error', 'usage: teleport <x> <y>']]);
+    expect(run(game.commands, 'teleport here 2')).toEqual([['error', 'usage: teleport <x> <y>']]);
+    expect(body.position).toMatchObject({ x: 10, y: 20 });
+    expect(run(makeGame().commands, 'teleport 1 2')).toEqual([['error', 'no player entity']]);
+  });
+
+  it('adds a pos line to the readout while there is a player, and cl_showpos takes it away', () => {
+    const { game } = withPlayer();
+    const oneLine = 24;
+    expect(game.stats.panelHeight).toBe(oneLine + game.stats.lineHeight);
+    game.cvars.set('cl_showpos', false);
+    expect(game.stats.panelHeight).toBe(oneLine);
+    game.cvars.set('cl_showpos', true);
+    game.player = null;
+    expect(game.stats.panelHeight).toBe(oneLine);
   });
 });

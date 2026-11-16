@@ -28,6 +28,8 @@
 | --- | --- | --- |
 | `initialScene` | `null` | Scene to switch to in `start()` |
 | `basePath` | `''` | Prefix for sprite sheet URLs in scene JSON |
+| `quality` | `null` | The texture and model levels the models are built at: the project's `quality` block, which `bootProject` passes on. See [Texture and model quality](../guide/display#texture-and-model-quality) |
+| `offerQuality` | `true` | Offer the levels as the `r_textures` and `r_models` settings. `false` pins the defaults, for a build that ships only the default files |
 | `textureFilter` | `'linear'` | How sprites and images are sampled when drawn at another size. `'nearest'` for pixel art drawn enlarged. Independent of `worldFilter` |
 | `sounds` | `{}` | Name to URL map, loaded in `start()`. A value may be `{ src, volume }` to give the clip its own gain (0..1) under the sound volume |
 | `music` | `{}` | Name to URL map of looping tracks, or `{ src, volume }` as above under the music volume |

@@ -84,8 +84,13 @@ await bootProject(document.getElementById('screen'), {
   definition,
   scenes: import.meta.glob('./scenes/*.json', { import: 'default' }),
   basePath: import.meta.env.BASE_URL + 'yard/',
-  // `?scene=lot` opens the lot instead of the yard.
-  options: query.get('scene') === 'lot' ? { initialScene: 'lot' } : {},
+  options: {
+    // The published site ships the lot's models at the default quality
+    // levels only; the dev server builds every level, and offers them.
+    offerQuality: import.meta.env.DEV,
+    // `?scene=lot` opens the lot instead of the yard.
+    ...(query.get('scene') === 'lot' && { initialScene: 'lot' })
+  },
   setup(game) {
     for (const { scene } of game.sceneManager.scenesToLoad) loadingPlate(scene);
     game.settings.addOption(audioOption(game));

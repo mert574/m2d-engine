@@ -132,7 +132,8 @@ const MODELS = [
   // Fences, gates and the fort.
   'fence_panel', 'fence_post', 'fence_gate', 'large_iron_gate', 'fort_tower', 'fort_wall', 'fort_corner', 'fort_gate'
 ];
-const models = Object.fromEntries(MODELS.map((id) => [id, { url: `models/ph/${id}.glb` }]));
+// Built at every quality level the yard's project declares; see compileModel.mjs.
+const models = Object.fromEntries(MODELS.map((id) => [id, { url: `models/ph/${id}.glb`, quality: true }]));
 // The park's statue is the project library's import, not one of the compiled set.
 models.concrete_cat_statue = { url: 'library/models/concrete_cat_statue.glb' };
 

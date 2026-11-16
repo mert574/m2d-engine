@@ -116,7 +116,7 @@ The engine's debug drawing uses the overlay. An actor's own appearance stays in 
 
 ## The settings menu
 
-`SettingsMenu` is a [screen](./ui#screens) with rows for resolution presets, fullscreen, aspect mode, the renderer backend, the debug overlay and pause, grouped under Display, Rendering and Game. A 3D game also gets a Shadows row and an Effects section with one switch per post-process stage. When a scene named `mainMenu` is registered, a Main menu row returns to it from anywhere else. It opens with O by default and closes with O, Escape, its Close row or a click outside the panel. Up, Down and Tab move between rows; Left and Right step the focused row's value; Enter or a click steps it forward. Each row draws a tick track showing where its value sits in its cycle, and the footer describes the focused row and lists the keys.
+`SettingsMenu` is a [screen](./ui#screens) with rows for resolution presets, fullscreen, aspect mode, the renderer backend, the debug overlay and pause, grouped under Display, Rendering and Game. A 3D game also gets a Shadows row and an Effects section with one switch per post-process stage. A game that declares quality levels gets Texture quality and Model quality rows; see [Texture and model quality](#texture-and-model-quality). When a scene named `mainMenu` is registered, a Main menu row returns to it from anywhere else. It opens with O by default and closes with O, Escape, its Close row or a click outside the panel. Up, Down and Tab move between rows; Left and Right step the focused row's value; Enter or a click steps it forward. Each row draws a tick track showing where its value sits in its cycle, and the footer describes the focused row and lists the keys.
 
 A mounted menu consumes the hotkey on `keydown` whatever is on screen (it listens in the debug layer, ahead of every screen, so it opens from a main menu as well as mid-game) and Escape while it is open.
 
@@ -153,6 +153,36 @@ new SettingsMenu(game).addOption({
 The mounted menu is `game.settings`. A scene button with `"action": "settings"` opens it. Choosing the renderer backend reloads the page with `?renderer=canvas` or `?renderer=webgl`.
 
 The menu is pushed onto `game.ui`, so it sits over a live, loaded game, and closing pops back to whatever was below. Every row is a view onto a [cvar](../reference/console), the same `r_aspect` the developer console sets, so resolution, aspect and the world filter persist across sessions, and a change made in either place shows up in the other. It draws through `game.drawOverlays()`, which the engine loop calls at the end of every frame; a game with its own loop must call that, and `game.ui.update(deltaTime)` before it.
+
+## Texture and model quality
+
+A game can build its models at several texture and model levels and let the player choose. The project declares the levels in `m2d.project.json`:
+
+```json
+"quality": {
+  "textures": { "levels": { "low": 512, "medium": 1024, "high": 2048 }, "default": "low" },
+  "models": { "levels": { "low": 25000, "medium": 40000, "high": 70000 }, "default": "medium" }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `textures.levels` | Level name to the largest texture side a model keeps, in pixels. Lowest first: a settings row steps left to right, so the rightmost choice is the highest quality |
+| `models.levels` | Level name to the most triangles a model keeps at its nearest level of detail, lowest first |
+| `default` | The level a player starts on. A default that names no level is refused at boot |
+
+Either axis may be left out. A model asset marked `"quality": true` in a scene loads at the levels chosen now. Its `url` is the file built at the defaults, and every other combination sits in a folder beside it, named for its levels with textures first:
+
+```text
+models/ph/tree.glb               textures low, models medium (the defaults)
+models/ph/high-high/tree.glb     every other combination
+```
+
+`m2d-engine/core/quality.js` holds the naming as functions (`qualityVariants`, `variantUrl`), so a build script writes the files where the engine looks. The editor host's model compiler builds them with `compileVariants`, which caps each kind's own texture size and triangle budget at a level's numbers and shares the work between files: the source is read once, each budget's levels of detail are built once and each texture is encoded once.
+
+The levels appear as the `r_textures` and `r_models` cvars and as Texture quality and Model quality rows under Rendering. A row shows the level's name, capitalised, and its footer gives what each level caps at. The choice persists. Changing it fetches every resident model marked `quality` again at the new levels and swaps each in as it lands. The old one draws until then, and stays when a fetch fails.
+
+Boot with `offerQuality: false` to pin the defaults and leave the rows out, for a build that ships only the default files. The example games' published site does this: it ships the lot at the default levels, and the dev server builds and offers every level.
 
 ## Demo source
 

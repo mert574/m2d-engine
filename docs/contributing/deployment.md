@@ -10,7 +10,7 @@ The site at [mert574.github.io/m2d-engine](https://mert574.github.io/m2d-engine/
 
 ## The Pages workflow
 
-`.github/workflows/pages.yml` runs on every push to `master` and on manual dispatch. It installs dependencies, installs Chromium, runs `npm test`, runs `npm run build`, uploads `site/` as the Pages artifact and deploys it. A failing test or build stops the deployment.
+`.github/workflows/pages.yml` runs on every push to `master` and on manual dispatch. It installs dependencies, installs Chromium, builds the examples' uncommitted assets (`.github/actions/example-assets`, restored from a cache keyed on what decides them), runs `npm test`, runs `npm run build`, uploads `site/` as the Pages artifact and deploys it. The lot's models are built at the yard's default quality levels only, and the published yard offers no quality settings. A failing test or build stops the deployment.
 
 To enable it on a fork, set Settings, Pages, Build and deployment, Source to GitHub Actions. If the `github-pages` environment restricts branches, allow `master`. No token is needed.
 

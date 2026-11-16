@@ -20,7 +20,9 @@ Node.js 24 or later.
 npm ci
 npm run dev           # examples on port 3000
 npm run dev:lan       # the same over HTTPS on every interface, for a browser on another machine
-npm run build-models  # fetch and compile the lot's Poly Haven models and textures (the dev server does the missing ones itself)
+npm run build-assets  # build every uncommitted asset the examples load, skipping what is there (the dev server and the site build do this themselves; the tests need it first)
+npm run build-models  # just the lot's Poly Haven models and textures, at the default quality levels
+npm run build-models --workspace examples -- --quality all   # at every quality level, as the dev server builds them
 npm run docs:dev      # documentation site
 npm run editor examples/src/yard      # the editor on one game (random port, printed; PORT= pins it)
 npm run editor new my-game --template 3d   # a new project from a template

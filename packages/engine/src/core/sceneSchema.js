@@ -175,7 +175,8 @@ const SPRITESHEET = s.object({
 
 /** A model a 3D level draws: a glTF 2.0 `.glb`, in metres, y up. */
 const MODEL = s.object({
-  url: s.string({ required: true, nonEmpty: true, description: 'Relative to the game\'s basePath' })
+  url: s.string({ required: true, nonEmpty: true, description: 'Relative to the game\'s basePath' }),
+  quality: s.boolean({ label: 'Quality levels', description: 'Built at every level the project\'s quality block declares, each combination in a folder beside the file; the levels the player chose pick which loads, and the defaults load the file itself' })
 });
 
 /** An HDR environment a 3D level lights with: a Radiance `.hdr` panorama. */

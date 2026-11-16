@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Document } from '@gltf-transform/core';
-import { cardsOf, foliageLevel } from '../src/pipeline/foliage.mjs';
+import { cardsOf, cardCosts, foliageLevel } from '../src/pipeline/foliage.mjs';
 
 /**
  * A primitive of leaf cards. Each card is a 2x2 grid of quads (eight
@@ -39,6 +39,21 @@ function leaves(cards: { x: number; fold?: number; color?: number[] }[]) {
     .setIndices(acc(new Uint16Array(idx), 'SCALAR'));
   const mesh = doc.createMesh().addPrimitive(prim);
   return { doc, mesh, prim };
+}
+
+/** A cut-out that is opaque everywhere: the ground a twig atlas packs its twigs on. */
+const opaque = { width: 16, height: 16, data: new Uint8Array(256).fill(255), cutoff: 127.5 };
+
+/**
+ * One card that spans its whole texture square but covers little of it:
+ * two cells of the grid that meet only at the centre, three triangles in
+ * all, as a twig strip lies across its atlas.
+ */
+function strip() {
+  const made = leaves([{ x: 0 }]);
+  const all = made.prim.getIndices()!.getArray()!;
+  made.prim.setIndices(made.prim.getIndices()!.clone().setArray(new Uint16Array([...all.slice(0, 6), ...all.slice(18, 21)])));
+  return made;
 }
 
 describe('foliage levels', () => {
@@ -100,5 +115,23 @@ describe('foliage levels', () => {
     // Twice the size about its centre: 0.2 across instead of 0.1.
     const xs = [0, 3, 6, 9].map((i) => a.first[i]!);
     expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(0.2, 5);
+  });
+  it('keeps as triangles a card whose rectangle is mostly other cards\' texels, and quads one that fills its own', () => {
+    const twig = strip();
+    expect(cardsOf(twig.prim)).toHaveLength(1);
+    // Without the cut-out to read, the strip fits a quad like any flat card.
+    expect(foliageLevel(twig.doc, twig.mesh, twig.prim, { quads: true })).not.toBeNull();
+    const read = strip();
+    expect(foliageLevel(read.doc, read.mesh, read.prim, { quads: true, alpha: opaque })).toBeNull();
+    expect(read.prim.getIndices()!.getCount()).toBe(9);
+    const leaf = leaves([{ x: 0 }]);
+    expect(foliageLevel(leaf.doc, leaf.mesh, leaf.prim, { quads: true, alpha: opaque })!.getIndices()!.getCount()).toBe(6);
+  });
+
+  it('costs cards kept whole at two triangles a quad and their own count otherwise', () => {
+    const { prim } = leaves([{ x: 0 }, { x: 1 }, { x: 2, fold: 0.15 }]);
+    expect(cardCosts(prim)).toBe(24);
+    expect(cardCosts(prim, { quads: true })).toBe(2 + 2 + 8);
+    expect(cardCosts(strip().prim, { quads: true, alpha: opaque })).toBe(3);
   });
 });

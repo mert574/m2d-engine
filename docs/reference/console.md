@@ -59,11 +59,13 @@ Prefixes follow the Quake convention the completion is built around: `r_` render
 | `r_fullscreen` | boolean | | |
 | `r_debug` | boolean | | The renderer's debug overlay |
 | `r_shadows` | `off\|low\|medium\|high` | yes | 3D games only: the sun's shadow cascades, and how many spot lights and point lights cast |
+| `r_textures`, `r_models` | the project's texture and model levels | yes | Only when the project declares `quality` and the game offers it: the level its models load at. Changing one reloads the models in place |
 | `r_taa`, `r_ao`, `r_dof`, `r_motionblur`, `r_autoexposure`, `r_bloom`, `r_film` | boolean | yes | 3D games only: one switch per post-process stage. The scene sets the strengths |
 | `r_renderer` | `webgl\|canvas\|webgpu` | | Setting it reloads with `?renderer=`. A 3D game has only `webgpu` |
 | `g_paused` | boolean | | |
 | `g_timescale` | number 0–10 | | `game.time.scale`. `0.5` is slow motion |
 | `cl_showfps` | boolean | yes | The frame-rate readout |
+| `cl_showpos` | boolean | yes | A `pos` line in the readout with the player's position, as `teleport` takes it: whole pixels in 2D, metres to a tenth in 3D (x, y up, z). Default on |
 | `cl_statsexpanded` | boolean | yes | The readout's full counter list (F3) |
 | `net_log` | number 0–2 | | Net logging: 0 silent, 1 the connection's life, 2 leads, corrections and rates |
 | `net_predict` | boolean | | Run the local avatar's movement early instead of waiting for the server |
@@ -88,11 +90,13 @@ game.commands.register('give', {
 
 `io` has `print`, `warn`, `error` and `clear`, so a command's output lands in the scrollback it was typed into. A command that throws is reported as an error line, not a crash. Arguments are split on whitespace with double quotes honoured (`echo "two words"`).
 
-Built-ins: `help [name]`, `find <text>`, `cvars [filter]`, `set`, `toggle`, `reset`, `echo`, `clear`, `scene <name>`, `scenes`, `entities`, `noclip`, `net`.
+Built-ins: `help [name]`, `find <text>`, `cvars [filter]`, `set`, `toggle`, `reset`, `echo`, `clear`, `scene <name>`, `scenes`, `entities`, `noclip`, `teleport`, `net`.
 
 `net` prints the connection: who, how fast, how far behind and how often corrected.
 
 `noclip` toggles the player's collision mask to nothing, so `game.player` walks through everything, and sets `entity.noclip` for the game to read: a character that checks it can fly, as the yard's hero does. A character body with an empty mask is also out from under gravity, since there is no floor left to absorb it. The mask is restored when toggled off.
+
+`teleport <x> <y>` in 2D and `teleport <x> <y> <z>` in 3D move `game.player` to that point and stop it there. The numbers are the readout's `pos` line, so a place read off the screen can be typed back. It moves the body outside the tick, so it is for testing and debugging, as `noclip` is.
 
 `execute(line, io)` runs one line; `complete(line)` returns completions for the first token across commands and cvars together, or a string cvar's `choices` for its value.
 

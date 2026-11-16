@@ -76,7 +76,7 @@ An **imported** asset: there is a source file, and settings for reading it.
 | `type` | yes | `"model"` |
 | `name` | no | A label |
 | `source` | yes | Path to a glTF 2.0 `.glb`, relative to `basePath` |
-| `import` | no | Import settings; none yet |
+| `import` | no | `quality`, as on a scene's inline model: the file is built at every quality level the project declares |
 
 A scene that uses it gets a `models` entry under the local name, for a prefab's `mesh.model`. See [`assets.models`](./scene-format#assets-models).
 

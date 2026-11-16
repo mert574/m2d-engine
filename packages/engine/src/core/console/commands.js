@@ -19,6 +19,8 @@
  * while both follow the naming conventions.
  */
 
+import { positionText } from '../ui/performanceStats.js';
+
 /**
  * Split a line into arguments, honouring double quotes, so
  * `echo "two words"` is two tokens: `echo` and `two words`.
@@ -290,6 +292,24 @@ export function registerBuiltins(commands, game) {
         player.body.setCollisionFilter({ mask: player.noclipMask ?? 0xFFFF });
       }
       io.print(`noclip ${on ? 'on' : 'off'}`);
+    }
+  });
+
+  commands.register('teleport', {
+    description: 'Move the player to a point, at rest: x y in 2D, x y z in 3D, as the readout\'s pos line (cl_showpos) shows it. For testing: it moves the body outside the tick',
+    usage: 'teleport <x> <y> [z]',
+    run(args, io) {
+      const body = game.player?.body;
+      if (!body) return io.error('no player entity');
+      const axes = 'z' in body.position ? ['x', 'y', 'z'] : ['x', 'y'];
+      const values = args.map(Number);
+      if (values.length !== axes.length || values.some((value) => !Number.isFinite(value))) {
+        return io.error(`usage: teleport ${axes.map((axis) => `<${axis}>`).join(' ')}`);
+      }
+      const point = Object.fromEntries(axes.map((axis, i) => [axis, values[i]]));
+      body.setPosition(point);
+      body.setVelocity(Object.fromEntries(axes.map((axis) => [axis, 0])));
+      io.print(`teleported to ${positionText(point)}`);
     }
   });
 

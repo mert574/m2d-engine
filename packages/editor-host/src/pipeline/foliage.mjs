@@ -14,11 +14,81 @@
  *     coordinates to its positions, evaluated at the corners of its
  *     texture rectangle, so it lies where the leaf lay. A card that is not
  *     flat enough for one (its fit is off by more than an eighth of its
- *     size) keeps its triangles.
+ *     size) keeps its triangles, and so does one whose rectangle is mostly
+ *     other cards' texels: a quad over a pine twig that spans a third of
+ *     its atlas drew every twig packed beside it, as a dark paddle.
  *   - **Thinning.** Further off, a share of the cards is kept (by a stable
  *     hash, so a rebuild thins the same ones) and each survivor grows about
  *     its centre to stand in for the ones around it.
  */
+
+import sharp from 'sharp';
+
+/**
+ * The share of a quad's texture that may be other cards' opaque texels.
+ * Neighbouring leaves inside a leaf's rectangle read as more leaf, and a
+ * crowded atlas has a tenth or so of them; a pine's twig spans a third of
+ * its atlas, and its rectangle is four fifths other twigs.
+ */
+const QUAD_FOREIGN = 0.5;
+
+/** Samples a side across a card's texture rectangle, for that test. */
+const ALPHA_SAMPLES = 8;
+
+/** Decoded cut-outs, by the image they came from: every level of a model asks again. */
+const alphas = new WeakMap();
+
+/**
+ * A cut-out material's alpha, decoded once: what a quad over a card's
+ * texture rectangle would show. Null when there is nothing to read, or
+ * when a texture transform moves the texture off the coordinates a card
+ * carries.
+ * @param {import('@gltf-transform/core').Material|null} material
+ * @returns {Promise<{width: number, height: number, data: Uint8Array, cutoff: number}|null>}
+ */
+export async function alphaOf(material) {
+  const image = material?.getBaseColorTexture()?.getImage();
+  if (!image || material.getBaseColorTextureInfo()?.getExtension('KHR_texture_transform')) return null;
+  if (!alphas.has(image)) {
+    const { data, info } = await sharp(image).ensureAlpha().extractChannel(3).raw().toBuffer({ resolveWithObject: true });
+    alphas.set(image, { width: info.width, height: info.height, data });
+  }
+  return { ...alphas.get(image), cutoff: material.getAlphaCutoff() * 255 };
+}
+
+const inTriangle = (u, v, ax, ay, bx, by, cx, cy) => {
+  const d1 = (u - bx) * (ay - by) - (ax - bx) * (v - by);
+  const d2 = (u - cx) * (by - cy) - (bx - cx) * (v - cy);
+  const d3 = (u - ax) * (cy - ay) - (cx - ax) * (v - ay);
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+};
+
+/** Whether a quad over a card's texture rectangle would show only the card itself. */
+function showsOnlyItself(card, index, uv, alpha) {
+  if (!alpha) return true;
+  let u0 = Infinity, v0 = Infinity, u1 = -Infinity, v1 = -Infinity;
+  for (const t of card) {
+    for (let k = 0; k < 3; k++) {
+      const i = index[t + k];
+      u0 = Math.min(u0, uv[i * 2]); v0 = Math.min(v0, uv[i * 2 + 1]);
+      u1 = Math.max(u1, uv[i * 2]); v1 = Math.max(v1, uv[i * 2 + 1]);
+    }
+  }
+  let foreign = 0;
+  for (let a = 0; a < ALPHA_SAMPLES; a++) {
+    for (let b = 0; b < ALPHA_SAMPLES; b++) {
+      const u = u0 + (u1 - u0) * (a + 0.5) / ALPHA_SAMPLES, v = v0 + (v1 - v0) * (b + 0.5) / ALPHA_SAMPLES;
+      const x = Math.floor((((u % 1) + 1) % 1) * alpha.width), y = Math.floor((((v % 1) + 1) % 1) * alpha.height);
+      if (alpha.data[y * alpha.width + x] < alpha.cutoff) continue;
+      const own = card.some((t) => {
+        const [i, j, k] = [index[t], index[t + 1], index[t + 2]];
+        return inTriangle(u, v, uv[i * 2], uv[i * 2 + 1], uv[j * 2], uv[j * 2 + 1], uv[k * 2], uv[k * 2 + 1]);
+      });
+      if (!own) foreign++;
+    }
+  }
+  return foreign <= QUAD_FOREIGN * ALPHA_SAMPLES * ALPHA_SAMPLES;
+}
 
 /** A stable fraction in 0..1 for a card's ordinal, so a rebuild thins the same cards. */
 const cardHash = (i) => {
@@ -118,6 +188,36 @@ function fitQuad(vertices, p, n, uv) {
   return { corners, normal: shading.map((x) => x / length) };
 }
 
+/** The quad a card becomes, or null: too few triangles to gain, not flat enough, or showing other cards. */
+function quadFor(card, vertices, index, p, n, uv, alpha) {
+  // A card already two triangles or fewer gains nothing as a quad.
+  if (card.length <= 2) return null;
+  const quad = fitQuad(vertices, p, n, uv);
+  return quad && showsOnlyItself(card, index, uv, alpha) ? quad : null;
+}
+
+/**
+ * What a primitive's cards would cost kept whole, in triangles: two for a
+ * card that becomes a quad, its own count for one that stays triangles.
+ * The share to keep for a budget is the budget over this.
+ * @param {import('@gltf-transform/core').Primitive} prim
+ * @param {{quads?: boolean, alpha?: object|null}} [options]
+ */
+export function cardCosts(prim, { quads = false, alpha = null } = {}) {
+  const index = prim.getIndices().getArray();
+  const p = prim.getAttribute('POSITION').getArray();
+  const n = prim.getAttribute('NORMAL')?.getArray() ?? null;
+  const uvAttr = prim.getAttribute('TEXCOORD_0');
+  const canQuad = quads && uvAttr && n && !uvAttr.getNormalized();
+  const uv = uvAttr?.getArray() ?? null;
+  let total = 0;
+  for (const card of cardsOf(prim)) {
+    const vertices = canQuad ? [...new Set(card.flatMap((t) => [index[t], index[t + 1], index[t + 2]]))] : null;
+    total += canQuad && quadFor(card, vertices, index, p, n, uv, alpha) ? 2 : card.length;
+  }
+  return total;
+}
+
 /**
  * One foliage level of `prim`, in place: keep `keep` of its cards (all at
  * 1), grow each survivor by `grow` about its centre, and with `quads`
@@ -127,10 +227,10 @@ function fitQuad(vertices, p, n, uv) {
  * @param {import('@gltf-transform/core').Document} doc
  * @param {import('@gltf-transform/core').Mesh} mesh
  * @param {import('@gltf-transform/core').Primitive} prim
- * @param {{keep?: number, grow?: number, quads?: boolean}} [options]
+ * @param {{keep?: number, grow?: number, quads?: boolean, alpha?: {width: number, height: number, data: Uint8Array, cutoff: number}|null}} [options] - `alpha` is the cut-out (see `alphaOf`): a quad that would show mostly other cards stays triangles
  * @returns {import('@gltf-transform/core').Primitive|null} The quads' primitive, or null when there is none
  */
-export function foliageLevel(doc, mesh, prim, { keep = 1, grow = 1, quads = false } = {}) {
+export function foliageLevel(doc, mesh, prim, { keep = 1, grow = 1, quads = false, alpha = null } = {}) {
   const indices = prim.getIndices();
   const position = prim.getAttribute('POSITION');
   const normalAttr = prim.getAttribute('NORMAL');
@@ -153,8 +253,7 @@ export function foliageLevel(doc, mesh, prim, { keep = 1, grow = 1, quads = fals
   cards.forEach((card, ordinal) => {
     if (keep < 1 && cardHash(ordinal) >= keep) return;
     const vertices = [...new Set(card.flatMap((t) => [index[t], index[t + 1], index[t + 2]]))];
-    // A card already two triangles or fewer gains nothing as a quad.
-    const quad = canQuad && card.length > 2 ? fitQuad(vertices, p, n, uv) : null;
+    const quad = canQuad ? quadFor(card, vertices, index, p, n, uv, alpha) : null;
     if (quad) {
       const centre = [0, 1, 2].map((k) => quad.corners.reduce((sum, c) => sum + c.position[k], 0) / 4);
       const base = quadPositions.length / 3;

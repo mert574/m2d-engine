@@ -41,6 +41,7 @@ import { WorldEvents } from './events.js';
 import { baselineOf } from '../net/replication.js';
 import { Players } from './players.js';
 import { takeSnapshot, restoreSnapshot } from './snapshot.js';
+import { Quality } from './quality.js';
 
 /** Restart and menu keys on the game-over screen, by physical key code. */
 const KEY_RESTART = 'KeyR';
@@ -59,6 +60,17 @@ const defaultOptions = {
   renderer: DEFAULT_RENDERER,
   basePath: '',
   initialScene: null,
+  /**
+   * The texture and model levels the game's models are built at: the
+   * project's `quality` block (see core/quality.js). Null for none.
+   * @type {object|null}
+   */
+  quality: null,
+  /**
+   * Offer the quality levels as settings (`r_textures`, `r_models`). Off
+   * pins the defaults: what a build that ships only the default files sets.
+   */
+  offerQuality: true,
   width: 1280,
   height: 720,
   worldWidth: 1920,
@@ -243,6 +255,8 @@ export class M2D {
      * core/headless.js and `#initHeadless`.
      */
     this.headless = this.options.headless === true;
+    /** The levels the models are built at, and the one shown. See core/quality.js. */
+    this.quality = new Quality(this.options.quality);
     /**
      * True when the world is being edited rather than played. One
      * authoritative flag the tick, the hooks, input routing and cvar
@@ -724,6 +738,24 @@ export class M2D {
       }
     }
 
+    if (this.quality.declared && this.options.offerQuality) {
+      const axes = [['r_textures', 'textures', 'Texture quality: the largest texture a model keeps'], ['r_models', 'models', 'Model quality: the most triangles a model keeps up close']];
+      for (const [name, axis, description] of axes.filter(([, axis]) => this.quality.levels(axis).length)) {
+        cvars.register(name, {
+          type: 'string',
+          choices: this.quality.levels(axis),
+          default: this.quality.choice[axis],
+          persist: true,
+          description,
+          get: () => this.quality.choice[axis],
+          set: (value) => {
+            this.quality.set(axis, value);
+            this.sceneManager?.currentScene?.props?.requality();
+          }
+        });
+      }
+    }
+
     if (typeof this.renderer.setShadowQuality === 'function') {
       cvars.register('r_shadows', {
         type: 'string',
@@ -813,6 +845,15 @@ export class M2D {
         description: 'The frame-rate readout',
         get: () => this.stats.visible,
         set: (value) => { this.stats.visible = value; }
+      });
+
+      cvars.register('cl_showpos', {
+        type: 'boolean',
+        default: true,
+        persist: true,
+        description: 'The player\'s position in the readout, as `teleport` takes it',
+        get: () => this.stats.showPosition,
+        set: (value) => { this.stats.showPosition = value; }
       });
 
       cvars.register('cl_statsexpanded', {

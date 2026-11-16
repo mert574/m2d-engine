@@ -25,6 +25,9 @@ const DEFAULT_SCALES = [0.75, 0.5, 0.25];
  */
 const SHADOW_LABELS = { off: 'Off', low: 'Low', medium: 'Medium', high: 'High' };
 
+/** A quality level as a row shows it: the project's name for it, capitalised. */
+const levelLabel = (level) => (level ? level.charAt(0).toUpperCase() + level.slice(1) : '');
+
 class SettingsPlate extends UIPanel {
   get fillStyle() {
     const f = this.frame;
@@ -632,6 +635,21 @@ export class SettingsMenu {
         choices: () => ({ index: Math.max(0, Object.keys(SHADOW_LABELS).indexOf(cvars.get('r_shadows'))), count: 4 }),
         description: 'How many shadow cascades the sun gets and how many spot lights cast shadows.'
       }] : []),
+      ...[
+        ['r_textures', 'textures', 'Texture quality', 'px', 'The largest texture a model keeps. Lower loads faster and holds less GPU memory.'],
+        ['r_models', 'models', 'Model quality', 'triangles', 'How many triangles a model keeps up close. Lower loads and draws faster.']
+      ].filter(([name]) => cvars.has(name)).map(([name, axis, label, unit, description]) => {
+        const levels = game.quality.levels(axis);
+        return {
+          section: 'Rendering',
+          label,
+          value: () => levelLabel(cvars.get(name)),
+          step: (step) => cvars.set(name, levels[(levels.indexOf(cvars.get(name)) + (step ?? 1) + levels.length) % levels.length]),
+          choices: () => ({ index: Math.max(0, levels.indexOf(cvars.get(name))), count: levels.length }),
+          // The row says the level; the footer says what it means.
+          description: `${description} ${levels.map((level) => `${levelLabel(level)} ${game.quality.sizeOf(axis, level)} ${unit}`).join(', ')}.`
+        };
+      }),
       ...(cvars.has('r_taa') ? [
         ['Anti-aliasing', 'r_taa', 'Temporal anti-aliasing: smooth edges, settled over frames.'],
         ['Ambient occlusion', 'r_ao', 'Darkens creases and contact where light has trouble reaching.'],

@@ -12,5 +12,23 @@
         "KeyT"
       ]
     }
+  },
+  "quality": {
+    "textures": {
+      "levels": {
+        "low": 512,
+        "medium": 1024,
+        "high": 2048
+      },
+      "default": "low"
+    },
+    "models": {
+      "levels": {
+        "low": 25000,
+        "medium": 40000,
+        "high": 70000
+      },
+      "default": "medium"
+    }
   }
 }

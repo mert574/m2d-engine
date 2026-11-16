@@ -46,6 +46,7 @@ A project is a folder with an `m2d.project.json`.
 | `input.gamepad` | the arcade defaults | What each gamepad control stands for, as a key code: `{ "Y": "Enter" }`. See [Gamepad](./input#gamepad) |
 | `settings` | `true` | Mount the settings menu (O). `{ "pauseWhenOpen": true }` also holds the game still while it is up, which a race or a timed level wants; `false` leaves it out |
 | `music` | none | Tracks by key, `{ url, volume }`, loaded at boot for screens that are not scenes |
+| `quality` | none | Texture and model levels the game's models are built at, offered as settings. See [Texture and model quality](./display#texture-and-model-quality) |
 
 The definition holds the cast: actors, constraints, intents and the asset manifest. It never draws, so a headless game, a server and the editor's checks can load it. The hooks module holds what shows the game: the camera, lights, HUD and music. The game's page (`main.js`) boots the project with `bootProject`, and the editor's play mode builds the same game. Without a definition the editor draws placeholder actors. Without a hooks module, play runs the bare scene.
 

@@ -1,0 +1,41 @@
+name: Build example assets
+description: >
+  Restores the examples' built assets from the cache and builds whatever is
+  missing. The sprites, dev textures and the lot's Poly Haven models are
+  fetched and compiled, never committed, so the tests and the site build
+  need this step first.
+
+runs:
+  using: composite
+  steps:
+    # The cache key covers what decides the output: the scripts that build
+    # it, the compiler they call, the scenes that name the models, the
+    # project that declares their quality levels, and the dependencies that
+    # compile them. Only the default levels are built here: the files the
+    # scenes name, which the tests check and the site ships. A miss still
+    # restores the newest cache for this runner through the restore-key,
+    # and the build below fills in only what changed — a rerun downloads
+    # and compiles nothing.
+    #
+    # Only the built assets are cached, not the compiler's sources in
+    # `examples/assets-src`: those are about 3 GB, many times the built
+    # set, and a few entries of them would fill the repository's cache and
+    # evict each other. A source is fetched again only for a model whose
+    # build is missing from the cache.
+    - name: Restore built example assets
+      uses: actions/cache@v4
+      with:
+        path: |
+          examples/src/yard/models/ph
+          examples/src/yard/models/dev
+          examples/src/yard/textures
+          examples/src/yard/environments
+          examples/src/showcase/assets
+          examples/src/platformer/assets
+        key: example-assets-${{ runner.os }}-${{ hashFiles('examples/scripts/**', 'packages/editor-host/src/pipeline/**', 'examples/src/*/scenes/*.json', 'examples/src/*/m2d.project.json', 'package-lock.json') }}
+        restore-keys: |
+          example-assets-${{ runner.os }}-
+
+    - name: Build missing example assets
+      shell: bash
+      run: npm run build-assets

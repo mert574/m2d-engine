@@ -69,6 +69,7 @@ A map from model name to model, for a 3D level. A model is a glTF 2.0 `.glb` fil
 | Key | Required | Meaning |
 | --- | --- | --- |
 | `url` | yes | File path, prefixed with the engine's `basePath` |
+| `quality` | no | `true` when the file is built at every level the project's `quality` block declares. The file at `url` is the default levels; every other combination is in a folder beside it, named for its levels (`models/ph/high-high/tree.glb`). The player's choice picks which one loads. See [Texture and model quality](../guide/display#texture-and-model-quality) |
 
 A prefab draws a model by naming it in its [`mesh`](#mesh) block.
 

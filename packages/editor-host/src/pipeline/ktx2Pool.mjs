@@ -13,6 +13,7 @@
  * occlusion, then colour.
  */
 import { Worker } from 'node:worker_threads';
+import { createHash } from 'node:crypto';
 import { availableParallelism } from 'node:os';
 import { Document } from '@gltf-transform/core';
 import { KHRTextureBasisu } from '@gltf-transform/extensions';
@@ -47,8 +48,15 @@ const slotsOf = (texture) => {
   return texture.getGraph().listParentEdges(texture).filter((edge) => edge.getParent() !== root).map((edge) => edge.getName());
 };
 
-/** A glTF-Transform transform: every PNG, JPEG or WebP texture in a known slot becomes KTX2. */
-export function ktx2Parallel({ threads = encodeThreads() } = {}) {
+/**
+ * A glTF-Transform transform: every PNG, JPEG or WebP texture in a known slot becomes KTX2.
+ * @param {Object} [options]
+ * @param {number} [options.threads]
+ * @param {Map<string, Uint8Array>} [options.cache] - Encodes by input and settings, shared
+ *   between documents: the files one source is built into at several sizes share a texture
+ *   wherever two sizes cap it the same, and it is encoded once
+ */
+export function ktx2Parallel({ threads = encodeThreads(), cache = null } = {}) {
   const transform = async (document) => {
     const jobs = [];
     for (const texture of document.getRoot().listTextures()) {
@@ -58,6 +66,14 @@ export function ktx2Parallel({ threads = encodeThreads() } = {}) {
       if (options && texture.getImage()) jobs.push({ texture, options });
     }
     if (!jobs.length) return;
+    const keyOf = (job) => `${createHash('sha1').update(job.texture.getImage()).digest('hex')}:${JSON.stringify(job.options)}`;
+    for (const job of jobs) job.key = cache ? keyOf(job) : null;
+    for (const job of jobs.filter((job) => cache?.has(job.key))) job.texture.setImage(cache.get(job.key)).setMimeType('image/ktx2');
+    jobs.splice(0, jobs.length, ...jobs.filter((job) => job.texture.getMimeType() !== 'image/ktx2'));
+    if (!jobs.length) {
+      document.createExtension(KHRTextureBasisu).setRequired(true);
+      return;
+    }
     // Largest first, so the long encodes start at once and the small ones fill in.
     jobs.sort((a, b) => b.texture.getImage().byteLength - a.texture.getImage().byteLength);
     const workers = Array.from({ length: Math.min(threads, jobs.length) }, () => new Worker(new URL('./ktx2Worker.mjs', import.meta.url)));
@@ -75,6 +91,7 @@ export function ktx2Parallel({ threads = encodeThreads() } = {}) {
             worker.postMessage({ id: next, image, options: job.options });
           });
           job.texture.setImage(out).setMimeType('image/ktx2');
+          cache?.set(job.key, out);
         }
       }));
     } finally {

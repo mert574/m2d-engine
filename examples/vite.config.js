@@ -3,32 +3,39 @@ import { resolve } from 'path';
 import { execSync } from 'child_process';
 import { cpSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { ensureDevCert } from './scripts/devCert.mjs';
+import { qualityVariants } from 'm2d-engine/core/quality.js';
+
+/**
+ * The folders an example's models are built into at quality levels other
+ * than the defaults: the dev server's, which the site does not ship.
+ */
+function variantFolders(example) {
+  const projectFile = resolve(import.meta.dirname, `src/${example}/m2d.project.json`);
+  if (!existsSync(projectFile)) return new Set();
+  const { quality } = JSON.parse(readFileSync(projectFile, 'utf8'));
+  return new Set(qualityVariants(quality).map((variant) => variant.folder).filter(Boolean));
+}
+
+/** `serve` for the dev server, `build` for the site. */
+let command = 'build';
 
 // Custom plugin to generate sprites
 const assetsPlugin = {
   name: 'assets-plugin',
+  config(_, env) {
+    command = env.command;
+  },
   transformIndexHtml(html) {
     return html.replace(/\r\n?/g, '\n');
   },
   buildStart() {
-    console.log('Generating sprites...');
+    console.log('Building the assets that are not committed...');
     try {
-      // Only the renderer showcase generates sprites: the tiny textures its
-      // batching stress test needs. The games draw in code or ship textures.
-      execSync('node scripts/generateSprites.js --missing showcase', { stdio: 'inherit' });
-      execSync('node scripts/generateDevTextures.mjs --missing', { stdio: 'inherit' });
-      execSync('node scripts/generateDevModels.mjs --missing', { stdio: 'inherit' });
-      // The lot's photoscanned models are fetched and compiled, never
-      // committed; the first run of a fresh checkout takes a few minutes.
-      execSync('node scripts/buildModels.mjs --missing', { stdio: 'inherit' });
-      // Ember Valley's painted-tile sheet and coin strip (E8): fetched
-      // free art, seeded once — swapped-in local art is never overwritten.
-      execSync('node scripts/buildPlatformerArt.mjs --missing', { stdio: 'inherit' });
-      // The laid-out scenes are seeds: built once by rule, edited from then
-      // on, so a builder only writes a scene that is not there.
-      for (const builder of ['Grove', 'Keep', 'Row', 'Drift', 'Lot']) {
-        execSync(`node scripts/build${builder}Scene.mjs --missing`, { stdio: 'inherit' });
-      }
+      // The steps themselves are in scripts/buildAssets.mjs, so the tests
+      // and CI can build the same assets without Vite. The dev server
+      // builds the lot at every quality level its settings menu offers;
+      // the site ships the defaults, and offers none (see yard/main.js).
+      execSync(`node scripts/buildAssets.mjs --missing --quality ${command === 'serve' ? 'all' : 'default'}`, { stdio: 'inherit' });
       console.log('Assets processed successfully');
     } catch (error) {
       console.error('Error processing assets:', error);
@@ -43,12 +50,13 @@ const assetsPlugin = {
     const examples = readdirSync(resolve(import.meta.dirname, 'src'))
       .filter((name) => existsSync(resolve(import.meta.dirname, `src/${name}/index.html`)));
     for (const example of examples) {
+      const variants = variantFolders(example);
+      // A library's raw downloads (`library/sources`) are the editor's, not
+      // the game's; the models' other quality levels are the dev server's.
+      const shipped = (path) => !path.includes('/library/sources') && !path.split('/').some((part) => variants.has(part));
       for (const folder of ['assets', 'textures', 'models', 'sounds', 'music', 'library']) {
         const source = resolve(import.meta.dirname, `src/${example}/${folder}`);
-        if (existsSync(source)) {
-          // A library's raw downloads (`library/sources`) are the editor's, not the game's.
-          cpSync(source, resolve(out, `${example}/${folder}`), { recursive: true, filter: (path) => !path.includes("/library/sources") });
-        }
+        if (existsSync(source)) cpSync(source, resolve(out, `${example}/${folder}`), { recursive: true, filter: shipped });
       }
     }
   }

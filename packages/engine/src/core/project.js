@@ -43,6 +43,7 @@ export function projectOptions(project, { basePath = '' } = {}) {
     ...(project.input?.actions && { actions: project.input.actions }),
     ...(project.input?.gamepad && { gamepad: project.input.gamepad }),
     ...(project.initialScene && { initialScene: project.initialScene }),
+    ...(project.quality && { quality: project.quality }),
     ...(project.music && {
       music: Object.fromEntries(Object.entries(project.music).map(([key, track]) => [key, { src: basePath + track.url, volume: track.volume ?? 1 }]))
     })

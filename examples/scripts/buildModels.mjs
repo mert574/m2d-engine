@@ -1,6 +1,12 @@
 /**
  * Builds the compiled Poly Haven models the examples load:
- * `node scripts/buildModels.mjs [--missing] [--jobs N] [--download-only] [ids...]`.
+ * `node scripts/buildModels.mjs [--missing] [--quality all|default] [--jobs N] [--download-only] [ids...]`.
+ *
+ * `--quality default` (the default) builds each model at the yard's
+ * default quality levels only, the files the scenes name and the
+ * published site ships; `all` adds every other combination of levels,
+ * which the dev server builds so the settings menu can switch to them
+ * (see `outputsOf` in compileModel.mjs).
  *
  * Neither the sources nor the compiled files are committed — a scan is
  * hundreds of megabytes and the repository is not where that belongs —
@@ -20,18 +26,22 @@
  * kept — and nothing here deletes a source; the directory is the cache.
  */
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { availableParallelism, totalmem } from 'node:os';
 import { ASSETS, PIECES, HDRIS, TEXTURES, TEXTURE_MAPS, fetchAsset, fetchHDRI, fetchTexture, texturePath, HDRI_DIR } from './fetchPolyHaven.mjs';
-import { OUT_DIR, FORMAT, sourceOf } from './compileModel.mjs';
+import { OUT_DIR, FORMAT, QUALITY, sourceOf, outputsOf } from './compileModel.mjs';
 
 const args = process.argv.slice(2);
 const missingOnly = args.includes('--missing');
 const downloadOnly = args.includes('--download-only');
 const jobsArg = args.indexOf('--jobs');
-// The value after `--jobs` is a number, not an id; without `--jobs` there is no such value.
-const ids = args.filter((a, i) => !a.startsWith('--') && (jobsArg < 0 || i !== jobsArg + 1));
+const qualityArg = args.indexOf('--quality');
+const quality = qualityArg >= 0 ? args[qualityArg + 1] : 'default';
+if (!['all', 'default'].includes(quality)) throw new Error(`--quality: all or default, not '${quality}'`);
+// The values after `--jobs` and `--quality` are not ids; without the flag there is no such value.
+const valueOf = (flag) => flag >= 0 ? flag + 1 : -1;
+const ids = args.filter((a, i) => !a.startsWith('--') && i !== valueOf(jobsArg) && i !== valueOf(qualityArg));
 
 /** Downloads in flight at once: the CDN is the limit, two saturates it. */
 const DOWNLOADS = 2;
@@ -46,13 +56,24 @@ const JOBS = Math.max(1, Number(
   jobsArg >= 0 ? args[jobsArg + 1]
     : process.env.M2D_BUILD_JOBS
     ?? Math.min(4, availableParallelism(), Math.floor(totalmem() / COMPILE_BYTES))));
-/** The cores shared out between the compiles, as each one's encoder threads. */
-const ENCODE_THREADS = Math.max(1, Math.ceil(availableParallelism() / JOBS));
+/** The cores shared out between the compiles, as each one's encoder threads; `M2D_ENCODE_THREADS` takes fewer. */
+const ENCODE_THREADS = Math.max(1, Number(process.env.M2D_ENCODE_THREADS) || Math.ceil(availableParallelism() / JOBS));
 
-// A compiled model from an older format (say, WebP textures before KTX2)
-// exists but is stale; the stamp makes --missing rebuild the lot once.
+// A compiled model from an older format (say, WebP textures before KTX2),
+// or from other quality levels, exists but is stale; the stamp makes
+// --missing rebuild the lot once.
 const stampPath = resolve(OUT_DIR, '.format');
-const stale = !existsSync(stampPath) || readFileSync(stampPath, 'utf8').trim() !== String(FORMAT);
+const STAMP = JSON.stringify({ format: FORMAT, quality: QUALITY });
+const stale = !existsSync(stampPath) || readFileSync(stampPath, 'utf8').trim() !== STAMP;
+// A stale set's other levels go with it: a build of the defaults alone
+// would otherwise leave them on disk, older than the stamp it writes.
+if (stale && !ids.length && !downloadOnly && existsSync(OUT_DIR)) {
+  for (const entry of readdirSync(OUT_DIR, { withFileTypes: true })) {
+    if (entry.isDirectory()) rmSync(resolve(OUT_DIR, entry.name), { recursive: true, force: true });
+  }
+}
+/** Whether a model key has a file still to build at the levels asked for. */
+const unbuilt = (id) => outputsOf(id, quality).some((output) => !existsSync(output.to));
 // Every model key the scenes name: a source compiled whole, or a piece
 // cut from one (`PIECES`). The same kit may be wanted several times over;
 // a kit no scene places whole (the fort, the fence, the pine pair) is
@@ -64,7 +85,7 @@ for (const file of readdirSync(SCENES_DIR).filter((f) => f.endsWith('.json'))) {
   for (const [, id] of readFileSync(resolve(SCENES_DIR, file), 'utf8').matchAll(/models\/ph\/([\w-]+)\.glb/g)) named.add(id);
 }
 const wanted = (ids.length ? ids.filter((id) => !(id in HDRIS) && !(id in TEXTURES)) : [...Object.keys(ASSETS), ...Object.keys(PIECES)].filter((id) => named.has(id)))
-  .filter((id) => !missingOnly || stale || !existsSync(resolve(OUT_DIR, `${id}.glb`)));
+  .filter((id) => !missingOnly || stale || unbuilt(id));
 /** The sources to download, each once however many pieces come out of it. */
 const sources = [...new Set(wanted.map(sourceOf))];
 
@@ -97,8 +118,10 @@ const seconds = (ms) => `${(ms / 1000).toFixed(1)} s`;
 /** One model through the compiler in its own process, as a promise. */
 function compile(id) {
   return new Promise((done, fail) => {
-    execFile(process.execPath, ['--max-old-space-size=4096', resolve(import.meta.dirname, 'compileModel.mjs'), id],
-      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, M2D_ENCODE_THREADS: process.env.M2D_ENCODE_THREADS ?? String(ENCODE_THREADS) } }, (error, stdout, stderr) => {
+    // A stale set is rebuilt whole; otherwise only the files not on disk.
+    const only = missingOnly && !stale ? ['--missing'] : [];
+    execFile(process.execPath, ['--max-old-space-size=4096', resolve(import.meta.dirname, 'compileModel.mjs'), id, '--quality', quality, ...only],
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, M2D_ENCODE_THREADS: String(ENCODE_THREADS) } }, (error, stdout, stderr) => {
         if (error) {
           fail(new Error(`${id}: compile failed\n${stderr.split('\n').filter((l) => l && !/^(Slice|Mode|Encoding|Total slices|basis_compressor|Flipping|Processing)/.test(l)).slice(-12).join('\n')}`));
           return;
@@ -178,6 +201,6 @@ if (!wanted.length) {
   // models it left alone.
   if (!ids.length && !downloadOnly) {
     mkdirSync(OUT_DIR, { recursive: true });
-    writeFileSync(stampPath, `${FORMAT}\n`);
+    writeFileSync(stampPath, `${STAMP}\n`);
   }
 }

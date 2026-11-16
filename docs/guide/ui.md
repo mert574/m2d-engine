@@ -260,7 +260,7 @@ It needs the `postEffects` capability. On the Canvas backend there is no blur an
 | `UIOptionRow` | A settings row: label, current value, and a click that changes it |
 | `Stack`, `Grid`, `Spacer` | Layout containers |
 | `UIBackdrop` | A layered menu background: gradient, drifting still, custom layers, motes, scanlines, vignette |
-| `PerformanceStats` | Frame rate and draw statistics, collapsed to a pill or expanded with **F3** to the full list and a frame-time trace. The engine adds one at the bottom-left unless the `performanceStats` engine option is `false` |
+| `PerformanceStats` | Frame rate and draw statistics, collapsed to a pill or expanded with **F3** to the full list and a frame-time trace. While there is a player, a `pos` line shows its position as the console's `teleport` takes it (`cl_showpos`). The engine adds one at the bottom-left unless the `performanceStats` engine option is `false` |
 
 ## Writing a component
 
