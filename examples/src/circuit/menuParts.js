@@ -1,5 +1,5 @@
 import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
-import { CARS, carById, chosenCar } from './cars.js';
+import { CARS, CAR_CHOICE, carById, chosenCar } from './cars.js';
 import { loadBest } from './replay.js';
 
 /**
@@ -18,7 +18,7 @@ export function lapTime(seconds) {
 /** The car a garage line records, from its `set` of the project's `car` choice. */
 export function carOfLine(element) {
   const set = element?.properties?.set;
-  return set?.choice === 'car' ? carById(set.value) : null;
+  return set?.choice === CAR_CHOICE ? carById(set.value) : null;
 }
 
 class Caption extends UIElement {

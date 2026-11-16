@@ -201,10 +201,6 @@ export class AmberBall extends Entity {
   /** Additive where the backend blends; read at draw time, since a headless game has no renderer. */
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
-  constructor(body, sprite, game, options = {}) {
-    super(body, sprite, game, options);
-  }
-
   draw() {
     if (this.dead || !this.visible) return;
 

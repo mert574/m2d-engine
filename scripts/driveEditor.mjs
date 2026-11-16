@@ -231,9 +231,10 @@ async function pickAndMove(page, report) {
 const SUITES = {
   /**
    * Every example opens: each project's opening scene loads in the editor
-   * without error, draws, plays and stops, and the document is clean after.
-   * The close of the idiomatic-examples plan: an example the editor cannot
-   * open is not an editor project.
+   * without error, draws, plays and stops, and the document is clean after;
+   * then every other scene of the project opens with no problem the editor
+   * can name. The close of the idiomatic-examples plan: an example the
+   * editor cannot open is not an editor project.
    */
   async examples(context, report, out) {
     const src = join(repo, 'examples/src');
@@ -267,6 +268,15 @@ const SUITES = {
           await until(page, () => !window.m2dEditor.playing);
           await page.evaluate(() => window.m2dEditor.idle());
           report.check(`${project.name} stops clean`, !(await history(page)).dirty);
+
+          // The rest of the project's scenes, each on the editor's verdict:
+          // loaded, and nothing in the problems list.
+          const others = (await readdir(join(src, folder, project.scenes ?? 'scenes'))).filter((file) => file.endsWith('.json')).map((file) => `${project.scenes ?? 'scenes'}/${file}`).filter((path) => path !== scene).sort();
+          for (const other of others) {
+            await page.evaluate((path) => window.m2dEditor.openScene(path), other);
+            const verdict = await page.evaluate(() => ({ error: window.m2dEditor.loadError, issues: window.m2dEditor.issues.map((issue) => `${issue.path}: ${issue.message}`) }));
+            report.check(`${project.name}: ${other} opens clean`, !verdict.error && verdict.issues.length === 0, verdict.error ?? verdict.issues.slice(0, 2).join(' | '));
+          }
         });
       } catch (error) {
         report.check(`${project.name} opens`, false, String(error.message ?? error).split('\n')[0]);

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { CARS, carById, chosenCar } from '../src/circuit/cars.js';
+import { CARS, CAR_CHOICE, carById, chosenCar } from '../src/circuit/cars.js';
 import { carOfLine } from '../src/circuit/menuParts.js';
 
 /**
@@ -13,10 +13,10 @@ const PROJECT = JSON.parse(readFileSync(new URL('../src/circuit/m2d.project.json
 
 describe('the garage', () => {
   it('offers every car once, as the project declares them, and each line goes back to the grid', () => {
-    const lines = GARAGE.elements.filter((element) => element.properties?.set?.choice === 'car');
+    const lines = GARAGE.elements.filter((element) => element.properties?.set?.choice === CAR_CHOICE);
     expect(lines.map((line) => line.properties.set.value)).toEqual(CARS.map((car) => car.id));
-    expect(PROJECT.choices.car.values).toEqual(CARS.map((car) => car.id));
-    expect(carById(PROJECT.choices.car.initial).name).toBe('Tourer');
+    expect(PROJECT.choices[CAR_CHOICE].values).toEqual(CARS.map((car) => car.id));
+    expect(carById(PROJECT.choices[CAR_CHOICE].initial).name).toBe('Tourer');
     for (const line of lines) expect(line.properties.onClick).toBe('mainMenu');
   });
 

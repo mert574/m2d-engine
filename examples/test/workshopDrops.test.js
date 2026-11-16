@@ -14,10 +14,10 @@ describe('the playground, played through', () => {
   it('drops one of the spout\'s stock into the funnel on the drop action', async () => {
     const { game, data, press } = await workshop();
     const stock = new Set(data.prefabs.spout.properties.stock.map((item) => item.prefab));
-    const placedIds = new Set(data.layers.flatMap((layer) => layer.objects).map((object) => object.id));
+    const placed = new Set(data.layers.flatMap((layer) => layer.objects).map((object) => object.id));
     const before = game.entities.size;
     press('Space');
-    const dropped = [...game.entities].filter((entity) => entity.prefab && !placedIds.has(entity.sceneId));
+    const dropped = [...game.entities].filter((entity) => !placed.has(entity.sceneId));
     expect(game.entities.size).toBe(before + 1);
     expect(dropped.length).toBe(1);
     expect(stock.has(dropped[0].prefab)).toBe(true);

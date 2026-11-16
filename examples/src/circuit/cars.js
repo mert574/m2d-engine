@@ -9,6 +9,8 @@
  * in the tick, and the garage scene's parts show them.
  */
 
+/** The project's choice that holds the car (m2d.project.json `choices`). */
+export const CAR_CHOICE = 'car';
 
 export const CARS = [
   {
@@ -51,9 +53,9 @@ export function carById(id) {
 }
 
 /**
- * The car the player chose in the garage: the project's `car` choice,
- * carried as the local player's state, the Tourer until they choose.
+ * The car the player chose in the garage, carried as the local player's
+ * state; the Tourer, the project's initial, when the state has none.
  */
 export function chosenCar(game) {
-  return carById(game.players.local.state.car) ?? CARS[1];
+  return carById(game.players.local.state[CAR_CHOICE]) ?? CARS[1];
 }

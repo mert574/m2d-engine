@@ -47,8 +47,8 @@ export class Choices {
 
   /** Record a choice, and keep it. Refused for a value the project did not offer. */
   set(name, value) {
-    const allowed = this.values(name);
     if (!this.has(name)) throw new Error(`M2D choices: no choice named '${name}' (declared: ${this.names.join(', ') || 'none'})`);
+    const allowed = this.values(name);
     if (!allowed.includes(value)) throw new Error(`M2D choices: '${name}' cannot be ${JSON.stringify(value)} (offered: ${allowed.map((v) => JSON.stringify(v)).join(', ')})`);
     this.current.set(name, value);
     this.#store();
