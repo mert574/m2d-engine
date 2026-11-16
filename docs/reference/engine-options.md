@@ -19,7 +19,7 @@
 | `performanceStats` | `true` | Add the frame-rate readout to the engine's debug layer |
 | `performanceStatsHotkey` | `'F3'` | Physical key code that expands the readout. `null` binds no key |
 | `devConsole` | `true` | Mount the [developer console](./console) (backquote). The cvar and command registries exist either way |
-| `saveId` | the page's pathname | Scope for what the engine keeps for a player — persisted cvars, rebound actions and [choices](../guide/editor#the-project-file) — so two games on one origin keep separate ones |
+| `saveId` | the page's pathname | Scope for what the engine keeps for a player (persisted cvars, rebound actions and [choices](../guide/editor#the-project-file)), so two games on one origin keep separate ones |
 | `theme` | `null` | Design tokens for every piece of UI. A partial token tree is merged over the engine's default, or pass a `Theme`. See [Theme tokens](./ui#theme-tokens) |
 
 ## Scenes and assets
@@ -42,7 +42,7 @@
 | `gamepad` | `{}` | What each gamepad control stands for, as a key code, over the arcade defaults; `false` reads no pads. See [Gamepad](../guide/input#gamepad) |
 | `preventDefaultKeys` | built-in list | Key codes whose browser default is suppressed. Replaces the list of Space, Tab, Enter, the arrows, PageUp, PageDown, Home, End and Backspace |
 | `actions` | `{}` | Named input actions: action name to the key codes that perform it. A project sets them from `input.actions`. See [Named actions](../guide/input#named-actions) |
-| `choices` | `{}` | The player's choices, each `{ values, initial }`, kept under `saveId` and carried as the local player's state. A project sets them from `choices`. See [The project file](../guide/editor#the-project-file) |
+| `choices` | `{}` | The player's choices, each `{ values, initial }`, carried as the local player's state and kept in localStorage under `m2d.choices:<saveId>`: every current value, a value the project no longer offers dropped, another game's names on the same key left alone. A project sets them from `choices`. See [The project file](../guide/editor#the-project-file) |
 
 ## Physics
 

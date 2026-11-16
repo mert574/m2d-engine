@@ -48,7 +48,7 @@ export default defineMatch({
 | `setup(game, { matchId })` | required | Register everything on the headless game and enter the first scene |
 | `join(game, player)` | required | A player arrived. Give them an avatar (`player.avatar`), usually spawned with `game.spawn` and owned by `player.id`, and any `player.state` |
 | `leave(game, player)` | removes the player's entities | The player is gone for good |
-| `choose(game, player, name, value)` | always true | Whether the player may record one of the project's [choices](./editor#the-project-file) now: a car in the lobby, not mid-race |
+| `choose(game, player, name, value)` | always true | Whether the player may record one of the project's [choices](./editor#the-project-file) now (a car in the lobby, not mid-race). A hook that throws refuses, and the error is logged once per match |
 | `game` | `{}` | `M2D` options for the headless game |
 | `maxPlayers` | `8` | A player past this is turned away with `full` |
 | `sendEvery` | `2` | Ticks between state messages |
@@ -179,7 +179,7 @@ A client builds the scene itself, so the server sends only changes:
 
 A client is not sent the level it has just built for itself: the stream is seeded with the scene's own build, so a join carries only what has changed since the match began.
 
-Besides its pings, a client sends three things: its input (`in`), its intents (`do`), and, once it is in sync, the project's [choices](./editor#the-project-file) as the player made them (`choose`). The server puts each choice the match's game offers, and the match's own `choose(game, player, name, value)` allows, into the player's `state`, from where the simulation reads it and the next state message carries it back — a client shows what the server agreed to, not what it asked for. A message carrying a choice the game does not declare, or a value it does not offer, costs one violation however many it carries.
+Besides its pings, a client sends three things: its input (`in`), its intents (`do`), and, once it is in sync, the project's [choices](./editor#the-project-file) as the player made them (`choose`). The server puts each choice the match's game offers, and the match's own `choose(game, player, name, value)` allows, into the player's `state`, from where the simulation reads it and the next state message carries it back. A player's state holds what the server agreed to. A message carrying a choice the game does not declare, or a value it does not offer, costs one violation however many it carries.
 
 ## Close codes
 

@@ -19,7 +19,7 @@ Both load `test/helpers/setupPhysics.js`, which awaits `initPhysics()` once per 
 
 A suite that constructs an `M2D` in the node project installs a `window` global with `installWindowStub()` from `test/helpers/environment.js`. The stub carries the real `performance` object, which Rapier's WASM glue reads its clock through whenever `window` exists. A stub without it panics on the first physics step. See [Troubleshooting](./troubleshooting#development-environment).
 
-In the examples workspace, `examples/test/scenes.test.js` validates every example scene JSON against the loader twice: once against stub registries, for structure and cross-references, and once in a real headless game for every example folder with an `m2d.project.json`, with that game's own `register(game)`, so an actor property or constraint param its class does not declare fails the suite rather than the game. `sceneWriter.test.js` holds the scenes to the canonical writer's form. Every example is also played headless with its real scene and cast — `rowWaves`, `fieldGate`, `keepIntents`, `groveTicks`, `beelineHeadless`, `circuitDriving`, and the four that walk a level end to end and leave it on Escape (`valleyRun`, `facilityRun`, `workshopDrops`, `yardWalk`). `courtyards` and `meadow` check a property of the shipped scene files instead, since what matters there is the layout a person edits. A headless run is what catches a presentation read in simulation code — a renderer asked in a constructor, a camera read in a tick — which no other suite can.
+In the examples workspace, `examples/test/scenes.test.js` validates every example scene JSON against the loader twice: once against stub registries, for structure and cross-references, and once in a real headless game for every example folder with an `m2d.project.json`, with that game's own `register(game)`, so an actor property or constraint param its class does not declare fails the suite rather than the game. `sceneWriter.test.js` holds the scenes to the canonical writer's form. Every example is also played headless with its real scene and cast: `rowWaves`, `fieldGate`, `keepIntents`, `groveTicks`, `beelineHeadless`, `circuitDriving` and the four that walk a level end to end and leave it on Escape (`valleyRun`, `facilityRun`, `workshopDrops`, `yardWalk`). `courtyards` and `meadow` check a property of the shipped scene files, since what matters there is the layout a person edits. A headless run catches a presentation read in simulation code (a renderer asked in a constructor, a camera read in a tick), which no other suite can.
 
 ## Layers
 
@@ -121,7 +121,7 @@ sudo apt-get install libnspr4 libnss3 libasound2t64
 
 ```bash
 npm run test:editor                       # every suite: examples, lot, platformer, paths, circuitRoad, playtest, settle, look, search, template2d
-node scripts/driveEditor.mjs examples     # every example project opens on its first scene, plays and stops clean
+node scripts/driveEditor.mjs examples     # every example project opens on its first scene, plays and stops clean, then opens each other scene without a problem, checked against the game's classes
 node scripts/driveEditor.mjs lot --headed # one suite, with the window shown
 node scripts/driveEditor.mjs --out shots  # keep the screenshots somewhere known
 ```
@@ -132,9 +132,9 @@ The Canvas backend's conformance run is repeated in the browser project so the s
 
 ## A passing test is quiet
 
-Output belongs to failures. A test that expects the engine to refuse something silences the line it provokes — `const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})`, then assert what was said and restore — and a test that only happens to build a net client turns the client's own logging off with `game.netLogLevel = 0`. Numbers a reader would want when a check fails go in the assertion's message, which prints only then, rather than in a `console.log` beside it.
+Output belongs to failures. A test that expects the engine to refuse something silences the line it provokes (`const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})`, then asserts what was said and restores). A test that only happens to build a net client turns the client's logging off with `game.netLogLevel = 0`. Numbers a reader would want when a check fails go in the assertion's message, which prints only then.
 
-This is easy to miss: under an agent's terminal Vitest picks a minimal reporter that hides what passing tests print, so the suite looks silent here and floods the CI log. Run `npx vitest run --reporter=default` to see what CI sees.
+Under an agent's terminal Vitest picks a minimal reporter that hides what passing tests print, so a noisy suite looks silent there and floods the CI log. Run `npx vitest run --reporter=default` to see what CI sees.
 
 ## Keeping the suite honest
 

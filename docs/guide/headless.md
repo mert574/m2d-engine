@@ -79,7 +79,7 @@ Presentation is not stubbed quietly. Each part throws on first use, naming what 
 
 | Throws when used | Holds |
 | --- | --- |
-| `game.camera`, `game.renderer`, `game.uiRenderer`, `game.viewport` | The view. A character steered relative to it reads `snapshot.heading`, which the tick samples from the camera |
+| `game.camera`, `game.renderer`, `game.uiRenderer`, `game.viewport` | The view. A character steered relative to it reads `snapshot.heading`, sampled from the camera |
 | `game.ui`, `scene.ui`, `game.worldOverlay`, `game.motion`, `game.theme` | UI and overlays |
 | `game.layers` | Tile layers |
 | `game.cvars`, `game.commands`, `game.console` | The developer console |
@@ -223,7 +223,7 @@ Cinder Keep's satchel and quartermaster are the worked example: `examples/src/is
 { tick: 812, held: 0b1001, pointer: { x: 640.5, y: 212, buttons: 1 } }
 ```
 
-`held` is a bit mask over the game's key list. `pointer` is in world coordinates on the ground plane and is present only in a game with a pointer. A message never carries press or release edges. The gate derives them from the held state of consecutive ticks, so a client cannot claim a press it never released.
+`held` is a bit mask over the game's key list. `pointer` is in world coordinates on the ground plane and is present only in a game with a pointer; `heading` is present only when the schema declares it, and arrives snapped to the sampler's grid. A message never carries press or release edges. The gate derives them from the held state of consecutive ticks, so a client cannot claim a press it never released.
 
 `InputSchema` is the game's input alphabet:
 
@@ -240,7 +240,7 @@ export const INPUT = new InputSchema({
 | --- | --- | --- |
 | `keys` | required | Physical key codes, at most 32. Their order defines the bits of `held` |
 | `pointer` | `false` | `{ bounds, buttons }`: the world rectangle a pointer may point into and its button count, 1 to 5 (default 3) |
-| `heading` | `false` | Whether the snapshot's `heading` rides along, for a 3D game whose characters steer relative to the view |
+| `heading` | `false` | Whether the snapshot's `heading` rides along, for a 3D game whose characters steer relative to the view. A tick with no message keeps the last heading, as it keeps the held keys |
 
 `schema.encode(tick, snapshot)` builds the message a client sends from the snapshot it sampled. `schema.decode(message)` checks one and never throws.
 
@@ -267,7 +267,8 @@ game.input.setSnapshotSource(() => gate.take(game.time.steps));
 | `tick` | Not a whole number from 1 up | Yes |
 | `held` | Not a whole number inside the key list's mask | Yes |
 | `pointer` | Missing, extra, non-finite, out of bounds or bad buttons | Yes |
-| `conflict` | A different message for a tick already filed. The first one stands | Yes |
+| `heading` | Missing, extra or not a finite angle within ±π, in a schema that declares one | Yes |
+| `conflict` | A different message for a tick already filed, a different heading included. The first one stands | Yes |
 | `duplicate` | The same message again | No |
 | `late` | For a tick already taken | No |
 | `early` | More than `maxAhead` ticks past the last one taken | No |

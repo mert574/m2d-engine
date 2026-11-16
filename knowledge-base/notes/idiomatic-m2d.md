@@ -20,7 +20,7 @@ Everything else is scene data, which the editor and MCP can read and change:
 - the HUD, and menus as UI scenes;
 - flow and outcomes as `world.rules`, with counters for what is counted;
 - keys as named actions (`input.actions` in the project): rules and code read an action, never a raw key code. Every other device is keys too: an on-screen `UIKeyButton` and a gamepad control each stand for a key code and push it through the keyboard's seam, so nothing downstream knows which device it was (`input.gamepad` maps the pad);
-- a player's choices (`choices` in the project: the car, a difficulty): a screen's line records one with `set`, the engine keeps it between sessions, and the simulation reads it as `player.state.<name>`. Never a cvar: a cvar is a setting, presentation that a headless game and a server have not got;
+- a player's choices (`choices` in the project: the car, a difficulty), read by the simulation as `player.state.<name>`. Never a cvar: a cvar is a setting, presentation that a headless game and a server have not got;
 - which way the view faces, for a character steered relative to it: the tick's `input.heading`, sampled from the camera as the pointer's `world` is, never the camera itself (The Yard's hero read `camera.forward` in its tick and could not run headless).
 
 Use the engine's helpers (Quest, Npc, the UI components) before writing your own. A HUD widget of the game's own is registered with `registerUIComponent` and placed by the scene's `hud`, not added by a hook. Something another game could want becomes an engine feature, not demo code. A hook keeps only what has no data form, and says why.

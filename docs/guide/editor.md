@@ -44,7 +44,7 @@ A project is a folder with an `m2d.project.json`.
 | `display` | | `width`, `height` (the design size, 1280 by 720), `aspectMode` (`letterbox` or `expand`), `textureFilter`, `worldFilter` (`linear` or `nearest`), `pointerLock`, `performanceStats`, `clearColor` |
 | `input.actions` | none | Named input actions to the key codes that perform them. Rules fire on them and the settings menu rebinds them. See [Named actions](./input#named-actions) |
 | `input.gamepad` | the arcade defaults | What each gamepad control stands for, as a key code: `{ "Y": "Enter" }`. See [Gamepad](./input#gamepad) |
-| `choices` | none | What a player picks on a screen and keeps: `{ "car": { "values": ["sprint", "balanced", "drift"], "initial": "balanced" } }`. A UI line records one with `set`, it is remembered between sessions, and the simulation reads it as `player.state.car`. A choice is the game's; a setting (the renderer, the volume) is the engine's and lives in a cvar |
+| `choices` | none | What a player picks on a screen and keeps, each `{ values, initial, label }`: `{ "car": { "values": ["sprint", "balanced", "drift"], "initial": "balanced" } }`. A UI line records one with `set`, it is remembered between sessions and the simulation reads it as `player.state.car`. Online the server decides what the state holds (see [Multiplayer](./multiplayer#what-is-sent)) |
 | `settings` | `true` | Mount the settings menu (O). `{ "pauseWhenOpen": true }` also holds the game still while it is up, which a race or a timed level wants; `false` leaves it out |
 | `music` | none | Tracks by key, `{ url, volume }`, loaded at boot for screens that are not scenes |
 | `quality` | none | Texture and model levels the game's models are built at, offered as settings. See [Texture and model quality](./display#texture-and-model-quality) |
@@ -128,7 +128,7 @@ Double-click a sprite sheet in the tree for the animation editor. The sheet draw
 
 ## UI scenes
 
-A UI scene previews at the game's design size, letterboxed. Right-click the Elements group (or the scene) to add a button, a menu item, a text, an image, a rect, a backdrop or a component (a widget the game registers), each valid from birth: a button or a menu item arrives with something to do, and a backdrop goes first, behind everything. An element's `effects` and the scene's `transition` and `stagger` play in Play; the edit view shows every element at rest. Click an element to select it; the gizmo moves it by its offsets, resizes the kinds that keep a size (a text measures itself), and the nine anchor points of the screen draw over the view with the element's own filled. Changing the anchor in the inspector moves only the point the offsets measure from — the element stays put. Style fields (a label, a size, a colour, a font) take a literal or a `$token` from the game's theme, offered as completions; changing an element's kind with the shape picker keeps its id, position and anchor. A button's `onClick` names a scene and switches to it in Play; an `action` goes to the scene's `onAction` hook, with `settings` opening the settings menu; a `set` records one of the project's choices, offered by name.
+A UI scene previews at the game's design size, letterboxed. Right-click the Elements group (or the scene) to add a button, a menu item, a text, an image, a rect, a backdrop or a component (a widget the game registers), each valid from birth: a button or a menu item arrives with something to do, and a backdrop goes first, behind everything. An element's `effects` and the scene's `transition` and `stagger` play in Play; the edit view shows every element at rest. Click an element to select it; the gizmo moves it by its offsets, resizes the kinds that keep a size (a text measures itself), and the nine anchor points of the screen draw over the view with the element's own filled. Changing the anchor in the inspector moves only the point the offsets measure from; the element stays put. Style fields (a label, a size, a colour, a font) take a literal or a `$token` from the game's theme, offered as completions; changing an element's kind with the shape picker keeps its id, position and anchor. A button's `onClick` names a scene and switches to it in Play; an `action` goes to the scene's `onAction` hook, with `settings` opening the settings menu; a `set` records one of the project's choices, offered by name.
 
 ## Components
 
@@ -136,7 +136,7 @@ The Components tab lists every actor and constraint the game registers and every
 
 An object edit rebuilds that object in place. Other edits rebuild the scene with the camera held.
 
-Edits are kept by the editor's host until you save — and journaled beside the project (`.m2d/journal/`, ignored by git), so a host that stops and starts again picks them up, history and all, as long as the file is still the one they were made on. Save writes the scene in the canonical form. A scene with a `generator` field is read-only until you detach it from its script.
+Edits are kept by the editor's host until you save, and journaled beside the project (`.m2d/journal/`, ignored by git), so a host that stops and starts again picks them up, history and all, as long as the file is still the one they were made on. A host that stops waits for an edit still being read and journals nothing after. Save writes the scene in the canonical form; an edit that lands while the file is being written stays unsaved and journaled. A scene with a `generator` field is read-only until you detach it from its script.
 
 ## View helpers
 
@@ -148,7 +148,7 @@ Drag a panel's edge to resize it, double-click to reset, Alt+1/2/3 to hide and s
 
 ## Problems
 
-The editor checks the scene after every change against the game's real classes. Every problem the loader finds is listed in the Problems tab, counted on the tree and marked on the field it names. Click a problem to select its object and open the inspector tab its field is in. A scene with problems keeps its last good picture in the viewport.
+The editor checks the scene after every change against the game's real classes, booted with the project's actions and choices. Every problem the loader finds is listed in the Problems tab, counted on the tree and marked on the field it names. Click a problem to select its object and open the inspector tab its field is in. A scene with problems keeps its last good picture in the viewport.
 
 ## Assets
 
@@ -176,7 +176,7 @@ The Assets tab marks what the project audit finds: a file no scene names carries
 
 ## Play
 
-Play (F5) runs the scene as it stands, unsaved edits included, in a fresh game with the project's hooks. The other scenes load for real, so a door into the next level opens. The keyboard belongs to the game while it plays. If the game switches to a scene its page builds in code (a main menu), play stops and the status line says so. F5 or Stop returns to editing with the document as it was and the camera where it was. A code change during play starts the play again on the new code.
+Play (F5) runs the scene as it stands, unsaved edits included, in a fresh game with the project's hooks, which keeps the player's settings and choices under the project's name as its page does. The other scenes load for real, so a door into the next level opens. The keyboard belongs to the game while it plays. If the game switches to a scene its page builds in code (a main menu), play stops and the status line says so. F5 or Stop returns to editing with the document as it was and the camera where it was. A code change during play starts the play again on the new code.
 
 **Play from here** (Shift+F5, or the scene's menu) starts the player at the middle of the view: the view's centre in 2D, the camera's target in 3D. The player is the object `world.player` names, or else the first whose actor is `Player`.
 
