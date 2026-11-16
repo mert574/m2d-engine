@@ -277,8 +277,13 @@ const SUITES = {
           for (const other of others) {
             try {
               await page.evaluate((path) => window.m2dEditor.openScene(path), other);
-              const verdict = await page.evaluate(() => ({ error: window.m2dEditor.loadError, issues: window.m2dEditor.issues.map((issue) => `${issue.path}: ${issue.message}`) }));
-              report.check(`${project.name}: ${other} opens clean`, !verdict.error && verdict.issues.length === 0, verdict.error ?? verdict.issues.slice(0, 2).join(' | '));
+              const verdict = await page.evaluate(() => ({
+                showing: window.m2dEditor.scenePath, hasDocument: Boolean(window.m2dEditor.remote?.doc),
+                error: window.m2dEditor.loadError, issues: window.m2dEditor.issues.map((issue) => `${issue.path}: ${issue.message}`)
+              }));
+              const clean = verdict.showing === other && verdict.hasDocument && !verdict.error && verdict.issues.length === 0;
+              const why = verdict.error ?? (verdict.showing !== other ? `${verdict.showing ?? 'nothing'} is showing` : verdict.issues.slice(0, 2).join(' | '));
+              report.check(`${project.name}: ${other} opens clean`, clean, why);
             } catch (error) {
               report.check(`${project.name}: ${other} opens clean`, false, String(error.message ?? error).split('\n')[0]);
             }

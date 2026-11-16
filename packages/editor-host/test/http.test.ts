@@ -57,6 +57,10 @@ describe('a request that survives the network', () => {
     expect(hits()).toBe(2);
   });
 
+  it('refuses what is not a URL at once, asking nothing', async () => {
+    await expect(request('not a url', (response) => response.text(), atOnce)).rejects.toThrow(/Invalid URL/);
+  });
+
   it('passes its headers along', async () => {
     const { url } = await serving((req, res) => { res.writeHead(200); res.end(req.headers['user-agent']); });
     expect(await request(url, (response) => response.text(), { headers: { 'User-Agent': 'm2d test' } })).toBe('m2d test');

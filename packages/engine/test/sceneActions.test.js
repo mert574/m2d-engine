@@ -98,8 +98,15 @@ describe('scene button actions', () => {
     }) });
     await game.sceneManager.switchTo('garage');
     const scene = game.sceneManager.getCurrentScene();
-
     expect(scene.focus.focused).toBe(scene.uiById.get('slider'));
+
+    // What the player has, not what they asked for: online the state is the
+    // server's, and the menu opens on that.
+    game.players.local.state.car = 'sprint';
+    await game.sceneManager.switchTo('mainMenu');
+    await game.sceneManager.switchTo('garage');
+    const again = game.sceneManager.getCurrentScene();
+    expect(again.focus.focused).toBe(again.uiById.get('sprint'));
   });
 
   it('still switches scenes through onClick', async () => {

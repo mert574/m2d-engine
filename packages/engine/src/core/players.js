@@ -40,6 +40,7 @@ export class Player {
     this.avatar = null;
     /** Any per-player state the game keeps: inventory, gold, score. */
     this.state = {};
+    this.fillChoices();
     /** @type {IntentQueue|null} */
     this.intents = null;
     this.#snapshot = InputSnapshot.empty();
@@ -99,6 +100,20 @@ export class Player {
   }
 
   /** This tick's input. The local player's is the game's snapshot. */
+  /**
+   * The project's choices a state is missing: the local player's as they
+   * stand, anyone else's at the initial. Run when a player is made, and
+   * again after anything that replaces their state (a match's `join`, a
+   * restored snapshot), since the choices are the player's to keep.
+   */
+  fillChoices() {
+    const choices = this.game.choices;
+    if (!choices) return;
+    for (const [name, value] of Object.entries(this.local ? choices.all : choices.initials)) {
+      if (!(name in this.state)) this.state[name] = value;
+    }
+  }
+
   get snapshot() {
     return this.local ? this.game.input.snapshot : this.#snapshot;
   }
@@ -189,9 +204,6 @@ export class Players {
     if (typeof id !== 'string' || id === '') throw new Error('M2D players: a player id must be a non-empty string');
     if (this.map.has(id)) throw new Error(`M2D players: '${id}' is already a player`);
     const player = new Player(this.game, id, local);
-    // The project's choices are the first facts a player's state holds: the
-    // local player's as they stand, a joining player's at their initial.
-    Object.assign(player.state, local ? this.game.choices?.all : this.game.choices?.initials);
     if (this.intentSet) player.intents = this.#queueFor(meter);
     player.meter = meter ?? null;
     this.map.set(id, player);

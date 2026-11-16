@@ -172,6 +172,8 @@ export class InputSchema {
         buttonMask: (2 ** buttons) - 1
       });
     }
+    /** The fields a message has, exactly. */
+    this.fields = Object.freeze([...MESSAGE_FIELDS, ...(this.pointer ? ['pointer'] : []), ...(this.heading ? ['heading'] : [])]);
     Object.freeze(this);
   }
 
@@ -191,7 +193,7 @@ export class InputSchema {
   }
 
   #decode(message) {
-    const fields = this.#fields;
+    const fields = this.fields;
     if (!hasExactFields(message, fields)) {
       return reject('shape', `expected a plain object with exactly ${fields.join(', ')}`);
     }
@@ -235,14 +237,6 @@ export class InputSchema {
       value.heading = snapHeading(heading);
     }
     return { ok: true, value };
-  }
-
-  /** The fields a message has, exactly. */
-  get #fields() {
-    const fields = [...MESSAGE_FIELDS];
-    if (this.pointer) fields.push('pointer');
-    if (this.heading) fields.push('heading');
-    return fields;
   }
 
   /**

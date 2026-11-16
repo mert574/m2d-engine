@@ -36,6 +36,8 @@ const worthRepeating = (status) => status === 408 || status === 429 || status >=
  * @template T
  */
 export async function request(url, read, { what = url, headers, pause = backOff, timeoutMs = TIMEOUT_MS } = {}) {
+  // Not a URL at all is not the network's fault; asking five times would not help.
+  new URL(url);
   let last;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     if (attempt > 1) await pause(attempt);

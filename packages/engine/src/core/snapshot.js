@@ -218,6 +218,7 @@ export function restoreSnapshot(game, snapshot) {
     if (game.players.get(player.id) !== player) continue; // left since; nothing to restore into
     player.avatar = avatar;
     player.state = restore(state, done);
+    player.fillChoices();
   }
   for (const [key, hooks, data] of snapshot.tracked) {
     if (game.trackedState.get(key) === hooks) hooks.load(data);

@@ -3,7 +3,7 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { InputSchema } from 'm2d-engine/net/input.js';
 
-export const INPUT = new InputSchema({ keys: ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'] });
+export const INPUT = new InputSchema({ keys: ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'], heading: true });
 
 export class Ground extends Entity { name = 'Ground'; }
 export class Crate extends Entity { name = 'Crate'; }
@@ -12,10 +12,15 @@ export class Hero extends Entity {
   fixedUpdate(dt) {
     super.fixedUpdate(dt);
     const input = this.input;
+    // Relative to the view, as the yard's hero walks: at heading 0, down is +z and right is +x.
+    const forward = { x: Math.sin(input.heading), z: Math.cos(input.heading) };
+    const right = { x: forward.z, z: -forward.x };
+    const along = input.axis('ArrowUp', 'ArrowDown');
+    const across = input.axis('ArrowLeft', 'ArrowRight');
     this.body.setVelocity({
-      x: input.isDown('ArrowRight') ? 1.5 : input.isDown('ArrowLeft') ? -1.5 : 0,
+      x: (forward.x * along + right.x * across) * 1.5,
       y: this.body.velocity.y,
-      z: input.isDown('ArrowDown') ? 1.5 : input.isDown('ArrowUp') ? -1.5 : 0
+      z: (forward.z * along + right.z * across) * 1.5
     });
   }
 }

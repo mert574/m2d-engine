@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Choices } from '../src/core/choices.js';
 import { M2D } from '../src/core/m2d.js';
+import { initPhysics } from '../src/core/physics/index.js';
+import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 
 /**
  * A player's choices: declared by the project, recorded by a screen, kept
@@ -42,6 +44,23 @@ describe('choices', () => {
     new Choices(CAR, { storageKey: 'm2d.choices:test' }).set('car', 'tourer');
     const moved = { car: { values: ['tourer', 'sprint', 'slider'], initial: 'slider' } };
     expect(new Choices(moved, { storageKey: 'm2d.choices:test' }).get('car')).toBe('tourer');
+  });
+
+  it('is put back into a player\'s state after a snapshot from before the choice existed is restored', async () => {
+    await initPhysics();
+    const game = new M2D(null, { headless: true, choices: CAR });
+    game.sceneManager.addScene('room', { fetch: async () => ({ version: SCENE_VERSION, type: 'level', name: 'room', prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });
+    await game.sceneManager.switchTo('room');
+    // A snapshot of a state with no car in it, as one saved before the choice existed.
+    delete game.players.local.state.car;
+    const snapshot = game.snapshot();
+    game.choices.set('car', 'sprint');
+    game.restore(snapshot);
+    expect(game.players.local.state.car).toBe('sprint');
+    const joined = game.players.add('bob');
+    joined.state = { gold: 3 };
+    joined.fillChoices();
+    expect(joined.state).toEqual({ gold: 3, car: 'tourer' });
   });
 
   it('leaves the choices of another game that shares the key alone', () => {

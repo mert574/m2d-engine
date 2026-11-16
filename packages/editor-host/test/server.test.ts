@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -513,6 +513,30 @@ describe('the journal of unsaved edits', () => {
       await expect(late).rejects.toThrow(/session is closed/);
       await expect(readFile(join(dir, '.m2d', 'journal', 'scenes__room.json'), 'utf8')).rejects.toThrow(/ENOENT/);
       expect(host.session.isDirty('scenes/room.json')).toBe(false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('waits for a read in flight before it is closed', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'm2d-editor-journal-'));
+    try {
+      await mkdir(join(dir, 'scenes'), { recursive: true });
+      await writeFile(join(dir, 'scenes', 'room.json'), level());
+      const host = new Companion({ root: dir });
+      // The read is held until the test lets go; close must not resolve before it.
+      let release!: (text: string) => void;
+      const reading = vi.spyOn(host.project, 'readText').mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
+      const opening = host.session.document('scenes/room.json').catch(() => null);
+      let closed = false;
+      const closing = host.close().then(() => { closed = true; });
+      await new Promise((tick) => setTimeout(tick, 20));
+      expect(closed).toBe(false);
+      release(level());
+      await closing;
+      await opening;
+      expect(closed).toBe(true);
+      reading.mockRestore();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

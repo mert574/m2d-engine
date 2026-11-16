@@ -105,11 +105,8 @@ function join(pid) {
   const fresh = { player, meter, gate: null, replicator: null, connected: false, leaveAt: null, reported: { missed: 0, late: 0, early: 0 } };
   seats.set(pid, fresh);
   match.join(game, player);
-  // A match that replaces `player.state` rather than adding to it would
-  // drop the choices they joined with; they are the player's, so they stay.
-  for (const [name, value] of Object.entries(game.choices.initials)) {
-    if (!(name in player.state)) player.state[name] = value;
-  }
+  // A match that replaced `player.state` dropped the choices they joined with; they are the player's.
+  player.fillChoices();
   connect(fresh);
 }
 

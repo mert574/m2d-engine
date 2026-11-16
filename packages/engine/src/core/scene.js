@@ -1266,13 +1266,17 @@ export class Scene {
     else this.focus.focusFirst();
   }
 
-  /** The element whose `set` names its choice's current value, if focus can go there. */
+  /**
+   * The element whose `set` names the choice the player has, if focus can
+   * go there. Read from the player's state, as the simulation reads it:
+   * online that is what the server granted, not what was asked for.
+   */
   #chosenLine() {
-    const choices = this.game.choices;
+    const granted = this.game.players.local.state;
     const canFocus = new Set(this.focus.candidates());
     for (const element of this.config.elements ?? []) {
       const set = element.properties?.set;
-      if (!set || !choices.has(set.choice) || choices.get(set.choice) !== set.value) continue;
+      if (!set || granted[set.choice] !== set.value) continue;
       const built = this.uiById?.get(element.id);
       if (canFocus.has(built)) return built;
     }
