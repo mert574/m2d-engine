@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { AttackSwing, HitBurst, registerEffects } from '../src/effects.ts';
-import { range, makeRng } from '../src/random.ts';
-import { tileTexture } from '../src/textures.ts';
-import { audioOption } from '../src/audio.ts';
+import { AttackSwing, HitBurst, registerEffects } from '../src/effects.js';
+import { range, makeRng } from '../src/random.js';
+import { tileTexture } from '../src/textures.js';
+import { audioOption } from '../src/audio.js';
 
 /** A stand-in for the entity the effects read, recording what they draw. */
-function entity(attack?: { onStart?: (step?: number) => void; direction: number; angle?: number; range: number }) {
-  const calls: Array<[string, Record<string, unknown>]> = [];
-  const constraints = new Map<string, unknown>();
+function entity(attack) {
+  const calls = [];
+  const constraints = new Map();
   if (attack) constraints.set('attack', attack);
   return {
     calls,
@@ -17,12 +17,12 @@ function entity(attack?: { onStart?: (step?: number) => void; direction: number;
     game: {
       renderer: {
         supports: () => true,
-        drawPath: (o: Record<string, unknown>) => { calls.push(['drawPath', o]); },
-        drawArc: (o: Record<string, unknown>) => { calls.push(['drawArc', o]); }
+        drawPath: (o) => { calls.push(['drawPath', o]); },
+        drawArc: (o) => { calls.push(['drawArc', o]); }
       },
       projection: null,
-      registered: [] as Array<[string, unknown, unknown]>,
-      registerConstraint(name: string, klass: unknown, options?: unknown) { this.registered.push([name, klass, options]); }
+      registered: [],
+      registerConstraint(name, klass, options) { this.registered.push([name, klass, options]); }
     }
   };
 }
@@ -85,21 +85,21 @@ describe('the helpers', () => {
   });
 
   it('tileTexture clips to the rectangle and aligns tiles to the world grid or the rectangle', () => {
-    const calls: Array<[string, unknown]> = [];
+    const calls = [];
     const renderer = {
-      pushClip: (r: unknown) => { calls.push(['pushClip', r]); },
+      pushClip: (r) => { calls.push(['pushClip', r]); },
       popClip: () => { calls.push(['popClip', null]); },
-      drawSprite: (o: Record<string, unknown>) => { calls.push(['drawSprite', [o.x, o.y]]); }
+      drawSprite: (o) => { calls.push(['drawSprite', [o.x, o.y]]); }
     };
     const image = { width: 64, height: 64 };
     tileTexture(renderer, image, { x: 100, y: 0, width: 100, height: 50 }, 64);
     const world = calls.filter(([n]) => n === 'drawSprite').map(([, xy]) => xy);
     expect(calls[0]).toEqual(['pushClip', { x: 100, y: 0, width: 100, height: 50 }]);
-    expect(calls.at(-1)![0]).toBe('popClip');
+    expect(calls.at(-1)[0]).toBe('popClip');
     expect(world[0]).toEqual([96, 32]); // the grid tile that starts at 64 covers the rect's left edge
     calls.length = 0;
     tileTexture(renderer, image, { x: 100, y: 0, width: 100, height: 50 }, 64, { origin: 'rect' });
-    expect(calls.filter(([n]) => n === 'drawSprite')[0]![1]).toEqual([132, 32]);
+    expect(calls.filter(([n]) => n === 'drawSprite')[0][1]).toEqual([132, 32]);
     calls.length = 0;
     tileTexture(renderer, null, { x: 0, y: 0, width: 10, height: 10 });
     expect(calls).toHaveLength(0);

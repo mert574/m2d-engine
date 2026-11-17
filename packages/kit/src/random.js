@@ -6,8 +6,12 @@
  */
 export { makeRng } from 'm2d-engine/core/rng.js';
 
-/** A float in [min, max) from a generator `makeRng` made. */
-export function range(rng: () => number, min: number, max: number): number {
+/**
+ * A float in [min, max) from a generator `makeRng` made.
+ * @param {() => number} rng
+ * @param {number} min - Inclusive
+ * @param {number} max - Exclusive
+ */
+export function range(rng, min, max) {
   return min + rng() * (max - min);
 }
-

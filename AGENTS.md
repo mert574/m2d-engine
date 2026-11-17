@@ -18,7 +18,7 @@ camera or a renderer:
 | --- | --- |
 | `packages/engine` | The engine, published to npm as `m2d-engine`. Source in `src/`, tests in `test/` |
 | `packages/server` | The authoritative multiplayer host, published as `m2d-server` |
-| `packages/kit` | `m2d-kit`: ready-to-use constraints, helpers, actors and prefabs that are too opinionated for the engine and too reusable for one game. TypeScript, no DOM at load |
+| `packages/kit` | `m2d-kit`: the stock cast, prefab templates and helpers — too opinionated for the engine, too reusable for one game. Plain JavaScript like the engine (TypeScript at the project's final phase); no DOM at load |
 | `packages/editor-core` | The editor's headless core (document, writer, commands, validation). TypeScript, no DOM |
 | `packages/editor-host` | The editor's host: serves one game's project to the editor, holds the open documents and their history, and is the MCP server agents edit through |
 | `packages/editor` | The editor app: DOM panels around engine viewports |

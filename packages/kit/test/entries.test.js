@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Every entry the package exports loads in plain Node — type stripping,
- * no bundler, no DOM — because a server imports a game that imports the
- * kit. A module that reaches for `document` or `window` at load fails here.
+ * Every entry the package exports loads in plain Node — no bundler, no
+ * DOM — because a server imports a game that imports the kit. A module
+ * that reaches for `document` or `window` at load fails here.
  */
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { name: string; exports: Record<string, string> };
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 describe('the kit\'s entries', () => {
   it('each load in plain Node and export something', () => {
@@ -23,8 +23,8 @@ describe('the kit\'s entries', () => {
   });
 
   it('the index re-exports what the entries export', async () => {
-    const index = await import('../src/index.ts');
-    for (const name of ['AttackSwing', 'HitBurst', 'registerEffects', 'makeRng', 'range', 'tileTexture', 'audioOption']) {
+    const index = await import('../src/index.js');
+    for (const name of ['Ghost', 'Bee', 'Coin', 'MovingPlatform', 'PREFAB_TEMPLATES', 'registerKitActors', 'AttackSwing', 'HitBurst', 'registerEffects', 'makeRng', 'range', 'tileTexture', 'audioOption']) {
       expect(index, name).toHaveProperty(name);
     }
   });

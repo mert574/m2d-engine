@@ -19,20 +19,6 @@ import { s } from 'm2d-engine/core/schema.js';
  * `Prop` with no class at all.
  */
 
-type Game = {
-  players: { isAvatar(entity: unknown): boolean };
-  entities: { delete(entity: unknown): void };
-  physics: { remove(body: unknown): void };
-  events?: { emit(name: string, data?: Record<string, unknown>): void };
-  soundManager: { playSound(key: string): void };
-  time: { elapsed: number };
-  sceneManager?: { getCurrentScene(): { counters?: { add(name: string, amount: number): void } } | null };
-  registerActor(name: string, klass: unknown, options?: { origin?: 'game' | 'kit' }): void;
-  registerPrefabTemplate?(name: string, template: unknown, options?: { origin?: 'game' | 'kit' }): void;
-};
-
-type Body = { entity?: { name?: string; dead?: boolean } | null; setCollisionFilter(filter: { category: number }): void };
-
 /**
  * A floating enemy that drifts toward the player: `Health` (100, half a
  * second invulnerable, removed from the world at zero), `ContactDamage`
@@ -40,10 +26,10 @@ type Body = { entity?: { name?: string; dead?: boolean } | null; setCollisionFil
  * `DamageFlash`. A scene retunes any of them by slot.
  */
 export class Ghost extends Entity {
-  static override description = 'A floating enemy that drifts toward the player';
-  override name = 'Ghost';
+  static description = 'A floating enemy that drifts toward the player';
+  name = 'Ghost';
 
-  constructor(body: Body, sprite: unknown, game: unknown, options: Record<string, unknown> = {}) {
+  constructor(body, sprite, game, options = {}) {
     body.setCollisionFilter({ category: CollisionCategories.enemy });
     super(body, sprite, game);
 
@@ -71,16 +57,16 @@ export class Ghost extends Entity {
   }
 
   /** The hit sound, wherever the hit was simulated. */
-  override onWorldEvent(name: string, data: unknown): void {
-    super.onWorldEvent(name, data as object);
-    if (name === 'damage') (this.game as Game).soundManager.playSound('damage');
+  onWorldEvent(name, data) {
+    super.onWorldEvent(name, data);
+    if (name === 'damage') this.game.soundManager.playSound('damage');
   }
 
   // Presentation only. A sheet with named animations plays them from
   // `Entity.update`'s clock at their own `fps`; a sheet without any keeps
   // the old contract: its columns step at 6 fps. Movement, chasing and
   // damage are in the constraints' fixedUpdate.
-  override update(deltaTime: number): void {
+  update(deltaTime) {
     if (this.dead) return;
     super.update(deltaTime);
     if (!this.currentAnim && this.sprite?.image) {
@@ -92,21 +78,21 @@ export class Ghost extends Entity {
 
 /** A `Ghost` that hits harder: the same cast with 720 px/s knockback. */
 export class Bee extends Ghost {
-  static override description = 'A flying enemy that bobs and chases';
-  override name = 'Bee';
+  static description = 'A flying enemy that bobs and chases';
+  name = 'Bee';
 
-  constructor(body: Body, sprite: unknown, game: unknown, options: Record<string, unknown> = {}) {
+  constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
-    (this.getConstraint('contactDamage') as { knockbackStrength: number }).knockbackStrength = 720;
+    this.getConstraint('contactDamage').knockbackStrength = 720;
   }
 }
 
 /** A pickup: `Hover` bobs and spins it, `Collectable` takes it on an avatar's touch. */
 export class Coin extends Entity {
-  static override description = 'A pickup collected on touch';
-  override name = 'Coin';
+  static description = 'A pickup collected on touch';
+  name = 'Coin';
 
-  constructor(body: Body, sprite: unknown, game: unknown, options: Record<string, unknown> = {}) {
+  constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     this.addConstraint('hover', new Hover(this, { amplitude: 5, frequency: 2, spin: 2 }));
     this.addConstraint('collectable', new Collectable(this));
@@ -123,31 +109,31 @@ export class Coin extends Entity {
  * actor is just the body setup.
  */
 export class MovingPlatform extends Entity {
-  static override description = 'A platform that patrols a path, pausing at each point';
-  override name = 'MovingPlatform';
+  static description = 'A platform that patrols a path, pausing at each point';
+  name = 'MovingPlatform';
 
   /** The path is the `PathFollow` constraint's own params, set through this actor. */
-  static override properties = {
+  static properties = {
     path: s.object(PathFollow.params, { label: 'Path' })
   };
 
-  constructor(body: Body & { bodyType: string; friction: number; restitution: number }, sprite: unknown, game: unknown, options: Record<string, unknown> = {}) {
+  constructor(body, sprite, game, options = {}) {
     body.bodyType = 'kinematic';
     body.friction = 1;
     body.restitution = 0;
     super(body, sprite, game);
-    this.addConstraint('path', new PathFollow(this, options.path as object | undefined));
+    this.addConstraint('path', new PathFollow(this, options.path));
   }
 }
 
 /**
  * Prefab templates: ready-made `prefabs` entries the editor's component
  * library and an agent (through `list_components` and `edit_scene`) copy
- * into a scene. Art-free on purpose — each composes engine constraints
+ * into a scene. Art-free on purpose — each composes engine capabilities
  * over `Prop`, so it plays the moment it lands and a sheet or a light is
  * the scene author's next edit.
  */
-export const PREFAB_TEMPLATES: Record<string, { description: string; dimensions: 2; prefab: Record<string, unknown> }> = {
+export const PREFAB_TEMPLATES = {
   mob: {
     description: 'A walking enemy: chases in range, hurts on contact, flashes when hit, dies and is gone',
     dimensions: 2,
@@ -179,8 +165,8 @@ export const PREFAB_TEMPLATES: Record<string, { description: string; dimensions:
 };
 
 /** Register the cast and the templates, marked as the kit's for the editor's catalog. */
-export function registerKitActors(game: Game): void {
-  const kit = { origin: 'kit' as const };
+export function registerKitActors(game) {
+  const kit = { origin: 'kit' };
   game.registerActor('Ghost', Ghost, kit);
   game.registerActor('Bee', Bee, kit);
   game.registerActor('Coin', Coin, kit);

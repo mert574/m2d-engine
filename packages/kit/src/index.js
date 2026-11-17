@@ -9,8 +9,8 @@
  * it, it declares its properties or params, it works in 2D and 3D or says
  * which, and it ships with its test and its docs page.
  */
-export { Ghost, Bee, Coin, MovingPlatform, PREFAB_TEMPLATES, registerKitActors } from './actors.ts';
-export { AttackSwing, HitBurst, registerEffects } from './effects.ts';
-export { makeRng, range } from './random.ts';
-export { tileTexture } from './textures.ts';
-export { audioOption } from './audio.ts';
+export { Ghost, Bee, Coin, MovingPlatform, PREFAB_TEMPLATES, registerKitActors } from './actors.js';
+export { AttackSwing, HitBurst, registerEffects } from './effects.js';
+export { makeRng, range } from './random.js';
+export { tileTexture } from './textures.js';
+export { audioOption } from './audio.js';

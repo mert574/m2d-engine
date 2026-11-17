@@ -4,10 +4,11 @@
  * `SettingsMenu.addOption`; a game with its own volumes adds its own rows.
  */
 
-interface MutableSound { isMuted: boolean; toggleMute(): void }
-
-/** @returns An item for `game.settings.addOption` */
-export function audioOption(game: { soundManager: MutableSound }) {
+/**
+ * @param {import('m2d-engine/core/m2d.js').M2D} game
+ * @returns {Object} An item for `game.settings.addOption`
+ */
+export function audioOption(game) {
   return {
     section: 'Game',
     label: 'Audio',

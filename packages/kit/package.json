@@ -1,20 +1,18 @@
 {
   "name": "m2d-kit",
-  "private": true,
   "version": "0.1.0",
-  "description": "Ready-to-use pieces for games on m2d: constraints, actors, helpers and prefabs that are too opinionated for the engine and too reusable to live in one game. TypeScript; imports nothing from the DOM at load, so a server can import a game that imports it.",
+  "description": "Ready-to-use pieces for games on m2d: the stock cast (Ghost, Bee, Coin, MovingPlatform), prefab templates, combat effects and helpers \u2014 compositions of the engine's capabilities, too opinionated for the engine and too reusable to live in one game. Plain JavaScript; imports nothing from the DOM at load, so a server can import a game that imports it.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./actors": "./src/actors.ts",
-    "./effects": "./src/effects.ts",
-    "./random": "./src/random.ts",
-    "./textures": "./src/textures.ts",
-    "./audio": "./src/audio.ts"
+    ".": "./src/index.js",
+    "./actors": "./src/actors.js",
+    "./effects": "./src/effects.js",
+    "./random": "./src/random.js",
+    "./textures": "./src/textures.js",
+    "./audio": "./src/audio.js"
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
+    "test": "vitest run"
   },
   "author": "Mert Yildiz",
   "license": "MIT",
@@ -22,10 +20,9 @@
     "node": ">=24"
   },
   "peerDependencies": {
-    "m2d-engine": "*"
+    "m2d-engine": "^1.6.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.6",
     "m2d-engine": "*",
     "vitest": "^5.0.5"
   },
@@ -33,5 +30,11 @@
     "type": "git",
     "url": "git+https://github.com/mert574/m2d-engine.git",
     "directory": "packages/kit"
+  },
+  "files": [
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
