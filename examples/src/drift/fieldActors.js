@@ -5,7 +5,6 @@ import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { Health } from 'm2d-engine/constraints/health.js';
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { Hover } from 'm2d-engine/constraints/hover.js';
-import { CollisionCategories } from 'm2d-engine/core/constants.js';
 import { HitBurst } from 'm2d-kit/effects';
 import { Platform } from 'm2d-kit/actors';
 import { ThrustControl } from 'm2d-kit/controls';
@@ -63,7 +62,8 @@ export function fireLaser(owner, angle, { sprite = null, tint, targetNames, dama
   const body = game.physics.createBox({ x, y, width: 8, height: 30, angle: angle + SPRITE_UP, friction: 0, frictionAir: 0, restitution: 0, isSensor: true });
   const laser = new Laser(body, sprite, game, {
     direction: { x: Math.cos(angle), y: Math.sin(angle) }, owner, targetNames, tint, damage, speed,
-    collisionMask: CollisionCategories.default | CollisionCategories.player | CollisionCategories.enemy | CollisionCategories.platform
+    // On its own layer and blind to it, so lasers cross lasers.
+    layer: 'shot', collidesWith: ['field', 'ship', 'raider']
   });
   laser.spriteFit = true;
   game.entities.add(laser);
@@ -106,7 +106,6 @@ export class Ship extends Entity {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
-    body.setCollisionFilter({ category: CollisionCategories.player });
     body.setMass(1.2);
     this.spriteFit = true;
     this.spriteSize = { x: 84, y: 56 };
@@ -319,7 +318,6 @@ export class Drone extends Entity {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
-    body.setCollisionFilter({ category: CollisionCategories.enemy });
     this.spriteFit = true;
     this.renderAngleOffset = SPRITE_UP;
     this.facing = -Math.PI / 2;

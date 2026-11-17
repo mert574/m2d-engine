@@ -10,7 +10,6 @@ import { Attack } from '../src/constraints/attack.js';
 import { Health } from '../src/constraints/health.js';
 import { Abilities } from '../src/constraints/abilities.js';
 import { Footsteps } from '../src/constraints/footsteps.js';
-import { CollisionCategories } from '../src/core/constants.js';
 import { UIDialogue } from '../src/core/ui/dialogue.js';
 
 /**
@@ -130,7 +129,6 @@ describe('Attack in any direction', () => {
 
   function enemyAt(x, y) {
     const body = makeBody(game, x, y, 20, 20, { bodyType: 'dynamic' });
-    body.setCollisionFilter({ category: CollisionCategories.enemy });
     const enemy = new Entity(body, null, game);
     enemy.addConstraint('health', new Health(enemy, { maxHealth: 100 }));
     game.physics.add(body);
@@ -350,7 +348,6 @@ describe('Attack combos', () => {
     });
     player.addConstraint('attack', attack);
     const body = makeBody(game, 140, 100, 20, 20, { bodyType: 'dynamic' });
-    body.setCollisionFilter({ category: CollisionCategories.enemy });
     const enemy = new Entity(body, null, game);
     enemy.addConstraint('health', new Health(enemy, { maxHealth: 200, invulnerableDuration: 0.001 }));
     game.physics.add(body);

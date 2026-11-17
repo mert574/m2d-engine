@@ -6,6 +6,7 @@ import { GlideControl } from 'm2d-kit/controls';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { AssetDatabase } from 'm2d-engine/core/assets.js';
 import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS, Registry } from 'm2d-engine/core/builtins.js';
+import { CollisionLayers } from 'm2d-engine/core/collisionLayers.js';
 
 /**
  * Shared machinery for the tests that sweep every shipped scene:
@@ -44,7 +45,7 @@ export const DEMO_CONSTRAINTS = {
 };
 
 /** A game stub exposing only what the loader cross-references. */
-export function makeGame({ actors = [], scenes = [], constraints = [], manifest = null } = {}) {
+export function makeGame({ actors = [], scenes = [], constraints = [], manifest = null, layers = [] } = {}) {
   // Registries, not plain maps: a scene may name an engine actor or
   // constraint the game never registered, exactly as it may in play.
   const actorMap = new Registry(BUILTIN_ACTORS);
@@ -56,6 +57,7 @@ export function makeGame({ actors = [], scenes = [], constraints = [], manifest 
   return {
     actors: actorMap,
     constraintTypes: constraintMap,
+    collisionLayers: new CollisionLayers(layers),
     assets,
     sceneManager: { scenes: new Map(), scenesToLoad: scenes.map(name => ({ name })) }
   };
@@ -68,11 +70,14 @@ export function makeGame({ actors = [], scenes = [], constraints = [], manifest 
  * game does not have is refused as it would be in play.
  */
 export function gameFor(example) {
+  const projectFile = join(import.meta.dirname, '..', 'src', example, 'm2d.project.json');
+  const layers = existsSync(projectFile) ? JSON.parse(readFileSync(projectFile, 'utf8')).layers ?? [] : [];
   return makeGame({
     actors: DEMO_ACTORS[example],
     constraints: DEMO_CONSTRAINTS[example],
     manifest: manifestFor(example),
-    scenes: sceneNamesOf(example)
+    scenes: sceneNamesOf(example),
+    layers
   });
 }
 

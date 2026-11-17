@@ -54,7 +54,7 @@ Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `
 
 `startAttack(direction)` takes `1` or `-1` for a side-view swing, or any other number as an angle in radians, for a top-down or 3/4 game where left and right cannot reach what is above or below. The swing is `arc` radians wide (default π, the side view's half circle; 2π hits everything in range) centred on that direction. `knockback` is the impulse along the swing, default the side view's fling; `0` disables it.
 
-`targetCategory` chooses the collision category a swing hits (default enemies); an enemy striking the player passes `CollisionCategories.player`, which is how Ash Row's thugs telegraph and land their blows.
+`targets` names the collision layers a swing hits. Unset, it hits anything with `Health` that is not a player's avatar — a swing at the monsters that never lands on another player; an enemy striking the players names their layer (`targets: ['player']`).
 
 `combo` makes the attack a chain: an array of steps (`{ damage, knockback, arc }`, each overriding the base), advanced when a swing starts within `comboWindow` seconds (default 0.8) of the last one ending, and reset otherwise. The cooldown still gates every swing. `onStart(step)` fires per swing and `onHit(entity, step)` per target a swing lands on; a finisher that launches pops the target's `elevation` there. Ash Row's three-punch chain and its sweep kick (a second `Attack` under its own constraint name) are the worked example.
 

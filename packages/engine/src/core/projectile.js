@@ -1,5 +1,4 @@
 import { Entity } from './entity.js';
-import { CollisionCategories } from './constants.js';
 import { Vec2 } from './math.js';
 
 /**
@@ -10,11 +9,12 @@ export class Projectile extends Entity {
   name = 'Projectile';
 
   constructor(body, sprite, game, options = {}) {
-    // Set up collision filtering before super()
+    // Collision filtering before super(): `layer` and `collidesWith` are
+    // the project's layer names; `collisionMask` is the raw-bit escape for
+    // code that computed one (the kit's turret excludes its own layer).
     body.setCollisionFilter({
-      category: CollisionCategories.projectile,
-      // 'default' covers walls/platforms, which set no specific category.
-      mask: options.collisionMask ?? (CollisionCategories.player | CollisionCategories.default)
+      ...(options.layer !== undefined && { category: game.collisionLayers.bit(options.layer) }),
+      mask: options.collisionMask ?? game.collisionLayers.mask(options.collidesWith)
     });
     body.isSensor = options.isSensor ?? false;
     // Projectiles are the fast movers; CCD stops them tunneling through thin

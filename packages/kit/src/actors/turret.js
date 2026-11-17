@@ -2,7 +2,6 @@ import { Entity } from 'm2d-engine/core/entity.js';
 import { Health } from 'm2d-engine/constraints/health.js';
 import { ContactDamage } from 'm2d-engine/constraints/contactDamage.js';
 import { Rocket } from './rocket.js';
-import { CollisionCategories } from 'm2d-engine/core/constants.js';
 import { Vec2 } from 'm2d-engine/core/math.js';
 import { s } from 'm2d-engine/core/schema.js';
 
@@ -19,7 +18,6 @@ export class Turret extends Entity {
   };
 
   constructor(body, sprite, game, options = {}) {
-    body.setCollisionFilter({ category: CollisionCategories.enemy });
     body.bodyType = 'static';
     super(body, sprite, game);
     // The rockets it fires are spawned by name, on a server and on its clients alike.
@@ -131,6 +129,11 @@ export class Turret extends Entity {
     this.game.spawn({
       type: 'Rocket', x: spawnPos.x, y: spawnPos.y, width: 24, height: 8,
       physics: { friction: 0, frictionAir: 0, restitution: 0, density: 0.001 },
+      // Rockets ignore the turret's own layer — other turrets, its mobs —
+      // computed from its membership bit, so the kit names no layer. On the
+      // unset first layer (bit 1) nothing is excluded: that layer is also
+      // the walls'.
+      collisionMask: (this.body.collisionFilter.category & ~1) ? 0xFFFF & ~this.body.collisionFilter.category : 0xFFFF,
       options: {
         speed: this.rocketSpeed,
         damage: this.rocketDamage,

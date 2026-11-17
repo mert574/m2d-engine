@@ -10,7 +10,6 @@ import { Hover } from '../../src/constraints/hover.js';
 import { Collectable } from '../../src/constraints/collectable.js';
 import { PathFollow } from '../../src/constraints/pathFollow.js';
 import { ProximityPrompt } from '../../src/constraints/proximityPrompt.js';
-import { CollisionCategories } from '../../src/core/constants.js';
 import { Vec2 } from '../../src/core/math.js';
 import { s } from '../../src/core/schema.js';
 
@@ -85,7 +84,6 @@ export class ObliquePlayer extends TopDownPlayer {
 export class Ghost extends Entity {
   name = 'Ghost';
   constructor(body, sprite, game, options = {}) {
-    body.setCollisionFilter({ category: CollisionCategories.enemy });
     super(body, sprite, game);
     this.addConstraint('damageFlash', new DamageFlash(this));
     this.addConstraint('health', new Health(this, { maxHealth: 100, invulnerableDuration: 0.5, whenDead: 'remove' }));
@@ -116,7 +114,6 @@ export class Rocket extends Projectile {
 export class Turret extends Entity {
   name = 'Turret';
   constructor(body, sprite, game, options = {}) {
-    body.setCollisionFilter({ category: CollisionCategories.enemy });
     super(body, sprite, game);
     this.detectionRange = options.detectionRange || 350;
     this.fireRate = options.fireRate || 2;

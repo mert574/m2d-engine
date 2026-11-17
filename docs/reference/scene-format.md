@@ -216,8 +216,8 @@ A map from prefab name to prefab.
 | `restitution` | number | `0` |
 | `lockRotation` | boolean | `false` |
 | `isSensor` | boolean | `false` |
-| `category` | A collision category: a `CollisionCategories` name (`player`, `enemy`, `platform`, `movingPlatform`, `coin`, `trigger`, `projectile`) or a bit | `"default"` |
-| `mask` | What the body collides with: a list of category names, or a bit mask | everything |
+| `layer` | One of the project's [collision layers](../guide/entities#collision-layers), or `"none"` to collide with nothing. The first declared layer when unset | first layer |
+| `collidesWith` | Layers this body collides with, as names. Nothing when empty | every layer |
 | `angle` | number, radians. An object's own `angle` overrides it | `0` |
 | `density` | number greater than 0. Mass is density times area | the engine default |
 | `mass` | number greater than 0. The body's absolute mass (kg in 3D), instead of the one derived from `density` and size | derived |

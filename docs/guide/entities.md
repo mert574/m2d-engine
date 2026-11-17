@@ -198,7 +198,7 @@ export class Arrow extends Projectile {
 | `targetNames` | `['Player']` | Entity names that count as hits |
 | `destroyOnEntityHit` | `true` | Remove on hitting a target |
 | `destroyOnWallHit` | `true` | Remove on hitting a static or kinematic body or a `Platform` |
-| `collisionMask` | player and default categories | Which collision categories the body collides with |
+| `layer`, `collidesWith` | every layer | The projectile's collision layer and what it collides with, as the project names them; `collisionMask` takes raw bits instead |
 | `isSensor` | `false` | Pass through other bodies while still reporting contacts |
 
 Override `onHitTarget(entity)` to change what a hit does and `onHitWall(wall)` to react to scenery.
@@ -331,24 +331,19 @@ const target = { x: x + this.game.rng.range(-50, 50), y };
 if (this.game.rng.chance(0.2)) this.taunt();
 ```
 
-## Collision categories
+## Collision layers
 
-Bodies carry a category bit and a mask of categories they collide with. The defaults are in `CollisionCategories` from `m2d-engine/core/constants.js`.
+Who collides with whom is the game's to say, in its own words. `m2d.project.json` declares `layers`, an ordered list of up to sixteen names; a prefab's physics says which `layer` it stands on (the first declared when unset) and which layers it `collidesWith` (every layer when unset, none when the list is empty). Two bodies collide when each one's layer is in the other's `collidesWith`. The engine knows exactly one layer of its own: `none`, which collides with nothing — scenery actors, markers, noclip.
 
-| Category | Value | Used by |
-| --- | --- | --- |
-| `default` | `0x0001` | Bodies that set no category, including `Platform` |
-| `player` | `0x0002` | |
-| `platform` | `0x0004` | |
-| `movingPlatform` | `0x0008` | |
-| `enemy` | `0x0010` | The kit's `Ghost`, `Bee` and `Turret` |
-| `coin` | `0x0020` | |
-| `trigger` | `0x0040` | |
-| `projectile` | `0x0080` | `Projectile` |
-
-```javascript
-body.setCollisionFilter({ category: CollisionCategories.enemy, mask: 0xFFFF });
+```json
+"layers": ["world", "player", "enemy", "shot"]
 ```
+
+```json
+"guard": { "actor": "Prop", "physics": { "layer": "enemy", "collidesWith": ["world", "player"] } }
+```
+
+A scene naming a layer the project does not declare is refused at load, naming the project file. Underneath, a layer is a membership bit and `collidesWith` a filter mask; `game.collisionLayers.bit(name)` and `.mask(names)` resolve them for code, and `body.setCollisionFilter({ category, mask })` takes the raw bits.
 
 A projectile that should hit walls must include `default` in its mask, since `Platform` does not set a category.
 

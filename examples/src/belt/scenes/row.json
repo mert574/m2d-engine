@@ -299,7 +299,7 @@
       "actor": "ObliquePlayer",
       "spritesheet": "rogue",
       "defaultAnimation": "idle_right",
-      "physics": { "bodyType": "character", "shape": "circle", "frictionAir": 0.2 }
+      "physics": { "bodyType": "character", "shape": "circle", "layer": "player", "frictionAir": 0.2 }
     },
     "lamp": { "actor": "Lamp", "physics": { "bodyType": "static", "shape": "circle" } },
     "street": { "actor": "Street", "physics": { "bodyType": "static", "isSensor": true } },

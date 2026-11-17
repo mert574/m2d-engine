@@ -116,6 +116,7 @@
       "physics": {
         "bodyType": "dynamic",
         "shape": "circle",
+        "layer": "ship",
         "friction": 0.1,
         "frictionAir": 0,
         "restitution": 0.4
@@ -124,12 +125,24 @@
     "droneRed": {
       "actor": "Drone",
       "spritesheet": "droneRed",
-      "physics": { "bodyType": "dynamic", "shape": "circle", "lockRotation": true, "frictionAir": 0.3 }
+      "physics": {
+        "bodyType": "dynamic",
+        "shape": "circle",
+        "lockRotation": true,
+        "layer": "raider",
+        "frictionAir": 0.3
+      }
     },
     "droneBlack": {
       "actor": "Drone",
       "spritesheet": "droneBlack",
-      "physics": { "bodyType": "dynamic", "shape": "circle", "lockRotation": true, "frictionAir": 0.3 }
+      "physics": {
+        "bodyType": "dynamic",
+        "shape": "circle",
+        "lockRotation": true,
+        "layer": "raider",
+        "frictionAir": 0.3
+      }
     },
     "salvage": {
       "actor": "Salvage",

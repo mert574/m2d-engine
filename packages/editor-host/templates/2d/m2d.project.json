@@ -1,4 +1,5 @@
 {
+  "layers": ["world", "enemy"],
   "name": "My 2D Game",
   "definition": "game.js",
   "initialScene": "menu",

@@ -1,4 +1,5 @@
 {
+  "layers": ["row", "player"],
   "name": "Ash Row",
   "definition": "game.js",
   "initialScene": "mainMenu",

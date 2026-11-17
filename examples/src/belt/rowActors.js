@@ -3,7 +3,6 @@ import { Entity } from 'm2d-engine/core/entity.js';
 import { Ghost, ObliquePlayer, Platform } from 'm2d-kit/actors';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { Attack } from 'm2d-engine/constraints/attack.js';
-import { CollisionCategories } from 'm2d-engine/core/constants.js';
 import { drawGroundShadow, shadowForLift } from 'm2d-engine/core/renderers/shadows.js';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 
@@ -79,7 +78,7 @@ export class Thug extends Ghost {
     this.constraints.delete('contactDamage');
     this.addConstraint('strike', new Attack(this, {
       damage: 14, range: 95, arc: Math.PI * 0.9, cooldown: 100, knockback: 3000,
-      targetCategory: CollisionCategories.player
+      targets: ['player']
     }));
     /** The windup: seconds of raised arms before the strike lands. */
     this.windup = 0;
@@ -208,9 +207,6 @@ export class Rogue extends ObliquePlayer {
   constructor(body, sprite, game, options = {}) {
     // The rogue's defaults, under whatever the scene sets: a declared property typed in the inspector must win.
     super(body, sprite, game, { attackRange: 80, attackArc: Math.PI * 0.9, jumpSpeed: 520, gravity: 1700, ...options });
-    // The thugs' strikes target the player category; without this the
-    // rogue sits in the default one and their blows pass through.
-    body.setCollisionFilter({ category: CollisionCategories.player });
     this.heading = 0;
     const control = this.getConstraint('control');
     control.maxSpeed = 230;

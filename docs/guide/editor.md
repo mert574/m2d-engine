@@ -45,6 +45,7 @@ A project is a folder with an `m2d.project.json`.
 | `input.actions` | none | Named input actions to the key codes that perform them. Rules fire on them and the settings menu rebinds them. See [Named actions](./input#named-actions) |
 | `input.gamepad` | the arcade defaults | What each gamepad control stands for, as a key code: `{ "Y": "Enter" }`. See [Gamepad](./input#gamepad) |
 | `choices` | none | What a player picks on a screen and keeps, each `{ values, initial }`: `{ "car": { "values": ["sprint", "balanced", "drift"], "initial": "balanced" } }`. A UI line records one with `set`, it is remembered between sessions and the simulation reads it as `player.state.car`. Online the server decides what the state holds (see [Multiplayer](./multiplayer#what-is-sent)) |
+| `layers` | none | Collision layers by name, in bit order; a prefab's physics names its `layer` and what it `collidesWith`. See [Collision layers](./entities#collision-layers) |
 | `settings` | `true` | Mount the settings menu (O). `{ "pauseWhenOpen": true }` also holds the game still while it is up, which a race or a timed level wants; `false` leaves it out |
 | `music` | none | Tracks by key, `{ url, volume }`, loaded at boot for screens that are not scenes |
 | `quality` | none | Texture and model levels the game's models are built at, offered as settings. See [Texture and model quality](./display#texture-and-model-quality) |

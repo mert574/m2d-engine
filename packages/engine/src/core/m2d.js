@@ -1,18 +1,7 @@
 import { createPhysicsWorld } from './physics/index.js';
 import { Registry, BUILTIN_ACTORS, BUILTIN_CONSTRAINTS } from './builtins.js';
 
-/** A prefab's `category` or `mask` as bits: a name or a list of names from CollisionCategories, or a number. */
-function categoryBits(value) {
-  if (typeof value === 'number') return value;
-  const names = Array.isArray(value) ? value : [value];
-  let bits = 0;
-  for (const name of names) {
-    const bit = CollisionCategories[name];
-    if (bit === undefined) throw new Error(`M2D: unknown collision category '${name}' (known: ${Object.keys(CollisionCategories).join(', ')})`);
-    bits |= bit;
-  }
-  return bits;
-}
+import { CollisionLayers } from './collisionLayers.js';
 import { Time } from './time.js';
 import { Rng } from './rng.js';
 import { InputManager } from './input/index.js';
@@ -20,7 +9,6 @@ import { InputActions } from './input/actions.js';
 import { Choices } from './choices.js';
 import { LayerManager } from './layerManager.js';
 import { AssetDatabase } from './assets.js';
-import { CollisionCategories } from './constants.js';
 import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.js';
 import { Camera3D } from './camera3d.js';
@@ -503,7 +491,11 @@ export class M2D {
       interpolate: this.options.interpolatePhysics,
       dimensions: this.options.dimensions ?? 2
     });
-    this.collisionCategories = CollisionCategories;
+    /**
+     * The project's collision layers (the `layers` option), name to bit;
+     * `none` is the engine's own and is 0. See core/collisionLayers.js.
+     */
+    this.collisionLayers = new CollisionLayers(this.options.layers ?? []);
 
     this.entities = new Set();
     this.player = null;
@@ -1377,8 +1369,8 @@ export class M2D {
       restitution: physics.restitution || 0,
       ...(physics.density !== undefined && { density: physics.density }),
       ...(physics.mass !== undefined && { mass: physics.mass }),
-      ...(physics.category !== undefined && { category: categoryBits(physics.category) }),
-      ...(physics.mask !== undefined && { mask: categoryBits(physics.mask) })
+      ...(physics.layer !== undefined && { category: this.collisionLayers.bit(physics.layer) }),
+      ...(physics.collidesWith !== undefined && { mask: this.collisionLayers.mask(physics.collidesWith) })
     };
     // A footprint splits the collider from the drawn frame: the body is a
     // short box at the bottom of the object (the feet) and the sprite stands

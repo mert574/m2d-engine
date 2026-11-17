@@ -1,6 +1,5 @@
 import { Constraint } from '../core/constraint.js';
 import { s } from '../core/schema.js';
-import { CollisionCategories } from '../core/constants.js';
 import { Angle } from '../core/math.js';
 
 /**
@@ -37,9 +36,10 @@ const KNOCKBACK_IMPULSE = { x: 8335, y: -4997 };
  *   every swing; the window is what makes mashing into a rhythm
  * @param {number} [options.comboWindow=0.8] - Seconds after a swing ends
  *   in which the next one chains
- * @param {number} [options.targetCategory] - Collision category the swing
- *   hits; defaults to enemies. An enemy swinging at the player passes
- *   `CollisionCategories.player`
+ * @param {string[]} [options.targets] - Collision layers the swing hits.
+ *   Unset, it hits anything with `Health` that is not a player's avatar —
+ *   a swing at the monsters that never lands on another player. An enemy
+ *   swinging at the players names their layer
  * @param {Function} [options.onStart] - Called on every swing with the step index
  * @param {Function} [options.onHit] - `(entity, step)` for every target a
  *   swing lands on, after damage and knockback; a launcher pops the
@@ -54,7 +54,7 @@ export class Attack extends Constraint {
     arc: s.number({ initial: Math.PI, min: 0, unit: 'rad' }),
     knockback: s.number({ min: 0, unit: 'px/s' }),
     comboWindow: s.number({ initial: 0.8, min: 0, unit: 's' }),
-    targetCategory: s.number({ label: 'Target category', description: 'A CollisionCategories bit' })
+    targets: s.array(s.ref('layer'), { label: 'Targets', description: "Layers the swing hits; unset, anything with Health that is not a player's avatar" })
     // `combo` steps may carry their own callbacks, so they stay code.
   };
 
@@ -73,7 +73,7 @@ export class Attack extends Constraint {
     this.arc = options.arc ?? Math.PI;
     this.knockback = options.knockback;
     this.combo = options.combo ?? null;
-    this.targetCategory = options.targetCategory ?? CollisionCategories.enemy;
+    this.targets = options.targets ?? null;
     this.comboWindow = options.comboWindow ?? 0.8;
     this.onStart = options.onStart;
     this.onHit = options.onHit;
@@ -126,9 +126,13 @@ export class Attack extends Constraint {
     // attacker every frame, which also meant every enemy in range collected
     // collision callbacks from an invisible circle.
     const position = this.entity.position;
-    const hits = this.entity.game.physics.overlaps(
+    const game = this.entity.game;
+    const mask = this.targets ? game.collisionLayers.mask(this.targets) : null;
+    const hits = game.physics.overlaps(
       { x: position.x, y: position.y, radius: this.range },
-      (body) => body.collisionFilter.category === this.targetCategory
+      (body) => (mask === null
+        ? Boolean(body.entity?.getConstraint?.('health')) && !game.players.isAvatar(body.entity)
+        : (body.collisionFilter.category & mask) !== 0)
     );
 
     for (const body of hits) {

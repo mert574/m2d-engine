@@ -40,7 +40,7 @@ const level = () => ({
 });
 
 async function make() {
-  const game = new M2D(null, { headless: true, worldWidth: 800, worldHeight: 400, seed: 3 });
+  const game = new M2D(null, { headless: true, worldWidth: 800, worldHeight: 400, seed: 3, layers: ['world', 'enemy'] }); // the mob template stands on 'enemy'
   registerKitActors(game);
   game.registerActor('Player', Player);
   game.registerActor('Prop', Prop);

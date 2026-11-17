@@ -3,7 +3,6 @@ import { Health } from 'm2d-engine/constraints/health.js';
 import { ContactDamage } from 'm2d-engine/constraints/contactDamage.js';
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { DamageFlash } from 'm2d-engine/constraints/damageFlash.js';
-import { CollisionCategories } from 'm2d-engine/core/constants.js';
 
 /**
  * A floating enemy that drifts toward the player: `Health` (100, half a
@@ -16,7 +15,6 @@ export class Ghost extends Entity {
   name = 'Ghost';
 
   constructor(body, sprite, game, options = {}) {
-    body.setCollisionFilter({ category: CollisionCategories.enemy });
     super(body, sprite, game);
 
     this.setAnimation('idle');

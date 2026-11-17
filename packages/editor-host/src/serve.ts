@@ -182,7 +182,7 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
     const declared = await companion.project.config();
     await loaded.physics.initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
     // Booted as the page boots it: the project's actions and choices are what its scenes may name.
-    const made = new loaded.engine.M2D(null, { ...options, actions: declared.actions, choices: declared.choices, headless: true });
+    const made = new loaded.engine.M2D(null, { ...options, actions: declared.actions, choices: declared.choices, layers: (declared as { layers?: string[] }).layers, headless: true });
     loaded.definition.register?.(made);
     // The project's scenes as the session holds them: cross-scene refs (a
     // button's onClick, a rule's switch) check as registered, and a level

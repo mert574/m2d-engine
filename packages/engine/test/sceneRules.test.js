@@ -11,7 +11,7 @@ import { Coin } from './helpers/cast.js';
 
 /**
  * `world.rules`, `hud`, `world.cycle`, `world.killPlane`, a 2D `light`
- * and `physics.category`: the parts of a level that used to live only in
+ * and `physics.layer`: the parts of a level that used to live only in
  * hooks and actors, as scene data the engine runs.
  */
 
@@ -37,8 +37,8 @@ function level(world = {}, extra = {}) {
     version: SCENE_VERSION, type: 'level', name: 'rules',
     world: { width: 400, height: 300, gravity: { x: 0, y: 0 }, player: 'hero', ...world },
     prefabs: {
-      hero: { actor: 'Hero', physics: { bodyType: 'dynamic', category: 'player', mask: ['default', 'coin', 'trigger'] } },
-      coin: { actor: 'Coin', physics: { bodyType: 'static', isSensor: true, category: 'coin' } },
+      hero: { actor: 'Hero', physics: { bodyType: 'dynamic', layer: 'player', collidesWith: ['world', 'coin', 'trigger'] } },
+      coin: { actor: 'Coin', physics: { bodyType: 'static', isSensor: true, layer: 'coin' } },
       gate: { actor: 'Gate', physics: { bodyType: 'static', isSensor: true } },
       lamp: { actor: 'Entity', physics: { bodyType: 'static' }, light: { type: 'point', color: '#ffc877', range: 120, intensity: 0.8, offset: { x: 0, y: -10 } } }
     },
@@ -56,7 +56,7 @@ async function make(scene, { headless = true, editMode = false } = {}) {
   const renderer = headless ? undefined : new RecordingRenderer();
   const game = new M2D(headless ? null : displayCanvas(320, 180), {
     ...(headless ? { headless: true } : { width: 320, height: 180, renderer, devConsole: false, performanceStats: false }),
-    worldWidth: 400, worldHeight: 300, seed: 1, editMode
+    worldWidth: 400, worldHeight: 300, seed: 1, layers: ['world', 'player', 'coin', 'trigger'], editMode
   });
   game.registerActor('Hero', Hero);
   game.registerActor('Coin', Coin);
@@ -250,16 +250,16 @@ describe('the HUD', () => {
   });
 });
 
-describe('a 2D light block and collision categories', () => {
-  it('draws the prefab\'s light at the body each frame, and files the body in its category', async () => {
+describe('a 2D light block and collision layers', () => {
+  it('draws the prefab\'s light at the body each frame, and files the body on its layer', async () => {
     const { game, renderer, scene } = await make(level(), { headless: false });
     const light = vi.spyOn(renderer, 'drawLight');
     scene.drawWorld(1 / 60);
     expect(light).toHaveBeenCalledWith(expect.objectContaining({ x: 100, y: 190, radius: 120, color: '#ffc877', intensity: 0.8 }));
     const hero = scene.entitiesById.get('hero');
-    expect(hero.body.collisionFilter.category).toBe(0x0002);
-    expect(hero.body.collisionFilter.mask).toBe(0x0001 | 0x0020 | 0x0040);
-    expect(scene.entitiesById.get('coin-1').body.collisionFilter.category).toBe(0x0020);
+    expect(hero.body.collisionFilter.category).toBe(0x0002); // 'player', the second declared layer
+    expect(hero.body.collisionFilter.mask).toBe(0x0001 | 0x0004 | 0x0008); // world, coin, trigger
+    expect(scene.entitiesById.get('coin-1').body.collisionFilter.category).toBe(0x0004);
     game.destroy();
   });
 });

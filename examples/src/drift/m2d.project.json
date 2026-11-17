@@ -1,4 +1,5 @@
 {
+  "layers": ["field", "ship", "raider", "shot"],
   "name": "Salvage Run",
   "definition": "game.js",
   "initialScene": "mainMenu",

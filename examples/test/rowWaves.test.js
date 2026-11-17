@@ -18,7 +18,7 @@ beforeAll(async () => {
 });
 
 async function row() {
-  const game = new M2D(null, { headless: true, seed: 5 });
+  const game = new M2D(null, { headless: true, seed: 5, layers: ['row', 'player'] }); // as m2d.project.json declares
   register(game);
   game.sceneManager.addScene('row', { fetch: async () => ROW });
   game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: ROW.version, type: 'level', name: 'mainMenu', prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });

@@ -240,7 +240,7 @@ describe('schema', () => {
     });
 
     it('reports every ref scope a format reaches, for an editor\'s pickers', () => {
-      expect(refScopesOf(LEVEL_SCHEMA).sort()).toEqual(['actor', 'asset', 'choice', 'constraint', 'environment', 'image', 'model', 'prefab', 'scene', 'spritesheet', 'uiComponent']);
+      expect(refScopesOf(LEVEL_SCHEMA).sort()).toEqual(['actor', 'asset', 'choice', 'constraint', 'environment', 'image', 'layer', 'model', 'prefab', 'scene', 'spritesheet', 'uiComponent']);
       expect(refScopesOf(UI_SCHEMA).sort()).toEqual(['asset', 'backdropLayer', 'choice', 'image', 'scene', 'uiComponent']);
     });
 

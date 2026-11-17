@@ -73,6 +73,10 @@ export const PROJECT_SCHEMA = s.object({
       label: 'Gamepad', description: 'Gamepad control (A, B, X, Y, LB, RB, LT, RT, Back, Start, Up, Down, Left, Right, LeftStickUp…) to the key code it stands for, over the defaults; an empty string for nothing'
     })
   }, { label: 'Input' }),
+  layers: s.array(s.string({ nonEmpty: true }), {
+    label: 'Collision layers', maxLength: 16,
+    description: "Collision layers by name, in bit order: a prefab's physics says its layer and what it collidesWith; 'none' is the engine's own and collides with nothing"
+  }),
   settings: s.union([
     s.boolean({ match: (value) => typeof value === 'boolean' }),
     s.object({

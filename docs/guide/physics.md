@@ -104,7 +104,7 @@ const canSee = blockers.length === 0;
 
 // Melee reach: everything within 40 px, as a one-shot question.
 const hits = game.physics.overlaps({ x: pos.x, y: pos.y, radius: 40 },
-  (body) => body.collisionFilter.category === CollisionCategories.enemy);
+  (body) => (body.collisionFilter.category & game.collisionLayers.bit('enemy')) !== 0);
 ```
 
 Queries see a body as soon as it is added or moved, without waiting for a step. The character controller does not, so a body spawned on top of a character is missed for one step.

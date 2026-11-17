@@ -42,7 +42,7 @@ export const PREFAB_TEMPLATES = {
     dimensions: 2,
     prefab: {
       actor: 'Prop',
-      physics: { bodyType: 'dynamic', lockRotation: true, frictionAir: 0.05, category: 'enemy' },
+      physics: { bodyType: 'dynamic', lockRotation: true, frictionAir: 0.05, layer: 'enemy' },
       properties: { color: '#b0455a' },
       constraints: {
         health: { type: 'Health', params: { maxHealth: 60, invulnerableDuration: 0.5, whenDead: 'remove' } },

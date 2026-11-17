@@ -33,7 +33,7 @@ function level(world = {}, extra = {}) {
     world: { width: 400, height: 300, gravity: { x: 0, y: 0 }, player: 'hero', ...world },
     prefabs: {
       hero: { actor: 'Hero', physics: { bodyType: 'dynamic' } },
-      coin: { actor: 'Coin', physics: { bodyType: 'static', isSensor: true, category: 'coin' } },
+      coin: { actor: 'Coin', physics: { bodyType: 'static', isSensor: true } },
       gate: { actor: 'Gate', physics: { bodyType: 'static' } }
     },
     layers: [{ name: 'main', objects: [

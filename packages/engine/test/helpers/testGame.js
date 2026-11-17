@@ -11,6 +11,7 @@ import { createTheme } from '../../src/core/ui/theme.js';
 import { ScreenStack } from '../../src/core/ui/screenStack.js';
 import { MotionManager } from '../../src/core/ui/motion.js';
 import { CVarRegistry } from '../../src/core/console/cvars.js';
+import { CollisionLayers } from '../../src/core/collisionLayers.js';
 import { CommandRegistry } from '../../src/core/console/commands.js';
 import { Time } from '../../src/core/time.js';
 import { Rng } from '../../src/core/rng.js';
@@ -35,8 +36,11 @@ export function makeTestGame(options = {}) {
     time: new Time({ maxDelta: Infinity, maxSubSteps: Infinity }),
     rng: new Rng(1),
     physics: null,
+    // No layers declared, as a game that declares none: one implicit layer.
+    collisionLayers: new CollisionLayers([]),
     entities: new Set(),
     player: null,
+    players: { isAvatar: (entity) => Boolean(entity) && entity === game.player, nearestAvatar: () => game.player ?? null },
     // No event target and no bounding rect: the input system attaches
     // nothing here and tests drive it through `game.input.push` instead
     // (see helpers/input.js).

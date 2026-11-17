@@ -68,7 +68,7 @@ The players, the platform, the turret and the NPC came out of the engine with th
 
 ### Turret
 
-`m2d-kit/actors`. Name `Turret`. A stationary enemy that aims at the player, checks line of sight with a raycast against static bodies and fires `Rocket` projectiles.
+`m2d-kit/actors`. Name `Turret`. A stationary enemy that aims at the player, checks line of sight with a raycast against static bodies and fires `Rocket` projectiles. Its rockets ignore the turret's own collision layer (other turrets, its mobs) unless it stands on the unset first layer, which is also the walls'.
 
 - Sets its body to `static` and its category to `enemy`.
 - Draws itself with primitives. No sprite needed.
@@ -81,7 +81,7 @@ The players, the platform, the turret and the NPC came out of the engine with th
 
 Defaults: speed 480, damage 25, lifetime 6 s; it hurts the players' avatars unless `targetNames` says otherwise. Every `Projectile` option can be passed.
 
-**Prefab templates.** `PREFAB_TEMPLATES` holds ready-made `prefabs` entries — `mob` (chases, hurts, flashes, dies and is gone) and `pickup` (bobs, is collected, counts) — composed over the engine's `Prop` with no class at all, art-free so they play the moment they land. `registerKitActors` offers them through the engine's `registerPrefabTemplate`; the editor's Components tab shows each as a card whose **Insert** copies it into the scene's own `prefabs`, and `list_components` hands an agent the same entry to copy in with `edit_scene`.
+**Prefab templates.** `PREFAB_TEMPLATES` holds ready-made `prefabs` entries — `mob` (chases, hurts, flashes, dies and is gone; it stands on an `enemy` collision layer the project declares) and `pickup` (bobs, is collected, counts) — composed over the engine's `Prop` with no class at all, art-free so they play the moment they land. `registerKitActors` offers them through the engine's `registerPrefabTemplate`; the editor's Components tab shows each as a card whose **Insert** copies it into the scene's own `prefabs`, and `list_components` hands an agent the same entry to copy in with `edit_scene`.
 
 ## `m2d-kit/controls`
 

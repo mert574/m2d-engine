@@ -676,14 +676,8 @@ const PHYSICS = s.object({
   angle: s.number({ unit: 'rad' }),
   lockRotation: s.boolean(),
   isSensor: s.boolean(),
-  category: s.union([
-    s.string({ match: value => typeof value === 'string' }),
-    s.integer({ min: 1, match: value => typeof value === 'number' })
-  ], { label: 'Collision category', description: 'A CollisionCategories name (player, enemy, platform, …) or a bit', message: 'must be a category name or a bit' }),
-  mask: s.union([
-    s.integer({ min: 0, match: value => typeof value === 'number' }),
-    s.array(s.string(), { match: value => Array.isArray(value) })
-  ], { label: 'Collides with', description: 'Category names this body collides with, or a bit mask; everything when unset', message: 'must be a list of category names or a bit mask' }),
+  layer: s.ref('layer', { label: 'Layer', description: "One of the project's collision layers (m2d.project.json), or 'none' to collide with nothing; the first declared when unset" }),
+  collidesWith: s.array(s.ref('layer'), { label: 'Collides with', description: 'Layers this body collides with; every layer when unset, nothing when empty' }),
   friction: s.number({ min: 0 }),
   frictionAir: s.number({ min: 0 }),
   restitution: s.number({ min: 0 }),

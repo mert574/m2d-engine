@@ -1,4 +1,5 @@
 {
+  "layers": ["facility", "enemy"],
   "name": "The Facility",
   "definition": "game.js",
   "initialScene": "mainMenu",

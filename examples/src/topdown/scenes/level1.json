@@ -110,10 +110,16 @@
     "coin": { "actor": "Coin", "physics": { "bodyType": "static", "isSensor": true } },
     "ghost": {
       "actor": "Ghost",
-      "physics": { "bodyType": "dynamic", "lockRotation": true, "friction": 0.1, "frictionAir": 0.2 }
+      "physics": {
+        "bodyType": "dynamic",
+        "lockRotation": true,
+        "layer": "enemy",
+        "friction": 0.1,
+        "frictionAir": 0.2
+      }
     },
     "trigger": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
-    "turret": { "actor": "Turret", "physics": { "bodyType": "static" } },
+    "turret": { "actor": "Turret", "physics": { "bodyType": "static", "layer": "enemy" } },
     "floorMarks": { "actor": "FloorMarks", "physics": { "bodyType": "static", "isSensor": true } },
     "lamp": {
       "actor": "CeilingLamp",

@@ -16,7 +16,7 @@ beforeAll(async () => {
 });
 
 async function field() {
-  const game = new M2D(null, { headless: true, seed: 7 });
+  const game = new M2D(null, { headless: true, seed: 7, layers: ['field', 'ship', 'raider', 'shot'] });
   register(game);
   game.sceneManager.addScene('field', { fetch: async () => FIELD });
   game.sceneManager.addScene('mainMenu', { fetch: async () => ({ version: FIELD.version, type: 'level', name: 'mainMenu', prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });
