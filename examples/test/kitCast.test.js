@@ -10,7 +10,7 @@ import { PREFAB_TEMPLATES, registerKitActors } from 'm2d-kit/actors';
  * The kit's prefab templates, played: a scene that takes the `mob` and
  * `pickup` fragments verbatim gets a chaser that dies and is gone, and a
  * pickup that counts, raises `picked` and satisfies a `collected` rule —
- * composition over the engine's constraints, no class written.
+ * composition over the engine's capabilities, no class written.
  */
 
 beforeAll(async () => {
@@ -29,7 +29,7 @@ const level = () => ({
     mob: structuredClone(PREFAB_TEMPLATES.mob.prefab),
     pickup: { ...structuredClone(PREFAB_TEMPLATES.pickup.prefab), constraints: {
       ...structuredClone(PREFAB_TEMPLATES.pickup.prefab.constraints),
-      pickup: { type: 'Pickup', params: { counter: 'loot' } }
+      collectable: { type: 'Collectable', params: { counter: 'loot' } }
     } }
   },
   layers: [{ name: 'main', objects: [

@@ -23,6 +23,7 @@ import { Abilities } from '../constraints/abilities.js';
 import { Attack } from '../constraints/attack.js';
 import { CarControl } from '../constraints/carControl.js';
 import { Chase } from '../constraints/chase.js';
+import { Collectable } from '../constraints/collectable.js';
 import { ContactDamage } from '../constraints/contactDamage.js';
 import { DamageFlash } from '../constraints/damageFlash.js';
 import { Debug } from '../constraints/debug.js';
@@ -46,7 +47,7 @@ export const BUILTIN_ACTORS = new Map(Object.entries({
 
 /** The engine's constraints, by the name a scene uses. */
 export const BUILTIN_CONSTRAINTS = new Map(Object.entries({
-  Abilities, Attack, CarControl, Chase, ContactDamage, DamageFlash, Debug, Footsteps, GlideControl, Grabbable, Health,
+  Abilities, Attack, CarControl, Chase, Collectable, ContactDamage, DamageFlash, Debug, Footsteps, GlideControl, Grabbable, Health,
   Hover, Interactive, KeyboardControl, PathFollow, PointerMove, ProximityPrompt, ThrustControl, WallSlip
 }));
 
@@ -60,7 +61,7 @@ export const BUILTIN_MODULES = new Map(Object.entries({
   Prop: 'actors/prop.js', Rocket: 'actors/rocket.js', TopDownPlayer: 'actors/topDownPlayer.js', Trigger: 'actors/trigger.js',
   Turret: 'actors/turret.js',
   Abilities: 'constraints/abilities.js', Attack: 'constraints/attack.js', CarControl: 'constraints/carControl.js',
-  Chase: 'constraints/chase.js', ContactDamage: 'constraints/contactDamage.js', DamageFlash: 'constraints/damageFlash.js',
+  Chase: 'constraints/chase.js', Collectable: 'constraints/collectable.js', ContactDamage: 'constraints/contactDamage.js', DamageFlash: 'constraints/damageFlash.js',
   Debug: 'constraints/debug.js', Footsteps: 'constraints/footsteps.js', GlideControl: 'constraints/glideControl.js',
   Grabbable: 'constraints/grabbable.js', Health: 'constraints/health.js', Hover: 'constraints/hover.js',
   Interactive: 'constraints/interactive.js', KeyboardControl: 'constraints/keyboardControl.js',

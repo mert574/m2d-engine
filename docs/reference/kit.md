@@ -15,17 +15,16 @@ What belongs in the kit is decided by one test, kept in `knowledge-base/projects
 
 ## `m2d-kit/actors`
 
-The stock gameplay cast, each a composition of the engine's constraints, and what the demos extend — a street thug is a `Ghost` from a Flare sheet, a glowing ember a `Coin`. `registerKitActors(game)` registers all of it, plus the prefab templates below.
+The stock gameplay cast, each a composition of the engine's capabilities, and what the demos extend — a street thug is a `Ghost` from a Flare sheet, a glowing ember a `Coin`. The engine names what a thing does (`Collectable`, `Chase`, `PathFollow`); the kit names what it is in a game. `registerKitActors(game)` registers the cast, plus the prefab templates below.
 
 | Export | Is |
 | --- | --- |
 | `Ghost` | A floating enemy that drifts toward the player: `Health` (100, half a second invulnerable, `whenDead: 'remove'`), `ContactDamage` (33, 480 px/s knockback), `Chase` (60 px/s, 36 idle, 400 range), `DamageFlash`. A scene retunes any of them by slot. Expects a `dynamic` body; sets the `enemy` category; plays the `damage` sound on a hit, wherever it was simulated |
 | `Bee` | A `Ghost` that knocks harder: 720 px/s |
-| `Coin` | A pickup collected on an avatar's touch, bobbing on `Hover`. Expects a `static` sensor |
+| `Coin` | A pickup: `Hover` bobs it, the engine's [`Collectable`](./constraints#collectable) takes it on an avatar's touch. Expects a `static` sensor |
 | `MovingPlatform` | A kinematic platform patrolling `properties.path` with [`PathFollow`](./constraints#pathfollow); friction 1, so riders are carried |
-| `Pickup` | The same collection as a **constraint**, for any actor: on an avatar's touch the entity leaves the world, `counter` (a `world.counters` name) goes up by one and the world event `picked` is raised — a rule answers it (`{ "when": { "event": "emit", "name": "picked" }, "then": [{ "do": "sound", ... }] }`) |
 
-**Prefab templates.** `PREFAB_TEMPLATES` holds ready-made `prefabs` entries — `mob` (chases, hurts, flashes, dies and is gone) and `pickup` (bobs, collects, counts) — composed over the engine's `Prop` with no class at all, art-free so they play the moment they land. `registerKitActors` offers them through the engine's `registerPrefabTemplate`; the editor's Components tab shows each as a card whose **Insert** copies it into the scene's own `prefabs`, and `list_components` hands an agent the same entry to copy in with `edit_scene`.
+**Prefab templates.** `PREFAB_TEMPLATES` holds ready-made `prefabs` entries — `mob` (chases, hurts, flashes, dies and is gone) and `pickup` (bobs, is collected, counts) — composed over the engine's `Prop` with no class at all, art-free so they play the moment they land. `registerKitActors` offers them through the engine's `registerPrefabTemplate`; the editor's Components tab shows each as a card whose **Insert** copies it into the scene's own `prefabs`, and `list_components` hands an agent the same entry to copy in with `edit_scene`.
 
 ## `m2d-kit/effects`
 

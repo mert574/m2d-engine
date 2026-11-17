@@ -1,22 +1,22 @@
 import { Entity } from 'm2d-engine/core/entity.js';
-import { Constraint } from 'm2d-engine/core/constraint.js';
 import { Health } from 'm2d-engine/constraints/health.js';
 import { ContactDamage } from 'm2d-engine/constraints/contactDamage.js';
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { DamageFlash } from 'm2d-engine/constraints/damageFlash.js';
 import { Hover } from 'm2d-engine/constraints/hover.js';
+import { Collectable } from 'm2d-engine/constraints/collectable.js';
 import { PathFollow } from 'm2d-engine/constraints/pathFollow.js';
 import { CollisionCategories } from 'm2d-engine/core/constants.js';
 import { s } from 'm2d-engine/core/schema.js';
 
 /**
  * The stock cast: gameplay actors that are compositions of the engine's
- * constraints, and the `Pickup` constraint that collects on touch. They
- * came out of the engine (engine-surface, phase 3): the demos extend them
- * — a Thug is a `Ghost` from a street sheet, an Ember a glowing `Coin` —
- * and a new game starts from them or from the prefab templates below,
- * which compose the same behaviours over the engine's `Prop` with no
- * class at all.
+ * capabilities. The engine names what a thing does (`Collectable`,
+ * `Chase`, `PathFollow`); the kit names what it is in a game. The demos
+ * extend these — a Thug is a `Ghost` from a street sheet, an Ember a
+ * glowing `Coin` — and a new game starts from them or from the prefab
+ * templates below, which compose the same capabilities over the engine's
+ * `Prop` with no class at all.
  */
 
 type Game = {
@@ -28,7 +28,6 @@ type Game = {
   time: { elapsed: number };
   sceneManager?: { getCurrentScene(): { counters?: { add(name: string, amount: number): void } } | null };
   registerActor(name: string, klass: unknown, options?: { origin?: 'game' | 'kit' }): void;
-  registerConstraint(name: string, klass: unknown, options?: { origin?: 'game' | 'kit' }): void;
   registerPrefabTemplate?(name: string, template: unknown, options?: { origin?: 'game' | 'kit' }): void;
 };
 
@@ -102,7 +101,7 @@ export class Bee extends Ghost {
   }
 }
 
-/** A pickup collected on an avatar's touch; `Hover` bobs and spins it. */
+/** A pickup: `Hover` bobs and spins it, `Collectable` takes it on an avatar's touch. */
 export class Coin extends Entity {
   static override description = 'A pickup collected on touch';
   override name = 'Coin';
@@ -110,16 +109,7 @@ export class Coin extends Entity {
   constructor(body: Body, sprite: unknown, game: unknown, options: Record<string, unknown> = {}) {
     super(body, sprite, game);
     this.addConstraint('hover', new Hover(this, { amplitude: 5, frequency: 2, spin: 2 }));
-  }
-
-  override onCollisionStart(other: { entity?: unknown }): void {
-    super.onCollisionStart(other);
-    const game = this.game as Game;
-    // Any player's avatar collects it: on a server there is one per player.
-    if (game.players.isAvatar(other.entity)) {
-      game.entities.delete(this);
-      game.physics.remove(this.body);
-    }
+    this.addConstraint('collectable', new Collectable(this));
   }
 }
 
@@ -147,39 +137,6 @@ export class MovingPlatform extends Entity {
     body.restitution = 0;
     super(body, sprite, game);
     this.addConstraint('path', new PathFollow(this, options.path as object | undefined));
-  }
-}
-
-/**
- * Collects its entity on an avatar's touch: the entity leaves the world,
- * `counter` (when named) goes up by one, and the world event `picked` is
- * raised where the touch was simulated — a rule plays the sound
- * (`{ "when": { "event": "emit", "name": "picked" }, ... }`) or shows the
- * count. What `Coin` does as a class, as a constraint any actor can carry;
- * the `pickup` prefab template is `Prop` plus `Hover` plus this.
- */
-export class Pickup extends Constraint {
-  static override description = 'Collect on an avatar\'s touch: remove the entity, count a counter, raise picked';
-  static override params = {
-    counter: s.string({ description: 'A plain counter in world.counters to add 1 to when taken' })
-  };
-
-  counter: string | null;
-
-  constructor(entity: { game: unknown }, options: { counter?: string } = {}) {
-    super(entity);
-    this.counter = options.counter ?? null;
-  }
-
-  override onCollisionStart(other: { entity?: unknown }): void {
-    const entity = this.entity as InstanceType<typeof Entity>;
-    const game = entity.game as Game;
-    if (!game.players.isAvatar(other.entity)) return;
-    game.entities.delete(entity);
-    game.physics.remove(entity.body);
-    if (this.counter) entity.scene?.counters?.add(this.counter, 1);
-    const { x, y } = entity.position;
-    game.events?.emit('picked', { id: entity.netId, at: { x: Math.round(x), y: Math.round(y) } });
   }
 }
 
@@ -215,20 +172,19 @@ export const PREFAB_TEMPLATES: Record<string, { description: string; dimensions:
       properties: { color: '#ffd75e' },
       constraints: {
         hover: { type: 'Hover', params: { amplitude: 5, frequency: 2 } },
-        pickup: { type: 'Pickup' }
+        collectable: { type: 'Collectable' }
       }
     }
   }
 };
 
-/** Register the cast, `Pickup` and the templates, marked as the kit's for the editor's catalog. */
+/** Register the cast and the templates, marked as the kit's for the editor's catalog. */
 export function registerKitActors(game: Game): void {
   const kit = { origin: 'kit' as const };
   game.registerActor('Ghost', Ghost, kit);
   game.registerActor('Bee', Bee, kit);
   game.registerActor('Coin', Coin, kit);
   game.registerActor('MovingPlatform', MovingPlatform, kit);
-  game.registerConstraint('Pickup', Pickup, kit);
   for (const [name, template] of Object.entries(PREFAB_TEMPLATES)) {
     game.registerPrefabTemplate?.(name, template, kit);
   }

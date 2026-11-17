@@ -71,6 +71,31 @@ const collect = (scene, id) => {
 };
 
 describe('counters', () => {
+  it('a Collectable counts itself and leaves the world on the avatar\'s touch, raising picked', async () => {
+    const { game, scene } = await make(level({ counters: { loot: { initial: 0 } } }, {
+      prefabs: {
+        hero: { actor: 'Hero', physics: { bodyType: 'dynamic' } },
+        gem: { actor: 'Gate', physics: { bodyType: 'static', isSensor: true }, constraints: { take: { type: 'Collectable', params: { counter: 'loot' } } } }
+      },
+      layers: [{ name: 'main', objects: [
+        { id: 'hero', prefab: 'hero', x: 50, y: 50, width: 10, height: 10 },
+        { id: 'gem-1', prefab: 'gem', x: 80, y: 50, width: 10, height: 10 }
+      ] }]
+    }));
+    await game.start();
+    const gem = scene.entitiesById.get('gem-1');
+    const hero = scene.entitiesById.get('hero');
+    let guard = 240;
+    while (game.entities.has(gem) && guard--) { hero.body.setVelocity({ x: 60, y: 0 }); game.step(1); }
+    expect(guard).toBeGreaterThan(0);
+    expect(scene.counters.get('loot')).toBe(1);
+    // Queued for the frame to deliver (or a server to send); a headless caller owns the frame.
+    const picked = game.events.queue.filter(([name]) => name === 'picked');
+    expect(picked).toHaveLength(1);
+    expect(picked[0][1].at.x).toBe(80);
+    game.destroy();
+  });
+
   it('are in an actor\'s reach through entity.scene', async () => {
     const { game, scene } = await make(level({ counters: { score: { initial: 5 } } }));
     const hero = scene.entitiesById.get('hero');

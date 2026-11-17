@@ -239,6 +239,16 @@ With `points`, the body is placed at the first point on construction and returns
 
 With `path`, the body travels along the path's line by arc length, curves included. It starts from the point on the path nearest to where it was placed, so the placement chooses where along the route it begins. It goes round a closed path and back and forth along an open one. The travel state is in public fields, so `game.snapshot()` and `game.restore()` carry it.
 
+## Collectable
+
+`constraints/collectable.js`. Collected on an avatar's touch: the entity leaves the world, a counter counts it, and the world event `picked` is raised where the touch was simulated. What a coin, a key and a health pack have in common; the kit's `Coin` is `Hover` plus this.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `counter` * | | A plain counter in `world.counters` to add 1 to when taken |
+
+Nothing here is presentation: a rule answers `picked` (`{ "when": { "event": "emit", "name": "picked" }, "then": [{ "do": "sound", "key": "coin" }] }`), and a `collected` rule or a tally sees the entity gone as before. On a server every player's avatar collects, and the removal replicates like any other.
+
 ## Hover
 
 `constraints/hover.js`. A visual bob and spin through the entity's render offsets. The body never moves.
