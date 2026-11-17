@@ -248,7 +248,7 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
     name: 'm2d-editor-host',
     /**
      * A change to code the game's definition imports — inside the project
-     * or out of it, `../shared/` included — is the editor's to reload in
+     * or out of it, the kit included — is the editor's to reload in
      * place: nothing hot-accepts the game's modules (the app imports them
      * dynamically), so Vite's fallback would reload the tab and lose the
      * editor's state. This hook runs once the graph is invalidated, so an

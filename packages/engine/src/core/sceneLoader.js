@@ -418,6 +418,9 @@ export class SceneLoader {
         (name, known) => `no environment named '${name}' (declared: ${known.join(', ') || 'none'})`),
       path: scope(Object.keys(data.paths ?? {}),
         (name, known) => `no path named '${name}' (declared: ${known.join(', ') || 'none'})`),
+      // A plain counter something adds to; a tally is read off the world and cannot be set.
+      counter: scope(Object.entries(data.world?.counters ?? {}).filter(([, counter]) => counter?.prefab === undefined).map(([name]) => name),
+        (name, known) => `no plain counter named '${name}' (world.counters without a prefab: ${known.join(', ') || 'none'})`),
       // An image is drawn whole: one of assets.images, or a sprite sheet's image.
       image: scope([...Object.keys(data.assets?.images ?? {}), ...Object.keys(data.assets?.spritesheets ?? {})],
         (name, known) => `no image named '${name}' (assets.images and sprite sheets: ${known.join(', ') || 'none'})`)

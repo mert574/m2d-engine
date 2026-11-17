@@ -209,7 +209,7 @@ export class Attack extends Constraint {
   /**
    * The attack has no look of its own: what a swing is depends on the game
    * and its perspective. Games draw one with a constraint of their own that
-   * hooks `onStart` (the demos' `AttackSwing` in examples/src/shared/effects.js).
+   * hooks `onStart` (the kit's `AttackSwing`, `m2d-kit/effects`).
    * The range ring is a diagnostic and only shows in debug mode.
    */
   draw() {

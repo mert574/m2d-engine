@@ -62,10 +62,9 @@ jobs:
 
       - name: Publish the kit when its version is new
         run: |
-          current="$(npm view m2d-kit version 2>/dev/null || echo none)"
           wanted="$(node -p "JSON.parse(require('node:fs').readFileSync('packages/kit/package.json')).version")"
-          if [ "$current" != "$wanted" ]; then
-            npm publish --workspace=packages/kit --access public
-          else
+          if npm view "m2d-kit@$wanted" version >/dev/null 2>&1; then
             echo "m2d-kit@$wanted is already published"
+          else
+            npm publish --workspace=packages/kit --access public
           fi

@@ -151,7 +151,7 @@ export class PathFollow extends Constraint {
 
   #followPath(dt) {
     if (!this.route) {
-      const route = this.entity.game.sceneManager.getCurrentScene()?.pathFor(this.entity, this.path);
+      const route = this.entity.scene?.pathFor(this.entity, this.path);
       if (!route?.length) return;
       this.route = route;
       this.distance = route.nearest(this.entity.body.position);

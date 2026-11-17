@@ -69,7 +69,7 @@ Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `
 
 Call `startAttack(direction)` with `1` or `-1`. It does nothing during the cooldown. Hits are found once, at the start of the attack, with an `overlaps` query. Targets are bodies with the `enemy` collision category and a `Health` constraint that is not invulnerable. Each target takes `damage` and a fixed knockback impulse. The attack sets the entity's animation to `attackRight` or `attackLeft` and leaves it there. The built-in players switch back to `idle` from their movement handler.
 
-The attack draws nothing of its own: what a swing looks like depends on the game and its perspective, so a game draws one with a constraint that hooks `onStart`. The demos share one in `examples/src/shared/effects.js` (`AttackSwing`, with a matching `HitBurst` for taking damage). The range ring is drawn when the debug overlay is on.
+The attack draws nothing of its own: what a swing looks like depends on the game and its perspective, so a game draws one with a constraint that hooks `onStart`. The kit ships one, `AttackSwing` in `m2d-kit/effects` ( with a matching `HitBurst` for taking damage). The range ring is drawn when the debug overlay is on.
 
 ## ThrustControl
 

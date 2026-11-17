@@ -470,7 +470,8 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       'Components tab shows them. A prefab names an actor; a constraint goes under a prefab\'s or ' +
       'an object\'s `constraints` as { "slot": { "type": "Name", "params": {...} } }. ' +
       '`prefabs` are ready-made templates: copy one\'s `prefab` value into the scene\'s own ' +
-      '`prefabs` under a free name with edit_scene, then place objects of it.',
+      '`prefabs` under a free name with edit_scene, then place objects of it; a template\'s ' +
+      '`dimensions` is the scene dimension it is written for.',
     inputSchema: {}
   }, async () => {
     const found = await registries();

@@ -11,7 +11,7 @@ import { s } from '../core/schema.js';
  *
  * This is the plainest possible hit read; a game that wants a burst, a
  * ring or a shake draws it with a constraint of its own (see the demos'
- * `HitBurst` in examples/src/shared/effects.js).
+ * `HitBurst` in `m2d-kit/effects`).
  *
  * @param {object} options
  * @param {number} [options.duration] - Flash length in seconds.

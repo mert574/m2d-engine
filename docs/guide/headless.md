@@ -126,7 +126,7 @@ player.avatar = hero;
 
 Each tick, before anything updates, every player's snapshot is sampled and the intents filed for the tick are applied. An entity reads the owning player's snapshot through `entity.input`, so a player's input reaches only the entities that carry their id.
 
-Simulation code never reads `game.player` to find "the player". On a server it is null, and every avatar belongs to someone, so an enemy that hunted `game.player` would stand still. `Chase`, `Turret` and `Coin` ask `game.players.nearestAvatar` and `isAvatar` instead, which alone come to the same thing. `game.player` stays what the camera follows and the HUD reads: presentation.
+Simulation code never reads `game.player` to find "the player". On a server it is null, and every avatar belongs to someone, so an enemy that hunted `game.player` would stand still. `Chase`, `Turret` and `Collectable` ask `game.players.nearestAvatar` and `isAvatar` instead, which alone come to the same thing. `game.player` stays what the camera follows and the HUD reads: presentation.
 
 ## World events
 

@@ -217,7 +217,7 @@ this.addConstraint('chase', new Chase(this, { speed: 80, detectionRange: 300 }))
 const health = this.getConstraint('health');
 ```
 
-Prefer a constraint over logic inside an actor when another actor could want the same behaviour. The built-in `Bee` is collision setup plus `Chase`, `Health`, `ContactDamage`, `DamageFlash` and `Debug`.
+Prefer a constraint over logic inside an actor when another actor could want the same behaviour. The kit's `Ghost` is collision setup plus `Chase`, `Health`, `ContactDamage` and `DamageFlash`, and nothing else.
 
 ### Declaring constraints in a scene
 

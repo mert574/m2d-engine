@@ -172,6 +172,6 @@ export function registerKitActors(game) {
   game.registerActor('Coin', Coin, kit);
   game.registerActor('MovingPlatform', MovingPlatform, kit);
   for (const [name, template] of Object.entries(PREFAB_TEMPLATES)) {
-    game.registerPrefabTemplate?.(name, template, kit);
+    game.registerPrefabTemplate(name, template, kit);
   }
 }

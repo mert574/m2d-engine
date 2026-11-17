@@ -28,6 +28,8 @@ Actions, Deploy demo to GitHub Pages, Run workflow, select `master`. The build j
 
 In the npm package settings, add a GitHub Actions trusted publisher with user `mert574`, repository `m2d-engine` and workflow filename `publish.yml`. Leave the environment empty and allow `npm publish`. No npm token secret is needed. A new connection must complete its first publish within two days.
 
+The same run publishes `m2d-kit` (`packages/kit`) when its version is not on the registry yet; an engine-only release leaves an unchanged kit alone. Trusted publishing needs the package to exist with its publisher configured, so a brand-new package's first version is published by hand once, with the trusted publisher added after it.
+
 For a release, update the engine package version and lockfile, commit the changes and publish a GitHub release with a matching tag such as `v1.1.0`. The tagged commit must contain the publishing workflow and package repository metadata.
 
 For an existing release whose tag predates this setup, merge the setup first, then open Actions, Publish to npm, Run workflow and select the branch containing the exact code and package version to publish. A manual run publishes the selected ref and does not create or change a GitHub release. Publishing an existing npm version fails, so check the registry before retrying a successful run.

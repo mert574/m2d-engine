@@ -3,6 +3,7 @@ import { Health } from '../../src/constraints/health.js';
 import { ContactDamage } from '../../src/constraints/contactDamage.js';
 import { Chase } from '../../src/constraints/chase.js';
 import { Hover } from '../../src/constraints/hover.js';
+import { Collectable } from '../../src/constraints/collectable.js';
 import { PathFollow } from '../../src/constraints/pathFollow.js';
 import { CollisionCategories } from '../../src/core/constants.js';
 import { s } from '../../src/core/schema.js';
@@ -40,13 +41,7 @@ export class Coin extends Entity {
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     this.addConstraint('hover', new Hover(this, { amplitude: 5, frequency: 2, spin: 2 }));
-  }
-  onCollisionStart(other) {
-    super.onCollisionStart(other);
-    if (this.game.players.isAvatar(other.entity)) {
-      this.game.entities.delete(this);
-      this.game.physics.remove(this.body);
-    }
+    this.addConstraint('collectable', new Collectable(this));
   }
 }
 

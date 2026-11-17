@@ -261,14 +261,6 @@ export class Entity {
   }
 
   /**
-   * One frame of presentation, with the frame's game-time delta: animation
-   * cycles, flashes, anything visual that is not the physics body. The base
-   * method updates the constraints. Nothing here should change what the
-   * simulation sees; that is `fixedUpdate`.
-   * @param {number} deltaTime - Seconds of game time this frame.
-   */
-
-  /**
    * The scene this entity is playing in — the current one — or null before
    * the first tick. What an actor reads the level through: `scene.counters`
    * for the rules' numbers, `scene.pathFor` for its paths. During the
@@ -279,6 +271,13 @@ export class Entity {
     return this.game.sceneManager?.getCurrentScene() ?? null;
   }
 
+  /**
+   * One frame of presentation, with the frame's game-time delta: animation
+   * cycles, flashes, anything visual that is not the physics body. The base
+   * method updates the constraints. Nothing here should change what the
+   * simulation sees; that is `fixedUpdate`.
+   * @param {number} deltaTime - Seconds of game time this frame.
+   */
   update(deltaTime) {
     if (this.dead) return;
 

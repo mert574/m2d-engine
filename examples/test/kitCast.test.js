@@ -21,8 +21,8 @@ const level = () => ({
   version: SCENE_VERSION, type: 'level', name: 'cast',
   world: {
     width: 800, height: 400, gravity: { x: 0, y: 0 }, player: 'hero',
-    counters: { loot: { initial: 0 } },
-    rules: [{ when: { event: 'collected', prefab: 'pickup' }, then: [{ do: 'notice', text: 'ALL TAKEN' }] }]
+    counters: { loot: { initial: 0 }, cleared: { initial: 0 } },
+    rules: [{ when: { event: 'collected', prefab: 'pickup' }, then: [{ do: 'count', counter: 'cleared' }] }]
   },
   prefabs: {
     hero: { actor: 'Player', physics: { bodyType: 'dynamic', lockRotation: true } },
@@ -43,7 +43,7 @@ async function make() {
   const game = new M2D(null, { headless: true, worldWidth: 800, worldHeight: 400, seed: 3 });
   registerKitActors(game);
   game.registerActor('Player', Player);
-  game.registerActor('Prop', Prop, { origin: 'game' });
+  game.registerActor('Prop', Prop);
   game.sceneManager.addScene('cast', { fetch: async () => level() });
   await game.sceneManager.switchTo('cast');
   await game.start(); // wires the collision handlers; a headless caller owns the clock
@@ -66,8 +66,6 @@ describe('the prefab templates, in play', () => {
 
   it('the pickup counts its counter, raises picked, and the collected rule fires', async () => {
     const { game, scene } = await make();
-    const picked = [];
-    game.events.on?.('picked', (data) => picked.push(data));
     const take = scene.entitiesById.get('take-1');
     // Walk the hero over it: the player's own control reads the held key.
     game.input.setSnapshotSource(() => ({ down: ['ArrowRight'] }));
@@ -75,8 +73,11 @@ describe('the prefab templates, in play', () => {
     while (game.entities.has(take) && guard--) game.step(1);
     expect(guard).toBeGreaterThan(0);
     expect(scene.counters.get('loot')).toBe(1);
+    // Queued for the frame to deliver, or a server to send.
+    expect(game.events.queue.filter(([name]) => name === 'picked')).toHaveLength(1);
+    // The last pickup gone fires the collected rule on the next tick.
     expect(game.step(1)).toBe(1);
-    expect(scene.hud?.elements?.get?.('notice') ?? true).toBeTruthy(); // headless builds no HUD; the rule just must not throw
+    expect(scene.counters.get('cleared')).toBe(1);
     game.destroy();
   });
 });

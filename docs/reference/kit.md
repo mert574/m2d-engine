@@ -1,6 +1,6 @@
 # The kit
 
-`m2d-kit` is the package of ready-to-use pieces for games on m2d: constraints, helpers and, in time, actors and prefabs that are too opinionated for the engine and too reusable to live in one game. The engine keeps the contracts and what its own code names; the kit keeps what games compose from. Every example game is built on both.
+`m2d-kit` is the package of ready-to-use pieces for games on m2d: actors, prefab templates, constraints and helpers that are too opinionated for the engine and too reusable to live in one game. The engine keeps the contracts and what its own code names; the kit keeps what games compose from. Every example game is built on both.
 
 Each piece is its own entry, so a game imports what it uses:
 

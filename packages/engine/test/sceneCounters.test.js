@@ -96,6 +96,21 @@ describe('counters', () => {
     game.destroy();
   });
 
+  it('a Collectable naming no plain counter is refused at load, a tally included', async () => {
+    const gem = (counter) => ({
+      prefabs: {
+        hero: { actor: 'Hero', physics: { bodyType: 'dynamic' } },
+        gem: { actor: 'Gate', physics: { bodyType: 'static', isSensor: true }, constraints: { take: { type: 'Collectable', params: { counter } } } }
+      },
+      layers: [{ name: 'main', objects: [{ id: 'hero', prefab: 'hero', x: 50, y: 50 }, { id: 'gem-1', prefab: 'gem', x: 80, y: 50 }] }]
+    });
+    const counters = { loot: { initial: 0 }, taken: { prefab: 'gem' } };
+    await expect(make(level({ counters }, gem('lott')))).rejects.toThrow(/prefabs\.gem\.constraints\.take\.params\.counter: no plain counter named 'lott' \(world\.counters without a prefab: loot\)/);
+    await expect(make(level({ counters }, gem('taken')))).rejects.toThrow(/no plain counter named 'taken'/);
+    const { game } = await make(level({ counters }, gem('loot')));
+    game.destroy();
+  });
+
   it('are in an actor\'s reach through entity.scene', async () => {
     const { game, scene } = await make(level({ counters: { score: { initial: 5 } } }));
     const hero = scene.entitiesById.get('hero');

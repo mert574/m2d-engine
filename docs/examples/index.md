@@ -159,7 +159,7 @@ The scene is deterministic. Layers are built from a seeded random generator, the
 
 [Play](https://mert574.github.io/m2d-engine/examples/platformer/) · [Source](https://github.com/mert574/m2d-engine/tree/master/examples/src/platformer)
 
-A side-scrolling level with a dynamic-body player, moving platforms, a chasing enemy, coins and a level-complete trigger, set in the dusk valley its menu shows: a parallax skyline behind the level, drawn terrain, lights and bloom over it. The built-in `Player`, `Bee`, `Platform`, `MovingPlatform`, `Coin` and `Trigger` actors are subclassed for the look only; scene JSON files, sprite sheets and the music that changes between the menu and the level work as stock.
+A side-scrolling level with a dynamic-body player, moving platforms, a chasing enemy, coins and a level-complete trigger, set in the dusk valley its menu shows: a parallax skyline behind the level, drawn terrain, lights and bloom over it. The engine's `Player`, `Platform` and `Trigger` and the kit's `Bee`, `MovingPlatform` and `Coin` are subclassed for the look only; scene JSON files, sprite sheets and the music that changes between the menu and the level work as stock.
 
 | Key | Action |
 | --- | --- |

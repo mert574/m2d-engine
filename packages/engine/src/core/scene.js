@@ -327,13 +327,14 @@ export class Scene {
   /** `world.particles` as the frame takes them, converted once. */
   #particleFields = null;
 
-  /** One particle field as the 3D frame takes it, placed at `at`. */
+  /** One particle field as the 3D frame takes it, at `at` or where the field says. */
   #frameField(given, at) {
     const f = withParticleDefaults(given);
     const [r, g, b] = parseColor(f.color);
+    const centre = at ?? f.at;
     return {
       kind: f.kind, count: f.count,
-      center: [at.x ?? 0, at.y ?? 0, at.z ?? 0],
+      center: [centre.x ?? 0, centre.y ?? 0, centre.z ?? 0],
       extent: [f.extent.x, f.extent.y, f.extent.z],
       radius: f.radius,
       color: [toLinear(r), toLinear(g), toLinear(b)],
@@ -348,7 +349,7 @@ export class Scene {
   #applyFrameLook(frame) {
     const fields = this.config.world?.particles;
     if (fields?.length) {
-      this.#particleFields ??= fields.map((given) => this.#frameField(given, withParticleDefaults(given).at));
+      this.#particleFields ??= fields.map((given) => this.#frameField(given));
     }
     // The level's own fields first, then what entities declared this frame
     // (#addEntityParticles); the renderer keeps the first MAX_PARTICLE_FIELDS.
@@ -1618,7 +1619,7 @@ export class Scene {
         for (const light of this.propLights) frame.addLight(light);
       }
       for (const entity of game.entities) {
-        if (entity.particles && !entity.dead && entity.visible !== false) this.#addEntityParticles(frame, entity);
+        if (entity.particles && !entity.dead && entity.visible) this.#addEntityParticles(frame, entity);
         const mesh = entity.mesh;
         if (!mesh || mesh.visible === false || !entity.visible || entity.dead) continue;
         const body = entity.body;

@@ -18,7 +18,7 @@ npm run dev    # then open /iso/?online=ws://127.0.0.1:8787 in two windows
 
 A player's own knight moves on the tick they press a key; everyone else's is drawn between the server's states. See [Prediction](#prediction) and [Interpolation](#interpolation).
 
-On the server `game.player` is null: every knight is somebody's. Simulation code that needs "the player" asks `game.players.nearestAvatar(position, range)` or `game.players.isAvatar(entity)` (see [Players](./headless#players)); the engine's `Chase`, `Turret` and `Coin` do.
+On the server `game.player` is null: every knight is somebody's. Simulation code that needs "the player" asks `game.players.nearestAvatar(position, range)` or `game.players.isAvatar(entity)` (see [Players](./headless#players)); the engine's `Chase`, `Turret` and `Collectable` do.
 
 ## The match
 
