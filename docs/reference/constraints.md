@@ -4,7 +4,7 @@ Constraints from `m2d-engine/constraints/`. Attach one with `entity.addConstrain
 
 `KeyboardControl` and `Interactive` bind their handlers to the entity, so `this` is the entity inside them. Other constraints call handlers as methods of the constraint, so `this` is the constraint. Use arrow functions there.
 
-`Health`, `Attack`, `ContactDamage`, `KeyboardControl`, `CarControl`, `Chase`, `PathFollow` and `WallSlip` do their work in `fixedUpdate`, once per simulation tick. `Hover` and `DamageFlash` are presentation and run in the per-frame `update`. `Chase` draws its wander targets from `game.rng`.
+`Health`, `Attack`, `ContactDamage`, `KeyboardControl`, `Chase` and `PathFollow` do their work in `fixedUpdate`, once per simulation tick; so do the kit's genre controllers ([`m2d-kit/controls`](./kit#m2d-kit-controls)). `Hover` and `DamageFlash` are presentation and run in the per-frame `update`. `Chase` draws its wander targets from `game.rng`.
 
 Options marked with an asterisk treat `0` as unset and fall back to the default.
 
@@ -71,10 +71,6 @@ Call `startAttack(direction)` with `1` or `-1`. It does nothing during the coold
 
 The attack draws nothing of its own: what a swing looks like depends on the game and its perspective, so a game draws one with a constraint that hooks `onStart`. The kit ships one, `AttackSwing` in `m2d-kit/effects` ( with a matching `HitBurst` for taking damage). The range ring is drawn when the debug overlay is on.
 
-## ThrustControl
-
-`constraints/thrustControl.js`. A ship's handling on a dynamic body with rotation free: left and right drive angular velocity at `turn` rad/s, up thrusts along the nose at `thrust` px/s², down brakes or reverses at `reverse`, speed is capped at `maxSpeed` and coasting decays at `drag` 1/s. `KeyC` ignites a boost (`boostThrust` and `boostSpeed` multipliers for `boostDuration`, once per `boostCooldown`); `onBoost` fires then, and `onFire` every tick the fire key is held. `throttle` (0..1) and `steer` (-1..1) are read back for a flame and a bank. Keys as `KeyboardControl`'s, under `keys`.
-
 ## PointerMove
 
 `constraints/pointerMove.js`. Click to move: a press of `button` (default the primary) sets a ground destination from the tick's input snapshot, and the entity walks there at `speed` and stops within `arrive`. `goTo(x, y)` and `stop()` from code, `moving` and `destination` to read; `onArrive()` and `onMove(dx, dy)` hooks. Under a projection the pointer is already on the ground, so the same code moves an isometric hero.
@@ -123,51 +119,6 @@ Diagonal movement is normalized. Input pressing straight into a wall is dropped 
 `inputSpace: 'screen'` moves along the screen's axes through the scene's projection, so Up walks toward the top of an isometric view, and at a steady pace on screen: `maxSpeed` is then the on-screen speed, scaled on the ground so a walk up the view is no slower than one across it. Default `'world'`.
 
 With `verticalMovement` on, `maxSpeed` caps the whole velocity vector, so a diagonal is no faster than a cardinal, and braking stops both axes. A side view caps only the run and leaves the vertical to gravity.
-
-## GlideControl
-
-`constraints/glideControl.js`. One-press gliding on a corridor grid: tap a direction and the body keeps going until a wall, a new direction or the same key again: Pac-Man's movement, for cosy mazes. A turn pressed early is buffered and taken at the next opening; one pressed a beat late snaps back to the junction just passed and takes it anyway. Openness is asked of the physics world (`physics.overlaps` one cell over, sensors ignored), so the constraint needs no map, only the grid the corridors are built on. The body parks on the centre of the last open cell at a wall, and is held to the corridor's centre line while gliding. Runs in `fixedUpdate` on `entity.input`, the owning player's snapshot.
-
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `keys` | arrows | `{ left, right, up, down }` as key codes |
-| `speed` | `240` | Glide speed, px/s |
-| `grid` | `32` | Corridor cell size; centres at `(n + 0.5) * grid` |
-| `buffer` | `0.35` | Seconds a queued turn waits for its opening |
-| `snap` | `0.6` | How far past a junction, in cells, a late turn still takes it |
-| `stopOnRepeat` | `true` | Pressing the direction of travel stops the body |
-| `onMove(dx, dy)` | | When a glide starts or changes direction |
-| `onStop()` | | When the body comes to rest |
-
-Hedgerow Court is the worked example.
-
-## CarControl
-
-`constraints/carControl.js`. Arcade top-down car handling on a dynamic body. Each tick the body's velocity splits along its heading: throttle and brakes act on the forward part, grip decays the lateral part, and the handbrake swaps in a much lower grip so the car slides while the nose turns, a drift. Steering drives angular velocity and scales with speed, so the car cannot pivot in place. Runs in `fixedUpdate` on `entity.input`, the owning player's snapshot, so the same inputs always drive the same path and a server drives each car from its own player.
-
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `keys` | arrows, `Space`, `KeyX` | `{ throttle, brake, left, right, handbrake, nitro }` as key codes. Partial overrides are merged |
-| `manual` | `false` | Ignore the keyboard; a driver supplies `setControls({ throttle, brake, steer, handbrake, nitro })` |
-| `autoThrottle` | `false` | The throttle is held for the driver: full drive whenever the brake is not, so the player steers and drifts and never lifts off. The throttle key is ignored; a `manual` driver's `throttle` too |
-| `handbrakeDrag` | `0` | Speed the handbrake takes off while held, 1/s. With it one button both slows the car and sets it sliding, which a touch screen with two buttons wants |
-| `acceleration` | `420` | Forward drive, px/s² |
-| `maxSpeed` | `560` | Forward cap, px/s |
-| `brake` | `780` | Braking, px/s². Held past the stop it reverses, capped at `maxReverse` |
-| `maxReverse` | `170` | Reverse cap, px/s |
-| `drag` | `0.6` | Coasting decay, 1/s |
-| `grip` | `18` | Lateral decay, 1/s. Steady-state sliding at full lock is `maxSpeed * steer / grip`; the defaults keep that under `driftThreshold` |
-| `driftGrip` | `2.4` | Grip while the handbrake is held |
-| `steer` | `2.4` | Yaw rate at full steering, rad/s |
-| `driftSteer` | `3.6` | Yaw rate while drifting |
-| `driftThreshold` | `90` | Lateral px/s that counts as drifting |
-| `nitroThrust`, `nitroBoost` | `2.1`, `1.35` | Acceleration and speed-cap multipliers while the nitro burns |
-| `nitroDuration`, `nitroCooldown` | `1.1`, `5` | Burn and recharge, seconds |
-| `overspeedDecay` | `1.4` | How fast speed above the cap bleeds away, 1/s. The throttle never pushes past the cap; a boost pad, a mini-turbo or the end of a nitro burn carries the car over it, and it settles back over about a second |
-| `onDrift(active)` | | Drift started or ended |
-| `onNitro()` | | Nitro ignited |
-
-Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lower on oil or grass; it scales grip, steering and drive together), `surfaceDrag` (set it per tick too: speed the surface takes away, 1/s, 0 on asphalt), `drifting`, `forwardSpeed`, `lateralSpeed`, `speed`, `boostLeft`, `nitroReady`, `igniteNitro()`, `applyBoost(speed)` (a shove along the heading up to `speed`, what a boost pad does; it may pass the cap, and `overspeedDecay` brings it back), `setControls(controls)`.
 
 ## Interactive
 
@@ -258,10 +209,6 @@ Nothing here is presentation: a rule answers `picked` (`{ "when": { "event": "em
 | `amplitude` | `5` | Bob height in px. `0` disables |
 | `frequency` | `2` | Bob rate in rad/s |
 | `spin` | `0` | Spin rate in rad/s |
-
-## WallSlip
-
-`constraints/wallSlip.js`. No options. Sets the body's friction to zero while airborne and restores it on landing, so holding a direction into a wall does not make a dynamic player cling to it.
 
 ## DamageFlash
 

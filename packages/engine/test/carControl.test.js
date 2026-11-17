@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { makeTestGame, makeBody } from './helpers/testGame.js';
 import { Entity } from '../src/core/entity.js';
-import { CarControl } from '../src/constraints/carControl.js';
 import { holdKeys, releaseKeys } from './helpers/input.js';
+import { CarControl } from 'm2d-kit/controls';
 
 /**
  * The arcade car model: drive and brakes on the forward axis, grip as the

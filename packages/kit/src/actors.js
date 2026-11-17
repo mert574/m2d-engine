@@ -1,130 +1,33 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { ContactDamage } from 'm2d-engine/constraints/contactDamage.js';
-import { Chase } from 'm2d-engine/constraints/chase.js';
-import { DamageFlash } from 'm2d-engine/constraints/damageFlash.js';
-import { Hover } from 'm2d-engine/constraints/hover.js';
-import { Collectable } from 'm2d-engine/constraints/collectable.js';
-import { PathFollow } from 'm2d-engine/constraints/pathFollow.js';
-import { CollisionCategories } from 'm2d-engine/core/constants.js';
-import { s } from 'm2d-engine/core/schema.js';
-
 /**
  * The stock cast: gameplay actors that are compositions of the engine's
  * capabilities. The engine names what a thing does (`Collectable`,
  * `Chase`, `PathFollow`); the kit names what it is in a game. The demos
  * extend these — a Thug is a `Ghost` from a street sheet, an Ember a
- * glowing `Coin` — and a new game starts from them or from the prefab
- * templates below, which compose the same capabilities over the engine's
- * `Prop` with no class at all.
+ * glowing `Coin`, a Knight an `ObliquePlayer` — and a new game starts from
+ * them or from the prefab templates below, which compose the same
+ * capabilities over the engine's `Prop` with no class at all.
  */
+export { Ghost, Bee } from './actors/ghost.js';
+export { Coin } from './actors/coin.js';
+export { MovingPlatform } from './actors/movingPlatform.js';
+export { Player } from './actors/player.js';
+export { TopDownPlayer } from './actors/topDownPlayer.js';
+export { ObliquePlayer } from './actors/obliquePlayer.js';
+export { Platform } from './actors/platform.js';
+export { Turret } from './actors/turret.js';
+export { Rocket } from './actors/rocket.js';
+export { Npc } from './actors/npc.js';
 
-/**
- * A floating enemy that drifts toward the player: `Health` (100, half a
- * second invulnerable, removed from the world at zero), `ContactDamage`
- * (33, 480 px/s knockback), `Chase` (60 px/s, 36 idle, 400 range) and
- * `DamageFlash`. A scene retunes any of them by slot.
- */
-export class Ghost extends Entity {
-  static description = 'A floating enemy that drifts toward the player';
-  name = 'Ghost';
-
-  constructor(body, sprite, game, options = {}) {
-    body.setCollisionFilter({ category: CollisionCategories.enemy });
-    super(body, sprite, game);
-
-    this.setAnimation('idle');
-    this.addConstraint('damageFlash', new DamageFlash(this));
-    this.addConstraint('health', new Health(this, {
-      maxHealth: 100,
-      invulnerableDuration: 0.5,
-      whenDead: 'remove',
-      // Simulation-side: the pose. The flash and the sound are world
-      // events, so they also happen on a client watching this entity.
-      onDamage: () => {
-        this.setAnimation('idle');
-      }
-    }));
-    this.addConstraint('contactDamage', new ContactDamage(this, {
-      damage: 33,
-      knockbackStrength: 480
-    }));
-    this.addConstraint('chase', new Chase(this, {
-      speed: 60,
-      idleSpeed: 36,
-      detectionRange: 400
-    }));
-  }
-
-  /** The hit sound, wherever the hit was simulated. */
-  onWorldEvent(name, data) {
-    super.onWorldEvent(name, data);
-    if (name === 'damage') this.game.soundManager.playSound('damage');
-  }
-
-  // Presentation only. A sheet with named animations plays them from
-  // `Entity.update`'s clock at their own `fps`; a sheet without any keeps
-  // the old contract: its columns step at 6 fps. Movement, chasing and
-  // damage are in the constraints' fixedUpdate.
-  update(deltaTime) {
-    if (this.dead) return;
-    super.update(deltaTime);
-    if (!this.currentAnim && this.sprite?.image) {
-      const columns = Math.floor(this.sprite.image.width / this.sprite.tileW);
-      if (columns > 1) this.sprite.currentFrame = Math.floor(this.animTime * 6) % columns;
-    }
-  }
-}
-
-/** A `Ghost` that hits harder: the same cast with 720 px/s knockback. */
-export class Bee extends Ghost {
-  static description = 'A flying enemy that bobs and chases';
-  name = 'Bee';
-
-  constructor(body, sprite, game, options = {}) {
-    super(body, sprite, game, options);
-    this.getConstraint('contactDamage').knockbackStrength = 720;
-  }
-}
-
-/** A pickup: `Hover` bobs and spins it, `Collectable` takes it on an avatar's touch. */
-export class Coin extends Entity {
-  static description = 'A pickup collected on touch';
-  name = 'Coin';
-
-  constructor(body, sprite, game, options = {}) {
-    super(body, sprite, game);
-    this.addConstraint('hover', new Hover(this, { amplitude: 5, frequency: 2, spin: 2 }));
-    this.addConstraint('collectable', new Collectable(this));
-  }
-}
-
-/**
- * A platform that patrols a path, pausing at each point.
- *
- * It is a *kinematic* body: game code decides where it goes, but the solver
- * still resolves its contacts, so anything standing on it is carried along
- * by friction and anything in its way is pushed — none of that is tracked
- * here. The movement itself is the reusable PathFollow constraint; this
- * actor is just the body setup.
- */
-export class MovingPlatform extends Entity {
-  static description = 'A platform that patrols a path, pausing at each point';
-  name = 'MovingPlatform';
-
-  /** The path is the `PathFollow` constraint's own params, set through this actor. */
-  static properties = {
-    path: s.object(PathFollow.params, { label: 'Path' })
-  };
-
-  constructor(body, sprite, game, options = {}) {
-    body.bodyType = 'kinematic';
-    body.friction = 1;
-    body.restitution = 0;
-    super(body, sprite, game);
-    this.addConstraint('path', new PathFollow(this, options.path));
-  }
-}
+import { Ghost, Bee } from './actors/ghost.js';
+import { Coin } from './actors/coin.js';
+import { MovingPlatform } from './actors/movingPlatform.js';
+import { Player } from './actors/player.js';
+import { TopDownPlayer } from './actors/topDownPlayer.js';
+import { ObliquePlayer } from './actors/obliquePlayer.js';
+import { Platform } from './actors/platform.js';
+import { Turret } from './actors/turret.js';
+import { Rocket } from './actors/rocket.js';
+import { Npc } from './actors/npc.js';
 
 /**
  * Prefab templates: ready-made `prefabs` entries the editor's component
@@ -164,13 +67,16 @@ export const PREFAB_TEMPLATES = {
   }
 };
 
-/** Register the cast and the templates, marked as the kit's for the editor's catalog. */
+/**
+ * Register the cast and the templates under the names scenes use, marked
+ * as the kit's for the editor's catalog. Call it before the game's own
+ * registrations, so a game's class under one of these names wins.
+ */
 export function registerKitActors(game) {
   const kit = { origin: 'kit' };
-  game.registerActor('Ghost', Ghost, kit);
-  game.registerActor('Bee', Bee, kit);
-  game.registerActor('Coin', Coin, kit);
-  game.registerActor('MovingPlatform', MovingPlatform, kit);
+  for (const [name, klass] of Object.entries({ Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc })) {
+    game.registerActor(name, klass, kit);
+  }
   for (const [name, template] of Object.entries(PREFAB_TEMPLATES)) {
     game.registerPrefabTemplate(name, template, kit);
   }

@@ -1,11 +1,12 @@
 {
   "name": "m2d-kit",
   "version": "0.1.0",
-  "description": "Ready-to-use pieces for games on m2d: the stock cast (Ghost, Bee, Coin, MovingPlatform), prefab templates, combat effects and helpers \u2014 compositions of the engine's capabilities, too opinionated for the engine and too reusable to live in one game. Plain JavaScript; imports nothing from the DOM at load, so a server can import a game that imports it.",
+  "description": "Ready-to-use pieces for games on m2d: the stock cast (players, platforms, mobs, pickups, a turret, an NPC), genre controllers, prefab templates, combat effects and helpers \u2014 compositions of the engine's capabilities, too opinionated for the engine and too reusable to live in one game. Plain JavaScript; imports nothing from the DOM at load, so a server can import a game that imports it.",
   "type": "module",
   "exports": {
     ".": "./src/index.js",
     "./actors": "./src/actors.js",
+    "./controls": "./src/controls.js",
     "./effects": "./src/effects.js",
     "./random": "./src/random.js",
     "./textures": "./src/textures.js",

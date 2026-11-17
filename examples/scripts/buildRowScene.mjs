@@ -121,7 +121,7 @@ function buildManifest() {
 
 const scene = {
   version: 4, name: 'row', type: 'level', gameType: 'belt',
-  world: { width: LENGTH, height: DEPTH, gravity: { x: 0, y: 0 }, sort: 'depth', projection: { type: 'belt', ratio: 0.5 } },
+  world: { width: LENGTH, height: DEPTH, gravity: { x: 0, y: 0 }, sort: 'depth', projection: { type: 'belt', ratio: 0.5 }, player: 'player-1' },
   // The three creatures live in the asset manifest instead, bound here by
   // uid. See CREATURES below.
   uses: Object.fromEntries(CREATURES.map(name => [name, `prefab-${name}`])),

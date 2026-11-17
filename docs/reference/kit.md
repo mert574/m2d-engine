@@ -24,7 +24,121 @@ The stock gameplay cast, each a composition of the engine's capabilities, and wh
 | `Coin` | A pickup: `Hover` bobs it, the engine's [`Collectable`](./constraints#collectable) takes it on an avatar's touch. Expects a `static` sensor |
 | `MovingPlatform` | A kinematic platform patrolling `properties.path` with [`PathFollow`](./constraints#pathfollow); friction 1, so riders are carried |
 
+The players, the platform, the turret and the NPC came out of the engine with the rest of the cast; each expects certain prefab physics and reads certain `properties`, as below. Register what a game uses, or everything with `registerKitActors`.
+
+### Player
+
+`m2d-kit/actors`. Name `Player`. A platformer character controlled with the arrow keys, Space to jump and X to attack.
+
+- Expects a `dynamic` body. It moves by friction and tumbles. Sets its mass to 1.
+- Uses animations `idle`, `run`, `jump`, `attackLeft` and `attackRight` when the sheet has them.
+- Constraints: `Health` (100), `Attack` (65 damage, 50 range, 22.5 cooldown), `KeyboardControl` (acceleration 3000, max speed 180, no vertical movement), `WallSlip`. Jumps at `jumpVelocity` (a declared property, 720 px/s) when on the ground.
+- Calls `game.gameOver()` on death. Plays the `jump`, `attack` and `damage` sounds when loaded; a coin's sound is a rule on the `picked` event.
+
+### TopDownPlayer
+
+`m2d-kit/actors`. Name `Player`. Eight-directional movement with the arrow keys and X to attack.
+
+- Works with a `dynamic` or `character` body and zero gravity. Sets its mass to 1.
+- Constraints: `Health` (100), `Attack` (65 damage, 50 range, 22.5 cooldown), `KeyboardControl` (acceleration 3000, max speed 180, vertical movement on).
+
+### ObliquePlayer
+
+`m2d-kit/actors`. Name `Player`. The `TopDownPlayer` for a 3/4 view, with a heading, Space to hop and a swing in any direction.
+
+- Everything `TopDownPlayer` has. Works best with a prefab `footprint`, so the body is the feet and the sprite stands above it.
+- `heading` is the direction last moved in, radians. X swings the `Attack` at it, `attackArc` wide (default 1.5π) with `attackRange` (60) and `attackKnockback` (6000), so a wisp above or below is in reach.
+- The hop is `elevation`: Space launches it at `jumpSpeed` (430 px/s) and `gravity` (1500 px/s²) brings it back. The collider never leaves the ground. `isAirborne` says whether the feet are off it; `jump()` hops from code; `onJump` and `onLand` hooks fire at the ends.
+- With an eight-facing sheet it plays `idle_<dir>`, `run_<dir>` and `swing_<dir>` for the heading; `spriteFit` is on, so the object's size is the drawn frame. `spriteOffsetY` shifts the sprite down for a sheet whose feet sit above the frame's bottom.
+- `properties`: `jumpSpeed`, `gravity`, `attackArc`, `attackRange`, `attackKnockback`, `spriteOffsetY`.
+
+### Npc
+
+`m2d-kit/actors`. Name `Npc`. Someone to talk to: stands on a `static` body, turns to face the player within `talkRadius` (110) and shows an `E · Talk to <displayName>` prompt through a `ProximityPrompt`. Set `hasNews` to draw a marker over the head. Plays `idle_<dir>` for its facing, or `idle`. `spriteFit` is on.
+
+- `properties`: `who` (an id for the game), `displayName`, `facing` (resting facing, radians, default down), `talkRadius`, `spriteOffsetY`.
+- `playerNear` is the prompt's test; the game reads it on its interact key and opens a `UIDialogue`.
+
+### Platform
+
+`m2d-kit/actors`. Name `Platform`. Draws the prefab's `defaultAnimation`, or `default`, tiled over its size. Without a sprite it draws the red placeholder rectangle.
+
+- Expects a `static` body.
+- A static body, so projectiles stop at it and `Turret` cannot see through it.
+
+### Turret
+
+`m2d-kit/actors`. Name `Turret`. A stationary enemy that aims at the player, checks line of sight with a raycast against static bodies and fires `Rocket` projectiles.
+
+- Sets its body to `static` and its category to `enemy`.
+- Draws itself with primitives. No sprite needed.
+- `properties`: `detectionRange` (350), `fireRate` seconds between shots (2), `rocketSpeed` (360), `rocketDamage` (25), `health` (80). A value of `0` falls back to the default.
+- Constraints: `Health` (0.3 s invulnerable), `ContactDamage` (25 damage, 360 px/s knockback).
+
+### Rocket
+
+`m2d-kit/actors`. Name `Rocket`. A `Projectile` that draws itself. Created by `Turret`, or by code with `game.physics.createBox` and `new Rocket(body, null, game, { direction, speed, damage })`.
+
+Defaults: speed 480, damage 25, lifetime 6 s; it hurts the players' avatars unless `targetNames` says otherwise. Every `Projectile` option can be passed.
+
 **Prefab templates.** `PREFAB_TEMPLATES` holds ready-made `prefabs` entries — `mob` (chases, hurts, flashes, dies and is gone) and `pickup` (bobs, is collected, counts) — composed over the engine's `Prop` with no class at all, art-free so they play the moment they land. `registerKitActors` offers them through the engine's `registerPrefabTemplate`; the editor's Components tab shows each as a card whose **Insert** copies it into the scene's own `prefabs`, and `list_components` hands an agent the same entry to copy in with `edit_scene`.
+
+## `m2d-kit/controls`
+
+Genre controllers: how a body answers held keys in one kind of game. The engine's `KeyboardControl` and `PointerMove` are the plain capabilities; these are opinionated, and a game attaches one from a scene's `constraints` or an actor's constructor. `registerKitControls(game)` registers the four under their names; `registerKit(game)` from `m2d-kit` registers the cast, the controls and the effects together.
+
+### ThrustControl
+
+`m2d-kit/controls`. A ship's handling on a dynamic body with rotation free: left and right drive angular velocity at `turn` rad/s, up thrusts along the nose at `thrust` px/s², down brakes or reverses at `reverse`, speed is capped at `maxSpeed` and coasting decays at `drag` 1/s. `KeyC` ignites a boost (`boostThrust` and `boostSpeed` multipliers for `boostDuration`, once per `boostCooldown`); `onBoost` fires then, and `onFire` every tick the fire key is held. `throttle` (0..1) and `steer` (-1..1) are read back for a flame and a bank. Keys as `KeyboardControl`'s, under `keys`.
+
+### GlideControl
+
+`m2d-kit/controls`. One-press gliding on a corridor grid: tap a direction and the body keeps going until a wall, a new direction or the same key again: Pac-Man's movement, for cosy mazes. A turn pressed early is buffered and taken at the next opening; one pressed a beat late snaps back to the junction just passed and takes it anyway. Openness is asked of the physics world (`physics.overlaps` one cell over, sensors ignored), so the constraint needs no map, only the grid the corridors are built on. The body parks on the centre of the last open cell at a wall, and is held to the corridor's centre line while gliding. Runs in `fixedUpdate` on `entity.input`, the owning player's snapshot.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `keys` | arrows | `{ left, right, up, down }` as key codes |
+| `speed` | `240` | Glide speed, px/s |
+| `grid` | `32` | Corridor cell size; centres at `(n + 0.5) * grid` |
+| `buffer` | `0.35` | Seconds a queued turn waits for its opening |
+| `snap` | `0.6` | How far past a junction, in cells, a late turn still takes it |
+| `stopOnRepeat` | `true` | Pressing the direction of travel stops the body |
+| `onMove(dx, dy)` | | When a glide starts or changes direction |
+| `onStop()` | | When the body comes to rest |
+
+Hedgerow Court is the worked example.
+
+### CarControl
+
+`m2d-kit/controls`. Arcade top-down car handling on a dynamic body. Each tick the body's velocity splits along its heading: throttle and brakes act on the forward part, grip decays the lateral part, and the handbrake swaps in a much lower grip so the car slides while the nose turns, a drift. Steering drives angular velocity and scales with speed, so the car cannot pivot in place. Runs in `fixedUpdate` on `entity.input`, the owning player's snapshot, so the same inputs always drive the same path and a server drives each car from its own player.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `keys` | arrows, `Space`, `KeyX` | `{ throttle, brake, left, right, handbrake, nitro }` as key codes. Partial overrides are merged |
+| `manual` | `false` | Ignore the keyboard; a driver supplies `setControls({ throttle, brake, steer, handbrake, nitro })` |
+| `autoThrottle` | `false` | The throttle is held for the driver: full drive whenever the brake is not, so the player steers and drifts and never lifts off. The throttle key is ignored; a `manual` driver's `throttle` too |
+| `handbrakeDrag` | `0` | Speed the handbrake takes off while held, 1/s. With it one button both slows the car and sets it sliding, which a touch screen with two buttons wants |
+| `acceleration` | `420` | Forward drive, px/s² |
+| `maxSpeed` | `560` | Forward cap, px/s |
+| `brake` | `780` | Braking, px/s². Held past the stop it reverses, capped at `maxReverse` |
+| `maxReverse` | `170` | Reverse cap, px/s |
+| `drag` | `0.6` | Coasting decay, 1/s |
+| `grip` | `18` | Lateral decay, 1/s. Steady-state sliding at full lock is `maxSpeed * steer / grip`; the defaults keep that under `driftThreshold` |
+| `driftGrip` | `2.4` | Grip while the handbrake is held |
+| `steer` | `2.4` | Yaw rate at full steering, rad/s |
+| `driftSteer` | `3.6` | Yaw rate while drifting |
+| `driftThreshold` | `90` | Lateral px/s that counts as drifting |
+| `nitroThrust`, `nitroBoost` | `2.1`, `1.35` | Acceleration and speed-cap multipliers while the nitro burns |
+| `nitroDuration`, `nitroCooldown` | `1.1`, `5` | Burn and recharge, seconds |
+| `overspeedDecay` | `1.4` | How fast speed above the cap bleeds away, 1/s. The throttle never pushes past the cap; a boost pad, a mini-turbo or the end of a nitro burn carries the car over it, and it settles back over about a second |
+| `onDrift(active)` | | Drift started or ended |
+| `onNitro()` | | Nitro ignited |
+
+Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lower on oil or grass; it scales grip, steering and drive together), `surfaceDrag` (set it per tick too: speed the surface takes away, 1/s, 0 on asphalt), `drifting`, `forwardSpeed`, `lateralSpeed`, `speed`, `boostLeft`, `nitroReady`, `igniteNitro()`, `applyBoost(speed)` (a shove along the heading up to `speed`, what a boost pad does; it may pass the cap, and `overspeedDecay` brings it back), `setControls(controls)`.
+
+### WallSlip
+
+`m2d-kit/controls`. No options. Sets the body's friction to zero while airborne and restores it on landing, so holding a direction into a wall does not make a dynamic player cling to it.
 
 ## `m2d-kit/effects`
 

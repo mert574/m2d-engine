@@ -1,6 +1,6 @@
 import { defineMatch } from 'm2d-server';
-import { Platform } from 'm2d-engine/actors/platform.js';
 import { INPUT, GAME_OPTIONS, registerArena } from './arenaGame.js';
+import { Platform } from 'm2d-kit/actors';
 
 // A match that goes wrong 30 ticks in, if it is called 'bad': memory.
 const hoard = [];

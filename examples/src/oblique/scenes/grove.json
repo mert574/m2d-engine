@@ -8,6 +8,7 @@
     "height": 2400,
     "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
+    "player": "player-1",
     "camera": { "lerp": 0.08, "bounds": "world", "wheelZoom": { "speed": 0.0015, "min": 0.7, "max": 1.6 } },
     "lighting": { "ambient": "#5a6078", "fallback": "rgba(14, 22, 44, 0.36)" },
     "post": {

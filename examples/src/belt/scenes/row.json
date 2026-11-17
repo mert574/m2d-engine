@@ -10,6 +10,7 @@
     "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
     "projection": { "type": "belt", "ratio": 0.5 },
+    "player": "player-1",
     "camera": { "lerp": 0.12, "bounds": { "left": 0, "top": -2000, "right": 5200, "bottom": 264 } },
     "lighting": { "ambient": "#f2ecdf" },
     "post": {

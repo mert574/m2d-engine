@@ -56,6 +56,11 @@
     ],
     "rules": [
       {
+        "when": { "event": "emit", "name": "picked" },
+        "then": [{ "do": "sound", "key": "coin" }],
+        "once": false
+      },
+      {
         "when": { "event": "collected", "prefab": "coin" },
         "then": [
           { "do": "notice", "text": "DATA RECOVERED", "seconds": 2 },

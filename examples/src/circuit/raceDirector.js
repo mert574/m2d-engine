@@ -24,12 +24,12 @@
  */
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
-import { CarControl } from 'm2d-engine/constraints/carControl.js';
 import { RaceCar, GhostCar, CAR } from './actors.js';
 import { Recorder, Player, saveBest, loadBest, raceSignature } from './replay.js';
 import { trackFor, WALL_THICKNESS } from './track.js';
 import { marksFor } from './road.js';
 import { chosenCar, carById } from './cars.js';
+import { CarControl } from 'm2d-kit/controls';
 
 /** Seconds of countdown before the inputs go live: 3 · 2 · 1 · GO. */
 const COUNTDOWN_SECONDS = 3.2;

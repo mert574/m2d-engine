@@ -3,9 +3,7 @@ import { initPhysics } from '../src/core/physics/index.js';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { M2D } from '../src/core/m2d.js';
 import { Replicator, applyState, baselineOf } from '../src/net/replication.js';
-import { ObliquePlayer } from '../src/actors/obliquePlayer.js';
-import { Ghost } from './helpers/mobs.js';
-import { Platform } from '../src/actors/platform.js';
+import { Ghost, ObliquePlayer, Platform } from 'm2d-kit/actors';
 
 /**
  * Interest management: each client is told about what its player is near,

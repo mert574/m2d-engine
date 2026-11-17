@@ -24,7 +24,8 @@ describe('Ember Valley, played through', () => {
     standAt(coins.at(-1));
     expect([...game.entities].some((entity) => entity.prefab === 'coin' && !entity.dead)).toBe(false);
     expect(rule('collected').fired).toBe(true);
-    expect(scene.rules.rules.filter((candidate) => candidate.fired).length).toBe(1);
+    // Only the collected rule and the coin's sound (on `picked`) have fired: the gate's rule has not.
+    expect(scene.rules.rules.filter((candidate) => candidate.fired).map((candidate) => candidate.when.event).sort()).toEqual(['collected', 'emit']);
     game.destroy();
   });
 

@@ -80,7 +80,7 @@ describe('the components panel', () => {
     });
     panel.refresh();
     const cards = () => [...container.querySelectorAll<HTMLElement>('.component-card')];
-    expect(cards().length).toBeGreaterThan(20);
+    expect(cards().length).toBeGreaterThan(12); // the engine's capabilities, Prop and Trigger
     const health = cards().find((card) => card.dataset.name === 'Health')!;
     const button = health.querySelector<HTMLButtonElement>('.card-action')!;
     expect(button.disabled).toBe(true);                      // nothing selected

@@ -1,6 +1,5 @@
-import { Player } from 'm2d-engine/actors/player.js';
 import { Prop } from 'm2d-engine/actors/prop.js';
-import { registerKitActors } from 'm2d-kit/actors';
+import { Player, registerKitActors } from 'm2d-kit/actors';
 
 /**
  * The game's definition: the cast, and the options its simulation needs —

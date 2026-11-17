@@ -1,8 +1,7 @@
-import { Entity } from '../core/entity.js';
-import { Health } from '../constraints/health.js';
-import { Attack } from '../constraints/attack.js';
-import { Debug } from '../constraints/debug.js';
-import { KeyboardControl } from '../constraints/keyboardControl.js';
+import { Entity } from 'm2d-engine/core/entity.js';
+import { Health } from 'm2d-engine/constraints/health.js';
+import { Attack } from 'm2d-engine/constraints/attack.js';
+import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
 
 export class TopDownPlayer extends Entity {
   static description = 'The top-down player, moved by the keyboard in the plane';
@@ -62,24 +61,8 @@ export class TopDownPlayer extends Entity {
         }
       }
     }));
-
-    this.addConstraint('debug', new Debug(this, {
-      boundsColor: '#00ff00',
-      boundsFillColor: 'rgba(0, 255, 0, 0.1)',
-      centerColor: '#ff0000',
-      textColor: '#00ff00',
-      healthyColor: '#00ff00',
-      lowHealthColor: '#ff0000'
-    }));
   }
 
-  onCollisionStart(other) {
-    super.onCollisionStart(other);
-
-    if (other.entity?.name === 'Coin') {
-      this.game.soundManager.playSound('coin');
-    }
-  }
 
   draw() {
     super.draw();

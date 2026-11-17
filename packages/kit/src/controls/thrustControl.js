@@ -1,5 +1,5 @@
-import { Constraint, KEY_BINDINGS } from '../core/constraint.js';
-import { s } from '../core/schema.js';
+import { Constraint, KEY_BINDINGS } from 'm2d-engine/core/constraint.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 /**
  * Default bindings, as physical key codes (see keyboardControl.js).

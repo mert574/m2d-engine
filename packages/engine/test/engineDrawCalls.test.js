@@ -8,12 +8,11 @@ import { Projectile } from '../src/core/projectile.js';
 import { SpriteSheet } from '../src/core/spriteSheet.js';
 import { Health } from '../src/constraints/health.js';
 import { Debug } from '../src/constraints/debug.js';
-import { Rocket } from '../src/actors/rocket.js';
-import { Turret } from '../src/actors/turret.js';
 import { Trigger } from '../src/actors/trigger.js';
 import { UIRectangle } from '../src/core/ui/Rectangle.js';
 import { PerformanceStats } from '../src/core/ui/performanceStats.js';
 import { makeTestGame, makeBody, expectBalancedStacks } from './helpers/testGame.js';
+import { Rocket, Turret } from 'm2d-kit/actors';
 
 /**
  * Verifies that engine and actor code emits the correct *abstract* draw calls.

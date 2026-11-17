@@ -1,4 +1,4 @@
-import { Entity } from '../core/entity.js';
+import { Entity } from 'm2d-engine/core/entity.js';
 
 export class Platform extends Entity {
   static description = 'A static platform or wall';

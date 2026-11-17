@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { expect } from 'vitest';
 import { join } from 'node:path';
 import { Chase } from 'm2d-engine/constraints/chase.js';
+import { GlideControl } from 'm2d-kit/controls';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { AssetDatabase } from 'm2d-engine/core/assets.js';
 import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS, Registry } from 'm2d-engine/core/builtins.js';
@@ -17,7 +18,7 @@ import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS, Registry } from 'm2d-engine/core/b
  * not stubs: their `static params` is what declared params validate
  * against, so a mistyped param in a demo scene fails here.
  */
-const CONSTRAINT_CLASSES = { Chase, Footsteps };
+const CONSTRAINT_CLASSES = { Chase, Footsteps, GlideControl };
 
 /** Actors each demo registers with `game.registerActor`. */
 export const DEMO_ACTORS = {
@@ -38,6 +39,7 @@ export const DEMO_ACTORS = {
 /** Constraints each demo registers, and so may attach from its scenes. */
 export const DEMO_CONSTRAINTS = {
   platformer: ['Chase'],
+  maze: ['GlideControl'],
   yard: ['Footsteps']
 };
 

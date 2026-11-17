@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { makeTestGame, makeBody } from './helpers/testGame.js';
 import { Entity } from '../src/core/entity.js';
 import { Camera } from '../src/core/camera.js';
-import { ThrustControl } from '../src/constraints/thrustControl.js';
+import { ThrustControl } from 'm2d-kit/controls';
 
 describe('ThrustControl', () => {
   it('turns, thrusts along the nose, caps speed and coasts', () => {

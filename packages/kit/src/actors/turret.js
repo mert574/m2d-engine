@@ -1,11 +1,10 @@
-import { Entity } from '../core/entity.js';
-import { Health } from '../constraints/health.js';
-import { ContactDamage } from '../constraints/contactDamage.js';
+import { Entity } from 'm2d-engine/core/entity.js';
+import { Health } from 'm2d-engine/constraints/health.js';
+import { ContactDamage } from 'm2d-engine/constraints/contactDamage.js';
 import { Rocket } from './rocket.js';
-import { CollisionCategories } from '../core/constants.js';
-import { Vec2 } from '../core/math.js';
-import { Debug } from '../constraints/debug.js';
-import { s } from '../core/schema.js';
+import { CollisionCategories } from 'm2d-engine/core/constants.js';
+import { Vec2 } from 'm2d-engine/core/math.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 export class Turret extends Entity {
   static description = 'A fixed gun that tracks and fires at the player';
@@ -51,16 +50,6 @@ export class Turret extends Entity {
       this.game.soundManager.playSound('damage');
     };
     this.addConstraint('health', health);
-
-    this.addConstraint('debug', new Debug(this, {
-      boundsColor: '#9C27B0',
-      boundsFillColor: 'rgba(156, 39, 176, 0.1)',
-      centerColor: '#9C27B0',
-      textColor: '#CE93D8',
-      healthyColor: '#CE93D8',
-      lowHealthColor: '#E91E63',
-      lowHealthThreshold: 25
-    }));
 
     this.addConstraint('contactDamage', new ContactDamage(this, {
       damage: 25,

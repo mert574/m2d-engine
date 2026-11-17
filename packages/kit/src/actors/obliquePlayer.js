@@ -1,6 +1,6 @@
 import { TopDownPlayer } from './topDownPlayer.js';
-import { Angle } from '../core/math.js';
-import { s } from '../core/schema.js';
+import { Angle } from 'm2d-engine/core/math.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 /**
  * The top-down player for a 3/4 view, with a heading, a jump and a swing

@@ -21,25 +21,18 @@ export class Trigger extends Entity {
     this.debugColor = options.debugColor || '#e7693166';
   }
 
+  // A player's avatar entering or leaving: the players registry's test, so
+  // the same trigger fires for every knight on a server.
   onCollisionStart(other) {
     super.onCollisionStart(other);
     if (!this.active) return;
-
-    if (other.entity?.name === 'Player') {
-      if (this.onEnter) {
-        this.onEnter(other.entity, this.data);
-      }
-    }
+    if (this.onEnter && this.game.players.isAvatar(other.entity)) this.onEnter(other.entity, this.data);
   }
 
   onCollisionEnd(other) {
     super.onCollisionEnd(other);
-    
     if (!this.active) return;
-
-    if (other.entity?.name === 'Player' && this.onExit) {
-      this.onExit(other.entity, this.data);
-    }
+    if (this.onExit && this.game.players.isAvatar(other.entity)) this.onExit(other.entity, this.data);
   }
 
   setAnimation() {

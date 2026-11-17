@@ -1,10 +1,9 @@
-import { Entity } from '../core/entity.js';
-import { Health } from '../constraints/health.js';
-import { Attack } from '../constraints/attack.js';
-import { Debug } from '../constraints/debug.js';
-import { KeyboardControl } from '../constraints/keyboardControl.js';
-import { WallSlip } from '../constraints/wallSlip.js';
-import { s } from '../core/schema.js';
+import { Entity } from 'm2d-engine/core/entity.js';
+import { Health } from 'm2d-engine/constraints/health.js';
+import { Attack } from 'm2d-engine/constraints/attack.js';
+import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
+import { WallSlip } from '../controls/wallSlip.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 export class Player extends Entity {
   static description = 'The side-view platformer player';
@@ -71,24 +70,8 @@ export class Player extends Entity {
     // Walls must not be climbable by holding a direction into them; the
     // ground friction the tumbling depends on comes back on landing.
     this.addConstraint('wallSlip', new WallSlip(this));
-
-    this.addConstraint('debug', new Debug(this, {
-      boundsColor: '#00ff00',
-      boundsFillColor: 'rgba(0, 255, 0, 0.1)',
-      centerColor: '#ff0000',
-      textColor: '#00ff00',
-      healthyColor: '#00ff00',
-      lowHealthColor: '#ff0000'
-    }));
   }
 
-  onCollisionStart(other) {
-    super.onCollisionStart(other);
-
-    if (other.entity?.name === 'Coin') {
-      this.game.soundManager.playSound('coin');
-    }
-  }
 
   draw() {
     super.draw();

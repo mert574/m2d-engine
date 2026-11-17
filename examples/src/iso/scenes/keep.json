@@ -9,6 +9,7 @@
     "gravity": { "x": 0, "y": 0 },
     "sort": "depth",
     "projection": "isometric",
+    "player": "player-1",
     "camera": { "lerp": 0.1, "bounds": "world", "wheelZoom": { "speed": 0.0015, "min": 0.6, "max": 1.8 } },
     "lighting": { "ambient": "#575062", "fallback": "rgba(20, 14, 30, 0.35)" },
     "post": {

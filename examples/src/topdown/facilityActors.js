@@ -1,8 +1,4 @@
-import { Platform } from 'm2d-engine/actors/platform.js';
-import { TopDownPlayer } from 'm2d-engine/actors/topDownPlayer.js';
-import { Coin, Ghost } from 'm2d-kit/actors';
-import { Turret } from 'm2d-engine/actors/turret.js';
-import { Rocket } from 'm2d-engine/actors/rocket.js';
+import { Coin, Ghost, Platform, Rocket, TopDownPlayer, Turret } from 'm2d-kit/actors';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 import { Sonar } from './sonar.js';

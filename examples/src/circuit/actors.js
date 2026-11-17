@@ -8,10 +8,10 @@
  * the shared mark buffer while drifting.
  */
 import { Entity } from 'm2d-engine/core/entity.js';
-import { CarControl } from 'm2d-engine/constraints/carControl.js';
 import { s } from 'm2d-engine/core/schema.js';
 import { makeRng, range } from 'm2d-kit/random';
 import { trackFor } from './track.js';
+import { CarControl } from 'm2d-kit/controls';
 
 /** Visual size of a car, px. The physics box is a whisker smaller. */
 export const CAR = { width: 30, length: 54, bodyWidth: 26, bodyLength: 48 };

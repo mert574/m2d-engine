@@ -4,25 +4,17 @@
  * Plain data, actors and pure functions: nothing here touches a browser.
  */
 
-import { Player } from '../../src/actors/player.js';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
-import { Bee, Ghost, Coin, MovingPlatform } from './mobs.js';
-import { Turret } from '../../src/actors/turret.js';
-import { Platform } from '../../src/actors/platform.js';
 import { Entity } from '../../src/core/entity.js';
-import { ObliquePlayer } from '../../src/actors/obliquePlayer.js';
-import { TopDownPlayer } from '../../src/actors/topDownPlayer.js';
-import { Npc } from '../../src/actors/npc.js';
 import { Trigger } from '../../src/actors/trigger.js';
-import { CarControl } from '../../src/constraints/carControl.js';
-import { GlideControl } from '../../src/constraints/glideControl.js';
-import { ThrustControl } from '../../src/constraints/thrustControl.js';
 import { PointerMove } from '../../src/constraints/pointerMove.js';
 import { Abilities } from '../../src/constraints/abilities.js';
 import { Footsteps } from '../../src/constraints/footsteps.js';
 import { InputSchema, InputGate } from '../../src/net/input.js';
 import { Rng } from '../../src/core/rng.js';
 import { InputSnapshot } from '../../src/core/input/snapshot.js';
+import { Bee, Coin, Ghost, MovingPlatform, Npc, ObliquePlayer, Platform, Player, TopDownPlayer, Turret } from 'm2d-kit/actors';
+import { CarControl, GlideControl, ThrustControl } from 'm2d-kit/controls';
 
 /*
  * The arena: a player on KeyboardControl (input sampling, per-tick
@@ -34,7 +26,7 @@ export const ARENA_ACTORS = [Player, Bee, Turret, Platform, MovingPlatform];
 
 export const SCENE = {
   version: SCENE_VERSION, type: 'level', name: 'arena',
-  world: { gravity: { x: 0, y: 900 } },
+  world: { gravity: { x: 0, y: 900 }, player: 'player' },
   prefabs: {
     floor: { actor: 'Platform', physics: { bodyType: 'static', friction: 0.6 } },
     player: { actor: 'Player', physics: { bodyType: 'dynamic', lockRotation: true, friction: 0.6 } },
@@ -140,7 +132,7 @@ const box = (prefab, x, y, width, height, properties) => {
 
 export const GROVE = {
   version: SCENE_VERSION, type: 'level', name: 'grove',
-  world: { gravity: { x: 0, y: 0 } },
+  world: { gravity: { x: 0, y: 0 }, player: 'player' },
   prefabs: {
     wall: { actor: 'Platform', physics: { bodyType: 'static' } },
     player: { actor: 'ObliquePlayer', physics: { bodyType: 'dynamic', lockRotation: true, frictionAir: 0.2, footprint: { height: 16 } } },
@@ -155,7 +147,7 @@ export const GROVE = {
   layers: [{ name: 'main', objects: [
     box('wall', 640, 10, 1280, 20), box('wall', 640, 950, 1280, 20),
     box('wall', 10, 480, 20, 960), box('wall', 1270, 480, 20, 960),
-    box('player', 200, 400, 32, 48),
+    { id: 'player', prefab: 'player', x: 200, y: 400, width: 32, height: 48 },
     box('ghost', 520, 300, 32, 32), box('ghost', 900, 600, 32, 32),
     box('npc', 380, 470, 32, 48, { who: 'keeper', talkRadius: 120 }),
     box('coin', 260, 416, 20, 20), box('coin', 330, 416, 20, 20),
@@ -168,7 +160,7 @@ export const GROVE = {
 
 export const KEEP = {
   version: SCENE_VERSION, type: 'level', name: 'keep',
-  world: { gravity: { x: 0, y: 0 }, projection: 'isometric' },
+  world: { gravity: { x: 0, y: 0 }, projection: 'isometric', player: 'player' },
   prefabs: {
     wall: { actor: 'Platform', physics: { bodyType: 'static' } },
     player: { actor: 'TopDownPlayer', physics: { bodyType: 'dynamic', lockRotation: true, frictionAir: 0.2 } },
@@ -179,7 +171,7 @@ export const KEEP = {
     box('wall', 320, 8, 640, 16), box('wall', 320, 632, 640, 16),
     box('wall', 8, 320, 16, 640), box('wall', 632, 320, 16, 640),
     box('wall', 240, 240, 96, 32),
-    box('player', 100, 100, 28, 28),
+    { id: 'player', prefab: 'player', x: 100, y: 100, width: 28, height: 28 },
     box('glider', 336, 400, 28, 28),
     box('walker', 500, 120, 24, 24)
   ] }]

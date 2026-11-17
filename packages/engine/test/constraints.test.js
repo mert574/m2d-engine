@@ -5,9 +5,9 @@ import { Entity } from '../src/core/entity.js';
 import { PathFollow } from '../src/constraints/pathFollow.js';
 import { Hover } from '../src/constraints/hover.js';
 import { Health } from '../src/constraints/health.js';
-import { WallSlip } from '../src/constraints/wallSlip.js';
 import { KeyboardControl } from '../src/constraints/keyboardControl.js';
 import { holdKeys } from './helpers/input.js';
+import { WallSlip } from 'm2d-kit/controls';
 
 /**
  * The reusable entity behaviours (src/constraints/) that drive physics or

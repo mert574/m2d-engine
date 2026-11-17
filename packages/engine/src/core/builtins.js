@@ -1,6 +1,8 @@
 /**
  * The engine's own actors and constraints, available to every scene by
- * name without a game registering them.
+ * name without a game registering them: the capabilities, named for what
+ * they do. Game pieces — players, platforms, mobs, a turret — are the
+ * kit's (`m2d-kit`), registered by the game.
  *
  * A game's `registerActor` and `registerConstraint` still come first — a
  * game may ship its own `Health`, or put the engine's class under another
@@ -10,25 +12,16 @@
  * game too. Nothing here is instantiated until a scene names it.
  */
 
-import { Npc } from '../actors/npc.js';
-import { ObliquePlayer } from '../actors/obliquePlayer.js';
-import { Platform } from '../actors/platform.js';
-import { Player } from '../actors/player.js';
 import { Prop } from '../actors/prop.js';
-import { Rocket } from '../actors/rocket.js';
-import { TopDownPlayer } from '../actors/topDownPlayer.js';
 import { Trigger } from '../actors/trigger.js';
-import { Turret } from '../actors/turret.js';
 import { Abilities } from '../constraints/abilities.js';
 import { Attack } from '../constraints/attack.js';
-import { CarControl } from '../constraints/carControl.js';
 import { Chase } from '../constraints/chase.js';
 import { Collectable } from '../constraints/collectable.js';
 import { ContactDamage } from '../constraints/contactDamage.js';
 import { DamageFlash } from '../constraints/damageFlash.js';
 import { Debug } from '../constraints/debug.js';
 import { Footsteps } from '../constraints/footsteps.js';
-import { GlideControl } from '../constraints/glideControl.js';
 import { Grabbable } from '../constraints/grabbable.js';
 import { Health } from '../constraints/health.js';
 import { Hover } from '../constraints/hover.js';
@@ -37,18 +30,16 @@ import { KeyboardControl } from '../constraints/keyboardControl.js';
 import { PathFollow } from '../constraints/pathFollow.js';
 import { PointerMove } from '../constraints/pointerMove.js';
 import { ProximityPrompt } from '../constraints/proximityPrompt.js';
-import { ThrustControl } from '../constraints/thrustControl.js';
-import { WallSlip } from '../constraints/wallSlip.js';
 
 /** The engine's actors, by the name a scene uses. */
 export const BUILTIN_ACTORS = new Map(Object.entries({
-  Npc, ObliquePlayer, Platform, Player, Prop, Rocket, TopDownPlayer, Trigger, Turret
+  Prop, Trigger
 }));
 
 /** The engine's constraints, by the name a scene uses. */
 export const BUILTIN_CONSTRAINTS = new Map(Object.entries({
-  Abilities, Attack, CarControl, Chase, Collectable, ContactDamage, DamageFlash, Debug, Footsteps, GlideControl, Grabbable, Health,
-  Hover, Interactive, KeyboardControl, PathFollow, PointerMove, ProximityPrompt, ThrustControl, WallSlip
+  Abilities, Attack, Chase, Collectable, ContactDamage, DamageFlash, Debug, Footsteps, Grabbable, Health,
+  Hover, Interactive, KeyboardControl, PathFollow, PointerMove, ProximityPrompt
 }));
 
 /**
@@ -57,17 +48,14 @@ export const BUILTIN_CONSTRAINTS = new Map(Object.entries({
  * two maps to the same keys and each path to exporting its class.
  */
 export const BUILTIN_MODULES = new Map(Object.entries({
-  Npc: 'actors/npc.js', ObliquePlayer: 'actors/obliquePlayer.js', Platform: 'actors/platform.js', Player: 'actors/player.js',
-  Prop: 'actors/prop.js', Rocket: 'actors/rocket.js', TopDownPlayer: 'actors/topDownPlayer.js', Trigger: 'actors/trigger.js',
-  Turret: 'actors/turret.js',
-  Abilities: 'constraints/abilities.js', Attack: 'constraints/attack.js', CarControl: 'constraints/carControl.js',
+  Prop: 'actors/prop.js', Trigger: 'actors/trigger.js',
+  Abilities: 'constraints/abilities.js', Attack: 'constraints/attack.js',
   Chase: 'constraints/chase.js', Collectable: 'constraints/collectable.js', ContactDamage: 'constraints/contactDamage.js', DamageFlash: 'constraints/damageFlash.js',
-  Debug: 'constraints/debug.js', Footsteps: 'constraints/footsteps.js', GlideControl: 'constraints/glideControl.js',
+  Debug: 'constraints/debug.js', Footsteps: 'constraints/footsteps.js',
   Grabbable: 'constraints/grabbable.js', Health: 'constraints/health.js', Hover: 'constraints/hover.js',
   Interactive: 'constraints/interactive.js', KeyboardControl: 'constraints/keyboardControl.js',
   PathFollow: 'constraints/pathFollow.js', PointerMove: 'constraints/pointerMove.js',
-  ProximityPrompt: 'constraints/proximityPrompt.js', ThrustControl: 'constraints/thrustControl.js',
-  WallSlip: 'constraints/wallSlip.js'
+  ProximityPrompt: 'constraints/proximityPrompt.js'
 }));
 
 /**

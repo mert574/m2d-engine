@@ -280,7 +280,7 @@ function meterColour(properties) {
 
 /** Whether an entity is another player's avatar, for a minimap's `players` entry. */
 function isOtherPlayer(game, entity) {
-  return entity.name === 'Player' && entity !== game.player && !entity.dead;
+  return entity !== game.player && !entity.dead && game.players.isAvatar(entity);
 }
 
 /** A plot entry as `UIMinimap` draws it, with `by` read off the entity. */

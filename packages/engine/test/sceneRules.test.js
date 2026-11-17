@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
-import { Coin } from './helpers/mobs.js';
 import { Trigger } from '../src/actors/trigger.js';
 import { Health } from '../src/constraints/health.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { blendLook, cycleLook, advanceCycle } from '../src/core/look.js';
+import { Coin } from 'm2d-kit/actors';
 
 /**
  * `world.rules`, `hud`, `world.cycle`, `world.killPlane`, a 2D `light`

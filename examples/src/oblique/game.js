@@ -1,7 +1,7 @@
-import { Npc } from 'm2d-engine/actors/npc.js';
 import { registerEffects } from 'm2d-kit/effects';
 import { Tree, Decor, Bound, Pond, Wanderer, Wisp, Lantern, Clearing, GroundDetail } from './groveActors.js';
 import { TreeLine } from './menuBackdrop.js';
+import { Npc } from 'm2d-kit/actors';
 
 /**
  * Hollow Grove's definition: the cast, and nothing that shows it. The

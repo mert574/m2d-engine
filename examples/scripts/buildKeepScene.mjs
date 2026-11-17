@@ -179,7 +179,7 @@ function directional(columns) {
 
 const scene = {
   version: 4, name: 'keep', type: 'level', gameType: 'isometric',
-  world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth', projection: 'isometric' },
+  world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth', projection: 'isometric', player: 'player-1' },
   assets: {
     spritesheets: {
       floor: { url: 'textures/tiles/floor-crypt.png', frameWidth: 64, frameHeight: 32 },

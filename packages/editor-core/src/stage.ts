@@ -30,22 +30,15 @@ function objectsOf(data: Record<string, unknown>): Array<{ object: Record<string
   });
 }
 
-/** The player's object: `world.player`, else the first object whose prefab's actor is `Player`. */
+/** The player's object: `world.player`, or null when the level names none. */
 export function playerObjectId(data: Record<string, unknown>): string | null {
-  const named = isPlainObject(data.world) && typeof data.world.player === 'string' ? data.world.player : null;
-  if (named) return named;
-  const prefabs = isPlainObject(data.prefabs) ? data.prefabs : {};
-  const found = objectsOf(data).find(({ object }) => {
-    const prefab = typeof object.prefab === 'string' ? prefabs[object.prefab] : null;
-    return isPlainObject(prefab) && prefab.actor === 'Player';
-  });
-  return typeof found?.object.id === 'string' ? found.object.id : null;
+  return isPlainObject(data.world) && typeof data.world.player === 'string' ? data.world.player : null;
 }
 
 /** A copy of the scene whose player starts at `at`. */
 export function playFrom(data: Record<string, unknown>, at: At): Record<string, unknown> {
   const id = playerObjectId(data);
-  if (!id) throw new Error('this scene has no player to place: set world.player, or place an object whose actor is Player');
+  if (!id) throw new Error('this scene has no player to place: set world.player to the id of the player\'s object');
   const copy = clone(data);
   const player = objectsOf(copy).find(({ object }) => object.id === id);
   if (!player) throw new Error(`world.player names '${id}', and no placed object has that id`);

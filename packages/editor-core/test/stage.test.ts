@@ -25,14 +25,12 @@ const level = (): Record<string, unknown> => ({
 const rest = (id: string, fields: Partial<Rest> = {}): Rest => ({ id, bodyType: 'dynamic', x: 0, y: 0, moved: 10, ...fields });
 
 describe('the player', () => {
-  it('is world.player, or the first object whose actor is Player', () => {
+  it('is world.player, and nothing else: no actor name stands in for it', () => {
     expect(stage.playerObjectId(level())).toBe('hero');
     const unnamed = level();
     delete (unnamed.world as Record<string, unknown>).player;
-    expect(stage.playerObjectId(unnamed)).toBe('hero');
-    delete (unnamed.prefabs as Record<string, unknown>).hero;
-    (unnamed.layers as Array<{ objects: unknown[] }>)[0]!.objects.shift();
     expect(stage.playerObjectId(unnamed)).toBeNull();
+    expect(() => stage.playFrom(unnamed, { x: 1, y: 1 })).toThrow(/set world\.player/);
   });
 
   it('starts somewhere else in a copy, the scene untouched', () => {

@@ -33,7 +33,13 @@ export class Projectile extends Entity {
     this.owner = options.owner ?? null;
     this.destroyOnWallHit = options.destroyOnWallHit ?? true;
     this.destroyOnEntityHit = options.destroyOnEntityHit ?? true;
-    this.targetNames = options.targetNames ?? ['Player'];
+    /**
+     * What it hurts: entity names, or, when none are given, the players'
+     * avatars (`game.players.isAvatar`), which is what a turret's shot means
+     * alone and on a server alike.
+     * @type {string[]|null}
+     */
+    this.targetNames = options.targetNames ?? null;
 
     // Calculate rotation from direction
     this.rotation = Math.atan2(this.direction.y, this.direction.x);
@@ -70,7 +76,7 @@ export class Projectile extends Entity {
     }
 
     // Check if hit a target entity
-    if (other.entity && this.targetNames.includes(other.entity.name)) {
+    if (other.entity && this.isTarget(other.entity)) {
       this.onHitTarget(other.entity);
       if (this.destroyOnEntityHit) {
         this.destroy();
@@ -78,14 +84,16 @@ export class Projectile extends Entity {
       return;
     }
 
-    // Check if hit a wall/platform — scenery, not actors: a character is
-    // kinematic under the hood but is a person, not a wall.
-    if (this.destroyOnWallHit &&
-        (other.entity?.name === 'Platform'
-          || other.bodyType === 'static' || other.bodyType === 'kinematic')) {
+    // Check if hit scenery: a static or kinematic body that is not a target.
+    if (this.destroyOnWallHit && (other.bodyType === 'static' || other.bodyType === 'kinematic')) {
       this.onHitWall(other);
       this.destroy();
     }
+  }
+
+  /** Whether `entity` is something this projectile hurts. */
+  isTarget(entity) {
+    return this.targetNames ? this.targetNames.includes(entity.name) : this.game.players.isAvatar(entity);
   }
 
   /**

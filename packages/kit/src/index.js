@@ -9,8 +9,20 @@
  * it, it declares its properties or params, it works in 2D and 3D or says
  * which, and it ships with its test and its docs page.
  */
-export { Ghost, Bee, Coin, MovingPlatform, PREFAB_TEMPLATES, registerKitActors } from './actors.js';
+export { Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc, PREFAB_TEMPLATES, registerKitActors } from './actors.js';
+export { WallSlip, GlideControl, CarControl, ThrustControl, registerKitControls } from './controls.js';
 export { AttackSwing, HitBurst, registerEffects } from './effects.js';
 export { makeRng, range } from './random.js';
 export { tileTexture } from './textures.js';
 export { audioOption } from './audio.js';
+
+import { registerKitActors } from './actors.js';
+import { registerKitControls } from './controls.js';
+import { registerEffects } from './effects.js';
+
+/** Everything the kit registers, in one call, before the game's own registrations. */
+export function registerKit(game) {
+  registerKitActors(game);
+  registerKitControls(game);
+  registerEffects(game);
+}

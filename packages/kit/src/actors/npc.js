@@ -1,7 +1,7 @@
-import { Entity } from '../core/entity.js';
-import { ProximityPrompt } from '../constraints/proximityPrompt.js';
-import { Angle } from '../core/math.js';
-import { s } from '../core/schema.js';
+import { Entity } from 'm2d-engine/core/entity.js';
+import { ProximityPrompt } from 'm2d-engine/constraints/proximityPrompt.js';
+import { Angle } from 'm2d-engine/core/math.js';
+import { s } from 'm2d-engine/core/schema.js';
 
 /**
  * Someone to talk to. Stands still on a static body, turns to face the

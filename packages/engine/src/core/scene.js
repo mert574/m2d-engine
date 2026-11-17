@@ -825,10 +825,6 @@ export class Scene {
     entity.prefab = object.prefab;
     this.entitiesById.set(object.id, entity);
     if (object.zIndex !== undefined) entity.zIndex = object.zIndex;
-    if (entity.name === 'Player') {
-      this.game.player = entity;
-      if (!this.game.headless) this.game.camera.follow(entity);
-    }
     this.game.entities.add(entity);
     this.game.physics.add(entity.body);
     return entity;

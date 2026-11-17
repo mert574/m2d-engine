@@ -1,4 +1,4 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from 'm2d-engine/core/constraint.js';
 
 /**
  * Zeroes the body's surface friction while airborne, restoring it on the

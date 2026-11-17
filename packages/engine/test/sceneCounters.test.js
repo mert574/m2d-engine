@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
-import { Coin } from './helpers/mobs.js';
 import { InputSnapshot } from '../src/core/input/snapshot.js';
 import { InputActions } from '../src/core/input/actions.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
@@ -9,6 +8,7 @@ import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpe
 import { keyDown } from './helpers/input.js';
 import { SCENE_VERSION, SceneLoader } from '../src/core/sceneLoader.js';
 import { fillTemplate } from '../src/core/counters.js';
+import { Coin } from 'm2d-kit/actors';
 
 /**
  * The rules' newer events and actions — counters, named input actions,

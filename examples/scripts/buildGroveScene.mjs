@@ -262,7 +262,7 @@ add('player', SPAWN.x, SPAWN.y - CHARACTER_FRAME / 2, CHARACTER_FRAME, CHARACTER
 
 const scene = {
   version: 4, name: 'grove', type: 'level', gameType: 'oblique',
-  world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth' },
+  world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth', player: 'player-1' },
   assets: { spritesheets },
   tileLayers: [{ name: 'ground', spritesheet: 'grass', zIndex: -1 }],
   prefabs,

@@ -22,7 +22,7 @@ Constraints; see [Built-in constraints](./constraints#abilities).
 
 ## Npc
 
-An actor; see [Built-in actors](./actors#npc).
+An actor of the kit's; see [The kit](./kit#m2d-kit-actors).
 
 ## UIDialogue, UIMinimap, UIAbilityBar, UIMeter
 

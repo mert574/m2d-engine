@@ -1,4 +1,4 @@
-import { Projectile } from '../core/projectile.js';
+import { Projectile } from 'm2d-engine/core/projectile.js';
 
 export class Rocket extends Projectile {
   static description = 'A projectile that flies straight and explodes on contact';

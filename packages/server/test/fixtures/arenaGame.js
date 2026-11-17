@@ -1,10 +1,9 @@
 // The shared half of the test game: what a browser client and the match
 // both import. A floor, a vendor with one charm, and side-view players.
 import { Entity } from 'm2d-engine/core/entity.js';
-import { Player } from 'm2d-engine/actors/player.js';
-import { Platform } from 'm2d-engine/actors/platform.js';
 import { InputSchema } from 'm2d-engine/net/input.js';
 import { defineIntents, reject, entity } from 'm2d-engine/net/intents.js';
+import { Platform, Player } from 'm2d-kit/actors';
 
 export const INPUT = new InputSchema({ keys: ['ArrowLeft', 'ArrowRight', 'Space'] });
 

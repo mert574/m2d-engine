@@ -56,7 +56,7 @@ that covers it in the same change, following
 | The editor: projects, templates, assets, play, build, MCP tools | `docs/guide/editor.md` |
 | Engine options and instance API | `docs/reference/engine-options.md` |
 | Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
-| The kit: effects, random, textures, the audio option | `docs/reference/kit.md` |
+| The kit: the stock cast and prefab templates, genre controllers, effects, random, textures, the audio option | `docs/reference/kit.md` |
 | Example games and music credits | `docs/examples/index.md`, `docs/examples/music-credits.md` |
 | Architecture and the rules each module keeps | `docs/contributing/architecture.md` |
 | The determinism contract: what simulation code may read | `docs/contributing/determinism.md` |

@@ -1,8 +1,6 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
-import { Platform } from 'm2d-engine/actors/platform.js';
-import { ObliquePlayer } from 'm2d-engine/actors/obliquePlayer.js';
-import { Coin, Ghost } from 'm2d-kit/actors';
+import { Coin, Ghost, ObliquePlayer, Platform } from 'm2d-kit/actors';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 import { makeRng, range } from 'm2d-kit/random';

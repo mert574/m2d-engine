@@ -3,8 +3,8 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { M2D } from 'm2d-engine/core/m2d.js';
 import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { Prop } from 'm2d-engine/actors/prop.js';
-import { Player } from 'm2d-engine/actors/player.js';
 import { PREFAB_TEMPLATES, registerKitActors } from 'm2d-kit/actors';
+import { Player } from 'm2d-kit/actors';
 
 /**
  * The kit's prefab templates, played: a scene that takes the `mob` and
