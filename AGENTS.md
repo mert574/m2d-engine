@@ -11,7 +11,7 @@ camera or a renderer:
 | | 2D | 3D |
 | --- | --- | --- |
 | Physics | Rapier 2D | Rapier 3D |
-| Renderer | Batched WebGL2, Canvas 2D fallback | Retained WebGPU, Chromium only |
+| Renderer | Batched WebGL2, Canvas 2D fallback | Retained WebGPU |
 | Units | Pixels, y down | Metres, y up |
 
 | Workspace | Contents |

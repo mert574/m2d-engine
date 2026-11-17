@@ -239,7 +239,7 @@ await Promise.all([initWebGPU(), initPhysics({ dimensions: 3 })]);
 const game = new M2D(canvas, { dimensions: 3 });
 ```
 
-It needs a Chromium browser with WebGPU; `initWebGPU` rejects with the reason otherwise.
+It needs a browser with WebGPU on by default; `initWebGPU` rejects with the reason otherwise. As of November 2026 that is Chrome and Edge 113+ (Linux only on Intel Gen12+ and NVIDIA under Wayland; Android 121+ on most GPUs), Safari 26+ on iOS 26 and macOS Tahoe, and Firefox 141+ on Windows and 147+ on Apple Silicon; Firefox on Linux, Android and Intel Macs still needs a flag. The `indirect-first-instance` feature the renderer requires is exposed on every one of them. The optional features it uses when present (`timestamp-query`, BC and ASTC texture compression, `float32-filterable`) vary by GPU and must keep their fallbacks.
 
 **The frame.** Each frame the engine builds a `Frame3D` from the scene: the camera's matrices and every visible entity as its mesh at its body's blended transform. The scene's `onRender(frame, deltaTime)` hook then sets the light and adds geometry, and the renderer draws it:
 
