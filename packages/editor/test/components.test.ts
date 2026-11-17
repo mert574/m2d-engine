@@ -5,6 +5,7 @@ import { createTree } from '../src/tree.ts';
 import { showMenu, closeMenu, menuIsOpen } from '../src/menu.ts';
 import { sceneOutline, type OutlineNode } from 'm2d-editor-core';
 import { Health } from 'm2d-engine/constraints/health.js';
+import { Registry, BUILTIN_ACTORS } from 'm2d-engine/core/builtins.js';
 import { Prop } from 'm2d-engine/actors/prop.js';
 
 /**
@@ -35,8 +36,22 @@ describe('the catalog', () => {
     expect(registrationSnippet(chase)).toBe("import { Chase } from 'm2d-engine/constraints/chase.js';\ngame.registerConstraint('Chase', Chase);");
     const health = catalog.find((entry) => entry.name === 'Health')!;
     expect(health.registered).toBe(true);
-    expect(health.fields.map((field) => field.key)).toEqual(['maxHealth', 'invulnerableDuration', 'showBar']);
+    expect(health.fields.map((field) => field.key)).toEqual(['maxHealth', 'invulnerableDuration', 'showBar', 'whenDead']);
     expect(health.description).toMatch(/Hit points/);
+  });
+
+  it('reads every name\'s origin from the registry and ranks game, kit, engine', () => {
+    class Guard { static description = 'Walks a beat'; }
+    const actors = new Registry(BUILTIN_ACTORS);
+    actors.set('Guard', Guard);
+    actors.set('Shared', Guard, 'kit');
+    const catalog = buildCatalog({ actors, constraintTypes: new Map() });
+    const of = (name: string) => catalog.find((entry) => entry.name === name)!;
+    expect(of('Guard').origin).toBe('game');
+    expect(of('Shared').origin).toBe('kit');
+    expect(of('Prop')).toMatchObject({ origin: 'engine', registered: true, builtin: true });
+    const names = catalog.filter((entry) => entry.kind === 'actor').map((entry) => entry.name);
+    expect(names.slice(0, 2)).toEqual(['Guard', 'Shared']);
   });
 
   it('merges properties along an actor\'s class chain', () => {

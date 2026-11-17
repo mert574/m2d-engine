@@ -18,7 +18,7 @@ Everything else is scene data, which the editor and MCP can read and change:
 - placement, prefabs, tile layers and paths;
 - camera, lighting, post, the day/night cycle, sounds and music;
 - the HUD, and menus as UI scenes;
-- flow and outcomes as `world.rules`, with counters for what is counted;
+- flow and outcomes as `world.rules`, with counters for what is counted. What arrives later (a wave, a reinforcement) is a placed object, `sealed` until a rule unseals it; there is no spawn action. `scene.spawnPrefab` is for what a running thing drops (a dropper, a shot);
 - keys as named actions (`input.actions` in the project): rules and code read an action, never a raw key code. Every other device is keys too: an on-screen `UIKeyButton` and a gamepad control each stand for a key code and push it through the keyboard's seam, so nothing downstream knows which device it was (`input.gamepad` maps the pad);
 - a player's choices (`choices` in the project: the car, a difficulty), read by the simulation as `player.state.<name>`. Never a cvar: a cvar is a setting, presentation that a headless game and a server have not got;
 - which way the view faces, for a character steered relative to it: the tick's `input.heading`, sampled from the camera as the pointer's `world` is, never the camera itself (The Yard's hero read `camera.forward` in its tick and could not run headless).
@@ -46,4 +46,4 @@ Use the engine's helpers (Quest, Npc, the UI components) before writing your own
 - **The renderer showcase** stays a code-driven director. It is the backend comparison harness and needs an identical load on every backend. It should still show off as much of the engine's visual range as it can, and it is the one place art may be generated (see [[demo-standards]]).
 - **Docs demos** are single-file snippets (the first-game walkthrough, a project), still idiomatic: the camera, the world's size, the HUD and its buttons, the controls' actions and what happens when are the scene's. A page that teaches a raw API (the game loop, timers, draw calls, the pointer events) uses code for that API only; a widget the file cannot describe is a registered UI component the scene places.
 
-Related: [[code-style]], [[demo-standards]], [[working-style]]
+Related: [[code-style]], [[demo-standards]], [[working-style]], [[engine-surface]] (the engine held to the same shape)

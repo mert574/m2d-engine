@@ -315,6 +315,7 @@
               "type": "PathFollow",
               "params": {
                 "path": "traffic-1",
+                "face": true,
                 "stopAtPoints": false,
                 "speed": 190,
                 "waitTime": 900,

@@ -12,7 +12,8 @@ The repository's memory — the only one an agent has, and the place to write an
 - Projects:
   - [[editor]], with [[idiomatic-examples]] (shipped Nov 2026);
   - [[networking]];
-  - [[3d]].
+  - [[3d]];
+  - [[engine-surface]]: what stays first-class in the engine, and the `m2d-kit` package for what is reusable but opinionated.
 
 ## Layout
 

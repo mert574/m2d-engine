@@ -474,12 +474,16 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
     const found = await registries();
     if (!found) return text('the game\'s code did not load in the host, so its registries are not known', true);
     const describe = (klass: unknown) => (isRecord(klass) || typeof klass === 'function' ? (klass as { description?: unknown }).description : undefined);
+    // Where a name comes from — the engine's built-ins, a kit, or the game —
+    // as the editor's Components tab shows it.
+    const originOf = (registry: unknown, name: string) =>
+      (registry as { originOf?(name: string): string } | undefined)?.originOf?.(name);
     return json({
       actors: [...(found.actors ?? [])].map(([name, klass]) => ({
-        name, description: describe(klass) || undefined, properties: fieldsOf((klass as { properties?: unknown }).properties)
+        name, origin: originOf(found.actors, name), description: describe(klass) || undefined, properties: fieldsOf((klass as { properties?: unknown }).properties)
       })),
       constraints: [...(found.constraintTypes ?? [])].map(([name, klass]) => ({
-        name, description: describe(klass) || undefined, params: fieldsOf((klass as { params?: unknown }).params)
+        name, origin: originOf(found.constraintTypes, name), description: describe(klass) || undefined, params: fieldsOf((klass as { params?: unknown }).params)
       }))
     });
   });

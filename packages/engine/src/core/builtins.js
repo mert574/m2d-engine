@@ -55,17 +55,65 @@ export const BUILTIN_CONSTRAINTS = new Map(Object.entries({
 }));
 
 /**
+ * Where each built-in lives under `m2d-engine/`, for an editor to write a
+ * registration import. One entry per built-in; `builtins.test.js` holds the
+ * two maps to the same keys and each path to exporting its class.
+ */
+export const BUILTIN_MODULES = new Map(Object.entries({
+  Bee: 'actors/bee.js', Coin: 'actors/coin.js', Ghost: 'actors/ghost.js', MovingPlatform: 'actors/movingPlatform.js',
+  Npc: 'actors/npc.js', ObliquePlayer: 'actors/obliquePlayer.js', Platform: 'actors/platform.js', Player: 'actors/player.js',
+  Prop: 'actors/prop.js', Rocket: 'actors/rocket.js', TopDownPlayer: 'actors/topDownPlayer.js', Trigger: 'actors/trigger.js',
+  Turret: 'actors/turret.js',
+  Abilities: 'constraints/abilities.js', Attack: 'constraints/attack.js', CarControl: 'constraints/carControl.js',
+  Chase: 'constraints/chase.js', ContactDamage: 'constraints/contactDamage.js', DamageFlash: 'constraints/damageFlash.js',
+  Debug: 'constraints/debug.js', Footsteps: 'constraints/footsteps.js', GlideControl: 'constraints/glideControl.js',
+  Grabbable: 'constraints/grabbable.js', Health: 'constraints/health.js', Hover: 'constraints/hover.js',
+  Interactive: 'constraints/interactive.js', KeyboardControl: 'constraints/keyboardControl.js',
+  PathFollow: 'constraints/pathFollow.js', PointerMove: 'constraints/pointerMove.js',
+  ProximityPrompt: 'constraints/proximityPrompt.js', ThrustControl: 'constraints/thrustControl.js',
+  WallSlip: 'constraints/wallSlip.js'
+}));
+
+/**
  * A `Map` of a game's registered classes that falls back to the built-ins:
  * `get`, `has` and iteration see both, the game's entry winning for a
  * name both have; `own` is what the game itself registered.
  */
 export class Registry extends Map {
   #builtins;
+  /** Who registered each of the game's own entries: 'game' (default) or 'kit'. */
+  #origins = new Map();
 
   /** @param {Map<string, Function>} builtins */
   constructor(builtins = new Map()) {
     super();
     this.#builtins = builtins;
+  }
+
+  /**
+   * @param {string} name
+   * @param {Function} klass
+   * @param {'game'|'kit'} [origin] - Who is registering; a game's own code by default.
+   */
+  set(name, klass, origin = 'game') {
+    this.#origins.set(name, origin);
+    return super.set(name, klass);
+  }
+
+  delete(name) {
+    this.#origins.delete(name);
+    return super.delete(name);
+  }
+
+  /**
+   * Where a name comes from: 'game', 'kit' or 'engine' (a built-in the game
+   * did not register itself); undefined for a name nothing provides.
+   * @param {string} name
+   * @returns {'game'|'kit'|'engine'|undefined}
+   */
+  originOf(name) {
+    if (super.has(name)) return this.#origins.get(name) ?? 'game';
+    return this.#builtins.has(name) ? 'engine' : undefined;
   }
 
   /** What the game registered, without the built-ins. */

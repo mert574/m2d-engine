@@ -130,6 +130,10 @@ this.game.physics.remove(this.body);
 
 `Projectile.destroy()` does both. For other entities, call `entity.destroy()` as well when the entity has an `Interactive` constraint, so the input system stops hit-testing it.
 
+### Reaching the scene
+
+`entity.scene` is the scene the entity is playing in — the current one — or null before the first tick. It is how an actor reads the level around it: `scene.counters` for the rules' numbers, `scene.pathFor` for its paths, `scene.entitiesById` for a placed thing. During the scene's own build the previous scene may still be current, so read it in `fixedUpdate`, `update` or `draw`, not in the constructor.
+
 ## Creating entities at runtime
 
 Scenes create entities from prefabs. For entities that appear during play, such as projectiles or spawned pickups, spawn a registered actor by name:

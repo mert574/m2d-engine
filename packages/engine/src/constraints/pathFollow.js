@@ -43,7 +43,8 @@ export class PathFollow extends Constraint {
     stopAtPoints: s.boolean({ initial: true, description: "With a path: pause at each of its points, or only at an open path's ends" }),
     speed: s.number({ initial: 3, positive: true }),
     waitTime: s.number({ initial: 1000, min: 0, unit: 'ms' }),
-    acceleration: s.number({ positive: true, description: 'Defaults to twice the speed' })
+    acceleration: s.number({ positive: true, description: 'Defaults to twice the speed' }),
+    face: s.boolean({ initial: false, description: "Turn the entity to face where it is going: `entity.heading` follows the direction of travel (screen angle in 2D, yaw about +y in 3D) and keeps its last value through a pause. A 3D model steers by it; a 2D actor reads it when drawing" })
   };
 
   constructor(entity, options = {}) {
@@ -54,6 +55,7 @@ export class PathFollow extends Constraint {
     this.speed = options.speed || 3;
     this.waitTime = (options.waitTime ?? 1000) / 1000;
     this.acceleration = options.acceleration ?? this.speed * 2;
+    this.face = options.face ?? false;
     this.accelerationSet = options.acceleration !== undefined;
     this.currentSpeed = 0;
     this.currentPoint = 0;
@@ -85,6 +87,18 @@ export class PathFollow extends Constraint {
     if (params.path !== undefined || params.stopAtPoints !== undefined) this.route = null;
     if (params.acceleration !== undefined) this.accelerationSet = true;
     else if (params.speed !== undefined && !this.accelerationSet) this.acceleration = this.speed * 2;
+  }
+
+  /** With `face`: point `entity.heading` along the velocity; a halt keeps the last heading. */
+  #setHeading(velocity) {
+    if (!this.face) return;
+    const flat = velocity.z === undefined;
+    const speed = flat ? Math.hypot(velocity.x, velocity.y) : Math.hypot(velocity.x, velocity.y, velocity.z);
+    if (speed < 1e-3) return;
+    // 2D heading is the screen angle (atan2(y, x)); 3D is yaw about +y,
+    // where forward is { sin(heading), 0, cos(heading) } — the convention
+    // `entity.heading` already steers a model's yaw with.
+    this.entity.heading = flat ? Math.atan2(velocity.y, velocity.x) : Math.atan2(velocity.x, velocity.z);
   }
 
   /** Hold position, keeping riders steady rather than sliding out. */
@@ -127,10 +141,12 @@ export class PathFollow extends Constraint {
       this.currentSpeed + this.acceleration * dt,
       Math.sqrt(2 * this.acceleration * distance)
     );
-    this.entity.body.setVelocity({
+    const velocity = {
       x: (dx / distance) * this.currentSpeed,
       y: (dy / distance) * this.currentSpeed
-    });
+    };
+    this.entity.body.setVelocity(velocity);
+    this.#setHeading(velocity);
   }
 
   #followPath(dt) {
@@ -177,6 +193,7 @@ export class PathFollow extends Constraint {
     const velocity = { x: (target.x - position.x) / dt, y: (target.y - position.y) / dt };
     if (route.hasZ) velocity.z = (target.z - (position.z ?? 0)) / dt;
     this.entity.body.setVelocity(velocity);
+    this.#setHeading(velocity);
   }
 
   /** The arc length of the next place to pause, in the direction of travel; Infinity round a closed path that never pauses. */

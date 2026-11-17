@@ -86,7 +86,7 @@ export function materialSpec(spec, defaults = {}) {
     density: spec.density ?? defaults.density ?? DEFAULT_DENSITY,
     category: spec.category ?? 0x0001,
     mask: spec.mask ?? 0xFFFF,
-    mass: null,
+    mass: spec.mass ?? null,
     bullet: false
   };
 }

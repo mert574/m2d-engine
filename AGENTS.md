@@ -83,6 +83,7 @@ that covers it in the same change, following
 | `projects/editor/editor.md` | The editor project: its decisions, the backlog, and links to the shipped phase plans beside it. |
 | `projects/editor/idiomatic-examples.md` | Shipped Nov 2026: every example and docs demo moved onto idiomatic m2d in phases 0 to 6; its decisions (the allow-list, what stays a hook, choices as player state, menus as UI scenes) and the record of each phase. |
 | `projects/networking/networking.md` | Server-authoritative networking: the decision, the 3D online gaps, WebTransport datagrams, and what shipped. |
+| `projects/engine-surface/engine-surface.md` | The test for what is first-class in the engine; the `m2d-kit` package for everything reusable but opinionated; the demotions to kit actors, constraints and prefabs; phases laid as dependency layers. |
 | `projects/3d/3d.md` | 3D places and the asset library: backlog and record, with the renderer's plan `3d-and-editor` beside it. |
 
 ## Commands

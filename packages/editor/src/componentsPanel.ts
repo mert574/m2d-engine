@@ -112,11 +112,13 @@ export function createComponentsPanel(container: HTMLElement, options: Component
       chip.textContent = 'not registered';
       chip.title = 'The game does not register this class, so a scene cannot name it yet';
       head.append(chip);
-    } else if (entry.builtin) {
+    } else if (entry.origin && entry.origin !== 'game') {
       const chip = document.createElement('span');
       chip.className = 'chip';
-      chip.textContent = 'engine';
-      chip.title = "The engine's own; a scene may name it without the game registering it";
+      chip.textContent = entry.origin;
+      chip.title = entry.origin === 'engine'
+        ? "The engine's own; a scene may name it without the game registering it"
+        : 'Registered by a kit the game uses';
       head.append(chip);
     }
     element.append(head);

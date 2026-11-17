@@ -346,6 +346,35 @@ describe('a 3D game through the engine loop', () => {
     expect(sky[2], `sky through game.update: ${sky}`).toBeGreaterThan(sky[0]);
   });
 
+  it('collects an entity\'s particle field into the frame, placed at its body', async () => {
+    const { Entity } = await import('../../src/core/entity.js');
+    const { game } = game3D();
+    game.registerActor('Ground', class extends Entity { name = 'Ground'; });
+    game.registerActor('Crate', class extends Entity { name = 'Crate'; });
+    const withParticles = {
+      ...YARD,
+      world: { ...YARD.world, particles: [{ kind: 'smoke', count: 10, at: { x: 5, y: 0, z: 5 } }] }
+    };
+    game.sceneManager.addScene('yard', { fetch: async () => withParticles });
+    await game.sceneManager.switchTo('yard');
+    const scene = game.sceneManager.getCurrentScene();
+    const crate = scene.entitiesById.get('crate');
+    crate.particles = { kind: 'motes', count: 40 };
+
+    const frame = scene.frame3D(1 / 60);
+    expect(frame.particles).toHaveLength(2);
+    // The level's own field first, then the entity's, at the crate's body.
+    expect(frame.particles[0].kind).toBe('smoke');
+    expect(frame.particles[1].kind).toBe('motes');
+    expect(frame.particles[1].count).toBe(40);
+    expect(frame.particles[1].center[1]).toBeCloseTo(0.5, 3);
+    // The next frame does not accumulate what the last one collected.
+    expect(scene.frame3D(1 / 60).particles).toHaveLength(2);
+    // A dead entity's field is not collected.
+    crate.dead = true;
+    expect(scene.frame3D(1 / 60).particles).toHaveLength(1);
+  });
+
   it('draws the HUD over the world on the overlay canvas', async () => {
     const { game } = game3D();
     game.sceneManager.addScene('yard', { fetch: async () => ({ ...YARD, prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });

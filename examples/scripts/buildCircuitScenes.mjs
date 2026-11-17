@@ -84,7 +84,7 @@ function circuitScene(map) {
     for (let t = spec.t0; t <= spec.t1; t += 140 / track.length) points.push(at(t, spec.o));
     paths[name] = line(points);
     add('traffic', points[0].x, points[0].y, CAR.bodyLength, CAR.bodyWidth, undefined, {
-      constraints: { path: { type: 'PathFollow', params: { path: name, stopAtPoints: false, speed: spec.speed, waitTime: 900, acceleration: spec.speed } } }
+      constraints: { path: { type: 'PathFollow', params: { path: name, face: true, stopAtPoints: false, speed: spec.speed, waitTime: 900, acceleration: spec.speed } } }
     });
   });
   map.props.gates.forEach((spec, i) => {

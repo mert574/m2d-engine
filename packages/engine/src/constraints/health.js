@@ -18,7 +18,8 @@ export class Health extends Constraint {
   static params = {
     maxHealth: s.number({ initial: 100, positive: true }),
     invulnerableDuration: s.number({ initial: 1, min: 0, unit: 's' }),
-    showBar: s.boolean({ initial: true })
+    showBar: s.boolean({ initial: true }),
+    whenDead: s.enumOf(['keep', 'remove'], { initial: 'keep', label: 'When dead', description: 'remove takes the entity out of the world at zero health, so a mob needs no code; keep leaves it for the actor (a player that respawns, a door that breaks open)' })
   };
 
   static replicated = ['currentHealth', 'maxHealth'];
@@ -32,6 +33,7 @@ export class Health extends Constraint {
     // that wants every hit to land can say so.
     this.invulnerableDuration = options.invulnerableDuration ?? 1;
     this.onDeath = options.onDeath || null;
+    this.whenDead = options.whenDead ?? 'keep';
     this.onDamage = options.onDamage || null;
     /** Whether to draw the bar above the entity. Off for entities whose health is shown elsewhere (a HUD). */
     this.showBar = options.showBar ?? true;
@@ -64,6 +66,12 @@ export class Health extends Constraint {
       this.#raise('death', {});
       if (this.onDeath) {
         this.onDeath();
+      }
+      // After onDeath, so a hook sees the entity still in the world; the
+      // death rules key on `dead` and on absence alike.
+      if (this.whenDead === 'remove') {
+        this.entity.game.entities.delete(this.entity);
+        this.entity.game.physics.remove(this.entity.body);
       }
     }
   }

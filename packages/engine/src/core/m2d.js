@@ -1137,8 +1137,14 @@ export class M2D {
     this.backdropLayers.set(name, make);
   }
 
-  registerActor(type, ActorClass) {
-    this.actors.set(type, ActorClass);
+  /**
+   * @param {string} type - The name scenes use.
+   * @param {Function} ActorClass
+   * @param {{origin?: 'game'|'kit'}} [options] - Who is registering, for the
+   *   editor's catalog; a library of reusable pieces passes 'kit'.
+   */
+  registerActor(type, ActorClass, { origin = 'game' } = {}) {
+    this.actors.set(type, ActorClass, origin);
   }
 
   /**
@@ -1152,8 +1158,8 @@ export class M2D {
    * @param {string} type - The name scenes use, conventionally the class name.
    * @param {typeof import('./constraint.js').Constraint} ConstraintClass
    */
-  registerConstraint(type, ConstraintClass) {
-    this.constraintTypes.set(type, ConstraintClass);
+  registerConstraint(type, ConstraintClass, { origin = 'game' } = {}) {
+    this.constraintTypes.set(type, ConstraintClass, origin);
   }
 
   /**
@@ -1354,6 +1360,7 @@ export class M2D {
       frictionAir: physics.frictionAir || 0.01,
       restitution: physics.restitution || 0,
       ...(physics.density !== undefined && { density: physics.density }),
+      ...(physics.mass !== undefined && { mass: physics.mass }),
       ...(physics.category !== undefined && { category: categoryBits(physics.category) }),
       ...(physics.mask !== undefined && { mask: categoryBits(physics.mask) })
     };

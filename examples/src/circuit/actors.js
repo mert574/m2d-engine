@@ -333,16 +333,9 @@ export class TrafficCar extends Entity {
     super(body, sprite, game);
     this.image = options.image;
     // The stretch of road it shuttles is the scene's own path, walked by
-    // the engine's PathFollow, which the prefab attaches.
+    // the engine's PathFollow, which the scene attaches with `face`, so
+    // `heading` follows the travel; 0 covers the first, standing frames.
     this.heading = 0;
-  }
-
-  fixedUpdate(dt) {
-    super.fixedUpdate(dt);
-    const velocity = this.body.velocity;
-    if (Math.hypot(velocity.x, velocity.y) > 5) {
-      this.heading = Math.atan2(velocity.y, velocity.x);
-    }
   }
 
   draw() {

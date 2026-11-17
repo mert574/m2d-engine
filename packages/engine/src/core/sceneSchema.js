@@ -688,6 +688,7 @@ const PHYSICS = s.object({
   frictionAir: s.number({ min: 0 }),
   restitution: s.number({ min: 0 }),
   density: s.number({ positive: true }),
+  mass: s.number({ positive: true, description: 'The body\'s absolute mass (kg in 3D), instead of the density-derived one' }),
   footprint: FOOTPRINT
 });
 

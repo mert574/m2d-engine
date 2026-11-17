@@ -266,6 +266,18 @@ export class Entity {
    * simulation sees; that is `fixedUpdate`.
    * @param {number} deltaTime - Seconds of game time this frame.
    */
+
+  /**
+   * The scene this entity is playing in — the current one — or null before
+   * the first tick. What an actor reads the level through: `scene.counters`
+   * for the rules' numbers, `scene.pathFor` for its paths. During the
+   * scene's own build the previous scene may still be current, so read it
+   * in `fixedUpdate`, `update` or `draw`, not in the constructor.
+   */
+  get scene() {
+    return this.game.sceneManager?.getCurrentScene() ?? null;
+  }
+
   update(deltaTime) {
     if (this.dead) return;
 

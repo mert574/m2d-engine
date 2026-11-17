@@ -4,45 +4,14 @@
  *
  * Two sources. The **game's registries** — what its definition's
  * `register(game)` put in `game.actors` and `game.constraintTypes` — are
- * what a scene may name today. The **engine's own** actors and
- * constraints, imported here, are what a game *could* register; one the
- * game has not is shown with the two lines that would, since a scene that
- * names it would otherwise fail to load. The two are merged by name, the
- * game's class winning (a game may register the engine's class under its
- * own name, or its own class under the engine's).
+ * what a scene may name today, each with the origin the registry records
+ * (the engine's built-ins, a kit's registration, or the game's own code).
+ * The **engine's unregistered classes**, read from the engine's own
+ * `BUILTIN_*` maps rather than a list kept here, are what a game *could*
+ * register; one the game has not is shown with the two lines that would.
  */
 
-import { Bee } from 'm2d-engine/actors/bee.js';
-import { Coin } from 'm2d-engine/actors/coin.js';
-import { Ghost } from 'm2d-engine/actors/ghost.js';
-import { MovingPlatform } from 'm2d-engine/actors/movingPlatform.js';
-import { Npc } from 'm2d-engine/actors/npc.js';
-import { ObliquePlayer } from 'm2d-engine/actors/obliquePlayer.js';
-import { Platform } from 'm2d-engine/actors/platform.js';
-import { Player } from 'm2d-engine/actors/player.js';
-import { Prop } from 'm2d-engine/actors/prop.js';
-import { Rocket } from 'm2d-engine/actors/rocket.js';
-import { TopDownPlayer } from 'm2d-engine/actors/topDownPlayer.js';
-import { Trigger } from 'm2d-engine/actors/trigger.js';
-import { Turret } from 'm2d-engine/actors/turret.js';
-import { Abilities } from 'm2d-engine/constraints/abilities.js';
-import { Attack } from 'm2d-engine/constraints/attack.js';
-import { CarControl } from 'm2d-engine/constraints/carControl.js';
-import { Chase } from 'm2d-engine/constraints/chase.js';
-import { ContactDamage } from 'm2d-engine/constraints/contactDamage.js';
-import { DamageFlash } from 'm2d-engine/constraints/damageFlash.js';
-import { Debug } from 'm2d-engine/constraints/debug.js';
-import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
-import { GlideControl } from 'm2d-engine/constraints/glideControl.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { Hover } from 'm2d-engine/constraints/hover.js';
-import { Interactive } from 'm2d-engine/constraints/interactive.js';
-import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
-import { PathFollow } from 'm2d-engine/constraints/pathFollow.js';
-import { PointerMove } from 'm2d-engine/constraints/pointerMove.js';
-import { ProximityPrompt } from 'm2d-engine/constraints/proximityPrompt.js';
-import { ThrustControl } from 'm2d-engine/constraints/thrustControl.js';
-import { WallSlip } from 'm2d-engine/constraints/wallSlip.js';
+import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS, BUILTIN_MODULES } from 'm2d-engine/core/builtins.js';
 
 /** A field a class declares, as the catalog lists it. */
 export interface CatalogField {
@@ -62,6 +31,8 @@ export interface CatalogEntry {
   fields: CatalogField[];
   /** Whether a scene may name it: the game registered it, or the engine ships it (`builtin`). */
   registered: boolean;
+  /** Where a registered name comes from: the engine's built-ins, a kit, or the game's own code. */
+  origin?: 'engine' | 'kit' | 'game';
   /** An engine class the game did not register itself; a scene may still name it. */
   builtin?: boolean;
   /** For an engine class the game does not register: the module to import it from. */
@@ -75,21 +46,6 @@ interface ClassLike {
   properties?: unknown;
   params?: unknown;
 }
-
-const ENGINE_ACTORS: Array<[string, unknown, string]> = [
-  ['Bee', Bee, 'bee'], ['Coin', Coin, 'coin'], ['Ghost', Ghost, 'ghost'], ['MovingPlatform', MovingPlatform, 'movingPlatform'],
-  ['Npc', Npc, 'npc'], ['ObliquePlayer', ObliquePlayer, 'obliquePlayer'], ['Platform', Platform, 'platform'], ['Player', Player, 'player'],
-  ['Prop', Prop, 'prop'], ['Rocket', Rocket, 'rocket'], ['TopDownPlayer', TopDownPlayer, 'topDownPlayer'], ['Trigger', Trigger, 'trigger'],
-  ['Turret', Turret, 'turret']
-];
-const ENGINE_CONSTRAINTS: Array<[string, unknown, string]> = [
-  ['Abilities', Abilities, 'abilities'], ['Attack', Attack, 'attack'], ['CarControl', CarControl, 'carControl'], ['Chase', Chase, 'chase'],
-  ['ContactDamage', ContactDamage, 'contactDamage'], ['DamageFlash', DamageFlash, 'damageFlash'], ['Debug', Debug, 'debug'],
-  ['Footsteps', Footsteps, 'footsteps'], ['GlideControl', GlideControl, 'glideControl'], ['Health', Health, 'health'], ['Hover', Hover, 'hover'],
-  ['Interactive', Interactive, 'interactive'], ['KeyboardControl', KeyboardControl, 'keyboardControl'], ['PathFollow', PathFollow, 'pathFollow'],
-  ['PointerMove', PointerMove, 'pointerMove'], ['ProximityPrompt', ProximityPrompt, 'proximityPrompt'], ['ThrustControl', ThrustControl, 'thrustControl'],
-  ['WallSlip', WallSlip, 'wallSlip']
-];
 
 /** `frictionAir` → `Friction air`. */
 function humanize(key: string): string {
@@ -137,26 +93,28 @@ const describe = (klass: unknown): string => {
  */
 export function buildCatalog(registries: { actors?: Map<string, unknown>; constraintTypes?: Map<string, unknown> }): CatalogEntry[] {
   const entries: CatalogEntry[] = [];
-  const add = (kind: CatalogEntry['kind'], registry: Map<string, unknown> | undefined, engine: Array<[string, unknown, string]>, which: 'properties' | 'params', folder: string) => {
+  const add = (kind: CatalogEntry['kind'], registry: Map<string, unknown> | undefined, engine: Map<string, unknown>, which: 'properties' | 'params') => {
     const seen = new Set<string>();
-    // A `Registry` (the engine's) tells its own entries from the built-ins it falls back to.
-    const own = (registry as { own?: Map<string, unknown> } | undefined)?.own;
+    // A `Registry` (the engine's) records where each name came from.
+    const reg = registry as { own?: Map<string, unknown>; originOf?(name: string): CatalogEntry['origin'] } | undefined;
     for (const [name, klass] of registry ?? []) {
       seen.add(name);
-      entries.push({ kind, name, description: describe(klass), fields: fieldsOf(klass, which), registered: true, builtin: own ? !own.has(name) : false });
+      const origin = reg?.originOf?.(name) ?? (reg?.own ? (reg.own.has(name) ? 'game' : 'engine') : 'game');
+      entries.push({ kind, name, description: describe(klass), fields: fieldsOf(klass, which), registered: true, origin, builtin: origin === 'engine' });
     }
-    for (const [name, klass, file] of engine) {
+    for (const [name, klass] of engine) {
       if (seen.has(name)) continue;
+      const file = BUILTIN_MODULES.get(name) as string | undefined;
       entries.push({
         kind, name, description: describe(klass), fields: fieldsOf(klass, which), registered: false,
-        module: `m2d-engine/${folder}/${file}.js`, exportName: name
+        module: file ? `m2d-engine/${file}` : undefined, exportName: name
       });
     }
   };
-  add('actor', registries.actors, ENGINE_ACTORS, 'properties', 'actors');
-  add('constraint', registries.constraintTypes, ENGINE_CONSTRAINTS, 'params', 'constraints');
-  // The game's own first, then the engine's, then anything a scene cannot name yet.
-  const rank = (entry: CatalogEntry) => (!entry.registered ? 2 : entry.builtin ? 1 : 0);
+  add('actor', registries.actors, BUILTIN_ACTORS as Map<string, unknown>, 'properties');
+  add('constraint', registries.constraintTypes, BUILTIN_CONSTRAINTS as Map<string, unknown>, 'params');
+  // The game's own first, then a kit's, then the engine's, then anything a scene cannot name yet.
+  const rank = (entry: CatalogEntry) => (!entry.registered ? 3 : entry.origin === 'engine' ? 2 : entry.origin === 'kit' ? 1 : 0);
   return entries.sort((a, b) => (a.kind === b.kind ? rank(a) - rank(b) || a.name.localeCompare(b.name) : a.kind === 'actor' ? -1 : 1));
 }
 

@@ -74,6 +74,30 @@ describe('the MCP server', () => {
     for (const tool of tools) expect(tool.description?.length ?? 0).toBeGreaterThan(40);
   });
 
+  it('list_components names each entry\'s origin from the game\'s registries', async () => {
+    const { createServer } = await import('../src/server.ts');
+    const { Registry, BUILTIN_ACTORS, BUILTIN_CONSTRAINTS } = await import('m2d-engine/core/builtins.js');
+    class Block { static description = 'A wall of the room'; }
+    const actors = new Registry(BUILTIN_ACTORS as Map<string, unknown>);
+    actors.set('Block', Block);
+    actors.set('Shared', Block, 'kit');
+    const constraintTypes = new Registry(BUILTIN_CONSTRAINTS as Map<string, unknown>);
+    const mcp = createServer(companion.session, { game: async () => ({ actors, constraintTypes }) });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const origins = new Client({ name: 'origins', version: '0' });
+    await Promise.all([mcp.connect(serverSide), origins.connect(clientSide)]);
+    try {
+      const listed = JSON.parse(textOf(await origins.callTool({ name: 'list_components', arguments: {} })));
+      const of = (name: string) => listed.actors.find((actor: { name: string }) => actor.name === name);
+      expect(of('Block').origin).toBe('game');
+      expect(of('Shared').origin).toBe('kit');
+      expect(of('Prop').origin).toBe('engine');
+      expect(listed.constraints.find((c: { name: string }) => c.name === 'Health').origin).toBe('engine');
+    } finally {
+      await origins.close();
+    }
+  });
+
   it('lists the project\'s scenes and nothing else', async () => {
     const scenes = JSON.parse(textOf(await client.callTool({ name: 'list_scenes', arguments: {} })));
     expect(scenes.map((s: { path: string }) => s.path))

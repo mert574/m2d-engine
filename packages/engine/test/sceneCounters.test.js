@@ -70,6 +70,14 @@ const collect = (scene, id) => {
 };
 
 describe('counters', () => {
+  it('are in an actor\'s reach through entity.scene', async () => {
+    const { game, scene } = await make(level({ counters: { score: { initial: 5 } } }));
+    const hero = scene.entitiesById.get('hero');
+    expect(hero.scene).toBe(scene);
+    expect(hero.scene.counters.get('score')).toBe(5);
+    game.destroy();
+  });
+
   it('tally a prefab\'s objects as placed, remaining and taken, and keep plain counts', async () => {
     const { game, scene } = await make(level({ counters: {
       total: { prefab: 'coin', count: 'placed' },

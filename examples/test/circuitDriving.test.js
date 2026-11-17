@@ -114,6 +114,22 @@ describe('Night Circuit\'s car', () => {
 
 });
 
+describe('traffic', () => {
+  it('faces where it drives, through PathFollow face rather than its own code', async () => {
+    const scene = JSON.parse(readFileSync(new URL('../src/circuit/scenes/circuit3.json', import.meta.url), 'utf8'));
+    for (const layer of scene.layers) layer.objects = layer.objects.filter((object) => ['road', 'traffic'].includes(object.prefab));
+    const { game } = await bootHeadless('circuit', { seed: 1 });
+    game.sceneManager.addScene('c', { fetch: async () => scene });
+    await game.sceneManager.switchTo('c');
+    const traffic = [...game.entities].find((entity) => entity.name === 'TrafficCar');
+    expect(traffic.heading).toBe(0);
+    expect(game.step(240), 'a scene switch stopped the ticks').toBe(240);
+    const velocity = traffic.body.velocity;
+    expect(Math.hypot(velocity.x, velocity.y)).toBeGreaterThan(1);
+    expect(traffic.heading).toBeCloseTo(Math.atan2(velocity.y, velocity.x), 1);
+  });
+});
+
 describe('a lap\'s splits', () => {
   const stored = new Map();
   beforeAll(() => {

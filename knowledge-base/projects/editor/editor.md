@@ -13,18 +13,14 @@ Nothing at the moment; the next piece comes from the backlog.
 
 ## Backlog
 
-Each item ships with MCP support.
+Each item ships with MCP support. Reviewed against the code on 17 Nov 2026; the engine-side items it held moved to [[engine-surface]].
 
-- Test harness suites for scatter, tile paint, the animation editor and composition
-- A sprite floor for the 2D prefab stage; prefab variants and inheritance; prefab cards in the component library
-- Road strips along paths; following a path's tangent
-- A curve per value across the day/night cycle
-- A scene retune applying after an actor constructor's own retune
-- Prefab `mass`; spawn points for online joins
-- Presence: who has what open and selected
-- Terrain brushes
+- Test harness suites for scatter, tile paint, the animation editor and composition (today: lot, platformer, paths, circuit road, playtest, look)
+- A look for the 2D prefab stage's floor
+- Presence: who has what open and selected, over the host's one history
+- Terrain brushes, once terrain exists ([[3d]])
 - Export targets: an itch zip, a PWA manifest
-- Hosting a session and a replica inspector, after headless server mode
+- Hosting a match from the editor on `m2d-server`, and a replica inspector
 
 ## Record
 

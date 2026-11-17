@@ -220,6 +220,7 @@ A map from prefab name to prefab.
 | `mask` | What the body collides with: a list of category names, or a bit mask | everything |
 | `angle` | number, radians. An object's own `angle` overrides it | `0` |
 | `density` | number greater than 0. Mass is density times area | the engine default |
+| `mass` | The body's absolute mass (kg in 3D), instead of the one derived from `density` and size |
 | `footprint` | `{ "height", "width" }` | none |
 
 A `footprint` makes the collider the object's feet: a box `footprint.height` tall (and `footprint.width` wide, default the object's width) at the bottom of the object's rectangle. The sprite keeps the object's full size and stands above the collider, so a character can walk behind a tree whose trunk is the only solid part. The entity's `depth` is then the feet, which is what the default draw order sorts by. `height` must be positive; both are capped at the object's size.

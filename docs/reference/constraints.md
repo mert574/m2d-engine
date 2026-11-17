@@ -43,6 +43,7 @@ Any constraint can be `suspended`: while it is, its entity skips its `fixedUpdat
 | `invulnerableDuration` * | `1` | Seconds after a hit during which damage is ignored |
 | `onDamage(amount)` | | Called after damage is applied |
 | `onDeath()` | | Called when health reaches zero. The entity's `dead` flag is set first |
+| `whenDead` * | `'keep'` | `remove` takes the entity out of the world at zero health (after `onDeath` ran), so a prefab-declared mob needs no code; `keep` leaves it for the actor — a player that respawns, a door that breaks open |
 | `showBar` | `true` | Draw the bar. Even when on, the bar only appears while health is missing |
 
 Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `currentHealth`, `healthPercentage`, `isAlive`.
@@ -232,6 +233,7 @@ Does nothing while `game.player` is `null`. Draws its range, wander target and p
 | `speed` * | `3` | Cruise speed, px/s |
 | `waitTime` | `1000` | Pause at each point, in milliseconds, in the constructor and in a scene's retune alike |
 | `acceleration` | `speed * 2` | px/s² |
+| `face` * | `false` | Turn the entity to face where it is going: `entity.heading` follows the direction of travel — the screen angle in 2D, yaw about `+y` in 3D — and keeps its last value through a pause. A 3D model steers by its `heading` already; a 2D actor reads it when drawing |
 
 With `points`, the body is placed at the first point on construction and returns from the last to the first in a straight line.
 

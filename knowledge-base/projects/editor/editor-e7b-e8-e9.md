@@ -353,5 +353,4 @@ Everything the record above still carried, except more library sources
   editor directly on Chrome 157 with the GPU, four seconds of frames
   logged nothing. Closed as such; reopen with a repro.
 
-Deferred creator work is listed in the roadmap ("Deferred creator work,
-noted 11 Nov 2026"); the GUI-reach F-items are parked beside it.
+What was deferred from here lives in the [[editor]] backlog.

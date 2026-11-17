@@ -24,7 +24,6 @@ import * as mat4 from './renderers/geometry/mat4.js';
 import { presentationGuard } from './headless.js';
 import { Container } from './ui/container.js';
 import { FocusManager } from './ui/focus.js';
-import { MovingPlatform } from '../actors/movingPlatform.js';
 import { UIText } from './ui/text.js';
 import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
@@ -328,26 +327,33 @@ export class Scene {
   /** `world.particles` as the frame takes them, converted once. */
   #particleFields = null;
 
+  /** One particle field as the 3D frame takes it, placed at `at`. */
+  #frameField(given, at) {
+    const f = withParticleDefaults(given);
+    const [r, g, b] = parseColor(f.color);
+    return {
+      kind: f.kind, count: f.count,
+      center: [at.x ?? 0, at.y ?? 0, at.z ?? 0],
+      extent: [f.extent.x, f.extent.y, f.extent.z],
+      radius: f.radius,
+      color: [toLinear(r), toLinear(g), toLinear(b)],
+      opacity: f.opacity,
+      emissive: f.emissive,
+      speed: f.speed,
+      follow: f.follow
+    };
+  }
+
   /** The 3D frame's lighting, post and particles from `world`, before the scene's own `onRender`. */
   #applyFrameLook(frame) {
     const fields = this.config.world?.particles;
     if (fields?.length) {
-      this.#particleFields ??= fields.map((given) => {
-        const f = withParticleDefaults(given);
-        const [r, g, b] = parseColor(f.color);
-        return {
-          kind: f.kind, count: f.count,
-          center: [f.at.x ?? 0, f.at.y ?? 0, f.at.z ?? 0],
-          extent: [f.extent.x, f.extent.y, f.extent.z],
-          radius: f.radius,
-          color: [toLinear(r), toLinear(g), toLinear(b)],
-          opacity: f.opacity,
-          emissive: f.emissive,
-          speed: f.speed,
-          follow: f.follow
-        };
-      });
-      frame.particles = this.#particleFields;
+      this.#particleFields ??= fields.map((given) => this.#frameField(given, withParticleDefaults(given).at));
+    }
+    // The level's own fields first, then what entities declared this frame
+    // (#addEntityParticles); the renderer keeps the first MAX_PARTICLE_FIELDS.
+    if (this.#particleFields || this.#frameParticles) {
+      frame.particles = [...(this.#particleFields ?? []), ...(this.#frameParticles ?? [])];
     }
     const { lighting, post } = this.#currentLook();
     if (lighting) {
@@ -1596,6 +1602,7 @@ export class Scene {
    * @param {number} deltaTime
    */
   frame3D(deltaTime) {
+    this.#frameParticles = null;
     const game = this.game;
     // Models in and out with the camera, before the frame is filled, so
     // what arrived this frame is drawn this frame. Every few frames is
@@ -1611,6 +1618,7 @@ export class Scene {
         for (const light of this.propLights) frame.addLight(light);
       }
       for (const entity of game.entities) {
+        if (entity.particles && !entity.dead && entity.visible !== false) this.#addEntityParticles(frame, entity);
         const mesh = entity.mesh;
         if (!mesh || mesh.visible === false || !entity.visible || entity.dead) continue;
         const body = entity.body;
@@ -1648,6 +1656,21 @@ export class Scene {
     // skips it like every other hook.
     if (!this.game.editMode) this.config.onRender?.(frame, deltaTime);
     return frame;
+  }
+
+
+  /** Entity-declared 3D particle fields gathered this frame; see #addEntityParticles. */
+  #frameParticles = null;
+
+  /**
+   * An entity's `entity.particles` record — one field, the shape a
+   * `world.particles` entry has — collected into the frame as
+   * `entity.light` is, placed at the body unless the record gives `at`.
+   */
+  #addEntityParticles(frame, entity) {
+    const at = entity.particles.at ?? entity.body.renderPosition;
+    this.#frameParticles ??= [];
+    this.#frameParticles.push(this.#frameField(entity.particles, at));
   }
 
   /**

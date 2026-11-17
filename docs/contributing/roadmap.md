@@ -18,13 +18,7 @@ The big picture, one line per item. Each large item's plan, backlog and record l
 | Networking: 3D online, then datagrams | `projects/networking` |
 | 3D places: terrain, decals, water, atmosphere | `projects/3d` |
 | An asset library of open materials and models | `projects/3d` |
-
-## Next
-
-- **Visibility culling**: off-screen entities issue no draws, at every aspect mode and resolution.
-- **Tile layers**: indices validated against the sheet; batched draws.
-- **Web Audio mixing**: master, music and effects gains, persisted volumes.
-- **Extension guide**: adding an actor, a constraint, a scene and a renderer backend from a fresh checkout.
+| Engine surface: a lean core and the `m2d-kit` package of ready-to-use actors, constraints and prefabs; culling, volumes, path strips, spawn points | `projects/engine-surface` |
 
 ## Perspectives
 
@@ -32,10 +26,10 @@ The big picture, one line per item. Each large item's plan, backlog and record l
 | --- | --- |
 | Side view, top-down, 3/4 oblique, isometric, belt scroller, auto-scroller, rotating top-down, single-screen rooms, 2.5D parallax | Shipped, each with a demo |
 | Point-and-click adventure: walk-behind layers, depth scaling, polygon pathfinding | Later |
-| Mode 7 pseudo-3D: a ground-plane shader | Stretch |
+| Mode 7 pseudo-3D | Dropped: a flat ground in a 3D scene is the real thing |
 
 ## Later
 
 - **Types**: `checkJs` over the JSDoc, or the engine in TypeScript. The toolchain is in (`npm run typecheck`).
-- Sprite sheets cached across scenes.
-- Lockstep or rollback networking.
+- Lockstep or rollback networking, on `game.snapshot()`, Rapier's deterministic build and a deterministic math module.
+- Renaming the package: the name, the npm listing and the README still say 2D.

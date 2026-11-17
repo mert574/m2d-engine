@@ -4,6 +4,7 @@ import { makeTestGame, makeBody } from './helpers/testGame.js';
 import { Entity } from '../src/core/entity.js';
 import { PathFollow } from '../src/constraints/pathFollow.js';
 import { Hover } from '../src/constraints/hover.js';
+import { Health } from '../src/constraints/health.js';
 import { WallSlip } from '../src/constraints/wallSlip.js';
 import { KeyboardControl } from '../src/constraints/keyboardControl.js';
 import { holdKeys } from './helpers/input.js';
@@ -232,5 +233,67 @@ describe('Entity rendering hooks', () => {
     entity.visible = false;
     entity.draw(FIXED);
     expect(game.renderer.calls.length).toBe(drawn);
+  });
+});
+
+describe('Health at zero', () => {
+  const mob = (game, whenDead) => {
+    const entity = new Entity(makeBody(game, 0, 0, 10, 10), null, game);
+    game.physics.add(entity.body);
+    game.entities.add(entity);
+    entity.addConstraint('health', new Health(entity, { maxHealth: 10, whenDead }));
+    return entity;
+  };
+
+  it('whenDead: remove takes the entity out of the world, after onDeath saw it there', () => {
+    const game = makeTestGame();
+    const entity = mob(game, 'remove');
+    let seenInWorld = null;
+    entity.getConstraint('health').onDeath = () => { seenInWorld = game.entities.has(entity); };
+    entity.getConstraint('health').takeDamage(10);
+    expect(seenInWorld).toBe(true);
+    expect(entity.dead).toBe(true);
+    expect(game.entities.has(entity)).toBe(false);
+    expect(entity.body.rigidBody ?? entity.body.collider).toBeFalsy();
+  });
+
+  it('keeps the entity by default, for the actor to decide', () => {
+    const game = makeTestGame();
+    const entity = mob(game, undefined);
+    entity.getConstraint('health').takeDamage(10);
+    expect(entity.dead).toBe(true);
+    expect(game.entities.has(entity)).toBe(true);
+  });
+});
+
+describe('PathFollow face', () => {
+  it('points entity.heading along the travel and keeps it through the pause', () => {
+    const game = makeTestGame();
+    const entity = new Entity(makeBody(game, 0, 0, 10, 10, { bodyType: 'kinematic' }), null, game);
+    game.physics.add(entity.body);
+    const follow = new PathFollow(entity, { points: [{ x: 0, y: 0 }, { x: 0, y: 100 }], speed: 200, waitTime: 100, face: true });
+    entity.addConstraint('path', follow);
+    expect(entity.heading).toBeUndefined();
+    // Step until it is under way, then assert the heading follows the travel.
+    let guard = 600;
+    while (Math.hypot(entity.body.velocity.x, entity.body.velocity.y) < 1 && guard--) tick(game, entity);
+    expect(guard).toBeGreaterThan(0);
+    tick(game, entity);
+    expect(entity.heading).toBeCloseTo(Math.PI / 2, 2);
+    // Step until it halts at the far point: the pause keeps the last heading.
+    guard = 600;
+    while (Math.hypot(entity.body.velocity.x, entity.body.velocity.y) > 1 && guard--) tick(game, entity);
+    expect(guard).toBeGreaterThan(0);
+    expect(follow.waitLeft).toBeGreaterThan(0);
+    expect(entity.heading, 'a pause keeps the last heading').toBeCloseTo(Math.PI / 2, 2);
+  });
+
+  it('leaves heading alone without face', () => {
+    const game = makeTestGame();
+    const entity = new Entity(makeBody(game, 0, 0, 10, 10, { bodyType: 'kinematic' }), null, game);
+    game.physics.add(entity.body);
+    entity.addConstraint('path', new PathFollow(entity, { points: [{ x: 0, y: 0 }, { x: 100, y: 0 }], speed: 200 }));
+    play(game, entity, 0.2);
+    expect(entity.heading).toBeUndefined();
   });
 });
