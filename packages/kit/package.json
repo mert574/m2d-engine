@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./actors": "./src/actors.ts",
     "./effects": "./src/effects.ts",
     "./random": "./src/random.ts",
     "./textures": "./src/textures.ts",

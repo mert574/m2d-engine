@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
-import { Coin } from '../src/actors/coin.js';
+import { Coin } from './helpers/mobs.js';
 import { Trigger } from '../src/actors/trigger.js';
 import { Health } from '../src/constraints/health.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
@@ -59,6 +59,7 @@ async function make(scene, { headless = true, editMode = false } = {}) {
     worldWidth: 400, worldHeight: 300, seed: 1, editMode
   });
   game.registerActor('Hero', Hero);
+  game.registerActor('Coin', Coin);
   game.registerActor('Gate', Gate);
   game.registerActor('Entity', Entity);
   if (!headless) vi.spyOn(game.soundManager, 'playMusic').mockImplementation(() => {});

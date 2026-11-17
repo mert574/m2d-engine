@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
-import { Coin } from '../src/actors/coin.js';
+import { Coin } from './helpers/mobs.js';
 import { InputSnapshot } from '../src/core/input/snapshot.js';
 import { InputActions } from '../src/core/input/actions.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
@@ -54,6 +54,7 @@ async function make(scene, { headless = true, actions = {} } = {}) {
     worldWidth: 400, worldHeight: 300, seed: 1, actions
   });
   game.registerActor('Hero', Hero);
+  game.registerActor('Coin', Coin);
   game.registerActor('Gate', Gate);
   if (!headless) vi.spyOn(game.soundManager, 'playSound').mockImplementation(() => {});
   game.sceneManager.addScene('count', { fetch: async () => scene });

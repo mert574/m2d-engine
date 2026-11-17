@@ -6,16 +6,13 @@
 
 import { Player } from '../../src/actors/player.js';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
-import { Bee } from '../../src/actors/bee.js';
+import { Bee, Ghost, Coin, MovingPlatform } from './mobs.js';
 import { Turret } from '../../src/actors/turret.js';
 import { Platform } from '../../src/actors/platform.js';
-import { MovingPlatform } from '../../src/actors/movingPlatform.js';
 import { Entity } from '../../src/core/entity.js';
 import { ObliquePlayer } from '../../src/actors/obliquePlayer.js';
 import { TopDownPlayer } from '../../src/actors/topDownPlayer.js';
-import { Ghost } from '../../src/actors/ghost.js';
 import { Npc } from '../../src/actors/npc.js';
-import { Coin } from '../../src/actors/coin.js';
 import { Trigger } from '../../src/actors/trigger.js';
 import { CarControl } from '../../src/constraints/carControl.js';
 import { GlideControl } from '../../src/constraints/glideControl.js';

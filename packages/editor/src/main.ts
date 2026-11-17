@@ -419,8 +419,10 @@ const components = createComponentsPanel($<HTMLElement>('#components'), {
     const owner = constraintOwner();
     return owner ? { label: owner.label, kind: owner.kind } : null;
   },
+  dimensions: () => viewport.dimensions,
   attach: (entry) => attachComponent(entry),
-  newPrefab: (entry) => newPrefabOf(entry.name)
+  newPrefab: (entry) => newPrefabOf(entry.name),
+  insertPrefab: (entry) => insertPrefabOf(entry)
 });
 const lookPanel = createLookPanel($<HTMLElement>('#look'), viewport, {
   doc: () => remote?.doc.data ?? null,
@@ -1060,6 +1062,13 @@ function attachComponent(entry: CatalogEntry): void {
   const { ops, slot } = structure.attachConstraint(remote.doc.data, owner.path, entry.name, params);
   edit({ label: `Attach ${entry.name} to ${owner.label}`, ops });
   inspector.reveal(`${owner.path.map((seg, i) => (typeof seg === 'number' ? `[${seg}]` : i ? `.${seg}` : seg)).join('')}.constraints.${slot}`);
+}
+
+function insertPrefabOf(entry: CatalogEntry): void {
+  if (!remote || !entry.template) return;
+  const { ops, name } = structure.insertPrefab(remote.doc.data, entry.name, entry.template.prefab);
+  edit({ label: `Insert prefab ${name}`, ops });
+  select({ path: ['prefabs', name] });
 }
 
 function newPrefabOf(actor: string): void {

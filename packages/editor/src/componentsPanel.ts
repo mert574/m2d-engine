@@ -21,8 +21,12 @@ export interface ComponentsPanelOptions {
   catalog(): CatalogEntry[];
   /** What a constraint would attach to: the selected object or prefab, by label, or null. */
   target(): { label: string; kind: 'object' | 'prefab' } | null;
+  /** The open scene's dimension, for templates that declare one. */
+  dimensions(): 2 | 3;
   attach(entry: CatalogEntry): void;
   newPrefab(entry: CatalogEntry): void;
+  /** Copy a prefab template into the scene. */
+  insertPrefab(entry: CatalogEntry): void;
 }
 
 export interface ComponentsPanelHandle {
@@ -83,9 +87,10 @@ export function createComponentsPanel(container: HTMLElement, options: Component
       if (kind === 'all' && entry.kind !== lastKind) {
         const heading = document.createElement('div');
         heading.className = 'asset-heading';
-        heading.textContent = entry.kind === 'actor' ? 'Actors' : 'Constraints';
+        heading.textContent = entry.kind === 'prefab' ? 'Prefabs' : entry.kind === 'actor' ? 'Actors' : 'Constraints';
         const hint = document.createElement('span');
-        hint.textContent = entry.kind === 'actor' ? 'A prefab names one' : "Attached under a prefab's or an object's constraints";
+        hint.textContent = entry.kind === 'prefab' ? 'A ready-made entry, copied into the scene'
+          : entry.kind === 'actor' ? 'A prefab names one' : "Attached under a prefab's or an object's constraints";
         heading.append(hint);
         grid.append(heading);
         lastKind = entry.kind;
@@ -144,7 +149,7 @@ export function createComponentsPanel(container: HTMLElement, options: Component
     } else {
       const none = document.createElement('div');
       none.className = 'component-text muted';
-      none.textContent = entry.kind === 'actor' ? 'Declares no properties: any bag is passed through.' : 'Nothing a scene can set.';
+      none.textContent = entry.kind === 'prefab' ? 'Edited like any prefab once inserted.' : entry.kind === 'actor' ? 'Declares no properties: any bag is passed through.' : 'Nothing a scene can set.';
       element.append(none);
     }
     const actions = document.createElement('div');
@@ -153,7 +158,13 @@ export function createComponentsPanel(container: HTMLElement, options: Component
       const action = document.createElement('button');
       action.type = 'button';
       action.className = 'card-action';
-      if (entry.kind === 'constraint') {
+      if (entry.kind === 'prefab') {
+        const wrongDimension = entry.template?.dimensions !== undefined && entry.template.dimensions !== options.dimensions();
+        action.textContent = 'Insert';
+        action.disabled = wrongDimension;
+        action.title = wrongDimension ? `For a ${entry.template?.dimensions}D scene` : `Copy the ${entry.name} prefab into the scene`;
+        action.addEventListener('click', () => options.insertPrefab(entry));
+      } else if (entry.kind === 'constraint') {
         action.textContent = target ? `Attach to ${target.label}` : 'Attach';
         action.disabled = !target;
         action.title = target ? `Add a ${entry.name} to ${target.label}` : 'Select an object or a prefab first';

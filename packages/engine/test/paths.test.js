@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
+import { MovingPlatform } from './helpers/mobs.js';
 import { initPhysics } from '../src/core/physics/index.js';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { Path } from '../src/core/path.js';
@@ -65,7 +66,11 @@ const level = (extra = {}) => ({
   ...extra
 });
 
-const headless = () => new M2D(null, { headless: true, worldWidth: 640, worldHeight: 480, seed: 1 });
+const headless = () => {
+  const game = new M2D(null, { headless: true, worldWidth: 640, worldHeight: 480, seed: 1 });
+  game.registerActor('MovingPlatform', MovingPlatform);
+  return game;
+};
 
 describe('paths in a scene', () => {
   it('validates a PathFollow reference against the scene\'s paths', () => {

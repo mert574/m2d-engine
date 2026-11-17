@@ -21,7 +21,7 @@ game.registerConstraint('Teleport', Teleport);
 ```json
 "prefabs": {
   "guard": {
-    "actor": "Ghost",
+    "actor": "Guard",
     "constraints": { "chase": { "type": "Chase", "params": { "speed": 80 } } }
   }
 }

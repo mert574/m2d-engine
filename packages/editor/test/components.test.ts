@@ -54,6 +54,14 @@ describe('the catalog', () => {
     expect(names.slice(0, 2)).toEqual(['Guard', 'Shared']);
   });
 
+  it('offers a registered prefab template first, whole', () => {
+    const prefabTemplates = new Registry() as Registry & Map<string, unknown>;
+    prefabTemplates.set('mob', { description: 'A walking enemy', dimensions: 2, prefab: { actor: 'Prop' } }, 'kit');
+    const catalog = buildCatalog({ actors: new Map(), constraintTypes: new Map(), prefabTemplates });
+    expect(catalog[0]).toMatchObject({ kind: 'prefab', name: 'mob', origin: 'kit', registered: true });
+    expect(catalog[0]!.template?.prefab).toEqual({ actor: 'Prop' });
+  });
+
   it('merges properties along an actor\'s class chain', () => {
     class Base { static properties = { a: { kind: 'number' } }; }
     class Sub extends Base { static override properties = { b: { kind: 'string', label: 'Bee' } }; }
@@ -68,7 +76,7 @@ describe('the components panel', () => {
     let target: { label: string; kind: 'object' | 'prefab' } | null = null;
     const panel = createComponentsPanel(container, {
       catalog: () => buildCatalog({ actors: new Map([['Prop', Prop]]), constraintTypes: new Map([['Health', Health]]) }),
-      target: () => target, attach, newPrefab
+      target: () => target, dimensions: () => 2 as const, attach, newPrefab, insertPrefab: () => {}
     });
     panel.refresh();
     const cards = () => [...container.querySelectorAll<HTMLElement>('.component-card')];

@@ -9,6 +9,7 @@
  * it, it declares its properties or params, it works in 2D and 3D or says
  * which, and it ships with its test and its docs page.
  */
+export { Ghost, Bee, Coin, MovingPlatform, Pickup, PREFAB_TEMPLATES, registerKitActors } from './actors.ts';
 export { AttackSwing, HitBurst, registerEffects } from './effects.ts';
 export { makeRng, range } from './random.ts';
 export { tileTexture } from './textures.ts';

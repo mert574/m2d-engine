@@ -25,7 +25,7 @@ export interface CatalogField {
 }
 
 export interface CatalogEntry {
-  kind: 'actor' | 'constraint';
+  kind: 'actor' | 'constraint' | 'prefab';
   name: string;
   description: string;
   fields: CatalogField[];
@@ -39,6 +39,8 @@ export interface CatalogEntry {
   module?: string;
   /** For an engine class whose name differs from its export. */
   exportName?: string;
+  /** A prefab template: `{ description, dimensions, prefab }`, the entry a scene's `prefabs` takes. */
+  template?: { description?: string; dimensions?: 2 | 3; prefab: Record<string, unknown> };
 }
 
 interface ClassLike {
@@ -91,7 +93,7 @@ const describe = (klass: unknown): string => {
  * first in each kind, then the engine's unregistered ones, each sorted by
  * name.
  */
-export function buildCatalog(registries: { actors?: Map<string, unknown>; constraintTypes?: Map<string, unknown> }): CatalogEntry[] {
+export function buildCatalog(registries: { actors?: Map<string, unknown>; constraintTypes?: Map<string, unknown>; prefabTemplates?: Map<string, unknown> }): CatalogEntry[] {
   const entries: CatalogEntry[] = [];
   const add = (kind: CatalogEntry['kind'], registry: Map<string, unknown> | undefined, engine: Map<string, unknown>, which: 'properties' | 'params') => {
     const seen = new Set<string>();
@@ -113,9 +115,19 @@ export function buildCatalog(registries: { actors?: Map<string, unknown>; constr
   };
   add('actor', registries.actors, BUILTIN_ACTORS as Map<string, unknown>, 'properties');
   add('constraint', registries.constraintTypes, BUILTIN_CONSTRAINTS as Map<string, unknown>, 'params');
+  const templates = registries.prefabTemplates as { originOf?(name: string): CatalogEntry['origin'] } & Map<string, unknown> | undefined;
+  for (const [name, given] of templates ?? []) {
+    const template = given as NonNullable<CatalogEntry['template']>;
+    entries.push({
+      kind: 'prefab', name, description: template.description ?? '', fields: [],
+      registered: true, origin: templates?.originOf?.(name) ?? 'game', template
+    });
+  }
   // The game's own first, then a kit's, then the engine's, then anything a scene cannot name yet.
   const rank = (entry: CatalogEntry) => (!entry.registered ? 3 : entry.origin === 'engine' ? 2 : entry.origin === 'kit' ? 1 : 0);
-  return entries.sort((a, b) => (a.kind === b.kind ? rank(a) - rank(b) || a.name.localeCompare(b.name) : a.kind === 'actor' ? -1 : 1));
+  // Prefab templates first (a whole thing to drop in), then actors, then constraints.
+  const kindRank = (entry: CatalogEntry) => (entry.kind === 'prefab' ? 0 : entry.kind === 'actor' ? 1 : 2);
+  return entries.sort((a, b) => kindRank(a) - kindRank(b) || rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
 
 /** The lines a definition needs to register an engine class. */

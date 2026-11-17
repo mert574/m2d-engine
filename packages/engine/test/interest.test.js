@@ -4,7 +4,7 @@ import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { M2D } from '../src/core/m2d.js';
 import { Replicator, applyState, baselineOf } from '../src/net/replication.js';
 import { ObliquePlayer } from '../src/actors/obliquePlayer.js';
-import { Ghost } from '../src/actors/ghost.js';
+import { Ghost } from './helpers/mobs.js';
 import { Platform } from '../src/actors/platform.js';
 
 /**

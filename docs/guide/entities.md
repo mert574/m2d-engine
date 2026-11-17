@@ -232,7 +232,7 @@ game.registerConstraint('Teleport', Teleport);
 ```json
 "prefabs": {
   "guard": {
-    "actor": "Ghost",
+    "actor": "Guard",
     "constraints": { "chase": { "type": "Chase", "params": { "speed": 80 } } }
   }
 },
@@ -341,7 +341,7 @@ Bodies carry a category bit and a mask of categories they collide with. The defa
 | `player` | `0x0002` | |
 | `platform` | `0x0004` | |
 | `movingPlatform` | `0x0008` | |
-| `enemy` | `0x0010` | `Bee`, `Ghost`, `Turret` |
+| `enemy` | `0x0010` | `Turret`, and the kit's `Ghost` and `Bee` |
 | `coin` | `0x0020` | |
 | `trigger` | `0x0040` | |
 | `projectile` | `0x0080` | `Projectile` |

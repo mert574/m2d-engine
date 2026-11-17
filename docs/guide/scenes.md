@@ -46,7 +46,7 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
       "physics": { "bodyType": "static", "friction": 1 }
     },
     "lift": {
-      "actor": "MovingPlatform",
+      "actor": "Lift",
       "spritesheet": "tiles",
       "physics": { "bodyType": "kinematic", "friction": 1 }
     }
@@ -81,7 +81,7 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
 
 Objects default to 32 by 32 when they give no size. `angle` is in radians and belongs to the object, so a tilted platform is placed per instance while the prefab stays reusable.
 
-`properties` is passed to the actor's constructor as its options argument. Built-in actors read specific keys from it. `MovingPlatform` reads `path`. `Trigger` reads `active`, `visible`, `triggers` and `debugColor`. Your own actors read whatever they define.
+`properties` is passed to the actor's constructor as its options argument. Built-in actors read specific keys from it: `Trigger` reads `active`, `visible`, `triggers` and `debugColor`; the kit's `MovingPlatform` reads `path`. Your own actors read whatever they define.
 
 ### Physics settings
 
@@ -108,7 +108,7 @@ A scene that declares its sprite sheets and prefabs inline owns them: nothing el
 ```javascript
 import manifest from './assets.json';
 
-game.registerActor('Ghost', Thug);
+game.registerActor('Guard', Thug);
 game.loadAssets(manifest);
 ```
 

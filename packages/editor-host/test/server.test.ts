@@ -82,7 +82,15 @@ describe('the MCP server', () => {
     actors.set('Block', Block);
     actors.set('Shared', Block, 'kit');
     const constraintTypes = new Registry(BUILTIN_CONSTRAINTS);
-    const mcp = createServer(companion.session, { game: async () => ({ actors, constraintTypes }) });
+    const prefabTemplates = new Registry();
+    // The shape a kit registers (m2d-kit/actors); inlined so the host's
+    // tests do not compile the kit. The kit's own fragments are played in
+    // examples/test/kitCast.test.js.
+    prefabTemplates.set('mob', { description: 'A walking enemy', dimensions: 2, prefab: {
+      actor: 'Block', physics: { bodyType: 'dynamic', lockRotation: true },
+      constraints: { health: { type: 'Health', params: { maxHealth: 60, whenDead: 'remove' } } }
+    } }, 'kit');
+    const mcp = createServer(companion.session, { game: async () => ({ actors, constraintTypes, prefabTemplates }) });
     const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
     const origins = new Client({ name: 'origins', version: '0' });
     await Promise.all([mcp.connect(serverSide), origins.connect(clientSide)]);
@@ -93,6 +101,18 @@ describe('the MCP server', () => {
       expect(of('Shared').origin).toBe('kit');
       expect(of('Prop').origin).toBe('engine');
       expect(listed.constraints.find((c: { name: string }) => c.name === 'Health').origin).toBe('engine');
+
+      // A prefab template is offered whole, and an agent's generic edit
+      // copies it into the scene; the scene then validates with it in.
+      const mob = listed.prefabs.find((p: { name: string }) => p.name === 'mob');
+      expect(mob.origin).toBe('kit');
+      expect(mob.prefab.actor).toBe('Block');
+      await origins.callTool({ name: 'edit_scene', arguments: { path: 'scenes/room.json', label: 'Insert prefab mob', ops: [
+        { op: 'set', path: ['prefabs', 'mob'], value: mob.prefab }
+      ] } });
+      const report = textOf(await origins.callTool({ name: 'validate_scene', arguments: { path: 'scenes/room.json' } }));
+      expect(report).not.toMatch(/prefabs\.mob/);
+      await origins.callTool({ name: 'undo', arguments: { path: 'scenes/room.json' } });
     } finally {
       await origins.close();
     }

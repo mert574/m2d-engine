@@ -30,6 +30,7 @@ export class Entity {
    * doing nothing; an inspector reads it to draw the entity's fields.
    * Callbacks stay out of it: they are code, not scene data. An actor that
    * declares nothing takes any bag of properties, unchecked, as before.
+   * @type {Object<string, object>|null}
    */
   static properties = null;
 

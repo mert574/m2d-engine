@@ -132,7 +132,7 @@ A UI scene previews at the game's design size, letterboxed. Right-click the Elem
 
 ## Components
 
-The Components tab lists every actor and constraint the game registers and every one the engine ships, each with what it does and the fields a scene may set, with their kinds, units and starting values. Filter by name or by what a field is called. With an object or a prefab selected, Attach adds a constraint to it under a free slot. New prefab makes a prefab of an actor and selects it. Each card says where its class comes from — the engine's own are marked "engine", a kit's "kit", and the game's own carry no mark — and an engine class can be attached without the game registering it; a scene names it and it loads in the game too.
+The Components tab lists every actor and constraint the game registers and every one the engine ships, each with what it does and the fields a scene may set, with their kinds, units and starting values; registered prefab templates (the kit's, or the game's own through `registerPrefabTemplate`) come first as cards whose Insert copies the whole entry into the scene's `prefabs`. Filter by name or by what a field is called. With an object or a prefab selected, Attach adds a constraint to it under a free slot. New prefab makes a prefab of an actor and selects it. Each card says where its class comes from — the engine's own are marked "engine", a kit's "kit", and the game's own carry no mark — and an engine class can be attached without the game registering it; a scene names it and it loads in the game too.
 
 An object edit rebuilds that object in place. Other edits rebuild the scene with the camera held.
 
@@ -217,7 +217,7 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `validate_scene` | Every problem, with its path |
 | `list_assets`, `search_library`, `import_asset` | The project's asset files, a Poly Haven search, an import with its credit |
 | `create_scene`, `rename_scene`, `delete_scene` | Scene files: a blank level or UI scene or a copy, a new name, gone |
-| `list_components` | The actors and constraints the game registers, each with its origin (engine, kit or the game) and its fields, as the Components tab shows them |
+| `list_components` | The actors, constraints and prefab templates the game registers, each with its origin (engine, kit or the game) and its fields; a template's `prefab` value is copied into a scene with `edit_scene` |
 | `run_scene` | Step the scene headless for some seconds and report where each object ended up, with its body type and angle or rotation. `from` starts the player elsewhere and `prefab` runs a prefab's stage, as the editor's Play from here and Stage it do |
 | `settle_scene` | The editor's Settle physics: write where dynamic bodies came to rest, as one step of undo, optionally only some `ids` |
 | `screenshot_scene` | A picture of the scene as the editor holds it, unsaved edits included: the viewport alone or the whole window, optionally framed on one object or after some seconds of play. Takes `from` and `prefab` as `run_scene` does, and `phase` for the edit view at a phase of the cycle |

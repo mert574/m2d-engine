@@ -1,7 +1,6 @@
 import { Platform } from 'm2d-engine/actors/platform.js';
 import { ObliquePlayer } from 'm2d-engine/actors/obliquePlayer.js';
-import { Ghost } from 'm2d-engine/actors/ghost.js';
-import { Coin } from 'm2d-engine/actors/coin.js';
+import { Coin, Ghost } from 'm2d-kit/actors';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';

@@ -2,6 +2,8 @@
 
 Actors from `m2d-engine/actors/`. Register the ones a game uses with `game.registerActor(name, Class)`. Each expects certain prefab physics and reads certain `properties`.
 
+The stock gameplay cast — `Ghost`, `Bee`, `Coin`, `MovingPlatform`, each a composition of the engine's constraints — lives in [the kit](./kit) (`m2d-kit/actors`), together with the prefab templates that build the same things with no class at all.
+
 The platformer and top-down example scenes under `examples/src/*/scenes/` show them in use.
 
 ## Declaring properties
@@ -86,27 +88,6 @@ The rules, all of which match constraints:
 
 The editor gives a placed model or image this actor when the game registers it. The editor's templates use it for their platforms and blocks.
 
-## MovingPlatform
-
-`actors/movingPlatform.js`. Name `MovingPlatform`. Patrols a path with the `PathFollow` constraint.
-
-- Sets its body to `kinematic` with friction 1 and restitution 0.
-- Reads `properties.path`: `{ points, speed, waitTime, acceleration }`. See [PathFollow](./constraints#pathfollow).
-
-## Bee
-
-`actors/bee.js`. Name `Bee`. A flying enemy that chases the player in range and wanders otherwise.
-
-- Expects a `dynamic` body. Set `lockRotation: true` in the prefab so hits do not spin it.
-- Sets collision category `enemy`.
-- Constraints: `Health` (100, 0.5 s invulnerable), `ContactDamage` (33 damage, 720 px/s knockback), `Chase` (speed 60, idle speed 36, range 400), `DamageFlash`, `Debug`.
-- On damage it flashes, resets to `idle` and plays the `damage` sound.
-- Steps its sprite's frames at 6 per second when the sheet has more than one.
-
-## Ghost
-
-`actors/ghost.js`. Name `Ghost`. The same as `Bee` with weaker knockback, 480 px/s. Used by the top-down example.
-
 ## Turret
 
 `actors/turret.js`. Name `Turret`. A stationary enemy that aims at the player, checks line of sight with a raycast against `Platform` bodies and fires `Rocket` projectiles.
@@ -121,12 +102,6 @@ The editor gives a placed model or image this actor when the game registers it. 
 `actors/rocket.js`. Name `Rocket`. A `Projectile` that draws itself. Created by `Turret`, or by code with `game.physics.createBox` and `new Rocket(body, null, game, { direction, speed, damage })`.
 
 Defaults: speed 480, damage 25, lifetime 6 s, targets `['Player']`. Every `Projectile` option can be passed.
-
-## Coin
-
-`actors/coin.js`. Name `Coin`. Bobs and spins with the `Hover` constraint and removes itself when the player touches it.
-
-- Expects a `static` body with `isSensor: true`.
 
 ## Trigger
 

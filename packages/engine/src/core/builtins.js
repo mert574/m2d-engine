@@ -10,10 +10,6 @@
  * game too. Nothing here is instantiated until a scene names it.
  */
 
-import { Bee } from '../actors/bee.js';
-import { Coin } from '../actors/coin.js';
-import { Ghost } from '../actors/ghost.js';
-import { MovingPlatform } from '../actors/movingPlatform.js';
 import { Npc } from '../actors/npc.js';
 import { ObliquePlayer } from '../actors/obliquePlayer.js';
 import { Platform } from '../actors/platform.js';
@@ -45,7 +41,7 @@ import { WallSlip } from '../constraints/wallSlip.js';
 
 /** The engine's actors, by the name a scene uses. */
 export const BUILTIN_ACTORS = new Map(Object.entries({
-  Bee, Coin, Ghost, MovingPlatform, Npc, ObliquePlayer, Platform, Player, Prop, Rocket, TopDownPlayer, Trigger, Turret
+  Npc, ObliquePlayer, Platform, Player, Prop, Rocket, TopDownPlayer, Trigger, Turret
 }));
 
 /** The engine's constraints, by the name a scene uses. */
@@ -60,7 +56,6 @@ export const BUILTIN_CONSTRAINTS = new Map(Object.entries({
  * two maps to the same keys and each path to exporting its class.
  */
 export const BUILTIN_MODULES = new Map(Object.entries({
-  Bee: 'actors/bee.js', Coin: 'actors/coin.js', Ghost: 'actors/ghost.js', MovingPlatform: 'actors/movingPlatform.js',
   Npc: 'actors/npc.js', ObliquePlayer: 'actors/obliquePlayer.js', Platform: 'actors/platform.js', Player: 'actors/player.js',
   Prop: 'actors/prop.js', Rocket: 'actors/rocket.js', TopDownPlayer: 'actors/topDownPlayer.js', Trigger: 'actors/trigger.js',
   Turret: 'actors/turret.js',
@@ -84,7 +79,7 @@ export class Registry extends Map {
   /** Who registered each of the game's own entries: 'game' (default) or 'kit'. */
   #origins = new Map();
 
-  /** @param {Map<string, Function>} builtins */
+  /** @param {Map<string, unknown>} builtins */
   constructor(builtins = new Map()) {
     super();
     this.#builtins = builtins;
@@ -92,7 +87,7 @@ export class Registry extends Map {
 
   /**
    * @param {string} name
-   * @param {Function} klass
+   * @param {unknown} klass - A class, or a prefab template's object.
    * @param {'game'|'kit'} [origin] - Who is registering; a game's own code by default.
    */
   set(name, klass, origin = 'game') {

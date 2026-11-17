@@ -97,8 +97,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 export function createServer(session: Session, options: ServerOptions = {}, assets?: Assets): McpServer {
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
   const registries = async () => {
-    const game = (await options.game?.()) as { actors?: Map<string, unknown>; constraintTypes?: Map<string, unknown> } | null;
-    return game ? { actors: game.actors, constraintTypes: game.constraintTypes } : undefined;
+    const game = (await options.game?.()) as { actors?: Map<string, unknown>; constraintTypes?: Map<string, unknown>; prefabTemplates?: Map<string, unknown> } | null;
+    return game ? { actors: game.actors, constraintTypes: game.constraintTypes, prefabTemplates: game.prefabTemplates } : undefined;
   };
   const scenePath = z.string().describe('Project-relative path, as list_scenes gives it');
 
@@ -468,7 +468,9 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       'The actors and constraints the game registers, each with its description and the fields a ' +
       'scene may set (an actor\'s `properties`, a constraint\'s `params`), as the editor\'s ' +
       'Components tab shows them. A prefab names an actor; a constraint goes under a prefab\'s or ' +
-      'an object\'s `constraints` as { "slot": { "type": "Name", "params": {...} } }.',
+      'an object\'s `constraints` as { "slot": { "type": "Name", "params": {...} } }. ' +
+      '`prefabs` are ready-made templates: copy one\'s `prefab` value into the scene\'s own ' +
+      '`prefabs` under a free name with edit_scene, then place objects of it.',
     inputSchema: {}
   }, async () => {
     const found = await registries();
@@ -484,6 +486,9 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       })),
       constraints: [...(found.constraintTypes ?? [])].map(([name, klass]) => ({
         name, origin: originOf(found.constraintTypes, name), description: describe(klass) || undefined, params: fieldsOf((klass as { params?: unknown }).params)
+      })),
+      prefabs: [...(found.prefabTemplates ?? [])].map(([name, template]) => ({
+        name, origin: originOf(found.prefabTemplates, name), ...(isRecord(template) ? template : {})
       }))
     });
   });

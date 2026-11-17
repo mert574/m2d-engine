@@ -370,7 +370,7 @@ A map from **slot name** (the name `entity.getConstraint` uses) to an entry. A p
 ```json
 "prefabs": {
   "guard": {
-    "actor": "Ghost",
+    "actor": "Guard",
     "constraints": { "chase": { "type": "Chase", "params": { "speed": 80 } } }
   }
 },

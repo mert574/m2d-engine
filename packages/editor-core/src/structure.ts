@@ -133,6 +133,15 @@ export function addPrefab(doc: unknown, name: string, actor: string, dimensions:
   return { ops: addEntry(doc, ['prefabs'], key, prefab), name: key };
 }
 
+/**
+ * A prefab from a ready-made entry (a registered template): the content is
+ * copied in whole under a free name, so the scene owns its copy.
+ */
+export function insertPrefab(doc: unknown, name: string, prefab: Record<string, unknown>): { ops: Op[]; name: string } {
+  const key = uniqueKey(doc, ['prefabs'], name);
+  return { ops: addEntry(doc, ['prefabs'], key, clone(prefab)), name: key };
+}
+
 /** A copy of a prefab under a new name; objects keep pointing at the original. */
 export function duplicatePrefab(doc: unknown, name: string): { ops: Op[]; name: string } {
   const prefab = valueAt(doc, ['prefabs', name]);

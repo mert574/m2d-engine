@@ -1,8 +1,6 @@
 import { Player } from 'm2d-engine/actors/player.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
-import { MovingPlatform } from 'm2d-engine/actors/movingPlatform.js';
-import { Coin } from 'm2d-engine/actors/coin.js';
-import { Bee } from 'm2d-engine/actors/bee.js';
+import { Bee, Coin, MovingPlatform } from 'm2d-kit/actors';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 import { makeRng, range } from 'm2d-kit/random';

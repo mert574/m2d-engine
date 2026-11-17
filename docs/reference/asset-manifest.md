@@ -39,7 +39,7 @@ A uid is spelled like a scene object's id: letters, digits, `-`, `_` and `.`, st
       "type": "prefab",
       "name": "zombie",
       "data": {
-        "actor": "Ghost",
+        "actor": "Guard",
         "spritesheet": "sheet-zombie",
         "defaultAnimation": "idle_left",
         "physics": { "bodyType": "dynamic", "shape": "circle" }

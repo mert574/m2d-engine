@@ -327,6 +327,7 @@ export interface ShowOptions {
 export type Registries = {
   actors?: Map<string, unknown>;
   constraintTypes?: Map<string, unknown>;
+  prefabTemplates?: Map<string, unknown>;
   uiComponents?: Map<string, unknown>;
   backdropLayers?: Map<string, unknown>;
   choices?: { names: string[] };
@@ -1340,7 +1341,7 @@ export class Viewport {
    */
   get registries(): Registries {
     const game = this.#game as unknown as Registries | null;
-    return game ? { actors: game.actors, constraintTypes: game.constraintTypes, uiComponents: game.uiComponents, backdropLayers: game.backdropLayers, choices: game.choices } : {};
+    return game ? { actors: game.actors, constraintTypes: game.constraintTypes, prefabTemplates: game.prefabTemplates, uiComponents: game.uiComponents, backdropLayers: game.backdropLayers, choices: game.choices } : {};
   }
 
   /** Nothing of a game may outlive this; see the engine's teardown rule. */

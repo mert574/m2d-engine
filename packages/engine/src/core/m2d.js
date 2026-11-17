@@ -508,6 +508,8 @@ export class M2D {
     this.entities = new Set();
     this.player = null;
     this.actors = new Registry(BUILTIN_ACTORS);
+    /** Ready-made prefab entries games and kits offer; see registerPrefabTemplate. */
+    this.prefabTemplates = new Registry();
     /**
      * Constraint classes a scene may attach by name: what the game
      * registered with `registerConstraint`, and behind them the engine's own
@@ -1145,6 +1147,20 @@ export class M2D {
    */
   registerActor(type, ActorClass, { origin = 'game' } = {}) {
     this.actors.set(type, ActorClass, origin);
+  }
+
+  /**
+   * Offer a ready-made `prefabs` entry for the editor's component library
+   * and `list_components` to copy into a scene. `template` is
+   * `{ description, dimensions, prefab }`, where `prefab` is exactly what
+   * would stand under the scene's `prefabs`. The game plays none of it:
+   * a scene that took the copy carries its own.
+   * @param {string} name
+   * @param {{description: string, dimensions: 2|3, prefab: Object}} template
+   * @param {{origin?: 'game'|'kit'}} [options]
+   */
+  registerPrefabTemplate(name, template, { origin = 'game' } = {}) {
+    this.prefabTemplates.set(name, template, origin);
   }
 
   /**

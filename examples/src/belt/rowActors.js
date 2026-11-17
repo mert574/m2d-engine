@@ -2,7 +2,7 @@ import { s } from 'm2d-engine/core/schema.js';
 import { Entity } from 'm2d-engine/core/entity.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
 import { ObliquePlayer } from 'm2d-engine/actors/obliquePlayer.js';
-import { Ghost } from 'm2d-engine/actors/ghost.js';
+import { Ghost } from 'm2d-kit/actors';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { Attack } from 'm2d-engine/constraints/attack.js';
 import { CollisionCategories } from 'm2d-engine/core/constants.js';
