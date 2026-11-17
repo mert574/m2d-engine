@@ -1,6 +1,5 @@
 import { defineMatch } from 'm2d-server';
-import { INPUT, GAME_OPTIONS, registerArena } from './arenaGame.js';
-import { Platform } from 'm2d-kit/actors';
+import { INPUT, GAME_OPTIONS, registerArena, Platform } from './arenaGame.js';
 
 // A match that goes wrong 30 ticks in, if it is called 'bad': crash.
 const hoard = [];

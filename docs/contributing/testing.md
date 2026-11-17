@@ -56,6 +56,10 @@ Engine-level suites: `viewport.test.js` for sizing math and projection, `resizeL
 | `helpers/environment.js` | Canvas creation and pixel readback for Node and the browser |
 | `helpers/setupPhysics.js` | Awaits `initPhysics()` once per worker |
 
+## Test helpers shared with the kit
+
+`packages/engine/test/helpers/` is exported as `m2d-engine/test/helpers/*` so the kit's tests build on the same `makeTestGame`, `RecordingRenderer` and environment stubs instead of copying them. It is test support, not the engine's API: nothing under it is documented or stable for games. The engine's own suites drive the simulation with `test/helpers/cast.js`, a cast composed from the engine's capabilities, and never import the kit.
+
 ## Validating a new backend
 
 One file. The WebGL2 backend's file is the template.

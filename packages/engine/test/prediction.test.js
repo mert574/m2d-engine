@@ -5,7 +5,7 @@ import { M2D } from '../src/core/m2d.js';
 import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.js';
 import { Replicator } from '../src/net/replication.js';
 import { NetClient } from '../src/net/client.js';
-import { ObliquePlayer, Platform } from 'm2d-kit/actors';
+import { ObliquePlayer, Platform } from './helpers/cast.js';
 
 /**
  * A client that moves on the tick it presses a key.

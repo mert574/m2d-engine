@@ -20,7 +20,6 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "m2d-kit": "*",
     "vitest": "^5.0.5"
   },
   "repository": {

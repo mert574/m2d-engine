@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { makeTestGame, makeBody } from './helpers/testGame.js';
-import { Entity } from '../src/core/entity.js';
-import { GlideControl } from 'm2d-kit/controls';
+import { makeTestGame, makeBody } from 'm2d-engine/test/helpers/testGame.js';
+import { Entity } from 'm2d-engine/core/entity.js';
+import { GlideControl } from '../src/controls/glideControl.js';
 
 /**
  * One-press gliding on a 32px grid. The world under test is a T junction:

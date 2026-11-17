@@ -8,7 +8,7 @@ import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpe
 import { keyDown } from './helpers/input.js';
 import { SCENE_VERSION, SceneLoader } from '../src/core/sceneLoader.js';
 import { fillTemplate } from '../src/core/counters.js';
-import { Coin } from 'm2d-kit/actors';
+import { Coin } from './helpers/cast.js';
 
 /**
  * The rules' newer events and actions — counters, named input actions,

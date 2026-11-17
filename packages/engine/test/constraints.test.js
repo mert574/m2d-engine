@@ -7,7 +7,6 @@ import { Hover } from '../src/constraints/hover.js';
 import { Health } from '../src/constraints/health.js';
 import { KeyboardControl } from '../src/constraints/keyboardControl.js';
 import { holdKeys } from './helpers/input.js';
-import { WallSlip } from 'm2d-kit/controls';
 
 /**
  * The reusable entity behaviours (src/constraints/) that drive physics or
@@ -130,49 +129,6 @@ describe('Hover', () => {
     // The body itself is untouched — queries and the solver see it parked.
     expect(body.position).toEqual({ x: 50, y: 80 });
     expect(body.angle).toBe(0);
-  });
-});
-
-describe('WallSlip', () => {
-  function fallAgainstWall(withSlip) {
-    const game = makeTestGame();
-    game.physics.setGravity({ x: 0, y: 1000 });
-    game.physics.add(makeBody(game, 100, 0, 40, 4000, { bodyType: 'static', friction: 1 }));
-    const body = makeBody(game, 60, -1800, 32, 32, { friction: 5, frictionAir: 0.001 });
-    game.physics.add(body);
-    const entity = new Entity(body, null, game);
-    if (withSlip) entity.addConstraint('wallSlip', new WallSlip(entity));
-
-    for (let i = 0; i < 60; i++) {
-      entity.fixedUpdate(FIXED);
-      body.setVelocity({ x: 180, y: body.velocity.y });  // hold towards the wall
-      game.physics.step(FIXED);
-    }
-    return { fell: body.position.y - -1800, entity, body, game };
-  }
-
-  it('an airborne body slides down a wall instead of clinging to it', () => {
-    // High ground friction turns to glue on a wall: pressing in makes a
-    // normal force, and friction against it carries the body's weight.
-    expect(fallAgainstWall(false).fell).toBeLessThan(50);
-    expect(fallAgainstWall(true).fell).toBeGreaterThan(400);  // ~free fall
-  });
-
-  it('restores the configured friction on landing', () => {
-    const game = makeTestGame();
-    game.physics.setGravity({ x: 0, y: 1000 });
-    game.physics.add(makeBody(game, 0, 100, 400, 20, { bodyType: 'static', friction: 1 }));
-    const body = makeBody(game, 0, 0, 32, 32, { friction: 5, frictionAir: 0.001 });
-    game.physics.add(body);
-    const entity = new Entity(body, null, game);
-    entity.addConstraint('wallSlip', new WallSlip(entity));
-
-    entity.fixedUpdate(FIXED);                  // airborne: slippery
-    expect(body.friction).toBe(0);
-
-    play(game, entity, 2);                      // land and settle
-    expect(entity.isOnGround()).toBe(true);
-    expect(body.friction).toBe(5);
   });
 });
 

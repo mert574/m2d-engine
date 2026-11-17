@@ -282,20 +282,16 @@ describe('frame-rate independence across the engine', () => {
     const player = find('Player');
     expect(player.wards).toBe(2); // tick 60 casts, 62 is cooling down, 190 casts
     expect(player.refused).toBe(1);
-    expect(player.landings).toBe(2);
+    expect(player.swings).toBe(1); // KeyX at 70; the cooldown outlasts the run
     expect(player.steps).toBeGreaterThan(3);
     expect(print.gates.length).toBeGreaterThan(0); // walked through the gate
     expect(print.entities.filter((e) => e.name === 'Coin')).toHaveLength(0); // both collected
-    expect(find('Car').drifting === true || Math.abs(find('Car').lateral) > 0).toBe(true);
-    expect(find('Ship').boosts).toBe(2); // 20 boosts, 40 is cooling down, 140 boosts
     expect(find('Walker').arrivals).toBeGreaterThan(0);
     expect(print.draws).toBeGreaterThan(0);
 
     const keep = await makeCoverageGame('keep');
     const kept = runUntilCaptured(keep.game, keep.capture, 1000 / 60);
     keep.game.destroy();
-    const glider = kept.entities.find((e) => e.name === 'Glider');
-    expect(glider.x !== 336 || glider.y !== 400).toBe(true);
     expect(kept.entities.find((e) => e.name === 'Walker').arrivals).toBeGreaterThan(0);
   });
 });

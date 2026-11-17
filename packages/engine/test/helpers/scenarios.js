@@ -13,8 +13,7 @@ import { Footsteps } from '../../src/constraints/footsteps.js';
 import { InputSchema, InputGate } from '../../src/net/input.js';
 import { Rng } from '../../src/core/rng.js';
 import { InputSnapshot } from '../../src/core/input/snapshot.js';
-import { Bee, Coin, Ghost, MovingPlatform, Npc, ObliquePlayer, Platform, Player, TopDownPlayer, Turret } from 'm2d-kit/actors';
-import { CarControl, GlideControl, ThrustControl } from 'm2d-kit/controls';
+import { Bee, Coin, Ghost, MovingPlatform, Npc, ObliquePlayer, Platform, Player, TopDownPlayer, Turret } from './cast.js';
 
 /*
  * The arena: a player on KeyboardControl (input sampling, per-tick
@@ -68,44 +67,12 @@ export function fingerprint(game) {
 }
 
 /*
- * The rest of the engine's actors and constraints, driven by a scripted
+ * The rest of the engine's capabilities, driven by a scripted
  * input stream instead of the keyboard: the seam a replay uses, and the one
  * a network layer will. The script only says which keys are held on each
  * tick; press and release edges are derived between consecutive ticks,
  * which is how the server will treat a client's input.
  */
-
-class Car extends Entity {
-  name = 'Car';
-  constructor(body, sprite, game, options = {}) {
-    super(body, sprite, game);
-    this.addConstraint('car', new CarControl(this, {
-      keys: { throttle: 'KeyW', brake: 'KeyS', left: 'KeyA', right: 'KeyD', handbrake: 'ShiftLeft', nitro: 'KeyN' },
-      ...options
-    }));
-  }
-}
-
-class Ship extends Entity {
-  name = 'Ship';
-  constructor(body, sprite, game) {
-    super(body, sprite, game);
-    this.boosts = 0;
-    this.addConstraint('thrust', new ThrustControl(this, {
-      keys: { thrust: 'KeyI', reverse: 'KeyK', left: 'KeyJ', right: 'KeyL', boost: 'KeyC', fire: 'KeyF' },
-      boostCooldown: 1.5,
-      onBoost: () => { this.boosts++; }
-    }));
-  }
-}
-
-class Glider extends Entity {
-  name = 'Glider';
-  constructor(body, sprite, game) {
-    super(body, sprite, game);
-    this.addConstraint('glide', new GlideControl(this, { grid: 32, speed: 200 }));
-  }
-}
 
 class Walker extends Entity {
   name = 'Walker';
@@ -116,7 +83,7 @@ class Walker extends Entity {
   }
 }
 
-export const COVERAGE_ACTORS = [ObliquePlayer, TopDownPlayer, Ghost, Npc, Coin, Trigger, Platform, Car, Ship, Glider, Walker];
+export const COVERAGE_ACTORS = [ObliquePlayer, TopDownPlayer, Ghost, Npc, Coin, Trigger, Platform, Walker];
 
 /**
  * A placed object. Every object in a scene needs a unique id, and these
@@ -140,8 +107,6 @@ export const GROVE = {
     npc: { actor: 'Npc', physics: { bodyType: 'static' } },
     coin: { actor: 'Coin', physics: { bodyType: 'static', isSensor: true } },
     gate: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } },
-    car: { actor: 'Car', physics: { bodyType: 'dynamic', frictionAir: 0 } },
-    ship: { actor: 'Ship', physics: { bodyType: 'dynamic', frictionAir: 0 } },
     walker: { actor: 'Walker', physics: { bodyType: 'dynamic', lockRotation: true } }
   },
   layers: [{ name: 'main', objects: [
@@ -152,8 +117,6 @@ export const GROVE = {
     box('npc', 380, 470, 32, 48, { who: 'keeper', talkRadius: 120 }),
     box('coin', 260, 416, 20, 20), box('coin', 330, 416, 20, 20),
     box('gate', 400, 400, 30, 120, { active: true }),
-    box('car', 300, 800, 48, 24),
-    box('ship', 1000, 200, 36, 24),
     box('walker', 900, 850, 24, 24)
   ] }]
 };
@@ -164,7 +127,6 @@ export const KEEP = {
   prefabs: {
     wall: { actor: 'Platform', physics: { bodyType: 'static' } },
     player: { actor: 'TopDownPlayer', physics: { bodyType: 'dynamic', lockRotation: true, frictionAir: 0.2 } },
-    glider: { actor: 'Glider', physics: { bodyType: 'character' } },
     walker: { actor: 'Walker', physics: { bodyType: 'dynamic', lockRotation: true } }
   },
   layers: [{ name: 'main', objects: [
@@ -172,7 +134,6 @@ export const KEEP = {
     box('wall', 8, 320, 16, 640), box('wall', 632, 320, 16, 640),
     box('wall', 240, 240, 96, 32),
     { id: 'player', prefab: 'player', x: 100, y: 100, width: 28, height: 28 },
-    box('glider', 336, 400, 28, 28),
     box('walker', 500, 120, 24, 24)
   ] }]
 };
@@ -182,6 +143,8 @@ export const HELD = [
   [1, 80, 'ArrowRight'], [81, 140, 'ArrowDown'], [141, 200, 'ArrowLeft', 'ArrowUp'],
   [40, 42, 'Space'], [125, 127, 'Space'], [70, 72, 'KeyX'],
   [60, 60, 'Digit1'], [62, 62, 'Digit1'], [190, 190, 'Digit1'],
+  // Keys nothing in this cast reads: they keep the input alphabet wide, which
+  // is what the server gate's hostile-delivery test needs.
   [1, 160, 'KeyW'], [50, 100, 'KeyD'], [80, 92, 'ShiftLeft'], [30, 30, 'KeyN'], [170, 220, 'KeyS'],
   [1, 120, 'KeyI'], [20, 60, 'KeyJ'], [20, 20, 'KeyC'], [40, 40, 'KeyC'], [140, 140, 'KeyC'], [150, 210, 'KeyK']
 ];
@@ -253,13 +216,13 @@ export async function prepareCoverage(game, sceneName, { input = scriptedInput }
   if (player instanceof ObliquePlayer) {
     player.wards = 0;
     player.steps = 0;
-    player.maxElevation = 0;
+    player.swings = 0;
     player.addConstraint('abilities', new Abilities(player, {
       abilities: [{ id: 'ward', key: 'Digit1', cooldown: 1, cast: (entity) => { entity.wards++; } }],
       onCast: (ability, ok) => { if (!ok) player.refused = (player.refused ?? 0) + 1; }
     }));
     player.addConstraint('footsteps', new Footsteps(player, { sounds: ['step'], onStep: () => { player.steps++; } }));
-    player.onLand = () => { player.landings = (player.landings ?? 0) + 1; };
+    player.getConstraint('attack').onStart = () => { player.swings++; };
   } else {
     // Under the isometric projection, the arrows move along the screen.
     player.getConstraint('control').inputSpace = 'screen';
@@ -283,14 +246,11 @@ export function coverageFingerprint(game, gates) {
     const c = (name) => entity.getConstraint(name);
     if (c('health')) print.health = c('health').currentHealth;
     if (c('chase')) print.wander = c('chase').target;
-    if (c('car')) Object.assign(print, { forward: c('car').forwardSpeed, lateral: c('car').lateralSpeed, drifting: c('car').drifting, nitro: c('car').nitroWait });
-    if (c('thrust')) Object.assign(print, { boostLeft: c('thrust').boostLeft, boostWait: c('thrust').boostWait, boosts: entity.boosts });
-    if (c('glide')) Object.assign(print, { dir: c('glide').dir, queued: c('glide').queued });
     if (c('walk')) Object.assign(print, { destination: c('walk').destination, arrivals: entity.arrivals });
     if (c('prompt')) print.near = c('prompt').isNear;
     if (c('abilities')) print.cooldowns = c('abilities').list.map((a) => a.remaining);
     if (c('footsteps')) Object.assign(print, { travelled: c('footsteps').travelled, stepIndex: c('footsteps').index });
-    if (entity instanceof ObliquePlayer) Object.assign(print, { heading: entity.heading, lift: entity.lift, wards: entity.wards, refused: entity.refused, steps: entity.steps, landings: entity.landings });
+    if (entity instanceof ObliquePlayer) Object.assign(print, { heading: entity.heading, wards: entity.wards, refused: entity.refused, steps: entity.steps, swings: entity.swings });
     return print;
   });
   return { steps: game.time.steps, draws: game.rng.draws, gates: [...gates], entities };

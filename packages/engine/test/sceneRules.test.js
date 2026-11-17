@@ -7,7 +7,7 @@ import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { blendLook, cycleLook, advanceCycle } from '../src/core/look.js';
-import { Coin } from 'm2d-kit/actors';
+import { Coin } from './helpers/cast.js';
 
 /**
  * `world.rules`, `hud`, `world.cycle`, `world.killPlane`, a 2D `light`

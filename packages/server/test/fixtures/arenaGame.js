@@ -3,9 +3,25 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { InputSchema } from 'm2d-engine/net/input.js';
 import { defineIntents, reject, entity } from 'm2d-engine/net/intents.js';
-import { Platform, Player } from 'm2d-kit/actors';
+import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
+import { Health } from 'm2d-engine/constraints/health.js';
 
 export const INPUT = new InputSchema({ keys: ['ArrowLeft', 'ArrowRight', 'Space'] });
+
+/** A static body: the floor, and what a stressed match spawns. */
+export class Platform extends Entity {
+  name = 'Platform';
+}
+
+/** A side-view avatar on the keyboard, with health: the engine's capabilities, no kit. */
+export class Player extends Entity {
+  name = 'Player';
+  constructor(body, sprite, game) {
+    super(body, sprite, game);
+    this.addConstraint('health', new Health(this, { maxHealth: 100 }));
+    this.addConstraint('control', new KeyboardControl(this, { acceleration: 3000, maxSpeed: 180, verticalMovement: false }));
+  }
+}
 
 export class Vendor extends Entity {
   name = 'Vendor';
