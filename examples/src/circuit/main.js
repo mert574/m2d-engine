@@ -15,7 +15,7 @@
  * are synthesised rather than sampled (evSound.js).
  */
 import { bootProject } from 'm2d-engine/core/project.js';
-import { audioOption } from '../shared/audio.js';
+import { audioOption } from 'm2d-kit/audio';
 import { evMotorLoop, roadNoiseLoop } from './evSound.js';
 import project from './m2d.project.json';
 import * as definition from './game.js';

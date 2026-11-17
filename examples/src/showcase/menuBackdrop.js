@@ -1,4 +1,4 @@
-import { makeRng, range } from '../shared/rng.js';
+import { makeRng, range } from 'm2d-kit/random';
 
 /**
  * The showcase's menu: the harbour, before the storm.

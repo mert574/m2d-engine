@@ -1,4 +1,4 @@
-import { makeRng, range } from '../shared/rng.js';
+import { makeRng, range } from 'm2d-kit/random';
 
 /**
  * Ash Row's menu: the street at noon, side on. A sunlit brick front with

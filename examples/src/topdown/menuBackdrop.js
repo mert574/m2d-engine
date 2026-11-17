@@ -1,4 +1,4 @@
-import { makeRng, range } from '../shared/rng.js';
+import { makeRng, range } from 'm2d-kit/random';
 
 /**
  * The top-down game's menu: a motion tracker.

@@ -4,8 +4,8 @@ import { MovingPlatform } from 'm2d-engine/actors/movingPlatform.js';
 import { Coin } from 'm2d-engine/actors/coin.js';
 import { Bee } from 'm2d-engine/actors/bee.js';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
-import { AttackSwing, HitBurst } from '../shared/effects.js';
-import { makeRng, range } from '../shared/rng.js';
+import { AttackSwing, HitBurst } from 'm2d-kit/effects';
+import { makeRng, range } from 'm2d-kit/random';
 
 /**
  * The level's cast, drawn instead of tiled.

@@ -1,7 +1,7 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
-import { makeRng, range } from '../shared/rng.js';
-import { tileTexture } from '../shared/textures.js';
+import { makeRng, range } from 'm2d-kit/random';
+import { tileTexture } from 'm2d-kit/textures';
 
 /**
  * The garden the courts stand in: a mown lawn in full morning sun.

@@ -1,4 +1,4 @@
-import { makeRng, range } from '../shared/rng.js';
+import { makeRng, range } from 'm2d-kit/random';
 
 /**
  * The drifting light in the harbour: fireflies over the reed bank, sea spray

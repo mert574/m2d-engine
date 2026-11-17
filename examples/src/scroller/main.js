@@ -16,7 +16,7 @@
  * (`scenes/mainMenu.json`): its lines are flowers along the bee's way.
  */
 import { bootProject } from 'm2d-engine/core/project.js';
-import { audioOption } from '../shared/audio.js';
+import { audioOption } from 'm2d-kit/audio';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 

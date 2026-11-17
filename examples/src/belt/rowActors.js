@@ -7,7 +7,7 @@ import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { Attack } from 'm2d-engine/constraints/attack.js';
 import { CollisionCategories } from 'm2d-engine/core/constants.js';
 import { drawGroundShadow, shadowForLift } from 'm2d-engine/core/renderers/shadows.js';
-import { AttackSwing, HitBurst } from '../shared/effects.js';
+import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 
 /**
  * Ash Row's cast. Everything stands on the ground plane: x along the

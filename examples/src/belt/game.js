@@ -1,5 +1,5 @@
 import { Trigger } from 'm2d-engine/actors/trigger.js';
-import { AttackSwing, HitBurst } from '../shared/effects.js';
+import { registerEffects } from 'm2d-kit/effects';
 import { Rogue, Thug, Lamp, Bound } from './rowActors.js';
 import { Street, Foreground } from './streetScenery.js';
 import assetManifest from './assets.json';
@@ -18,8 +18,7 @@ export function register(game) {
     ObliquePlayer: Rogue, Ghost: Thug, Lamp, Bound, Street, Foreground, Trigger
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
-  game.registerConstraint('AttackSwing', AttackSwing);
-  game.registerConstraint('HitBurst', HitBurst);
+  registerEffects(game);
   // The creatures come from the manifest, by uid: three sprite sheets and
   // the one prefab that wears them, bound into the scene by its `uses`
   // block. After the actors, so a prefab naming one that is not

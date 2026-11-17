@@ -6,7 +6,7 @@
  * light, a second car trailing far behind. The composition keeps the road
  * in the right two thirds, under the menu column's clear side.
  */
-import { makeRng, range } from '../shared/rng.js';
+import { makeRng, range } from 'm2d-kit/random';
 
 const ASPHALT = 'rgba(56, 61, 78, 0.95)';
 const EDGE = 'rgba(214, 220, 234, 0.35)';

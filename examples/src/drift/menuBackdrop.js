@@ -1,4 +1,4 @@
-import { makeRng, range } from '../shared/rng.js';
+import { makeRng, range } from 'm2d-kit/random';
 import starsFarUrl from './textures/backgrounds/stars-far.png';
 import brownBig from './textures/meteors/brown-big1.png';
 import greyBig from './textures/meteors/grey-big2.png';

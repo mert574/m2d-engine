@@ -10,7 +10,10 @@ import lighthouseSprite from './assets/lighthouse.png';
 import rainSprite from './assets/rain.png';
 import gullSprite from './assets/gull.png';
 import { HarbourNight } from './menuBackdrop.js';
-import { lastTransmission, g2Remix, audioOption } from '../shared/audio.js';
+import { audioOption } from 'm2d-kit/audio';
+// IDMf001: InDepthMelodics (CC BY 3.0); see docs/examples/music-credits.md.
+import lastTransmission from './music/kloquewurk-last-transmission.ogg';
+import g2Remix from './music/gbsr-g2-cockboymattt-remix.ogg';
 
 const VIEW = { width: 1280, height: 720 };
 const WORLD = { width: 2560, height: 1440 };

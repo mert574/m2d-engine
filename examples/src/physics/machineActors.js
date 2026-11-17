@@ -1,7 +1,7 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { Interactive } from 'm2d-engine/constraints/interactive.js';
 import { s } from 'm2d-engine/core/schema.js';
-import { makeRng } from '../shared/rng.js';
+import { makeRng } from 'm2d-kit/random';
 
 /**
  * The playground's parts, drawn as the machine the menu promises.

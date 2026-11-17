@@ -1,4 +1,4 @@
-import { AttackSwing, HitBurst } from '../shared/effects.js';
+import { registerEffects } from 'm2d-kit/effects';
 import {
   FacilityWall, SpecterGhost, SentryTurret, DataCore, ExtractionPad, ScannerAgent
 } from './facilityActors.js';
@@ -19,7 +19,6 @@ export function register(game) {
     Coin: DataCore, Trigger: ExtractionPad, Turret: SentryTurret, FloorMarks, CeilingLamp
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
-  game.registerConstraint('AttackSwing', AttackSwing);
-  game.registerConstraint('HitBurst', HitBurst);
+  registerEffects(game);
   game.registerConstraint('Sonar', Sonar);
 }

@@ -2,39 +2,78 @@ import { Constraint } from 'm2d-engine/core/constraint.js';
 import { s } from 'm2d-engine/core/schema.js';
 
 /**
- * Combat visuals the demos share, kept out of the engine on purpose.
+ * Combat visuals, kept out of the engine on purpose.
  *
  * The engine's `Attack` and `DamageFlash` know the rules — reach, damage,
  * invulnerability — but what a swing or a hit *looks like* is a question
  * for the game and its perspective: a side-scroller's slash is not a
  * top-down sweep is not a first-person flash. So these are ordinary
- * constraints that a game adds next to the mechanical ones, and each demo
- * tunes their colour and reach to its own palette.
+ * constraints a game attaches next to the mechanical ones and tunes to its
+ * own palette, in a scene's `constraints` or from an actor's constructor.
  */
+
+interface Point { x: number; y: number }
+
+/** What the two constraints read of an entity; the engine's Entity has all of it. */
+interface EffectEntity {
+  constraints: Map<string, unknown>;
+  renderPosition: Point;
+  size: Point;
+  game: {
+    renderer: {
+      supports(capability: string): boolean;
+      drawPath(options: Record<string, unknown>): void;
+      drawArc(options: Record<string, unknown>): void;
+    };
+    projection?: { screenAngle(angle: number): number } | null;
+    registerConstraint(name: string, klass: unknown, options?: { origin?: 'game' | 'kit' }): void;
+  };
+}
+
+/** The slice of the engine's `Attack` the swing follows. */
+interface AttackLike {
+  onStart?: ((step?: number) => void) | null;
+  direction: number;
+  angle?: number;
+  range: number;
+}
+
+export interface AttackSwingOptions {
+  /** Arc colour, or one per combo step. */
+  color?: string | string[];
+  /** Seconds the swing is visible. */
+  duration?: number;
+  /** Outer radius; the attack's range when unset. */
+  reach?: number | null;
+  /** Which Attack slot to follow. */
+  attack?: string;
+}
 
 /**
  * A crescent that sweeps across the facing half when an attack starts and
  * fades as it goes. Wraps the `Attack` constraint's `onStart`, so the two
  * stay in step without the engine knowing about the look.
- *
- * @param {import('m2d-engine/core/entity.js').Entity} entity
- * @param {Object} [options]
- * @param {string|string[]} [options.color='#ffffff'] - Arc colour, or one
- *   per combo step
- * @param {number} [options.duration=0.3] - Seconds the swing is visible
- * @param {number} [options.reach] - Outer radius; defaults to the attack's range
- * @param {string} [options.attack='attack'] - Which Attack constraint to follow
  */
 export class AttackSwing extends Constraint {
-  static description = 'An arc that sweeps where an Attack struck, for a frame or two';
-  static params = {
+  static override description = 'An arc that sweeps where an Attack struck, for a frame or two';
+  static override params = {
     color: s.string({ editor: 'color', initial: '#ffffff', description: 'Arc colour' }),
     duration: s.number({ positive: true, initial: 0.3, unit: 's' }),
     reach: s.number({ positive: true, description: "Outer radius; the attack's range when unset" }),
     attack: s.string({ initial: 'attack', description: 'The Attack slot to follow' })
   };
 
-  constructor(entity, options = {}) {
+  declare entity: EffectEntity;
+  color: string | string[];
+  duration: number;
+  reach: number | null;
+  time: number;
+  direction: number;
+  angle: number;
+  attack: AttackLike;
+  stepColor: string | undefined;
+
+  constructor(entity: EffectEntity, options: AttackSwingOptions = {}) {
     super(entity);
     this.color = options.color ?? '#ffffff';
     this.duration = options.duration ?? 0.3;
@@ -42,8 +81,9 @@ export class AttackSwing extends Constraint {
     this.time = Infinity;
     this.direction = 1;
     this.angle = 0;
+    this.stepColor = undefined;
 
-    const attack = entity.constraints.get(options.attack ?? 'attack');
+    const attack = entity.constraints.get(options.attack ?? 'attack') as AttackLike;
     this.attack = attack;
     const onStart = attack.onStart;
     attack.onStart = (step = 0) => {
@@ -58,11 +98,11 @@ export class AttackSwing extends Constraint {
     };
   }
 
-  update(deltaTime) {
+  override update(deltaTime: number): void {
     this.time += deltaTime;
   }
 
-  draw() {
+  override draw(): void {
     const t = this.time / this.duration;
     if (t >= 1) return;
 
@@ -79,7 +119,7 @@ export class AttackSwing extends Constraint {
 
     const inner = range * 0.45;
     const outer = range * (0.85 + 0.15 * sweep);
-    const points = [];
+    const points: Point[] = [];
     const steps = 10;
     for (let i = 0; i <= steps; i++) {
       const a = centre - halfWidth + (i / steps) * halfWidth * 2;
@@ -99,6 +139,15 @@ export class AttackSwing extends Constraint {
   }
 }
 
+export interface HitBurstOptions {
+  /** Flash and ring colour. */
+  color?: string;
+  /** Seconds the burst is visible. */
+  duration?: number;
+  /** Ring reach; the entity's size when unset. */
+  radius?: number | null;
+}
+
 /**
  * A burst where an entity was hit: a flash over it that fades fast, and a
  * ring that leaves it.
@@ -106,22 +155,22 @@ export class AttackSwing extends Constraint {
  * It bursts by itself, on the `damage` world event `Health` raises, so a
  * hit the server simulated bursts on every client watching it. `flash()`
  * is there for a game that wants one for a reason of its own.
- *
- * @param {import('m2d-engine/core/entity.js').Entity} entity
- * @param {Object} [options]
- * @param {string} [options.color='#fff3e6'] - Flash and ring colour
- * @param {number} [options.duration=0.3] - Seconds the burst is visible
- * @param {number} [options.radius] - Ring reach; defaults to the entity's size
  */
 export class HitBurst extends Constraint {
-  static description = 'A flash and an expanding ring when the entity is hit';
-  static params = {
+  static override description = 'A flash and an expanding ring when the entity is hit';
+  static override params = {
     color: s.string({ editor: 'color', initial: '#fff3e6', description: 'Flash and ring colour' }),
     duration: s.number({ positive: true, initial: 0.3, unit: 's' }),
     radius: s.number({ positive: true, description: "Ring reach; the entity's size when unset" })
   };
 
-  constructor(entity, options = {}) {
+  declare entity: EffectEntity;
+  color: string;
+  duration: number;
+  radius: number | null;
+  timeLeft: number;
+
+  constructor(entity: EffectEntity, options: HitBurstOptions = {}) {
     super(entity);
     this.color = options.color ?? '#fff3e6';
     this.duration = options.duration ?? 0.3;
@@ -129,20 +178,20 @@ export class HitBurst extends Constraint {
     this.timeLeft = 0;
   }
 
-  flash() {
+  flash(): void {
     this.timeLeft = this.duration;
   }
 
-  /** A hit, wherever it was simulated. See core/events.js. */
-  onWorldEvent(name) {
+  /** A hit, wherever it was simulated. See the engine's core/events.js. */
+  override onWorldEvent(name: string): void {
     if (name === 'damage') this.flash();
   }
 
-  update(deltaTime) {
+  override update(deltaTime: number): void {
     if (this.timeLeft > 0) this.timeLeft -= deltaTime;
   }
 
-  draw() {
+  override draw(): void {
     if (this.timeLeft <= 0) return;
     const { entity } = this;
     const renderer = entity.game.renderer;
@@ -168,4 +217,10 @@ export class HitBurst extends Constraint {
       blend
     });
   }
+}
+
+/** Register both under the names scenes use, marked as the kit's for the editor's catalog. */
+export function registerEffects(game: EffectEntity['game']): void {
+  game.registerConstraint('AttackSwing', AttackSwing, { origin: 'kit' });
+  game.registerConstraint('HitBurst', HitBurst, { origin: 'kit' });
 }

@@ -1,0 +1,15 @@
+/**
+ * The kit: what games on m2d compose from that is too opinionated for the
+ * engine and too reusable to live in one game. Each piece has its own
+ * entry (`m2d-kit/effects`, `m2d-kit/random`, …) so a game imports what it
+ * uses; this module re-exports them all for convenience.
+ *
+ * What belongs here is decided by the engine-surface project's test
+ * (knowledge-base/projects/engine-surface/): two games or a template want
+ * it, it declares its properties or params, it works in 2D and 3D or says
+ * which, and it ships with its test and its docs page.
+ */
+export { AttackSwing, HitBurst, registerEffects } from './effects.ts';
+export { makeRng, range } from './random.ts';
+export { tileTexture } from './textures.ts';
+export { audioOption } from './audio.ts';

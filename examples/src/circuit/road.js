@@ -33,8 +33,8 @@ export function marksFor(scene) {
 }
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
-import { tileTexture } from '../shared/textures.js';
-import { makeRng, range } from '../shared/rng.js';
+import { tileTexture } from 'm2d-kit/textures';
+import { makeRng, range } from 'm2d-kit/random';
 import { trackFor } from './track.js';
 
 /** How far outside the view still draws, px. Lights reach further than sprites. */

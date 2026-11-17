@@ -5,10 +5,10 @@ import { Turret } from 'm2d-engine/actors/turret.js';
 import { Rocket } from 'm2d-engine/actors/rocket.js';
 import { Coin } from 'm2d-engine/actors/coin.js';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
-import { AttackSwing, HitBurst } from '../shared/effects.js';
+import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 import { Sonar } from './sonar.js';
-import { makeRng, range } from '../shared/rng.js';
-import { tileTexture } from '../shared/textures.js';
+import { makeRng, range } from 'm2d-kit/random';
+import { tileTexture } from 'm2d-kit/textures';
 import { s } from 'm2d-engine/core/schema.js';
 
 /**

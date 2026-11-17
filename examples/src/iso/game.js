@@ -1,5 +1,5 @@
 import { InputSchema } from 'm2d-engine/net/input.js';
-import { AttackSwing, HitBurst } from '../shared/effects.js';
+import { registerEffects } from 'm2d-kit/effects';
 import { Wall, Torch, Ember, Stair, Creature, Knight, Quartermaster } from './keepActors.js';
 import { keepIntents, newPurse } from './keepIntents.js';
 import { SatchelBar } from './satchelUI.js';
@@ -48,8 +48,7 @@ export function registerKeep(game) {
     ObliquePlayer: Knight, Ghost: Creature, Wall, Torch, Coin: Ember, Trigger: Stair, Quartermaster
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
-  game.registerConstraint('AttackSwing', AttackSwing);
-  game.registerConstraint('HitBurst', HitBurst);
+  registerEffects(game);
   game.registerIntents(keepIntents);
   // The satchel strip, which the keep's hud places by name. Only ever
   // built where there is a screen to show it on.

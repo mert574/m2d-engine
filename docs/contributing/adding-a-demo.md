@@ -21,7 +21,7 @@ Each example lives in `examples/src/<name>/` and is an editor project, written t
 | `scenes/*.json` | Every level and menu |
 | `textures/`, `sounds/` | Free, open art and audio, committed with their origin recorded in `THIRD_PARTY_NOTICES.md`. See [Assets](#assets) |
 | `assets/` | Generated sprites. Only the renderer showcase has any; new demos should not |
-| `../shared/` | Shared across examples: a seeded random generator in `rng.js`, synthesized sound effects in `audio.js` and the free music tracks in `music/`. A demo's main menu is a UI scene in its own project, composed its own way over a backdrop layer it registers |
+| `m2d-kit` | What the examples share — the combat effects, the seeded random, texture tiling, the settings menu's Audio row — is [the kit](../reference/kit), imported by entry, never copied between demos. A demo's main menu is a UI scene in its own project, composed its own way over a backdrop layer it registers |
 
 `.gitignore` excludes raster images, `.otf`, `.mp3` and `.wav` files. A demo that commits one of those needs a `!path` line there, as the two music tracks have.
 

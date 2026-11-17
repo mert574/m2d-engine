@@ -1,7 +1,7 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { Platform } from 'm2d-engine/actors/platform.js';
 import { s } from 'm2d-engine/core/schema.js';
-import { tileTexture } from '../shared/textures.js';
+import { tileTexture } from 'm2d-kit/textures';
 
 /**
  * The garden's cast: the hedges, the gardener who walks them, the

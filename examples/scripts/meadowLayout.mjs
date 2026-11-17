@@ -1,4 +1,4 @@
-import { makeRng, range } from '../src/shared/rng.js';
+import { makeRng, range } from 'm2d-kit/random';
 
 /**
  * The lane Beeline flies down, laid out from a fixed seed — once:

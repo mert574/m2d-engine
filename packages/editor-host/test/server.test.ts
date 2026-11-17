@@ -78,10 +78,10 @@ describe('the MCP server', () => {
     const { createServer } = await import('../src/server.ts');
     const { Registry, BUILTIN_ACTORS, BUILTIN_CONSTRAINTS } = await import('m2d-engine/core/builtins.js');
     class Block { static description = 'A wall of the room'; }
-    const actors = new Registry(BUILTIN_ACTORS as Map<string, unknown>);
+    const actors = new Registry(BUILTIN_ACTORS);
     actors.set('Block', Block);
     actors.set('Shared', Block, 'kit');
-    const constraintTypes = new Registry(BUILTIN_CONSTRAINTS as Map<string, unknown>);
+    const constraintTypes = new Registry(BUILTIN_CONSTRAINTS);
     const mcp = createServer(companion.session, { game: async () => ({ actors, constraintTypes }) });
     const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
     const origins = new Client({ name: 'origins', version: '0' });

@@ -1,5 +1,5 @@
 import { Chase } from 'm2d-engine/constraints/chase.js';
-import { AttackSwing, HitBurst } from '../shared/effects.js';
+import { registerEffects } from 'm2d-kit/effects';
 import {
   EmberPlayer, DuskPlatform, DuskMovingPlatform, GlowCoin, DuskBee, ValleyGate
 } from './duskActors.js';
@@ -19,7 +19,6 @@ export function register(game) {
     MovingPlatform: DuskMovingPlatform, Coin: GlowCoin, Trigger: ValleyGate, ValleyBackdrop
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
-  game.registerConstraint('AttackSwing', AttackSwing);
-  game.registerConstraint('HitBurst', HitBurst);
+  registerEffects(game);
   game.registerConstraint('Chase', Chase);
 }

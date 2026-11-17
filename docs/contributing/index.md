@@ -6,6 +6,7 @@ The repository is an npm workspaces monorepo.
 | --- | --- |
 | `packages/engine` | The engine, published name `m2d-engine` |
 | `packages/server` | The authoritative multiplayer host, published name `m2d-server` |
+| `packages/kit` | `m2d-kit`: what games compose from that is too opinionated for the engine and too reusable for one game. TypeScript, no DOM at load; see [The kit](../reference/kit) |
 | `packages/editor-core` | The editor's headless core: the scene document, the canonical writer, the command and undo model, validation. TypeScript, no DOM |
 | `packages/editor-host` | The editor's companion process: watches the project, will run the asset compilers, and serves the editor's API to AI agents over MCP |
 | `packages/editor` | The editor app: DOM panels around engine viewports. TypeScript and Vite |

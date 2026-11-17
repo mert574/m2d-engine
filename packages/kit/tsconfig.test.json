@@ -1,0 +1,9 @@
+{
+  // The tests spawn Node to prove each entry loads there, so they see
+  // Node's types; the source does not (tsconfig.json).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

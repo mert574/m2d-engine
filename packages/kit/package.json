@@ -1,0 +1,36 @@
+{
+  "name": "m2d-kit",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Ready-to-use pieces for games on m2d: constraints, actors, helpers and prefabs that are too opinionated for the engine and too reusable to live in one game. TypeScript; imports nothing from the DOM at load, so a server can import a game that imports it.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./effects": "./src/effects.ts",
+    "./random": "./src/random.ts",
+    "./textures": "./src/textures.ts",
+    "./audio": "./src/audio.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
+  },
+  "author": "Mert Yildiz",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "peerDependencies": {
+    "m2d-engine": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "m2d-engine": "*",
+    "vitest": "^5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mert574/m2d-engine.git",
+    "directory": "packages/kit"
+  }
+}

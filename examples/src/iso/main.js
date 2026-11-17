@@ -33,7 +33,7 @@ import { bootProject } from 'm2d-engine/core/project.js';
 import { UIText } from 'm2d-engine/core/ui/text.js';
 import { UIScreen } from 'm2d-engine/core/ui/screen.js';
 import { NetClient } from 'm2d-engine/net/client.js';
-import { audioOption } from '../shared/audio.js';
+import { audioOption } from 'm2d-kit/audio';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 import * as hooks from './hooks.js';

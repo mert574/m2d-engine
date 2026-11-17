@@ -18,6 +18,7 @@ camera or a renderer:
 | --- | --- |
 | `packages/engine` | The engine, published to npm as `m2d-engine`. Source in `src/`, tests in `test/` |
 | `packages/server` | The authoritative multiplayer host, published as `m2d-server` |
+| `packages/kit` | `m2d-kit`: ready-to-use constraints, helpers, actors and prefabs that are too opinionated for the engine and too reusable for one game. TypeScript, no DOM at load |
 | `packages/editor-core` | The editor's headless core (document, writer, commands, validation). TypeScript, no DOM |
 | `packages/editor-host` | The editor's host: serves one game's project to the editor, holds the open documents and their history, and is the MCP server agents edit through |
 | `packages/editor` | The editor app: DOM panels around engine viewports |
@@ -55,6 +56,7 @@ that covers it in the same change, following
 | The editor: projects, templates, assets, play, build, MCP tools | `docs/guide/editor.md` |
 | Engine options and instance API | `docs/reference/engine-options.md` |
 | Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
+| The kit: effects, random, textures, the audio option | `docs/reference/kit.md` |
 | Example games and music credits | `docs/examples/index.md`, `docs/examples/music-credits.md` |
 | Architecture and the rules each module keeps | `docs/contributing/architecture.md` |
 | The determinism contract: what simulation code may read | `docs/contributing/determinism.md` |

@@ -83,7 +83,8 @@ export default defineConfig({
             { text: 'Developer console', link: '/reference/console' },
             { text: 'Built-in actors', link: '/reference/actors' },
             { text: 'Built-in constraints', link: '/reference/constraints' },
-            { text: 'Gameplay helpers', link: '/reference/gameplay' }
+            { text: 'Gameplay helpers', link: '/reference/gameplay' },
+            { text: 'The kit', link: '/reference/kit' }
           ]
         }
       ],

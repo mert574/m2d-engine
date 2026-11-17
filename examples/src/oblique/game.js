@@ -1,5 +1,5 @@
 import { Npc } from 'm2d-engine/actors/npc.js';
-import { AttackSwing, HitBurst } from '../shared/effects.js';
+import { registerEffects } from 'm2d-kit/effects';
 import { Tree, Decor, Bound, Pond, Wanderer, Wisp, Lantern, Clearing, GroundDetail } from './groveActors.js';
 import { TreeLine } from './menuBackdrop.js';
 
@@ -19,6 +19,5 @@ export function register(game) {
     Coin: Lantern, Trigger: Clearing, Npc, GroundDetail
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
-  game.registerConstraint('AttackSwing', AttackSwing);
-  game.registerConstraint('HitBurst', HitBurst);
+  registerEffects(game);
 }

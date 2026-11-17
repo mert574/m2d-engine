@@ -20,8 +20,8 @@ import { projectGames } from './helpers.js';
  * is empty.
  */
 
-/** The examples that are not games: shared code, the screenshot rig. */
-const NOT_GAMES = new Set(['shared', 'shots']);
+/** The examples that are not games: the screenshot rig. */
+const NOT_GAMES = new Set(['shots']);
 
 /**
  * Exempt, with the reason. The renderer showcase is the backend comparison

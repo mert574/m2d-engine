@@ -1,0 +1,15 @@
+{
+  // No DOM and no Node in `lib` or `types`: the kit runs in a browser and
+  // on a server alike, so a browser API or `process` reached at module
+  // load should be a type error. The source runs directly under Node's
+  // type stripping and under Vite, so it keeps to erasable syntax — no
+  // enums, namespaces, parameter properties or decorators — and relative
+  // imports say `.ts`. The tests, which do use Node, check under
+  // tsconfig.test.json.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "types": []
+  },
+  "include": ["src/**/*"]
+}

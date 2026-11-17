@@ -24,7 +24,7 @@
  * too (`scenes/mainMenu.json`): a page of a storybook.
  */
 import { bootProject } from 'm2d-engine/core/project.js';
-import { audioOption } from '../shared/audio.js';
+import { audioOption } from 'm2d-kit/audio';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 import * as hooks from './hooks.js';

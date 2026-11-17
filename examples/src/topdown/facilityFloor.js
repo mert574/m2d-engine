@@ -1,6 +1,6 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
-import { makeRng, range } from '../shared/rng.js';
+import { makeRng, range } from 'm2d-kit/random';
 
 const GRID = 'rgba(42, 50, 66, 0.1)';
 const TILE = 96;

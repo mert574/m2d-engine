@@ -1,7 +1,7 @@
 import { Entity } from 'm2d-engine/core/entity.js';
 import { s } from 'm2d-engine/core/schema.js';
-import { tileTexture } from '../shared/textures.js';
-import { makeRng, range } from '../shared/rng.js';
+import { tileTexture } from 'm2d-kit/textures';
+import { makeRng, range } from 'm2d-kit/random';
 /** The street's ambientCG textures, by the property that names each: images the scene loads. */
 const TEXTURES = ['bricks', 'plaster', 'road', 'roofing', 'facadeA', 'facadeB', 'facadeC'];
 

@@ -8,7 +8,7 @@ import { Chase } from 'm2d-engine/constraints/chase.js';
 import { Hover } from 'm2d-engine/constraints/hover.js';
 import { ThrustControl } from 'm2d-engine/constraints/thrustControl.js';
 import { CollisionCategories } from 'm2d-engine/core/constants.js';
-import { HitBurst } from '../shared/effects.js';
+import { HitBurst } from 'm2d-kit/effects';
 
 /**
  * Salvage Run's cast. Every sprite is Kenney's Space Shooter Redux art,
