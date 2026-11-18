@@ -457,6 +457,11 @@ export class Gate extends Trigger {
  * because the background hook runs under the tile layers.
  */
 export class Sky extends Entity {
+  /** It paints the view, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   name = 'Sky';
 
   static properties = {

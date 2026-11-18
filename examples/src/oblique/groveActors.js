@@ -433,6 +433,11 @@ export class Clearing extends Trigger {
  * nobody sees. Its body is a sensor nothing collides with.
  */
 export class GroundDetail extends Entity {
+  /** It paints the view, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   name = 'GroundDetail';
 
   static properties = {

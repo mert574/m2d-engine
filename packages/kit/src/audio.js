@@ -1,7 +1,8 @@
 /**
  * The Audio row a game adds to the settings menu: one switch for music and
- * effects together, through the engine's mute. The worked example of
- * `SettingsMenu.addOption`; a game with its own volumes adds its own rows.
+ * effects together, through the engine's mute — silence in one step, next
+ * to the engine's own Music and Sound effects volume rows. The worked
+ * example of `SettingsMenu.addOption`.
  */
 
 /**

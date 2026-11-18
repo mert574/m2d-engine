@@ -63,7 +63,8 @@ const DETAIL_ROWS = [
   ['state chg', (s) => s.stateChanges],
   ['sprites', (s) => s.spritesDrawn],
   ['text', (s) => s.textDrawn],
-  ['shapes', (s) => s.shapesDrawn]
+  ['shapes', (s) => s.shapesDrawn],
+  ['culled', (s) => s.culled]
 ];
 
 /**

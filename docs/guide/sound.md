@@ -39,6 +39,10 @@ game.soundManager.setSoundVolume(0.8);  // 0 to 1
 game.soundManager.setMusicVolume(0.4);
 ```
 
+## Volumes
+
+The two volumes are cvars, `s_music` and `s_effects`, and the settings menu has a row for each under **Sound**. They are saved like the display settings, so a player who turns the music down finds it down next time. The sound manager holds the live value and the cvar is the view onto it, so a game's own slider calling `setMusicVolume` moves the menu row too, and `s_music 0.4` in the console moves both.
+
 Default volumes are 0.15 for effects and 0.3 for music: sources are mixed loud, and games layer sounds over music. Each effect plays with a few cents of random detune so a repeated sound reads as separate events. `playMusic` while muted is dropped. `game.reset()` stops the music. The engine plays the `gameOver` sound, if one is loaded, when the game ends.
 
 A sound that should keep going, and change while it does, is a loop. `loop` plays one voice of a loaded sound until stopped and returns a handle whose rate and volume the game steers each frame: an engine note that follows the revs, tyres that squeal while the car slides. Mute and the sound volume apply to it like any other effect. Stop it when the thing it belongs to goes away.

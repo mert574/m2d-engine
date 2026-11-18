@@ -14,6 +14,7 @@ import { Camera } from './camera.js';
 import { Camera3D } from './camera3d.js';
 import { meshFor, lightFor } from './presentation3d.js';
 import { SoundManager } from './soundManager.js';
+import { ImageCache } from './imageCache.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D, FALLBACK_RENDERER } from './renderers/index.js';
 import { computeViewport, sameViewport, viewToUI } from './viewport.js';
 import { WorldOverlay } from './ui/worldOverlay.js';
@@ -254,6 +255,8 @@ export class M2D {
     this.editMode = this.options.editMode === true;
     /** Whether tool entities (triggers, spawn points) draw in play: the `r_showtools` cvar. The editor always shows them. */
     this.showTools = false;
+    /** Whether entities outside the view are skipped in the 2D draw pass: the `r_cull` cvar. See core/viewCull.js. */
+    this.cullEntities = true;
     /**
      * Edit mode draws on demand: when something said the picture changed
      * (`invalidate`), and otherwise at `EDIT_IDLE_FPS`. See `update`.
@@ -377,6 +380,16 @@ export class M2D {
     });
 
     /**
+     * Decoded images by URL, kept for the game's life: a level entered a
+     * second time pays for its art once. See core/imageCache.js.
+     */
+    this.imageCache = new ImageCache();
+
+    // Before the cvars: `s_music` and `s_effects` are the view onto its
+    // live volumes, and a saved volume is replayed as they are registered.
+    this.soundManager = new SoundManager();
+
+    /**
      * Console variables: every engine knob with a name, a type and a
      * description, plus whatever the game registers. The settings menu reads
      * and writes these; so does the developer console. See console/cvars.js.
@@ -412,8 +425,6 @@ export class M2D {
 
     this.layers = new LayerManager();
     this.layers.setGame(this);
-
-    this.soundManager = new SoundManager();
   }
 
   /**
@@ -729,6 +740,17 @@ export class M2D {
       }
     });
 
+    cvars.register('r_cull', {
+      type: 'boolean',
+      default: true,
+      description: 'Skip drawing entities outside the view (2D; a 3D frame is culled on the GPU)',
+      get: () => this.cullEntities,
+      set: (value) => {
+        this.cullEntities = value;
+        this.invalidate();
+      }
+    });
+
     cvars.register('r_debug', {
       type: 'boolean',
       default: false,
@@ -757,6 +779,24 @@ export class M2D {
         });
       }
     }
+
+    // How loud the game is, kept where the display settings are kept: the
+    // sound manager holds the live value and these are the view onto it,
+    // so the console, the settings menu and a game's own slider cannot
+    // drift apart. Saved per game, like the display rows.
+    cvars.register('s_music', {
+      type: 'number', min: 0, max: 1, persist: true,
+      description: 'Music volume, 0 to 1',
+      get: () => this.soundManager.musicVolume,
+      set: (value) => this.soundManager.setMusicVolume(value)
+    });
+
+    cvars.register('s_effects', {
+      type: 'number', min: 0, max: 1, persist: true,
+      description: 'Sound effects volume, 0 to 1',
+      get: () => this.soundManager.soundVolume,
+      set: (value) => this.soundManager.setSoundVolume(value)
+    });
 
     if (this.quality.declared && this.options.offerQuality) {
       const axes = [['r_textures', 'textures', 'Texture quality: the largest texture a model keeps'], ['r_models', 'models', 'Model quality: the most triangles a model keeps up close']];
@@ -1099,6 +1139,7 @@ export class M2D {
     this.worldOverlay.destroy();
     this.input.destroy();
     this.soundManager.destroy();
+    this.imageCache.clear();
     this.time.clear();
     this.physics.destroy();
     this.sceneManager?.getCurrentScene()?.unload?.();

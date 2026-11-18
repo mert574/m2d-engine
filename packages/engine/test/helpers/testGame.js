@@ -63,6 +63,8 @@ export function makeTestGame(options = {}) {
       entity.destroy();
     },
     paused: false,
+    // As a played game: entities outside the view issue no draws.
+    cullEntities: true,
     sceneManager: { switchTo() {} },
     // Camera centred on the view, so world (0..800, 0..600) is on screen and
     // worldToUI is the identity under the recording renderer's 800x600

@@ -22,7 +22,7 @@ beforeAll(async () => {
   await initPhysics({ dimensions: 3 });
 });
 
-/** A marker the order checks find: one rect of its own colour. */
+/** A marker the order checks find: one rect of its own colour. Placed inside the view, or the engine's cull would skip it. */
 class Dot extends Entity {
   draw() { this.game.renderer.drawRect({ x: 0, y: 0, width: 1, height: 1, fillStyle: '#d07' }); }
 }
@@ -34,7 +34,7 @@ function level({ world = {}, prefabs = {}, objects = [], ...extra } = {}) {
     version: SCENE_VERSION, type: 'level', name: 'look',
     world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, ...world },
     prefabs: { dot: { actor: 'Dot', physics: { bodyType: 'static' } }, ...prefabs },
-    layers: [{ name: 'main', objects: [{ id: 'dot-1', prefab: 'dot', x: 300, y: 200, width: 8, height: 8 }, ...objects] }],
+    layers: [{ name: 'main', objects: [{ id: 'dot-1', prefab: 'dot', x: 160, y: 90, width: 8, height: 8 }, ...objects] }],
     ...extra
   };
 }

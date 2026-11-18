@@ -51,7 +51,7 @@ Boolean spellings accepted: `1/0`, `on/off`, `true/false`, `yes/no`.
 
 ### Engine cvars
 
-Prefixes follow the Quake convention the completion is built around: `r_` render, `g_` game, `cl_` client-side presentation.
+Prefixes follow the Quake convention the completion is built around: `r_` render, `s_` sound, `g_` game, `cl_` client-side presentation.
 
 | Name | Type | Persists | Meaning |
 | --- | --- | --- | --- |
@@ -60,7 +60,10 @@ Prefixes follow the Quake convention the completion is built around: `r_` render
 | `r_worldfilter` | `linear\|nearest` | yes | |
 | `r_fullscreen` | boolean | | |
 | `r_showtools` | boolean | | Draw triggers, spawn points and other tool entities as colour-coded semi-transparent boxes in play, as the editor always does. `toggle r_showtools` flips it |
+| `r_cull` | boolean | | On by default: 2D entities outside the view issue no draws. Turn it off to tell a cull bug from a drawing bug — see [the camera guide](../guide/camera.md) |
 | `r_debug` | boolean | | The renderer's debug overlay |
+| `s_music` | number | yes | Music volume, 0 to 1. The settings menu's Music row |
+| `s_effects` | number | yes | Sound effects volume, 0 to 1. The settings menu's Sound effects row |
 | `r_shadows` | `off\|low\|medium\|high` | yes | 3D games only: the sun's shadow cascades, and how many spot lights and point lights cast |
 | `r_textures`, `r_models` | the project's texture and model levels | yes | Only when the project declares `quality` and the game offers it: the level its models load at. Changing one reloads the models in place |
 | `r_taa`, `r_ao`, `r_dof`, `r_motionblur`, `r_autoexposure`, `r_bloom`, `r_film` | boolean | yes | 3D games only: one switch per post-process stage. The scene sets the strengths |

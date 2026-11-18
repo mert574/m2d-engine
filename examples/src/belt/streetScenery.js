@@ -37,6 +37,11 @@ function shift(camera, parallax) {
 }
 
 export class Street extends Entity {
+  /** It paints the view, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     lane: s.object({
       top: s.number({ required: true, unit: 'px' }),
@@ -324,6 +329,11 @@ export class Street extends Entity {
 
 /** Bollards along the kerb, in front of the pavement, a little nearer than it. */
 export class Foreground extends Entity {
+  /** It paints the view, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     lane: s.object({
       top: s.number({ required: true, unit: 'px' }),

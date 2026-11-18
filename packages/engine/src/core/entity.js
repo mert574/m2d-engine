@@ -464,6 +464,29 @@ export class Entity {
     return this.body.renderBounds;
   }
 
+  /**
+   * The world rectangle everything this entity draws falls inside, as
+   * `{ x, y, width, height }` with its top-left at `x, y` — what the view
+   * cull tests (core/scene.js). The default is the drawn footprint at the
+   * drawn position: the body's size, or the sprite's where a `spriteSize`
+   * makes it larger, and the diagonal where the entity is turned, so a
+   * rotated sprite's corners are inside it. The camera's `padding` (100
+   * units by default) is added by `Camera.isVisible`, which is the room a
+   * constraint's bar or readout above the body draws in.
+   *
+   * Null for an entity whose drawing is not bounded by its body — scenery
+   * painting the view, a strip along a path — which is never culled. A
+   * class that draws beyond its footprint says so by overriding this.
+   * @type {{x: number, y: number, width: number, height: number}|null}
+   */
+  get drawBounds() {
+    const { x, y } = this.renderPosition;
+    let width = Math.max(this.size.x, this.spriteSize?.x ?? 0);
+    let height = Math.max(this.size.y, this.spriteSize?.y ?? 0);
+    if (this.renderAngle) width = height = Math.hypot(width, height);
+    return { x: x - width / 2, y: y - height / 2, width, height };
+  }
+
   get velocity() {
     return this.body.velocity;
   }

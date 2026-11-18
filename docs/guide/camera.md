@@ -98,6 +98,30 @@ When the view is larger than the bounded area, the camera centres on that area. 
 
 Input events already carry world coordinates, and `game.worldToUI(x, y)` maps a world point into UI space. These helpers are for everything else.
 
+## What the view cull skips
+
+In a 2D game the engine asks `isVisible` for every entity before drawing it: one whose drawing falls outside the view issues no draw calls that frame. It is presentation only — a skipped entity still ticks, still collides, still replicates — and the expanded performance stats count the skips as `culled`. A 3D frame needs none of it: the renderer culls it on the GPU against the real frustum.
+
+What is tested is the entity's `drawBounds`: by default its drawn footprint at its drawn position — the body's size, or the sprite's where `spriteSize` is larger, and the diagonal when it is turned — grown by the camera's `padding`, which is the room a health bar or a readout above the body draws in.
+
+An entity that draws beyond its body says so by returning `null`, and is never skipped:
+
+```js
+class Sky extends Entity {
+  // It paints the view, not its body.
+  get drawBounds() {
+    return null;
+  }
+
+  draw() {
+    const area = this.game.camera.getVisibleArea();
+    this.game.renderer.drawRect({ x: area.left, y: area.top, width: area.right - area.left, height: area.bottom - area.top, fillStyle: '#1b2340' });
+  }
+}
+```
+
+The kit's scenery (`Sky`, `Scatter`, `ParticleField`, `PathStrip`) already does. A class may also return bounds of its own — the box a tether, a beam or a long strip really covers — and a drawing that leaves its body by more than `padding` without saying so is what `r_cull 0` is for: turn the cull off and see whether the thing comes back.
+
 ## Three dimensions
 
 A game with `dimensions: 3` gets a `Camera3D` as `game.camera`: an eye, a point it looks at and a perspective projection, with two modes.

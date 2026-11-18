@@ -1,6 +1,7 @@
 import { parseColor } from './renderers/geometry/color.js';
 import { geometryFor } from './renderers/geometry/primitives.js';
 import { toLinear } from './presentation3d.js';
+import { entityInView } from './viewCull.js';
 
 /**
  * Tool entities: the ones a level needs but a player never sees — a
@@ -78,6 +79,8 @@ export function drawToolVolumes2D(game) {
   const shown = toolsShown(game);
   for (const entity of game.entities) {
     if (entity.dead || !(shown || entity.toolInPlay)) continue;
+    // A box is drawn where its entity would be: off the view, neither is.
+    if (!entityInView(game, entity)) continue;
     const tool = toolOf(entity);
     if (tool) drawToolVolume2D(entity, tool);
   }

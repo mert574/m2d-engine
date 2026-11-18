@@ -638,6 +638,11 @@ export class Checkpoint extends Entity {
 
 /** A stretch of the lap, as fractions of it, measured off the scene's road path. */
 class RoadStretch extends Entity {
+  /** It paints the view, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     path: s.ref('path', { initial: 'road', description: 'The road it lies along' }),
     from: s.number({ min: 0, max: 1, required: true, description: 'Where it begins, as a fraction of the lap' }),

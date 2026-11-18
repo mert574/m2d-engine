@@ -101,6 +101,11 @@ function drawStrip(renderer, camera, area, time, { clumps, period, parallax, bas
 const plane = (description) => s.array(s.ref('image'), { description });
 
 export class Meadow extends Entity {
+  /** It paints the view, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     trees: plane('The treeline past the fields'),
     far: plane('The far grass and bushes'),
@@ -293,6 +298,11 @@ export class Meadow extends Entity {
 }
 
 export class ForeMeadow extends Entity {
+  /** It paints the view, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     fore: plane('The grass and bushes the lane is seen through'),
     seed: s.integer({ min: 0, initial: 0x0f0e, description: 'Which scatter of clumps' })

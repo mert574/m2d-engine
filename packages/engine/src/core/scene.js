@@ -29,6 +29,8 @@ import { UIMenuItem } from './ui/menuItem.js';
 import { UIBackdrop } from './ui/backdrop.js';
 import { SpawnPoint } from '../actors/spawnPoint.js';
 import { drawToolVolumes2D, addToolVolumes3D } from './toolVolumes.js';
+import { entityInView, lightInView } from './viewCull.js';
+import { SceneValidationError } from './sceneLoader.js';
 import { SceneEffects } from './ui/sceneEffects.js';
 
 const ZERO = { x: 0, y: 0, z: 0 };
@@ -138,6 +140,43 @@ export class Scene {
     this.indexProps();
     await Promise.all([this.#loadSpriteSheets(), this.#loadImages(), this.props.loadModels(), this.#loadEnvironments(), this.#loadMeshTextures()]);
     this.#loadSounds();
+    this.validateTileCells();
+  }
+
+  /**
+   * Every tile layer's frames against the sheet they are cut from, once
+   * the images are decoded and the grid is known — which the schema cannot
+   * do, since nothing in the document says how many frames a sheet holds.
+   * A frame off the sheet draws nothing at all in one backend and the
+   * sheet's edge pixels in another, so it is refused here instead, naming
+   * the layer and the cell.
+   *
+   * Headless there are no images and no grid: a server draws nothing, so
+   * it checks nothing. The browser and the editor are where a bad cell is
+   * caught, and both load every scene a game ships.
+   */
+  validateTileCells() {
+    if (this.game.headless) return;
+    const name = this.config.name;
+    const fail = (path, detail) => { throw new SceneValidationError(name, path, detail); };
+    for (const [index, layer] of (this.config.tileLayers ?? []).entries()) {
+      const sheet = this.spriteSheets.get(layer.spritesheet);
+      const image = sheet?.image;
+      if (!image?.width || !image?.height) continue;
+      const columns = Math.floor(image.width / sheet.tileW);
+      const rows = Math.floor(image.height / sheet.tileH);
+      const where = `tileLayers[${index}]`;
+      const grid = `'${layer.spritesheet}' is ${columns} by ${rows} frames of ${sheet.tileW} by ${sheet.tileH}`;
+      const check = (tileX, tileY, path) => {
+        if (tileX >= 0 && tileX < columns && tileY >= 0 && tileY < rows) return;
+        fail(path, `frame [${tileX}, ${tileY}] is off the sheet: ${grid}`);
+      };
+      check(layer.tileX ?? 0, layer.tileY ?? 0, `${where}.tileX`);
+      for (const [cell, [, , tileX, tileY]] of (layer.cells ?? []).entries()) {
+        if (tileX === undefined) continue; // A two-entry cell draws the layer's own frame, checked above.
+        check(tileX, tileY, `${where}.cells[${cell}]`);
+      }
+    }
   }
 
   // --- Props and model streaming: the scene's public face of `SceneProps` ---
@@ -503,48 +542,45 @@ export class Scene {
   async #loadImages() {
     const images = this.config.assets?.images;
     if (!images) return;
-    await Promise.all(Object.entries(images).map(([key, { url }]) => new Promise((resolve, reject) => {
-      const image = new window.Image();
-      image.onload = () => {
-        this.images.set(key, image);
-        this.sprites.set(key, image);
-        resolve();
-      };
-      image.onerror = (error) => {
+    await Promise.all(Object.entries(images).map(async ([key, { url }]) => {
+      let image;
+      try {
+        image = await this.game.imageCache.load(this.game.options.basePath + url);
+      } catch (error) {
         console.error(`Failed to load image: ${url}`, error);
-        reject(error);
-      };
-      image.src = this.game.options.basePath + url;
-    })));
+        throw error;
+      }
+      this.images.set(key, image);
+      this.sprites.set(key, image);
+    }));
   }
 
   async #loadSpriteSheets() {
     if (!this.config.assets?.spritesheets) return;
 
-    const loadPromises = Object.entries(this.config.assets.spritesheets).map(([key, spritesheet]) => 
-      new Promise((resolve, reject) => {
-        const img = new window.Image();
-        img.onload = () => {
-          const sheet = new SpriteSheet(img, spritesheet.frameWidth, spritesheet.frameHeight, this.game);
-          this.sprites.set(key, img);
-          this.spriteSheets.set(key, sheet);
+    // The image comes from the game's cache — a level entered twice decodes
+    // its art once — while the sheet over it, with this scene's animations,
+    // is built fresh each time.
+    const loadPromises = Object.entries(this.config.assets.spritesheets).map(async ([key, spritesheet]) => {
+      let img;
+      try {
+        img = await this.game.imageCache.load(this.game.options.basePath + spritesheet.url);
+      } catch (error) {
+        console.error(`Failed to load sprite: ${spritesheet.url}`, error);
+        throw error;
+      }
+      const sheet = new SpriteSheet(img, spritesheet.frameWidth, spritesheet.frameHeight, this.game);
+      this.sprites.set(key, img);
+      this.spriteSheets.set(key, sheet);
 
-          if (spritesheet.animations) {
-            Object.entries(spritesheet.animations).forEach(([name, anim]) => {
-              sheet.defineAnimation(name, anim.frames, { fps: anim.fps ?? 0, loop: anim.loop ?? true });
-            });
-          } else {
-            sheet.define('default', 0, 0);
-          }
-          resolve();
-        };
-        img.onerror = (error) => {
-          console.error(`Failed to load sprite: ${spritesheet.url}`, error);
-          reject(error);
-        };
-        img.src = this.game.options.basePath + spritesheet.url;
-      })
-    );
+      if (spritesheet.animations) {
+        Object.entries(spritesheet.animations).forEach(([name, anim]) => {
+          sheet.defineAnimation(name, anim.frames, { fps: anim.fps ?? 0, loop: anim.loop ?? true });
+        });
+      } else {
+        sheet.define('default', 0, 0);
+      }
+    });
 
     try {
       await Promise.all(loadPromises);
@@ -1561,8 +1597,10 @@ export class Scene {
         this.game.layers.drawOne(layers[next][1]);
         next++;
       }
-      entity.draw(deltaTime);
-      if (entity.light && !entity.dead && entity.visible !== false) this.#drawLight2D(entity);
+      // Off the view: no draw calls, and nothing the simulation can see.
+      if (entityInView(this.game, entity)) entity.draw(deltaTime);
+      else this.game.renderer.stats.culled++;
+      if (entity.light && !entity.dead && entity.visible !== false && lightInView(this.game, entity)) this.#drawLight2D(entity);
     }
     while (next < layers.length) {
       this.game.layers.drawOne(layers[next][1]);

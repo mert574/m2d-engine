@@ -69,6 +69,9 @@ export class Hud extends UIElement {
       `primitives  ${stats.primitives.toLocaleString()}`,
       `draw calls  ${stats.drawCalls.toLocaleString()}   (${ratio} per call)`,
       `state chg   ${stats.stateChanges.toLocaleString()}`,
+      // What the view cull saved this frame: entities off screen that
+      // issued nothing at all. `r_cull 0` turns it off and they come back.
+      `culled      ${stats.culled.toLocaleString()}`,
       '',
       `sprites     ${stats.spritesDrawn.toLocaleString()}`,
       `text        ${stats.textDrawn.toLocaleString()}`,

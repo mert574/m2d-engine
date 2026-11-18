@@ -70,6 +70,41 @@ describe('per-cell tile frames', () => {
   });
 });
 
+describe('cells against the sheet', () => {
+  /**
+   * The grid is only known once the image is decoded, so this is the one
+   * check that happens at load rather than in the schema. A sheet of 64 by
+   * 64 pixels in 16px frames is 4 by 4 frames: 0..3 on each axis.
+   */
+  const config = (overrides) => ({
+    type: 'level', name: 'tiles',
+    assets: { spritesheets: { ground: { frameWidth: 16, frameHeight: 16 } } },
+    tileLayers: [{ name: 'paint', spritesheet: 'ground', tileX: 0, tileY: 0, cells: [[0, 0, 1, 1]], ...overrides }],
+    layers: []
+  });
+
+  it('takes a frame on the sheet', () => {
+    const { scene } = sceneWith(config());
+    expect(() => scene.validateTileCells()).not.toThrow();
+  });
+
+  it('refuses a cell past the sheet\'s last column, naming the layer and the cell', () => {
+    const { scene } = sceneWith(config({ cells: [[0, 0, 1, 1], [1, 0, 9, 0]] }));
+    expect(() => scene.validateTileCells()).toThrow(/tileLayers\[0\]\.cells\[1\].*\[9, 0\].*4 by 4 frames/s);
+  });
+
+  it('refuses a negative frame and the layer\'s own frame too', () => {
+    expect(() => sceneWith(config({ cells: [[0, 0, 0, -1]] })).scene.validateTileCells()).toThrow(/off the sheet/);
+    expect(() => sceneWith(config({ tileX: 7, cells: [] })).scene.validateTileCells()).toThrow(/tileLayers\[0\]\.tileX/);
+  });
+
+  it('checks nothing headless, where there is no image and nothing is drawn', () => {
+    const { game, scene } = sceneWith(config({ cells: [[0, 0, 9, 9]] }));
+    game.headless = true;
+    expect(() => scene.validateTileCells()).not.toThrow();
+  });
+});
+
 describe('the loader takes both cell forms', () => {
   it('accepts [c, r] and [c, r, tx, ty], refuses anything else', () => {
     const game = new M2D(null, { headless: true, worldWidth: 64, worldHeight: 48, seed: 1 });

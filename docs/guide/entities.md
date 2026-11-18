@@ -92,6 +92,8 @@ for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
 
 `renderOffset` and `renderAngleOffset` add a visual displacement on top of the body's transform without moving the body. The `Hover` constraint uses them to make a pickup bob.
 
+An entity whose drawing falls outside the view is not drawn at all; it still ticks and still collides. An override that draws beyond its body — a backdrop over the view, a strip along a path — says so by returning `null` from `drawBounds`, or returns the rectangle its drawing really covers. See [the view cull](./camera#what-the-view-cull-skips).
+
 ### Draw order
 
 The scene draws tile layers and entities in one ascending order: by `zIndex`, then by `depth` among entities sharing one. `zIndex` defaults to `0` and a scene object can set it. `depth` defaults to the bottom edge of the body at its drawn position, the feet, so whatever stands lower on the ground is drawn in front. Assign a number to pin an entity's depth instead. A scene's `world.sort` can switch to insertion order.

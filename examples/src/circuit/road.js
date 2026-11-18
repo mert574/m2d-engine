@@ -54,6 +54,11 @@ const DEFAULT_THEME = {
 };
 
 export class Road extends Entity {
+  /** It paints the view, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     path: s.ref('path', { initial: 'road', description: 'The centreline it draws: a closed path whose points carry the half-width of the asphalt' }),
     layer: s.enumOf(['ground', 'over'], { initial: 'ground', description: 'ground: the surface under the cars; over: the barriers and canopies above them' }),

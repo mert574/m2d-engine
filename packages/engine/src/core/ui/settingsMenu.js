@@ -669,6 +669,19 @@ export class SettingsMenu {
         choices: binary('r_debug'),
         description: 'Bounds, velocities, ranges and readouts over every entity.'
       },
+      ...[
+        ['Music', 's_music', 'How loud the music is.'],
+        ['Sound effects', 's_effects', 'How loud everything else is.']
+      ].map(([label, name, description]) => ({
+        section: 'Sound',
+        label,
+        value: () => `${Math.round(cvars.get(name) * 100)}%`,
+        // Ten steps end to end, and the ends stop rather than wrap: a
+        // player stepping past silence should not land on full volume.
+        step: (step) => cvars.set(name, Math.min(1, Math.max(0, Math.round((cvars.get(name) + (step ?? 1) * 0.1) * 10) / 10))),
+        choices: () => ({ index: Math.round(cvars.get(name) * 10), count: 11 }),
+        description
+      })),
       {
         section: 'Game',
         label: 'Paused',

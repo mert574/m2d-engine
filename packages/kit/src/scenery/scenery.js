@@ -32,6 +32,14 @@ export class Scenery extends Entity {
 
   set mesh(value) {}
 
+  /**
+   * Never bounded by its body: it paints the view itself (and a strip
+   * paints along its path), so the view cull never skips it.
+   */
+  get drawBounds() {
+    return null;
+  }
+
   /** Outermost among entities that share its `zIndex`, on its side of zero; a number assigned pins it. */
   get depth() {
     return this._depth ?? (this.zIndex < 0 ? -Infinity : Infinity);

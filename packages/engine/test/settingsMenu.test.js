@@ -98,7 +98,7 @@ describe('SettingsMenu', () => {
     const { game, menu } = openMenu();
 
     expect(rows(menu).map((r) => r.label)).toEqual([
-      'Resolution', 'Fullscreen', 'Aspect', 'Renderer', 'Debug overlay', 'Paused', 'Close'
+      'Resolution', 'Fullscreen', 'Aspect', 'Renderer', 'Debug overlay', 'Music', 'Sound effects', 'Paused', 'Close'
     ]);
   });
 
@@ -197,7 +197,7 @@ describe('SettingsMenu', () => {
     menu.close();
     menu.addOption({
       section: 'Game',
-      label: 'Music',
+      label: 'Mute',
       value: () => (music ? 'On' : 'Off'),
       step: () => { music = !music; }
     });
@@ -205,9 +205,9 @@ describe('SettingsMenu', () => {
 
     const labels = rows(menu).map((r) => r.label);
     expect(labels).toEqual([
-      'Resolution', 'Fullscreen', 'Aspect', 'Renderer', 'Debug overlay', 'Paused', 'Music', 'Close'
+      'Resolution', 'Fullscreen', 'Aspect', 'Renderer', 'Debug overlay', 'Music', 'Sound effects', 'Paused', 'Mute', 'Close'
     ]);
-    clickRow(game, menu, 'Music');
+    clickRow(game, menu, 'Mute');
     expect(music).toBe(false);
   });
 
@@ -247,12 +247,16 @@ describe('SettingsMenu', () => {
     expect(centre).toBeCloseTo(game.uiRenderer.width / 2, 1);
   });
 
-  it('sizes the panel to its rows', () => {
+  it('sizes the panel to its rows, and to the screen when they outgrow it', () => {
     const { game, menu } = openMenu();
-
     const panel = menu.screen.panel;
     const padding = panel.padding.top + panel.padding.bottom;
-    expect(panel.height).toBeCloseTo(menu.screen.stack.height + padding, 1);
+    const room = Math.max(120, game.uiRenderer.height - 48 - padding);
+
+    // As tall as the rows, or as tall as there is room for — the rows
+    // scroll inside the plate once there are more than the screen holds.
+    expect(panel.height).toBeCloseTo(Math.min(menu.screen.stack.height, room) + padding, 1);
+    expect(panel.height).toBeLessThanOrEqual(game.uiRenderer.height);
   });
 
   describe('the hotkey', () => {

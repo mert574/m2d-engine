@@ -170,6 +170,8 @@ export class BaseRenderer {
     this.stats = {
       primitives: 0,
       drawCalls: 0,
+      /** Entities the view cull skipped this frame; see core/viewCull.js. */
+      culled: 0,
       stateChanges: 0,
       spritesDrawn: 0,
       textDrawn: 0,
@@ -766,6 +768,7 @@ export class BaseRenderer {
   resetStats() {
     this.stats.primitives = 0;
     this.stats.drawCalls = 0;
+    this.stats.culled = 0;
     this.stats.stateChanges = 0;
     this.stats.spritesDrawn = 0;
     this.stats.textDrawn = 0;

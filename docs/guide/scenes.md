@@ -136,6 +136,8 @@ The scene names the uids it wants, binds them to short local names, and reads as
 }
 ```
 
+Either way the decoded image is kept for the game's life, so a level entered a second time — a retry, a hub walked in and out of — does not pay for its art again, and two levels naming the same file share one decode. What a scene builds over the image, the sprite sheet with its animations, is still the scene's own.
+
 An asset's identity is its uid, not its name and not its path, so renaming the texture or relabelling the creature changes the manifest and nothing else. Inline and used assets mix freely in one scene; a name declared both ways is an error.
 
 ## Composing scenes
@@ -194,6 +196,8 @@ Scenes are checked before anything is built from them. The check covers the form
 - Unknown keys are errors, including misspellings such as `"anchour"`. The one place not checked is an object's `properties`, which belongs to the actor. Sprite sheet contents are checked in level scenes only.
 
 A failure throws `SceneValidationError` with the scene name and the path to the field, for example `Scene 'level1' at layers[0].objects[3].prefab: no prefab named 'platfrom' (declared: player, platform, lift)`.
+
+One check waits for the images: a tile layer's cells name frames on a sheet, and how many frames a sheet holds is only known once it is decoded. A cell off the sheet is refused as the level loads, naming the layer and the cell — `Scene 'yard' at tileLayers[0].cells[12]: frame [9, 0] is off the sheet: 'ground' is 4 by 4 frames of 16 by 16`. A headless run decodes no images and draws nothing, so it skips this one; the browser and the editor catch it.
 
 ## Registering and switching
 
