@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { AttackSwing, HitBurst, registerEffects } from '../src/effects.js';
-import { range, makeRng } from '../src/random.js';
-import { tileTexture } from '../src/textures.js';
-import { audioOption } from '../src/audio.js';
+import { AttackSwing, HitBurst, registerEffects } from '../src/effects.ts';
+import { range, makeRng } from '../src/random.ts';
+import { tileTexture } from '../src/textures.ts';
+import { audioOption } from '../src/audio.ts';
 
 /** A stand-in for the entity the effects read, recording what they draw. */
 function entity(attack) {

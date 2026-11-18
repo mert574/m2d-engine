@@ -22,12 +22,17 @@ function resolveAlias(specifier: string): string | null {
 }
 
 describe('the workspace aliases', () => {
-  it('send every entry the kit exports to the file its exports map names', () => {
-    const exports = JSON.parse(readFileSync(join(KIT, 'package.json'), 'utf8')).exports as Record<string, string>;
-    for (const [entry, file] of Object.entries(exports)) {
+  it('send every entry the kit exports to the source it is built from', () => {
+    // The kit is TypeScript: its exports map points a published consumer
+    // at `dist/<name>.js`, and the alias sends this repo at the source
+    // that file is compiled from, which exists whether or not anyone has
+    // run the build.
+    const exports = JSON.parse(readFileSync(join(KIT, 'package.json'), 'utf8')).exports as Record<string, { default: string; types: string }>;
+    for (const [entry, target] of Object.entries(exports)) {
       const specifier = entry === '.' ? 'm2d-kit' : `m2d-kit/${entry.slice(2)}`;
-      expect(resolveAlias(specifier), specifier).toBe(join(KIT, file));
-      expect(existsSync(join(KIT, file)), file).toBe(true);
+      const source = target.default.replace(/^\.\/dist\//, 'src/').replace(/\.js$/, '.ts');
+      expect(resolveAlias(specifier), specifier).toBe(join(KIT, source));
+      expect(existsSync(join(KIT, source)), source).toBe(true);
     }
   });
 

@@ -77,6 +77,16 @@
  */
 
 /**
+ * A body in the world, whichever backend made it. The two Rapier backends
+ * are the only implementations, so this is what `createBox` and friends
+ * hand out and what `entity.body` is — the type the JSDoc across the
+ * engine has been naming all along.
+ *
+ * @typedef {import('./rapierBackend.js').RapierBody
+ *   | import('./rapier3dBackend.js').RapierBody3D} PhysicsBody
+ */
+
+/**
  * World constructors by dimension, once `initPhysics` has compiled the
  * matching WASM module. A game that only ever runs 2D never fetches the 3D
  * one, and the reverse.

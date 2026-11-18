@@ -1,0 +1,18 @@
+{
+  // What `npm run build` publishes: `src/*.ts` compiled to `dist/*.js`
+  // beside its declarations, with relative imports rewritten from `.ts` to
+  // `.js` so the emitted files load in plain Node with no loader and no
+  // bundler. Tests are not part of the tarball.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "allowImportingTsExtensions": false,
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["src/**/*"]
+}

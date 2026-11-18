@@ -9,6 +9,8 @@ import { registerEffects } from 'm2d-kit/effects';
 import { makeRng, range } from 'm2d-kit/random';
 ```
 
+The kit is TypeScript and publishes compiled JavaScript with its declarations beside it, so a TypeScript game sees real types for every entry and a plain JavaScript one imports it exactly as before. In this repository the examples, the docs demos and the editor build it from source, so a change shows up without a build step; anything that loads it outside a bundler — a headless run, a server — reads what `npm run build` emitted into `dist`.
+
 The kit touches nothing of the DOM when it loads, so a game's definition may import it on a server as in a browser. What a scene names from it is registered through the kit's own `register…` helpers, which mark the classes as the kit's in the editor's Components tab and in `list_components`.
 
 What belongs in the kit is decided by one test, kept in `knowledge-base/projects/engine-surface/`: two games or a template want it, it declares its properties or params, it works in 2D and 3D or says which, and it ships with its test and this page's row. A piece only one game wants is that game's code.

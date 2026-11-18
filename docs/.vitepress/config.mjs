@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import { resolve } from 'node:path';
 
 // The docs deploy to the root of the GitHub Pages site. The demo build is
 // merged into /examples/ next to the examples index page (see the root
@@ -13,8 +14,18 @@ export default defineConfig({
   lastUpdated: true,
   srcExclude: ['README.md', 'demos/**'],
   // The engine's model-loader worker imports shared modules, which only an
-  // ES-format worker bundle can hold.
-  vite: { worker: { format: 'es' } },
+  // ES-format worker bundle can hold. The kit is TypeScript: the demos are
+  // built from its source rather than its published `dist`, as the
+  // examples and the editor host are.
+  vite: {
+    worker: { format: 'es' },
+    resolve: {
+      alias: [
+        { find: /^m2d-kit$/, replacement: resolve(import.meta.dirname, '../../packages/kit/src/index.ts') },
+        { find: /^m2d-kit\/(\w+)$/, replacement: resolve(import.meta.dirname, '../../packages/kit/src') + '/$1.ts' }
+      ]
+    }
+  },
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },

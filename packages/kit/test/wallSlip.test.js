@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { makeTestGame, makeBody } from 'm2d-engine/test/helpers/testGame.js';
 import { Entity } from 'm2d-engine/core/entity.js';
-import { WallSlip } from '../src/controls/wallSlip.js';
+import { WallSlip } from '../src/controls/wallSlip.ts';
 
 /** A platformer's wall slide, against a real physics world. */
 

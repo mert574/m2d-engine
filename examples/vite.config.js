@@ -118,6 +118,17 @@ export default defineConfig(({ command }) => ({
       }
     }
   },
+  // The kit is TypeScript and ships compiled (`dist`), which is what its
+  // exports map points at. In this repo the examples are built from its
+  // source instead, so a change to the kit shows up without a build step
+  // and no stale `dist` can be served. The editor host aliases the same
+  // way (packages/editor-host/src/build.ts).
+  resolve: {
+    alias: [
+      { find: /^m2d-kit$/, replacement: resolve(import.meta.dirname, '../packages/kit/src/index.ts') },
+      { find: /^m2d-kit\/(\w+)$/, replacement: resolve(import.meta.dirname, '../packages/kit/src') + '/$1.ts' }
+    ]
+  },
   server: devServer(),
   // The engine's model-loader worker imports shared modules, which only an
   // ES-format worker bundle can hold.

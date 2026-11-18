@@ -520,6 +520,7 @@ export class Entity {
    * @param {string} base - Animation family, e.g. `'run'`
    * @param {number} angle - Facing in radians on the ground plane, y down;
    *   mapped to the screen under a projection
+   * @param {Object} [options] - Passed to `setAnimation` (`restart`)
    */
   setDirectionalAnimation(base, angle, options) {
     if (!this.sprite) return;

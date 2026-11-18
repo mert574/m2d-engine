@@ -1,0 +1,22 @@
+{
+  // The kit is TypeScript over an engine that is still JavaScript with
+  // JSDoc: the engine's types are inferred from its own source, which is
+  // the only description of it that cannot drift. See the Types item in
+  // docs/contributing/roadmap.md for the engine's own `checkJs` question.
+  //
+  // Deliberately no DOM in `lib`: the kit promises to touch nothing in the
+  // DOM at load, so a browser API reached by accident is a type error here
+  // rather than a crash on a server that imported a game.
+  //
+  // Erasable syntax only — no enums, namespaces, parameter properties or
+  // decorators — so the source runs under Node's type stripping and under
+  // Vite without a compile step, and the published form is the same code
+  // with the types taken out.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Relative imports say `.ts`, as the editor packages' do; the build
+    // config rewrites them to `.js` on the way out (tsconfig.build.json).
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

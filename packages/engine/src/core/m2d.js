@@ -1199,10 +1199,11 @@ export class M2D {
    * Offer a ready-made `prefabs` entry for the editor's component library
    * and `list_components` to copy into a scene. `template` is
    * `{ description, dimensions, prefab }`, where `prefab` is exactly what
-   * would stand under the scene's `prefabs`. The game plays none of it:
-   * a scene that took the copy carries its own.
+   * would stand under the scene's `prefabs` and `dimensions` is the one
+   * dimension it fits, left out for a template that fits both. The game
+   * plays none of it: a scene that took the copy carries its own.
    * @param {string} name
-   * @param {{description: string, dimensions: 2|3, prefab: Object}} template
+   * @param {{description: string, dimensions?: 2|3, prefab: Object}} template
    * @param {{origin?: 'game'|'kit'}} [options]
    */
   registerPrefabTemplate(name, template, { origin = 'game' } = {}) {

@@ -1,19 +1,47 @@
 {
   "name": "m2d-kit",
-  "version": "0.2.0",
-  "description": "Ready-to-use pieces for games on m2d: the stock cast (players, platforms, mobs, pickups, a turret, an NPC), scenery (a sky, stars and clouds, particle fields, ambient sound), genre controllers, prefab templates, combat effects and helpers \u2014 compositions of the engine's capabilities, too opinionated for the engine and too reusable to live in one game. Plain JavaScript; imports nothing from the DOM at load, so a server can import a game that imports it.",
+  "version": "0.3.0",
+  "description": "Ready-to-use pieces for games on m2d: the stock cast (players, platforms, mobs, pickups, a turret, an NPC), scenery (a sky, stars and clouds, particle fields, ambient sound), genre controllers, prefab templates, combat effects and helpers \u2014 compositions of the engine's capabilities, too opinionated for the engine and too reusable to live in one game. TypeScript, published as JavaScript with its declarations; imports nothing from the DOM at load, so a server can import a game that imports it.",
   "type": "module",
   "exports": {
-    ".": "./src/index.js",
-    "./actors": "./src/actors.js",
-    "./controls": "./src/controls.js",
-    "./scenery": "./src/scenery.js",
-    "./effects": "./src/effects.js",
-    "./random": "./src/random.js",
-    "./textures": "./src/textures.js",
-    "./audio": "./src/audio.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./actors": {
+      "types": "./dist/actors.d.ts",
+      "default": "./dist/actors.js"
+    },
+    "./controls": {
+      "types": "./dist/controls.d.ts",
+      "default": "./dist/controls.js"
+    },
+    "./scenery": {
+      "types": "./dist/scenery.d.ts",
+      "default": "./dist/scenery.js"
+    },
+    "./effects": {
+      "types": "./dist/effects.d.ts",
+      "default": "./dist/effects.js"
+    },
+    "./random": {
+      "types": "./dist/random.d.ts",
+      "default": "./dist/random.js"
+    },
+    "./textures": {
+      "types": "./dist/textures.d.ts",
+      "default": "./dist/textures.js"
+    },
+    "./audio": {
+      "types": "./dist/audio.d.ts",
+      "default": "./dist/audio.js"
+    }
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },
   "author": "Mert Yildiz",
@@ -22,7 +50,7 @@
     "node": ">=24"
   },
   "peerDependencies": {
-    "m2d-engine": "^1.8.0"
+    "m2d-engine": "^1.9.0"
   },
   "devDependencies": {
     "m2d-engine": "*",
@@ -34,9 +62,11 @@
     "directory": "packages/kit"
   },
   "files": [
+    "dist",
     "src"
   ],
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "types": "./dist/index.d.ts"
 }

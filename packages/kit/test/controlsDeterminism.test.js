@@ -4,9 +4,9 @@ import { Entity } from 'm2d-engine/core/entity.js';
 import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { RecordingRenderer } from 'm2d-engine/test/helpers/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from 'm2d-engine/test/helpers/environment.js';
-import { CarControl } from '../src/controls/carControl.js';
-import { ThrustControl } from '../src/controls/thrustControl.js';
-import { GlideControl } from '../src/controls/glideControl.js';
+import { CarControl } from '../src/controls/carControl.ts';
+import { ThrustControl } from '../src/controls/thrustControl.ts';
+import { GlideControl } from '../src/controls/glideControl.ts';
 
 /**
  * The genre controllers are simulation: driven by a scripted input stream

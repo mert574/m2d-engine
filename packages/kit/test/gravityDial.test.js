@@ -3,7 +3,7 @@ import { M2D } from 'm2d-engine/core/m2d.js';
 import { Entity } from 'm2d-engine/core/entity.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
-import { GravityDial } from '../src/actors.js';
+import { GravityDial } from '../src/actors.ts';
 
 /** The world's gravity along one axis, following a counter the rules turn. */
 

@@ -351,6 +351,10 @@ export class BaseRenderer {
    * @param {string} [options.tint] - Colour multiplied into every texel, e.g.
    *   `'#ff8080'` for a hit flash. The tint's own alpha scales the result.
    *   Optional; requires the `tint` capability.
+   * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
+   * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
+   * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
    */
   drawSprite(options) { throw new Error('Method not implemented'); }
 
@@ -532,6 +536,10 @@ export class BaseRenderer {
    * @param {number} [options.sourceHeight] - Source rect height
    * @param {string} [options.tint] - Colour multiplied into every texel.
    *   Optional; requires the `tint` capability.
+   * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
+   * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
+   * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
    */
   drawImage(options) { throw new Error('Method not implemented'); }
 
@@ -547,6 +555,10 @@ export class BaseRenderer {
    * @param {number} [options.lineWidth=1] - Stroke width
    * @param {number|number[]} [options.cornerRadius=0] - Rounded corner radius
    * @param {boolean} [options.fill=true] - Whether to fill when fillStyle is set
+   * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
+   * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
+   * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
    */
   drawRect(options) { throw new Error('Method not implemented'); }
 
@@ -559,6 +571,10 @@ export class BaseRenderer {
    * @param {number} options.y2 - End Y
    * @param {string|Object} [options.strokeStyle='#000'] - Stroke color
    * @param {number} [options.lineWidth=1] - Line width
+   * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
+   * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
+   * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
    */
   drawLine(options) { throw new Error('Method not implemented'); }
 
@@ -583,6 +599,10 @@ export class BaseRenderer {
    * @param {string|Object} [options.strokeStyle] - Stroke color or gradient descriptor
    * @param {number} [options.lineWidth=1] - Stroke width
    * @param {boolean} [options.fill=true] - Whether to fill when fillStyle is set
+   * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
+   * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
+   * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
    */
   drawArc(options) { throw new Error('Method not implemented'); }
 
@@ -594,6 +614,10 @@ export class BaseRenderer {
    * @param {string|Object} [options.fillStyle] - Fill color or gradient descriptor
    * @param {string|Object} [options.strokeStyle] - Stroke color or gradient descriptor
    * @param {number} [options.lineWidth=1] - Stroke width
+   * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
+   * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
+   * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
    */
   drawPath(options) { throw new Error('Method not implemented'); }
 
@@ -617,6 +641,10 @@ export class BaseRenderer {
    *   `ctx.letterSpacing`, in which case text simply draws untracked
    * @param {string} [options.textAlign='left'] - Text alignment
    * @param {string} [options.textBaseline='top'] - Text baseline
+   * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
+   * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
+   * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
    */
   drawText(options) { throw new Error('Method not implemented'); }
 

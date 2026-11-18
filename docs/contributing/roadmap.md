@@ -9,6 +9,7 @@ The big picture, one line per item. Each large item's plan, backlog and record l
 - **UI**: themed element tree, layout, focus, the screen stack, motion, the console.
 - **Perspectives**: every view in the table below marked shipped.
 - **Networking, 2D**: headless simulation, the authoritative `m2d-server`, intents, replication, prediction, interpolation, interest.
+- **Engine surface**: a core of contracts and capabilities, with the ready-to-use cast, scenery and controllers in [`m2d-kit`](../reference/kit); collision layers the project declares, spawn points, view culling, saved volumes and an image cache.
 
 ## Underway
 
@@ -18,7 +19,6 @@ The big picture, one line per item. Each large item's plan, backlog and record l
 | Networking: 3D online, then datagrams | `projects/networking` |
 | 3D places: terrain, decals, water, reflections, GPU particles, atmosphere | `projects/3d` |
 | An asset library of open materials and models | `projects/3d` |
-| Engine surface: a lean core and the `m2d-kit` package of ready-to-use actors, constraints and prefabs; culling, volumes, path strips, spawn points | `projects/engine-surface` |
 
 ## Next
 
@@ -46,6 +46,6 @@ Scoped 17 Nov 2026; each item's project under `knowledge-base/projects/` holds i
 
 ## Later
 
-- **Types**: `checkJs` over the JSDoc, or the engine in TypeScript. The toolchain is in (`npm run typecheck`).
+- **Types**: `checkJs` over the JSDoc, or the engine in TypeScript. The toolchain is in (`npm run typecheck`) and every other package is TypeScript now; `checkJs` on the engine is about 5,900 errors, so it is a project, taken file by file with `// @ts-check` or as a conversion.
 - Lockstep or rollback networking, on `game.snapshot()`, Rapier's deterministic build and a deterministic math module.
 - Renaming the package: the name, the npm listing and the README still say 2D.

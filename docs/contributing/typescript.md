@@ -1,8 +1,9 @@
 # TypeScript
 
-The engine is plain JavaScript with JSDoc. New packages are TypeScript.
-Both are checked by one toolchain, so moving the engine across later is a
-flag rather than a decision.
+The engine is plain JavaScript with JSDoc. Every other package is
+TypeScript, and the kit is the one that publishes: it ships compiled
+JavaScript with its declarations. Both languages are checked by one
+toolchain.
 
 ## The shared config
 
@@ -28,7 +29,7 @@ Settings worth knowing, and why:
 | `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch` | A new package is cheaper to write strictly than to tighten later |
 | `verbatimModuleSyntax` | A type-only import says `import type`, so what is erased at runtime is visible in the source |
 | `allowJs`, `checkJs: false` | JavaScript is parsed but not checked, which is the state the engine is in today |
-| `noEmit` | The default. A package that publishes turns it off and sets its `outDir` and `declaration` |
+| `noEmit` | The default. A package that publishes turns it off and sets its `outDir` and `declaration`; `packages/kit/tsconfig.build.json` is the worked example |
 
 Decorators are usable in TypeScript packages — tsc has compiled the
 standard (stage 3) semantics since 5.0 — but they are not part of any
@@ -50,13 +51,61 @@ A single package:
 npm run typecheck --workspace packages/<name>
 ```
 
+## Publishing a TypeScript package
+
+The kit is the pattern. Its `tsconfig.json` is for checking — it keeps the
+`.ts` extensions the source writes (`allowImportingTsExtensions`) and
+emits nothing — and `tsconfig.build.json` extends it for the tarball:
+
+```json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false, "outDir": "dist", "rootDir": "src",
+    "declaration": true, "declarationMap": true, "sourceMap": true,
+    "allowImportingTsExtensions": false, "rewriteRelativeImportExtensions": true
+  },
+  "include": ["src/**/*"]
+}
+```
+
+`rewriteRelativeImportExtensions` turns the source's `./sky.ts` into
+`./sky.js` on the way out, so the emitted files load in plain Node with no
+loader. The package's `exports` point each entry at its `dist` file and
+its declaration, `files` ships `dist` and `src` (the source maps point
+back at the source), and `prepare` builds on install so a fresh checkout
+of the monorepo has a `dist` for anything that loads the package outside a
+bundler — a headless run, the server. Inside the repo the examples, the
+docs demos and the editor host alias the package to its source instead, so
+a change needs no build step and no stale `dist` can be served.
+
+A test asserts what ships: every entry loads in plain Node, and a
+declaration exists beside it (`packages/kit/test/entries.test.js`).
+
 ## Importing the engine from a TypeScript package
 
-The engine is unchecked JavaScript, so its modules would otherwise
-collapse to `any`. The editor packages each declare the engine surface
-they use — `packages/editor-core/src/engine.d.ts`,
-`packages/editor/src/ambient.d.ts` — precisely, and shrink those files to
-nothing when the engine gains real types.
+The engine is unchecked JavaScript, so parts of its surface collapse to
+`any`. There are two ways to live with that, and which fits depends on
+how much precision the consumer needs.
+
+The editor packages each declare the engine surface they use —
+`packages/editor-core/src/engine.d.ts`, `packages/editor/src/ambient.d.ts`
+— precisely, and shrink those files to nothing when the engine gains real
+types.
+
+The kit instead takes what the engine's own source says, and nothing more:
+its classes extend the engine's, so inference carries the members, and
+where the engine says nothing (an actor's `body` and `sprite`), the kit
+derives the type from the engine's own constructor rather than writing a
+second description of it that could drift:
+
+```ts
+export type ActorBody = ConstructorParameters<typeof Entity>[0];
+```
+
+The rule of thumb: declare the surface when being wrong is expensive and
+the surface is small; derive it when the engine is the only authority and
+the day it says more should tighten you automatically.
 
 One rule that is easy to get wrong: a package consumed **from source** by
 another package is compiled under *that* package's `tsconfig`, so
@@ -82,9 +131,20 @@ starts publishing compiles with `rewriteRelativeImportExtensions`.
 
 ## The engine
 
-`packages/engine/tsconfig.json` exists and has `checkJs: false`. It is a
-placeholder: the Types item in the [roadmap](./roadmap) is the decision
-about whether to check the engine's JSDoc or move the engine to
-TypeScript, and this file is here so that whichever way it goes, the
-toolchain is not also in question. Until then the engine's typecheck only
-proves the config chain resolves.
+`packages/engine/tsconfig.json` has `checkJs: false`, and the engine's
+typecheck only proves the config chain resolves.
+
+Turning it on is one flag and about 5,900 errors (measured, Nov 2026),
+most of them in the renderers and in `m2d.js` — so checking the engine is
+a project of its own, not the tail of another one. It stays the Types item
+in the [roadmap](./roadmap). What makes it tractable is that the flag is
+per file as well: `// @ts-check` at the top of a module checks that module
+alone, so the engine can be taken file by file, starting with what other
+packages lean on hardest.
+
+Until then, a JSDoc type in the engine is documentation that nothing
+verifies. Fix one when a consumer proves it wrong — the kit's conversion
+turned up four such gaps, from a `PhysicsBody` type the JSDoc named but
+never declared to draw options documented in prose and missing from every
+method's own list — and keep them true to the code rather than to the
+intention.

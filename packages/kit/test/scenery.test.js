@@ -5,8 +5,8 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { RecordingRenderer } from 'm2d-engine/test/helpers/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from 'm2d-engine/test/helpers/environment.js';
-import { registerKitScenery, SCENERY_TEMPLATES } from '../src/scenery.js';
-import { PREFAB_TEMPLATES } from '../src/actors.js';
+import { registerKitScenery, SCENERY_TEMPLATES } from '../src/scenery.ts';
+import { PREFAB_TEMPLATES } from '../src/actors.ts';
 
 /**
  * The scenery actors in a running level: what they draw and where in the

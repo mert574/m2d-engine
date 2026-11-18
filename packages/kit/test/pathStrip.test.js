@@ -4,7 +4,7 @@ import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { RecordingRenderer } from 'm2d-engine/test/helpers/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from 'm2d-engine/test/helpers/environment.js';
-import { registerKitScenery, stripGeometry } from '../src/scenery.js';
+import { registerKitScenery, stripGeometry } from '../src/scenery.ts';
 
 /** A strip laid along one of the scene's paths, drawn in 2D and built as a mesh in 3D. */
 

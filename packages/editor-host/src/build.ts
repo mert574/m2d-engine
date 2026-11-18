@@ -25,15 +25,17 @@ const KIT = fileURLToPath(new URL('../../kit', import.meta.url));
 /**
  * `m2d-engine` and `m2d-kit`, and their entries, as this workspace's, for
  * the editor's server and for builds: one engine and one kit, wherever the
- * project is — a fresh one from a template has nothing installed. A kit
- * entry `m2d-kit/<name>` is its `src/<name>.js`, as its exports map says.
+ * project is — a fresh one from a template has nothing installed. The kit
+ * is TypeScript, and Vite compiles it from source, so an entry
+ * `m2d-kit/<name>` is its `src/<name>.ts` rather than the `dist/<name>.js`
+ * its exports map points a published consumer at.
  */
 export function engineAlias(): Alias[] {
   return [
     { find: /^m2d-engine$/, replacement: join(ENGINE, 'src', 'core', 'm2d.js') },
     { find: /^m2d-engine\//, replacement: join(ENGINE, 'src') + '/' },
-    { find: /^m2d-kit$/, replacement: join(KIT, 'src', 'index.js') },
-    { find: /^m2d-kit\/(\w+)$/, replacement: join(KIT, 'src') + '/$1.js' }
+    { find: /^m2d-kit$/, replacement: join(KIT, 'src', 'index.ts') },
+    { find: /^m2d-kit\/(\w+)$/, replacement: join(KIT, 'src') + '/$1.ts' }
   ];
 }
 

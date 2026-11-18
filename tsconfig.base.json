@@ -7,8 +7,10 @@
   // emits.
   //
   // The engine is still plain JavaScript with JSDoc and is not checked by
-  // this yet; see the Types item in docs/contributing/roadmap.md. Turning it
-  // on is `checkJs: true` in packages/engine/tsconfig.json and nothing else.
+  // this yet; see the Types item in docs/contributing/roadmap.md. The flag
+  // is one line in packages/engine/tsconfig.json, but what it uncovers is
+  // about 5,900 errors (measured, Nov 2026), so the engine is taken file by
+  // file (`// @ts-check`) or converted — not flipped.
   "compilerOptions": {
     // Everything the language has shipped, as long as the infrastructure
     // runs it: ES2025 is the floor of Node 24 (the engines/CI floor) and of

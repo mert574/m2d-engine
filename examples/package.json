@@ -13,6 +13,7 @@
     "generate-sprites": "node scripts/generateSprites.js",
     "build-assets": "node scripts/buildAssets.mjs --missing",
     "build-models": "node scripts/buildModels.mjs",
+    "pretest": "npm run --silent build --prefix ../packages/kit",
     "test": "vitest run"
   },
   "author": "Mert Yildiz",

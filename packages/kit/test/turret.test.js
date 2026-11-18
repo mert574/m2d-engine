@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { makeTestGame, makeBody, expectBalancedStacks } from 'm2d-engine/test/helpers/testGame.js';
-import { Rocket } from '../src/actors/rocket.js';
-import { Turret } from '../src/actors/turret.js';
+import { Rocket } from '../src/actors/rocket.ts';
+import { Turret } from '../src/actors/turret.ts';
 
 /**
  * The turret's and the rocket's abstract draw calls: the right primitives,
