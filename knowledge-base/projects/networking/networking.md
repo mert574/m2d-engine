@@ -4,6 +4,8 @@ Goal: multiplayer through an authoritative server, with no networking code in th
 
 ## Decisions
 
+- **Avatars come from the scene's own player.** After `setup` the server takes out the scene's `world.player` object (the single-player avatar) and makes each joining player one from it at a free `SpawnPoint` (`scene.spawnAvatar`); a match's `join` only sets up the rest. A prefab built in play travels as its scene object and each client builds it from its own copy of the scene, which the signature check made the same, so it arrives with its constraints and art (18 Nov 2026).
+
 - **Server-authoritative only.** The server simulates and is the only authority. Clients send held input and declared intents, nothing else. The game author writes no networking code: one game module runs in the browser and headless on the server. Lockstep and rollback are deferred.
 - The full rules are in `docs/guide/multiplayer.md` and `docs/contributing/determinism.md`. The headless rules that make this possible also shape [[idiomatic-m2d]] actors.
 

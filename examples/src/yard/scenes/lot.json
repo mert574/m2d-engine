@@ -538,7 +538,8 @@
       }
     },
     "kerb": {
-      "actor": "Ground",
+      "actor": "PathStrip",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" },
       "mesh": {
         "color": "#d8d4cc",
         "metallic": 1,
@@ -549,7 +550,8 @@
           "normal": "textures/concrete_floor_02_nor_gl_1k.jpg",
           "arm": "textures/concrete_floor_02_arm_1k.jpg"
         }
-      }
+      },
+      "properties": { "width": 0.3, "height": 0.1 }
     },
     "paving": {
       "actor": "Ground",
@@ -1851,30 +1853,6 @@
           "instances": [[0, 0.02, 0, 0, 1], [0, 0.02, 0, -1.57, 1]]
         },
         {
-          "id": "props-kerb-193_1x0_1x0_3",
-          "prefab": "kerb",
-          "width": 193.1,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [
-            [-103.45, 0.05, -4.15, 0, 1],
-            [-103.45, 0.05, 4.15, 0, 1],
-            [103.45, 0.05, 4.15, 0, 1],
-            [4.15, 0.05, -103.45, -1.57, 1],
-            [-4.15, 0.05, -103.45, -1.57, 1]
-          ]
-        },
-        {
-          "id": "props-kerb-254_5x0_1x0_3",
-          "prefab": "kerb",
-          "width": 254.5,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [[72.75, 0.05, -4.15, 0, 1]]
-        },
-        {
           "id": "props-paving-97_1x0_06x2_6",
           "prefab": "paving",
           "width": 97.1,
@@ -1899,24 +1877,6 @@
           "instances": [[24.75, 0.03, -5.6, 0, 1]]
         },
         {
-          "id": "props-kerb-25_1x0_1x0_3",
-          "prefab": "kerb",
-          "width": 25.1,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [[4.15, 0.05, 19.45, -1.57, 1]]
-        },
-        {
-          "id": "props-kerb-160x0_1x0_3",
-          "prefab": "kerb",
-          "width": 160,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [[4.15, 0.05, 120, -1.57, 1]]
-        },
-        {
           "id": "props-paving-25_1x0_06x2_6",
           "prefab": "paving",
           "width": 25.1,
@@ -1933,24 +1893,6 @@
           "depth": 2.6,
           "collider": "none",
           "instances": [[5.6, 0.03, 72, -1.57, 1]]
-        },
-        {
-          "id": "props-kerb-33_1x0_1x0_3",
-          "prefab": "kerb",
-          "width": 33.1,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [[-4.15, 0.05, 23.45, -1.57, 1]]
-        },
-        {
-          "id": "props-kerb-310_4x0_1x0_3",
-          "prefab": "kerb",
-          "width": 310.4,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [[-4.15, 0.05, 44.8, -1.57, 1]]
         },
         {
           "id": "props-paving-33_1x0_06x2_6",
@@ -3180,42 +3122,6 @@
           "depth": 34,
           "collider": "none",
           "instances": [[35.75, 0.02, 45, 0, 1]]
-        },
-        {
-          "id": "props-kerb-56_5x0_1x0_3",
-          "prefab": "kerb",
-          "width": 56.5,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [[35.75, 0.05, 28, 0, 1], [35.75, 0.05, 62, 0, 1]]
-        },
-        {
-          "id": "props-kerb-34x0_1x0_3",
-          "prefab": "kerb",
-          "width": 34,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [[64, 0.05, 45, -1.57, 1]]
-        },
-        {
-          "id": "props-kerb-4x0_1x0_3",
-          "prefab": "kerb",
-          "width": 4,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [[7.5, 0.05, 30, -1.57, 1]]
-        },
-        {
-          "id": "props-kerb-22x0_1x0_3",
-          "prefab": "kerb",
-          "width": 22,
-          "height": 0.1,
-          "depth": 0.3,
-          "collider": "none",
-          "instances": [[7.5, 0.05, 51, -1.57, 1]]
         },
         {
           "id": "props-paving-3x0_06x2",
@@ -12590,8 +12496,195 @@
           "depth": 1
         }
       ]
+    },
+    {
+      "name": "kerbs",
+      "objects": [
+        {
+          "id": "kerb-1",
+          "prefab": "kerb",
+          "x": -103.45,
+          "y": 0,
+          "z": -4.15,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-1" }
+        },
+        {
+          "id": "kerb-2",
+          "prefab": "kerb",
+          "x": -103.45,
+          "y": 0,
+          "z": 4.15,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-2" }
+        },
+        {
+          "id": "kerb-3",
+          "prefab": "kerb",
+          "x": 103.45,
+          "y": 0,
+          "z": 4.15,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-3" }
+        },
+        {
+          "id": "kerb-4",
+          "prefab": "kerb",
+          "x": 4.15,
+          "y": 0,
+          "z": -103.45,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-4" }
+        },
+        {
+          "id": "kerb-5",
+          "prefab": "kerb",
+          "x": -4.15,
+          "y": 0,
+          "z": -103.45,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-5" }
+        },
+        {
+          "id": "kerb-6",
+          "prefab": "kerb",
+          "x": 72.75,
+          "y": 0,
+          "z": -4.15,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-6" }
+        },
+        {
+          "id": "kerb-7",
+          "prefab": "kerb",
+          "x": 4.15,
+          "y": 0,
+          "z": 19.45,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-7" }
+        },
+        {
+          "id": "kerb-8",
+          "prefab": "kerb",
+          "x": 4.15,
+          "y": 0,
+          "z": 120,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-8" }
+        },
+        {
+          "id": "kerb-9",
+          "prefab": "kerb",
+          "x": -4.15,
+          "y": 0,
+          "z": 23.45,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-9" }
+        },
+        {
+          "id": "kerb-10",
+          "prefab": "kerb",
+          "x": -4.15,
+          "y": 0,
+          "z": 44.8,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-10" }
+        },
+        {
+          "id": "kerb-11",
+          "prefab": "kerb",
+          "x": 35.75,
+          "y": 0,
+          "z": 28,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-11" }
+        },
+        {
+          "id": "kerb-12",
+          "prefab": "kerb",
+          "x": 35.75,
+          "y": 0,
+          "z": 62,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-12" }
+        },
+        {
+          "id": "kerb-13",
+          "prefab": "kerb",
+          "x": 64,
+          "y": 0,
+          "z": 45,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-13" }
+        },
+        {
+          "id": "kerb-14",
+          "prefab": "kerb",
+          "x": 7.5,
+          "y": 0,
+          "z": 30,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-14" }
+        },
+        {
+          "id": "kerb-15",
+          "prefab": "kerb",
+          "x": 7.5,
+          "y": 0,
+          "z": 51,
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "properties": { "path": "kerb-15" }
+        }
+      ]
     }
   ],
+  "paths": {
+    "kerb-1": { "points": [{ "x": -200, "y": 0, "z": -4.15 }, { "x": -6.9, "y": 0, "z": -4.15 }] },
+    "kerb-2": { "points": [{ "x": -200, "y": 0, "z": 4.15 }, { "x": -6.9, "y": 0, "z": 4.15 }] },
+    "kerb-3": { "points": [{ "x": 6.9, "y": 0, "z": 4.15 }, { "x": 200, "y": 0, "z": 4.15 }] },
+    "kerb-4": { "points": [{ "x": 4.073, "y": 0, "z": -200 }, { "x": 4.227, "y": 0, "z": -6.9 }] },
+    "kerb-5": { "points": [{ "x": -4.227, "y": 0, "z": -200 }, { "x": -4.073, "y": 0, "z": -6.9 }] },
+    "kerb-6": { "points": [{ "x": -54.5, "y": 0, "z": -4.15 }, { "x": 200, "y": 0, "z": -4.15 }] },
+    "kerb-7": { "points": [{ "x": 4.14, "y": 0, "z": 6.9 }, { "x": 4.16, "y": 0, "z": 32 }] },
+    "kerb-8": { "points": [{ "x": 4.086, "y": 0, "z": 40 }, { "x": 4.214, "y": 0, "z": 200 }] },
+    "kerb-9": { "points": [{ "x": -4.163, "y": 0, "z": 6.9 }, { "x": -4.137, "y": 0, "z": 40 }] },
+    "kerb-10": { "points": [{ "x": -4.274, "y": 0, "z": -110.4 }, { "x": -4.026, "y": 0, "z": 200 }] },
+    "kerb-11": { "points": [{ "x": 7.5, "y": 0, "z": 28 }, { "x": 64, "y": 0, "z": 28 }] },
+    "kerb-12": { "points": [{ "x": 7.5, "y": 0, "z": 62 }, { "x": 64, "y": 0, "z": 62 }] },
+    "kerb-13": { "points": [{ "x": 63.986, "y": 0, "z": 28 }, { "x": 64.014, "y": 0, "z": 62 }] },
+    "kerb-14": { "points": [{ "x": 7.498, "y": 0, "z": 28 }, { "x": 7.502, "y": 0, "z": 32 }] },
+    "kerb-15": { "points": [{ "x": 7.491, "y": 0, "z": 40 }, { "x": 7.509, "y": 0, "z": 62 }] }
+  },
   "hud": [
     {
       "type": "text",

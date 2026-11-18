@@ -3,7 +3,7 @@ import { expect } from 'vitest';
 import { join } from 'node:path';
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { GlideControl } from 'm2d-kit/controls';
-import { Sky, Scatter, ParticleField, AmbientSound } from 'm2d-kit/scenery';
+import { Sky, Scatter, ParticleField, AmbientSound, PathStrip } from 'm2d-kit/scenery';
 import { GravityDial } from 'm2d-kit/actors';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { AssetDatabase } from 'm2d-engine/core/assets.js';
@@ -29,7 +29,7 @@ const CONSTRAINT_CLASSES = { Chase, Footsteps, GlideControl };
  * dial's counter against the level's counters, by the actor itself. Only
  * where the demo registers them: Salvage Run has a `Sky` of its own.
  */
-const SCENERY = { Sky, Scatter, ParticleField, AmbientSound };
+const SCENERY = { Sky, Scatter, ParticleField, AmbientSound, PathStrip };
 export const KIT_CLASSES = { platformer: SCENERY, yard: SCENERY, physics: { GravityDial } };
 
 /** Actors each demo registers with `game.registerActor`. */

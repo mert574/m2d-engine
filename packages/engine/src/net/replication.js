@@ -309,7 +309,8 @@ export class Replicator {
             z: info.z, d: info.depth, ...(info.mesh && { mesh: info.mesh }), ...(info.light && { light: info.light })
           }),
           sprite: info.sprite ?? null, anim: info.animation ?? null,
-          options: info.options ?? {}, physics: info.physics ?? {}, owner: entity.playerId ?? null
+          options: info.options ?? {}, physics: info.physics ?? {}, owner: entity.playerId ?? null,
+          ...(info.object && { object: info.object })
         });
         this.known.add(id);
       }
@@ -435,6 +436,25 @@ export class Replicator {
   }
 }
 
+/**
+ * A server's spawn of a scene object (a prefab built in play: an avatar, a
+ * drop), built here from this client's own copy of the scene — which the
+ * signature check made the same — so it has the prefab's constraints, art
+ * and light, under the server's network id and scene id.
+ */
+function spawnSceneObject(game, spawn) {
+  const scene = game.sceneManager.getCurrentScene();
+  if (!scene?.config?.prefabs?.[spawn.object.prefab]) return;
+  game.pendingNetId = spawn.id;
+  let entity;
+  try {
+    entity = scene.materializeObject({ ...spawn.object });
+  } finally {
+    game.pendingNetId = null;
+  }
+  if (entity) entity.playerId = spawn.owner ?? null;
+}
+
 function isPlainObject(value) {
   if (value === null || typeof value !== 'object') return false;
   const proto = Object.getPrototypeOf(value);
@@ -487,6 +507,10 @@ export function applyState(game, message, context = {}) {
   view?.observe(message.tick);
   for (const spawn of message.spawn ?? []) {
     if (game.entityById(spawn.id)) continue;
+    if (spawn.object) {
+      spawnSceneObject(game, spawn);
+      continue;
+    }
     game.spawn({
       type: spawn.type, x: spawn.x, y: spawn.y, width: spawn.w, height: spawn.h,
       ...(spawn.z !== undefined && { z: spawn.z }), ...(spawn.d !== undefined && { depth: spawn.d }),

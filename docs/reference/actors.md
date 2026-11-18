@@ -2,7 +2,7 @@
 
 Actors from `m2d-engine/actors/`, available to every scene by name. A game's own actors, and the kit's, are registered with `game.registerActor(name, Class)`.
 
-The engine's own actors are the two capabilities every game places: `Prop` and `Trigger`. The game pieces — players, a platform, mobs, a pickup, a turret and its rocket, an NPC — are [the kit](./kit)'s (`m2d-kit/actors`), compositions of the engine's constraints, together with the prefab templates that build the same things with no class at all.
+The engine's own actors are the capabilities every game places or its own code names: `Prop`, `Trigger` and `SpawnPoint` (which the server spawns avatars at). The game pieces — players, a platform, mobs, a pickup, a turret and its rocket, an NPC — are [the kit](./kit)'s (`m2d-kit/actors`), compositions of the engine's constraints, together with the prefab templates that build the same things with no class at all.
 
 The platformer and top-down example scenes under `examples/src/*/scenes/` show them in use.
 
@@ -49,6 +49,10 @@ The rules, all of which match constraints:
 | `radius` | `4` | Corner rounding of that fill, px |
 
 The editor gives a placed model or image this actor when the game registers it. The editor's templates use it for their platforms and blocks.
+
+## SpawnPoint
+
+`actors/spawnPoint.js`. Name `SpawnPoint`. Where a player joins or comes back: a marker that collides with nothing and draws only in the editor (a ring at its reach), in 2D and 3D. Its size is its reach: `point.holds(entity)` is whether the entity stands inside it. `scene.freeSpawnPoint()` is the first point, in scene order, with no avatar inside, or the one with the fewest when all are taken, or null without any. `scene.spawnAvatar(player)` makes the player an avatar from the scene's `world.player` object at that point (or where the object stands) and sets `player.avatar`; the server calls it for each player who joins. See [Multiplayer](../guide/multiplayer#the-match).
 
 ## Trigger
 

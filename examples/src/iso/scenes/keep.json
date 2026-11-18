@@ -317,7 +317,11 @@
       }
     },
     "stair": { "actor": "Stair", "physics": { "bodyType": "static", "isSensor": true } },
-    "quartermaster": { "actor": "Quartermaster", "physics": { "bodyType": "static", "isSensor": true } }
+    "quartermaster": { "actor": "Quartermaster", "physics": { "bodyType": "static", "isSensor": true } },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
+    }
   },
   "layers": [
     {
@@ -5607,7 +5611,11 @@
           "y": 2540,
           "width": 40,
           "height": 40
-        }
+        },
+        { "id": "spawn-1", "prefab": "spawn", "x": 416, "y": 2656, "width": 48, "height": 48 },
+        { "id": "spawn-2", "prefab": "spawn", "x": 480, "y": 2656, "width": 48, "height": 48 },
+        { "id": "spawn-3", "prefab": "spawn", "x": 352, "y": 2656, "width": 48, "height": 48 },
+        { "id": "spawn-4", "prefab": "spawn", "x": 416, "y": 2720, "width": 48, "height": 48 }
       ]
     }
   ],

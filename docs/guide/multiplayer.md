@@ -25,7 +25,7 @@ On the server `game.player` is null: every knight is somebody's. Simulation code
 ```javascript
 // keepMatch.js
 import { defineMatch } from 'm2d-server';
-import { KEEP_INPUT, KEEP_GAME, registerKeep, keepScene, spawnKnight } from './game.js';
+import { KEEP_INPUT, KEEP_GAME, registerKeep, keepScene, readyKnight } from './game.js';
 
 export default defineMatch({
   input: KEEP_INPUT,
@@ -37,16 +37,18 @@ export default defineMatch({
     await game.sceneManager.switchTo('keep');
   },
   join(game, player) {
-    spawnKnight(game, player, arrivals++);
+    readyKnight(game, player);   // a purse, and a fallen knight that comes back
   }
 });
 ```
+
+The match has no spawn code. After `setup` the server takes out the scene's own `world.player` object, the single-player knight, and when a player joins it makes them an avatar from that object (its prefab, size, properties and constraints) at a free [`SpawnPoint`](../reference/actors#spawnpoint), owned by the player, before calling `join`. A point is free while no avatar stands inside it; when all are taken the one with the fewest is used, and a level that places none spawns where its player object stands. Clients build the avatar from their own copy of the scene, so it arrives whole. A game sends an avatar back to a point with `scene.freeSpawnPoint()`, as the keep does for a fallen knight. A scene that names no `world.player` gives the avatar in `join` itself (`player.avatar = game.spawn(...)`).
 
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `input` | required | The game's `InputSchema`. Every player's input goes through an `InputGate` built from it |
 | `setup(game, { matchId })` | required | Register everything on the headless game and enter the first scene |
-| `join(game, player)` | required | A player arrived. Give them an avatar (`player.avatar`), usually spawned with `game.spawn` and owned by `player.id`, and any `player.state` |
+| `join(game, player)` | none | A player arrived, with an avatar already when the scene names a `world.player`. Set up their `player.state` and anything the avatar needs; without a scene player, give the avatar here |
 | `leave(game, player)` | removes the player's entities | The player is gone for good |
 | `choose(game, player, name, value)` | always true | Whether the player may record one of the project's [choices](./editor#the-project-file) now (a car in the lobby, not mid-race). A hook that throws refuses, and the error is logged once per match |
 | `game` | `{}` | `M2D` options for the headless game, the project's `choices` among them; a choice the server's game does not declare is refused when a client sends it |

@@ -27,6 +27,7 @@ import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
 import { UIMenuItem } from './ui/menuItem.js';
 import { UIBackdrop } from './ui/backdrop.js';
+import { SpawnPoint } from '../actors/spawnPoint.js';
 import { SceneEffects } from './ui/sceneEffects.js';
 
 const ZERO = { x: 0, y: 0, z: 0 };
@@ -804,6 +805,10 @@ export class Scene {
       `object '${object.id}'`);
     entity.sceneId = object.id;
     entity.prefab = object.prefab;
+    // The object it was built from, for a server to have a client build the
+    // same one from its own copy of the scene: the prefab's constraints,
+    // art and light, not just the actor and its body.
+    if (entity.spawnInfo) entity.spawnInfo.object = object;
     this.entitiesById.set(object.id, entity);
     if (object.zIndex !== undefined) entity.zIndex = object.zIndex;
     this.game.entities.add(entity);
@@ -845,6 +850,60 @@ export class Scene {
       width: where.width ?? DEFAULT_OBJECT_SIZE,
       height: where.height ?? where.width ?? DEFAULT_OBJECT_SIZE
     });
+  }
+
+  /**
+   * The spawn point a player should come in at: the first, in scene order,
+   * with no avatar inside its reach; when every one is taken, the one with
+   * the fewest. Null when the level places none.
+   * @returns {SpawnPoint|null}
+   */
+  freeSpawnPoint() {
+    const points = [...this.game.entities].filter((entity) => entity instanceof SpawnPoint && !entity.dead);
+    if (!points.length) return null;
+    const avatars = this.game.players.avatars;
+    const inside = (point) => avatars.filter((avatar) => point.holds(avatar)).length;
+    let best = points[0];
+    let fewest = Infinity;
+    for (const point of points) {
+      const count = inside(point);
+      if (count === 0) return point;
+      if (count < fewest) { best = point; fewest = count; }
+    }
+    return best;
+  }
+
+  /**
+   * A player's avatar, made from the scene's own `world.player` object —
+   * its prefab, size, properties and constraints — at a free spawn point,
+   * or where that object stands when the level places none, and owned by
+   * the player. What the server does when a player joins. Null when the
+   * level names no player.
+   * @param {import('./players.js').Player} player
+   */
+  spawnAvatar(player) {
+    const template = this.#playerObject();
+    if (!template) return null;
+    const { id, x, y, z, ...placement } = template;
+    const at = this.freeSpawnPoint()?.body.position ?? { x, y, z };
+    const avatar = this.spawnPrefab(template.prefab, {
+      ...placement, x: at.x, y: at.y, ...((z !== undefined || at.z !== undefined) && { z: at.z ?? z })
+    });
+    if (!avatar) return null;
+    avatar.playerId = player.id;
+    player.avatar = avatar;
+    return avatar;
+  }
+
+  /** The placed object `world.player` names, as the scene file has it, or null. */
+  #playerObject() {
+    const id = this.config.world?.player;
+    if (!id) return null;
+    for (const layer of this.config.layers ?? []) {
+      const found = layer.objects?.find((object) => object.id === id);
+      if (found) return found;
+    }
+    return null;
   }
 
   /** The next id for a spawned object of this prefab, past any the scene file placed. */
@@ -1560,7 +1619,10 @@ export class Scene {
           this.#addModel(frame, mesh, body, deltaTime);
           continue;
         }
-        const { geometry, scale } = geometryFor(mesh.shape ?? body.shape, body.size);
+        // An entity's own geometry (a strip built along a path) is in its
+        // body's frame at scale 1; anything else is its shape at its size.
+        const { geometry, scale } = entity.geometry ? { geometry: entity.geometry, scale: UNIT } : geometryFor(mesh.shape ?? body.shape, body.size);
+        if (!geometry) continue;
         // Last frame's matrix comes back as this frame's previous, for
         // motion vectors; it lives on the entity because the frame does not.
         entity.lastModel = frame.add(geometry, {

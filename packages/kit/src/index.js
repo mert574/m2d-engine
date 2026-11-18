@@ -11,7 +11,7 @@
  */
 export { Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc, GravityDial, PREFAB_TEMPLATES, registerKitActors } from './actors.js';
 export { WallSlip, GlideControl, CarControl, ThrustControl, registerKitControls } from './controls.js';
-export { Sky, Scatter, ParticleField, AmbientSound, SCENERY_TEMPLATES, registerKitScenery } from './scenery.js';
+export { Sky, Scatter, ParticleField, AmbientSound, PathStrip, SCENERY_TEMPLATES, registerKitScenery } from './scenery.js';
 export { AttackSwing, HitBurst, registerEffects } from './effects.js';
 export { makeRng, range } from './random.js';
 export { tileTexture } from './textures.js';

@@ -1,6 +1,7 @@
 /**
  * Scenery any game could want: a 2D sky, seeded stars and clouds,
- * particle fields in both dimensions, and looping ambient sound. Each is
+ * particle fields in both dimensions, looping ambient sound, and strips
+ * laid along the scene's paths (kerbs, fence lines, road edges). Each is
  * an actor placed in the scene (colliding with nothing, drawn at a
  * `zIndex`), so the editor shows it, its inspector edits it, and an agent
  * adds one through `edit_scene` like any other object. A game's own
@@ -11,12 +12,14 @@ export { Sky } from './scenery/sky.js';
 export { Scatter, SCATTER_KINDS } from './scenery/scatter.js';
 export { ParticleField, FIELD_KINDS, FIELD_DEFAULTS_2D } from './scenery/particleField.js';
 export { AmbientSound } from './scenery/ambientSound.js';
+export { PathStrip, stripGeometry } from './scenery/pathStrip.js';
 export { Scenery, BACK, FRONT } from './scenery/scenery.js';
 
 import { Sky } from './scenery/sky.js';
 import { Scatter } from './scenery/scatter.js';
 import { ParticleField } from './scenery/particleField.js';
 import { AmbientSound } from './scenery/ambientSound.js';
+import { PathStrip } from './scenery/pathStrip.js';
 
 /** Drawn, never touched: no collider stops anything at a backdrop. */
 const SCENERY_PHYSICS = { bodyType: 'static', isSensor: true, layer: 'none' };
@@ -73,6 +76,6 @@ export const SCENERY_TEMPLATES = {
  */
 export function registerKitScenery(game) {
   const kit = { origin: 'kit' };
-  for (const [name, klass] of Object.entries({ Sky, Scatter, ParticleField, AmbientSound })) game.registerActor(name, klass, kit);
+  for (const [name, klass] of Object.entries({ Sky, Scatter, ParticleField, AmbientSound, PathStrip })) game.registerActor(name, klass, kit);
   for (const [name, template] of Object.entries(SCENERY_TEMPLATES)) game.registerPrefabTemplate(name, template, kit);
 }

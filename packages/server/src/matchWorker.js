@@ -30,6 +30,12 @@ await initPhysics({ dimensions: match.game.dimensions ?? 2 });
 const game = new M2D(null, { ...match.game, headless: true });
 await match.setup(game, { matchId: workerData.matchId });
 game.setupCollisionHandlers();
+// The scene's own player is the single-player one: online, every avatar
+// belongs to someone, and each is made from that object as a player joins.
+if (game.player) {
+  game.removeEntity(game.player);
+  game.player = null;
+}
 
 const tickRate = Math.round(1 / game.time.fixedTimestep);
 const BEAT_EVERY = Math.max(1, Math.round(tickRate / 4));
@@ -104,7 +110,10 @@ function join(pid) {
   const player = game.players.add(pid, { meter });
   const fresh = { player, meter, gate: null, replicator: null, connected: false, leaveAt: null, reported: { missed: 0, late: 0, early: 0 } };
   seats.set(pid, fresh);
-  match.join(game, player);
+  // An avatar from the scene's `world.player` object at a free spawn
+  // point, before the match's own `join` sets up the rest of the player.
+  game.sceneManager.getCurrentScene()?.spawnAvatar(player);
+  match.join?.(game, player);
   // A match that replaced `player.state` dropped the choices they joined with; they are the player's.
   player.fillChoices();
   connect(fresh);

@@ -10,7 +10,7 @@ import { InputSchema } from 'm2d-engine/net/input.js';
  *     input: KEEP_INPUT,
  *     game: { worldWidth: 4096, worldHeight: 3072 },
  *     async setup(game) { registerKeep(game); await game.sceneManager.switchTo('keep'); },
- *     join(game, player) { player.avatar = game.spawn({ type: 'ObliquePlayer', ... }); },
+ *     join(game, player) { player.state = { purse: 0 }; },
  *     leave(game, player) { ... }
  *   });
  *
@@ -18,7 +18,9 @@ import { InputSchema } from 'm2d-engine/net/input.js';
  * @param {InputSchema} definition.input - What a player's held input may be
  * @param {object} [definition.game] - `M2D` options for the headless game (`worldWidth`, `seed`, `fixedTimestep` ...)
  * @param {(game, context: {matchId: string}) => Promise<void>|void} definition.setup - Register everything and enter the first scene
- * @param {(game, player) => void} definition.join - A player arrived: give them an avatar (`player.avatar`) and any state
+ * @param {(game, player) => void} [definition.join] - A player arrived, and has an avatar already when the scene names a
+ *   `world.player`: the server made one from that object at a free `SpawnPoint`. Set up any state; a scene without a
+ *   player gives the avatar here (`player.avatar = game.spawn(...)`)
  * @param {(game, player) => void} [definition.leave] - A player is gone for good. By default their entities are removed
  * @param {(game, player, name: string, value: string|number|boolean) => boolean} [definition.choose] - Whether a player may
  *   record this choice now (the project's `choices`, sent by their client). By default they always may
@@ -35,7 +37,7 @@ export function defineMatch(definition) {
   const { input, setup, join } = definition;
   if (!(input instanceof InputSchema)) throw new Error('m2d-server: a match needs an InputSchema as `input`');
   if (typeof setup !== 'function') throw new Error('m2d-server: a match needs `setup(game)`');
-  if (typeof join !== 'function') throw new Error('m2d-server: a match needs `join(game, player)`');
+  if (join !== undefined && typeof join !== 'function') throw new Error('m2d-server: `join` must be a function `join(game, player)`');
   const match = {
     game: {},
     maxPlayers: 8,

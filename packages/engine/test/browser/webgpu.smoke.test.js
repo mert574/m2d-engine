@@ -374,6 +374,27 @@ describe('a 3D game through the engine loop', () => {
     expect(scene.frame3D(1 / 60).particles).toHaveLength(1);
   });
 
+  it('draws an entity\'s own geometry at its body, scale 1, instead of its collider\'s shape', async () => {
+    const { Entity } = await import('../../src/core/entity.js');
+    const { box } = await import('../../src/core/renderers/geometry/primitives.js');
+    const { game } = game3D();
+    game.registerActor('Ground', class extends Entity { name = 'Ground'; });
+    game.registerActor('Crate', class extends Entity { name = 'Crate'; });
+    game.sceneManager.addScene('yard', { fetch: async () => YARD });
+    await game.sceneManager.switchTo('yard');
+    const scene = game.sceneManager.getCurrentScene();
+    const crate = scene.entitiesById.get('crate');
+    const own = box();
+    crate.geometry = own;
+    const frame = scene.frame3D(1 / 60);
+    const [entry] = [...frame.groups.get(own).values()];
+    expect(entry.instances).toHaveLength(1);
+    const model = entry.instances[0];
+    // Unit scale on the diagonal and the body's position in the translation.
+    expect([model[0], model[5], model[10]].map((v) => Math.round(v * 1000) / 1000)).toEqual([1, 1, 1]);
+    expect(model[13]).toBeCloseTo(crate.body.position.y, 3);
+  });
+
   it('draws the HUD over the world on the overlay canvas', async () => {
     const { game } = game3D();
     game.sceneManager.addScene('yard', { fetch: async () => ({ ...YARD, prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });

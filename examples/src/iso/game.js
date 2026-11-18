@@ -37,9 +37,6 @@ export const KEEP_GAME = { worldWidth: WORLD.width, worldHeight: WORLD.height };
 export const GAME = KEEP_GAME;
 export { registerKeep as register };
 
-/** Where knights come in: the start room, a little apart from each other. */
-const START = { x: 416, y: 2656 };
-const SPREAD = [[0, 0], [64, 0], [-64, 0], [0, 64], [64, 64], [-64, 64], [128, 0], [128, 64]];
 
 /** Register the cast and the intents, on a displayed game, a headless one or a client. */
 export function registerKeep(game) {
@@ -97,29 +94,23 @@ export function sceneHooks(game) {
 }
 
 /**
- * Bring a knight in for a player: at the start, owned by them, with a
- * purse. Online, a fallen knight comes back to the start after three
- * seconds instead of ending the game for everyone.
+ * A player's knight, once the server has made it from the scene's own
+ * at a free spawn point: a purse for them, and a knight that falls comes
+ * back at a free spawn point three seconds later instead of ending the
+ * game for everyone.
  */
-export function spawnKnight(game, player, index) {
-  const [dx, dy] = SPREAD[index % SPREAD.length];
-  const knight = game.spawn({
-    type: 'ObliquePlayer', x: START.x + dx, y: START.y + dy, width: 28, height: 28,
-    sprite: 'knight', animation: 'idle_down',
-    options: { spriteSize: 200, spriteOffsetY: -56 },
-    physics: { bodyType: 'character', shape: 'circle', frictionAir: 0.2 },
-    playerId: player.id
-  });
-  player.avatar = knight;
+export function readyKnight(game, player) {
+  const knight = player.avatar;
   player.state = newPurse();
   const health = knight.getConstraint('health');
   health.onDeath = () => {
     player.notify('fallen');
     game.time.after(3, () => {
       if (!game.entities.has(knight)) return;
+      const point = game.sceneManager.getCurrentScene()?.freeSpawnPoint();
       knight.dead = false;
       health.currentHealth = health.maxHealth;
-      knight.body.setPosition({ x: START.x + dx, y: START.y + dy });
+      if (point) knight.body.setPosition({ ...point.body.position });
       knight.body.setVelocity({ x: 0, y: 0 });
     });
   };

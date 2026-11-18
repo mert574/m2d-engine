@@ -14,6 +14,7 @@
 
 import { Prop } from '../actors/prop.js';
 import { Trigger } from '../actors/trigger.js';
+import { SpawnPoint } from '../actors/spawnPoint.js';
 import { Abilities } from '../constraints/abilities.js';
 import { Attack } from '../constraints/attack.js';
 import { Chase } from '../constraints/chase.js';
@@ -33,7 +34,7 @@ import { ProximityPrompt } from '../constraints/proximityPrompt.js';
 
 /** The engine's actors, by the name a scene uses. */
 export const BUILTIN_ACTORS = new Map(Object.entries({
-  Prop, Trigger
+  Prop, Trigger, SpawnPoint
 }));
 
 /** The engine's constraints, by the name a scene uses. */
@@ -48,7 +49,7 @@ export const BUILTIN_CONSTRAINTS = new Map(Object.entries({
  * two maps to the same keys and each path to exporting its class.
  */
 export const BUILTIN_MODULES = new Map(Object.entries({
-  Prop: 'actors/prop.js', Trigger: 'actors/trigger.js',
+  Prop: 'actors/prop.js', Trigger: 'actors/trigger.js', SpawnPoint: 'actors/spawnPoint.js',
   Abilities: 'constraints/abilities.js', Attack: 'constraints/attack.js',
   Chase: 'constraints/chase.js', Collectable: 'constraints/collectable.js', ContactDamage: 'constraints/contactDamage.js', DamageFlash: 'constraints/damageFlash.js',
   Debug: 'constraints/debug.js', Footsteps: 'constraints/footsteps.js',

@@ -1407,7 +1407,10 @@ export class M2D {
      * How a 3D entity is drawn: the prefab's `mesh` block with its colour
      * in linear light, or its collider's shape in grey. Null in 2D, where
      * the sprite is the presentation. `mesh.visible = false` hides it;
-     * `entity.mesh = null` removes it from the frame entirely.
+     * `entity.mesh = null` removes it from the frame entirely. An actor
+     * that builds its own shape in code sets `entity.geometry` (positions,
+     * normals, uvs and indices in its body's frame, at scale 1), drawn
+     * with the mesh block's material instead of the collider's shape.
      */
     entity.mesh = this.physics.dimensions === 3 ? meshFor(mesh) : null;
     /**

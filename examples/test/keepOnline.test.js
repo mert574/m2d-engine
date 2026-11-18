@@ -122,6 +122,21 @@ describe('Cinder Keep online', () => {
     expect(bob.game.player.playerId).toBe('bob');
     expect(knights(ann).every((k) => k.playerId)).toBe(true);
     expect(ann.game.sceneSignature).toBe(bob.game.sceneSignature);
+
+    // Each came in at a spawn point of its own, made from the scene's own
+    // knight (its prefab and properties) with no spawn code in the match.
+    const spawns = KEEP.layers.flatMap((layer) => layer.objects).filter((o) => o.prefab === 'spawn');
+    const at = (knight) => spawns.findIndex((s) => Math.abs(s.x - knight.position.x) <= s.width / 2 && Math.abs(s.y - knight.position.y) <= s.height / 2);
+    const [first, second] = knights(ann).sort((a, b) => (a.playerId < b.playerId ? -1 : 1));
+    expect(at(first)).toBeGreaterThanOrEqual(0);
+    expect(at(second)).toBeGreaterThanOrEqual(0);
+    expect(at(first)).not.toBe(at(second));
+    for (const knight of knights(bob)) {
+      expect(knight.prefab).toBe('player');
+      expect(knight.spriteSize).toEqual({ x: 200, y: 200 });
+    }
+    const matchSource = readFileSync(new URL('../src/iso/keepMatch.js', import.meta.url), 'utf8');
+    expect(matchSource).not.toMatch(/\.spawn\(|spawnPrefab|spawnAvatar|setPosition/);
   });
 
   it('a click walks the knight, and the other player watches it go', async () => {

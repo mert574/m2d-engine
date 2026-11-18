@@ -329,7 +329,7 @@ const COLLIDERS = {
   shop_shutter_door: 'none', shop_shutter_window: 'none', industrial_wall_lamp: 'none', security_light: 'none',
   street_lamp_02: 'none', garden_hose_wall_mounted_01: 'none',
   lantern: 'none', door_glow: 'none', bay_glow: 'none', window_spill: 'none',
-  road: 'none', kerb: 'none', paving: 'none', concrete: 'none', gravel: 'none', litter: 'none', dirt: 'none', plaza: 'none', herringbone: 'none',
+  road: 'none', paving: 'none', concrete: 'none', gravel: 'none', litter: 'none', dirt: 'none', plaza: 'none', herringbone: 'none',
   frame: 'none', frame_dark: 'none', glass: 'none', glass_lit: 'none', shop_glass: 'none', sign_green: 'none', sign_navy: 'none', sign_maroon: 'none',
   door_red: 'none', door_blue: 'none', door_green: 'none', door_black: 'none', door_yellow: 'none', door_wood: 'none', shutter: 'none'
 };
@@ -364,6 +364,17 @@ const slab = (prefab, x, z, w, d, top, yaw = 0, thickness = Math.max(0.02, top))
 /** A rectangle of surface between two corners, whichever way round they are given. */
 const patch = (prefab, x0, z0, x1, z1, top) => slab(prefab, (x0 + x1) / 2, (z0 + z1) / 2, Math.abs(x1 - x0), Math.abs(z1 - z0), top);
 /** A strip of surface `w` wide from a to b. */
+/**
+ * A kerb from a to b: a path of its own, and a PathStrip standing on it,
+ * so the kerb follows its line when the line moves in the editor.
+ */
+const kerbPaths = {};
+const kerbs = [];
+const kerbRun = (ax, az, bx, bz) => {
+  const id = `kerb-${kerbs.length + 1}`;
+  kerbPaths[id] = { points: [{ x: r(ax), y: 0, z: r(az) }, { x: r(bx), y: 0, z: r(bz) }] };
+  kerbs.push({ id, prefab: 'kerb', x: r((ax + bx) / 2), y: 0, z: r((az + bz) / 2), width: 1, height: 1, depth: 1, properties: { path: id } });
+};
 const strip = (prefab, ax, az, bx, bz, w, top) => {
   slab(prefab, (ax + bx) / 2, (az + bz) / 2, Math.hypot(bx - ax, bz - az), w, top, yawAlong(ax, az, bx, bz));
 };
@@ -603,7 +614,7 @@ function road(ax, az, bx, bz, { pavedFrom = -Infinity, pavedTo = Infinity, break
     for (const [from, to] of runs(side, 0, len)) {
       const [kx0, kz0] = along(ax, az, bx, bz, from / len, side * KERB);
       const [kx1, kz1] = along(ax, az, bx, bz, to / len, side * KERB);
-      strip('kerb', kx0, kz0, kx1, kz1, KERB_W, TOP.kerb);
+      kerbRun(kx0, kz0, kx1, kz1);
     }
     for (const [from, to] of runs(side, Math.max(0, pavedFrom), Math.min(len, pavedTo))) {
       const [px0, pz0] = along(ax, az, bx, bz, from / len, side * PAVE);
@@ -766,11 +777,11 @@ model('cardboard_box_01', 29, SHOP_FRONT + 12, 0.3); stack('cardboard_box_01', 3
 // === The car park, behind the shops ===
 
 patch('road', CARPARK.x0, CARPARK.z0, CARPARK.x1, CARPARK.z1, TOP.pad);
-strip('kerb', CARPARK.x0, CARPARK.z0, CARPARK.x1, CARPARK.z0, KERB_W, TOP.kerb);
-strip('kerb', CARPARK.x0, CARPARK.z1, CARPARK.x1, CARPARK.z1, KERB_W, TOP.kerb);
-strip('kerb', CARPARK.x1, CARPARK.z0, CARPARK.x1, CARPARK.z1, KERB_W, TOP.kerb);
-strip('kerb', CARPARK.x0, CARPARK.z0, CARPARK.x0, CARPARK_ENTRY.z0, KERB_W, TOP.kerb);
-strip('kerb', CARPARK.x0, CARPARK_ENTRY.z1, CARPARK.x0, CARPARK.z1, KERB_W, TOP.kerb);
+kerbRun(CARPARK.x0, CARPARK.z0, CARPARK.x1, CARPARK.z0);
+kerbRun(CARPARK.x0, CARPARK.z1, CARPARK.x1, CARPARK.z1);
+kerbRun(CARPARK.x1, CARPARK.z0, CARPARK.x1, CARPARK.z1);
+kerbRun(CARPARK.x0, CARPARK.z0, CARPARK.x0, CARPARK_ENTRY.z0);
+kerbRun(CARPARK.x0, CARPARK_ENTRY.z1, CARPARK.x0, CARPARK.z1);
 // A walkway from the car park to the shops' back doors.
 patch('paving', 24, SHOPS.z1, 27, CARPARK.z0, TOP.pavement);
 // Two rows of bays nose to the kerb, a lane between; islands with a tree and a lamp break the rows.
@@ -1373,6 +1384,7 @@ const chimneyTop = (i) => {
 const scenery = { bodyType: 'static', isSensor: true, layer: 'none' };
 prefabs.motes = { actor: 'ParticleField', physics: scenery, properties: { kind: 'motes', count: 900, extent: { x: 18, y: 5, z: 18 }, radius: 0.022, color: '#fff2d0', opacity: 0.55, speed: 0.4 } };
 prefabs.smoke = { actor: 'ParticleField', physics: scenery, properties: { kind: 'smoke', count: 36, extent: { x: 0.5, y: 3.5, z: 0.5 }, radius: 0.6, color: '#8f8a86', opacity: 0.32, speed: 0.5 } };
+prefabs.kerb = { actor: 'PathStrip', physics: scenery, mesh: prefabs.kerb.mesh, properties: { width: KERB_W, height: TOP.kerb } };
 const marker = { width: 1, height: 1, depth: 1 };
 const atmosphere = [
   { id: 'motes-1', prefab: 'motes', x: 0, y: 0, z: 0, ...marker },
@@ -1397,7 +1409,8 @@ const scene = {
       ...objects
     ],
     props: [...props.values()]
-  }, { name: 'atmosphere', objects: atmosphere }]
+  }, { name: 'atmosphere', objects: atmosphere }, { name: 'kerbs', objects: kerbs }],
+  paths: kerbPaths
 };
 
 writeFileSync(out, writeScene(scene));
