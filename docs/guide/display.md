@@ -85,7 +85,7 @@ Anchors are `top-left`, `top`, `top-right`, `left`, `center`, `right`, `bottom-l
 
 A full-screen background uses a rect with `fill: true` instead of a size, since no fixed-size rect can cover a space that widens with the display.
 
-`game.worldToUI(x, y)` maps a world position into UI space, for pinning a screen-space label to a world object. Input events carry both spaces already.
+`game.worldToUI(x, y)` maps a world position into UI space, for pinning a screen-space label to a world object; in 3D it is `worldToUI(x, y, z)`, through the camera's perspective, and null for a point behind the camera. Input events carry both spaces already.
 
 ## The world overlay
 
@@ -108,7 +108,7 @@ draw() {
 
 Submissions are per frame. The overlay accepts `drawRect`, `drawArc`, `drawLine`, `drawPath`, `drawImage`, `drawSprite` and `drawText`. For `drawText`, `x` and `y` are world coordinates and `offsetX`, `offsetY` and `fontSize` are UI units. Other text options pass through. Shapes draw first and text on top. The overlay is clipped to the world's content area, so nothing spills onto the letterbox bars. Text anchored far outside the view is skipped.
 
-The engine's debug drawing uses the overlay. An actor's own appearance stays in the world pass.
+In a 3D game the overlay draws only text: a `drawText` with a `z` is placed through the camera and left out when it is behind it, and shapes, which describe the ground plane, are not drawn. The engine's debug drawing and the [tool boxes](../reference/actors#declaring-properties) of triggers and spawn points use the overlay. An actor's own appearance stays in the world pass.
 
 ## Debug overlay
 

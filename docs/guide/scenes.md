@@ -17,7 +17,10 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
   "version": 6,
   "type": "level",
   "name": "level1",
-  "world": { "gravity": { "x": 0, "y": 1000 } },
+  "world": {
+    "width": 960, "height": 540, "gravity": { "x": 0, "y": 1000 }, "player": "player",
+    "rules": [{ "id": "fell", "when": { "event": "enter", "object": "pit" }, "then": [{ "do": "gameOver" }] }]
+  },
   "assets": {
     "spritesheets": {
       "player": {
@@ -41,10 +44,12 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
       "physics": { "bodyType": "dynamic", "friction": 0.1 }
     },
     "platform": {
-      "actor": "Platform",
+      "actor": "Prop",
       "spritesheet": "tiles",
       "physics": { "bodyType": "static", "friction": 1 }
     },
+    "spawn": { "actor": "SpawnPoint", "physics": { "bodyType": "static" } },
+    "pit": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
     "lift": {
       "actor": "Lift",
       "spritesheet": "tiles",
@@ -56,6 +61,8 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
       "name": "main",
       "objects": [
         { "id": "player", "prefab": "player", "x": 100, "y": 100 },
+        { "id": "start", "prefab": "spawn", "x": 100, "y": 100, "width": 64, "height": 64 },
+        { "id": "pit", "prefab": "pit", "x": 480, "y": 790, "width": 4960, "height": 400 },
         { "id": "ground", "prefab": "platform", "x": 200, "y": 300, "width": 320, "height": 32 },
         { "id": "ramp", "prefab": "platform", "x": 480, "y": 240, "width": 96, "height": 16, "angle": 0.3 },
         {
@@ -72,16 +79,18 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
 
 | Field | Purpose |
 | --- | --- |
-| `version` | The scene format version this engine reads, `3`; see the reference's version table |
-| `world.gravity` | Gravity in px/s². `{ "x": 0, "y": 1000 }` is a normal downward pull. Use `0` for top-down games |
+| `version` | The scene format version this engine reads, `6`; see the reference's version table |
+| `world` | The level's size, its gravity in px/s² (`{ "x": 0, "y": 1000 }` is a normal downward pull; `0` for top-down games), which object is the `player`, and its `rules`. Nothing happens that the level does not say: here falling into `pit`, a `Trigger` under the world, ends the game |
 | `assets.spritesheets` | Images, their frame size and named animations. See [Sprites and animation](./sprites) |
 | `background` | One frame of a sprite sheet tiled across the whole world, behind everything else |
 | `prefabs` | Named templates. Each names a registered actor and optionally a sprite sheet, a default animation and physics settings |
-| `layers` | Groups of placed objects. Each object names a prefab, gives a centre position and optionally a size, a rotation and properties |
+| `layers` | Groups of placed objects. Each object names a prefab, gives a centre position and optionally a size, a rotation and properties. The player starts at `start`, a `SpawnPoint` |
 
 Objects default to 32 by 32 when they give no size. `angle` is in radians and belongs to the object, so a tilted platform is placed per instance while the prefab stays reusable.
 
-`properties` is passed to the actor's constructor as its options argument. Built-in actors read specific keys from it: `Trigger` reads `active`, `visible`, `triggers` and `debugColor`; the kit's `MovingPlatform` reads `path`. Your own actors read whatever they define.
+`Prop`, `Trigger` and `SpawnPoint` are the engine's own; `Player` and `Lift` are actors the game registers (`Player` from the kit, [`m2d-kit/actors`](../reference/kit)).
+
+`properties` is passed to the actor's constructor as its options argument. Built-in actors read specific keys from it: `Trigger` reads `active`, `visible` and `triggers`; the kit's `MovingPlatform` reads `path`. Your own actors read whatever they define.
 
 ### Physics settings
 

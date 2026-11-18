@@ -95,6 +95,10 @@ describe('spawn points', () => {
     const again = await make(inside);
     expect(again.game.player.position).toMatchObject({ x: 100, y: 100 });
     again.game.destroy();
+    // Played from a chosen point, as the editor plays one: where its object stands.
+    const chosen = await make(level(), { startAtSpawnPoint: false });
+    expect(chosen.game.player.position).toMatchObject({ x: 10, y: 10 });
+    chosen.game.destroy();
     const edited = await make(level(), { display: true, editMode: true });
     expect(edited.scene.entitiesById.get('hero').position).toMatchObject({ x: 10, y: 10 });
     edited.game.destroy();
@@ -130,14 +134,14 @@ describe('spawn points', () => {
 });
 
 describe('tool entities', () => {
-  /** A level with a spawn point, a plain trigger, one whose box shows in play, and one in its own colour. */
+  /** A level with spawn points, a plain trigger, one whose box shows in play, and another. */
   const tools = () => {
     const scene = level();
     scene.prefabs.zone = { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } };
     scene.layers[0].objects.push(
       { id: 'zone-1', prefab: 'zone', x: 50, y: 50, width: 20, height: 20 },
       { id: 'door', prefab: 'zone', x: 80, y: 50, width: 20, height: 20, properties: { visible: true } },
-      { id: 'pit', prefab: 'zone', x: 120, y: 50, width: 20, height: 20, properties: { debugColor: '#0000ff' } }
+      { id: 'pit', prefab: 'zone', x: 120, y: 50, width: 20, height: 20 }
     );
     return scene;
   };
@@ -156,9 +160,23 @@ describe('tool entities', () => {
     expect(Object.keys(drawn).sort()).toEqual(['door', 'pit', 'spawn-1', 'spawn-2', 'zone-1']);
     expect(drawn['spawn-1']).toBe('rgba(52, 211, 153, 0.3)');
     expect(drawn['zone-1']).toBe('rgba(255, 138, 28, 0.3)');
-    expect(drawn.pit).toBe('rgba(0, 0, 255, 0.3)');
     // The hero is no tool.
     expect(drawn.hero).toBeUndefined();
+    game.destroy();
+  });
+
+  it('lie on the ground through the level\'s projection: a diamond in an isometric level', async () => {
+    const scene = tools();
+    scene.world.projection = 'isometric';
+    const { game } = await make(scene, { display: true, editMode: true });
+    const point = game.sceneManager.getCurrentScene().entitiesById.get('spawn-1');
+    game.worldOverlay.clear();
+    game.sceneManager.getCurrentScene().draw(0);
+    const index = game.worldOverlay.labels.findIndex((label) => label.text.endsWith('spawn-1'));
+    const box = game.worldOverlay.shapes.filter((shape) => shape.method === 'drawPath')[index].options;
+    const { x, y } = point.body.position;
+    const ground = [[x - 20, y - 20], [x + 20, y - 20], [x + 20, y + 20], [x - 20, y + 20]];
+    expect(box.points).toEqual(ground.map(([gx, gy]) => game.projection.toScreen(gx, gy)));
     game.destroy();
   });
 

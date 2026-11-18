@@ -1,4 +1,5 @@
-import { Ship, Meteor, Drone, Salvage, Gate, Bound, Sky } from './fieldActors.js';
+import { Clip } from 'm2d-kit/actors';
+import { Ship, Meteor, Drone, Salvage, Gate, Sky } from './fieldActors.js';
 import { registerEffects } from 'm2d-kit/effects';
 import { FieldWindow } from './menuBackdrop.js';
 
@@ -11,7 +12,7 @@ import { FieldWindow } from './menuBackdrop.js';
 export function register(game) {
   game.registerBackdropLayer('fieldWindow', () => new FieldWindow());
   for (const [name, actor] of Object.entries({
-    Ship, Meteor, Drone, Salvage, Gate, Bound, Sky
+    Ship, Meteor, Drone, Salvage, Gate, Clip, Sky
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
   registerEffects(game);

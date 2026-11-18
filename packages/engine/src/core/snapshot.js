@@ -188,6 +188,12 @@ export function restoreSnapshot(game, snapshot) {
 
   game.physics.restore(snapshot.physics);
 
+  // What is in the world now and was not then is gone with the restore,
+  // and lets go of what it started; what was removed since comes back and
+  // takes it up again (see Entity.revive).
+  const present = new Set(game.entities);
+  const returning = new Set(snapshot.entities.map(({ entity }) => entity));
+  for (const entity of present) if (!returning.has(entity)) entity.destroy?.();
   game.entities.clear();
   for (const saved of snapshot.entities) {
     const { entity } = saved;
@@ -196,6 +202,7 @@ export function restoreSnapshot(game, snapshot) {
     loadObject(entity, saved.self, ENTITY_SKIP, done);
     for (const [, constraint, state] of saved.constraints) loadObject(constraint, state, CONSTRAINT_SKIP, done);
     game.entities.add(entity);
+    if (!present.has(entity)) entity.revive?.();
   }
   game.player = snapshot.player;
   game.isGameOver = snapshot.isGameOver;

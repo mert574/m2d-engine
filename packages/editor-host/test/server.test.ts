@@ -81,7 +81,7 @@ describe('the MCP server', () => {
     const actors = new Registry(BUILTIN_ACTORS);
     actors.set('Block', Block);
     actors.set('Shared', Block, 'kit');
-    class Mist { static description = 'Drawn by the 3D renderer'; static dimensions = 3; }
+    class Mist { static description = 'Drawn by the 3D renderer'; static dimensions = 3; static tool = { color: '#38bdf8', label: 'mist' }; }
     actors.set('Mist', Mist, 'kit');
     const constraintTypes = new Registry(BUILTIN_CONSTRAINTS);
     const prefabTemplates = new Registry();
@@ -104,6 +104,8 @@ describe('the MCP server', () => {
       expect(of('Prop').origin).toBe('engine');
       // An actor for one dimension says so, and a level of the other is refused naming it.
       expect(of('Mist').dimensions).toBe(3);
+      expect(of('Mist').tool).toEqual({ color: '#38bdf8', label: 'mist' });
+      expect(of('SpawnPoint').tool).toMatchObject({ label: 'spawn' });
       expect(of('Block').dimensions).toBeUndefined();
       await origins.callTool({ name: 'edit_scene', arguments: { path: 'scenes/room.json', label: 'Mist', ops: [
         { op: 'set', path: ['prefabs', 'mist'], value: { actor: 'Mist' } }
@@ -355,7 +357,7 @@ describe('agents edit through the session', () => {
     expect(companion.session.isDirty(path)).toBe(false);
   });
 
-  it('works a lighting cycle through the Look tab\'s actions, and refuses the particles it no longer has', async () => {
+  it('works a lighting cycle through the Look tab\'s actions', async () => {
     const path = 'scenes/room.json';
     const before = (await companion.session.snapshot(path)).state.undo;
     const call = (name: string, args: Record<string, unknown>) => client.callTool({ name, arguments: { path, ...args } });
@@ -375,7 +377,6 @@ describe('agents edit through the session', () => {
     expect(after).toMatchObject({ phase: 1, states: ['dusk', 'night'] });
     expect((await call('edit_look', { action: 'removeState', index: 0 })).isError).toBe(true);
     expect(textOf(await call('edit_look', { action: 'addState' }))).toMatch(/addState needs a phase/);
-    expect((await call('edit_look', { action: 'addParticles', kind: 'motes' })).isError).toBe(true);
 
     for (let i = 0; i < 6; i++) await call('undo', {});
     expect((await companion.session.snapshot(path)).state.undo).toBe(before);

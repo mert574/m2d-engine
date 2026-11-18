@@ -140,7 +140,7 @@ const scene = {
     lamp: { actor: 'Lamp', physics: { bodyType: 'static', shape: 'circle' } },
     street: { actor: 'Street', physics: { bodyType: 'static', isSensor: true } },
     foreground: { actor: 'Foreground', physics: { bodyType: 'static', isSensor: true } },
-    bound: { actor: 'Bound', physics: { bodyType: 'static' } },
+    bound: { actor: 'Clip', physics: { bodyType: 'static' } },
     door: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } }
   },
   layers: [{ name: 'row', type: 'objects', objects }]

@@ -1,6 +1,6 @@
 import { s } from 'm2d-engine/core/schema.js';
 import { Entity } from 'm2d-engine/core/entity.js';
-import { Ghost, ObliquePlayer, Platform } from 'm2d-kit/actors';
+import { Ghost, ObliquePlayer } from 'm2d-kit/actors';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { Attack } from 'm2d-engine/constraints/attack.js';
 import { drawGroundShadow, shadowForLift } from 'm2d-engine/core/renderers/shadows.js';
@@ -12,13 +12,6 @@ import { AttackSwing, HitBurst } from 'm2d-kit/effects';
  * depth lane is compressed and a jump (`elevation`) rises freely. Ground
  * shadows come from the engine and shrink with the lift.
  */
-
-/** An invisible kerb. */
-export class Bound extends Platform {
-  /** Source's player clip, magenta: a wall nobody sees. */
-  static tool = { color: '#e040fb', label: 'clip' };
-  draw() {}
-}
 
 /** A street lamp on the back kerb, unlit under the midday sun. */
 export class Lamp extends Entity {

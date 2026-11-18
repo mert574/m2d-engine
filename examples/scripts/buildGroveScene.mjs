@@ -94,7 +94,7 @@ const prefabs = {
   maren: { actor: 'Npc', spritesheet: 'maren', defaultAnimation: 'idle_down', physics: { bodyType: 'static', footprint: { height: 16, width: 28 } } },
   oswin: { actor: 'Npc', spritesheet: 'oswin', defaultAnimation: 'idle_down', physics: { bodyType: 'static', footprint: { height: 16, width: 28 } } },
   pond: { actor: 'Pond', physics: { bodyType: 'static', shape: 'circle' } },
-  bound: { actor: 'Bound', physics: { bodyType: 'static' } },
+  bound: { actor: 'Clip', physics: { bodyType: 'static' } },
   groundDetail: { actor: 'GroundDetail', physics: { bodyType: 'static', isSensor: true } }
 };
 for (const [name, t] of Object.entries(TREES)) {

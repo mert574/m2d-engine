@@ -1,6 +1,5 @@
 import { Entity } from '../core/entity.js';
 import { s } from '../core/schema.js';
-import { toolsShown, drawToolVolume2D } from '../core/toolVolumes.js';
 
 export class Trigger extends Entity {
   static description = 'An invisible sensor that fires when something enters it';
@@ -10,9 +9,8 @@ export class Trigger extends Entity {
 
   static properties = {
     active: s.boolean({ initial: false, description: 'Inert until set' }),
-    visible: s.boolean({ initial: false, description: 'Show its box in play too, not only in the editor and under r_showtools' }),
-    triggers: s.string({ description: 'A tag for game code to read on entry; a level\'s rules watch the object itself (when: enter)' }),
-    debugColor: s.string({ editor: 'color', label: 'Box colour', description: 'Its box\'s colour; trigger orange unless set' })
+    visible: s.boolean({ initial: false, description: 'Show it in play: its sprite, or with none its box, as the editor and r_showtools always do' }),
+    triggers: s.string({ description: 'A tag for game code to read on entry; a level\'s rules watch the object itself (when: enter)' })
   };
 
   constructor(body, sprite, game, options = {}) {
@@ -21,7 +19,6 @@ export class Trigger extends Entity {
     this.active = options.active || false;
     this.visible = options.visible || false;
     this.triggers = options.triggers || [];
-    this.toolColor = options.debugColor ?? null;
   }
 
   // A player's avatar entering or leaving: the players registry's test, so
@@ -43,17 +40,16 @@ export class Trigger extends Entity {
   }
 
   /**
-   * A trigger with a sprite draws it once `visible`. One without shows its
-   * box in play once `visible`; the editor and `r_showtools` show every
-   * trigger's box anyway, so it is not drawn twice.
+   * A trigger whose only look is its box shows it in play once `visible`:
+   * one with a sprite draws that instead, and a game's trigger with art of
+   * its own (a gate) draws itself.
    */
+  get toolInPlay() {
+    return this.visible && !this.sprite?.width && this.draw === Trigger.prototype.draw;
+  }
+
   draw() {
-    if (!this.visible) return;
-    if (this.sprite) {
-      super.draw();
-      return;
-    }
-    if (!toolsShown(this.game)) drawToolVolume2D(this);
+    if (this.visible && this.sprite?.width) super.draw();
   }
 
   /** Its kind, and the tag game code reads, when it has one. */

@@ -3,7 +3,7 @@
 How work is done on this repository, by agents and with the owner.
 
 - **Parallel agents.** Many agents may work on the repository at once, each in its own git worktree.
-  - Every message from the owner is a new checkpoint. After each one, use a new random port for any server or browser, and a new randomly named temp directory if you need one at all. Don't check whether the old one is still free; just switch. Carry nothing across: never write a port or a path down to use after the next message, and never read from an earlier message's temp dir.
+  - Every message from the owner is a new checkpoint. After each one, use a new random port for any server or browser, and a new randomly named temp directory if you need one at all. Don't check whether the old one is still free; just switch. Carry nothing across: never write a port or a path down to use after the next message, and never read from an earlier message's temp dir. A script copied from an earlier scratchpad carries that message's worktree path, which may by now be another agent's worktree: write it again from the current one (18 Nov 2026: a copied screenshot script ran another session's editor against this worktree's projects, and its shots showed that session's code).
   - Never touch, check or read another agent's work: their servers, Chrome debugging ports, worktrees, temp files, screenshots or logs. Run tests only against servers and browsers you started yourself.
   - Your own worktree's path may change between messages, though never while you are working. That needs no verification; carry on in the current one.
   - Never touch the base checkout.

@@ -1,6 +1,7 @@
 import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { registerEffects } from 'm2d-kit/effects';
-import { Rogue, Thug, Lamp, Bound } from './rowActors.js';
+import { Clip } from 'm2d-kit/actors';
+import { Rogue, Thug, Lamp } from './rowActors.js';
 import { Street, Foreground } from './streetScenery.js';
 import assetManifest from './assets.json';
 import { StreetFront } from './menuBackdrop.js';
@@ -15,7 +16,7 @@ import { StreetFront } from './menuBackdrop.js';
 export function register(game) {
   game.registerBackdropLayer('streetFront', () => new StreetFront());
   for (const [name, actor] of Object.entries({
-    ObliquePlayer: Rogue, Ghost: Thug, Lamp, Bound, Street, Foreground, Trigger
+    ObliquePlayer: Rogue, Ghost: Thug, Lamp, Clip, Street, Foreground, Trigger
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
   registerEffects(game);

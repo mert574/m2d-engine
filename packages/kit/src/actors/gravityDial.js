@@ -1,5 +1,5 @@
 import { s } from 'm2d-engine/core/schema.js';
-import { Scenery } from '../scenery/scenery.js';
+import { Entity } from 'm2d-engine/core/entity.js';
 
 /**
  * The world's gravity along one axis, following a counter: a rule turns
@@ -11,7 +11,7 @@ import { Scenery } from '../scenery/scenery.js';
  * server, and the physics world is only told when the number changed. A
  * rule that turns the counter is felt from the next tick on.
  */
-export class GravityDial extends Scenery {
+export class GravityDial extends Entity {
   static description = 'Sets one axis of the world\'s gravity from a counter each tick';
   static properties = {
     counter: s.ref('counter', { label: 'Counter', description: 'A plain counter in world.counters: the gravity along the axis' }),
@@ -23,6 +23,7 @@ export class GravityDial extends Scenery {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
+    body.setCollisionFilter({ category: 0, mask: 0 });
     this.counter = options.counter ?? null;
     this.axis = options.axis ?? 'y';
   }

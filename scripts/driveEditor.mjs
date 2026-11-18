@@ -509,7 +509,7 @@ const SUITES = {
     }
   },
 
-  /** The lot's Look tab: scrub the cycle without writing; then smoke as an object, from the kit's template. */
+  /** The lot's Look tab: scrub the cycle without writing; then a smoke field, from the kit's template. */
   look: (context, report, out) =>
     drive(context, report, join(repo, 'examples/src/yard'), 'scenes/lot.json', async (page) => {
       await page.click('.tab[data-tab="look"]');
@@ -526,12 +526,10 @@ const SUITES = {
       report.check('scrubbing changes the picture', !resting.equals(scrubbed));
       report.check('scrubbing writes nothing', !(await history(page)).dirty);
 
-      const lookText = await page.locator('#look').innerText();
-      report.check('the Look tab holds the cycle only', !/Particles|Add smoke/.test(lookText));
       const atmosphere = await page.evaluate(() => window.m2dEditor.remote.doc.data.layers.find((layer) => layer.name === 'atmosphere')?.objects.map((o) => o.id) ?? []);
       report.check('the lot\'s motes, smoke and wind are placed objects', ['motes-1', 'smoke-1', 'wind-1'].every((id) => atmosphere.includes(id)), atmosphere.join(', '));
 
-      // A new field, as a person adds one now: the kit's template from Components, placed from Assets.
+      // A new field: the kit's template from Components, placed from Assets.
       await page.click('.tab[data-tab="components"]');
       const sky = page.locator('.component-card[data-kind="prefab"][data-name="sky"] .component-actions button');
       report.check('a 2D template offers no Insert in a 3D level', await sky.isDisabled());

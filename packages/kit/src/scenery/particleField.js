@@ -54,7 +54,7 @@ export class ParticleField extends Scenery {
     const known = FIELD_KINDS[dimensions];
     if (known.includes(properties.kind)) return;
     if (properties.kind === undefined) fail('kind', `a particle field names its kind (here: ${list(known)})`);
-    fail('kind', `'${properties.kind}' particles are drawn in ${dimensions === 2 ? 3 : 2}D, and this level is ${dimensions}D (known here: ${list(known)})`);
+    else fail('kind', `'${properties.kind}' particles are drawn in ${dimensions === 2 ? 3 : 2}D, and this level is ${dimensions}D (known here: ${list(known)})`);
   }
 
   name = 'ParticleField';

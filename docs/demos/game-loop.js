@@ -26,6 +26,8 @@ class Block extends Entity {
  * generator; it spawns the prefab, so the ball's body comes from the scene.
  */
 class Dropper extends Entity {
+  /** Logic nobody sees: slate, in the editor and under r_showtools. */
+  static tool = { color: '#94a3b8', label: 'dropper' };
   static properties = {
     prefab: s.ref('prefab', { required: true, description: 'What drops: a prefab of the scene' }),
     every: s.number({ positive: true, initial: 0.5, unit: 's', description: 'Seconds between drops' }),

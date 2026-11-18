@@ -1,3 +1,4 @@
+import { viewToUI } from '../viewport.js';
 /**
  * World-anchored overlay: annotations drawn *on* the world, not *in* it.
  *
@@ -113,19 +114,24 @@ export class WorldOverlay {
   }
 
   /**
-   * The transform that turns world coordinates into UI coordinates.
-   *
-   * Both spaces are measured in design-sized units, so the scale works out to
-   * 1 for every viewport the engine produces and this is in practice a pure
-   * translation by the content rect's origin. It is derived rather than
-   * assumed so the overlay stays correct if that ever stops being true.
+   * The transform that turns the world's render plane into UI coordinates:
+   * where the camera puts the origin and one unit along x, so the camera's
+   * zoom and rotation come through as well as its position. Shapes are
+   * submitted on the render plane (already projected, under a projection),
+   * so this does not project again.
    */
   #worldTransform() {
-    const v = this.game.viewport;
-    const origin = this.game.worldToUI(0, 0);
-    if (!origin) return null;
-    const scale = (v.contentWidth / v.viewWidth) / v.uiScale;
-    return { x: origin.x, y: origin.y, scaleX: scale, scaleY: scale };
+    const { camera, viewport } = this.game;
+    const toUI = (x, y) => {
+      const view = camera.worldToScreen(x, y);
+      return viewToUI({ x: view.x, y: view.y, viewport });
+    };
+    const origin = toUI(0, 0);
+    const unit = toUI(1, 0);
+    const dx = unit.x - origin.x;
+    const dy = unit.y - origin.y;
+    const scale = Math.hypot(dx, dy);
+    return { x: origin.x, y: origin.y, rotation: Math.atan2(dy, dx), scaleX: scale, scaleY: scale };
   }
 
   /** Replay the frame's submissions. Runs in the engine's overlay pass. */

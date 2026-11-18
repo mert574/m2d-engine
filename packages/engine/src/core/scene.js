@@ -187,13 +187,10 @@ export class Scene {
       const player = this.entitiesById.get(world.player);
       if (player && !this.game.player) this.game.player = player;
       // Where play starts: the first free spawn point, as an avatar joining
-      // a match does. The editor shows the object where it was placed, and
-      // on a client the server says where its avatar is.
-      const point = player && !this.game.editMode && !this.#serverRuns ? this.freeSpawnPoint(player) : null;
-      if (point) {
-        player.body.setPosition({ ...point.body.position });
-        player.body.setVelocity(player.body.position.z === undefined ? { x: 0, y: 0 } : { x: 0, y: 0, z: 0 });
-      }
+      // a match does. The editor shows the object where it was placed, a
+      // client hears from the server where its avatar is, and the editor's
+      // play from a point says `startAtSpawnPoint: false`.
+      if (player && !this.game.editMode && !this.#serverRuns && this.game.options.startAtSpawnPoint !== false) this.placeAtSpawnPoint(player);
     }
     /** `world.counters`: what rules count and the HUD shows. */
     this.counters = new SceneCounters(this, world.counters ?? {});
@@ -596,8 +593,8 @@ export class Scene {
         this.game.physics.setGravity(this.config.world.gravity);
       }
     }
-    // The level's size is its own: tile layers, the kill plane and "world"
-    // camera bounds read it, and no option has to say it a second time.
+    // The level's size is its own: tile layers and "world" camera bounds
+    // read it, and no option has to say it a second time.
     if (this.config.type === 'level' && this.game.defaultWorldSize) {
       this.game.options.worldWidth = this.config.world?.width ?? this.game.defaultWorldSize.width;
       this.game.options.worldHeight = this.config.world?.height ?? this.game.defaultWorldSize.height;
@@ -884,6 +881,21 @@ export class Scene {
   }
 
   /**
+   * Put an avatar at the first free spawn point, at rest: where a level's
+   * player starts, and where a game sends a fallen one back. Returns the
+   * point, or null when the level places none (and leaves it where it is).
+   * @param {import('./entity.js').Entity} avatar
+   * @returns {SpawnPoint|null}
+   */
+  placeAtSpawnPoint(avatar) {
+    const point = this.freeSpawnPoint(avatar);
+    if (!point) return null;
+    avatar.body.setPosition({ ...point.body.position });
+    avatar.body.setVelocity({ x: 0, y: 0 });
+    return point;
+  }
+
+  /**
    * A player's avatar, made from the scene's own `world.player` object —
    * its prefab, size, properties and constraints — at a free spawn point,
    * or where that object stands when the level places none, and owned by
@@ -894,11 +906,9 @@ export class Scene {
   spawnAvatar(player) {
     const template = this.#playerObject();
     if (!template) return null;
-    const { id, x, y, z, ...placement } = template;
-    const at = this.freeSpawnPoint()?.body.position ?? { x, y, z };
-    const avatar = this.spawnPrefab(template.prefab, {
-      ...placement, x: at.x, y: at.y, ...((z !== undefined || at.z !== undefined) && { z: at.z ?? z })
-    });
+    const { id, ...placement } = template;
+    const at = this.freeSpawnPoint()?.body.position ?? template;
+    const avatar = this.spawnPrefab(template.prefab, { ...placement, x: at.x, y: at.y, ...(at.z !== undefined && { z: at.z }) });
     if (!avatar) return null;
     avatar.playerId = player.id;
     player.avatar = avatar;
@@ -1634,7 +1644,6 @@ export class Scene {
         // An entity's own geometry (a strip built along a path) is in its
         // body's frame at scale 1; anything else is its shape at its size.
         const { geometry, scale } = entity.geometry ? { geometry: entity.geometry, scale: UNIT } : geometryFor(mesh.shape ?? body.shape, body.size);
-        if (!geometry) continue;
         // Last frame's matrix comes back as this frame's previous, for
         // motion vectors; it lives on the entity because the frame does not.
         entity.lastModel = frame.add(geometry, {

@@ -11,7 +11,7 @@ import rainSprite from './assets/rain.png';
 import gullSprite from './assets/gull.png';
 import { HarbourNight } from './menuBackdrop.js';
 import { audioOption } from 'm2d-kit/audio';
-import { registerKitScenery } from 'm2d-kit/scenery';
+import { registerKitScenery, sceneryPrefab as scenery } from 'm2d-kit/scenery';
 // IDMf001: InDepthMelodics (CC BY 3.0); see docs/examples/music-credits.md.
 import lastTransmission from './music/kloquewurk-last-transmission.ogg';
 import g2Remix from './music/gbsr-g2-cockboymattt-remix.ogg';
@@ -74,11 +74,6 @@ game.sceneManager.addScene('mainMenu', {
     ]
   })
 });
-
-/** A backdrop that collides with nothing, as the kit's templates make one. */
-function scenery(actor, properties) {
-  return { actor, physics: { bodyType: 'static', isSensor: true, layer: 'none' }, properties };
-}
 
 game.sceneManager.addScene('showcase', {
   fetch: async () => ({

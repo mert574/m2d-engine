@@ -52,7 +52,7 @@ const prefabs = {
   droneBlack: { actor: 'Drone', spritesheet: 'droneBlack', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, frictionAir: 0.3 } },
   salvage: { actor: 'Salvage', spritesheet: 'salvage', physics: { bodyType: 'static', isSensor: true, shape: 'circle' } },
   gate: { actor: 'Gate', spritesheet: 'beacon', physics: { bodyType: 'static', isSensor: true, shape: 'circle' } },
-  bound: { actor: 'Bound', physics: { bodyType: 'static', restitution: 0.6 } },
+  bound: { actor: 'Clip', physics: { bodyType: 'static', restitution: 0.6 } },
   sky: { actor: 'Sky', physics: { bodyType: 'static', isSensor: true } }
 };
 for (const [name, m] of Object.entries(METEORS)) {

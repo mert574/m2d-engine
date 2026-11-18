@@ -36,9 +36,9 @@ export function playerObjectId(data: Record<string, unknown>): string | null {
 }
 
 /**
- * A copy of the scene whose player starts at `at`. Its spawn points are
- * left out of the copy: they say where play starts, and here the person
- * playing has said.
+ * A copy of the scene whose player starts at `at`. Played with the
+ * engine's `startAtSpawnPoint: false`, so the level's spawn points do not
+ * move it back.
  */
 export function playFrom(data: Record<string, unknown>, at: At): Record<string, unknown> {
   const id = playerObjectId(data);
@@ -49,14 +49,6 @@ export function playFrom(data: Record<string, unknown>, at: At): Record<string, 
   player.object.x = at.x;
   player.object.y = at.y;
   if (dimensionsOf(copy) === 3) player.object.z = at.z ?? 0;
-  const prefabs = isPlainObject(copy.prefabs) ? copy.prefabs : {};
-  const spawns = (object: Record<string, unknown>) => {
-    const prefab = prefabs[String(object.prefab)];
-    return isPlainObject(prefab) && prefab.actor === 'SpawnPoint';
-  };
-  for (const layer of Array.isArray(copy.layers) ? copy.layers : []) {
-    if (isPlainObject(layer) && Array.isArray(layer.objects)) layer.objects = layer.objects.filter((object) => !(isPlainObject(object) && spawns(object)));
-  }
   return copy;
 }
 

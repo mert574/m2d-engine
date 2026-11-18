@@ -154,7 +154,7 @@
       "spritesheet": "beacon",
       "physics": { "bodyType": "static", "shape": "circle", "isSensor": true }
     },
-    "bound": { "actor": "Bound", "physics": { "bodyType": "static", "restitution": 0.6 } },
+    "bound": { "actor": "Clip", "physics": { "bodyType": "static", "restitution": 0.6 } },
     "sky": { "actor": "Sky", "physics": { "bodyType": "static", "isSensor": true } },
     "brownBig1": {
       "actor": "Meteor",

@@ -127,7 +127,7 @@ Annotations on an entity, such as a detection radius or a health readout, should
 this.game.removeEntity(this);
 ```
 
-An actor that starts something outside itself stops it in `destroy()` and calls `super.destroy()`. (`Projectile.destroy()` is the exception that removes the projectile itself.)
+An actor that starts something outside itself stops it in `destroy()` and calls `super.destroy()`.
 
 ### Reaching the scene
 

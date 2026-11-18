@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import { SceneLoader } from 'm2d-engine/core/sceneLoader.js';
 import { AssetDatabase } from 'm2d-engine/core/assets.js';
 import { writeScene, writeManifest } from 'm2d-editor-core';
-import { gameFor, sceneFiles, manifestFiles, DEMO_ACTORS, makeGame } from './helpers.js';
+import { sceneFiles, manifestFiles, shippedGames } from './helpers.js';
+
+const games = await shippedGames();
 
 /**
  * The canonical writer against every scene and manifest the repo ships —
@@ -29,7 +31,7 @@ describe('the canonical writer over shipped scenes', () => {
   it.each(files)('$name loses nothing through write and load', ({ example, path }) => {
     const doc = JSON.parse(readFileSync(path, 'utf8'));
     const written = writeScene(doc);
-    const load = data => new SceneLoader(gameFor(example)).load(data);
+    const load = data => new SceneLoader(games.get(example).game).load(data);
     expect(load(JSON.parse(written))).toEqual(load(doc));
   });
 
@@ -55,7 +57,7 @@ describe('the canonical writer over shipped manifests', () => {
   it.each(files)('$name loses nothing through write and load', ({ example, path }) => {
     const doc = JSON.parse(readFileSync(path, 'utf8'));
     const written = writeManifest(doc);
-    const game = makeGame({ actors: DEMO_ACTORS[example] });
+    const { game } = games.get(example);
     const load = data => {
       const db = new AssetDatabase();
       db.load(data, { actors: game.actors });

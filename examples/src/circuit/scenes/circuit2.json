@@ -103,6 +103,10 @@
         "restitution": 0.3
       },
       "properties": { "blue": "barrel", "blueDown": "barrelDown", "red": "barrelRed", "redDown": "barrelRedDown" }
+    },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -205,7 +209,8 @@
             },
             "ghost": "carBlack"
           }
-        }
+        },
+        { "id": "spawn-1", "prefab": "spawn", "x": 10433, "y": 4351, "width": 120, "height": 120 }
       ]
     },
     {

@@ -107,11 +107,9 @@ export function readyKnight(game, player) {
     player.notify('fallen');
     game.time.after(3, () => {
       if (!game.entities.has(knight)) return;
-      const point = game.sceneManager.getCurrentScene()?.freeSpawnPoint();
       knight.dead = false;
       health.currentHealth = health.maxHealth;
-      if (point) knight.body.setPosition({ ...point.body.position });
-      knight.body.setVelocity({ x: 0, y: 0 });
+      game.sceneManager.getCurrentScene()?.placeAtSpawnPoint(knight);
     });
   };
   return knight;

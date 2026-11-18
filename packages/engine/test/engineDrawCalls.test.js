@@ -9,6 +9,7 @@ import { SpriteSheet } from '../src/core/spriteSheet.js';
 import { Health } from '../src/constraints/health.js';
 import { Debug } from '../src/constraints/debug.js';
 import { Trigger } from '../src/actors/trigger.js';
+import { drawToolVolumes2D } from '../src/core/toolVolumes.js';
 import { UIRectangle } from '../src/core/ui/Rectangle.js';
 import { PerformanceStats } from '../src/core/ui/performanceStats.js';
 import { makeTestGame, makeBody, expectBalancedStacks } from './helpers/testGame.js';
@@ -352,47 +353,50 @@ describe('engine draw calls', () => {
 
 
   describe('Trigger', () => {
-    it('draws nothing while invisible', () => {
-      const trigger = new Trigger(makeBody(game, 60, 60, 40, 40), null, game, { visible: false });
+    /** A trigger in the world and the frame's tool pass, as the scene runs it after the world. */
+    const drawn = (options) => {
+      const trigger = new Trigger(makeBody(game, 60, 60, 40, 40), null, game, options);
+      game.entities.add(trigger);
       renderer.reset();
       trigger.draw();
+      drawToolVolumes2D(game);
+      return trigger;
+    };
 
+    it('draws nothing in play while invisible', () => {
+      drawn({ visible: false });
       expect(renderer.calls).toHaveLength(0);
       expect(overlay.shapes).toHaveLength(0);
       expect(overlay.labels).toHaveLength(0);
     });
 
-    it('draws its box and its label as one sharp annotation while visible', () => {
-      const trigger = new Trigger(makeBody(game, 60, 60, 40, 40), null, game, {
-        visible: true,
-        triggers: 'levelComplete'
-      });
-      renderer.reset();
-      trigger.draw();
-
+    it('shows its box and its label as one sharp annotation in play once visible', () => {
+      drawn({ visible: true, triggers: 'levelComplete' });
       // Box and label travel together on the overlay, so neither is sharper than the other.
       expect(renderer.calls).toHaveLength(0);
       const [{ method, options: box }] = overlay.shapes;
       expect(method).toBe('drawPath');
       expect(box.points.map(({ x, y }) => [x, y])).toEqual([[40, 40], [80, 40], [80, 80], [40, 80]]);
       expect(box.fillStyle).toBe('rgba(255, 138, 28, 0.3)');
-
       const [text] = overlay.labels;
       expect(text.text).toBe('trigger levelComplete');
       expect(text).toMatchObject({ x: 40, y: 40 });
     });
 
-    it('labels a list of tags, and takes its box colour from debugColor', () => {
-      const trigger = new Trigger(makeBody(game, 60, 60, 40, 40), null, game, {
-        visible: true,
-        triggers: ['a', 'b'],
-        debugColor: '#00ff00'
-      });
-      renderer.reset();
-      trigger.draw();
-
+    it('labels a list of tags', () => {
+      drawn({ visible: true, triggers: ['a', 'b'] });
       expect(overlay.labels[0].text).toBe('trigger a, b');
-      expect(overlay.shapes[0].options.fillStyle).toBe('rgba(0, 255, 0, 0.3)');
+    });
+
+    it('lets a game\'s trigger with art of its own draw itself, box only where tools are shown', () => {
+      class Gate extends Trigger { draw() { this.game.renderer.drawRect({ x: 0, y: 0, width: 1, height: 1 }); } }
+      const gate = new Gate(makeBody(game, 60, 60, 40, 40), null, game, { visible: true });
+      game.entities.add(gate);
+      renderer.reset();
+      gate.draw();
+      drawToolVolumes2D(game);
+      expect(renderer.callsTo('drawRect')).toHaveLength(1);
+      expect(overlay.shapes).toHaveLength(0);
     });
   });
 });

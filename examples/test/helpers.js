@@ -1,113 +1,12 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { expect } from 'vitest';
 import { join } from 'node:path';
-import { Chase } from 'm2d-engine/constraints/chase.js';
-import { GlideControl } from 'm2d-kit/controls';
-import { Sky, Scatter, ParticleField, AmbientSound, PathStrip } from 'm2d-kit/scenery';
-import { GravityDial } from 'm2d-kit/actors';
-import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
-import { AssetDatabase } from 'm2d-engine/core/assets.js';
-import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS, Registry } from 'm2d-engine/core/builtins.js';
-import { CollisionLayers } from 'm2d-engine/core/collisionLayers.js';
 
 /**
- * Shared machinery for the tests that sweep every shipped scene:
- * which actors and constraints each demo registers, a game stub exposing
- * only what the loader cross-references, and the file discovery.
+ * Shared machinery for the tests that sweep every shipped scene: the
+ * shipped projects booted with their own definitions, the file discovery,
+ * and a headless playthrough harness.
  */
-
-/**
- * Constraint classes a demo may name in a scene file. The real classes,
- * not stubs: their `static params` is what declared params validate
- * against, so a mistyped param in a demo scene fails here.
- */
-const CONSTRAINT_CLASSES = { Chase, Footsteps, GlideControl };
-
-/**
- * The kit actors each demo registers, as the real classes for the same
- * reason: a field's kind is checked against the level's dimension, and a
- * dial's counter against the level's counters, by the actor itself. Only
- * where the demo registers them: Salvage Run has a `Sky` of its own.
- */
-const SCENERY = { Sky, Scatter, ParticleField, AmbientSound, PathStrip };
-export const KIT_CLASSES = { platformer: SCENERY, yard: SCENERY, physics: { GravityDial } };
-
-/** Actors each demo registers with `game.registerActor`. */
-export const DEMO_ACTORS = {
-  platformer: ['Player', 'Bee', 'Platform', 'MovingPlatform', 'Coin', 'ValleyGate', 'ValleyBackdrop'],
-  topdown: ['TopDownPlayer', 'Ghost', 'Platform', 'Coin', 'ExtractionPad', 'Turret', 'FloorMarks', 'CeilingLamp'],
-  oblique: ['ObliquePlayer', 'Ghost', 'Tree', 'Decor', 'Bound', 'Pond', 'Coin', 'Clearing', 'Npc', 'GroundDetail'],
-  iso: ['ObliquePlayer', 'Ghost', 'Wall', 'Torch', 'Coin', 'Stair', 'Quartermaster'],
-  belt: ['ObliquePlayer', 'Ghost', 'Lamp', 'Bound', 'Trigger', 'Street', 'Foreground'],
-  drift: ['Ship', 'Meteor', 'Drone', 'Salvage', 'Gate', 'Bound', 'Sky'],
-  yard: ['Hero', 'Ground', 'Crate'],
-  physics: ['Ball', 'Box', 'Housing', 'Girder', 'Peg', 'Spout', 'WorkshopBackdrop'],
-  circuit: ['Road', 'RaceDirector', 'TrafficCar', 'Cone', 'Barrel', 'OilSlick', 'BoostPad', 'GateArm', 'Checkpoint', 'IceStretch', 'Tunnel'],
-  maze: ['Gardener', 'Hedge', 'Fountain', 'FlowerBed', 'GardenBackdrop'],
-  scroller: ['Meadow', 'ForeMeadow', 'ScrollFront', 'Bee', 'Flower', 'Pollen', 'Thistle', 'Wasp', 'Web', 'Hive'],
-  'first-game': ['Hero']
-};
-
-/** Constraints each demo registers, and so may attach from its scenes. */
-export const DEMO_CONSTRAINTS = {
-  platformer: ['Chase'],
-  maze: ['GlideControl'],
-  yard: ['Footsteps']
-};
-
-/** A game stub exposing only what the loader cross-references. */
-export function makeGame({ actors = [], classes = {}, scenes = [], constraints = [], manifest = null, layers = [] } = {}) {
-  // Registries, not plain maps: a scene may name an engine actor or
-  // constraint the game never registered, exactly as it may in play.
-  const actorMap = new Registry(BUILTIN_ACTORS);
-  for (const name of actors) actorMap.set(name, class {});
-  for (const [name, klass] of Object.entries(classes)) actorMap.set(name, klass);
-  const constraintMap = new Registry(BUILTIN_CONSTRAINTS);
-  for (const name of constraints) constraintMap.set(name, CONSTRAINT_CLASSES[name]);
-  const assets = new AssetDatabase();
-  if (manifest) assets.load(manifest, { actors: actorMap });
-  return {
-    actors: actorMap,
-    constraintTypes: constraintMap,
-    collisionLayers: new CollisionLayers(layers),
-    assets,
-    sceneManager: { scenes: new Map(), scenesToLoad: scenes.map(name => ({ name })) }
-  };
-}
-
-/**
- * The game stub for one demo, its manifest loaded when it ships one and
- * its scenes registered as its project registers them, by name — so a
- * menu's `onClick` to a level of its own resolves, and one to a scene the
- * game does not have is refused as it would be in play.
- */
-export function gameFor(example) {
-  const projectFile = join(import.meta.dirname, '..', 'src', example, 'm2d.project.json');
-  const layers = existsSync(projectFile) ? JSON.parse(readFileSync(projectFile, 'utf8')).layers ?? [] : [];
-  return makeGame({
-    actors: DEMO_ACTORS[example],
-    classes: KIT_CLASSES[example] ?? {},
-    constraints: DEMO_CONSTRAINTS[example],
-    manifest: manifestFor(example),
-    scenes: sceneNamesOf(example),
-    layers
-  });
-}
-
-/** The names of the scene files a demo ships. */
-function sceneNamesOf(example) {
-  const dir = join(import.meta.dirname, '..', 'src', example, 'scenes');
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir).filter((f) => f.endsWith('.json'))
-    .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')).name)
-    .filter(Boolean);
-}
-
-/** A demo's asset manifest, if it ships one beside its scenes. */
-export function manifestFor(example) {
-  const path = join(import.meta.dirname, '..', 'src', example, 'assets.json');
-  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
-}
 
 /** Every shipped scene file: the demos' and the docs' first-game demo. */
 export function sceneFiles() {
@@ -130,29 +29,44 @@ export function sceneFiles() {
   return files;
 }
 
-/**
- * The games among the examples that are editor projects — a folder with an
- * `m2d.project.json` — each as a real headless game with its definition's
- * `register(game)` run on it: the classes, intents and manifest the game
- * itself boots with, so declared actor `properties` and constraint
- * `params` are checked the way they are in play. The stubs above cannot
- * do that: a `class {}` declares nothing, and a scene field its real
- * actor rejects passes against it.
- */
-export async function projectGames() {
+/** Where each shipped project's folder is, from `examples/src`: every example, and the walkthrough under docs. */
+function projectFolders() {
   const src = join(import.meta.dirname, '..', 'src');
-  const folders = readdirSync(src).filter(name => existsSync(join(src, name, 'm2d.project.json')));
-  return Promise.all(folders.map(async (folder) => {
-    const { game, config, root, sceneDir } = await bootHeadless(folder);
-    const scenes = readdirSync(sceneDir).filter(f => f.endsWith('.json')).map(f => join(sceneDir, f));
-    // Registered by name, as bootProject registers them: a menu's onClick
-    // to a level of the game's resolves, and a typo is refused.
-    for (const path of scenes) {
-      const data = JSON.parse(readFileSync(path, 'utf8'));
-      game.sceneManager.addScene(data.name, { fetch: async () => data });
+  const examples = readdirSync(src).filter((name) => existsSync(join(src, name, 'm2d.project.json')));
+  return new Map([...examples.map((name) => [name, name]), ['first-game', '../../docs/demos/first-game']]);
+}
+
+let shipped = null;
+
+/**
+ * Every shipped project booted headless with its own definition — the
+ * classes and constraints it really registers — and its scenes registered
+ * by name, as bootProject registers them, so a menu's onClick to a level of
+ * the game's resolves and a typo is refused. Keyed by the name the scene
+ * files list it under (`first-game` is the walkthrough). Booted once per
+ * test file.
+ * @returns {Promise<Map<string, {name: string, root: string, game: object, scenes: string[]}>>}
+ */
+export function shippedGames() {
+  shipped ??= (async () => {
+    const out = new Map();
+    for (const [key, folder] of projectFolders()) {
+      const { game, config, root, sceneDir } = await bootHeadless(folder);
+      const scenes = readdirSync(sceneDir).filter((f) => f.endsWith('.json')).map((f) => join(sceneDir, f));
+      for (const path of scenes) {
+        const data = JSON.parse(readFileSync(path, 'utf8'));
+        game.sceneManager.addScene(data.name, { fetch: async () => data });
+      }
+      out.set(key, { name: config.name, root, game, scenes });
     }
-    return { name: config.name, root, game, scenes };
-  }));
+    return out;
+  })();
+  return shipped;
+}
+
+/** The shipped projects, as a list. */
+export async function projectGames() {
+  return [...(await shippedGames()).values()];
 }
 
 /** Every shipped asset manifest. */

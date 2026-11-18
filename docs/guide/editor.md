@@ -177,7 +177,7 @@ The Assets tab marks what the project audit finds: a file no scene names carries
 
 Play (F5) runs the scene as it stands, unsaved edits included, in a fresh game with the project's hooks, which keeps the player's settings and choices under the project's name as its page does. The other scenes load for real, so a door into the next level opens. The keyboard belongs to the game while it plays. If the game switches to a scene its page builds in code (a main menu), play stops and the status line says so. F5 or Stop returns to editing with the document as it was and the camera where it was. A code change during play starts the play again on the new code.
 
-**Play from here** (Shift+F5, or the scene's menu) starts the player at the middle of the view: the view's centre in 2D, the camera's target in 3D. The player is the object `world.player` names, or else the first whose actor is `Player`.
+**Play from here** (Shift+F5, or the scene's menu) starts the player at the middle of the view: the view's centre in 2D, the camera's target in 3D, rather than at the level's spawn point. The player is the object `world.player` names.
 
 **Stage it**, on a prefab's menu in the tree, plays that prefab alone on a floor in the scene's world and look, without the level's other objects, HUD, rules or player. The staged instance copies the scene's first placed one of that prefab (its size, properties and constraints), so a moving platform rides its route. While a prefab is staged, prefabs and assets stay editable and each edit restarts the stage; everything else waits for Stop. In 2D the floor has no sprite, so it holds things up without being drawn.
 

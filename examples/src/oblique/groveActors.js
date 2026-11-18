@@ -103,13 +103,6 @@ export class Decor extends Platform {
   }
 }
 
-/** An invisible wall. */
-export class Bound extends Platform {
-  /** Source's player clip, magenta: a wall nobody sees. */
-  static tool = { color: '#e040fb', label: 'clip' };
-  draw() {}
-}
-
 /** A still pond: dark water, a rim of reeds, the dusk on its surface. */
 export class Pond extends Platform {
   constructor(body, sprite, game, options = {}) {

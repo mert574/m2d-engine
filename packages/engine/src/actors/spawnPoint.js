@@ -14,28 +14,18 @@ export class SpawnPoint extends Entity {
   static tool = { color: '#34d399', label: 'spawn' };
   name = 'SpawnPoint';
 
-  constructor(body, sprite, game, options = {}) {
+  constructor(body, sprite, game) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: 0, mask: 0 });
   }
 
-  /** A marker, not a thing: the engine's default 3D box would show where it stands. */
-  get mesh() {
-    return null;
-  }
-
-  set mesh(value) {}
-
   /** Whether `entity` stands inside this point's reach. */
   holds(entity) {
     const at = this.body.position;
-    const there = entity.body?.position ?? entity.position;
-    const half = this.body.size;
-    return Math.abs(there.x - at.x) <= half.x / 2 &&
-      Math.abs(there.y - at.y) <= half.y / 2 &&
-      (at.z === undefined || Math.abs((there.z ?? 0) - at.z) <= (half.z ?? half.x) / 2);
+    const there = entity.body.position;
+    const size = this.body.size;
+    return Math.abs(there.x - at.x) <= size.x / 2 &&
+      Math.abs(there.y - at.y) <= size.y / 2 &&
+      (at.z === undefined || Math.abs((there.z ?? 0) - at.z) <= (size.z ?? size.x) / 2);
   }
-
-  /** Nothing of its own: its box is the engine's tool pass (core/toolVolumes.js). */
-  draw() {}
 }

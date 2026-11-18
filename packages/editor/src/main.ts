@@ -1825,7 +1825,8 @@ async function startPlay(variant: Variant | null = playVariant): Promise<void> {
     const played = variant ? new SceneDocument(stage.variantOf(current.doc.data, variant), current.path) : current.doc;
     const shown = await viewport.show(played, {
       definition,
-      presentation: projectGameOptions(project, hooksModule?.OPTIONS),
+      // Played from a point, the player starts there, not at a spawn point.
+      presentation: { ...projectGameOptions(project, hooksModule?.OPTIONS), ...(variant?.from && { startAtSpawnPoint: false }) },
       basePath: assetBase(project),
       play: {
         hooks: (game: unknown) => combineSceneHooks(definition?.sceneHooks?.(game), hooksModule?.sceneHooks?.(game)) as Record<string, Record<string, unknown>>,

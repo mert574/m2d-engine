@@ -25,7 +25,10 @@ On the server `game.player` is null: every knight is somebody's. Simulation code
 ```javascript
 // keepMatch.js
 import { defineMatch } from 'm2d-server';
-import { KEEP_INPUT, KEEP_GAME, registerKeep, keepScene, readyKnight } from './game.js';
+import { readFile } from 'node:fs/promises';
+import { KEEP_INPUT, KEEP_GAME, registerKeep, sceneHooks, readyKnight } from './game.js';
+
+const SCENE = new URL('./scenes/keep.json', import.meta.url);
 
 export default defineMatch({
   input: KEEP_INPUT,
@@ -33,7 +36,7 @@ export default defineMatch({
   maxPlayers: 4,
   async setup(game) {
     registerKeep(game);
-    game.sceneManager.addScene('keep', keepScene(game, { loadScene }));
+    game.sceneManager.addScene('keep', { fetch: async () => JSON.parse(await readFile(SCENE, 'utf8')), ...sceneHooks(game).keep });
     await game.sceneManager.switchTo('keep');
   },
   join(game, player) {
@@ -42,7 +45,7 @@ export default defineMatch({
 });
 ```
 
-The match has no spawn code. After `setup` the server takes out the scene's own `world.player` object, the single-player knight, and when a player joins it makes them an avatar from that object (its prefab, size, properties and constraints) at a free [`SpawnPoint`](../reference/actors#spawnpoint), owned by the player, before calling `join`. A point is free while no avatar stands inside it; when all are taken the one with the fewest is used, and a level that places none spawns where its player object stands. Clients build the avatar from their own copy of the scene, so it arrives whole. A game sends an avatar back to a point with `scene.freeSpawnPoint()`, as the keep does for a fallen knight. A scene that names no `world.player` gives the avatar in `join` itself (`player.avatar = game.spawn(...)`).
+The match has no spawn code. After `setup` the server takes out the scene's own `world.player` object, the single-player knight, and when a player joins it makes them an avatar from that object (its prefab, size, properties and constraints) at a free [`SpawnPoint`](../reference/actors#spawnpoint), owned by the player, before calling `join`. A point is free while no avatar stands inside it; when all are taken the one with the fewest is used, and a level that places none spawns where its player object stands. Clients build the avatar from their own copy of the scene, so it arrives whole. A game sends an avatar back to one with `scene.placeAtSpawnPoint(avatar)`, as the keep does for a fallen knight. A scene that names no `world.player` gives the avatar in `join` itself (`player.avatar = game.spawn(...)`).
 
 | Field | Default | Meaning |
 | --- | --- | --- |

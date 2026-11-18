@@ -468,7 +468,8 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       'an object\'s `constraints` as { "slot": { "type": "Name", "params": {...} } }. ' +
       '`prefabs` are ready-made templates: copy one\'s `prefab` value into the scene\'s own ' +
       '`prefabs` under a free name with edit_scene, then place objects of it; a template\'s or an ' +
-      'actor\'s `dimensions` is the only scene dimension it works in (absent: both).',
+      'actor\'s `dimensions` is the only scene dimension it works in (absent: both). An actor with a `tool` ' +
+      '({ color, label }) is one a player never sees — a trigger, a spawn point — drawn as a box of that colour in the editor.',
     inputSchema: {}
   }, async () => {
     const found = await registries();
@@ -482,6 +483,7 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       actors: [...(found.actors ?? [])].map(([name, klass]) => ({
         name, origin: originOf(found.actors, name), description: describe(klass) || undefined,
         dimensions: (klass as { dimensions?: 2 | 3 | null }).dimensions ?? undefined,
+        tool: (klass as { tool?: { color: string; label: string } | null }).tool ?? undefined,
         properties: fieldsOf((klass as { properties?: unknown }).properties)
       })),
       constraints: [...(found.constraintTypes ?? [])].map(([name, klass]) => ({

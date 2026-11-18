@@ -18,6 +18,7 @@ export { Turret } from './actors/turret.js';
 export { Rocket } from './actors/rocket.js';
 export { Npc } from './actors/npc.js';
 export { GravityDial } from './actors/gravityDial.js';
+export { Clip } from './actors/clip.js';
 
 import { Ghost, Bee } from './actors/ghost.js';
 import { Coin } from './actors/coin.js';
@@ -30,6 +31,7 @@ import { Turret } from './actors/turret.js';
 import { Rocket } from './actors/rocket.js';
 import { Npc } from './actors/npc.js';
 import { GravityDial } from './actors/gravityDial.js';
+import { Clip } from './actors/clip.js';
 
 /**
  * Prefab templates: ready-made `prefabs` entries the editor's component
@@ -39,6 +41,10 @@ import { GravityDial } from './actors/gravityDial.js';
  * the scene author's next edit.
  */
 export const PREFAB_TEMPLATES = {
+  spawnPoint: {
+    description: 'Where play starts: a level\'s player starts at the first free one, and each player joins at one online',
+    prefab: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } }
+  },
   mob: {
     description: 'A walking enemy: chases in range, hurts on contact, flashes when hit, dies and is gone',
     dimensions: 2,
@@ -76,7 +82,7 @@ export const PREFAB_TEMPLATES = {
  */
 export function registerKitActors(game) {
   const kit = { origin: 'kit' };
-  for (const [name, klass] of Object.entries({ Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc, GravityDial })) {
+  for (const [name, klass] of Object.entries({ Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc, GravityDial, Clip })) {
     game.registerActor(name, klass, kit);
   }
   for (const [name, template] of Object.entries(PREFAB_TEMPLATES)) {

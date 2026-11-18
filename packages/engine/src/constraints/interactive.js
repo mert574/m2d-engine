@@ -250,4 +250,9 @@ export class Interactive extends Constraint {
   destroy() {
     this.entity.game.input.removeInteractive(this);
   }
+
+  /** Back in the world after a snapshot restore: hit-tested again. */
+  revive() {
+    this.entity.game.input.addInteractive(this);
+  }
 }

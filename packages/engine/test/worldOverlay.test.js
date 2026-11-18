@@ -47,6 +47,29 @@ describe('WorldOverlay', () => {
     installWindowStub();
   });
 
+  it('puts a shape where the camera puts its points, at any zoom and rotation', () => {
+    const { game, renderer, overlay } = makeGame();
+    game.camera.zoom = 2;
+    game.camera.rotation = 0.4;
+    game.camera.x = 300;
+    game.camera.y = 200;
+    game.camera.update?.(0);
+    overlay.drawRect({ x: 310, y: 205, width: 20, height: 10 });
+    redraw(game, renderer);
+    const transform = renderer.optionsFor('pushTransform').find((t) => t.isScreenSpace && t.rotation !== undefined);
+    // The transform carries a world point to where worldToUI carries it.
+    const place = ({ x, y }) => ({
+      x: transform.x + transform.scaleX * (x * Math.cos(transform.rotation) - y * Math.sin(transform.rotation)),
+      y: transform.y + transform.scaleY * (x * Math.sin(transform.rotation) + y * Math.cos(transform.rotation))
+    });
+    for (const corner of [{ x: 310, y: 205 }, { x: 330, y: 215 }]) {
+      const expected = game.worldToUI(corner.x, corner.y);
+      const actual = place(corner);
+      expect(actual.x).toBeCloseTo(expected.x, 3);
+      expect(actual.y).toBeCloseTo(expected.y, 3);
+    }
+  });
+
   it('draws beneath the screens, so a menu covers its annotations', () => {
     // Annotations belong to the game, not to the chrome above it.
     const { game, renderer, overlay } = makeGame();

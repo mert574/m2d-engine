@@ -28,10 +28,10 @@ function level({ dimensions = 2, properties = { path: 'edge', width: 10 }, point
   };
 }
 
-async function make(scene) {
+async function make(scene, { editMode = false } = {}) {
   const three = scene.world.dimensions === 3;
   const game = three
-    ? new M2D(null, { headless: true, dimensions: 3 })
+    ? new M2D(null, { headless: true, dimensions: 3, editMode })
     : new M2D(displayCanvas(320, 180), { width: 320, height: 180, renderer: new RecordingRenderer(), devConsole: false, performanceStats: false });
   registerKitScenery(game);
   game.sceneManager.addScene(scene.name, { fetch: async () => scene });
@@ -85,6 +85,17 @@ describe('PathStrip in 2D', () => {
     game.destroy();
   });
 
+  it('draws along the ground through the level\'s projection', async () => {
+    const scene = level({ properties: { path: 'edge', width: 10, color: '#123456' } });
+    scene.world.projection = 'isometric';
+    const { game, strip } = await make(scene);
+    game.renderer.reset();
+    strip.draw(0);
+    const [band] = game.renderer.optionsFor('drawPath');
+    expect(band.points).toEqual([game.projection.toScreen(0, 50), game.projection.toScreen(100, 50)]);
+    game.destroy();
+  });
+
   it('is refused without a path, naming the property', async () => {
     const error = await make(level({ properties: { width: 10 } })).then(() => null, (e) => e);
     expect(error?.message).toMatch(/properties\.path.*laid along a path/);
@@ -103,6 +114,22 @@ describe('PathStrip in 3D', () => {
     expect(min[1]).toBeCloseTo(0); expect(max[1]).toBeCloseTo(0.1);
     expect(min[2]).toBeCloseTo(-2.15); expect(max[2]).toBeCloseTo(-1.85);
     expect(facesOut(geometry)).toBe(true);
+    game.destroy();
+  });
+
+  it('is built again when its path is edited, and is nothing without one', async () => {
+    const { game, strip } = await make(level({ dimensions: 3, properties: { path: 'edge', width: 0.3, height: 0.1 } }), { editMode: true });
+    const scene = game.sceneManager.getCurrentScene();
+    const before = strip.geometry;
+    scene.config.paths.edge = { points: [{ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 30 }] };
+    scene.rebuildPaths();
+    expect(strip.geometry).not.toBe(before);
+    expect(bounds(strip.geometry).max[2]).toBeCloseTo(28, 3);
+    delete scene.config.paths.edge;
+    scene.rebuildPaths();
+    expect(strip.geometry).toBeNull();
+    // No mesh either, so the frame draws no box of the kerb's material in its place.
+    expect(strip.mesh).toBeNull();
     game.destroy();
   });
 

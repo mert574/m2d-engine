@@ -6,7 +6,6 @@ import { Health } from 'm2d-engine/constraints/health.js';
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { Hover } from 'm2d-engine/constraints/hover.js';
 import { HitBurst } from 'm2d-kit/effects';
-import { Platform } from 'm2d-kit/actors';
 import { ThrustControl } from 'm2d-kit/controls';
 
 /**
@@ -69,13 +68,6 @@ export function fireLaser(owner, angle, { sprite = null, tint, targetNames, dama
   game.entities.add(laser);
   game.physics.add(body);
   return laser;
-}
-
-/** An invisible wall at the field's edge. */
-export class Bound extends Platform {
-  /** Source's player clip, magenta: a wall nobody sees. */
-  static tool = { color: '#e040fb', label: 'clip' };
-  draw() {}
 }
 
 /**
@@ -284,8 +276,7 @@ export class Meteor extends Entity {
         game.physics.add(chunk.body);
       }
     }
-    game.entities.delete(this);
-    game.physics.remove(this.body);
+    game.removeEntity(this);
   }
 
   update(deltaTime) {
@@ -334,7 +325,7 @@ export class Drone extends Entity {
     this.addConstraint('health', new Health(this, {
       maxHealth: 40, invulnerableDuration: 0.05,
       onDamage: () => { this.hurt = 0.15; },
-      onDeath: () => { this.game.soundManager.playSound('zap'); this.onDestroyed?.(this); this.game.entities.delete(this); this.game.physics.remove(this.body); }
+      onDeath: () => { this.game.soundManager.playSound('zap'); this.onDestroyed?.(this); this.game.removeEntity(this); }
     }));
     this.addConstraint('hitBurst', new HitBurst(this, { color: '#ff9a7a', radius: 44 }));
     this.getConstraint('health').draw = () => {};
@@ -400,8 +391,7 @@ export class Salvage extends Entity {
     super.onCollisionStart(other);
     if (this.game.players.isAvatar(other.entity) && this.game.entities.has(this)) {
       this.game.soundManager.playSound('salvage');
-      this.game.entities.delete(this);
-      this.game.physics.remove(this.body);
+      this.game.removeEntity(this);
       this.onTaken?.(this);
     }
   }

@@ -9,7 +9,7 @@
  * it, it declares its properties or params, it works in 2D and 3D or says
  * which, and it ships with its test and its docs page.
  */
-export { Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc, GravityDial, PREFAB_TEMPLATES, registerKitActors } from './actors.js';
+export { Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc, GravityDial, Clip, PREFAB_TEMPLATES, registerKitActors } from './actors.js';
 export { WallSlip, GlideControl, CarControl, ThrustControl, registerKitControls } from './controls.js';
 export { Sky, Scatter, ParticleField, AmbientSound, PathStrip, SCENERY_TEMPLATES, registerKitScenery } from './scenery.js';
 export { AttackSwing, HitBurst, registerEffects } from './effects.js';

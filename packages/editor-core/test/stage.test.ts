@@ -41,17 +41,6 @@ describe('the player', () => {
     (data.world as Record<string, unknown>).player = 'ghost';
     expect(() => stage.playFrom(data, { x: 0, y: 0 })).toThrow(/no placed object has that id/);
   });
-
-  it('starts where asked rather than at a spawn point, which the copy leaves out', () => {
-    const data = level();
-    (data.prefabs as Record<string, unknown>).spawn = { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true } };
-    const objects = structure.valueAt(data, ['layers', 0, 'objects']) as Array<Record<string, unknown>>;
-    objects.push({ id: 'spawn-1', prefab: 'spawn', x: 10, y: 20 });
-    const moved = stage.playFrom(data, { x: 400, y: 120 });
-    const ids = (structure.valueAt(moved, ['layers', 0, 'objects']) as Array<{ id: string }>).map((o) => o.id);
-    expect(ids).toEqual(['hero', 'crate-1', 'crate-2', 'floor']);
-    expect(objects.map((o) => o.id)).toContain('spawn-1');
-  });
 });
 
 describe('a prefab stage', () => {

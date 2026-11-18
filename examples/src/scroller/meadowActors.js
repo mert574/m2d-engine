@@ -371,8 +371,7 @@ export class Pollen extends Entity {
     if (other.entity?.name !== 'Player') return;
     other.entity.collect();
     this.game.soundManager.playSound('collect');
-    this.game.entities.delete(this);
-    this.game.physics.remove(this.body);
+    this.game.removeEntity(this);
   }
 
   update(deltaTime) {

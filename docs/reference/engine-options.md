@@ -54,6 +54,7 @@
 | `timeScale` | `1` | Multiplier on game time: ticks, and so physics, entity simulation and game-time timers. `0.5` is slow motion. Live at `game.time.scale`. `physicsTimeScale` is accepted as an older spelling |
 | `interpolatePhysics` | `true` | Blend drawn transforms between ticks |
 | `seed` | `1` | Seed for `game.rng`. Reseeded on every scene load and `reset()`. Pass `Date.now()` for a game that should differ between sessions |
+| `startAtSpawnPoint` | `true` | A level's own player starts at the first free `SpawnPoint` when the level loads. `false` leaves it where its object stands: the editor's play from a point |
 | `dimensions` | `2` | How many axes the simulation has, `2` or `3`. Must match what `initPhysics` loaded and what a level's `world.dimensions` declares. A 3D game also awaits `initWebGPU()` first. See [Three dimensions](./physics#three-dimensions) and the [renderer](./renderer#three-dimensions) |
 
 ## Headless

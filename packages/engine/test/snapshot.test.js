@@ -83,6 +83,38 @@ describe('snapshot and restore', () => {
     game.destroy();
   });
 
+  it('gives a removed entity back what destroy let go of, and lets go for one the restore drops', async () => {
+    /** Holds something outside itself, as an Interactive holds its input registration. */
+    const registry = new Set();
+    class Holding extends Constraint {
+      constructor(entity) { super(entity); registry.add(this); }
+      get held() { return registry.has(this); }
+      destroy() { registry.delete(this); }
+      revive() { registry.add(this); }
+    }
+    class Button extends Entity {
+      constructor(body, sprite, game) {
+        super(body, sprite, game);
+        this.addConstraint('hold', new Holding(this));
+      }
+    }
+    const game = await arena({ actors: [Button] });
+    const button = game.spawn({ type: 'Button', x: 60, y: 60, width: 20, height: 20, physics: { bodyType: 'static' } });
+    const hold = button.getConstraint('hold');
+    const snapshot = game.snapshot();
+    game.removeEntity(button);
+    expect(hold.held).toBe(false);
+    const late = game.spawn({ type: 'Button', x: 90, y: 60, width: 20, height: 20, physics: { bodyType: 'static' } });
+    const lateHold = late.getConstraint('hold');
+    game.restore(snapshot);
+    expect(game.entities.has(button)).toBe(true);
+    expect(button.getConstraint('hold')).toBe(hold);
+    expect(hold.held).toBe(true);
+    expect(game.entities.has(late)).toBe(false);
+    expect(lateHold.held).toBe(false);
+    game.destroy();
+  });
+
   it('rewinding and replaying with corrected input ends where the corrected run ends', async () => {
     // What client prediction does: guess, get corrected, rewind, resimulate.
     const truth = await arena({ seed: 9 });

@@ -6,6 +6,7 @@ import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { RecordingRenderer } from 'm2d-engine/test/helpers/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from 'm2d-engine/test/helpers/environment.js';
 import { registerKitScenery, SCENERY_TEMPLATES } from '../src/scenery.js';
+import { PREFAB_TEMPLATES } from '../src/actors.js';
 
 /**
  * The scenery actors in a running level: what they draw and where in the
@@ -303,8 +304,9 @@ describe('ambient sound', () => {
 
 describe('the templates', () => {
   it('each load into a level of its dimension and build', async () => {
-    for (const [name, template] of Object.entries(SCENERY_TEMPLATES)) {
-      const dimensions = template.dimensions ?? 2;
+    const spawn = PREFAB_TEMPLATES.spawnPoint;
+    const cases = [...Object.entries(SCENERY_TEMPLATES).map(([name, t]) => [name, t, t.dimensions ?? 2]), ['spawnPoint', spawn, 2], ['spawnPoint', spawn, 3]];
+    for (const [name, template, dimensions] of cases) {
       const { game } = makeGame(dimensions === 3 ? { headless: true, dimensions: 3 } : {});
       game.sceneManager.addScene('t', { fetch: async () => ({
         version: SCENE_VERSION, type: 'level', name: 't', world: { dimensions, gravity: { x: 0, y: 0, ...(dimensions === 3 && { z: 0 }) } },

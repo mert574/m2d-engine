@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { SceneLoader, SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { basename } from 'node:path';
-import { gameFor, sceneFiles, projectGames, DEMO_ACTORS, KIT_CLASSES, bootHeadless } from './helpers.js';
+import { sceneFiles, projectGames } from './helpers.js';
 
 /**
  * Every scene the repo ships must satisfy the engine's scene schema, so
@@ -16,11 +16,6 @@ describe('shipped example scenes', () => {
     expect(files.length).toBeGreaterThan(0);
   });
 
-  it.each(files)('$name validates', ({ example, path }) => {
-    const data = JSON.parse(readFileSync(path, 'utf8'));
-    expect(() => new SceneLoader(gameFor(example)).load(data)).not.toThrow();
-  });
-
   // Migrations exist for documents the engine does not own. A shipped scene
   // left at an older version would validate through its migration and hide
   // whatever the current format now asks for.
@@ -30,10 +25,10 @@ describe('shipped example scenes', () => {
   });
 });
 
-// The stubs above check structure and cross-references. This checks each
-// declared game's scenes against the game's own classes, which is what
-// the game does when it boots and what the editor does when it opens one:
-// a property the real actor does not declare fails here, not in play.
+// Each shipped project's scenes against the project's own classes — the
+// examples and the walkthrough — which is what the game does when it
+// boots and what the editor does when it opens one: a property the real
+// actor does not declare, or an actor the game never registers, fails here.
 describe('each declared game loads its scenes with its own classes', async () => {
   const games = await projectGames();
   const cases = games.flatMap(({ name, game, scenes }) =>
@@ -52,30 +47,24 @@ describe('each declared game loads its scenes with its own classes', async () =>
   });
 });
 
-describe('the stub registries the sweep checks scenes against', () => {
-  // A name listed here and never registered by the game hides a scene that
-  // cannot load: the walkthrough named the kit's Platform for a phase.
-  it.each(Object.keys(DEMO_ACTORS))('%s lists what its definition registers', async (example) => {
-    const { game } = await bootHeadless(example === 'first-game' ? '../../docs/demos/first-game' : example);
-    const registered = [...game.actors.own.keys()].sort();
-    game.destroy();
-    expect([...DEMO_ACTORS[example], ...Object.keys(KIT_CLASSES[example] ?? {})].sort()).toEqual(registered);
-  });
-});
-
 describe('where play starts', () => {
-  // The idiom: a level with a player places a SpawnPoint, which is where it
-  // starts alone and where each player joins online.
+  // The idiom: a level says where play starts by placing a SpawnPoint —
+  // where its player starts alone, each player joins online, and a game
+  // that builds its own avatar (a race's car) puts it. Only a level with
+  // nothing to play as places none.
+  const NOTHING_TO_PLAY_AS = new Set(['physics/workshop.json', 'template 3d/level.json', 'template 3d/room.json']);
   const templates = ['2d', '3d'].flatMap((t) => {
     const dir = new URL(`../../packages/editor-host/templates/${t}/scenes/`, import.meta.url);
     return readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => ({ name: `template ${t}/${f}`, path: new URL(f, dir) }));
   });
-  const levels = [...sceneFiles().map(({ path }) => ({ name: path.split('/src/').pop() ?? path, path })), ...templates]
+  const levels = [...sceneFiles(), ...templates]
     .map(({ name, path }) => ({ name, data: JSON.parse(readFileSync(path, 'utf8')) }))
-    .filter(({ data }) => data.type === 'level' && data.world?.player);
+    .filter(({ data }) => data.type === 'level');
 
-  it.each(levels)('$name places a spawn point', ({ data }) => {
+  it.each(levels)('$name places a spawn point, or has nothing to play as', ({ name, data }) => {
     const objects = data.layers.flatMap((layer) => layer.objects);
-    expect(objects.some((object) => data.prefabs[object.prefab]?.actor === 'SpawnPoint')).toBe(true);
+    const places = objects.some((object) => data.prefabs[object.prefab]?.actor === 'SpawnPoint');
+    if (NOTHING_TO_PLAY_AS.has(name)) expect(data.world?.player).toBeUndefined();
+    else expect(places).toBe(true);
   });
 });

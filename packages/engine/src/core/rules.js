@@ -5,8 +5,8 @@
  * actions it takes once (or every time, with `once: false`). The events:
  * the scene starting, every object of a prefab collected, the player
  * entering an object, an object (or the player, or every one of a group)
- * dying, the player falling below the kill plane, a counter reaching a
- * value, a named input action pressed, a world event game code raised
+ * dying, a counter reaching a value, a named input action pressed, a
+ * world event game code raised
  * (`emit`), and an event the simulation told the player (`notify`). The
  * actions: a notice, an objective line or a dialogue on the HUD, a sound,
  * unsealing a gate, removing an object, setting a field, changing a

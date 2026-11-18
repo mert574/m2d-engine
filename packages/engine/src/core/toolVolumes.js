@@ -12,8 +12,8 @@ import { toLinear } from './presentation3d.js';
  * and labelled on the world overlay, above everything; in 3D it is a
  * translucent, faintly glowing shape of the body.
  *
- * An entity may set `toolColor` to colour its own box, and `toolLabel` to
- * say more than its kind.
+ * An entity may set `toolLabel` to say more than its kind, and answer
+ * `toolInPlay` to show its box in play too (a trigger made `visible`).
  */
 
 /** How solid a box's fill is, and its outline. */
@@ -32,7 +32,7 @@ export function toolsShown(game) {
 export function toolOf(entity) {
   const tool = entity.constructor?.tool;
   if (!tool) return null;
-  return { color: entity.toolColor ?? tool.color, label: entity.toolLabel ?? tool.label };
+  return { color: tool.color, label: entity.toolLabel ?? tool.label };
 }
 
 /** What a box says: its kind, and the id of the object it was placed as. */
@@ -75,9 +75,9 @@ export function drawToolVolume2D(entity, tool = toolOf(entity)) {
 
 /** Every tool entity's box, when they are shown. The 2D scene's draw pass calls it after the world. */
 export function drawToolVolumes2D(game) {
-  if (!toolsShown(game)) return;
+  const shown = toolsShown(game);
   for (const entity of game.entities) {
-    if (entity.dead) continue;
+    if (entity.dead || !(shown || entity.toolInPlay)) continue;
     const tool = toolOf(entity);
     if (tool) drawToolVolume2D(entity, tool);
   }
@@ -95,10 +95,10 @@ function toolSurface(scene, color) {
 /** Every tool entity's shape into the 3D frame, translucent and casting no shadow, when they are shown. */
 export function addToolVolumes3D(scene, frame) {
   const game = scene.game;
-  if (!toolsShown(game)) return;
+  const shown = toolsShown(game);
   const eye = game.camera.position;
   for (const entity of game.entities) {
-    if (entity.dead) continue;
+    if (entity.dead || !(shown || entity.toolInPlay)) continue;
     const tool = toolOf(entity);
     if (!tool) continue;
     const body = entity.body;

@@ -44,13 +44,15 @@ export class PathStrip extends Scenery {
     this.height = options.height ?? 0;
     this.repeat = options.repeat ?? null;
     this.color = options.color ?? '#8b95a3';
-    this.built = undefined;
+    /** The 3D mesh and the line it was built from: a path edited in the editor is a new line. */
+    this.built = null;
+    this.builtFrom = null;
     if (sprite) this.setAnimation('default');
   }
 
-  /** Its prefab's mesh block, which the 3D strip is drawn with (scenery otherwise keeps none). */
+  /** Its prefab's mesh block, which the 3D strip is drawn with (scenery otherwise keeps none) — once it has a line to be built along. */
   get mesh() {
-    return this.ownMesh ?? null;
+    return this.geometry ? this.ownMesh ?? null : null;
   }
 
   set mesh(value) {
@@ -63,19 +65,24 @@ export class PathStrip extends Scenery {
     return path?.line.length >= 2 ? path.line : null;
   }
 
-  /** 3D: the strip's mesh in its body's frame, built once from the path. */
+  /** 3D: the strip's mesh in its body's frame, built from the path's line, and again when the line changes. */
   get geometry() {
-    if (this.built === undefined) {
-      const line = this.line;
-      if (!line) return null;
+    if (this.game.physics.dimensions !== 3) return null;
+    const line = this.line;
+    if (!line) return null;
+    if (this.builtFrom !== line) {
       this.built = stripGeometry(line, this.width, this.height, this.body.position, this.body.rotation);
+      this.builtFrom = line;
     }
     return this.built;
   }
 
   paint() {
-    const line = this.line;
-    if (!line) return;
+    const ground = this.line;
+    if (!ground) return;
+    // Drawn on the render plane: through the level's projection, as everything placed on the ground is.
+    const projection = this.game.projection;
+    const line = projection ? ground.map((p) => projection.toScreen(p.x, p.y)) : ground;
     const renderer = this.game.renderer;
     if (!this.sprite?.width) {
       renderer.drawPath({ points: line, closed: false, strokeStyle: this.color, lineWidth: this.width });

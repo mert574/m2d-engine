@@ -41,6 +41,8 @@ const PROPS_LAYER = 'props';
 const sessionSpills = new Map();
 
 export class RaceDirector extends Entity {
+  /** Logic nobody sees but its ghost car: slate, in the editor and under r_showtools. */
+  static tool = { color: '#94a3b8', label: 'director' };
   static properties = {
     path: s.ref('path', { initial: 'road', description: 'The centreline laps are measured along' }),
     cars: s.record(s.ref('image'), { description: 'The cars that may be driven, by the sprite name cars.js gives them' }),
@@ -205,10 +207,7 @@ export class RaceDirector extends Entity {
 
   /** Take an entity out of the world for good. */
   #retire(entity) {
-    if (!entity || entity.dead) return;
-    this.game.entities.delete(entity);
-    this.game.physics.remove(entity.body);
-    entity.destroy?.();
+    if (entity && !entity.dead) this.game.removeEntity(entity);
   }
 
   /** The objects of the scene's `props` layer: what a round is built from. */
@@ -257,13 +256,17 @@ export class RaceDirector extends Entity {
   #spawnCar() {
     const { game, track } = this;
     const scene = game.sceneManager.getCurrentScene();
-    // On the grid, one car-length short of the line: the lap arms the
-    // moment the nose crosses it.
-    const pose = track.pose(1 - 90 / track.length, 0);
+    // On the grid: the circuit's spawn point (a car-length short of the
+    // line, so the lap arms as the nose crosses it), facing the way the
+    // road runs there.
+    const grid = scene.freeSpawnPoint();
+    if (!grid) throw new Error(`circuit '${scene.config.name}': place a SpawnPoint on the grid, where the car starts`);
+    const at = grid.body.position;
+    const road = track.samples[track.nearest(at.x, at.y)];
     const body = game.physics.createBox({
-      x: pose.x, y: pose.y,
+      x: at.x, y: at.y,
       width: CAR.bodyLength, height: CAR.bodyWidth,   // long side along +x
-      angle: pose.angle,
+      angle: Math.atan2(road.ty, road.tx),
       friction: 0.1, frictionAir: 0, restitution: 0.25, density: 0.004
     });
     // The gas is the car's own once the lights go green (see #greenLight):

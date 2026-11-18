@@ -7,6 +7,8 @@ Each example lives in `examples/src/<name>/` and is an editor project, written t
 - `main.js` is the generic boot, `bootProject`, and nothing else.
 - A hook keeps only what has no data form, and says why. No hook sets the camera, the light, audio or UI, reads keys, draws a background or finds entities with `instanceof`.
 - Painting of the game's own (a valley's ridges, a street's skyline) is a scenery actor placed in the scene, which the editor shows; weather, a plain sky and ambient sound are the kit's scenery actors (`ParticleField`, `Sky`, `Scatter`, `AmbientSound`). Simulation hooks go in the definition's `sceneHooks`, so a server and the editor's play run them.
+- A level says where play starts with a `SpawnPoint`, never a start position in code; a game that builds its own avatar (a race's car) puts it at one.
+- An actor nobody sees (a trigger, an invisible wall, a director) declares `static tool = { color, label }`, so the editor shows it.
 - No file beside the scenes holds layout (`layout.json`), and no level is generated at run time.
 
 `examples/test/idiom.test.js` checks each example against these rules and runs `audit_project` on it. A departure fails the test unless it is on the test's allow-list, which only shrinks.

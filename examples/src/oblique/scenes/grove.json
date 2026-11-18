@@ -373,7 +373,7 @@
       "physics": { "bodyType": "static", "footprint": { "width": 28, "height": 16 } }
     },
     "pond": { "actor": "Pond", "physics": { "bodyType": "static", "shape": "circle" } },
-    "bound": { "actor": "Bound", "physics": { "bodyType": "static" } },
+    "bound": { "actor": "Clip", "physics": { "bodyType": "static" } },
     "groundDetail": { "actor": "GroundDetail", "physics": { "bodyType": "static", "isSensor": true } },
     "tree_lime": {
       "actor": "Tree",

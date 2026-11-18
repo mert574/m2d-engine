@@ -9,11 +9,11 @@
  * written for one game.
  */
 export { Sky } from './scenery/sky.js';
-export { Scatter, SCATTER_KINDS } from './scenery/scatter.js';
-export { ParticleField, FIELD_KINDS, FIELD_DEFAULTS_2D } from './scenery/particleField.js';
+export { Scatter } from './scenery/scatter.js';
+export { ParticleField } from './scenery/particleField.js';
 export { AmbientSound } from './scenery/ambientSound.js';
 export { PathStrip, stripGeometry } from './scenery/pathStrip.js';
-export { Scenery, BACK, FRONT } from './scenery/scenery.js';
+export { Scenery } from './scenery/scenery.js';
 
 import { Sky } from './scenery/sky.js';
 import { Scatter } from './scenery/scatter.js';
@@ -24,7 +24,8 @@ import { PathStrip } from './scenery/pathStrip.js';
 /** Drawn, never touched: no collider stops anything at a backdrop. */
 const SCENERY_PHYSICS = { bodyType: 'static', isSensor: true, layer: 'none' };
 
-const scenery = (actor, properties) => ({ actor, physics: { ...SCENERY_PHYSICS }, properties });
+/** A prefab of a scenery actor: drawn, colliding with nothing, with these properties. */
+export const sceneryPrefab = (actor, properties) => ({ actor, physics: { ...SCENERY_PHYSICS }, properties });
 
 /**
  * Ready-made `prefabs` entries for the component library and
@@ -36,36 +37,36 @@ export const SCENERY_TEMPLATES = {
   sky: {
     description: 'A dusk gradient behind the level',
     dimensions: 2,
-    prefab: scenery('Sky', { top: '#0b1026', middle: '#243a63', bottom: '#5c6f8a', horizon: 0.58 })
+    prefab: sceneryPrefab('Sky', { top: '#0b1026', middle: '#243a63', bottom: '#5c6f8a', horizon: 0.58 })
   },
   stars: {
     description: 'Twinkling stars across the top of the view',
     dimensions: 2,
-    prefab: scenery('Scatter', { kind: 'stars', count: 200, seed: 7, band: { top: 0, bottom: 0.55 } })
+    prefab: sceneryPrefab('Scatter', { kind: 'stars', count: 200, seed: 7, band: { top: 0, bottom: 0.55 } })
   },
   fireflies: {
     description: 'Fireflies wandering over the view; in a lit level the bright ones glow',
     dimensions: 2,
-    prefab: scenery('ParticleField', { kind: 'fireflies', count: 40 })
+    prefab: sceneryPrefab('ParticleField', { kind: 'fireflies', count: 40 })
   },
   rain: {
     description: 'Slanted rain over everything',
     dimensions: 2,
-    prefab: scenery('ParticleField', { kind: 'rain', count: 160 })
+    prefab: sceneryPrefab('ParticleField', { kind: 'rain', count: 160 })
   },
   motes: {
     description: 'Dust and pollen in the air around the camera, carried by the wind',
     dimensions: 3,
-    prefab: scenery('ParticleField', { kind: 'motes', count: 400 })
+    prefab: sceneryPrefab('ParticleField', { kind: 'motes', count: 400 })
   },
   smoke: {
     description: 'Smoke rising from where the object stands, leaning downwind',
     dimensions: 3,
-    prefab: scenery('ParticleField', { kind: 'smoke', count: 120 })
+    prefab: sceneryPrefab('ParticleField', { kind: 'smoke', count: 120 })
   },
   ambience: {
     description: 'A looping sound under the level, faded in (set its sound; a radius makes it a place)',
-    prefab: scenery('AmbientSound', { fadeIn: 2 })
+    prefab: sceneryPrefab('AmbientSound', { fadeIn: 2 })
   }
 };
 

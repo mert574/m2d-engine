@@ -1,5 +1,5 @@
 import { s } from 'm2d-engine/core/schema.js';
-import { Scenery } from './scenery.js';
+import { Entity } from 'm2d-engine/core/entity.js';
 
 /**
  * A looping sound in the level: wind, a hum, rain, a generator. Faded in
@@ -13,7 +13,7 @@ import { Scenery } from './scenery.js';
  * every loop. The listener is the camera: the view's centre in 2D, the
  * eye in 3D.
  */
-export class AmbientSound extends Scenery {
+export class AmbientSound extends Entity {
   static description = 'A looping sound, faded in, carried as far as its radius';
   static properties = {
     sound: s.string({ description: 'A key in assets.sounds (or one the game loaded)' }),
@@ -28,6 +28,7 @@ export class AmbientSound extends Scenery {
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
+    body.setCollisionFilter({ category: 0, mask: 0 });
     this.sound = options.sound ?? null;
     this.volume = options.volume ?? 1;
     this.fadeIn = options.fadeIn ?? 1;
@@ -55,6 +56,14 @@ export class AmbientSound extends Scenery {
     super.destroy();
   }
 
+  /** Back after a snapshot restore: it starts again on its next frame, faded in. */
+  revive() {
+    super.revive();
+    this.loop = null;
+    this.started = false;
+    this.elapsed = 0;
+  }
+
   #start() {
     this.started = true;
     if (!this.sound || !this.game.soundManager) return;
@@ -67,7 +76,8 @@ export class AmbientSound extends Scenery {
     if (!this.radius) return 1;
     const camera = this.game.camera;
     const ear = camera.position ?? camera;
-    const at = this.body.renderPosition;
+    // The 2D camera stands on the render plane, which a projection is not the ground of.
+    const at = this.game.physics.dimensions === 3 ? this.body.renderPosition : this.renderAnchor;
     const distance = Math.hypot(at.x - ear.x, at.y - ear.y, (at.z ?? 0) - (ear.z ?? 0));
     const t = Math.max(0, 1 - distance / this.radius);
     return t * t;

@@ -328,6 +328,8 @@ export class WoodCrate extends Entity {
  * and belongs on a tick like everything else.
  */
 export class Spout extends Entity {
+  /** Logic nobody sees: slate, in the editor and under r_showtools. */
+  static tool = { color: '#94a3b8', label: 'spout' };
   static properties = {
     dropAction: s.string({ initial: 'drop', description: 'The named action that drops one into the funnel' }),
     spawnSound: s.string({ editor: 'sound', initial: 'spawn', description: 'Played when one drops: a key in assets.sounds' }),

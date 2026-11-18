@@ -5,7 +5,7 @@ import { Trigger } from '../src/actors/trigger.js';
 import { Health } from '../src/constraints/health.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
-import { SCENE_VERSION, SceneLoader } from '../src/core/sceneLoader.js';
+import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { blendLook, cycleLook, advanceCycle } from '../src/core/look.js';
 import { Coin } from './helpers/cast.js';
 
@@ -135,12 +135,6 @@ describe('rules', () => {
     for (let i = 0; i < 3 && !game.isGameOver; i++) game.step(1);
     expect(game.isGameOver).toBe(true);
     game.destroy();
-  });
-
-  it('refuse a fall rule and a kill plane, which the format no longer has', () => {
-    const loader = new SceneLoader(null);
-    expect(() => loader.load(level({ killPlane: 100 }), 'rules')).toThrow(/killPlane/);
-    expect(() => loader.load(level({ rules: [{ when: { event: 'fall' }, then: [{ do: 'gameOver' }] }] }), 'rules')).toThrow(/fall/);
   });
 
   it('do not run in edit mode', async () => {

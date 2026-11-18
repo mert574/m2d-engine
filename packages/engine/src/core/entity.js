@@ -53,18 +53,20 @@ export class Entity {
    * A tool entity — a trigger, a spawn point, an invisible wall — says so
    * with `{ color, label }`: the engine draws it as a semi-transparent box
    * of that colour, always in the editor and in play under `r_showtools`.
-   * Null for everything a player sees. An instance's `toolColor` wins.
-   * See core/toolVolumes.js.
+   * Null for everything a player sees. A tool entity with no art draws
+   * nothing itself and, in 3D, has no default mesh. See core/toolVolumes.js.
    * @type {{color: string, label: string}|null}
    */
   static tool = null;
 
   /**
-   * Optional: `static refineProperties(properties, { dimensions, fail })`
-   * refuses at load a combination of properties that cannot work, which a
-   * descriptor alone cannot say — smoke in a 2D level. `properties` is the
-   * object's over its prefab's; `fail(key, message)` names the property.
+   * `(properties, { dimensions, fail }) => void`, or null: refuses at load
+   * a combination of properties that cannot work, which a descriptor alone
+   * cannot say — smoke in a 2D level. `properties` is the object's over
+   * its prefab's; `fail(key, message)` names the property.
+   * @type {((properties: object, context: {dimensions: 2|3, fail: (key: string, message: string) => never}) => void)|null}
    */
+  static refineProperties = null;
 
   constructor(body, sprite, game) {
     if (!body) {
@@ -238,6 +240,20 @@ export class Entity {
   }
 
   /**
+   * Take back what `destroy` let go of, for an entity a snapshot restore
+   * returns to the world after it was removed: each constraint's optional
+   * `revive()` (an `Interactive` registers with the input again). The
+   * restore has already put back the constraints and their state. An actor
+   * that started something outside itself starts it again here, calling
+   * `super`.
+   */
+  revive() {
+    for (const constraint of this.constraints.values()) {
+      constraint.revive?.();
+    }
+  }
+
+  /**
    * Something the simulation says happened to this entity: a hit, a death,
    * a step. Presentation — it runs after the tick that raised it, and on a
    * client for an event the server raised. Offered to each constraint, the
@@ -322,6 +338,12 @@ export class Entity {
     if (this.dead || !this.visible) return;
 
     const pos = this.renderPosition;
+    if ((!this.sprite || !this.sprite.width) && this.constructor.tool) {
+      // A tool entity with no art has no look of its own: its tool box is
+      // the engine's, where tools are shown (core/toolVolumes.js).
+      for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
+      return;
+    }
     if (!this.sprite || !this.sprite.width) {
       // Draw a placeholder rectangle if sprite is missing
       this.game.renderer.drawRect({

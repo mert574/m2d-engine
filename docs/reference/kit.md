@@ -24,6 +24,7 @@ The stock gameplay cast, each a composition of the engine's capabilities, and wh
 | `Coin` | A pickup: `Hover` bobs it, the engine's [`Collectable`](./constraints#collectable) takes it on an avatar's touch. Expects a `static` sensor |
 | `MovingPlatform` | A kinematic platform patrolling `properties.path` with [`PathFollow`](./constraints#pathfollow); friction 1, so riders are carried |
 | `GravityDial` | One axis of the world's gravity following a counter: `properties.counter` (a plain counter in `world.counters`, checked at load) and `axis` (`y`). A rule that turns the counter changes the fall from the next tick, headless and on a server too. Collides with nothing; drawn as a purple tool box in the editor and under `r_showtools`, as nothing in play; 2D and 3D |
+| `Clip` | An invisible wall: a `Platform` that draws nothing, shown as Source's player-clip magenta tool box in the editor and under `r_showtools`. The edge of a field, a kerb nobody sees |
 
 The players, the platform, the turret and the NPC came out of the engine with the rest of the cast; each expects certain prefab physics and reads certain `properties`, as below. Register what a game uses, or everything with `registerKitActors`.
 
@@ -82,7 +83,7 @@ The players, the platform, the turret and the NPC came out of the engine with th
 
 Defaults: speed 480, damage 25, lifetime 6 s; it hurts the players' avatars unless `targetNames` says otherwise. Every `Projectile` option can be passed.
 
-**Prefab templates.** `PREFAB_TEMPLATES` holds ready-made `prefabs` entries — `mob` (chases, hurts, flashes, dies and is gone; it stands on an `enemy` collision layer the project declares) and `pickup` (bobs, is collected, counts) — composed over the engine's `Prop` with no class at all, art-free so they play the moment they land. `registerKitActors` offers them through the engine's `registerPrefabTemplate`; the editor's Components tab shows each as a card whose **Insert** copies it into the scene's own `prefabs`, and `list_components` hands an agent the same entry to copy in with `edit_scene`.
+**Prefab templates.** `PREFAB_TEMPLATES` holds ready-made `prefabs` entries — `mob` (chases, hurts, flashes, dies and is gone; it stands on an `enemy` collision layer the project declares) `pickup` (bobs, is collected, counts) and `spawnPoint` (where play starts, over the engine's `SpawnPoint`; for 2D and 3D) — composed over the engine's actors with no class of their own, art-free so they play the moment they land. `registerKitActors` offers them through the engine's `registerPrefabTemplate`; the editor's Components tab shows each as a card whose **Insert** copies it into the scene's own `prefabs`, and `list_components` hands an agent the same entry to copy in with `edit_scene`.
 
 ## `m2d-kit/controls`
 

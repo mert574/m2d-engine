@@ -59,7 +59,7 @@ export class Projectile extends Entity {
 
     this.lifetime += dt;
     if (this.lifetime >= this.maxLifetime) {
-      this.destroy();
+      this.game.removeEntity(this);
       return;
     }
 
@@ -78,16 +78,14 @@ export class Projectile extends Entity {
     // Check if hit a target entity
     if (other.entity && this.isTarget(other.entity)) {
       this.onHitTarget(other.entity);
-      if (this.destroyOnEntityHit) {
-        this.destroy();
-      }
+      if (this.destroyOnEntityHit) this.game.removeEntity(this);
       return;
     }
 
     // Check if hit scenery: a static or kinematic body that is not a target.
     if (this.destroyOnWallHit && (other.bodyType === 'static' || other.bodyType === 'kinematic')) {
       this.onHitWall(other);
-      this.destroy();
+      this.game.removeEntity(this);
     }
   }
 
@@ -113,16 +111,6 @@ export class Projectile extends Entity {
    */
   onHitWall(wall) {
     // Override in subclass for custom behavior
-  }
-
-  /**
-   * Remove projectile from the game.
-   */
-  destroy() {
-    if (this.dead) return;
-    this.dead = true;
-    this.game.entities.delete(this);
-    this.game.physics.remove(this.body);
   }
 
   draw() {

@@ -303,14 +303,15 @@ export class Replicator {
           }
           continue;
         }
-        spawn.push({
+        // A scene object is built from the client's own copy of the scene;
+        // anything else, from the recipe game.spawn kept.
+        spawn.push(info.object ? { id, object: info.object, owner: entity.playerId ?? null } : {
           id, type: info.type, x: info.x, y: info.y, w: info.width, h: info.height,
           ...(this.dimensions === 3 && {
             z: info.z, d: info.depth, ...(info.mesh && { mesh: info.mesh }), ...(info.light && { light: info.light })
           }),
           sprite: info.sprite ?? null, anim: info.animation ?? null,
-          options: info.options ?? {}, physics: info.physics ?? {}, owner: entity.playerId ?? null,
-          ...(info.object && { object: info.object })
+          options: info.options ?? {}, physics: info.physics ?? {}, owner: entity.playerId ?? null
         });
         this.known.add(id);
       }

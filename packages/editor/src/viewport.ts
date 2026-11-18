@@ -716,7 +716,9 @@ export class Viewport {
     const view = viewAt(clientX, clientY);
     const world = camera.screenToWorld(view.x, view.y);
     for (const [id, entity] of scene.entitiesById) {
-      if (entity.visible === false) continue;
+      // A tool entity (a trigger, a spawn point) is drawn as its box in the
+      // editor whatever its `visible` says, so it is picked like one.
+      if (entity.visible === false && !(entity.constructor as { tool?: unknown }).tool) continue;
       const { x, y } = entity.renderPosition;
       const halfW = entity.size.x / 2;
       const halfH = entity.size.y / 2;

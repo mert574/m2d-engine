@@ -110,6 +110,10 @@
         "restitution": 0.3
       },
       "properties": { "blue": "barrel", "blueDown": "barrelDown", "red": "barrelRed", "redDown": "barrelRedDown" }
+    },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -214,6 +218,7 @@
             "pace": 1.3
           }
         },
+        { "id": "spawn-1", "prefab": "spawn", "x": 11853, "y": 4052, "width": 120, "height": 120 },
         {
           "id": "ice-1",
           "prefab": "ice",

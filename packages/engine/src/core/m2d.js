@@ -1423,9 +1423,11 @@ export class M2D {
      * `entity.mesh = null` removes it from the frame entirely. An actor
      * that builds its own shape in code sets `entity.geometry` (positions,
      * normals, uvs and indices in its body's frame, at scale 1), drawn
-     * with the mesh block's material instead of the collider's shape.
+     * with the mesh block's material instead of the collider's shape. A
+     * tool entity (`static tool`) without a mesh block has none: its look
+     * is its tool box, where tools are shown.
      */
-    entity.mesh = this.physics.dimensions === 3 ? meshFor(mesh) : null;
+    entity.mesh = this.physics.dimensions === 3 && (mesh || !ActorClass.tool) ? meshFor(mesh) : null;
     /**
      * A point or spot light this entity carries, following its body, or
      * null. The prefab's `light` block with its colour in linear light.

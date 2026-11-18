@@ -121,6 +121,9 @@ function circuitScene(map) {
   course.add('road', 0, 0, 16, 16, { path: 'road', layer: 'ground', art: named(ROAD_ART), ...roadLook(map) });
   course.add('road', 0, 0, 16, 16, { path: 'road', layer: 'over', art: named(ROAD_ART), ...roadLook(map) });
   course.add('director', 0, 0, 16, 16, { path: 'road', cars: named(CAR_ART), ghost: 'carBlack', ...(map.pace ? { pace: map.pace } : {}) });
+  // Where the car starts: a car-length short of the line, so the lap arms as the nose crosses it.
+  const grid = at(1 - 90 / track.length, 0);
+  course.add('spawn', grid.x, grid.y, 120, 120);
   for (const stretch of map.ice ?? []) course.add('ice', 0, 0, 16, 16, { path: 'road', from: stretch.from, to: stretch.to });
   if (map.tunnel) course.add('tunnel', 0, 0, 16, 16, { path: 'road', from: map.tunnel.from, to: map.tunnel.to });
 
@@ -178,6 +181,7 @@ function circuitScene(map) {
     prefabs: placed({
       road: { actor: 'Road', physics: { bodyType: 'static', isSensor: true } },
       director: { actor: 'RaceDirector', physics: { bodyType: 'static', isSensor: true } },
+      spawn: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } },
       ice: { actor: 'IceStretch', physics: { bodyType: 'static', isSensor: true } },
       tunnel: { actor: 'Tunnel', physics: { bodyType: 'static', isSensor: true } },
       boost: { actor: 'BoostPad', physics: { bodyType: 'static', isSensor: true }, properties: { image: 'arrow' } },
