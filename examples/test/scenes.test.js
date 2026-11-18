@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { SceneLoader, SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { basename } from 'node:path';
 import { gameFor, sceneFiles, projectGames, DEMO_ACTORS, KIT_CLASSES, bootHeadless } from './helpers.js';
@@ -60,5 +60,22 @@ describe('the stub registries the sweep checks scenes against', () => {
     const registered = [...game.actors.own.keys()].sort();
     game.destroy();
     expect([...DEMO_ACTORS[example], ...Object.keys(KIT_CLASSES[example] ?? {})].sort()).toEqual(registered);
+  });
+});
+
+describe('where play starts', () => {
+  // The idiom: a level with a player places a SpawnPoint, which is where it
+  // starts alone and where each player joins online.
+  const templates = ['2d', '3d'].flatMap((t) => {
+    const dir = new URL(`../../packages/editor-host/templates/${t}/scenes/`, import.meta.url);
+    return readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => ({ name: `template ${t}/${f}`, path: new URL(f, dir) }));
+  });
+  const levels = [...sceneFiles().map(({ path }) => ({ name: path.split('/src/').pop() ?? path, path })), ...templates]
+    .map(({ name, path }) => ({ name, data: JSON.parse(readFileSync(path, 'utf8')) }))
+    .filter(({ data }) => data.type === 'level' && data.world?.player);
+
+  it.each(levels)('$name places a spawn point', ({ data }) => {
+    const objects = data.layers.flatMap((layer) => layer.objects);
+    expect(objects.some((object) => data.prefabs[object.prefab]?.actor === 'SpawnPoint')).toBe(true);
   });
 });

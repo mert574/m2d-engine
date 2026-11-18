@@ -34,6 +34,7 @@ function courtScene(config, next) {
   // on each side, so a full-width 32px body physically cannot fit — it
   // jammed against both walls at once, even on straights.
   add('player', map.start.x, map.start.y, 26, 26);
+  add('spawn', map.start.x, map.start.y, 52, 52);
   add('fountain', map.goal.x, map.goal.y, 36, 36);
   for (const bed of map.flowerBeds) add('bed', bed.x, bed.y, 26, 26, { seed: bed.seed });
   for (const wall of wallObjects(map.wall)) add('hedge', wall.x, wall.y, wall.width, wall.height);
@@ -126,6 +127,7 @@ function courtScene(config, next) {
         music: { game: { url: 'music/halogen-redux.ogg' } }
       },
       prefabs: {
+        spawn: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } },
         // A circle character in 32px corridors the player is also 32px wide:
         // the round shape plus the controller's slide is what lets a 90° turn
         // happen on the move instead of only when perfectly aligned.

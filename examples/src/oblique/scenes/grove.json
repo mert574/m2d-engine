@@ -434,6 +434,10 @@
       "actor": "Decor",
       "spritesheet": "decor_stump",
       "physics": { "bodyType": "static", "footprint": { "width": 41, "height": 31 } }
+    },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -2273,6 +2277,7 @@
           "height": 250,
           "properties": { "spriteOffsetY": 55 }
         },
+        { "id": "spawn-1", "prefab": "spawn", "x": 420, "y": 1955, "width": 500, "height": 500 },
         {
           "id": "tree_dead-1",
           "prefab": "tree_dead",

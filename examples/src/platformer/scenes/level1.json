@@ -134,7 +134,11 @@
         "seed": 5
       }
     },
-    "pit": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } }
+    "pit": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
+    }
   },
   "layers": [
     {
@@ -177,6 +181,7 @@
       "type": "dynamic",
       "objects": [
         { "id": "player-1", "prefab": "player", "x": 120, "y": 1300, "width": 28, "height": 34 },
+        { "id": "spawn-1", "prefab": "spawn", "x": 120, "y": 1300, "width": 68, "height": 68 },
         {
           "id": "movingPlatform-1",
           "prefab": "movingPlatform",

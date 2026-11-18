@@ -28,7 +28,7 @@ A level scene declares what the world is like, the prefabs it builds entities fr
 
 <<< @/demos/first-game/scenes/level1.json
 
-The `world` says how big the level is and how it is seen. The hero is the `player`, which makes it `game.player` and the thing the camera follows, and `"bounds": "world"` keeps the camera inside the level while it does. Falling out of the level ends the game because the level says so: `pit` is a `Trigger` under the world, and the rule `fell` ends the game when the hero enters it. Nothing ends a level that does not say how.
+The `world` says how big the level is and how it is seen. The hero is the `player`, which makes it `game.player` and the thing the camera follows, and `"bounds": "world"` keeps the camera inside the level while it does. The hero starts where `spawn-1`, a `SpawnPoint`, stands: a level says where play begins by placing one, and online each player joins at a free one. Falling out of the level ends the game because the level says so: `pit` is a `Trigger` under the world, and the rule `fell` ends the game when the hero enters it. Nothing ends a level that does not say how.
 
 The hero is a `character` body, which slides along walls and never rotates. Platforms are `static` and use the engine's `Prop` actor, which draws its sprite tiled over its size. The tile is a 32 by 32 image; here it is an inline SVG so the demo needs no image file. A game points `url` at a PNG next to its scene files. The `hud` is the overlay drawn over the level: a line of text here, and meters, notices, a minimap or a menu button in a bigger game.
 

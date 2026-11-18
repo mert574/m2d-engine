@@ -35,7 +35,11 @@ export function playerObjectId(data: Record<string, unknown>): string | null {
   return isPlainObject(data.world) && typeof data.world.player === 'string' ? data.world.player : null;
 }
 
-/** A copy of the scene whose player starts at `at`. */
+/**
+ * A copy of the scene whose player starts at `at`. Its spawn points are
+ * left out of the copy: they say where play starts, and here the person
+ * playing has said.
+ */
 export function playFrom(data: Record<string, unknown>, at: At): Record<string, unknown> {
   const id = playerObjectId(data);
   if (!id) throw new Error('this scene has no player to place: set world.player to the id of the player\'s object');
@@ -45,6 +49,14 @@ export function playFrom(data: Record<string, unknown>, at: At): Record<string, 
   player.object.x = at.x;
   player.object.y = at.y;
   if (dimensionsOf(copy) === 3) player.object.z = at.z ?? 0;
+  const prefabs = isPlainObject(copy.prefabs) ? copy.prefabs : {};
+  const spawns = (object: Record<string, unknown>) => {
+    const prefab = prefabs[String(object.prefab)];
+    return isPlainObject(prefab) && prefab.actor === 'SpawnPoint';
+  };
+  for (const layer of Array.isArray(copy.layers) ? copy.layers : []) {
+    if (isPlainObject(layer) && Array.isArray(layer.objects)) layer.objects = layer.objects.filter((object) => !(isPlainObject(object) && spawns(object)));
+  }
   return copy;
 }
 

@@ -139,7 +139,7 @@
 | `requestFullscreen()`, `exitFullscreen()`, `toggleFullscreen()` | Fullscreen control. `isFullscreen` reports the state |
 | `resize(force)` | Recompute the viewport now. Without `force` it does nothing when the result is unchanged. The engine calls it between frames when needed |
 | `onResize(handler)` | Subscribe to viewport changes. The handler receives `(viewWidth, viewHeight, viewport)`. Returns an unsubscribe function |
-| `worldToUI(x, y)` | Map a world position to UI coordinates |
+| `worldToUI(x, y, z)` | Map a world position to UI coordinates; in 3D through the camera's perspective, null behind it |
 | `drawWorld(scene, dt)`, `drawUI(scene, dt)`, `drawOverlays(dt)` | The three drawing passes, for games that run their own loop |
 | `addView(canvas)` | A second live view of the world on another canvas, drawn every frame from a camera of its own (the returned view's `camera`, sized to the canvas — a `Camera3D` in 3D, a `Camera` in 2D). In 3D the frame's heavy half — assembly, culling, the shadow maps — is shared across views and each pays only its main pass and post stack, with temporal state (TAA history, exposure) per view; shadows stay fitted to the main camera. In 2D the scene is walked once more per view through a renderer of the same backend. Views draw no HUD and take no input: they are cameras, not screens. An editor's side viewports are the consumer; `yard?views=2` shows one live |
 | `removeView(view)` | Drop a view from `addView` and everything it holds. The canvas stays |

@@ -41,6 +41,7 @@ const scene = {
   // The camera follows the player and, bounded by a one-screen world, stays centred on it.
   world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, player: 'ball', camera: { bounds: 'world' } },
   prefabs: {
+    spawn: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } },
     wall: { actor: 'Wall', physics: { bodyType: 'static' } },
     ball: { actor: 'Ball', physics: { bodyType: 'character', shape: 'circle' } }
   },
@@ -49,7 +50,8 @@ const scene = {
     { id: 'wall-bottom', prefab: 'wall', x: 320, y: 355, width: 640, height: 10 },
     { id: 'wall-left', prefab: 'wall', x: 5, y: 180, width: 10, height: 360 },
     { id: 'wall-right', prefab: 'wall', x: 635, y: 180, width: 10, height: 360 },
-    { id: 'ball', prefab: 'ball', x: 400, y: 180, width: 28, height: 28 }
+    { id: 'ball', prefab: 'ball', x: 400, y: 180, width: 28, height: 28 },
+    { id: 'start', prefab: 'spawn', x: 400, y: 180, width: 56, height: 56 }
   ] }],
   hud: [
     { type: 'text', id: 'status', anchor: 'top-right', x: -16, y: 16,

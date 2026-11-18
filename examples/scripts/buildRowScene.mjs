@@ -84,6 +84,7 @@ const SECTIONS = [
 // The door at the end.
 add('door', LENGTH - 120, (LANE.top + LANE.bottom) / 2, 120, 200, { visible: true, triggers: 'levelComplete', active: true });
 add('player', 240, (LANE.top + LANE.bottom) / 2, 28, 24, { spriteSize: 200, spriteOffsetY: -56 });
+add('spawn', 240, (LANE.top + LANE.bottom) / 2, 56, 56);
 
 /**
  * The three creatures are one prefab wearing three sprite sheets, which is
@@ -134,6 +135,7 @@ const scene = {
   // The paving stretched into the compressed lane: a 200-unit ground tile is 200 wide by 100 tall on screen.
   tileLayers: [{ name: 'street', spritesheet: 'paving', zIndex: -1, tileSize: 200, stretch: true }],
   prefabs: {
+    spawn: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } },
     player: { actor: 'ObliquePlayer', spritesheet: 'rogue', defaultAnimation: 'idle_right', physics: { bodyType: 'character', shape: 'circle', frictionAir: 0.2 } },
     lamp: { actor: 'Lamp', physics: { bodyType: 'static', shape: 'circle' } },
     street: { actor: 'Street', physics: { bodyType: 'static', isSensor: true } },

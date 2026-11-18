@@ -46,6 +46,7 @@ const spritesheets = {
   beacon: { url: 'textures/pickups/beacon.png', frameWidth: 34, frameHeight: 33 }
 };
 const prefabs = {
+  spawn: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } },
   player: { actor: 'Ship', spritesheet: 'player', physics: { bodyType: 'dynamic', shape: 'circle', friction: 0.1, frictionAir: 0, restitution: 0.4 } },
   droneRed: { actor: 'Drone', spritesheet: 'droneRed', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, frictionAir: 0.3 } },
   droneBlack: { actor: 'Drone', spritesheet: 'droneBlack', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, frictionAir: 0.3 } },
@@ -133,6 +134,7 @@ add('droneBlack', GATE.x + 200, GATE.y + 600, 64, 64);
 add('droneRed', W / 2 + 400, H / 2 - 300, 56, 56);
 add('gate', GATE.x, GATE.y, 220, 220, { visible: true, triggers: 'levelComplete', active: true });
 add('player', START.x, START.y, 60, 60);
+add('spawn', START.x, START.y, 120, 120);
 
 const scene = {
   version: 6, name: 'field', type: 'level', gameType: 'rotatingTopDown',

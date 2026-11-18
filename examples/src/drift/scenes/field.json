@@ -232,6 +232,10 @@
         "frictionAir": 0,
         "restitution": 0.7
       }
+    },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -2683,7 +2687,8 @@
             "damage2": "playerDamage2",
             "damage3": "playerDamage3"
           }
-        }
+        },
+        { "id": "spawn-1", "prefab": "spawn", "x": 700, "y": 6300, "width": 120, "height": 120 }
       ]
     }
   ],

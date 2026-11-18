@@ -186,6 +186,14 @@ export class Scene {
     if (world.player) {
       const player = this.entitiesById.get(world.player);
       if (player && !this.game.player) this.game.player = player;
+      // Where play starts: the first free spawn point, as an avatar joining
+      // a match does. The editor shows the object where it was placed, and
+      // on a client the server says where its avatar is.
+      const point = player && !this.game.editMode && !this.#serverRuns ? this.freeSpawnPoint(player) : null;
+      if (point) {
+        player.body.setPosition({ ...point.body.position });
+        player.body.setVelocity(player.body.position.z === undefined ? { x: 0, y: 0 } : { x: 0, y: 0, z: 0 });
+      }
     }
     /** `world.counters`: what rules count and the HUD shows. */
     this.counters = new SceneCounters(this, world.counters ?? {});
@@ -857,12 +865,13 @@ export class Scene {
    * The spawn point a player should come in at: the first, in scene order,
    * with no avatar inside its reach; when every one is taken, the one with
    * the fewest. Null when the level places none.
+   * @param {import('./entity.js').Entity|null} [ignore] - An avatar that does not count: the one being placed
    * @returns {SpawnPoint|null}
    */
-  freeSpawnPoint() {
+  freeSpawnPoint(ignore = null) {
     const points = [...this.game.entities].filter((entity) => entity instanceof SpawnPoint && !entity.dead);
     if (!points.length) return null;
-    const avatars = this.game.players.avatars;
+    const avatars = this.game.players.avatars.filter((avatar) => avatar !== ignore);
     const inside = (point) => avatars.filter((avatar) => point.holds(avatar)).length;
     let best = points[0];
     let fewest = Infinity;

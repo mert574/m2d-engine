@@ -75,6 +75,7 @@ const level = {
     ]
   },
   prefabs: {
+    spawn: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } },
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.4 } },
     ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', friction: 0.4 } },
     goal: { actor: 'Goal', physics: { bodyType: 'static', isSensor: true } }
@@ -85,6 +86,7 @@ const level = {
     { id: 'ramp-upper', prefab: 'wall', x: 200, y: 160, width: 360, height: 16, angle: 0.35 },
     { id: 'ramp-lower', prefab: 'wall', x: 440, y: 290, width: 200, height: 16, angle: -0.25 },
     { id: 'ball', prefab: 'ball', x: 60, y: 80, width: 28, height: 28 },
+    { id: 'start', prefab: 'spawn', x: 60, y: 80, width: 56, height: 56 },
     { id: 'goal', prefab: 'goal', x: 600, y: 324, width: 48, height: 32 }
   ] }],
   hud: [

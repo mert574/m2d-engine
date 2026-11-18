@@ -1264,6 +1264,10 @@
       "actor": "AmbientSound",
       "physics": { "bodyType": "static", "isSensor": true, "layer": "none" },
       "properties": { "sound": "wind", "fadeIn": 2 }
+    },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -1289,6 +1293,16 @@
           "width": 0.5,
           "height": 1,
           "rotation": [0, 0, 0.018504, 0.999829]
+        },
+        {
+          "id": "spawn-1",
+          "prefab": "spawn",
+          "x": 7.2,
+          "y": 1,
+          "z": 5.2,
+          "width": 1,
+          "height": 2,
+          "depth": 1
         },
         {
           "id": "gable_plaster_yellow-1",

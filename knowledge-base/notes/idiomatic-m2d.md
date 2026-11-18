@@ -16,7 +16,7 @@ Code is only:
 
 Everything else is scene data, which the editor and MCP can read and change:
 
-- placement, prefabs, tile layers and paths;
+- placement, prefabs, tile layers and paths, and where play starts: a `SpawnPoint` (the player starts at the first free one, and each player joins at one online; never a start position in code);
 - camera, lighting, post, the day/night cycle, sound effects and music;
 - the HUD, and menus as UI scenes;
 - flow and outcomes as `world.rules`, with counters for what is counted. What arrives later (a wave, a reinforcement) is a placed object, `sealed` until a rule unseals it; there is no spawn action. `scene.spawnPrefab` is for what a running thing drops (a dropper, a shot);

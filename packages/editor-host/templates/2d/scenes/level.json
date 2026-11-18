@@ -5,27 +5,90 @@
   "world": {
     "width": 1600,
     "height": 900,
-    "gravity": { "x": 0, "y": 1000 },
+    "gravity": {
+      "x": 0,
+      "y": 1000
+    },
     "player": "player",
     "rules": [
       {
-        "when": { "event": "action", "action": "menu" },
-        "then": [{ "do": "switch", "scene": "menu" }]
+        "when": {
+          "event": "action",
+          "action": "menu"
+        },
+        "then": [
+          {
+            "do": "switch",
+            "scene": "menu"
+          }
+        ]
       },
       {
         "id": "fell",
-        "when": { "event": "enter", "object": "pit" },
-        "then": [{ "do": "gameOver" }]
+        "when": {
+          "event": "enter",
+          "object": "pit"
+        },
+        "then": [
+          {
+            "do": "gameOver"
+          }
+        ]
       }
     ]
   },
   "prefabs": {
-    "player": { "actor": "Player", "physics": { "bodyType": "dynamic", "friction": 5, "frictionAir": 0.001 } },
-    "sky": { "actor": "Prop", "physics": { "bodyType": "static", "isSensor": true } },
-    "ground": { "actor": "Prop", "physics": { "bodyType": "static", "friction": 0.8 } },
-    "platform": { "actor": "Prop", "physics": { "bodyType": "static", "friction": 0.8 } },
-    "goal": { "actor": "Prop", "physics": { "bodyType": "static", "isSensor": true } },
-    "pit": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } }
+    "player": {
+      "actor": "Player",
+      "physics": {
+        "bodyType": "dynamic",
+        "friction": 5,
+        "frictionAir": 0.001
+      }
+    },
+    "sky": {
+      "actor": "Prop",
+      "physics": {
+        "bodyType": "static",
+        "isSensor": true
+      }
+    },
+    "ground": {
+      "actor": "Prop",
+      "physics": {
+        "bodyType": "static",
+        "friction": 0.8
+      }
+    },
+    "platform": {
+      "actor": "Prop",
+      "physics": {
+        "bodyType": "static",
+        "friction": 0.8
+      }
+    },
+    "goal": {
+      "actor": "Prop",
+      "physics": {
+        "bodyType": "static",
+        "isSensor": true
+      }
+    },
+    "pit": {
+      "actor": "Trigger",
+      "physics": {
+        "bodyType": "static",
+        "isSensor": true
+      }
+    },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": {
+        "bodyType": "static",
+        "isSensor": true,
+        "layer": "none"
+      }
+    }
   },
   "layers": [
     {
@@ -39,7 +102,10 @@
           "width": 1600,
           "height": 900,
           "zIndex": -10,
-          "properties": { "color": "#bfe3f5", "radius": 0 }
+          "properties": {
+            "color": "#bfe3f5",
+            "radius": 0
+          }
         },
         {
           "id": "ground",
@@ -48,7 +114,10 @@
           "y": 870,
           "width": 1600,
           "height": 60,
-          "properties": { "color": "#7cb46b", "radius": 0 }
+          "properties": {
+            "color": "#7cb46b",
+            "radius": 0
+          }
         },
         {
           "id": "platform-1",
@@ -57,7 +126,9 @@
           "y": 720,
           "width": 220,
           "height": 24,
-          "properties": { "color": "#e0a458" }
+          "properties": {
+            "color": "#e0a458"
+          }
         },
         {
           "id": "platform-2",
@@ -66,7 +137,9 @@
           "y": 600,
           "width": 200,
           "height": 24,
-          "properties": { "color": "#e0a458" }
+          "properties": {
+            "color": "#e0a458"
+          }
         },
         {
           "id": "platform-3",
@@ -75,7 +148,9 @@
           "y": 500,
           "width": 220,
           "height": 24,
-          "properties": { "color": "#e0a458" }
+          "properties": {
+            "color": "#e0a458"
+          }
         },
         {
           "id": "goal",
@@ -84,10 +159,35 @@
           "y": 790,
           "width": 40,
           "height": 100,
-          "properties": { "color": "#ffd23f", "radius": 8 }
+          "properties": {
+            "color": "#ffd23f",
+            "radius": 8
+          }
         },
-        { "id": "player", "prefab": "player", "x": 120, "y": 780, "width": 28, "height": 40 },
-        { "id": "pit", "prefab": "pit", "x": 800, "y": 1150, "width": 5600, "height": 400 }
+        {
+          "id": "player",
+          "prefab": "player",
+          "x": 120,
+          "y": 780,
+          "width": 28,
+          "height": 40
+        },
+        {
+          "id": "spawn-1",
+          "prefab": "spawn",
+          "x": 120,
+          "y": 780,
+          "width": 80,
+          "height": 80
+        },
+        {
+          "id": "pit",
+          "prefab": "pit",
+          "x": 800,
+          "y": 1150,
+          "width": 5600,
+          "height": 400
+        }
       ]
     }
   ],

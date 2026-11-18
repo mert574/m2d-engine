@@ -1406,6 +1406,7 @@ const scene = {
       // The ground under the whole lot, and the fox on the grocer's pavement.
       { id: 'floor', prefab: 'ground', x: 0, y: -0.25, z: 0, width: EXTENT * 2 + 40, height: 0.5, depth: EXTENT * 2 + 40 },
       { ...hero, x: 7.2, y: 1, z: 5.2 },
+      { id: 'spawn-1', prefab: 'spawn', x: 7.2, y: 1, z: 5.2, width: 1, height: 2, depth: 1 },
       ...objects
     ],
     props: [...props.values()]

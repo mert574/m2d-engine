@@ -306,7 +306,11 @@
     "foreground": { "actor": "Foreground", "physics": { "bodyType": "static", "isSensor": true } },
     "bound": { "actor": "Bound", "physics": { "bodyType": "static" } },
     "door": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
-    "zone": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } }
+    "zone": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
+    }
   },
   "layers": [
     {
@@ -374,6 +378,7 @@
           "height": 24,
           "properties": { "spriteSize": 200, "spriteOffsetY": -56 }
         },
+        { "id": "spawn-1", "prefab": "spawn", "x": 240, "y": 200, "width": 56, "height": 56 },
         { "id": "s1-zombie-1", "prefab": "zombie", "x": 1620, "y": 80, "width": 30, "height": 30 },
         { "id": "s1-zombie-2", "prefab": "zombie", "x": 1690, "y": 230, "width": 30, "height": 30 },
         {

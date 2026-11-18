@@ -51,6 +51,7 @@ for (const w of meadow.wasps) {
 }
 add('hive', meadow.hive.x, meadow.hive.y, 70, 110);
 add('player', 220, HEIGHT / 2, 32, 24);
+add('spawn', 220, HEIGHT / 2, 64, 64);
 
 /** The six flower and bramble sheets, each one silhouette. */
 const FOLIAGE = ['flowerballs', 'seedheads', 'flowerspikes', 'cattails', 'bramble-a', 'bramble-b'];
@@ -158,6 +159,7 @@ const scene = {
     music: { game: { url: 'music/theget-perfect-union.ogg', volume: 0.6 } }
   },
   prefabs: {
+    spawn: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } },
     meadow: { actor: 'Meadow', physics: sensor },
     foreMeadow: { actor: 'ForeMeadow', physics: sensor },
     front: { actor: 'ScrollFront', physics: sensor },

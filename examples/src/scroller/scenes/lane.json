@@ -167,7 +167,11 @@
     },
     "wasp": { "actor": "Wasp", "physics": { "bodyType": "static", "isSensor": true } },
     "web": { "actor": "Web", "physics": { "bodyType": "static", "isSensor": true } },
-    "hive": { "actor": "Hive", "physics": { "bodyType": "static", "isSensor": true } }
+    "hive": { "actor": "Hive", "physics": { "bodyType": "static", "isSensor": true } },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
+    }
   },
   "layers": [
     {
@@ -802,7 +806,8 @@
           "properties": { "amp": 104.76, "rate": 0.54, "drift": 57.63, "phase": 5.21 }
         },
         { "id": "hive-1", "prefab": "hive", "x": 8160, "y": 300, "width": 70, "height": 110 },
-        { "id": "player-1", "prefab": "player", "x": 220, "y": 270, "height": 24 }
+        { "id": "player-1", "prefab": "player", "x": 220, "y": 270, "height": 24 },
+        { "id": "spawn-1", "prefab": "spawn", "x": 220, "y": 270, "width": 64, "height": 64 }
       ]
     }
   ],

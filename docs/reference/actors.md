@@ -53,7 +53,7 @@ The editor gives a placed model or image this actor when the game registers it. 
 
 ## SpawnPoint
 
-`actors/spawnPoint.js`. Name `SpawnPoint`. Where a player joins or comes back: a marker that collides with nothing, drawn as a green tool box in the editor and under `r_showtools` and as nothing in play, in 2D and 3D. Its size is its reach: `point.holds(entity)` is whether the entity stands inside it. `scene.freeSpawnPoint()` is the first point, in scene order, with no avatar inside, or the one with the fewest when all are taken, or null without any. `scene.spawnAvatar(player)` makes the player an avatar from the scene's `world.player` object at that point (or where the object stands) and sets `player.avatar`; the server calls it for each player who joins. See [Multiplayer](../guide/multiplayer#the-match).
+`actors/spawnPoint.js`. Name `SpawnPoint`. Where a player joins or comes back: a marker that collides with nothing, drawn as a green tool box in the editor and under `r_showtools` and as nothing in play, in 2D and 3D. Its size is its reach: `point.holds(entity)` is whether the entity stands inside it. A level's own player starts at the first free one when the level loads (not in the editor), so a level says where play starts by placing one. `scene.freeSpawnPoint(ignore)` is the first point, in scene order, with no avatar inside, or the one with the fewest when all are taken, or null without any. `scene.spawnAvatar(player)` makes the player an avatar from the scene's `world.player` object at that point (or where the object stands) and sets `player.avatar`; the server calls it for each player who joins. See [Multiplayer](../guide/multiplayer#the-match).
 
 ## Trigger
 

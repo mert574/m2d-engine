@@ -86,6 +86,7 @@ const spritesheets = {
   oswin: { url: 'textures/characters/oswin.png', frameWidth: 128, frameHeight: 128, animations: flareAnimations() }
 };
 const prefabs = {
+  spawn: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } },
   player: { actor: 'ObliquePlayer', spritesheet: 'wanderer', defaultAnimation: 'idle_down', physics: { bodyType: 'character', frictionAir: 0.2, footprint: { height: 18, width: 30 } } },
   wisp: { actor: 'Ghost', physics: { bodyType: 'dynamic', lockRotation: true, friction: 0.1, frictionAir: 0.2 } },
   lantern: { actor: 'Coin', physics: { bodyType: 'static', isSensor: true, footprint: { height: 16 } } },
@@ -259,6 +260,7 @@ for (const [x, y] of [[1500, 700], [2200, 1600], [700, 800], [2700, 1250], [1300
   add('wisp', x, y, 40, 40);
 }
 add('player', SPAWN.x, SPAWN.y - CHARACTER_FRAME / 2, CHARACTER_FRAME, CHARACTER_FRAME, { spriteOffsetY: Math.round(CHARACTER_FRAME * CHARACTER_FEET) });
+add('spawn', SPAWN.x, SPAWN.y - CHARACTER_FRAME / 2, CHARACTER_FRAME * 2, CHARACTER_FRAME * 2);
 
 const scene = {
   version: 6, name: 'grove', type: 'level', gameType: 'oblique',

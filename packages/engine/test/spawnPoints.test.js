@@ -56,9 +56,16 @@ async function make(scene, options = {}) {
   return { game, scene: game.sceneManager.getCurrentScene() };
 }
 
+/** What the server does after setup: the scene's own player is the single-player one, and goes. */
+function online(game) {
+  game.removeEntity(game.player);
+  game.player = null;
+}
+
 describe('spawn points', () => {
   it('make each joining avatar from the player object, at the first free point', async () => {
     const { game, scene } = await make(level());
+    online(game);
     const [ann, bob, cat] = ['ann', 'bob', 'cat'].map((id) => game.players.add(id));
     const a = scene.spawnAvatar(ann);
     const b = scene.spawnAvatar(bob);
@@ -78,6 +85,21 @@ describe('spawn points', () => {
     game.destroy();
   });
 
+  it('start a level\'s own player at the first free point, and leave it where it was placed in the editor', async () => {
+    const played = await make(level());
+    expect(played.game.player.position).toMatchObject({ x: 100, y: 100 });
+    played.game.destroy();
+    // Standing in the first point already, it is not in its own way.
+    const inside = level();
+    Object.assign(inside.layers[0].objects[0], { x: 100, y: 100 });
+    const again = await make(inside);
+    expect(again.game.player.position).toMatchObject({ x: 100, y: 100 });
+    again.game.destroy();
+    const edited = await make(level(), { display: true, editMode: true });
+    expect(edited.scene.entitiesById.get('hero').position).toMatchObject({ x: 10, y: 10 });
+    edited.game.destroy();
+  });
+
   it('fall back to where the player object stands, and make nothing without a player', async () => {
     const { game, scene } = await make(level({ points: [] }));
     expect(scene.freeSpawnPoint()).toBeNull();
@@ -92,6 +114,7 @@ describe('spawn points', () => {
 
   it('work in 3D, with the third axis in their reach', async () => {
     const { game, scene } = await make(level({ dimensions: 3 }));
+    online(game);
     const a = scene.spawnAvatar(game.players.add('ann'));
     expect(a.position).toMatchObject({ x: 100, y: 0, z: 100 });
     expect(scene.spawnAvatar(game.players.add('bob')).position).toMatchObject({ x: 200, z: 100 });

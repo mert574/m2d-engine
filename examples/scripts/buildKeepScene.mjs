@@ -144,6 +144,8 @@ const start = at(centre(ROOMS[0]).i, centre(ROOMS[0]).j);
 const stair = at(centre(ROOMS[ROOMS.length - 1]).i, centre(ROOMS[ROOMS.length - 1]).j);
 add('stair', stair.x, stair.y, TILE * 1.5, TILE * 1.5, { visible: true, triggers: 'levelComplete', active: true });
 add('player', start.x, start.y, 28, 28, { spriteSize: 200, spriteOffsetY: -56 });
+// Where knights come in, a little apart: the server's join spawns at a free one.
+for (const [dx, dy] of [[0, 0], [64, 0], [-64, 0], [0, 64]]) add('spawn', start.x + dx, start.y + dy, 48, 48);
 // The satchel vendor, beside the entrance.
 add('quartermaster', 240, 2540, 40, 40);
 
@@ -201,6 +203,7 @@ const scene = {
     cells: [...floor].map(k => k.split(',').map(Number)).concat(walls.map(w => [w.i, w.j]))
   }],
   prefabs: {
+    spawn: { actor: 'SpawnPoint', physics: { bodyType: 'static', isSensor: true, layer: 'none' } },
     player: { actor: 'ObliquePlayer', spritesheet: 'knight', defaultAnimation: 'idle_down', physics: { bodyType: 'character', shape: 'circle', frictionAir: 0.2 } },
     wall: { actor: 'Wall', spritesheet: 'wall', physics: { bodyType: 'static', friction: 0.2 } },
     wallDark: { actor: 'Wall', spritesheet: 'wallDark', physics: { bodyType: 'static', friction: 0.2 } },

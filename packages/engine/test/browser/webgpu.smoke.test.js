@@ -418,6 +418,12 @@ describe('a 3D game through the engine loop', () => {
     expect([data[12], data[13], data[14]].map((v) => Math.round(v * 100) / 100)).toEqual([2, 1, 0]);
     expect(Math.round(data[0] * 100) / 100).toBe(2);
     expect(data[55]).toBe(0);
+    // Labelled above its top, through the 3D camera; none for a box behind the eye.
+    const label = game.worldOverlay.labels.find((each) => each.text === 'trigger · zone');
+    expect(label).toMatchObject({ x: 2, y: 2, z: 0 });
+    expect(game.worldToUI(2, 2, 0)).not.toBeNull();
+    const behind = { x: game.camera.position.x * 2 - game.camera.lookAt.x, y: game.camera.position.y, z: game.camera.position.z * 2 - game.camera.lookAt.z };
+    expect(game.worldToUI(behind.x, behind.y, behind.z)).toBeNull();
   });
 
   it('draws the HUD over the world on the overlay canvas', async () => {

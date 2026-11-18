@@ -125,6 +125,10 @@
       "actor": "CeilingLamp",
       "physics": { "bodyType": "static", "isSensor": true },
       "light": { "type": "point", "color": "#dde4f2", "intensity": 0.62, "range": 330 }
+    },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -454,6 +458,7 @@
       "type": "dynamic",
       "objects": [
         { "id": "player-1", "prefab": "player", "x": 100, "y": 100 },
+        { "id": "spawn-1", "prefab": "spawn", "x": 100, "y": 100, "width": 64, "height": 64 },
         { "id": "coin-1", "prefab": "coin", "x": 400, "y": 350, "width": 24, "height": 24 },
         { "id": "coin-2", "prefab": "coin", "x": 800, "y": 300, "width": 24, "height": 24 },
         { "id": "coin-3", "prefab": "coin", "x": 1350, "y": 300, "width": 24, "height": 24 },

@@ -2004,12 +2004,20 @@ export class M2D {
    * ground plane; under a projection they go through it first. The opposite
    * direction from pointer input (which arrives already carrying both
    * spaces on every event), for pinning screen-space content — labels,
-   * markers, off-screen indicators — to a world object.
+   * markers, off-screen indicators — to a world object. In 3D the point is
+   * `x, y, z` and goes through the camera's perspective; one behind the eye
+   * has no place on the view and gives null.
    * @param {number} x - World X
    * @param {number} y - World Y
-   * @returns {{x: number, y: number}}
+   * @param {number} [z] - World Z, in 3D
+   * @returns {{x: number, y: number}|null}
    */
-  worldToUI(x, y) {
+  worldToUI(x, y, z = 0) {
+    if (this.renderer.dimensions === 3) {
+      const view = this.camera.worldToScreen(x, y, z);
+      if (!(view.z >= 0 && view.z <= 1)) return null;
+      return viewToUI({ x: view.x, y: view.y, viewport: this.viewport });
+    }
     const render = this.projection ? this.projection.toScreen(x, y) : { x, y };
     const view = this.camera.worldToScreen(render.x, render.y);
     return viewToUI({ x: view.x, y: view.y, viewport: this.viewport });

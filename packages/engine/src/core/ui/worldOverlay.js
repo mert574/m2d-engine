@@ -98,6 +98,7 @@ export class WorldOverlay {
    * @param {Object} options - `drawText` options, with these reinterpreted
    * @param {number} options.x - Anchor X in **world** coordinates
    * @param {number} options.y - Anchor Y in **world** coordinates
+   * @param {number} [options.z] - Anchor Z, in a 3D game: a label behind the camera is not drawn
    * @param {number} [options.offsetX=0] - Offset from the anchor, in UI units
    * @param {number} [options.offsetY=0] - Offset from the anchor, in UI units
    */
@@ -122,6 +123,7 @@ export class WorldOverlay {
   #worldTransform() {
     const v = this.game.viewport;
     const origin = this.game.worldToUI(0, 0);
+    if (!origin) return null;
     const scale = (v.contentWidth / v.viewWidth) / v.uiScale;
     return { x: origin.x, y: origin.y, scaleX: scale, scaleY: scale };
   }
@@ -148,10 +150,13 @@ export class WorldOverlay {
 
     ui.pushClip(content);
 
-    if (shapes.length > 0) {
+    // Shapes are drawn in the ground plane's coordinates, which a 3D view
+    // has no flat transform for; there only labels, projected one by one.
+    const transform = this.game.renderer.dimensions === 3 ? null : this.#worldTransform();
+    if (shapes.length > 0 && transform) {
       // One transform for the whole batch: the calls replay verbatim, in the
       // world coordinates and world sizes they were submitted with.
-      ui.pushTransform(this.#worldTransform());
+      ui.pushTransform(transform);
       for (const { method, options } of shapes) ui[method](options);
       ui.popTransform();
     }
@@ -159,7 +164,8 @@ export class WorldOverlay {
     // Text is projected per label instead, because its size must *not* follow
     // the transform — only its anchor does.
     for (const label of labels) {
-      const anchor = game.worldToUI(label.x, label.y);
+      const anchor = game.worldToUI(label.x, label.y, label.z);
+      if (!anchor) continue;
       const x = anchor.x + (label.offsetX || 0);
       const y = anchor.y + (label.offsetY || 0);
       if (

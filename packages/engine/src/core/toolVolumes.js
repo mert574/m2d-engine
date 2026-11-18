@@ -20,6 +20,8 @@ import { toLinear } from './presentation3d.js';
 const FILL_ALPHA = 0.3;
 const EDGE_ALPHA = 0.9;
 const OPACITY_3D = 0.28;
+/** How far from the camera, in metres, a 3D box's label is still drawn. */
+const LABEL_REACH_3D = 40;
 
 /** Whether tool entities are drawn now: in the editor, or in play with `r_showtools` on. */
 export function toolsShown(game) {
@@ -32,6 +34,9 @@ export function toolOf(entity) {
   if (!tool) return null;
   return { color: entity.toolColor ?? tool.color, label: entity.toolLabel ?? tool.label };
 }
+
+/** What a box says: its kind, and the id of the object it was placed as. */
+const labelOf = (entity, tool) => (entity.sceneId ? `${tool.label} · ${entity.sceneId}` : tool.label);
 
 const rgba = (color, alpha) => {
   const [r, g, b] = parseColor(color).map((c) => Math.round(c * 255));
@@ -61,7 +66,7 @@ export function drawToolVolume2D(entity, tool = toolOf(entity)) {
   let top = 0;
   for (let i = 1; i < points.length; i++) if (points[i].y < points[top].y || (points[i].y === points[top].y && points[i].x < points[top].x)) top = i;
   game.worldOverlay.drawText({
-    text: entity.sceneId ? `${tool.label} · ${entity.sceneId}` : tool.label,
+    text: labelOf(entity, tool),
     x: ground[top].x, y: ground[top].y, offsetX: 4, offsetY: 12,
     fillStyle: rgba(tool.color, 1), fontSize: '11px', fontFamily: 'system-ui', fontWeight: '600',
     textAlign: 'left', textBaseline: 'alphabetic'
@@ -91,6 +96,7 @@ function toolSurface(scene, color) {
 export function addToolVolumes3D(scene, frame) {
   const game = scene.game;
   if (!toolsShown(game)) return;
+  const eye = game.camera.position;
   for (const entity of game.entities) {
     if (entity.dead) continue;
     const tool = toolOf(entity);
@@ -98,6 +104,14 @@ export function addToolVolumes3D(scene, frame) {
     const body = entity.body;
     const { geometry, scale } = geometryFor(body.shape, body.size);
     const { color, material } = toolSurface(scene, tool.color);
-    frame.add(geometry, { position: body.renderPosition, rotation: body.renderRotation, scale, color, material, castShadow: false });
+    const at = body.renderPosition;
+    frame.add(geometry, { position: at, rotation: body.renderRotation, scale, color, material, castShadow: false });
+    // Labelled above its top, near enough to read: a level's far side is not a wall of names.
+    if (Math.hypot(at.x - eye.x, at.y - eye.y, at.z - eye.z) > LABEL_REACH_3D) continue;
+    game.worldOverlay.drawText({
+      text: labelOf(entity, tool), x: at.x, y: at.y + body.size.y / 2, z: at.z, offsetY: -6,
+      fillStyle: rgba(tool.color, 1), strokeStyle: 'rgba(0, 0, 0, 0.6)', lineWidth: 3,
+      fontSize: '13px', fontFamily: 'system-ui', fontWeight: '600', textAlign: 'center', textBaseline: 'alphabetic'
+    });
   }
 }
