@@ -38,6 +38,7 @@ import { PROJECT_FILE, type ProjectConfig } from './project.ts';
 import { createProject, TEMPLATES } from './templates.ts';
 import { SceneCamera } from './shots.ts';
 import { settle, type RunScene } from './playtest.ts';
+import { bakeNav } from './nav.ts';
 import { runAudit, findUses } from './search.ts';
 import { engineAlias, buildProject, previewProject, closePreview } from './build.ts';
 import { spawn } from 'node:child_process';
@@ -182,7 +183,7 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
     const declared = await companion.project.config();
     await loaded.physics.initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
     // Booted as the page boots it: the project's actions, choices and collision layers are what its scenes may name.
-    const made = new loaded.engine.M2D(null, { ...options, actions: declared.actions, choices: declared.choices, layers: declared.layers, headless: true });
+    const made = new loaded.engine.M2D(null, { ...options, actions: declared.actions, choices: declared.choices, layers: declared.layers, navAreas: declared.navAreas, navAgents: declared.navAgents, headless: true });
     loaded.definition.register?.(made);
     // The project's scenes as the session holds them: cross-scene refs (a
     // button's onClick, a rule's switch) check as registered, and a level
@@ -237,11 +238,25 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
       console.error = original;
     }
   };
+  const bakeNavScene: NonNullable<Parameters<typeof companion.provide>[0]['bakeNav']> = (file, bakeOptions, origin) => bakeNav(
+    companion.session, companion.project,
+    {
+      makeGame: async () => (await makeGame()) as unknown as import('./nav.ts').BakeGame | null,
+      navModules: async () => {
+        if (!server) throw new Error('the editor is not serving');
+        const geometry = await server.ssrLoadModule('m2d-engine/core/nav/navGeometry.js');
+        const bake = await server.ssrLoadModule('m2d-engine/core/nav/navBake.js');
+        return { navGeometryOf: geometry.navGeometryOf, bakeNavMesh: bake.bakeNavMesh };
+      }
+    },
+    file, bakeOptions, origin
+  );
   companion.provide({
     game: () => (validatorGame ??= makeGame()),
     runScene,
     build: () => buildProject(companion.project, companion.assets),
-    screenshot: (shot) => camera.shoot(shot)
+    screenshot: (shot) => camera.shoot(shot),
+    bakeNav: bakeNavScene
   });
 
   return {
@@ -340,6 +355,12 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
             const scope = url.searchParams.get('scope') ?? '';
             const name = url.searchParams.get('name') ?? '';
             json(res, await findUses(session, scope, name, await (validatorGame ??= makeGame())));
+            return;
+          }
+          if (url.pathname === '/__bake_nav' && req.method === 'POST') {
+            const body = await readBody(req) as { path?: string; agents?: string[]; client?: string };
+            if (!body.path) throw new Error('a bake needs a scene path');
+            json(res, { baked: await bakeNavScene(body.path, { agents: body.agents }, { origin: 'editor', client: body.client }) });
             return;
           }
           if (url.pathname === '/__settle' && req.method === 'POST') {

@@ -77,6 +77,21 @@ export const PROJECT_SCHEMA = s.object({
     label: 'Collision layers', maxLength: 16,
     description: "Collision layers by name, in bit order: a prefab's physics says its layer and what it collidesWith; 'none' is the engine's own and collides with nothing"
   }),
+  navAreas: s.record(s.object({
+    cost: s.number({ positive: true, initial: 1, description: 'How much a metre over this area costs against a metre of plain ground' })
+  }), {
+    label: 'Nav areas',
+    description: "Nav areas by name, each with a traversal cost, painted over the ground by NavVolume; 'walkable' and 'blocked' are the engine's own and are not declared"
+  }),
+  navAgents: s.record(s.object({
+    radius: s.number({ required: true, positive: true, description: 'The agent\'s radius in world units; the navmesh keeps paths this far off the walls' }),
+    height: s.number({ positive: true, description: 'How tall a gap the agent fits through; four radii when unset' }),
+    step: s.number({ min: 0, description: 'The tallest ledge the agent walks up; half a radius when unset' }),
+    slope: s.number({ min: 0, max: 90, unit: 'deg', description: 'The steepest ground the agent walks; 45 when unset' })
+  }), {
+    label: 'Nav agents',
+    description: 'Agent profiles by name: the editor bakes one navmesh per profile into each scene that navigates, and findPath names the profile it asks for'
+  }),
   settings: s.union([
     s.boolean({ match: (value) => typeof value === 'boolean' }),
     s.object({

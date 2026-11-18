@@ -330,8 +330,12 @@ export class SceneProps {
           const model = scene.models.get(mesh.model);
           // Colliders stand whether or not the model is here to draw: a
           // headless game loads no models and still needs the walls, and
-          // a streamed-out model's props must not become walkable.
-          this.#colliders(prop, model ? modelBounds(model, mesh) : null, mesh.offset ?? ZERO);
+          // a streamed-out model's props must not become walkable. The
+          // asset's declared bounds (written by the editor's navmesh bake)
+          // win over the file's, so a headless game and a browser build
+          // the same box to the last digit — the navmesh stamp hashes it.
+          const declared = scene.config.assets?.models?.[mesh.model]?.bounds ? scene.config.assets.models[mesh.model] : model;
+          this.#colliders(prop, declared?.bounds ? modelBounds(declared, mesh) : null, mesh.offset ?? ZERO);
           // The drawing is `addModelBatches`'s, below, so that a model's
           // batches are built in one place and stamped with its key
           // whether it arrived with the scene or streamed in later —

@@ -53,6 +53,10 @@ export interface ProjectConfig {
   choices: Record<string, unknown>;
   /** The collision layers the project declares, in bit order; empty for none. */
   layers: string[];
+  /** The nav areas the project declares, name to `{ cost }`; empty for none. */
+  navAreas: Record<string, { cost?: number }>;
+  /** The nav agent profiles the project declares, name to `{ radius, height?, step?, slope? }`; empty for none. */
+  navAgents: Record<string, { radius: number; height?: number; step?: number; slope?: number }>;
 }
 
 /** The file that makes a folder a project. */
@@ -88,7 +92,7 @@ export class Project {
   async config(): Promise<ProjectConfig> {
     const fallback: ProjectConfig = {
       name: this.root.split(sep).pop() ?? 'project', definition: null, hooks: null, scenes: 'scenes', basePath: '.',
-      initialScene: null, display: {}, actions: {}, choices: {}, layers: []
+      initialScene: null, display: {}, actions: {}, choices: {}, layers: [], navAreas: {}, navAgents: {}
     };
     let raw: Record<string, unknown>;
     try {
@@ -107,7 +111,9 @@ export class Project {
       display: isRecord(raw.display) ? raw.display : {},
       actions: isRecord(raw.input) && isRecord(raw.input.actions) ? raw.input.actions as Record<string, string[]> : {},
       choices: isRecord(raw.choices) ? raw.choices : {},
-      layers: Array.isArray(raw.layers) ? raw.layers.filter((name): name is string => typeof name === 'string') : []
+      layers: Array.isArray(raw.layers) ? raw.layers.filter((name): name is string => typeof name === 'string') : [],
+      navAreas: isRecord(raw.navAreas) ? raw.navAreas as ProjectConfig['navAreas'] : {},
+      navAgents: isRecord(raw.navAgents) ? raw.navAgents as ProjectConfig['navAgents'] : {}
     };
   }
 

@@ -175,9 +175,18 @@ const SPRITESHEET = s.object({
 });
 
 /** A model a 3D level draws: a glTF 2.0 `.glb`, in metres, y up. */
+/** An axis range, for a model's declared bounds. */
+const vec3 = (options = {}) => s.object({
+  x: s.number({ required: true }), y: s.number({ required: true }), z: s.number({ required: true })
+}, options);
+
 const MODEL = s.object({
   url: s.string({ required: true, nonEmpty: true, description: 'Relative to the game\'s basePath' }),
-  quality: s.boolean({ label: 'Quality levels', description: 'Built at every level the project\'s quality block declares, each combination in a folder beside the file; the levels the player chose pick which loads, and the defaults load the file itself' })
+  quality: s.boolean({ label: 'Quality levels', description: 'Built at every level the project\'s quality block declares, each combination in a folder beside the file; the levels the player chose pick which loads, and the defaults load the file itself' }),
+  bounds: s.object({ min: vec3({ required: true }), max: vec3({ required: true }) }, {
+    label: 'Bounds',
+    description: "The model's axis-aligned bounds in its own metres, written by the editor's navmesh bake: what a headless game (a server, the bake itself) uses for 'bounds' prop colliders, since it loads no models"
+  })
 });
 
 /** An HDR environment a 3D level lights with: a Radiance `.hdr` panorama. */
@@ -197,8 +206,20 @@ const IMAGE = s.object({
   url: s.string({ required: true, nonEmpty: true, editor: 'asset', label: 'Image', description: 'Relative to the game\'s basePath' })
 });
 
+/**
+ * A baked navmesh: the Detour binary the editor's bake wrote for one of
+ * the project's nav agents (the record key), and the stamp of what it was
+ * baked from. At load the stamp is recomputed from the built level, and a
+ * mesh that no longer matches is reported. See core/nav/nav.js.
+ */
+const NAVMESH = s.object({
+  url: s.string({ required: true, nonEmpty: true, description: 'The baked .navmesh file, relative to the game\'s basePath' }),
+  stamp: s.string({ required: true, nonEmpty: true, description: 'A hash of the bake\'s inputs, written by the bake; a mismatch at load means the bake is stale' })
+});
+
 const ASSETS = s.object({
   spritesheets: s.record(SPRITESHEET),
+  navmeshes: s.record(NAVMESH, { description: 'Baked navmeshes by nav agent name (m2d.project.json navAgents); the editor\'s bake writes these' }),
   images: s.record(IMAGE, { description: 'Whole images by key: icons, stills, textures an actor property names' }),
   models: s.record(MODEL),
   environments: s.record(ENVIRONMENT),

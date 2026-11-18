@@ -65,7 +65,7 @@ describe('the MCP server', () => {
   it('advertises its tools to a client', async () => {
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
-      'audit_project', 'build_project', 'create_scene', 'delete_scene', 'edit_look', 'edit_project', 'edit_scene', 'find_uses', 'import_asset', 'inspect_node', 'list_assets',
+      'audit_project', 'bake_navmesh', 'build_project', 'create_scene', 'delete_scene', 'edit_look', 'edit_project', 'edit_scene', 'find_uses', 'import_asset', 'inspect_node', 'list_assets',
       'list_components', 'list_scenes', 'look_at', 'outline_scene', 'read_project', 'read_scene', 'redo', 'rename_entry', 'rename_scene', 'run_scene', 'save_scene',
       'screenshot_scene', 'search_library', 'settle_scene', 'undo', 'validate_scene'
     ]);
@@ -198,7 +198,7 @@ describe('the project declaration', () => {
     expect(await project.declared()).toBe(true);
     expect(await project.config()).toEqual({
       name: 'Rooms', definition: 'src/game.js', hooks: null, scenes: 'scenes', basePath: '.',
-      initialScene: null, display: {}, actions: {}, choices: {}, layers: []
+      initialScene: null, display: {}, actions: {}, choices: {}, layers: [], navAreas: {}, navAgents: {}
     });
     await rm(join(root, 'm2d.project.json'));
   });

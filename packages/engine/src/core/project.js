@@ -44,6 +44,8 @@ export function projectOptions(project, { basePath = '' } = {}) {
     ...(project.input?.gamepad && { gamepad: project.input.gamepad }),
     ...(project.choices && { choices: project.choices }),
     ...(project.layers && { layers: project.layers }),
+    ...(project.navAreas && { navAreas: project.navAreas }),
+    ...(project.navAgents && { navAgents: project.navAgents }),
     ...(project.initialScene && { initialScene: project.initialScene }),
     ...(project.quality && { quality: project.quality }),
     ...(project.music && {

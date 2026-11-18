@@ -29,6 +29,7 @@ import { UIMenuItem } from './ui/menuItem.js';
 import { UIBackdrop } from './ui/backdrop.js';
 import { SpawnPoint } from '../actors/spawnPoint.js';
 import { drawToolVolumes2D, addToolVolumes3D } from './toolVolumes.js';
+import { drawNavMesh2D, addNavMesh3D } from './nav/navOverlay.js';
 import { entityInView, lightInView } from './viewCull.js';
 import { SceneValidationError } from './sceneLoader.js';
 import { SceneEffects } from './ui/sceneEffects.js';
@@ -785,6 +786,10 @@ export class Scene {
     for (const layer of this.config.layers) {
       for (const object of layer.objects) this.materializeObject(object);
     }
+
+    // The baked navmeshes, once the level's bodies stand: the stamp check
+    // reads them. Headless too — a server routes as a browser does.
+    await this.game.nav.loadScene(this);
   }
 
   /**
@@ -1431,6 +1436,7 @@ export class Scene {
     // every model this scene brought in gives its GPU memory back — which
     // is what used to leak a level's worth on each scene change.
     this.props.unload();
+    this.game.nav.unload();
     for (const model of this.models.values()) this.game.renderer?.unloadModel?.(model);
     this.models.clear();
     // The level's rules, HUD and cycle are this scene's; headless too.
@@ -1560,6 +1566,8 @@ export class Scene {
       this.drawWorld(deltaTime);
       // Triggers, spawn points and the like: in the editor, or with r_showtools.
       drawToolVolumes2D(this.game);
+      // The baked navmesh, with r_shownav.
+      drawNavMesh2D(this.game);
       this.#drawLightingFallback();
     }
 
@@ -1699,7 +1707,10 @@ export class Scene {
         });
       }
     }
-    if (this.config.type === 'level') addToolVolumes3D(this, frame);
+    if (this.config.type === 'level') {
+      addToolVolumes3D(this, frame);
+      addNavMesh3D(this, frame);
+    }
     // The level's own environment, when it names one: the sky and the
     // light it bakes, drawn in edit mode too, so the editor shows it.
     const environment = this.config.world?.environment;

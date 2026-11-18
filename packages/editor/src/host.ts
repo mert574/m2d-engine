@@ -39,6 +39,10 @@ export interface HostProject {
   choices: Record<string, unknown>;
   /** The collision layers, as `layers` declares them; empty for none. */
   layers: string[];
+  /** The nav areas, as `navAreas` declares them; empty for none. */
+  navAreas: Record<string, { cost?: number }>;
+  /** The nav agent profiles, as `navAgents` declares them; empty for none. */
+  navAgents: Record<string, { radius: number; height?: number; step?: number; slope?: number }>;
   scenes: SceneEntry[];
 }
 
@@ -51,9 +55,9 @@ export interface HostProject {
 export function projectGameOptions(project: HostProject, hooksOptions?: Record<string, unknown>): Record<string, unknown> {
   const display = project.display ?? {};
   const pick = (key: string) => (display[key] !== undefined ? { [key]: display[key] } : {});
-  const declared = (key: 'actions' | 'choices' | 'layers') => (Object.keys(project[key] ?? {}).length ? { [key]: project[key] } : {});
+  const declared = (key: 'actions' | 'choices' | 'layers' | 'navAreas' | 'navAgents') => (Object.keys(project[key] ?? {}).length ? { [key]: project[key] } : {});
   // Under the project's name, as its page keeps them: not the editor's own path, which every project would share.
-  return { ...hooksOptions, ...pick('clearColor'), ...pick('textureFilter'), ...pick('worldFilter'), ...declared('actions'), ...declared('choices'), ...declared('layers'), saveId: project.name };
+  return { ...hooksOptions, ...pick('clearColor'), ...pick('textureFilter'), ...pick('worldFilter'), ...declared('actions'), ...declared('choices'), ...declared('layers'), ...declared('navAreas'), ...declared('navAgents'), saveId: project.name };
 }
 
 /** What a game-definition module exports; see m2d.project.json. */

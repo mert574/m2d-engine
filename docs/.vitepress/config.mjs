@@ -95,6 +95,7 @@ export default defineConfig({
             { text: 'Built-in actors', link: '/reference/actors' },
             { text: 'Built-in constraints', link: '/reference/constraints' },
             { text: 'Gameplay helpers', link: '/reference/gameplay' },
+            { text: 'Navigation', link: '/reference/navigation' },
             { text: 'The kit', link: '/reference/kit' }
           ]
         }

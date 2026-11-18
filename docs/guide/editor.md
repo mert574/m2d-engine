@@ -46,6 +46,8 @@ A project is a folder with an `m2d.project.json`.
 | `input.gamepad` | the arcade defaults | What each gamepad control stands for, as a key code: `{ "Y": "Enter" }`. See [Gamepad](./input#gamepad) |
 | `choices` | none | What a player picks on a screen and keeps, each `{ values, initial }`: `{ "car": { "values": ["sprint", "balanced", "drift"], "initial": "balanced" } }`. A UI line records one with `set`, it is remembered between sessions and the simulation reads it as `player.state.car`. Online the server decides what the state holds (see [Multiplayer](./multiplayer#what-is-sent)) |
 | `layers` | none | Collision layers by name, in bit order; a prefab's physics names its `layer` and what it `collidesWith`. See [Collision layers](./entities#collision-layers) |
+| `navAgents` | none | Nav agent profiles by name, each `{ radius, height, step, slope }`: who navigates the baked navmesh, one mesh per profile. See [Navigation](../reference/navigation) |
+| `navAreas` | none | Nav areas by name, each `{ cost }`, painted over the ground with `NavVolume`. See [Navigation](../reference/navigation) |
 | `settings` | `true` | Mount the settings menu (O). `{ "pauseWhenOpen": true }` also holds the game still while it is up, which a race or a timed level wants; `false` leaves it out |
 | `music` | none | Tracks by key, `{ url, volume }`, loaded at boot for screens that are not scenes |
 | `quality` | none | Texture and model levels the game's models are built at, offered as settings. See [Texture and model quality](./display#texture-and-model-quality) |
@@ -199,7 +201,7 @@ With Power saving on (the default), the viewport draws when something changes an
 
 ## Agents
 
-The running editor serves MCP at `/mcp` on its port. An agent there edits the same documents as the window, and its edits appear in the history marked as an agent's. `npm run editor:mcp <folder>` serves the same tools over stdio when no editor is running. `run_scene`, `settle_scene`, `screenshot_scene` and `build_project` need the running editor.
+The running editor serves MCP at `/mcp` on its port. An agent there edits the same documents as the window, and its edits appear in the history marked as an agent's. `npm run editor:mcp <folder>` serves the same tools over stdio when no editor is running. `run_scene`, `settle_scene`, `bake_navmesh`, `screenshot_scene` and `build_project` need the running editor.
 
 | Tool | Does |
 | --- | --- |
@@ -219,6 +221,7 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `list_components` | The actors, constraints and prefab templates the game registers, each with its origin (engine, kit or the game), its fields, and for one that works in one dimension only, its `dimensions`; a template's `prefab` value is copied into a scene with `edit_scene` |
 | `run_scene` | Step the scene headless for some seconds and report where each object ended up, with its body type and angle or rotation. `from` starts the player elsewhere and `prefab` runs a prefab's stage, as the editor's Play from here and Stage it do |
 | `settle_scene` | The editor's Settle physics: write where dynamic bodies came to rest, as one step of undo, optionally only some `ids` |
+| `bake_navmesh` | The editor's Bake navmesh: bake the scene's [navmesh](../reference/navigation) from its static colliders and nav volumes, one mesh per project nav agent, written beside the scene and recorded in its assets as one step of undo |
 | `screenshot_scene` | A picture of the scene as the editor holds it, unsaved edits included: the viewport alone or the whole window, optionally framed on one object or after some seconds of play. Takes `from` and `prefab` as `run_scene` does, and `phase` for the edit view at a phase of the cycle |
 | `build_project` | Build the game into `dist/` |
 

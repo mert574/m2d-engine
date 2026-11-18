@@ -60,6 +60,7 @@ Prefixes follow the Quake convention the completion is built around: `r_` render
 | `r_worldfilter` | `linear\|nearest` | yes | |
 | `r_fullscreen` | boolean | | |
 | `r_showtools` | boolean | | Draw triggers, spawn points and other tool entities as colour-coded semi-transparent boxes in play, as the editor always does. `toggle r_showtools` flips it |
+| `r_shownav` | boolean | | Draw the scene's baked [navmesh](./navigation) over the ground, one colour per nav agent: translucent polygons in 2D, a floating translucent surface in 3D |
 | `r_cull` | boolean | | On by default: 2D entities outside the view issue no draws. Turn it off to tell a cull bug from a drawing bug — see [the camera guide](../guide/camera.md) |
 | `r_debug` | boolean | | The renderer's debug overlay |
 | `s_music` | number | yes | Music volume, 0 to 1. The settings menu's Music row |

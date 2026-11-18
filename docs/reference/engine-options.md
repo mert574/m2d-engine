@@ -41,6 +41,8 @@
 | `pointerLock` | `false` | Confine the pointer to the canvas and draw a virtual cursor. See [Pointer lock](../guide/input#pointer-lock) |
 | `gamepad` | `{}` | What each gamepad control stands for, as a key code, over the arcade defaults; `false` reads no pads. See [Gamepad](../guide/input#gamepad) |
 | `layers` | `[]` | The project's collision layer names, in bit order; `m2d.project.json`'s `layers` |
+| `navAreas` | `{}` | The project's nav areas, name to `{ cost }`; `m2d.project.json`'s `navAreas`. See [Navigation](./navigation) |
+| `navAgents` | `{}` | The project's nav agent profiles, name to `{ radius, height, step, slope }`; `m2d.project.json`'s `navAgents`. See [Navigation](./navigation) |
 | `preventDefaultKeys` | built-in list | Key codes whose browser default is suppressed. Replaces the list of Space, Tab, Enter, the arrows, PageUp, PageDown, Home, End and Backspace |
 | `actions` | `{}` | Named input actions: action name to the key codes that perform it. A project sets them from `input.actions`. See [Named actions](../guide/input#named-actions) |
 | `choices` | `{}` | The player's choices, each `{ values, initial }`, carried as the local player's state and kept in localStorage under `m2d.choices:<saveId>`: every current value, a value the project no longer offers dropped, another game's names on the same key left alone. A project sets them from `choices`. See [The project file](../guide/editor#the-project-file) |

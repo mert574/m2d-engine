@@ -55,6 +55,10 @@ The editor gives a placed model or image this actor when the game registers it. 
 
 `actors/spawnPoint.js`. Name `SpawnPoint`. Where a player joins or comes back: a marker that collides with nothing, drawn as a green tool box in the editor and under `r_showtools` and as nothing in play, in 2D and 3D. Its size is its reach: `point.holds(entity)` is whether the entity stands inside it. A level's own player starts at the first free one when the level loads (not in the editor), so a level says where play starts by placing one. `scene.freeSpawnPoint(ignore)` is the first point, in scene order, with no avatar inside, or the one with the fewest when all are taken, or null without any. `scene.spawnAvatar(player)` makes the player an avatar from the scene's `world.player` object at that point (or where the object stands) and sets `player.avatar`; the server calls it for each player who joins. See [Multiplayer](../guide/multiplayer#the-match).
 
+## NavVolume
+
+`actors/navVolume.js`. Name `NavVolume`. A nav area painted over the ground it covers, for the [navmesh bake](./navigation): `blocked` keeps the ground under it out of the mesh, any other declared area (`m2d.project.json`'s `navAreas`) weighs paths over it by its cost. Its `area` property names the area. It is data for the bake and nothing at runtime — place it on layer `none` — and is drawn as a violet tool box labelled with its area, in the editor and under `r_showtools`, in 2D and 3D.
+
 ## Trigger
 
 `actors/trigger.js`. Name `Trigger`. An invisible area that reacts when the player enters it.

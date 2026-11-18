@@ -757,7 +757,7 @@ async function buildValidator(): Promise<void> {
   try {
     const options = definition.GAME ?? {};
     await initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
-    const game = new M2D(null, { ...options, choices: project?.choices ?? {}, layers: project?.layers ?? [], headless: true });
+    const game = new M2D(null, { ...options, choices: project?.choices ?? {}, layers: project?.layers ?? [], navAreas: project?.navAreas ?? {}, navAgents: project?.navAgents ?? {}, headless: true });
     definition.register(game);
     // The project's scene names, so a button's onClick or a rule's switch
     // naming a sibling scene checks as registered — the viewport's game
@@ -1258,7 +1258,8 @@ function treeMenu(node: OutlineNode): MenuItem[] {
       { label: 'New path', action: newPath },
       SEPARATOR,
       { label: 'Play from here', hint: 'Shift+F5', action: playFromHere },
-      { label: selectedIds().length ? `Settle physics (${selectedIds().length} selected)` : 'Settle physics', action: () => { void settlePhysics(); } }
+      { label: selectedIds().length ? `Settle physics (${selectedIds().length} selected)` : 'Settle physics', action: () => { void settlePhysics(); } },
+      { label: 'Bake navmesh', action: () => { void bakeNavmesh(); } }
     );
     if (viewport.dimensions === 2 && data.type === 'level') {
       items.push({ label: 'New tile layer…', action: () => {
@@ -1897,6 +1898,18 @@ async function settlePhysics(): Promise<void> {
     say(settled ? `Settled ${settled.moved.length} object${settled.moved.length === 1 ? '' : 's'}` : 'Nothing moved: no dynamic body was out of rest');
   } catch (error) {
     say(`Settle failed: ${String((error as Error).message ?? error)}`);
+  }
+}
+
+/** Bake the scene's navmeshes in the host, one per project nav agent, and record them as assets. */
+async function bakeNavmesh(): Promise<void> {
+  if (!remote || playing || readOnly()) return;
+  say('Baking navmesh…');
+  try {
+    const { baked } = await post<{ baked: { baked: { agent: string; polys: number }[] } }>('/__bake_nav', { path: remote.path });
+    say(`Baked ${baked.baked.map((b) => `${b.agent} (${b.polys} polys)`).join(', ')}`);
+  } catch (error) {
+    say(`Bake failed: ${String((error as Error).message ?? error)}`);
   }
 }
 

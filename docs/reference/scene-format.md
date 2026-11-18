@@ -68,8 +68,18 @@ A map from model name to model, for a 3D level. A model is a glTF 2.0 `.glb` fil
 | --- | --- | --- |
 | `url` | yes | File path, prefixed with the engine's `basePath` |
 | `quality` | no | `true` when the file is built at every level the project's `quality` block declares. The file at `url` is the default levels; every other combination is in a folder beside it, named for its levels (`models/ph/high-high/tree.glb`). The player's choice picks which one loads. See [Texture and model quality](../guide/display#texture-and-model-quality) |
+| `bounds` | no | The model's axis-aligned bounds in its own metres, `{ "min": {x, y, z}, "max": {x, y, z} }`, written by the editor's [navmesh bake](./navigation#baking). A headless game loads no models, so these are what its `bounds` prop colliders are built from; declared, they win over the file's, so a server and a browser build the same box |
 
 A prefab draws a model by naming it in its [`mesh`](#mesh) block.
+
+## `assets.navmeshes`
+
+A map from nav agent name (`m2d.project.json`'s `navAgents`) to that agent's baked navmesh, written by the editor's bake and never by hand. See [Navigation](./navigation).
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `url` | yes | The baked `.navmesh` binary, prefixed with the engine's `basePath` |
+| `stamp` | yes | A hash of the bake's inputs. The engine recomputes it from the built level at load and reports a mesh that no longer matches (`game.nav.issues`), so a stale bake is seen, not trusted |
 
 ## Rules
 

@@ -52,6 +52,13 @@ export interface ServerOptions {
    * only, and only where it can start a Chrome (`shots.ts`).
    */
   screenshot?: (options: ShotOptions) => Promise<Shot>;
+  /**
+   * Bake a scene's navmeshes (one per project nav agent) and record them
+   * as scene assets, one undo step. Needs the game's code, so only the
+   * serving host offers it. See nav.ts.
+   */
+  bakeNav?: (file: string, options: { agents?: string[] }, origin: { origin: string; client?: string; id?: number }) =>
+    Promise<{ baked: { agent: string; polys: number; url: string }[]; measured: string[]; revision: number }>;
 }
 
 export interface RunReport {
@@ -593,6 +600,27 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
     try {
       const settled = await settle(session, options.runScene, file, { seconds, ids }, AGENT);
       return settled ? json(settled) : text('nothing moved; nothing was written');
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  server.registerTool('bake_navmesh', {
+    title: 'Bake a navmesh',
+    description:
+      'Build the scene headless and bake its navmesh from the static colliders and NavVolumes, ' +
+      'one mesh per nav agent the project declares (m2d.project.json navAgents), written beside ' +
+      'the scene and recorded in assets.navmeshes with a stamp as one step of undo. A level whose ' +
+      'colliders change needs a new bake; a stale one is reported at load and by validate_scene. ' +
+      'Models without declared bounds get them measured and written too. The editor\'s Bake nav does the same.',
+    inputSchema: {
+      path: scenePath,
+      agents: z.array(z.string()).optional().describe('Bake only these agent profiles; default every declared one')
+    }
+  }, async ({ path: file, agents }) => {
+    if (!options.bakeNav) return text('bake_navmesh needs the running editor (npm run editor <project>)', true);
+    try {
+      return json(await options.bakeNav(file, { agents }, AGENT));
     } catch (error) {
       return failure(error);
     }

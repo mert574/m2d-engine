@@ -449,6 +449,12 @@ export class SceneLoader {
       refs.layer = scope([...this.game.collisionLayers.names, 'none'],
         (name, known) => `no collision layer named '${name}' (m2d.project.json layers, and 'none': ${known.join(', ')})`);
     }
+    if (this.game?.nav) {
+      refs.navArea = scope(this.game.nav.areas.names,
+        (name, known) => `no nav area named '${name}' (m2d.project.json navAreas, and the engine's own: ${known.join(', ')})`);
+      refs.navAgent = scope([...this.game.nav.agents.keys()],
+        (name, known) => `no nav agent named '${name}' (m2d.project.json navAgents: ${known.join(', ') || 'none declared'})`);
+    }
     if (this.game?.choices) {
       refs.choice = scope(this.game.choices.names,
         (name, known) => `no choice named '${name}' (the project declares: ${known.join(', ') || 'none'})`);

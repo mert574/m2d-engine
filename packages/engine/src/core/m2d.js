@@ -2,6 +2,7 @@ import { createPhysicsWorld } from './physics/index.js';
 import { Registry, BUILTIN_ACTORS, BUILTIN_CONSTRAINTS } from './builtins.js';
 
 import { CollisionLayers } from './collisionLayers.js';
+import { Nav } from './nav/nav.js';
 import { Time } from './time.js';
 import { Rng } from './rng.js';
 import { InputManager } from './input/index.js';
@@ -255,6 +256,8 @@ export class M2D {
     this.editMode = this.options.editMode === true;
     /** Whether tool entities (triggers, spawn points) draw in play: the `r_showtools` cvar. The editor always shows them. */
     this.showTools = false;
+    /** Whether the baked navmesh draws over the ground: the `r_shownav` cvar. */
+    this.showNav = false;
     /** Whether entities outside the view are skipped in the 2D draw pass: the `r_cull` cvar. See core/viewCull.js. */
     this.cullEntities = true;
     /**
@@ -509,6 +512,12 @@ export class M2D {
      * `none` is the engine's own and is 0. See core/collisionLayers.js.
      */
     this.collisionLayers = new CollisionLayers(this.options.layers ?? []);
+    /**
+     * Navigation over the scene's baked navmesh: `findPath` for the player
+     * and NPCs alike, per project-declared agent profile. Empty until a
+     * level with `assets.navmeshes` loads. See core/nav/nav.js.
+     */
+    this.nav = new Nav(this, { navAreas: this.options.navAreas, navAgents: this.options.navAgents });
 
     this.entities = new Set();
     this.player = null;
@@ -736,6 +745,17 @@ export class M2D {
       get: () => this.showTools,
       set: (value) => {
         this.showTools = value;
+        this.invalidate();
+      }
+    });
+
+    cvars.register('r_shownav', {
+      type: 'boolean',
+      default: false,
+      description: "Draw the scene's baked navmesh over the ground, one colour per agent",
+      get: () => this.showNav,
+      set: (value) => {
+        this.showNav = value;
         this.invalidate();
       }
     });

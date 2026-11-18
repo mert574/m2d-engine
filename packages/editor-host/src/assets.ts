@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import * as polyhaven from './pipeline/polyhaven.mjs';
 import type { Project } from './project.ts';
 
-export type AssetKind = 'model' | 'image' | 'environment' | 'audio';
+export type AssetKind = 'model' | 'image' | 'environment' | 'audio' | 'navmesh';
 
 export interface AssetFile {
   /** Project-relative, forward slashes. */
@@ -73,7 +73,8 @@ const KINDS: Record<string, AssetKind> = {
   '.glb': 'model', '.gltf': 'model',
   '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.webp': 'image',
   '.hdr': 'environment',
-  '.wav': 'audio', '.mp3': 'audio', '.ogg': 'audio'
+  '.wav': 'audio', '.mp3': 'audio', '.ogg': 'audio',
+  '.navmesh': 'navmesh'
 };
 
 /** Folders that are never a project's assets: dependencies, builds, fetched sources. */
