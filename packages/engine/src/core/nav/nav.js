@@ -138,14 +138,21 @@ export class Nav {
     const reach = profile.radius * 4;
     const halfExtents = { x: reach, y: Math.max(profile.height * 4, reach), z: reach };
 
-    const result = mesh.query.computePath(toNav(from), toNav(to), { filter: mesh.filter, halfExtents });
+    // The goal has to be on the mesh itself, give or take the agent's
+    // radius: a click on a wall is refused, not walked to the wall's foot.
+    const goal = toNav(to);
+    const near = mesh.query.findNearestPoly(goal, { filter: mesh.filter, halfExtents });
+    if (!near.success || !near.nearestRef) return null;
+    const snapped = near.nearestPoint;
+    if (Math.hypot(snapped.x - goal.x, snapped.z - goal.z) > profile.radius) return null;
+
+    const result = mesh.query.computePath(toNav(from), snapped, { filter: mesh.filter, halfExtents });
     if (!result.success || !result.path?.length) return null;
 
     // Detour answers a blocked goal with its best partial path; a route
     // that gives up short of the goal is no route.
-    const goal = toNav(to);
     const last = result.path[result.path.length - 1];
-    if (Math.hypot(last.x - goal.x, last.z - goal.z) > reach) return null;
+    if (Math.hypot(last.x - snapped.x, last.z - snapped.z) > reach) return null;
 
     const points = result.path.map(fromNav);
     let length = 0;

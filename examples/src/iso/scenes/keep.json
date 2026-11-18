@@ -252,6 +252,7 @@
         }
       }
     },
+    "navmeshes": { "knight": { "url": "scenes/keep.knight.navmesh", "stamp": "59472831313b46d7" } },
     "images": {
       "cleave": { "url": "textures/icons/cleave.png" },
       "dash": { "url": "textures/icons/dash.png" },

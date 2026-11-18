@@ -20,5 +20,10 @@
         "KeyE"
       ]
     }
+  },
+  "navAgents": {
+    "knight": {
+      "radius": 14
+    }
   }
 }

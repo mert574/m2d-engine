@@ -73,7 +73,7 @@ The attack draws nothing of its own: what a swing looks like depends on the game
 
 ## PointerMove
 
-`constraints/pointerMove.js`. Click to move: a press of `button` (default the primary) sets a ground destination from the tick's input snapshot, and the entity walks there at `speed` and stops within `arrive`. `goTo(x, y)` and `stop()` from code, `moving` and `destination` to read; `onArrive()` and `onMove(dx, dy)` hooks. Under a projection the pointer is already on the ground, so the same code moves an isometric hero.
+`constraints/pointerMove.js`. Click to move: a press of `button` (default the primary) sets a ground destination from the tick's input snapshot, and the entity walks there at `speed` and stops within `arrive`. With a [navmesh](./navigation) loaded the walk follows a route around the walls — `agent` names the profile (the project's only one when unset) — and a click that is on a wall, walled in, or whose route is longer than `maxPathLength` does nothing at all; without one the walk is the straight line. `goTo(x, y)` (returns whether the walk was taken) and `stop()` from code, `moving`, `destination` and `path` to read; `onArrive()` and `onMove(dx, dy)` hooks. Under a projection the pointer is already on the ground, so the same code moves an isometric hero.
 
 ## Footsteps
 

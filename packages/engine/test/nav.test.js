@@ -163,6 +163,111 @@ describe('navmesh', () => {
     expect(rebaked.stamp).not.toBe(baked.stamp);
   });
 
+  describe('click to move', () => {
+    /** The room with a walker at the top, driving `PointerMove` through fed input. */
+    async function walker(params = {}) {
+      const scene = makeScene({ navmeshes: { goblin: { url: meshUrl, stamp } } });
+      scene.world.player = 'walker';
+      scene.prefabs.walker = {
+        actor: 'Prop',
+        physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true },
+        constraints: { walk: { type: 'PointerMove', params: { speed: 200, arrive: 6, ...params } } }
+      };
+      scene.layers[0].objects.push({ id: 'walker', prefab: 'walker', x: 200, y: 80, width: 20, height: 20 });
+      const game = await boot(scene);
+      expect(game.nav.issues).toEqual([]);
+      const entity = game.sceneManager.getCurrentScene().entitiesById.get('walker');
+      return { game, entity, walk: entity.getConstraint('walk') };
+    }
+
+    /** One tick's input: a press at a world point, then nothing held. */
+    const clickAt = (game, x, y) => {
+      let first = true;
+      game.input.setSnapshotSource(() => {
+        const pointer = { ui: { x: 0, y: 0 }, world: { x, y }, isDown: first, pressed: first, pressedButtons: first ? 1 : 0, buttons: first ? 1 : 0, type: 'mouse' };
+        first = false;
+        return { down: [], pressed: [], pointer };
+      });
+    };
+
+    it('clicking behind the wall walks around it', async () => {
+      const { game, entity, walk } = await walker();
+      clickAt(game, 200, 320);
+      game.step(1);
+      expect(walk.moving).toBe(true);
+      expect(walk.path.length).toBeGreaterThan(2);
+      let through = false;
+      for (let i = 0; i < 60 * 20 && walk.moving; i++) {
+        game.step(1);
+        if (Math.abs(entity.position.y - 200) < 25 && entity.position.x < 70) through = true;
+        expect(entity.position.x).toBeGreaterThan(-5); // never through the wall row except at the gap
+        if (Math.abs(entity.position.y - 200) < 10) expect(entity.position.x).toBeLessThan(70);
+      }
+      expect(walk.moving).toBe(false);
+      expect(through).toBe(true);
+      expect(Math.hypot(entity.position.x - 200, entity.position.y - 320)).toBeLessThan(20);
+    });
+
+    it('an unreachable click does nothing', async () => {
+      const { game, entity, walk } = await walker();
+      clickAt(game, 230, 200); // the wall's own middle
+      game.step(30);
+      expect(walk.moving).toBe(false);
+      expect(Math.hypot(entity.position.x - 200, entity.position.y - 80)).toBeLessThan(2);
+    });
+
+    it('a click over the length budget does nothing', async () => {
+      const { game, walk } = await walker({ maxPathLength: 250 });
+      clickAt(game, 200, 320); // the detour is ~480 px
+      game.step(5);
+      expect(walk.moving).toBe(false);
+      clickAt(game, 200, 180); // straight down, inside the budget
+      game.step(5);
+      expect(walk.moving).toBe(true);
+    });
+
+    it('goTo routes and reports a refusal', async () => {
+      const { walk } = await walker();
+      expect(walk.goTo(230, 200)).toBe(false);
+      expect(walk.moving).toBe(false);
+      expect(walk.goTo(200, 320)).toBe(true);
+      expect(walk.path.length).toBeGreaterThan(2);
+    });
+
+    it('a snapshot carries a walk mid-route', async () => {
+      const { game, entity, walk } = await walker();
+      clickAt(game, 200, 320);
+      game.step(90);
+      expect(walk.moving).toBe(true);
+      const snapshot = game.snapshot();
+      const mark = { x: entity.position.x, y: entity.position.y, waypoint: walk.waypoint };
+      game.step(60);
+      game.restore(snapshot);
+      expect(walk.waypoint).toBe(mark.waypoint);
+      expect(entity.position.x).toBeCloseTo(mark.x, 5);
+      for (let i = 0; i < 60 * 20 && walk.moving; i++) game.step(1);
+      expect(walk.moving).toBe(false);
+      expect(Math.hypot(entity.position.x - 200, entity.position.y - 320)).toBeLessThan(20);
+    });
+
+    it('walks the straight line it always did when no mesh is loaded', async () => {
+      const scene = makeScene();
+      scene.prefabs.walker = {
+        actor: 'Prop',
+        physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true },
+        constraints: { walk: { type: 'PointerMove', params: { speed: 200, arrive: 6 } } }
+      };
+      scene.layers[0].objects.push({ id: 'walker', prefab: 'walker', x: 200, y: 80, width: 20, height: 20 });
+      const game = await boot(scene);
+      const entity = game.sceneManager.getCurrentScene().entitiesById.get('walker');
+      const walk = entity.getConstraint('walk');
+      expect(walk.goTo(200, 160)).toBe(true);
+      expect(walk.path).toBeNull();
+      game.step(60 * 3);
+      expect(Math.hypot(entity.position.x - 200, entity.position.y - 160)).toBeLessThan(10);
+    });
+  });
+
   it('snaps a point beside the mesh onto it', async () => {
     const game = await boot(makeScene({ navmeshes: { goblin: { url: meshUrl, stamp } } }));
     const point = game.nav.nearestPoint({ x: -15, y: 80 });

@@ -48,6 +48,10 @@ if (route) move(route.points); // [{x, y}, ...] in 2D; [{x, y, z}, ...] in 3D
 
 `findPath` returns `{ points, length }` — the straightened path, weighed by the areas' costs — or `null`: the goal is off the mesh, unreachable, or the path is longer than `maxLength`. With one declared agent the `agent` option may be left out. `game.nav.nearestPoint(point)` snaps a point (a click beside a wall) onto the mesh, or answers `null` when nothing walkable is near. Queries are stateless reads of the baked mesh: they are deterministic, cost well under a millisecond, and belong in `fixedUpdate` like any other simulation read.
 
+## Click to move
+
+[`PointerMove`](./constraints#pointermove) routes over the mesh by itself when one is loaded: give it the `agent` to route as and, if the game wants one, a `maxPathLength` budget. A click behind a wall walks around it; a click on a wall, into a sealed room, or past the budget moves nothing. Online this runs on the server, which reads the same baked file from disk — the match's `game` options carry `basePath` and the project's `navAgents`, as Cinder Keep's match does.
+
 ## Seeing it
 
 The `r_shownav` cvar draws the baked polygons over the ground, one colour per agent — translucent fills in 2D, a floating translucent surface in 3D. A hole where a doorway should be means the gap is narrower than twice the agent's radius; a missing room means its only entrance did not survive erosion.

@@ -283,6 +283,10 @@ export class Knight extends ObliquePlayer {
     this.getConstraint('control').inputSpace = 'screen';
     this.addConstraint('walk', new PointerMove(this, {
       speed: 230, arrive: 10,
+      // Routed over the keep's baked navmesh: a click behind a wall walks
+      // around it, and a click on a wall or further than a couple of rooms
+      // does nothing.
+      agent: 'knight', maxPathLength: 1500,
       onMove: (dx, dy) => { this.heading = Math.atan2(dy, dx); }
     }));
     this.addConstraint('swing', new AttackSwing(this, { color: '#ffe3b0', reach: 70 }));

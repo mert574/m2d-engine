@@ -7,6 +7,10 @@ import { playwright } from '@vitest/browser-playwright';
 // One-time setup:  npx playwright install chromium
 // Run:             npm run test:browser
 // Existing browser: M2D_BROWSER=/path/to/chromium npm run test:browser
+// Its GPU flags:    M2D_BROWSER_FLAGS='--use-angle=gl-egl' (replaces the
+//                   SwiftShader flags below, for a browser with a real GPU —
+//                   gl-egl reaches a render node with no X server)
+const flags = process.env.M2D_BROWSER_FLAGS?.split(' ').filter(Boolean);
 export default defineConfig({
   // Pre-bundle the WASM physics module; discovering it mid-run makes Vite
   // reload the page under the tests.
@@ -22,7 +26,7 @@ export default defineConfig({
       provider: playwright({
         launchOptions: {
           executablePath: process.env.M2D_BROWSER || undefined,
-          args: [
+          args: flags ?? [
             // Headless Chromium has no GPU; allow WebGL2 via SwiftShader.
             '--enable-unsafe-swiftshader',
             // And WebGPU, on Dawn over SwiftShader's Vulkan. The Vulkan flags

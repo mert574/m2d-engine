@@ -14,10 +14,16 @@ import { keepIntents, newPurse, newStock, purse, WARES, SATCHEL_SIZE } from '../
  */
 
 const KEEP = JSON.parse(readFileSync(new URL('../src/iso/scenes/keep.json', import.meta.url), 'utf8'));
+const PROJECT = JSON.parse(readFileSync(new URL('../src/iso/m2d.project.json', import.meta.url), 'utf8'));
 const WORLD = { width: 64 * 64, height: 48 * 64 };
 
 async function keep() {
-  const game = new M2D(null, { headless: true, worldWidth: WORLD.width, worldHeight: WORLD.height, seed: 3 });
+  const game = new M2D(null, {
+    headless: true, worldWidth: WORLD.width, worldHeight: WORLD.height, seed: 3,
+    // The project's nav declarations and the keep's folder, so the scene's
+    // baked navmesh loads as it does in play instead of warning.
+    navAgents: PROJECT.navAgents, basePath: new URL('../src/iso/', import.meta.url).href
+  });
   for (const [name, actor] of Object.entries({ ObliquePlayer: Knight, Ghost: Creature, Wall, Torch, Coin: Ember, Stair, Quartermaster })) {
     game.registerActor(name, actor);
   }
