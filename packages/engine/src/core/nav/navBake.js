@@ -22,7 +22,7 @@ let recastReady = null;
 /** Load and initialise recast-navigation's core, once. */
 export async function initRecast() {
   if (!recastReady) {
-    recastReady = import('@recast-navigation/core').then(async (module) => {
+    recastReady = import('recast-navigation').then(async (module) => {
       await module.init();
       return module;
     });
@@ -67,6 +67,7 @@ export async function bakeNavMesh(geometry, agent, areas) {
   const R = await initRecast();
   const { positions, indices, volumes } = geometry;
   if (!indices.length) throw new Error('M2D nav bake: the level has no geometry to bake from');
+  if (agent.dynamic) return bakeTileCache(geometry, agent, areas, R);
 
   const config = bakeConfig(agent);
   const rcConfig = R.createRcConfig(config);
@@ -192,6 +193,48 @@ export async function bakeNavMesh(geometry, agent, areas) {
     context.destroy();
     throw error;
   }
+}
+
+/**
+ * The dynamic bake: a Detour tile cache instead of one solo mesh, so
+ * `NavObstacle` entities can cut the mesh tile by tile in play. The tile
+ * pipeline has no hook to mark areas on the compact heightfield, so a
+ * costly nav volume is refused here — `blocked` ones became geometry in
+ * the extraction and work as ever.
+ */
+async function bakeTileCache(geometry, agent, areas, R) {
+  const { positions, indices, volumes } = geometry;
+  const costly = volumes.find((volume) => volume.area !== 'blocked' && volume.area !== 'walkable');
+  if (costly) {
+    throw new Error(`M2D nav bake: agent is dynamic (a tile cache), which cannot mark the costly nav area '${costly.area}'; make the volume blocked, or the agent static`);
+  }
+  const { generateTileCache } = await import('recast-navigation/generators');
+  const bounds = boundsOf(positions);
+  const config = bakeConfig(agent);
+  bounds.min[1] -= config.ch;
+  bounds.max[1] += config.ch * 2;
+  const result = generateTileCache(positions, indices, {
+    ...config, bounds: [bounds.min, bounds.max],
+    tileSize: 48, expectedLayersPerTile: 2, maxObstacles: 256
+  });
+  if (!result.success) throw new Error(`M2D nav bake: ${result.error}`);
+  const data = R.exportTileCache(result.navMesh, result.tileCache);
+  let polys = 0;
+  const [, tileIndices] = R.getNavMeshPositionsAndIndices(result.navMesh);
+  polys = tileIndices.length / 3;
+  result.tileCache.destroy();
+  result.navMesh.destroy();
+  return { data, stamp: bakeStamp(geometry, agent, areas), polys };
+}
+
+/** How every tile cache marks its polygons: plain ground, one flag, as the solo bake ends up. */
+export function tileCacheMeshProcess(R) {
+  return new R.TileCacheMeshProcess((params, polyAreas, polyFlags) => {
+    for (let i = 0; i < params.polyCount(); ++i) {
+      polyAreas.set(i, 0);
+      polyFlags.set(i, 1);
+    }
+  });
 }
 
 /** The geometry's axis-aligned bounds, as recast takes them. */

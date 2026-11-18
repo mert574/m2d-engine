@@ -29,6 +29,7 @@ import { Health } from '../constraints/health.js';
 import { Hover } from '../constraints/hover.js';
 import { Interactive } from '../constraints/interactive.js';
 import { KeyboardControl } from '../constraints/keyboardControl.js';
+import { NavObstacle } from '../constraints/navObstacle.js';
 import { PathFollow } from '../constraints/pathFollow.js';
 import { PointerMove } from '../constraints/pointerMove.js';
 import { ProximityPrompt } from '../constraints/proximityPrompt.js';
@@ -41,7 +42,7 @@ export const BUILTIN_ACTORS = new Map(Object.entries({
 /** The engine's constraints, by the name a scene uses. */
 export const BUILTIN_CONSTRAINTS = new Map(Object.entries({
   Abilities, Attack, Chase, Collectable, ContactDamage, DamageFlash, Debug, Footsteps, Grabbable, Health,
-  Hover, Interactive, KeyboardControl, PathFollow, PointerMove, ProximityPrompt
+  Hover, Interactive, KeyboardControl, NavObstacle, PathFollow, PointerMove, ProximityPrompt
 }));
 
 /**
@@ -55,7 +56,7 @@ export const BUILTIN_MODULES = new Map(Object.entries({
   Chase: 'constraints/chase.js', Collectable: 'constraints/collectable.js', ContactDamage: 'constraints/contactDamage.js', DamageFlash: 'constraints/damageFlash.js',
   Debug: 'constraints/debug.js', Footsteps: 'constraints/footsteps.js',
   Grabbable: 'constraints/grabbable.js', Health: 'constraints/health.js', Hover: 'constraints/hover.js',
-  Interactive: 'constraints/interactive.js', KeyboardControl: 'constraints/keyboardControl.js',
+  Interactive: 'constraints/interactive.js', KeyboardControl: 'constraints/keyboardControl.js', NavObstacle: 'constraints/navObstacle.js',
   PathFollow: 'constraints/pathFollow.js', PointerMove: 'constraints/pointerMove.js',
   ProximityPrompt: 'constraints/proximityPrompt.js'
 }));

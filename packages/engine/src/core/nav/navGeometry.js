@@ -53,9 +53,9 @@ function halfOf(body) {
 /** Whether a static body stands in anything's way. */
 function obstructs(body) {
   if (body.spec.bodyType !== 'static' || body.isSensor) return false;
-  const filter = body.collisionFilter;
-  // A body on layer `none` collides with nothing: scenery, markers.
-  return !filter || (filter.membership ?? 1) !== 0;
+  // A body on layer `none` (membership 0) collides with nothing: scenery, markers.
+  const category = body.collisionFilter?.category;
+  return category === undefined || category !== 0;
 }
 
 /**

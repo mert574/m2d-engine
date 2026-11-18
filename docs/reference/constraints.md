@@ -160,7 +160,7 @@ The body is *steered*, not placed: it still collides on its way to the hand and 
 
 ## Chase
 
-`constraints/chase.js`. Pursues `game.player` within range and wanders around its current position otherwise. Pauses while the entity's `ContactDamage` reports it stunned.
+`constraints/chase.js`. Pursues the nearest player's avatar within range and wanders around its current position otherwise. Pauses while the entity's `ContactDamage` reports it stunned. With a [navmesh](./navigation) loaded the hunt routes around the walls, asking again every `repath` seconds while the quarry strays from the route's end; a hunt holding a route keeps its quarry out to twice the range, since a detour walks away before it closes in. An unreachable quarry is seeked straight, as ever.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -169,8 +169,20 @@ The body is *steered*, not placed: it still collides on its way to the hand and 
 | `detectionRange` | `400` | px |
 | `wanderRadius` | `50` | How far a wander target may be from the current position |
 | `wanderInterval` | `2` | Seconds between wander targets |
+| `agent` | the only one | The nav agent profile routes are asked for (`m2d.project.json` `navAgents`) |
+| `repath` | `0.4` | Seconds between route refreshes while the quarry moves |
+| `separation` | `0` | Keep this far from fellow chasers, px: a pack arrives around the player instead of as one stack; `0` steers alone |
 
-Does nothing while `game.player` is `null`. Draws its range, wander target and pursuit line when the debug overlay is on.
+Does nothing while no avatar is near. Draws its range, wander target, route and pursuit line when the debug overlay is on.
+
+## NavObstacle
+
+`constraints/navObstacle.js`. The entity cuts the [navmesh](./navigation) around its body as it moves: a crate dragged across a hall, a gate swung shut. Needs a dynamic nav agent (`m2d.project.json` `navAgents.<name>.dynamic`), whose mesh is a Detour tile cache the cut rebuilds tile by tile; on a scene without one it is reported once and does nothing. The obstacle list lives on `game.nav` as tracked state, so snapshots and rollback carry the cuts; game code can also cut directly with `game.nav.addObstacle/moveObstacle/removeObstacle`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `margin` | `0` | Grown around the body on every side, world units |
+| `granularity` | `4` | How far the body moves before the cut follows |
 
 ## PathFollow
 

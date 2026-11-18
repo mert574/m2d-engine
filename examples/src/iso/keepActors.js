@@ -231,6 +231,10 @@ export class Creature extends Ghost {
     chase.idleSpeed = 30;
     chase.detectionRange = 360;
     chase.wanderRadius = 90;
+    // The hunt routes over the keep's navmesh (the knight's profile fits a
+    // goblin too) and the pack spreads instead of stacking at the knight.
+    chase.agent = 'knight';
+    chase.separation = 44;
     this.contact = this.constraints.get('contactDamage');
     this.contact.damage = 18;
     this.contact.knockbackStrength = 260;

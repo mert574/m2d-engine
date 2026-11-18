@@ -87,7 +87,8 @@ export const PROJECT_SCHEMA = s.object({
     radius: s.number({ required: true, positive: true, description: 'The agent\'s radius in world units; the navmesh keeps paths this far off the walls' }),
     height: s.number({ positive: true, description: 'How tall a gap the agent fits through; four radii when unset' }),
     step: s.number({ min: 0, description: 'The tallest ledge the agent walks up; half a radius when unset' }),
-    slope: s.number({ min: 0, max: 90, unit: 'deg', description: 'The steepest ground the agent walks; 45 when unset' })
+    slope: s.number({ min: 0, max: 90, unit: 'deg', description: 'The steepest ground the agent walks; 45 when unset' }),
+    dynamic: s.boolean({ initial: false, description: 'Bake this profile as a tile cache, so NavObstacle entities cut the mesh in play; costly nav areas are then refused at bake' })
   }), {
     label: 'Nav agents',
     description: 'Agent profiles by name: the editor bakes one navmesh per profile into each scene that navigates, and findPath names the profile it asks for'

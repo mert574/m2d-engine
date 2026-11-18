@@ -52,6 +52,14 @@ if (route) move(route.points); // [{x, y}, ...] in 2D; [{x, y, z}, ...] in 3D
 
 [`PointerMove`](./constraints#pointermove) routes over the mesh by itself when one is loaded: give it the `agent` to route as and, if the game wants one, a `maxPathLength` budget. A click behind a wall walks around it; a click on a wall, into a sealed room, or past the budget moves nothing. Online this runs on the server, which reads the same baked file from disk — the match's `game` options carry `basePath` and the project's `navAgents`, as Cinder Keep's match does.
 
+## Agents that hunt
+
+[`Chase`](./constraints#chase) routes the same way: give it the `agent`, and a mob's hunt goes around the walls, re-asking every `repath` seconds while the player moves; with `separation` set, a pack spreads around its target instead of stacking. All of its working state — the route's corners, the repath clock — is plain fields, so snapshots and replication carry a hunt mid-detour. Cinder Keep's skeletons and goblins hunt this way, online too.
+
+## Dynamic obstacles
+
+A profile with `"dynamic": true` is baked as a Detour **tile cache** instead of a solo mesh: the [`NavObstacle`](./constraints#navobstacle) constraint (or `game.nav.addObstacle`) then cuts the mesh around a moving body, tile by tile, and the cut heals when it moves on. The obstacle list is simulation state (`trackState`), so a snapshot restore converges the mesh to exactly what it rewinds to; the wasm side is always derived. Two refusals keep it honest: an obstacle on a scene with no dynamic mesh is reported once and ignored, and a dynamic bake over a *costly* nav area is refused at bake — the tile pipeline cannot mark areas, though `blocked` volumes are geometry and work as ever. Flipping `dynamic` changes the stamp, so every older bake reports stale until baked again.
+
 ## Seeing it
 
 The `r_shownav` cvar draws the baked polygons over the ground, one colour per agent — translucent fills in 2D, a floating translucent surface in 3D. A hole where a doorway should be means the gap is narrower than twice the agent's radius; a missing room means its only entrance did not survive erosion.

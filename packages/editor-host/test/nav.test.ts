@@ -2,15 +2,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtemp, mkdir, writeFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-// @ts-expect-error the engine ships no declarations yet (the Types roadmap item)
 import { M2D } from 'm2d-engine';
-// @ts-expect-error as above
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
-// @ts-expect-error as above
 import { navGeometryOf } from 'm2d-engine/core/nav/navGeometry.js';
-// @ts-expect-error as above
 import { bakeNavMesh } from 'm2d-engine/core/nav/navBake.js';
-import { bakeNav, type BakeGame } from '../src/nav.ts';
+import { bakeNav, type BakeGame, type BakeDeps } from '../src/nav.ts';
 import { Companion } from '../src/index.ts';
 
 /**
@@ -45,7 +41,7 @@ async function makeGame(): Promise<BakeGame> {
 const deps = {
   makeGame,
   navModules: async () => ({ navGeometryOf, bakeNavMesh })
-};
+} as unknown as BakeDeps;
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'm2d-nav-bake-'));

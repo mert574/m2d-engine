@@ -1618,6 +1618,8 @@ export class M2D {
     // Intents filed for this tick run before anything moves, so an entity
     // sees the result of a request in the same tick a press would land.
     this.players.applyIntents(this.time.steps);
+    // Last tick's obstacle cuts land before this tick's constraints route.
+    this.nav.tick();
     if (!this.isGameOver) this.sceneManager.getCurrentScene()?.fixedUpdate?.(dt);
     this.physics.step(dt);
     // One requested during the tick runs after it, and ends the frame's

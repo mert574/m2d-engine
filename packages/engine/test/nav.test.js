@@ -36,7 +36,7 @@ const GAME = { headless: true, seed: 1, navAgents: { goblin: { radius: 10 } }, n
 
 async function boot(scene, options = {}) {
   const game = new M2D(null, { ...GAME, ...options });
-  game.sceneManager.addScene('room', { fetch: async () => scene });
+  game.sceneManager.addScene('room', { fetch: async () => structuredClone(scene) });
   await game.sceneManager.switchTo('room');
   return game;
 }
@@ -265,6 +265,165 @@ describe('navmesh', () => {
       expect(walk.path).toBeNull();
       game.step(60 * 3);
       expect(Math.hypot(entity.position.x - 200, entity.position.y - 160)).toBeLessThan(10);
+    });
+  });
+
+  describe('the hunt', () => {
+    /** The room with a still avatar below the wall and chasers above it. */
+    async function pack(count, params = {}) {
+      const scene = makeScene({ navmeshes: { goblin: { url: meshUrl, stamp } } });
+      scene.prefabs.mark = { actor: 'Prop', physics: { bodyType: 'static', layer: 'none' } };
+      scene.prefabs.hunter = {
+        actor: 'Prop',
+        physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true },
+        constraints: { chase: { type: 'Chase', params: { speed: 150, detectionRange: 4000, separation: 36, ...params } } }
+      };
+      scene.layers[0].objects.push({ id: 'mark', prefab: 'mark', x: 200, y: 320, width: 16, height: 16 });
+      for (let i = 0; i < count; i++) {
+        scene.layers[0].objects.push({ id: `hunter-${i}`, prefab: 'hunter', x: 150 + i * 34, y: 80, width: 20, height: 20 });
+      }
+      const game = await boot(scene);
+      expect(game.nav.issues).toEqual([]);
+      const scene2 = game.sceneManager.getCurrentScene();
+      game.players.local.avatar = scene2.entitiesById.get('mark');
+      return { game, hunters: [...Array(count)].map((_, i) => scene2.entitiesById.get(`hunter-${i}`)) };
+    }
+
+    it('routes around the wall to the player', async () => {
+      const { game, hunters } = await pack(1, { separation: 0 });
+      const [hunter] = hunters;
+      const chase = hunter.getConstraint('chase');
+      game.step(2);
+      expect(chase.path).not.toBeNull();
+      expect(chase.path.length).toBeGreaterThan(2);
+      for (let i = 0; i < 60 * 20; i++) {
+        game.step(1);
+        // Never through the wall: on its row only the gap is stood in.
+        if (Math.abs(hunter.position.y - 200) < 8) expect(hunter.position.x).toBeLessThan(70);
+        if (Math.hypot(hunter.position.x - 200, hunter.position.y - 320) < 30) break;
+      }
+      expect(Math.hypot(hunter.position.x - 200, hunter.position.y - 320)).toBeLessThan(30);
+    });
+
+    it('a pack arrives around the wall without stacking', async () => {
+      const { game, hunters } = await pack(4);
+      game.step(60 * 25);
+      for (const hunter of hunters) {
+        expect(Math.hypot(hunter.position.x - 200, hunter.position.y - 320)).toBeLessThan(80);
+      }
+      for (let a = 0; a < hunters.length; a++) {
+        for (let b = a + 1; b < hunters.length; b++) {
+          const distance = Math.hypot(
+            hunters[a].position.x - hunters[b].position.x,
+            hunters[a].position.y - hunters[b].position.y);
+          expect(distance).toBeGreaterThan(24);
+        }
+      }
+    });
+
+    it('hunts the same way twice', async () => {
+      const run = async () => {
+        const { game, hunters } = await pack(3);
+        game.step(60 * 10);
+        return hunters.map((hunter) => ({ x: hunter.position.x, y: hunter.position.y }));
+      };
+      expect(await run()).toEqual(await run());
+    });
+  });
+
+  describe('dynamic obstacles', () => {
+    const DYNAMIC_GAME = { navAgents: { goblin: { radius: 10, dynamic: true } } };
+    let dynUrl, dynStamp;
+
+    beforeAll(async () => {
+      const game = await boot(makeScene(), DYNAMIC_GAME);
+      const agent = game.nav.agents.get('goblin');
+      const baked = await bakeNavMesh(navGeometryOf(game, agent), agent, game.nav.areas);
+      expect(baked.polys).toBeGreaterThan(0);
+      dynUrl = join(dir, 'room.dynamic.navmesh');
+      dynStamp = baked.stamp;
+      await writeFile(dynUrl, baked.data);
+    });
+
+    const bootDynamic = () => boot(makeScene({ navmeshes: { goblin: { url: dynUrl, stamp: dynStamp } } }), DYNAMIC_GAME);
+    const route = (game) => game.nav.findPath({ x: 200, y: 80 }, { x: 200, y: 320 });
+
+    it('a dynamic bake is its own stamp, loads clean and routes as the static one', async () => {
+      expect(dynStamp).not.toBe(stamp);
+      const game = await bootDynamic();
+      expect(game.nav.issues).toEqual([]);
+      expect(route(game).length).toBeGreaterThan(300);
+    });
+
+    it('an obstacle across the gap closes the route before the next tick, and heals when removed', async () => {
+      const game = await bootDynamic();
+      const id = game.nav.addObstacle({ x: 30, y: 200, halfX: 30, halfY: 30 });
+      expect(id).toBeGreaterThan(0);
+      game.step(1);
+      expect(route(game)).toBeNull();
+      game.nav.removeObstacle(id);
+      game.step(1);
+      expect(route(game).length).toBeGreaterThan(300);
+    });
+
+    it('a restore converges the mesh to the snapshot it rewinds to', async () => {
+      const game = await bootDynamic();
+      const open = game.snapshot();
+      const openRoute = route(game);
+      const id = game.nav.addObstacle({ x: 30, y: 200, halfX: 30, halfY: 30 });
+      game.step(1);
+      expect(route(game)).toBeNull();
+      const blocked = game.snapshot();
+      game.restore(open);
+      game.step(1);
+      expect(route(game)).toEqual(openRoute);
+      game.restore(blocked);
+      expect(route(game)).toBeNull();
+      // And the restored list is live: the obstacle can still be taken away.
+      game.nav.removeObstacle(id);
+      game.step(1);
+      expect(route(game)).toEqual(openRoute);
+    });
+
+    it('a NavObstacle entity cuts where it stands and the cut follows it', async () => {
+      const scene = makeScene({ navmeshes: { goblin: { url: dynUrl, stamp: dynStamp } } });
+      scene.prefabs.cart = {
+        actor: 'Prop',
+        physics: { bodyType: 'kinematic', layer: 'none' },
+        constraints: { blocks: { type: 'NavObstacle', params: { margin: 2 } } }
+      };
+      scene.layers[0].objects.push({ id: 'cart', prefab: 'cart', x: 30, y: 200, width: 60, height: 50 });
+      const game = await boot(scene, DYNAMIC_GAME);
+      expect(game.nav.issues).toEqual([]);
+      game.step(2);
+      expect(route(game)).toBeNull();
+      // The cart rolls out of the gap; the route comes back.
+      const cart = game.sceneManager.getCurrentScene().entitiesById.get('cart');
+      cart.body.setPosition({ x: 330, y: 80 });
+      game.step(3);
+      expect(route(game)).not.toBeNull();
+      // And the cart's wall is cut where it stands now.
+      expect(game.nav.findPath({ x: 330, y: 50 }, { x: 330, y: 80 })).toBeNull();
+      // The cart goes, the cut heals.
+      game.removeEntity(cart);
+      game.step(2);
+      expect(game.nav.obstacles.size).toBe(0);
+    });
+
+    it('refuses a dynamic bake over a costly nav volume', async () => {
+      const volumes = [{ id: 'mud', prefab: 'nav', x: 30, y: 200, width: 60, height: 60, properties: { area: 'mud' } }];
+      const game = await boot(makeScene({ volumes }), DYNAMIC_GAME);
+      const agent = game.nav.agents.get('goblin');
+      await expect(bakeNavMesh(navGeometryOf(game, agent), agent, game.nav.areas)).rejects.toThrow(/mud/);
+    });
+
+    it('an obstacle on a static mesh is reported once and ignored', async () => {
+      const game = await boot(makeScene({ navmeshes: { goblin: { url: meshUrl, stamp } } }));
+      expect(game.nav.addObstacle({ x: 30, y: 200, halfX: 30, halfY: 30 })).toBe(0);
+      expect(game.nav.addObstacle({ x: 30, y: 200, halfX: 30, halfY: 30 })).toBe(0);
+      expect(game.nav.issues.filter((issue) => issue.kind === 'static')).toHaveLength(1);
+      game.step(1);
+      expect(route(game)).not.toBeNull();
     });
   });
 

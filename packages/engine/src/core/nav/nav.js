@@ -21,6 +21,10 @@ import { navGeometryOf, AGENT_DEFAULTS } from './navGeometry.js';
 import { bakeStamp } from './stamp.js';
 import { fetchBinary } from './fetchBinary.js';
 
+/** Whether two obstacle boxes differ in any field. */
+const movedBox = (a, b) => a.x !== b.x || a.y !== b.y || (a.z ?? 0) !== (b.z ?? 0)
+  || a.halfX !== b.halfX || a.halfY !== b.halfY || (a.halfZ ?? 0) !== (b.halfZ ?? 0) || (a.angle ?? 0) !== (b.angle ?? 0);
+
 export class Nav {
   /**
    * @param {import('../m2d.js').M2D} game
@@ -36,10 +40,23 @@ export class Nav {
     this.meshes = new Map();
     /**
      * What load found wrong, for the editor's audit and the console:
-     * `{ kind: 'missing'|'stale'|'undeclared', agent, message }[]`.
+     * `{ kind: 'missing'|'stale'|'undeclared'|'static', agent, message }[]`.
      */
     this.issues = [];
+    /**
+     * The dynamic obstacles, id to a plain box record: simulation state,
+     * carried by `trackState`; the wasm tile caches are derived from it.
+     * @type {Map<number, object>}
+     */
+    this.obstacles = new Map();
+    /** The next obstacle id, part of the tracked state. */
+    this.nextObstacleId = 1;
+    /** The recast module, kept once a scene loads a mesh. */
+    this.recast = null;
   }
+
+  /** Whether the obstacle list changed since the caches last converged. */
+  #dirty = false;
 
   /** An agent profile by name; unnamed, the only one a query could mean. */
   agent(name) {
@@ -73,8 +90,10 @@ export class Nav {
     this.unload();
     const entries = Object.entries(scene.config.assets?.navmeshes ?? {});
     if (!entries.length) return;
-    const { importNavMesh, NavMeshQuery, QueryFilter, getNavMeshPositionsAndIndices, init } = await import('@recast-navigation/core');
+    const recast = await import('recast-navigation');
+    const { importNavMesh, NavMeshQuery, QueryFilter, getNavMeshPositionsAndIndices, init } = recast;
     await init();
+    this.recast = recast;
 
     const report = (kind, agent, message) => {
       this.issues.push({ kind, agent, message });
@@ -97,23 +116,137 @@ export class Nav {
       if (stamp !== entry.stamp) {
         report('stale', agentName, `scene '${scene.config.name}': the navmesh for agent '${agentName}' is stale — the level's colliders, nav volumes or agent no longer match the bake; bake it again in the editor`);
       }
-      const { navMesh } = importNavMesh(bytes);
+      const profile = this.agents.get(agentName);
+      let navMesh, tileCache = null;
+      if (profile.dynamic) {
+        const { tileCacheMeshProcess } = await import('./navBake.js');
+        const imported = recast.importTileCache(bytes, tileCacheMeshProcess(recast));
+        navMesh = imported.navMesh;
+        tileCache = imported.tileCache;
+      } else {
+        ({ navMesh } = importNavMesh(bytes));
+      }
       const filter = new QueryFilter();
       for (const { id, cost } of this.areas.costs) filter.setAreaCost(id === 63 ? 0 : id, cost);
       const query = new NavMeshQuery(navMesh);
       const [positions, indices] = getNavMeshPositionsAndIndices(navMesh);
-      this.meshes.set(agentName, { navMesh, query, filter, debug: { positions, indices } });
+      this.meshes.set(agentName, { navMesh, tileCache, query, filter, debug: { positions, indices }, refs: new Map() });
+    }
+
+    // The obstacle list is simulation state a snapshot carries; the wasm
+    // tile caches are derived from it, so a restore only has to converge
+    // them (see #converge). Registered here because a scene load clears
+    // tracked state.
+    if ([...this.meshes.values()].some((mesh) => mesh.tileCache)) {
+      this.game.trackState('nav.obstacles', {
+        save: () => ({ next: this.nextObstacleId, list: [...this.obstacles.entries()].map(([id, box]) => [id, { ...box }]) }),
+        load: (data) => {
+          this.nextObstacleId = data.next;
+          this.obstacles = new Map(data.list.map(([id, box]) => [id, { ...box }]));
+          this.#converge();
+        }
+      });
+    }
+  }
+
+  /**
+   * Cut the mesh around a box, for every dynamic agent: a crate dragged
+   * across a hall, a gate swung shut. Returns an id for `moveObstacle` and
+   * `removeObstacle`; the cut lands before the next tick's constraints
+   * run. The box is world units: `{ x, y, halfX, halfY, angle? }` in 2D
+   * (`angle` the body's), with `z`, `halfZ` and `y` the height in 3D.
+   * On a scene with no dynamic mesh it is reported once and ignored.
+   */
+  addObstacle(box) {
+    if (![...this.meshes.values()].some((mesh) => mesh.tileCache)) {
+      if (!this.issues.some((issue) => issue.kind === 'static')) {
+        const message = 'an obstacle was added but no nav agent is dynamic (m2d.project.json navAgents.<name>.dynamic); the mesh will not cut';
+        this.issues.push({ kind: 'static', agent: null, message });
+        console.warn(`M2D nav: ${message}`);
+      }
+      return 0;
+    }
+    const id = this.nextObstacleId++;
+    this.obstacles.set(id, { ...box });
+    this.#dirty = true;
+    return id;
+  }
+
+  /** Move or resize an obstacle: the old cut heals, the new one lands. */
+  moveObstacle(id, box) {
+    if (!this.obstacles.has(id)) return;
+    this.obstacles.set(id, { ...box });
+    this.#dirty = true;
+  }
+
+  removeObstacle(id) {
+    if (this.obstacles.delete(id)) this.#dirty = true;
+  }
+
+  /**
+   * Bring every dynamic mesh up to date with the obstacle list, fully, so
+   * the wasm state is a pure function of it. `M2D.fixedUpdate` calls this
+   * before the entities run; with nothing dirty it costs a flag read.
+   */
+  tick() {
+    if (!this.#dirty) return;
+    this.#dirty = false;
+    this.#converge();
+  }
+
+  /** Make each tile cache's obstacles match the list, and rebuild to quiet. */
+  #converge() {
+    const flat = (this.game.options.dimensions ?? 2) !== 3;
+    for (const [agentName, mesh] of this.meshes) {
+      if (!mesh.tileCache) continue;
+      // In flat 2D the cut spans the mesh's whole height, as a wall does.
+      const rise = AGENT_DEFAULTS(this.agents.get(agentName)).height * 4;
+      for (const [id, ref] of mesh.refs) {
+        if (!this.obstacles.has(id)) {
+          mesh.tileCache.removeObstacle(ref.obstacle);
+          mesh.refs.delete(id);
+        }
+      }
+      for (const [id, box] of this.obstacles) {
+        const stale = mesh.refs.get(id);
+        if (stale && !movedBox(stale.box, box)) continue;
+        if (stale) {
+          mesh.tileCache.removeObstacle(stale.obstacle);
+          mesh.refs.delete(id);
+        }
+        const centre = flat
+          ? { x: box.x, y: 0, z: box.y }
+          : { x: box.x, y: box.y, z: box.z ?? 0 };
+        const half = flat
+          ? { x: box.halfX, y: rise, z: box.halfY }
+          : { x: box.halfX, y: box.halfY, z: box.halfZ ?? box.halfX };
+        const added = mesh.tileCache.addBoxObstacle(centre, half, flat ? -(box.angle ?? 0) : (box.angle ?? 0));
+        if (added.success) mesh.refs.set(id, { obstacle: added.obstacle, box: { ...box } });
+      }
+      // Fully up to date every time: bounded in practice (an update takes
+      // up to 64 tiles), and what makes a restore converge to the same mesh.
+      for (let i = 0; i < 128; i++) {
+        const { upToDate } = mesh.tileCache.update(mesh.navMesh);
+        if (upToDate) break;
+      }
+      const [positions, indices] = this.recast.getNavMeshPositionsAndIndices(mesh.navMesh);
+      mesh.debug = { positions, indices };
+      mesh.overlayGeometry = null;
     }
   }
 
   /** Free the wasm-side meshes: their memory is manual. */
   unload() {
-    for (const { navMesh, query } of this.meshes.values()) {
+    for (const { navMesh, tileCache, query } of this.meshes.values()) {
       query.destroy?.();
+      tileCache?.destroy?.();
       navMesh.destroy?.();
     }
     this.meshes.clear();
     this.issues = [];
+    this.obstacles.clear();
+    this.nextObstacleId = 1;
+    this.#dirty = false;
   }
 
   /**

@@ -34,7 +34,7 @@ export function fnv1a64(text) {
 export function bakeStamp(geometry, agent, areas) {
   return fnv1a64(JSON.stringify({
     format: BAKE_FORMAT,
-    agent: [agent.radius, agent.height ?? null, agent.step ?? null, agent.slope ?? null],
+    agent: [agent.radius, agent.height ?? null, agent.step ?? null, agent.slope ?? null, agent.dynamic ?? false],
     areas: areas.spec,
     positions: geometry.positions,
     indices: geometry.indices,
