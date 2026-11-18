@@ -62,4 +62,6 @@ A profile with `"dynamic": true` is baked as a Detour **tile cache** instead of 
 
 ## Seeing it
 
-The `r_shownav` cvar draws the baked polygons over the ground, one colour per agent — translucent fills in 2D, a floating translucent surface in 3D. A hole where a doorway should be means the gap is narrower than twice the agent's radius; a missing room means its only entrance did not survive erosion.
+The editor always draws the baked polygons over the ground, so a bad bake is visible and fixable; in play the `r_shownav` cvar does — one colour per agent, translucent fills in 2D, a floating translucent surface in 3D. A hole where a doorway should be means the gap is narrower than twice the agent's radius; a missing room means its only entrance did not survive erosion. With `r_debug` on, a `PointerMove` walk draws its click — the route ahead and a ring on the destination — and a `Chase` its route, in 2D and 3D alike.
+
+The Yard's **Court** scene is the 3D demonstration, authored entirely through the editor's tools: a walled court of primitives, a `blocked` pond, a patrolling cart cutting the mesh as it moves (`NavObstacle` on a dynamic agent), and a capsule that click-walks around it all. Open it in the editor to see the mesh, play it with `r_shownav` and `r_debug` to watch the cuts and the routes.

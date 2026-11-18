@@ -157,14 +157,39 @@ export class WorldOverlay {
     ui.pushClip(content);
 
     // Shapes are drawn in the ground plane's coordinates, which a 3D view
-    // has no flat transform for; there only labels, projected one by one.
-    const transform = this.game.renderer.dimensions === 3 ? null : this.#worldTransform();
+    // has no flat transform for. There, lines, paths and arcs — the
+    // annotation shapes debug views draw — are projected point by point
+    // through the camera instead (their points carry z); their widths are
+    // UI units, as a label's size is, and an arc's radius projects unless
+    // `screenRadius` says it already is UI units. Rects, images and
+    // sprites stay flat-only.
+    const three = this.game.renderer.dimensions === 3;
+    const transform = three ? null : this.#worldTransform();
     if (shapes.length > 0 && transform) {
       // One transform for the whole batch: the calls replay verbatim, in the
       // world coordinates and world sizes they were submitted with.
       ui.pushTransform(transform);
       for (const { method, options } of shapes) ui[method](options);
       ui.popTransform();
+    } else if (shapes.length > 0 && three) {
+      const project = (x, y, z) => game.worldToUI(x, y, z ?? 0);
+      for (const { method, options } of shapes) {
+        if (method === 'drawPath' && Array.isArray(options.points)) {
+          const points = options.points.map((p) => project(p.x, p.y, p.z)).filter(Boolean);
+          if (points.length > 1) ui.drawPath({ ...options, points });
+        } else if (method === 'drawLine') {
+          const a = project(options.x1, options.y1, options.z1);
+          const b = project(options.x2, options.y2, options.z2);
+          if (a && b) ui.drawLine({ ...options, x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+        } else if (method === 'drawArc') {
+          const centre = project(options.x, options.y, options.z);
+          if (!centre) continue;
+          const radius = options.screenRadius
+            ? options.radius
+            : (() => { const edge = project(options.x + options.radius, options.y, options.z); return edge ? Math.hypot(edge.x - centre.x, edge.y - centre.y) : 0; })();
+          if (radius > 0.5) ui.drawArc({ ...options, x: centre.x, y: centre.y, radius });
+        }
+      }
     }
 
     // Text is projected per label instead, because its size must *not* follow

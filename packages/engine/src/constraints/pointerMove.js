@@ -13,8 +13,13 @@ import { s } from '../core/schema.js';
  * simulation and a replay walks the same way; the route is a pure function
  * of the baked mesh, so it is too. The snapshot's pointer is already in
  * ground coordinates under a projection, so the same code moves an
- * isometric hero and a top-down one. The path is plain points and an
- * index, so a snapshot carries a walk mid-route.
+ * isometric hero and a top-down one; in a 3D scene the ground plane is
+ * (x, z) — the pointer ray's landing on the floor — and the body keeps its
+ * own vertical speed, so it still falls while it walks. The path is plain
+ * points and an index, so a snapshot carries a walk mid-route.
+ *
+ * In debug view (`r_debug`) it draws the click: the route ahead, and a
+ * ring on the destination.
  *
  * @param {Object} options
  * @param {number} [options.speed=200] - px/s on the ground, or on screen
@@ -55,6 +60,8 @@ export class PointerMove extends Constraint {
     this.path = null;
     /** How far along `path` the walk is. */
     this.waypoint = 0;
+    /** Seconds the walk has made no headway: a collision shoved it off its route. */
+    this.stalled = 0;
   }
 
   /**
@@ -69,10 +76,21 @@ export class PointerMove extends Constraint {
     this.destination = null;
     this.path = null;
     this.waypoint = 0;
+    this.stalled = 0;
   }
 
   get moving() {
     return this.destination !== null;
+  }
+
+  /** Whether this game's ground plane is (x, z): a 3D scene. */
+  get #solid() {
+    return (this.entity.game.options.dimensions ?? 2) === 3;
+  }
+
+  /** A point's ground coordinates: (x, y) flat, (x, z) in 3D. */
+  #ground(point) {
+    return { x: point.x, y: this.#solid ? (point.z ?? 0) : point.y };
   }
 
   /**
@@ -92,7 +110,9 @@ export class PointerMove extends Constraint {
     }
     this.path = null;
     this.waypoint = 0;
-    this.destination = { x: target.x, y: target.y };
+    this.destination = this.#solid
+      ? { x: target.x, y: target.y ?? 0, z: target.z ?? 0 }
+      : { x: target.x, y: target.y };
     return true;
   }
 
@@ -103,19 +123,20 @@ export class PointerMove extends Constraint {
     // The press edge carries its buttons, so a click that was released
     // before this tick still counts.
     const pressedMask = pointer.pressedButtons ?? (pointer.pressed ? pointer.buttons : 0);
-    if (pressedMask & (1 << this.button)) this.#head({ x: pointer.world.x, y: pointer.world.y });
+    if (pressedMask & (1 << this.button)) this.#head(pointer.world);
 
     if (!this.destination) return;
-    const position = this.entity.position;
+    const solid = this.#solid;
+    const position = this.#ground(this.entity.position);
 
     // Along the route: a corner reached is the next corner's turn, and the
     // last one is the destination the arrive check below settles.
     while (this.path && this.waypoint < this.path.length - 1) {
-      const corner = this.path[this.waypoint];
-      if (Math.hypot(corner.x - position.x, corner.y - position.y) > Math.max(this.arrive, 2)) break;
+      const corner = this.#ground(this.path[this.waypoint]);
+      if (Math.hypot(corner.x - position.x, corner.y - position.y) > this.arrive) break;
       this.waypoint++;
     }
-    const target = this.path ? this.path[Math.min(this.waypoint, this.path.length - 1)] : this.destination;
+    const target = this.#ground(this.path ? this.path[Math.min(this.waypoint, this.path.length - 1)] : this.destination);
 
     const dx = target.x - position.x;
     const dy = target.y - position.y;
@@ -123,7 +144,8 @@ export class PointerMove extends Constraint {
     const last = !this.path || this.waypoint >= this.path.length - 1;
     if (last && distance <= this.arrive) {
       this.stop();
-      this.entity.body.setVelocity({ x: 0, y: 0 });
+      const body = this.entity.body;
+      body.setVelocity(solid ? { x: 0, y: body.velocity.y, z: 0 } : { x: 0, y: 0 });
       this.onArrive?.();
       return;
     }
@@ -132,7 +154,51 @@ export class PointerMove extends Constraint {
     const ny = dy / distance;
     const projection = this.entity.game.projection;
     const speed = this.speed * (projection && this.speedSpace === 'screen' ? projection.groundSpeedScale(nx, ny) : 1);
-    this.entity.body.setVelocity({ x: nx * speed, y: ny * speed });
+    const body = this.entity.body;
+
+    // A walk that makes no headway was shoved off its route — a collision,
+    // a corner clipped too tight. After half a second it asks again from
+    // where it actually stands; a destination no longer reachable stops it.
+    const velocity = this.#ground(body.velocity);
+    if (Math.hypot(velocity.x, velocity.y) < speed * 0.2) {
+      this.stalled += dt;
+      if (this.stalled >= 0.5) {
+        const destination = this.destination;
+        this.stalled = 0;
+        if (!this.#head(destination)) {
+          this.stop();
+          body.setVelocity(solid ? { x: 0, y: body.velocity.y, z: 0 } : { x: 0, y: 0 });
+          return;
+        }
+      }
+    } else {
+      this.stalled = 0;
+    }
+
+    // On the ground plane: the walk never fights gravity in 3D.
+    body.setVelocity(solid ? { x: nx * speed, y: body.velocity.y, z: ny * speed } : { x: nx * speed, y: ny * speed });
     this.onMove?.(nx, ny);
+  }
+
+  draw() {
+    const game = this.entity.game;
+    if (!this.destination || !game.renderer.isDebugEnabled()) return;
+    const overlay = game.worldOverlay;
+    const projection = game.projection;
+    const solid = this.#solid;
+    const lift = solid ? 0.06 : 0;
+    const place = (p) => {
+      if (solid) return { x: p.x, y: (p.y ?? 0) + lift, z: p.z ?? 0 };
+      return projection ? projection.toScreen(p.x, p.y) : { x: p.x, y: p.y };
+    };
+    const ahead = this.path ? this.path.slice(Math.max(0, this.waypoint - 1)) : [this.entity.position, this.destination];
+    overlay.drawPath({ points: ahead.map(place), strokeStyle: 'rgba(122, 215, 255, 0.8)', lineWidth: solid ? 2.5 : 1.5 });
+    const end = place(this.destination);
+    overlay.drawArc({
+      ...end, radius: solid ? 6 : Math.max(5, this.arrive),
+      startAngle: 0, endAngle: Math.PI * 2,
+      strokeStyle: 'rgba(122, 215, 255, 0.9)', lineWidth: solid ? 2.5 : 1.5,
+      ...(solid && { screenRadius: true })
+    });
   }
 }

@@ -82,7 +82,7 @@ export class InputSnapshot {
       released: [...this.released],
       pointer: {
         ui: { x: this.pointer.ui.x, y: this.pointer.ui.y },
-        world: { x: this.pointer.world.x, y: this.pointer.world.y },
+        world: { x: this.pointer.world.x, y: this.pointer.world.y, ...(this.pointer.world.z !== undefined && { z: this.pointer.world.z }) },
         isDown: this.pointer.isDown,
         pressed: this.pointer.pressed ?? false,
         pressedButtons: this.pointer.pressedButtons ?? 0,
@@ -107,7 +107,7 @@ export class InputSnapshot {
       released: new Set(json.released ?? []),
       pointer: {
         ui: { x: pointer.ui?.x ?? 0, y: pointer.ui?.y ?? 0 },
-        world: { x: pointer.world?.x ?? 0, y: pointer.world?.y ?? 0 },
+        world: { x: pointer.world?.x ?? 0, y: pointer.world?.y ?? 0, ...(pointer.world?.z !== undefined && { z: pointer.world.z }) },
         isDown: pointer.isDown ?? false,
         pressed: pointer.pressed ?? false,
         pressedButtons: pointer.pressedButtons ?? 0,

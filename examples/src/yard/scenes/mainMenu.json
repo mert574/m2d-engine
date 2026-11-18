@@ -96,9 +96,32 @@
     },
     {
       "type": "menuItem",
-      "id": "settings",
+      "id": "court",
       "x": 83,
       "y": 140,
+      "anchor": "left",
+      "effects": {
+        "enter": { "motion": "slide-right", "duration": 0.35 },
+        "select": "none",
+        "exit": { "motion": "fade", "duration": 0.2 }
+      },
+      "properties": {
+        "text": "The Court",
+        "onClick": "court",
+        "variant": "bar",
+        "width": 300,
+        "fontWeight": "$font.weight.medium",
+        "letterSpacing": "$font.tracking.wider",
+        "color": "#e6dccb",
+        "selectedColor": "#fff8ec",
+        "accentColor": "#fff1da"
+      }
+    },
+    {
+      "type": "menuItem",
+      "id": "settings",
+      "x": 83,
+      "y": 190,
       "anchor": "left",
       "effects": {
         "enter": { "motion": "slide-right", "duration": 0.35 },

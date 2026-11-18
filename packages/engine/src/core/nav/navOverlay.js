@@ -20,9 +20,9 @@ const rgba = (hex, alpha) => {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 };
 
-/** Whether the navmesh is drawn now: `r_shownav`, or asked for by the editor. */
+/** Whether the navmesh is drawn now: always in the editor, so a bad bake is visible and fixable; in play with `r_shownav`. */
 export function navShown(game) {
-  return Boolean(game.showNav);
+  return Boolean(game.editMode || game.showNav);
 }
 
 /** Every loaded mesh's triangles on the 2D world overlay. The 2D draw pass calls it after the tool boxes. */

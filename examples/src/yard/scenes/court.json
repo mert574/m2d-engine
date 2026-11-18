@@ -1,0 +1,192 @@
+{
+  "version": 6,
+  "name": "court",
+  "type": "level",
+  "world": {
+    "dimensions": 3,
+    "gravity": { "x": 0, "y": -20, "z": 0 },
+    "player": "walker",
+    "camera": {
+      "mode": "orbit",
+      "distance": 16,
+      "yaw": 0.6,
+      "pitch": 0.5,
+      "minDistance": 4,
+      "maxDistance": 40,
+      "fov": 0.9,
+      "targetOffset": { "x": 0, "y": 0.4, "z": 0 },
+      "wheelZoom": { "speed": 0.0012 },
+      "orbitDrag": { "yaw": 0.005, "pitch": 0.004 }
+    },
+    "lighting": { "shadowDistance": 50 }
+  },
+  "assets": {
+    "navmeshes": { "walker": { "url": "scenes/court.walker.navmesh", "stamp": "ffacbed78ef73f31" } }
+  },
+  "prefabs": {
+    "floor": {
+      "actor": "Prop",
+      "physics": { "bodyType": "static", "shape": "box", "friction": 0.7 },
+      "mesh": { "shape": "box", "color": "#5f7d59", "roughness": 0.95, "checker": 1 }
+    },
+    "wall": {
+      "actor": "Prop",
+      "physics": { "bodyType": "static", "shape": "box" },
+      "mesh": { "shape": "box", "color": "#8d8577", "roughness": 0.9 }
+    },
+    "pond": {
+      "actor": "NavVolume",
+      "physics": { "bodyType": "static", "shape": "box", "layer": "none" },
+      "properties": { "area": "blocked" }
+    },
+    "walker": {
+      "actor": "Prop",
+      "physics": { "bodyType": "character", "shape": "capsule", "lockRotation": true },
+      "mesh": { "shape": "capsule", "color": "#d9893b", "roughness": 0.6 },
+      "constraints": {
+        "walk": {
+          "type": "PointerMove",
+          "params": {
+            "speed": 4,
+            "speedSpace": "world",
+            "arrive": 0.25,
+            "agent": "walker",
+            "maxPathLength": 60
+          }
+        }
+      }
+    },
+    "cart": {
+      "actor": "Prop",
+      "physics": { "bodyType": "kinematic", "shape": "box" },
+      "mesh": { "shape": "box", "color": "#7a4f2d", "roughness": 0.8 },
+      "constraints": {
+        "patrol": { "type": "PathFollow", "params": { "path": "rounds", "speed": 1.2, "waitTime": 1.5 } },
+        "blocks": { "type": "NavObstacle", "params": { "margin": 0.1, "granularity": 0.3 } }
+      }
+    },
+    "start": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "shape": "box", "isSensor": true, "layer": "none" }
+    }
+  },
+  "layers": [
+    {
+      "name": "main",
+      "objects": [
+        {
+          "id": "floor",
+          "prefab": "floor",
+          "x": 0,
+          "y": -0.25,
+          "z": 0,
+          "width": 30,
+          "height": 0.5,
+          "depth": 24
+        },
+        {
+          "id": "wall-n",
+          "prefab": "wall",
+          "x": 0,
+          "y": 0.75,
+          "z": -12,
+          "width": 30,
+          "height": 1.5,
+          "depth": 0.5
+        },
+        {
+          "id": "wall-s",
+          "prefab": "wall",
+          "x": 0,
+          "y": 0.75,
+          "z": 12,
+          "width": 30,
+          "height": 1.5,
+          "depth": 0.5
+        },
+        {
+          "id": "wall-w",
+          "prefab": "wall",
+          "x": -15,
+          "y": 0.75,
+          "z": 0,
+          "width": 0.5,
+          "height": 1.5,
+          "depth": 24
+        },
+        {
+          "id": "wall-e",
+          "prefab": "wall",
+          "x": 15,
+          "y": 0.75,
+          "z": 0,
+          "width": 0.5,
+          "height": 1.5,
+          "depth": 24
+        },
+        {
+          "id": "divider-a",
+          "prefab": "wall",
+          "x": 3,
+          "y": 0.75,
+          "z": -5.5,
+          "width": 0.5,
+          "height": 1.5,
+          "depth": 13
+        },
+        {
+          "id": "divider-b",
+          "prefab": "wall",
+          "x": 9,
+          "y": 0.75,
+          "z": 5.5,
+          "width": 0.5,
+          "height": 1.5,
+          "depth": 13
+        },
+        {
+          "id": "pond",
+          "prefab": "pond",
+          "x": -7,
+          "y": 0.4,
+          "z": 4,
+          "width": 5,
+          "height": 0.8,
+          "depth": 4
+        },
+        {
+          "id": "cart",
+          "prefab": "cart",
+          "x": -2,
+          "y": 0.5,
+          "z": -3,
+          "width": 1.6,
+          "height": 1,
+          "depth": 1.6
+        },
+        {
+          "id": "walker",
+          "prefab": "walker",
+          "x": -12,
+          "y": 0.9,
+          "z": -9,
+          "width": 0.7,
+          "height": 1.8
+        },
+        {
+          "id": "start",
+          "prefab": "start",
+          "x": -12,
+          "y": 0.9,
+          "z": -9,
+          "width": 1,
+          "height": 2,
+          "depth": 1
+        }
+      ]
+    }
+  ],
+  "paths": {
+    "rounds": { "points": [{ "x": -2, "y": 0.5, "z": -3 }, { "x": -2, "y": 0.5, "z": 3 }], "closed": true }
+  }
+}

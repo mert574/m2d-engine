@@ -2,36 +2,11 @@
   "name": "The Yard",
   "definition": "game.js",
   "initialScene": "mainMenu",
-  "display": {
-    "width": 1280,
-    "height": 720
-  },
-  "input": {
-    "actions": {
-      "menu": [
-        "Escape"
-      ],
-      "turn": [
-        "KeyT"
-      ]
-    }
-  },
+  "display": { "width": 1280, "height": 720 },
+  "input": { "actions": { "menu": ["Escape"], "turn": ["KeyT"] } },
+  "navAgents": { "walker": { "radius": 0.35, "height": 1.8, "step": 0.4, "dynamic": true } },
   "quality": {
-    "textures": {
-      "levels": {
-        "low": 512,
-        "medium": 1024,
-        "high": 2048
-      },
-      "default": "low"
-    },
-    "models": {
-      "levels": {
-        "low": 25000,
-        "medium": 40000,
-        "high": 70000
-      },
-      "default": "medium"
-    }
+    "textures": { "levels": { "low": 512, "medium": 1024, "high": 2048 }, "default": "low" },
+    "models": { "levels": { "low": 25000, "medium": 40000, "high": 70000 }, "default": "medium" }
   }
 }
