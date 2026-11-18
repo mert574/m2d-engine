@@ -362,7 +362,7 @@ describe('engine draw calls', () => {
       expect(overlay.labels).toHaveLength(0);
     });
 
-    it('draws its area and its name as one sharp annotation', () => {
+    it('draws its box and its label as one sharp annotation while visible', () => {
       const trigger = new Trigger(makeBody(game, 60, 60, 40, 40), null, game, {
         visible: true,
         triggers: 'levelComplete'
@@ -370,26 +370,29 @@ describe('engine draw calls', () => {
       renderer.reset();
       trigger.draw();
 
-      // Patch and label travel together, so neither is sharper than the other.
+      // Box and label travel together on the overlay, so neither is sharper than the other.
       expect(renderer.calls).toHaveLength(0);
-      const [{ options: rect }] = overlay.shapes;
-      expect(rect).toMatchObject({ width: 40, height: 40, fillStyle: '#e7693166' });
+      const [{ method, options: box }] = overlay.shapes;
+      expect(method).toBe('drawPath');
+      expect(box.points.map(({ x, y }) => [x, y])).toEqual([[40, 40], [80, 40], [80, 80], [40, 80]]);
+      expect(box.fillStyle).toBe('rgba(255, 138, 28, 0.3)');
 
       const [text] = overlay.labels;
-      expect(text.text).toBe('levelComplete');
-      expect(text.textAlign).toBe('center');
-      expect(text).toMatchObject({ x: 60, y: 60 });
+      expect(text.text).toBe('trigger levelComplete');
+      expect(text).toMatchObject({ x: 40, y: 40 });
     });
 
-    it('stringifies a non-string trigger label', () => {
+    it('labels a list of tags, and takes its box colour from debugColor', () => {
       const trigger = new Trigger(makeBody(game, 60, 60, 40, 40), null, game, {
         visible: true,
-        triggers: ['a', 'b']
+        triggers: ['a', 'b'],
+        debugColor: '#00ff00'
       });
       renderer.reset();
       trigger.draw();
 
-      expect(typeof overlay.labels[0].text).toBe('string');
+      expect(overlay.labels[0].text).toBe('trigger a, b');
+      expect(overlay.shapes[0].options.fillStyle).toBe('rgba(0, 255, 0, 0.3)');
     });
   });
 });

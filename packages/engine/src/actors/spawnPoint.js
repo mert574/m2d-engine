@@ -2,7 +2,8 @@ import { Entity } from '../core/entity.js';
 
 /**
  * Where a player comes into the level: a marker placed in the scene,
- * colliding with nothing and drawn only in the editor. When a player
+ * colliding with nothing, drawn as a green box in the editor and under
+ * `r_showtools` and as nothing in play. When a player
  * joins a match, the server spawns the scene's `world.player` prefab at a
  * free one (`scene.freeSpawnPoint()`); a game may send a fallen avatar
  * back to one the same way. Its size is its reach: a point is taken while
@@ -10,6 +11,7 @@ import { Entity } from '../core/entity.js';
  */
 export class SpawnPoint extends Entity {
   static description = 'Where a player joins or comes back: a marker the server spawns avatars at';
+  static tool = { color: '#34d399', label: 'spawn' };
   name = 'SpawnPoint';
 
   constructor(body, sprite, game, options = {}) {
@@ -34,14 +36,6 @@ export class SpawnPoint extends Entity {
       (at.z === undefined || Math.abs((there.z ?? 0) - at.z) <= (half.z ?? half.x) / 2);
   }
 
-  /** Nothing in play; in the editor, a ring at its reach with an arrow in. */
-  draw() {
-    if (!this.game.editMode || this.dead) return;
-    const { x, y } = this.renderPosition;
-    const r = Math.min(this.size.x, this.size.y) / 2;
-    const renderer = this.game.renderer;
-    renderer.drawArc({ x, y, radius: r, strokeStyle: '#5ad1a4', lineWidth: 2, globalAlpha: 0.9 });
-    renderer.drawLine({ x1: x, y1: y - r, x2: x, y2: y + r * 0.4, strokeStyle: '#5ad1a4', lineWidth: 2 });
-    renderer.drawPath({ points: [{ x: x - r * 0.35, y }, { x, y: y + r * 0.5 }, { x: x + r * 0.35, y }], closed: false, strokeStyle: '#5ad1a4', lineWidth: 2 });
-  }
+  /** Nothing of its own: its box is the engine's tool pass (core/toolVolumes.js). */
+  draw() {}
 }

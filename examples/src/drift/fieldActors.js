@@ -73,6 +73,8 @@ export function fireLaser(owner, angle, { sprite = null, tint, targetNames, dama
 
 /** An invisible wall at the field's edge. */
 export class Bound extends Platform {
+  /** Source's player clip, magenta: a wall nobody sees. */
+  static tool = { color: '#e040fb', label: 'clip' };
   draw() {}
 }
 

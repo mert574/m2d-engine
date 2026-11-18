@@ -59,6 +59,7 @@ Prefixes follow the Quake convention the completion is built around: `r_` render
 | `r_aspect` | `letterbox\|expand` | yes | |
 | `r_worldfilter` | `linear\|nearest` | yes | |
 | `r_fullscreen` | boolean | | |
+| `r_showtools` | boolean | | Draw triggers, spawn points and other tool entities as colour-coded semi-transparent boxes in play, as the editor always does. `toggle r_showtools` flips it |
 | `r_debug` | boolean | | The renderer's debug overlay |
 | `r_shadows` | `off\|low\|medium\|high` | yes | 3D games only: the sun's shadow cascades, and how many spot lights and point lights cast |
 | `r_textures`, `r_models` | the project's texture and model levels | yes | Only when the project declares `quality` and the game offers it: the level its models load at. Changing one reloads the models in place |

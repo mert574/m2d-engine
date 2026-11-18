@@ -35,6 +35,7 @@ The rules, all of which match constraints:
 - **Declaring nothing keeps the old contract**: `properties` is then a free-form bag the engine never looks inside. Adding a schema is per actor.
 - **An actor for one dimension says so.** `static dimensions = 2` (or `3`) refuses a level of the other dimension naming it, at `prefabs.<name>.actor`, and the editor's Components tab and `list_components` show it only where it fits. Null, the default, is both.
 - **A combination that cannot work is refused too.** `static refineProperties(properties, { dimensions, fail })` runs at load for each placed object, with the object's properties over its prefab's; `fail(key, message)` names the property (`layers[0].objects[3].properties.kind`). The kit's `ParticleField` refuses smoke in a 2D level this way.
+- **An actor nobody sees is a tool, and says so.** `static tool = { color, label }` marks a trigger, a spawn point, an invisible wall: the engine draws it as a semi-transparent box of that colour over its body, outlined and labelled with its kind and id in 2D (seen through the level's projection, so a diamond in an isometric level) and a translucent, faintly glowing shape in 3D. The editor always shows them; in play the `r_showtools` cvar does (`r_showtools 1`, or `toggle r_showtools`). An instance's `toolColor` and `toolLabel` win over the class's (a trigger adds its `triggers` tag to its label). The engine's are `Trigger` (orange) and `SpawnPoint` (green); the kit's `GravityDial` (purple) and `AmbientSound` (blue); the examples' invisible walls use Source's clip magenta. See `core/toolVolumes.js`.
 - **An asset is named, and arrives loaded.** A property declared `s.ref('spritesheet')` or `s.ref('image')` is checked against the scene's sheets or `assets.images`, and the actor receives the loaded `SpriteSheet` or image in `options` (null headless). Art an actor uses at run time, such as the flame a ship trails, is then scene data the editor shows.
 
 `actorPropertiesSchema(Class)` from `m2d-engine/core/sceneSchema.js` returns the merged schema, and `fieldsOf` on it yields the inspector's field list.
@@ -52,14 +53,14 @@ The editor gives a placed model or image this actor when the game registers it. 
 
 ## SpawnPoint
 
-`actors/spawnPoint.js`. Name `SpawnPoint`. Where a player joins or comes back: a marker that collides with nothing and draws only in the editor (a ring at its reach), in 2D and 3D. Its size is its reach: `point.holds(entity)` is whether the entity stands inside it. `scene.freeSpawnPoint()` is the first point, in scene order, with no avatar inside, or the one with the fewest when all are taken, or null without any. `scene.spawnAvatar(player)` makes the player an avatar from the scene's `world.player` object at that point (or where the object stands) and sets `player.avatar`; the server calls it for each player who joins. See [Multiplayer](../guide/multiplayer#the-match).
+`actors/spawnPoint.js`. Name `SpawnPoint`. Where a player joins or comes back: a marker that collides with nothing, drawn as a green tool box in the editor and under `r_showtools` and as nothing in play, in 2D and 3D. Its size is its reach: `point.holds(entity)` is whether the entity stands inside it. `scene.freeSpawnPoint()` is the first point, in scene order, with no avatar inside, or the one with the fewest when all are taken, or null without any. `scene.spawnAvatar(player)` makes the player an avatar from the scene's `world.player` object at that point (or where the object stands) and sets `player.avatar`; the server calls it for each player who joins. See [Multiplayer](../guide/multiplayer#the-match).
 
 ## Trigger
 
 `actors/trigger.js`. Name `Trigger`. An invisible area that reacts when the player enters it.
 
 - Expects a `static` sensor body.
-- `properties`: `active` (false), `visible` (false), `triggers` (a label drawn on the area, such as `"levelComplete"`), `debugColor`.
+- `properties`: `active` (false), `visible` (false: its box shows in play too), `triggers` (a tag for game code, such as `"levelComplete"`), `debugColor` (its box's colour; orange unless set).
 - Does nothing unless `active` is `true`. `setActive(flag)` and `setVisible(flag)` change the flags at runtime. A level's rules watch the object itself (`when: { "event": "enter", "object": "gate" }`), and an `unseal` action sets it active; `triggers` is a tag for game code.
 - When the player enters an active trigger, its `onEnter(player)` runs if one is set, and `onExit(player)` when the player leaves; neither is built in. What entering does is usually the level's rules' business (`enter`). (Until Nov 2026 a built-in `onEnter` switched to `mainMenu`, which pre-empted any rule on an exit trigger.)
-- When visible, draws its area and label through the world overlay.
+- An orange tool box (see [Declaring properties](#declaring-properties)): always in the editor, under `r_showtools` in play, and in play anyway once `visible`. A subclass with art of its own (a gate) draws that once `visible`, and its box only where tools are shown.

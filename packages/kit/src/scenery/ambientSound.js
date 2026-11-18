@@ -23,6 +23,7 @@ export class AmbientSound extends Scenery {
     radius: s.number({ min: 0, initial: 0, description: 'How far it carries, in px (2D) or metres (3D): full at its place, silent at this distance. 0 fills the scene' })
   };
 
+  static tool = { color: '#38bdf8', label: 'sound' };
   name = 'AmbientSound';
 
   constructor(body, sprite, game, options = {}) {

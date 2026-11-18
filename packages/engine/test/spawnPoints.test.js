@@ -99,15 +99,57 @@ describe('spawn points', () => {
     game.destroy();
   });
 
-  it('collide with nothing, and draw only in the editor', async () => {
-    for (const editMode of [false, true]) {
-      const { game, scene } = await make(level(), { display: true, editMode });
-      const point = scene.entitiesById.get('spawn-1');
-      expect(point.body.collisionFilter).toMatchObject({ category: 0, mask: 0 });
-      game.renderer.reset();
-      point.draw(0);
-      expect(game.renderer.callsTo('drawArc').length > 0).toBe(editMode);
-      game.destroy();
-    }
+  it('collide with nothing', async () => {
+    const { game, scene } = await make(level(), { display: true });
+    expect(scene.entitiesById.get('spawn-1').body.collisionFilter).toMatchObject({ category: 0, mask: 0 });
+    game.destroy();
   });
+});
+
+describe('tool entities', () => {
+  /** A level with a spawn point, a plain trigger, one whose box shows in play, and one in its own colour. */
+  const tools = () => {
+    const scene = level();
+    scene.prefabs.zone = { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } };
+    scene.layers[0].objects.push(
+      { id: 'zone-1', prefab: 'zone', x: 50, y: 50, width: 20, height: 20 },
+      { id: 'door', prefab: 'zone', x: 80, y: 50, width: 20, height: 20, properties: { visible: true } },
+      { id: 'pit', prefab: 'zone', x: 120, y: 50, width: 20, height: 20, properties: { debugColor: '#0000ff' } }
+    );
+    return scene;
+  };
+  /** The boxes the overlay got this frame, by the label's object id. */
+  const boxes = (game, scene) => {
+    game.worldOverlay.clear();
+    scene.draw(0);
+    const fills = game.worldOverlay.shapes.filter((shape) => shape.method === 'drawPath').map((shape) => shape.options.fillStyle);
+    const ids = game.worldOverlay.labels.map((label) => label.text.split(' · ')[1]);
+    return Object.fromEntries(ids.map((id, i) => [id, fills[i]]));
+  };
+
+  it('draw as colour-coded boxes in the editor', async () => {
+    const { game, scene } = await make(tools(), { display: true, editMode: true });
+    const drawn = boxes(game, scene);
+    expect(Object.keys(drawn).sort()).toEqual(['door', 'pit', 'spawn-1', 'spawn-2', 'zone-1']);
+    expect(drawn['spawn-1']).toBe('rgba(52, 211, 153, 0.3)');
+    expect(drawn['zone-1']).toBe('rgba(255, 138, 28, 0.3)');
+    expect(drawn.pit).toBe('rgba(0, 0, 255, 0.3)');
+    // The hero is no tool.
+    expect(drawn.hero).toBeUndefined();
+    game.destroy();
+  });
+
+  it('hide in play, but for a trigger made visible, and all show under r_showtools, each once', async () => {
+    const { game, scene } = await make(tools(), { display: true });
+    expect(Object.keys(boxes(game, scene))).toEqual(['door']);
+    game.cvars.set('r_showtools', 'true');
+    expect(game.showTools).toBe(true);
+    const drawn = boxes(game, scene);
+    expect(Object.keys(drawn).sort()).toEqual(['door', 'pit', 'spawn-1', 'spawn-2', 'zone-1']);
+    expect(game.worldOverlay.labels.filter((label) => label.text.endsWith('door'))).toHaveLength(1);
+    game.cvars.set('r_showtools', 'false');
+    expect(Object.keys(boxes(game, scene))).toEqual(['door']);
+    game.destroy();
+  });
+
 });

@@ -609,6 +609,7 @@ export class GateArm extends Entity {
 
 /** An invisible line across the road; the race director counts crossings. */
 export class Checkpoint extends Entity {
+  static tool = { color: '#ff8a1c', label: 'checkpoint' };
   static properties = {
     index: s.integer({ min: 0, description: 'Its place in the lap order' }),
     finish: s.boolean({ initial: false, description: 'The line a lap is timed from' })

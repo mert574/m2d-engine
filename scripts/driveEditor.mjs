@@ -543,9 +543,17 @@ const SUITES = {
         await page.evaluate((n) => window.m2dEditor.remote.doc.data.prefabs[n]?.actor === 'ParticleField', name), inserted);
       await page.click('.tab[data-tab="assets"]');
       const before = await canvas();
-      // The panel lists the new prefab once it has redrawn; under load that is not at once.
+      // The panel lists the new prefab once it has redrawn, and opening the
+      // tab redraws it again as the file list and the audit arrive; a
+      // double-click that straddles a redraw lands on two different cards.
+      // Wait until the same card has stood for half a second.
       const prefabCard = page.locator('.asset-card', { hasText: name }).first();
       await prefabCard.waitFor({ timeout: 15000 });
+      for (let tries = 0; tries < 40; tries++) {
+        const card = await prefabCard.elementHandle();
+        await page.waitForTimeout(500);
+        if (await card.evaluate((node) => node.isConnected)) break;
+      }
       await prefabCard.dblclick();
       const countPlaced = () => page.evaluate((n) => window.m2dEditor.remote.doc.data.layers.flatMap((layer) => layer.objects).filter((o) => o.prefab === n).length, name);
       for (let wait = 0; wait < 30 && await countPlaced() === 0; wait++) await page.waitForTimeout(200);

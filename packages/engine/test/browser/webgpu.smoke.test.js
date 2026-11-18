@@ -395,6 +395,31 @@ describe('a 3D game through the engine loop', () => {
     expect(model[13]).toBeCloseTo(crate.body.position.y, 3);
   });
 
+  it('draws a tool entity as a translucent box of its colour only when tools are shown', async () => {
+    const { Entity } = await import('../../src/core/entity.js');
+    const { game } = game3D();
+    game.registerActor('Ground', class extends Entity { name = 'Ground'; });
+    game.registerActor('Crate', class extends Entity { name = 'Crate'; });
+    game.sceneManager.addScene('yard', { fetch: async () => ({
+      ...YARD,
+      prefabs: { ...YARD.prefabs, zone: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } } },
+      layers: [{ name: 'main', objects: [...YARD.layers[0].objects, { id: 'zone', prefab: 'zone', x: 2, y: 1, z: 0, width: 2, height: 2, depth: 2 }] }]
+    }) });
+    await game.sceneManager.switchTo('yard');
+    const scene = game.sceneManager.getCurrentScene();
+    const blended = (frame) => [...frame.groups.values()].flatMap((group) => [...group.values()]).filter((entry) => entry.material?.alphaMode === 'blend');
+    expect(blended(scene.frame3D(1 / 60))).toHaveLength(0);
+    game.showTools = true;
+    const [box] = blended(scene.frame3D(1 / 60));
+    expect(box.instances).toHaveLength(1);
+    expect(box.material.emissive.some((c) => c > 0)).toBe(true);
+    // At the trigger's body, its size, and casting no shadow.
+    const data = box.instances[0];
+    expect([data[12], data[13], data[14]].map((v) => Math.round(v * 100) / 100)).toEqual([2, 1, 0]);
+    expect(Math.round(data[0] * 100) / 100).toBe(2);
+    expect(data[55]).toBe(0);
+  });
+
   it('draws the HUD over the world on the overlay canvas', async () => {
     const { game } = game3D();
     game.sceneManager.addScene('yard', { fetch: async () => ({ ...YARD, prefabs: {}, layers: [{ name: 'main', objects: [] }] }) });

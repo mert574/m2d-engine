@@ -50,6 +50,16 @@ export class Entity {
   static dimensions = null;
 
   /**
+   * A tool entity — a trigger, a spawn point, an invisible wall — says so
+   * with `{ color, label }`: the engine draws it as a semi-transparent box
+   * of that colour, always in the editor and in play under `r_showtools`.
+   * Null for everything a player sees. An instance's `toolColor` wins.
+   * See core/toolVolumes.js.
+   * @type {{color: string, label: string}|null}
+   */
+  static tool = null;
+
+  /**
    * Optional: `static refineProperties(properties, { dimensions, fail })`
    * refuses at load a combination of properties that cannot work, which a
    * descriptor alone cannot say — smoke in a 2D level. `properties` is the

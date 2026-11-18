@@ -11,6 +11,7 @@ Code is only:
 - **Net intents**: the discrete requests a player's UI makes.
 - **The definition** (`game.js`): `register(game)` registers the above and does nothing else; it may export `sceneHooks(game)` with simulation hooks (`onEnter`, `onFixedUpdate`), which the page, the editor's play and a server all run.
 - **Scenery actors**: painting of the game's own (a valley's ridges, a street's skyline) is an actor placed in the scene, colliding with nothing, at a low or high `zIndex`. It draws in the editor too, which a draw hook never did. In 3D the engine draws an entity without a `mesh` block as a grey box of its collider, so scenery keeps none (the kit's `Scenery` base does this; a game's own 3D scenery actor must too). Weather, backdrops and ambient sound that any game could want are the kit's scenery actors on the same terms (`ParticleField`, `Sky`, `Scatter`, `AmbientSound`), not world data.
+- **Tool actors**: anything a level needs but a player never sees (a trigger, a spawn point, an invisible wall, a dial) declares `static tool = { color, label }`, and the engine draws it as a colour-coded, semi-transparent box in the editor and under `r_showtools` in play. A new invisible actor declares one, or the editor cannot show where it is (18 Nov 2026).
 - **The page** (`main.js`): `bootProject` and nothing else. The opening scene, display and input actions are `m2d.project.json`'s.
 
 Everything else is scene data, which the editor and MCP can read and change:

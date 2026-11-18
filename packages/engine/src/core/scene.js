@@ -28,6 +28,7 @@ import { UIRectangle } from './ui/Rectangle.js';
 import { UIMenuItem } from './ui/menuItem.js';
 import { UIBackdrop } from './ui/backdrop.js';
 import { SpawnPoint } from '../actors/spawnPoint.js';
+import { drawToolVolumes2D, addToolVolumes3D } from './toolVolumes.js';
 import { SceneEffects } from './ui/sceneEffects.js';
 
 const ZERO = { x: 0, y: 0, z: 0 };
@@ -1502,6 +1503,8 @@ export class Scene {
 
     if (level) {
       this.drawWorld(deltaTime);
+      // Triggers, spawn points and the like: in the editor, or with r_showtools.
+      drawToolVolumes2D(this.game);
       this.#drawLightingFallback();
     }
 
@@ -1640,6 +1643,7 @@ export class Scene {
         });
       }
     }
+    if (this.config.type === 'level') addToolVolumes3D(this, frame);
     // The level's own environment, when it names one: the sky and the
     // light it bakes, drawn in edit mode too, so the editor shows it.
     const environment = this.config.world?.environment;

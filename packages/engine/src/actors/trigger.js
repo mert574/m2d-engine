@@ -1,15 +1,18 @@
 import { Entity } from '../core/entity.js';
 import { s } from '../core/schema.js';
+import { toolsShown, drawToolVolume2D } from '../core/toolVolumes.js';
 
 export class Trigger extends Entity {
   static description = 'An invisible sensor that fires when something enters it';
+  /** Drawn as an orange box in the editor and under `r_showtools`; see core/toolVolumes.js. */
+  static tool = { color: '#ff8a1c', label: 'trigger' };
   name = 'Trigger';
 
   static properties = {
     active: s.boolean({ initial: false, description: 'Inert until set' }),
-    visible: s.boolean({ initial: false, description: 'Draw the sensor, to see where it is' }),
+    visible: s.boolean({ initial: false, description: 'Show its box in play too, not only in the editor and under r_showtools' }),
     triggers: s.string({ description: 'A tag for game code to read on entry; a level\'s rules watch the object itself (when: enter)' }),
-    debugColor: s.string({ initial: '#e7693166', editor: 'color', label: 'Debug colour' })
+    debugColor: s.string({ editor: 'color', label: 'Box colour', description: 'Its box\'s colour; trigger orange unless set' })
   };
 
   constructor(body, sprite, game, options = {}) {
@@ -18,7 +21,7 @@ export class Trigger extends Entity {
     this.active = options.active || false;
     this.visible = options.visible || false;
     this.triggers = options.triggers || [];
-    this.debugColor = options.debugColor || '#e7693166';
+    this.toolColor = options.debugColor ?? null;
   }
 
   // A player's avatar entering or leaving: the players registry's test, so
@@ -39,39 +42,24 @@ export class Trigger extends Entity {
     // noop since it doesn't have a sprite.
   }
 
+  /**
+   * A trigger with a sprite draws it once `visible`. One without shows its
+   * box in play once `visible`; the editor and `r_showtools` show every
+   * trigger's box anyway, so it is not drawn twice.
+   */
   draw() {
     if (!this.visible) return;
-
     if (this.sprite) {
       super.draw();
+      return;
     }
+    if (!toolsShown(this.game)) drawToolVolume2D(this);
+  }
 
-    const bounds = this.body.renderBounds;
-    const width = bounds.max.x - bounds.min.x;
-    const height = bounds.max.y - bounds.min.y;
-    // A trigger's tinted area and its name are one annotation: both go to the
-    // world overlay so the patch and the text on it stay equally sharp.
-    const overlay = this.game.worldOverlay;
-
-    overlay.drawRect({
-      x: bounds.min.x,
-      y: bounds.min.y,
-      width,
-      height,
-      fillStyle: this.debugColor
-    });
-
-    overlay.drawText({
-      text: `${this.triggers}`,
-      x: this.body.renderPosition.x,
-      y: this.body.renderPosition.y,
-      offsetY: 3.5,
-      fillStyle: '#ffffffaa',
-      fontSize: '14px',
-      fontFamily: 'system-ui',
-      textAlign: 'center',
-      textBaseline: 'alphabetic'
-    });
+  /** Its kind, and the tag game code reads, when it has one. */
+  get toolLabel() {
+    const tag = Array.isArray(this.triggers) ? this.triggers.join(', ') : String(this.triggers ?? '');
+    return tag ? `trigger ${tag}` : 'trigger';
   }
 
   setActive(active) {

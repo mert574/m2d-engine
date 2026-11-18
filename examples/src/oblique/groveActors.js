@@ -105,6 +105,8 @@ export class Decor extends Platform {
 
 /** An invisible wall. */
 export class Bound extends Platform {
+  /** Source's player clip, magenta: a wall nobody sees. */
+  static tool = { color: '#e040fb', label: 'clip' };
   draw() {}
 }
 

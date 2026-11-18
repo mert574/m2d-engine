@@ -252,6 +252,8 @@ export class M2D {
      * persistence all consult; see the `editMode` option.
      */
     this.editMode = this.options.editMode === true;
+    /** Whether tool entities (triggers, spawn points) draw in play: the `r_showtools` cvar. The editor always shows them. */
+    this.showTools = false;
     /**
      * Edit mode draws on demand: when something said the picture changed
      * (`invalidate`), and otherwise at `EDIT_IDLE_FPS`. See `update`.
@@ -714,6 +716,17 @@ export class M2D {
       description: 'Fullscreen on the canvas',
       get: () => this.isFullscreen,
       set: (value) => { value ? this.requestFullscreen() : this.exitFullscreen(); }
+    });
+
+    cvars.register('r_showtools', {
+      type: 'boolean',
+      default: false,
+      description: 'Draw triggers, spawn points and other tool entities as colour-coded boxes in play, as the editor does',
+      get: () => this.showTools,
+      set: (value) => {
+        this.showTools = value;
+        this.invalidate();
+      }
     });
 
     cvars.register('r_debug', {

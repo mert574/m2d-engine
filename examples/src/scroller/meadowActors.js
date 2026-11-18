@@ -23,6 +23,8 @@ const DASH = { speed: 780, time: 0.22, cooldown: 1.0, grace: 0.36 };
 const COMBO_WINDOW = 2.4;
 
 export class ScrollFront extends Entity {
+  /** Source's no-draw yellow: the moving edge that keeps the bee in the window. */
+  static tool = { color: '#facc15', label: 'scroll edge' };
   name = 'ScrollFront';
 
   constructor(body, sprite, game) {

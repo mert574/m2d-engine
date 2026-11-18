@@ -18,6 +18,7 @@ export class GravityDial extends Scenery {
     axis: s.enumOf(['x', 'y', 'z'], { initial: 'y' })
   };
 
+  static tool = { color: '#a78bfa', label: 'gravity' };
   name = 'GravityDial';
 
   constructor(body, sprite, game, options = {}) {
