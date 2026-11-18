@@ -62,9 +62,5 @@ export function defineMatch(definition) {
 
 /** The default `leave`: take the player's entities out of the world. */
 export function removeEntitiesOf(game, player) {
-  for (const entity of player.entities) {
-    game.entities.delete(entity);
-    game.physics.remove(entity.body);
-    entity.destroy?.();
-  }
+  for (const entity of player.entities) game.removeEntity(entity);
 }

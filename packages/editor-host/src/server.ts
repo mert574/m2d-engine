@@ -335,23 +335,21 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
   });
 
   server.registerTool('edit_look', {
-    title: 'Edit the lighting cycle or particles',
+    title: 'Edit the lighting cycle',
     description:
       'The Look tab\'s actions, as one step of undo each: startCycle (two states from the resting ' +
       'look), addState (the blended look at phase, inserted as a state named name), removeState ' +
-      '(index; the start phase stays on the state it named), addParticles (a field: in 3D motes or ' +
-      'smoke at a point; in 2D fireflies, leaves, rain or sparks over the view). Tune fields afterwards with edit_scene under world.cycle and ' +
-      'world.particles.',
+      '(index; the start phase stays on the state it named). Tune states afterwards with edit_scene ' +
+      'under world.cycle. A sky, particles and ambient sound are scenery actors placed as objects ' +
+      '(see list_components for their templates).',
     inputSchema: {
       path: scenePath,
-      action: z.enum(['startCycle', 'addState', 'removeState', 'addParticles']),
+      action: z.enum(['startCycle', 'addState', 'removeState']),
       phase: z.number().min(0).optional().describe('addState'),
       name: z.string().min(1).optional().describe('addState'),
-      index: z.number().int().nonnegative().optional().describe('removeState'),
-      kind: z.enum(['motes', 'smoke', 'fireflies', 'leaves', 'rain', 'sparks']).optional().describe('addParticles: motes and smoke in 3D; fireflies, leaves, rain and sparks in 2D'),
-      at: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional().describe('addParticles: where it stands, metres')
+      index: z.number().int().nonnegative().optional().describe('removeState')
     }
-  }, async ({ path: file, action, phase, name, index, kind, at }) => {
+  }, async ({ path: file, action, phase, name, index }) => {
     try {
       const data = (await session.document(file)).data;
       const need = <T>(value: T | undefined, what: string): T => {
@@ -363,7 +361,6 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
           case 'startCycle': return { label: 'Start a lighting cycle', ops: look.startCycle(data) };
           case 'addState': return { label: `Add cycle state ${name}`, ops: look.addStateAt(data, need(phase, 'a phase'), need(name, 'a name')) };
           case 'removeState': return { label: `Remove cycle state ${need(index, 'an index') + 1}`, ops: look.removeState(data, index!) };
-          case 'addParticles': return { label: `Add ${need(kind, 'a kind')}`, ops: look.addParticleField(data, kind!, at ?? { x: 0, y: 0, z: 0 }) };
         }
       })();
       return summary(await session.edit(file, edit, AGENT));
@@ -470,8 +467,8 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       'Components tab shows them. A prefab names an actor; a constraint goes under a prefab\'s or ' +
       'an object\'s `constraints` as { "slot": { "type": "Name", "params": {...} } }. ' +
       '`prefabs` are ready-made templates: copy one\'s `prefab` value into the scene\'s own ' +
-      '`prefabs` under a free name with edit_scene, then place objects of it; a template\'s ' +
-      '`dimensions` is the scene dimension it is written for.',
+      '`prefabs` under a free name with edit_scene, then place objects of it; a template\'s or an ' +
+      'actor\'s `dimensions` is the only scene dimension it works in (absent: both).',
     inputSchema: {}
   }, async () => {
     const found = await registries();
@@ -483,7 +480,9 @@ export function createServer(session: Session, options: ServerOptions = {}, asse
       (registry as { originOf?(name: string): string } | undefined)?.originOf?.(name);
     return json({
       actors: [...(found.actors ?? [])].map(([name, klass]) => ({
-        name, origin: originOf(found.actors, name), description: describe(klass) || undefined, properties: fieldsOf((klass as { properties?: unknown }).properties)
+        name, origin: originOf(found.actors, name), description: describe(klass) || undefined,
+        dimensions: (klass as { dimensions?: 2 | 3 | null }).dimensions ?? undefined,
+        properties: fieldsOf((klass as { properties?: unknown }).properties)
       })),
       constraints: [...(found.constraintTypes ?? [])].map(([name, klass]) => ({
         name, origin: originOf(found.constraintTypes, name), description: describe(klass) || undefined, params: fieldsOf((klass as { params?: unknown }).params)

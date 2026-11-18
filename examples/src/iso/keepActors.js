@@ -156,8 +156,7 @@ export class Ember extends Coin {
     // Any knight gathers it, not only `game.player`: on a server every
     // player has one, and the ember goes to whoever touched it.
     if (!collector || collector.name !== 'Player' || !this.game.entities.has(this)) return;
-    this.game.entities.delete(this);
-    this.game.physics.remove(this.body);
+    this.game.removeEntity(this);
     creditEmber(collector);
     this.onTaken?.(this, collector);
   }

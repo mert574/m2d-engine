@@ -41,6 +41,21 @@ export class Entity {
    */
   static description = '';
 
+  /**
+   * The one dimension the actor is for, 2 or 3, or null for both. A level
+   * of the other dimension naming it is refused at load, and the editor
+   * offers it only where it fits: a 2D sky has nothing to draw in 3D.
+   * @type {2|3|null}
+   */
+  static dimensions = null;
+
+  /**
+   * Optional: `static refineProperties(properties, { dimensions, fail })`
+   * refuses at load a combination of properties that cannot work, which a
+   * descriptor alone cannot say — smoke in a 2D level. `properties` is the
+   * object's over its prefab's; `fail(key, message)` names the property.
+   */
+
   constructor(body, sprite, game) {
     if (!body) {
       throw new Error('Physics body is required');

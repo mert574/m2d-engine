@@ -90,7 +90,7 @@ export default async function start(canvas) {
 
   game.sceneManager.addScene('main', {
     fetch: async () => ({
-      version: 4, type: 'level', name: 'main',
+      version: 5, type: 'level', name: 'main',
       // The world's size is what the background tiles across.
       world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, camera: { bounds: 'world' } },
       assets: { spritesheets: {

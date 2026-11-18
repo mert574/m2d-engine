@@ -37,6 +37,8 @@ export interface HostProject {
   actions: Record<string, string[]>;
   /** The player's choices, as `choices` declares them. */
   choices: Record<string, unknown>;
+  /** The collision layers, as `layers` declares them; empty for none. */
+  layers: string[];
   scenes: SceneEntry[];
 }
 
@@ -49,9 +51,9 @@ export interface HostProject {
 export function projectGameOptions(project: HostProject, hooksOptions?: Record<string, unknown>): Record<string, unknown> {
   const display = project.display ?? {};
   const pick = (key: string) => (display[key] !== undefined ? { [key]: display[key] } : {});
-  const declared = (key: 'actions' | 'choices') => (Object.keys(project[key] ?? {}).length ? { [key]: project[key] } : {});
+  const declared = (key: 'actions' | 'choices' | 'layers') => (Object.keys(project[key] ?? {}).length ? { [key]: project[key] } : {});
   // Under the project's name, as its page keeps them: not the editor's own path, which every project would share.
-  return { ...hooksOptions, ...pick('clearColor'), ...pick('textureFilter'), ...pick('worldFilter'), ...declared('actions'), ...declared('choices'), saveId: project.name };
+  return { ...hooksOptions, ...pick('clearColor'), ...pick('textureFilter'), ...pick('worldFilter'), ...declared('actions'), ...declared('choices'), ...declared('layers'), saveId: project.name };
 }
 
 /** What a game-definition module exports; see m2d.project.json. */

@@ -31,7 +31,7 @@ import { choiceValue } from './projectSchema.js';
  * the version it was written for, and anything else is refused rather than
  * half-understood.
  */
-export const SCENE_VERSION = 4;
+export const SCENE_VERSION = 5;
 
 /**
  * What an `id` may look like: letters, digits, `-`, `_` and `.`, starting
@@ -414,34 +414,6 @@ const CYCLE = s.object({
   ease: s.number({ positive: true, initial: 1.5, description: 'How fast the phase approaches its target, per second' })
 }, { label: 'Cycle' });
 
-/** Particle kinds by the dimension that draws them. */
-export const PARTICLE_KINDS = {
-  2: ['fireflies', 'leaves', 'rain', 'sparks'],
-  3: ['motes', 'smoke']
-};
-
-/**
- * A field of particles. 3D: motes in the air around the camera, or smoke
- * rising from a point. 2D: fireflies, falling leaves, rain or sparks over
- * the view or a box of the world. Stateless either way (each particle is
- * a function of its index and the time), so a field costs no simulation
- * and looks the same on every machine; see particles.js.
- */
-const PARTICLE_FIELD = s.object({
-  kind: s.enumOf([...PARTICLE_KINDS[2], ...PARTICLE_KINDS[3]], { required: true, description: '3D: motes drift on the wind, smoke rises. 2D: fireflies wander and pulse, leaves and rain fall, sparks rise' }),
-  count: s.number({ min: 0, required: true }),
-  at: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Smoke: its source. Otherwise the box\'s centre when the field does not follow the camera' }),
-  extent: s.object({ x: s.number({ positive: true }), y: s.number({ positive: true }), z: s.number({ positive: true }) }, { description: 'Half sizes, in metres (3D) or px (2D). Smoke: the column\'s spread, and half its height' }),
-  radius: s.number({ positive: true, description: 'Particle size: metres in 3D, px in 2D' }),
-  color: colour({ label: 'Colour' }),
-  opacity: s.number({ min: 0, max: 1 }),
-  emissive: s.number({ min: 0, description: 'Self-illumination, as a multiple of the colour: fireflies, embers. 2D: a lit level draws each as a small light' }),
-  speed: s.number({ min: 0, description: 'm/s in 3D, px/s in 2D. Smoke: how fast it rises. Motes, fireflies: how far each wanders. Leaves, rain, sparks: how fast they travel' }),
-  follow: s.boolean({ description: 'The box stays centred on the camera (the default for motes and every 2D kind)' }),
-  front: s.boolean({ description: '2D: drawn over the entities rather than behind them' }),
-  seed: s.integer({ min: 0, description: '2D: which scatter of particles; the same seed is the same field' })
-}, { label: 'Particle field' });
-
 /**
  * What a meter or a post binding reads: a constraint's fields on an object
  * (the player's health by default), as `current / max` or as a ratio
@@ -454,43 +426,6 @@ const BINDING = s.object({
   max: s.string({ initial: 'maxHealth' }),
   ratio: s.string({ description: 'A field already between 0 and 1 (a cooldown\'s charge); read instead of current and max' })
 }, { label: 'Binding' });
-
-/** The 2D sky behind a level: a vertical gradient over the view, under everything. */
-const SKY = s.object({
-  top: colour({ required: true }),
-  bottom: colour({ required: true }),
-  middle: colour({ description: 'A third stop, at the horizon' }),
-  horizon: s.number({ min: 0, max: 1, initial: 0.5, description: 'Where the middle stop sits, down the view' })
-}, { label: 'Sky', description: '2D: a gradient drawn behind the level, fixed to the view' });
-
-export const SCATTER_KINDS = ['stars', 'clouds', 'motes'];
-
-/**
- * A seeded layer of small things behind a 2D level: stars that twinkle,
- * clouds that drift, motes in the air. Laid out once from the seed, tiled
- * across the view and moved at `parallax`, so it needs no world size and
- * never repeats visibly at the edge of a level.
- */
-const SCATTER = s.object({
-  kind: s.enumOf(SCATTER_KINDS, { required: true }),
-  count: s.integer({ min: 0, required: true }),
-  seed: s.integer({ min: 0, initial: 1 }),
-  color: colour({ label: 'Colour' }),
-  size: s.number({ positive: true, unit: 'px', description: 'The largest one; the rest are smaller' }),
-  opacity: s.number({ min: 0, max: 1 }),
-  parallax: s.number({ min: 0, description: '0 is fixed to the view, 1 moves with the world' }),
-  speed: s.number({ unit: 'px/s', description: 'Clouds and motes: drift across the view' }),
-  twinkle: s.number({ min: 0, max: 1, description: 'Stars: how much each flickers' }),
-  band: s.object({ top: s.number({ min: 0, max: 1 }), bottom: s.number({ min: 0, max: 1 }) }, { description: 'The part of the view it fills, top to bottom, as fractions' })
-}, { label: 'Scatter layer' });
-
-/** A looping sound under the level: wind, a hum, rain. */
-const AMBIENCE = s.object({
-  sound: s.string({ required: true, description: 'A key in assets.sounds' }),
-  volume: s.number({ min: 0, max: 1, initial: 1 }),
-  fadeIn: s.number({ min: 0, unit: 's', initial: 1, label: 'Fade in' }),
-  rate: s.number({ positive: true, initial: 1, description: 'Playback rate; pitch follows it' })
-}, { label: 'Ambience' });
 
 /**
  * A number the level keeps: a score the rules add to, or a tally of a
@@ -552,11 +487,7 @@ const WORLD = s.object({
     volume: s.number({ min: 0, max: 1 })
   }, { label: 'Music', description: 'Played when the scene shows, stopped when it leaves' }),
   cycle: CYCLE,
-  particles: s.array(PARTICLE_FIELD, { label: 'Particles', description: 'Stateless particle fields: motes and smoke in 3D; fireflies, leaves, rain and sparks in 2D' }),
   clearColor: colour({ label: 'Clear colour', description: 'What the view shows where nothing is drawn' }),
-  sky: SKY,
-  scatter: s.array(SCATTER, { label: 'Scatter', description: '2D: seeded stars, clouds and motes behind the level' }),
-  ambience: s.array(AMBIENCE, { label: 'Ambience', description: 'Looping sounds played while the scene shows, faded in' }),
   counters: s.record(COUNTER, { label: 'Counters', description: 'Numbers the rules and the HUD read by name' }),
   postBind: s.array(POST_BINDING, { label: 'Post bindings', description: 'Post effect fields that follow a value in play' }),
   gravityBind: s.array(GRAVITY_BINDING, { label: 'Gravity bindings', description: 'Axes of gravity that follow a counter: a rule that turns the counter changes the fall' }),
@@ -1269,6 +1200,38 @@ const USES = s.record(s.ref('asset', { required: true, editor: 'asset' }), {
 });
 
 /**
+ * What a registered actor says of the objects that name it: the one
+ * dimension it is drawn in (`static dimensions`), and the combinations of
+ * its properties that cannot work (`static refineProperties`, given the
+ * object's properties over its prefab's). A sky in a 3D level, or smoke
+ * in a 2D one, fails here naming its path instead of drawing nothing.
+ * Without a registry to ask (a loader with no game) there is nothing to
+ * check against.
+ */
+function checkActors(level, actors, fail) {
+  if (!actors) return;
+  const dimensions = level.world?.dimensions ?? 2;
+  for (const [name, prefab] of Object.entries(level.prefabs ?? {})) {
+    const drawnIn = actors.get(prefab.actor)?.dimensions;
+    if (drawnIn && drawnIn !== dimensions) {
+      fail(`prefabs.${name}.actor`, `${prefab.actor} is for a ${drawnIn}D level, and this level is ${dimensions}D`);
+    }
+  }
+  (level.layers ?? []).forEach((layer, li) => {
+    layer.objects.forEach((object, oi) => {
+      const prefab = level.prefabs?.[object.prefab];
+      const Actor = prefab ? actors.get(prefab.actor) : null;
+      if (typeof Actor?.refineProperties !== 'function') return;
+      const where = `layers[${li}].objects[${oi}].properties`;
+      Actor.refineProperties({ ...prefab.properties, ...object.properties }, {
+        dimensions,
+        fail: (key, message) => fail(`${where}.${key}`, message)
+      });
+    });
+  });
+}
+
+/**
  * The checks that depend on how many dimensions the level runs in.
  *
  * A dimension is not a field like the others: it decides what the rest of
@@ -1301,17 +1264,7 @@ function checkDimension(level, fail) {
     }
   }
 
-  (level.world?.particles ?? []).forEach((field, i) => {
-    if (field?.kind !== undefined && !PARTICLE_KINDS[dimensions].includes(field.kind)) {
-      fail(`world.particles[${i}].kind`, `'${field.kind}' particles are drawn in ${dimensions === 2 ? 3 : 2}D, and this level is ${dimensions}D ` +
-        `(known here: ${list(PARTICLE_KINDS[dimensions])})`);
-    }
-  });
-
   if (dimensions === 3) {
-    for (const key of ['sky', 'scatter']) {
-      if (level.world?.[key] !== undefined) fail(`world.${key}`, `'${key}' is drawn behind a 2D level; a 3D level's sky is its environment and lighting`);
-    }
     (level.layers ?? []).forEach((layer, li) => {
       layer.objects.forEach((object, oi) => {
         const where = `layers[${li}].objects[${oi}]`;
@@ -1370,8 +1323,9 @@ export const LEVEL_SCHEMA = s.object({
   paths: s.record(PATH, { label: 'Paths', description: 'Named lines objects follow by name' }),
   hud: s.array(HUD_ELEMENTS, { label: 'HUD', description: 'The overlay drawn over the level: texts, meters, notices, a minimap' })
 }, {
-  refine(level, { fail }) {
+  refine(level, { fail, context }) {
     checkDimension(level, fail);
+    checkActors(level, context?.actors, fail);
 
     // Ids are unique across the scene, not per layer: an object keeps its
     // identity when an editor moves it from one layer to another.

@@ -351,20 +351,19 @@ describe('a 3D game through the engine loop', () => {
     const { game } = game3D();
     game.registerActor('Ground', class extends Entity { name = 'Ground'; });
     game.registerActor('Crate', class extends Entity { name = 'Crate'; });
-    const withParticles = {
-      ...YARD,
-      world: { ...YARD.world, particles: [{ kind: 'smoke', count: 10, at: { x: 5, y: 0, z: 5 } }] }
-    };
-    game.sceneManager.addScene('yard', { fetch: async () => withParticles });
+    game.sceneManager.addScene('yard', { fetch: async () => YARD });
     await game.sceneManager.switchTo('yard');
     const scene = game.sceneManager.getCurrentScene();
+    expect(scene.frame3D(1 / 60).particles ?? []).toHaveLength(0);
+    const floor = scene.entitiesById.get('floor');
     const crate = scene.entitiesById.get('crate');
+    floor.particles = { kind: 'smoke', count: 10, at: { x: 5, y: 0, z: 5 } };
     crate.particles = { kind: 'motes', count: 40 };
 
     const frame = scene.frame3D(1 / 60);
     expect(frame.particles).toHaveLength(2);
-    // The level's own field first, then the entity's, at the crate's body.
-    expect(frame.particles[0].kind).toBe('smoke');
+    // In scene order: the floor's at the point it gives, the crate's at its body, over the kind's defaults.
+    expect(frame.particles[0]).toMatchObject({ kind: 'smoke', count: 10, center: [5, 0, 5], radius: 0.5 });
     expect(frame.particles[1].kind).toBe('motes');
     expect(frame.particles[1].count).toBe(40);
     expect(frame.particles[1].center[1]).toBeCloseTo(0.5, 3);

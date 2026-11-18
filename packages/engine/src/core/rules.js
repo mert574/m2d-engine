@@ -191,11 +191,7 @@ export class SceneRules {
       }
       case 'remove': {
         const entity = this.#entity(action.object);
-        if (entity && !this.#gone(entity)) {
-          entity.dead = true;
-          game.entities.delete(entity);
-          game.physics.remove(entity.body);
-        }
+        if (entity && !this.#gone(entity)) game.removeEntity(entity);
         break;
       }
       case 'set': {

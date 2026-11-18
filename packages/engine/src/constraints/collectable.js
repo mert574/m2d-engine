@@ -28,8 +28,7 @@ export class Collectable extends Constraint {
     const game = entity.game;
     if (!game.players.isAvatar(other.entity) || !game.entities.has(entity)) return;
     const { x, y } = entity.position;
-    game.entities.delete(entity);
-    game.physics.remove(entity.body);
+    game.removeEntity(entity);
     if (this.counter) entity.scene?.counters?.add(this.counter, 1);
     game.events?.emit('picked', { id: entity.netId, at: { x: Math.round(x), y: Math.round(y) } });
   }

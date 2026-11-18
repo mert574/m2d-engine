@@ -10,10 +10,11 @@ import { PROJECT_SCHEMA, projectIssues, projectOptions, bootProject, sceneNameOf
 
 /**
  * What a scene says about how it looks, sounds and moves, applied by the
- * engine instead of a hook: the clear colour, the 2D sky, scatter layers
- * and particles, looping ambience, camera controls, post bound to a value,
- * asset-reference actor properties, the world size, and a UI scene's menu
- * items, backdrop and effects. And the project file that boots it all.
+ * engine instead of a hook: the clear colour, camera controls, post bound
+ * to a value, asset-reference actor properties, what an actor declares of
+ * itself, the world size, and a UI scene's menu items, backdrop and
+ * effects. And the project file that boots it all. (The sky, scatter,
+ * particles and ambient sound are the kit's actors, tested there.)
  */
 
 installWindowStub();
@@ -71,37 +72,40 @@ describe('a 2D level\'s backdrop', () => {
     game.destroy();
   });
 
-  it('draws the sky as a gradient over the view, then scatter and particles, before the world', async () => {
-    const { game, renderer, scene } = await show(level({
-      sky: { top: '#123', middle: '#456', bottom: '#789', horizon: 0.6 },
-      scatter: [{ kind: 'stars', count: 12, seed: 3 }],
-      particles: [{ kind: 'fireflies', count: 5, opacity: 1 }, { kind: 'rain', count: 7, front: true }]
-    }));
-    renderer.reset();
-    scene.draw(0.016);
-    const rects = renderer.optionsFor('drawRect');
-    const area = game.camera.getVisibleArea();
-    expect(rects[0].fillStyle.stops.map((stop) => stop.color)).toEqual(['#123', '#456', '#789']);
-    expect(rects[0].x).toBeCloseTo(area.left);
-    expect(renderer.callsTo('drawLine')).toHaveLength(7);
-    expect(renderer.callsTo('drawArc').length).toBeGreaterThanOrEqual(12);
-    game.destroy();
+});
+
+/** Drawn in 2D only; its `kind` must be one of `knownKinds[dimensions]`. */
+class Haze extends Entity {
+  static dimensions = 2;
+}
+class Field extends Entity {
+  static properties = { kind: s.string() };
+  static refineProperties(properties, { dimensions, fail }) {
+    if (properties.kind !== `flat${dimensions}`) fail('kind', `wants flat${dimensions}, got ${properties.kind}`);
+  }
+}
+
+describe('what an actor declares of itself', () => {
+  const loader = () => new SceneLoader({ actors: new Map([['Dot', Dot], ['Haze', Haze], ['Field', Field]]) });
+
+  it('refuses an actor for one dimension in a level of the other, naming the prefab', () => {
+    const deep = { ...level({ dimensions: 3, gravity: { x: 0, y: 0, z: 0 }, player: undefined }), prefabs: { haze: { actor: 'Haze' } }, layers: [{ name: 'main', objects: [] }] };
+    expect(() => loader().load(deep, 'look')).toThrow(/prefabs\.haze\.actor: Haze is for a 2D level, and this level is 3D/);
+    const flat = level();
+    expect(() => loader().load({ ...flat, prefabs: { ...flat.prefabs, haze: { actor: 'Haze' } } }, 'look')).not.toThrow();
   });
 
-  it('lays scatter out from its seed, the same each time', async () => {
-    const draw = async () => {
-      const { game, renderer, scene } = await show(level({ scatter: [{ kind: 'stars', count: 6, seed: 9 }] }));
-      renderer.reset();
-      scene.draw(0.016);
-      const points = renderer.optionsFor('drawArc').map(({ x, y }) => [x, y]);
-      game.destroy();
-      return points;
-    };
-    expect(await draw()).toEqual(await draw());
-  });
-
-  it('refuses a 3D kind of particle in a 2D level', () => {
-    expect(() => new SceneLoader(null).load(level({ particles: [{ kind: 'smoke', count: 3 }] }), 'look')).toThrow(/drawn in 3D/);
+  it('refuses the properties its refine fails, with the object\'s over its prefab\'s, naming the property', () => {
+    const scene = (prefab, object) => level({}, {
+      prefabs: { dot: { actor: 'Dot' }, field: { actor: 'Field', ...(prefab && { properties: prefab }) } },
+      layers: [{ name: 'main', objects: [
+        { id: 'hero', prefab: 'dot', x: 0, y: 0, width: 8, height: 8 },
+        { id: 'f', prefab: 'field', x: 0, y: 0, width: 8, height: 8, ...(object && { properties: object }) }
+      ] }]
+    });
+    expect(() => loader().load(scene({ kind: 'flat3' }), 'look')).toThrow(/layers\[0\]\.objects\[1\]\.properties\.kind: wants flat2, got flat3/);
+    expect(() => loader().load(scene({ kind: 'flat3' }, { kind: 'flat2' }), 'look')).not.toThrow();
+    expect(() => loader().load(scene(null, { kind: 'flat2' }), 'look')).not.toThrow();
   });
 });
 
@@ -134,28 +138,50 @@ describe('the camera\'s controls', () => {
   });
 });
 
-describe('ambience', () => {
-  it('loops each sound from silence up to its volume, and stops it when the scene leaves', async () => {
-    const handles = [];
+/** Counts what it started and let go of, as a looping sound or an input registration would. */
+class Holder extends Entity {
+  static live = 0;
+  constructor(...args) { super(...args); Holder.live++; }
+  destroy() { Holder.live--; super.destroy(); }
+}
+
+describe('an entity that goes', () => {
+  it('is destroyed when its scene leaves, when a rule removes it and when Health removes it', async () => {
+    const { Health } = await import('../src/constraints/health.js');
     const renderer = new RecordingRenderer();
     const game = new M2D(displayCanvas(320, 180), { width: 320, height: 180, renderer, devConsole: false, performanceStats: false });
     game.registerActor('Dot', Dot);
-    vi.spyOn(game.soundManager, 'loop').mockImplementation(() => {
-      const handle = { volume: null, setVolume: vi.fn((v) => { handle.volume = v; }), stop: vi.fn() };
-      handles.push(handle);
-      return handle;
-    });
-    game.sceneManager.addScene('look', { fetch: async () => level({ ambience: [{ sound: 'wind', volume: 0.6, fadeIn: 2 }] }) });
+    game.registerActor('Holder', Holder);
+    const held = (id) => ({ id, prefab: 'holder', x: 10, y: 10, width: 8, height: 8 });
+    game.sceneManager.addScene('look', { fetch: async () => level({
+      rules: [{ when: { event: 'emit', name: 'clear' }, then: [{ do: 'remove', object: 'a' }] }]
+    }, {
+      prefabs: { dot: { actor: 'Dot', physics: { bodyType: 'dynamic' } }, holder: { actor: 'Holder', physics: { bodyType: 'static' } } },
+      layers: [{ name: 'main', objects: [{ id: 'hero', prefab: 'dot', x: 300, y: 200, width: 8, height: 8 }, held('a'), held('b'), held('c')] }]
+    }) });
     game.sceneManager.addScene('other', { fetch: async () => level({}, { name: 'other' }) });
+    Holder.live = 0;
     await game.sceneManager.switchTo('look');
-    expect(game.soundManager.loop).toHaveBeenCalledWith('wind', { volume: 0, rate: 1 });
     const scene = game.sceneManager.getCurrentScene();
-    scene.updateUI(1);
-    expect(handles[0].volume).toBeCloseTo(0.3);
-    scene.updateUI(5);
-    expect(handles[0].volume).toBeCloseTo(0.6);
+    expect(Holder.live).toBe(3);
+
+    scene.entitiesById.get('hero').fixedUpdate = function () { this.game.events.emit('clear'); };
+    game.step(1);
+    expect(Holder.live).toBe(2);
+    expect(game.entities.has(scene.entitiesById.get('a'))).toBe(false);
+
+    const b = scene.entitiesById.get('b');
+    const health = new Health(b, { maxHealth: 1, whenDead: 'remove' });
+    b.addConstraint('health', health);
+    health.takeDamage(5);
+    expect(Holder.live).toBe(1);
+    expect(game.entities.has(b)).toBe(false);
+    // Gone already: a second removal is nothing.
+    game.removeEntity(b);
+    expect(Holder.live).toBe(1);
+
     await game.sceneManager.switchTo('other');
-    expect(handles[0].stop).toHaveBeenCalled();
+    expect(Holder.live).toBe(0);
     game.destroy();
   });
 });
@@ -478,28 +504,18 @@ describe('scene hooks from both modules', () => {
 });
 
 describe('a level loaded again after a game over', () => {
-  it('runs one set of its ambience, camera controls and rule listeners, not two', async () => {
-    const handles = [];
+  it('runs one set of its camera controls and rule listeners, not two', async () => {
     const renderer = new RecordingRenderer();
     const game = new M2D(displayCanvas(320, 180), { width: 320, height: 180, renderer, devConsole: false, performanceStats: false });
     game.registerActor('Dot', Dot);
-    vi.spyOn(game.soundManager, 'loop').mockImplementation(() => {
-      const handle = { setVolume() {}, stop: vi.fn() };
-      handles.push(handle);
-      return handle;
-    });
     const notice = vi.fn();
     game.sceneManager.addScene('look', { fetch: async () => level({
-      ambience: [{ sound: 'wind' }],
       camera: { wheelZoom: { min: 0.1, max: 10, speed: 0.001 } },
       rules: [{ when: { event: 'notify', name: 'ping' }, then: [{ do: 'sound', key: 'ping' }], once: false }]
     }) });
     await game.sceneManager.switchTo('look');
     game.reset();
     await game.sceneManager.reload();
-    expect(handles).toHaveLength(2);
-    expect(handles[0].stop).toHaveBeenCalled();
-    expect(handles[1].stop).not.toHaveBeenCalled();
     scroll(game, 100, 100, { dy: -100 });
     game.input.flush();
     expect(game.camera.zoom).toBeCloseTo(Math.exp(0.1));
@@ -512,24 +528,6 @@ describe('a level loaded again after a game over', () => {
 });
 
 describe('review fixes', () => {
-  it('draw leaves, rain and sparks over the world by default, as the Look panel says', async () => {
-    const { game, renderer, scene } = await show(level({ particles: [{ kind: 'rain', count: 5 }] }));
-    renderer.reset();
-    scene.backdrop.drawBack(0);
-    expect(renderer.callsTo('drawLine')).toHaveLength(0);
-    scene.backdrop.drawFront(0);
-    expect(renderer.callsTo('drawLine')).toHaveLength(5);
-    game.destroy();
-  });
-
-  it('draw rain that does not fall without a NaN in it', async () => {
-    const { game, renderer, scene } = await show(level({ particles: [{ kind: 'rain', count: 3, speed: 0 }] }));
-    renderer.reset();
-    scene.backdrop.drawFront(0);
-    for (const line of renderer.optionsFor('drawLine')) expect(Number.isFinite(line.x2)).toBe(true);
-    game.destroy();
-  });
-
   it('switch away even when an exit has nothing to animate, to the scene asked for last', async () => {
     const { game } = await show({
       version: SCENE_VERSION, type: 'ui', name: 'menu',

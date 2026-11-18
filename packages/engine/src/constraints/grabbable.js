@@ -138,9 +138,7 @@ export class Grabbable extends Interactive {
     const { game } = this.entity;
     if (this.entity.dead) return;
     if (this.removeSound) game.soundManager?.playSound(this.removeSound);
-    game.entities.delete(this.entity);
-    game.physics.remove(this.entity.body);
     // Unregisters this constraint from the input router with it.
-    this.entity.destroy();
+    game.removeEntity(this.entity);
   }
 }

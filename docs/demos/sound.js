@@ -33,7 +33,7 @@ const BUTTON = { variant: 'secondary', fontSize: '16px' };
 // A UI scene: every control is an element with an action, which the
 // scene's onAction hook receives and answers through the sound manager.
 const scene = {
-  version: 4, type: 'ui', name: 'main',
+  version: 5, type: 'ui', name: 'main',
   elements: [
     { type: 'rect', id: 'background', fill: true, color: '#1b2a38' },
     { type: 'text', id: 'title', anchor: 'top', x: 0, y: 16,

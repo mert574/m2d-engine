@@ -1,12 +1,12 @@
 # Scene format
 
-A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `4`; see [Versions](#versions).
+A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `5`; see [Versions](#versions).
 
 ## Top level
 
 | Key | Scene types | Required | Meaning |
 | --- | --- | --- | --- |
-| `version` | both | yes | The format version the scene is written for. The current one is `4` |
+| `version` | both | yes | The format version the scene is written for. The current one is `5` |
 | `type` | both | yes | `"level"` or `"ui"` |
 | `name` | both | no | Free text. Error messages use the registered name |
 | `title` | both | no | Free text, unused by the engine |
@@ -38,16 +38,14 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `post` | The full-screen pass. Each block is what the renderer takes: 2D `bloom { threshold, strength, blur }`, `vignette { strength, start }`, `grade { shadows, highlights, amount, saturation, contrast }`, `chromatic`, `distortion`, `grain`, `scanlines`, `blur`, `glitch { strength }`, `flash { strength, color }`; 3D `bloom { threshold, intensity, scatter }`, `vignette`, `grain` (numbers), `grade { saturation, contrast, temperature }`, `dof { focalLength, fStop, maxBlur }` (the focus follows the camera's target), `autoExposure`. Blocks a renderer does not know are ignored |
 | `music` | `{ track, volume }`: a key in `assets.music` (or one the game loaded), played when the scene shows and stopped when it leaves. Not in the editor |
 | `cycle` | A turn of the light: `states`, at least two, each a name with the `lighting` and `post` that differ from the level's resting ones; `period` seconds for a full turn and back to the first (0 to move it by hand); `phase`, where it starts; `ease`, how fast the phase approaches a target per second. Game code moves it with `scene.cycle.target = 1` (or `phase` to jump); a rule's `cycle` action does the same. Blended state by state: numbers lerp, colours mix. The editor shows the level at `phase` |
-| `particles` | Stateless particle fields. 2D: `kind` `fireflies` (wandering and pulsing), `leaves` (falling and turning), `rain` (slanted streaks) or `sparks` (rising and fading), with `count`, `radius` (px), `color`, `opacity`, `speed` (px/s), `emissive` (in a lit level each bright one also draws a small light), `front` (drawn over the entities; leaves, rain and sparks by default), `seed`, and `follow` (true: the field covers the view; false: the box `at` ± `extent`). Drawn in the editor too. 3D: fields of particles drawn blended over the level, at most sixteen. Each is `{ kind, count, at, extent, radius, color, opacity, emissive, speed, follow }`: `kind` `motes` (dust and pollen through a box of half sizes `extent`, centred on the camera unless `follow` is false and then on `at`, carried by `world.lighting.wind` and wandering `speed` metres) or `smoke` (rising from `at` at `speed` metres a second through a column `extent.y` metres in half-height, widening by `extent.x` and `extent.z`, leaning downwind). `radius` is a particle's size in metres, `emissive` a glow as a multiple of the colour. Stateless: see [particle fields](./renderer#three-dimensions) |
 | `clearColor` | What the view is cleared to under everything while the scene shows. The game's `clearColor` option otherwise (`#000`) |
-| `sky` | 2D: `{ top, bottom, middle, horizon }`, a vertical gradient over the view behind the level; `middle` sits at `horizon` (0.5) down the view |
-| `scatter` | 2D: seeded layers behind the level, each `{ kind, count, seed, color, size, opacity, parallax, speed, twinkle, band { top, bottom } }`. `kind` is `stars` (twinkling by `twinkle`), `clouds` (soft puffs drifting at `speed` px/s) or `motes` (rising specks). Laid out from `seed` across the view, so a layer has no edge; `parallax` 0 is fixed to the view and 1 moves with the world; `band` keeps it to a part of the view, as fractions from the top |
-| `ambience` | Looping sounds while the scene shows: each `{ sound, volume, fadeIn, rate }`, `sound` a key in `assets.sounds`, faded in from silence over `fadeIn` seconds (1) and stopped when the scene leaves. Not in the editor |
 | `counters` | Numbers the rules and the HUD read by name. A plain counter is `{ initial, min, max }` (initial 0): it changes through a rule's `count` action and is held between `min` and `max` where it gives them, so a score cannot go negative and a dial a key turns stops at the end of its travel without every rule that moves it saying so (a tally, which nothing sets, refuses them). A tally is `{ prefab, count }`: how many of the prefab's objects the scene `placed`, how many are `remaining`, or how many are gone (`taken`, the default), read off the world each time. Snapshots carry plain counters. Online, a client's tallies follow the world it is sent, while its plain counters stay at `initial` (they are counted on the server) |
 | `postBind` | Post fields that follow a value in play: each `{ effect, field, bind, empty, full }` sets `post[effect][field]` (field `strength` by default) between `empty` (at a reading of 0) and `full` (at 1). `bind` is a meter's (see [`hud`](#hud)): the player's health by default. The damage tear as health falls |
 | `gravityBind` | Axes of gravity that follow a counter: each `{ counter, axis }` (axis `y` by default) sets that component of `world.gravity` from `world.counters[counter]` every tick, after the rules have run. A counter it names must be declared, as a rule's must. A rule turns the counter and the fall changes with it, and the HUD shows the same counter as a `{name}` text. Axes nobody binds are left where the world put them |
 | `killPlane` | 2D: the `y` below which the player is lost; the world's height plus 50 by default. Crossing it fires the `fall` rules, or ends the game when there are none |
 | `rules` | What happens when, run by the engine each tick (headless too; not in the editor). See [Rules](#rules) |
+
+A sky, stars and clouds, particle fields and looping ambient sound are not `world` keys: each is a scenery actor placed in `layers` like any object, so the editor shows it and an agent places it with `edit_scene`. The kit ships them (`Sky`, `Scatter`, `ParticleField`, `AmbientSound`; see [the kit](./kit#m2d-kit-scenery)); a game's own painting is an actor of its own. Format 5 moved them there; a format-4 file that used `world.sky`, `scatter`, `particles` or `ambience` is refused, as any other version is.
 
 ## `assets.spritesheets`
 
@@ -580,7 +578,7 @@ M2D scene 'yard': the scene is 3D but the game runs 2D physics — construct M2D
 A scene declares the format version it was written for, and the loader accepts exactly the one this engine reads. Anything else is refused rather than half-understood:
 
 ```
-Scene 'level1' at version: scene format 5 is newer than this engine understands (4); upgrade m2d-engine
+Scene 'level1' at version: scene format 6 is newer than this engine understands (5); upgrade m2d-engine
 ```
 
 There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and rewriting the scenes, which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.

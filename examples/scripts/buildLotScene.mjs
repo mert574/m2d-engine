@@ -1368,9 +1368,16 @@ const chimneyTop = (i) => {
   const side = i % 2 ? 1 : -1;
   return { x: r(x - side * (HOUSE_W / 2 - 0.7)), y: r(6.2 + HOUSE_D / 2 + 1.2), z: r((HOUSE_FRONT + HOUSE_BACK) / 2) };
 };
-world.particles = [
-  { kind: 'motes', count: 900, extent: { x: 18, y: 5, z: 18 }, radius: 0.022, color: '#fff2d0', opacity: 0.55, speed: 0.4 },
-  ...[1, 4, 6].map((i) => ({ kind: 'smoke', count: 36, at: chimneyTop(i), extent: { x: 0.5, y: 3.5, z: 0.5 }, radius: 0.6, color: '#8f8a86', opacity: 0.32, speed: 0.5 }))
+// The air: motes around the camera, smoke from three of the terrace's
+// chimneys, and the yard's wind (its prefab and its object).
+const scenery = { bodyType: 'static', isSensor: true, layer: 'none' };
+prefabs.motes = { actor: 'ParticleField', physics: scenery, properties: { kind: 'motes', count: 900, extent: { x: 18, y: 5, z: 18 }, radius: 0.022, color: '#fff2d0', opacity: 0.55, speed: 0.4 } };
+prefabs.smoke = { actor: 'ParticleField', physics: scenery, properties: { kind: 'smoke', count: 36, extent: { x: 0.5, y: 3.5, z: 0.5 }, radius: 0.6, color: '#8f8a86', opacity: 0.32, speed: 0.5 } };
+const marker = { width: 1, height: 1, depth: 1 };
+const atmosphere = [
+  { id: 'motes-1', prefab: 'motes', x: 0, y: 0, z: 0, ...marker },
+  ...[1, 4, 6].map((i, n) => ({ id: `smoke-${n + 1}`, prefab: 'smoke', ...chimneyTop(i), ...marker })),
+  ...yard.layers.find((layer) => layer.name === 'atmosphere').objects
 ];
 
 const scene = {
@@ -1390,7 +1397,7 @@ const scene = {
       ...objects
     ],
     props: [...props.values()]
-  }]
+  }, { name: 'atmosphere', objects: atmosphere }]
 };
 
 writeFileSync(out, writeScene(scene));

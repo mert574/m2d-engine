@@ -39,10 +39,7 @@ export class Turret extends Entity {
       maxHealth: options.health || 80
     });
     health.invulnerableDuration = 0.3;
-    health.onDeath = () => {
-      this.game.entities.delete(this);
-      this.game.physics.remove(this.body);
-    };
+    health.onDeath = () => this.game.removeEntity(this);
     health.onDamage = () => {
       this.damageFlashTime = this.damageFlashDuration;
       this.game.soundManager.playSound('damage');

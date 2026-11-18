@@ -33,6 +33,8 @@ The rules, all of which match constraints:
 - **A subclass adds to its bases.** The `static properties` of every class in the chain are merged, base first, so a subclass restates nothing. (`static replicated` works the same way.)
 - **Callbacks stay out.** They are code, not scene data.
 - **Declaring nothing keeps the old contract**: `properties` is then a free-form bag the engine never looks inside. Adding a schema is per actor.
+- **An actor for one dimension says so.** `static dimensions = 2` (or `3`) refuses a level of the other dimension naming it, at `prefabs.<name>.actor`, and the editor's Components tab and `list_components` show it only where it fits. Null, the default, is both.
+- **A combination that cannot work is refused too.** `static refineProperties(properties, { dimensions, fail })` runs at load for each placed object, with the object's properties over its prefab's; `fail(key, message)` names the property (`layers[0].objects[3].properties.kind`). The kit's `ParticleField` refuses smoke in a 2D level this way.
 - **An asset is named, and arrives loaded.** A property declared `s.ref('spritesheet')` or `s.ref('image')` is checked against the scene's sheets or `assets.images`, and the actor receives the loaded `SpriteSheet` or image in `options` (null headless). Art an actor uses at run time, such as the flame a ship trails, is then scene data the editor shows.
 
 `actorPropertiesSchema(Class)` from `m2d-engine/core/sceneSchema.js` returns the merged schema, and `fieldsOf` on it yields the inspector's field list.

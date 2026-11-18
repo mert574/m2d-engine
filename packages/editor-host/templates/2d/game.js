@@ -1,5 +1,6 @@
 import { Prop } from 'm2d-engine/actors/prop.js';
 import { Player, registerKitActors } from 'm2d-kit/actors';
+import { registerKitScenery } from 'm2d-kit/scenery';
 
 /**
  * The game's definition: the cast, and the options its simulation needs —
@@ -28,6 +29,7 @@ export function register(game) {
   // The kit first — its stock cast and prefab templates — so anything the
   // game registers under the same name wins.
   registerKitActors(game);
+  registerKitScenery(game);
   game.registerActor('Player', Hero);
   game.registerActor('Prop', Prop);
 }

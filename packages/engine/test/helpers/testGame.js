@@ -56,6 +56,12 @@ export function makeTestGame(options = {}) {
       const entity = this.entitiesById.get(id);
       return entity && this.entities.has(entity) ? entity : null;
     },
+    /** As the engine's: out of the set and the world, then destroyed. */
+    removeEntity(entity) {
+      if (!this.entities.delete(entity)) return;
+      this.physics.remove(entity.body);
+      entity.destroy();
+    },
     paused: false,
     sceneManager: { switchTo() {} },
     // Camera centred on the view, so world (0..800, 0..600) is on screen and

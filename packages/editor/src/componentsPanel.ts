@@ -158,11 +158,11 @@ export function createComponentsPanel(container: HTMLElement, options: Component
       const action = document.createElement('button');
       action.type = 'button';
       action.className = 'card-action';
+      const wrongDimension = entry.dimensions !== undefined && entry.dimensions !== options.dimensions();
       if (entry.kind === 'prefab') {
-        const wrongDimension = entry.template?.dimensions !== undefined && entry.template.dimensions !== options.dimensions();
         action.textContent = 'Insert';
         action.disabled = wrongDimension;
-        action.title = wrongDimension ? `For a ${entry.template?.dimensions}D scene` : `Copy the ${entry.name} prefab into the scene`;
+        action.title = wrongDimension ? `For a ${entry.dimensions}D scene` : `Copy the ${entry.name} prefab into the scene`;
         action.addEventListener('click', () => options.insertPrefab(entry));
       } else if (entry.kind === 'constraint') {
         action.textContent = target ? `Attach to ${target.label}` : 'Attach';
@@ -171,7 +171,8 @@ export function createComponentsPanel(container: HTMLElement, options: Component
         action.addEventListener('click', () => options.attach(entry));
       } else {
         action.textContent = 'New prefab';
-        action.title = `Make a prefab of ${entry.name}`;
+        action.disabled = wrongDimension;
+        action.title = wrongDimension ? `For a ${entry.dimensions}D scene` : `Make a prefab of ${entry.name}`;
         action.addEventListener('click', () => options.newPrefab(entry));
       }
       actions.append(action);

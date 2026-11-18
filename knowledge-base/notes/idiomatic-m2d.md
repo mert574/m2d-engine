@@ -10,13 +10,13 @@ Code is only:
 - **Constraints**: reusable behaviours an actor attaches, tuned through `static params`.
 - **Net intents**: the discrete requests a player's UI makes.
 - **The definition** (`game.js`): `register(game)` registers the above and does nothing else; it may export `sceneHooks(game)` with simulation hooks (`onEnter`, `onFixedUpdate`), which the page, the editor's play and a server all run.
-- **Scenery actors**: painting of the game's own (a valley's ridges, a street's skyline) is an actor placed in the scene, colliding with nothing, at a low or high `zIndex`. It draws in the editor too, which a draw hook never did. Weather and backdrops that any game could want are `world.particles`, `world.sky` and `world.scatter`.
+- **Scenery actors**: painting of the game's own (a valley's ridges, a street's skyline) is an actor placed in the scene, colliding with nothing, at a low or high `zIndex`. It draws in the editor too, which a draw hook never did. In 3D the engine draws an entity without a `mesh` block as a grey box of its collider, so scenery keeps none (the kit's `Scenery` base does this; a game's own 3D scenery actor must too). Weather, backdrops and ambient sound that any game could want are the kit's scenery actors on the same terms (`ParticleField`, `Sky`, `Scatter`, `AmbientSound`), not world data.
 - **The page** (`main.js`): `bootProject` and nothing else. The opening scene, display and input actions are `m2d.project.json`'s.
 
 Everything else is scene data, which the editor and MCP can read and change:
 
 - placement, prefabs, tile layers and paths;
-- camera, lighting, post, the day/night cycle, sounds and music;
+- camera, lighting, post, the day/night cycle, sound effects and music;
 - the HUD, and menus as UI scenes;
 - flow and outcomes as `world.rules`, with counters for what is counted. What arrives later (a wave, a reinforcement) is a placed object, `sealed` until a rule unseals it; there is no spawn action. `scene.spawnPrefab` is for what a running thing drops (a dropper, a shot);
 - keys as named actions (`input.actions` in the project): rules and code read an action, never a raw key code. Every other device is keys too: an on-screen `UIKeyButton` and a gamepad control each stand for a key code and push it through the keyboard's seam, so nothing downstream knows which device it was (`input.gamepad` maps the pad);

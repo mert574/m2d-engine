@@ -155,7 +155,7 @@ interface SceneLike {
   rebuildUIScene?(): void;
   /** Rebuild the named paths from the config. */
   rebuildPaths?(): void;
-  /** Rebuild the lighting, post, cycle and particles from the config. */
+  /** Rebuild the lighting, post and cycle from the config. */
   rebuildLook?(): void;
   /** Show the cycle at a phase without writing it. */
   previewCycle?(phase: number): void;
@@ -1221,15 +1221,6 @@ export class Viewport {
     return game.camera.screenToWorld(view.x, view.y, y);
   }
 
-  /** Show particle fields that are not yet in the document, while a slider drags; the edit on release replaces them. */
-  previewParticles(fields: unknown[]): void {
-    const scene = this.#scene();
-    if (this.#playing || !scene?.config || !scene.rebuildLook) return;
-    scene.config.world = { ...scene.config.world, particles: fields };
-    scene.rebuildLook();
-    this.#viewChanged();
-  }
-
   /** Show the lighting cycle at `phase`, or back at the document's own with null; nothing is written. */
   previewPhase(phase: number | null): void {
     const scene = this.#scene();
@@ -1505,7 +1496,7 @@ function animationLevel(op: Op): boolean {
 }
 
 function lookLevel(op: Op): boolean {
-  return op.path[0] === 'world' && ['lighting', 'post', 'cycle', 'particles'].includes(String(op.path[1]));
+  return op.path[0] === 'world' && ['lighting', 'post', 'cycle'].includes(String(op.path[1]));
 }
 
 function pathLevel(op: Op): boolean {

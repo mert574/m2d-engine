@@ -117,11 +117,9 @@ A level's named `paths` draw over the world as faint dashed lines; click one to 
 
 ## Look
 
-The Look tab in the dock holds a level's lighting cycle and particle fields. Edits to the lighting, post effects, cycle or particles redraw in place, without rebuilding the level.
+The Look tab in the dock holds a level's lighting cycle. Edits to the lighting, post effects and cycle redraw in place, without rebuilding the level. A sky, particles and ambient sound are scenery actors: insert the kit's `sky`, `stars`, `fireflies`, `rain`, `motes`, `smoke` or `ambience` template from the Components tab, place an object of it, and tune it in the inspector like any object.
 
 **Cycle.** A strip shows the colours the cycle moves through (ambient, sky, ground, sun and fog, wherever its states set them), from the engine's own blend. Drag the scrubber to preview any phase in the viewport; it writes nothing. Click a state's name to jump to it. Set as start writes the phase shown as `world.cycle.phase`, Add state here inserts the look shown as a new state, and × removes a state, keeping at least two. The start phase stays on the state it named. Back to the document returns the view to the written phase. A level without a cycle offers Start a cycle, two states copied from its resting look.
-
-**Particles.** Each field of `world.particles` shows its count, radius, opacity, speed, glow and colour, with what it leaves out shown at the value it draws with. A slider previews while it is held and writes one step of undo on release. In a 3D level, Add motes and Add smoke place a new field at the camera's target. In a 2D level, Add fireflies, leaves, rain or sparks adds a field over the view, the sliders run in pixels, and In front draws it over the entities.
 
 ## Animations
 
@@ -133,7 +131,7 @@ A UI scene previews at the game's design size, letterboxed. Right-click the Elem
 
 ## Components
 
-The Components tab lists every actor and constraint the game registers and every one the engine ships, each with what it does and the fields a scene may set, with their kinds, units and starting values; registered prefab templates (the kit's, or the game's own through `registerPrefabTemplate`) come first as cards whose Insert copies the whole entry into the scene's `prefabs`. Filter by name or by what a field is called. With an object or a prefab selected, Attach adds a constraint to it under a free slot. New prefab makes a prefab of an actor and selects it. Each card says where its class comes from — the engine's own are marked "engine", a kit's "kit", and the game's own carry no mark — and an engine class can be attached without the game registering it; a scene names it and it loads in the game too.
+The Components tab lists every actor and constraint the game registers and every one the engine ships, each with what it does and the fields a scene may set, with their kinds, units and starting values; registered prefab templates (the kit's, or the game's own through `registerPrefabTemplate`) come first as cards whose Insert copies the whole entry into the scene's `prefabs`. Filter by name or by what a field is called. With an object or a prefab selected, Attach adds a constraint to it under a free slot. New prefab makes a prefab of an actor and selects it. An actor or template for one dimension (a 2D `Sky`, 3D smoke) offers neither in a level of the other. Each card says where its class comes from — the engine's own are marked "engine", a kit's "kit", and the game's own carry no mark — and an engine class can be attached without the game registering it; a scene names it and it loads in the game too.
 
 An object edit rebuilds that object in place. Other edits rebuild the scene with the camera held.
 
@@ -212,13 +210,13 @@ The running editor serves MCP at `/mcp` on its port. An agent there edits the sa
 | `find_uses` | Each scene using a named prefab, sheet, model, environment, path, actor, constraint, scene or file, with the fields that use it |
 | `audit_project` | Missing files, files no scene names, prefabs and paths their own scene never uses, and which scene uses which |
 | `look_at` | The lighting and post at a phase of the cycle, as the engine blends them, with the states and the strip's colours |
-| `edit_look` | The Look tab's actions: start a cycle, add a state from a phase, remove a state, add a particle field (motes or smoke in 3D; fireflies, leaves, rain or sparks in 2D) |
+| `edit_look` | The Look tab's actions: start a cycle, add a state from a phase, remove a state |
 | `read_project`, `edit_project` | The project file with every field the schema declares and any problems, as the Project tab shows it; ops on it, written at once and refused whole when the result is invalid |
 | `undo`, `redo`, `save_scene` | Step the history, write the scene |
 | `validate_scene` | Every problem, with its path |
 | `list_assets`, `search_library`, `import_asset` | The project's asset files, a Poly Haven search, an import with its credit |
 | `create_scene`, `rename_scene`, `delete_scene` | Scene files: a blank level or UI scene or a copy, a new name, gone |
-| `list_components` | The actors, constraints and prefab templates the game registers, each with its origin (engine, kit or the game) and its fields; a template's `prefab` value is copied into a scene with `edit_scene` |
+| `list_components` | The actors, constraints and prefab templates the game registers, each with its origin (engine, kit or the game), its fields, and for one that works in one dimension only, its `dimensions`; a template's `prefab` value is copied into a scene with `edit_scene` |
 | `run_scene` | Step the scene headless for some seconds and report where each object ended up, with its body type and angle or rotation. `from` starts the player elsewhere and `prefab` runs a prefab's stage, as the editor's Play from here and Stage it do |
 | `settle_scene` | The editor's Settle physics: write where dynamic bodies came to rest, as one step of undo, optionally only some `ids` |
 | `screenshot_scene` | A picture of the scene as the editor holds it, unsaved edits included: the viewport alone or the whole window, optionally framed on one object or after some seconds of play. Takes `from` and `prefab` as `run_scene` does, and `phase` for the edit view at a phase of the cycle |

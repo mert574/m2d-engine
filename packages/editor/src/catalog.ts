@@ -41,10 +41,13 @@ export interface CatalogEntry {
   exportName?: string;
   /** A prefab template: `{ description, dimensions, prefab }`, the entry a scene's `prefabs` takes. */
   template?: { description?: string; dimensions?: 2 | 3; prefab: Record<string, unknown> };
+  /** The one scene dimension the entry works in, an actor's `static dimensions` or a template's; absent, both. */
+  dimensions?: 2 | 3;
 }
 
 interface ClassLike {
   description?: unknown;
+  dimensions?: unknown;
   properties?: unknown;
   params?: unknown;
 }
@@ -88,6 +91,11 @@ const describe = (klass: unknown): string => {
   return typeof text === 'string' ? text : '';
 };
 
+const dimensionOf = (klass: unknown): 2 | 3 | undefined => {
+  const dimensions = (klass as ClassLike | null)?.dimensions;
+  return dimensions === 2 || dimensions === 3 ? dimensions : undefined;
+};
+
 /**
  * The catalog for a game's registries. Entries the game registers come
  * first in each kind, then the engine's unregistered ones, each sorted by
@@ -102,7 +110,7 @@ export function buildCatalog(registries: { actors?: Map<string, unknown>; constr
     for (const [name, klass] of registry ?? []) {
       seen.add(name);
       const origin = reg?.originOf?.(name) ?? (reg?.own ? (reg.own.has(name) ? 'game' : 'engine') : 'game');
-      entries.push({ kind, name, description: describe(klass), fields: fieldsOf(klass, which), registered: true, origin, builtin: origin === 'engine' });
+      entries.push({ kind, name, description: describe(klass), fields: fieldsOf(klass, which), registered: true, origin, builtin: origin === 'engine', dimensions: dimensionOf(klass) });
     }
     for (const [name, klass] of engine) {
       if (seen.has(name)) continue;
@@ -120,7 +128,7 @@ export function buildCatalog(registries: { actors?: Map<string, unknown>; constr
     const template = given as NonNullable<CatalogEntry['template']>;
     entries.push({
       kind: 'prefab', name, description: template.description ?? '', fields: [],
-      registered: true, origin: templates?.originOf?.(name) ?? 'game', template
+      registered: true, origin: templates?.originOf?.(name) ?? 'game', template, dimensions: template.dimensions
     });
   }
   // The game's own first, then a kit's, then the engine's, then anything a scene cannot name yet.

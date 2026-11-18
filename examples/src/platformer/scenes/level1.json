@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "name": "level1",
   "type": "level",
   "gameType": "sideScroll",
@@ -25,35 +25,6 @@
       "grain": { "strength": 0.035 }
     },
     "music": { "track": "game" },
-    "particles": [
-      {
-        "kind": "fireflies",
-        "count": 34,
-        "at": { "x": 960, "y": 932 },
-        "extent": { "x": 900, "y": 430 },
-        "radius": 2.2,
-        "color": "#ffd27a",
-        "opacity": 1,
-        "emissive": 0,
-        "speed": 10,
-        "follow": false,
-        "front": true,
-        "seed": 11
-      },
-      {
-        "kind": "leaves",
-        "count": 16,
-        "at": { "x": 960, "y": 720 },
-        "extent": { "x": 960, "y": 720 },
-        "radius": 4.5,
-        "color": "#4a3524",
-        "opacity": 0.75,
-        "speed": 38,
-        "follow": false,
-        "front": true,
-        "seed": 5
-      }
-    ],
     "rules": [
       {
         "when": { "event": "emit", "name": "picked" },
@@ -126,7 +97,38 @@
       "physics": { "bodyType": "dynamic", "lockRotation": true, "friction": 0.1, "frictionAir": 0.01 }
     },
     "trigger": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
-    "backdrop": { "actor": "ValleyBackdrop", "physics": { "bodyType": "static", "isSensor": true } }
+    "backdrop": { "actor": "ValleyBackdrop", "physics": { "bodyType": "static", "isSensor": true } },
+    "fireflies": {
+      "actor": "ParticleField",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" },
+      "properties": {
+        "kind": "fireflies",
+        "count": 34,
+        "extent": { "x": 900, "y": 430 },
+        "radius": 2.2,
+        "color": "#ffd27a",
+        "opacity": 1,
+        "emissive": 0,
+        "speed": 10,
+        "follow": false,
+        "seed": 11
+      }
+    },
+    "leaves": {
+      "actor": "ParticleField",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" },
+      "properties": {
+        "kind": "leaves",
+        "count": 16,
+        "extent": { "x": 960, "y": 720 },
+        "radius": 4.5,
+        "color": "#4a3524",
+        "opacity": 0.75,
+        "speed": 38,
+        "follow": false,
+        "seed": 5
+      }
+    }
   },
   "layers": [
     {
@@ -206,6 +208,21 @@
           "width": 192,
           "properties": { "visible": true, "triggers": "levelComplete", "active": true }
         }
+      ]
+    },
+    {
+      "name": "atmosphere",
+      "objects": [
+        {
+          "id": "fireflies-1",
+          "prefab": "fireflies",
+          "x": 960,
+          "y": 932,
+          "width": 16,
+          "height": 16,
+          "zIndex": 1000
+        },
+        { "id": "leaves-1", "prefab": "leaves", "x": 960, "y": 720, "width": 16, "height": 16 }
       ]
     }
   ],

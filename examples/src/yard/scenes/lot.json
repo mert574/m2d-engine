@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "name": "lot",
   "type": "level",
   "title": "The Lot",
@@ -77,48 +77,6 @@
       "phase": 0,
       "ease": 1.5
     },
-    "particles": [
-      {
-        "kind": "motes",
-        "count": 900,
-        "extent": { "x": 18, "y": 5, "z": 18 },
-        "radius": 0.022,
-        "color": "#fff2d0",
-        "opacity": 0.55,
-        "speed": 0.4
-      },
-      {
-        "kind": "smoke",
-        "count": 36,
-        "at": { "x": -84.3, "y": 11.9, "z": 16 },
-        "extent": { "x": 0.5, "y": 3.5, "z": 0.5 },
-        "radius": 0.6,
-        "color": "#8f8a86",
-        "opacity": 0.32,
-        "speed": 0.5
-      },
-      {
-        "kind": "smoke",
-        "count": 36,
-        "at": { "x": -41.7, "y": 11.9, "z": 16 },
-        "extent": { "x": 0.5, "y": 3.5, "z": 0.5 },
-        "radius": 0.6,
-        "color": "#8f8a86",
-        "opacity": 0.32,
-        "speed": 0.5
-      },
-      {
-        "kind": "smoke",
-        "count": 36,
-        "at": { "x": -19.7, "y": 11.9, "z": 16 },
-        "extent": { "x": 0.5, "y": 3.5, "z": 0.5 },
-        "radius": 0.6,
-        "color": "#8f8a86",
-        "opacity": 0.32,
-        "speed": 0.5
-      }
-    ],
-    "ambience": [{ "sound": "wind", "fadeIn": 2 }],
     "rules": [
       {
         "when": { "event": "action", "action": "menu" },
@@ -1273,6 +1231,37 @@
       "actor": "Ground",
       "mesh": { "shape": "sphere", "color": "#000000", "roughness": 1, "castShadow": false },
       "light": { "type": "point", "color": "#ffd8a0", "intensity": 14, "range": 8 }
+    },
+    "motes": {
+      "actor": "ParticleField",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" },
+      "properties": {
+        "kind": "motes",
+        "count": 900,
+        "extent": { "x": 18, "y": 5, "z": 18 },
+        "radius": 0.022,
+        "color": "#fff2d0",
+        "opacity": 0.55,
+        "speed": 0.4
+      }
+    },
+    "smoke": {
+      "actor": "ParticleField",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" },
+      "properties": {
+        "kind": "smoke",
+        "count": 36,
+        "extent": { "x": 0.5, "y": 3.5, "z": 0.5 },
+        "radius": 0.6,
+        "color": "#8f8a86",
+        "opacity": 0.32,
+        "speed": 0.5
+      }
+    },
+    "wind": {
+      "actor": "AmbientSound",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" },
+      "properties": { "sound": "wind", "fadeIn": 2 }
     }
   },
   "layers": [
@@ -12544,6 +12533,61 @@
             [185, 0, -125, 0, 1],
             [185, 0, -115, 0, 1]
           ]
+        }
+      ]
+    },
+    {
+      "name": "atmosphere",
+      "objects": [
+        {
+          "id": "motes-1",
+          "prefab": "motes",
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "width": 1,
+          "height": 1,
+          "depth": 1
+        },
+        {
+          "id": "smoke-1",
+          "prefab": "smoke",
+          "x": -84.3,
+          "y": 11.9,
+          "z": 16,
+          "width": 1,
+          "height": 1,
+          "depth": 1
+        },
+        {
+          "id": "smoke-2",
+          "prefab": "smoke",
+          "x": -41.7,
+          "y": 11.9,
+          "z": 16,
+          "width": 1,
+          "height": 1,
+          "depth": 1
+        },
+        {
+          "id": "smoke-3",
+          "prefab": "smoke",
+          "x": -19.7,
+          "y": 11.9,
+          "z": 16,
+          "width": 1,
+          "height": 1,
+          "depth": 1
+        },
+        {
+          "id": "wind-1",
+          "prefab": "wind",
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "width": 1,
+          "height": 1,
+          "depth": 1
         }
       ]
     }

@@ -4,7 +4,7 @@ import { projectGameOptions, type HostProject } from '../src/host.ts';
 /** What the project file contributes to a game the editor plays or edits. */
 const project = (fields: Partial<HostProject> = {}): HostProject => ({
   name: 'Night Circuit', root: '/p', definition: 'game.js', hooks: null, basePath: '.', initialScene: 'mainMenu',
-  display: {}, actions: {}, choices: {}, scenes: [], ...fields
+  display: {}, actions: {}, choices: {}, layers: [], scenes: [], ...fields
 });
 
 describe('a project\'s game options', () => {
@@ -13,11 +13,12 @@ describe('a project\'s game options', () => {
     const declared = projectGameOptions(project({
       actions: { menu: ['Escape'] },
       choices: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } },
+      layers: ['ship', 'rock'],
       display: { clearColor: '#000', width: 1280 }
     }), { textureFilter: 'nearest' });
     expect(declared).toEqual({
       textureFilter: 'nearest', clearColor: '#000',
-      actions: { menu: ['Escape'] }, choices: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } },
+      actions: { menu: ['Escape'] }, choices: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } }, layers: ['ship', 'rock'],
       saveId: 'Night Circuit'
     });
   });

@@ -42,9 +42,7 @@ class Crate extends Entity {
   }
 
   remove() {
-    this.game.entities.delete(this);
-    this.game.physics.remove(this.body);
-    this.destroy();   // releases the Interactive registration
+    this.game.removeEntity(this);   // destroyed with it: the Interactive registration goes
   }
 
   draw(deltaTime) {
@@ -72,7 +70,7 @@ class Floor extends Entity {
 const CRATES = [[120, 318], [200, 318], [160, 270], [460, 318], [540, 318], [500, 270], [500, 222]];
 
 const scene = {
-  version: 4, type: 'level', name: 'main',
+  version: 5, type: 'level', name: 'main',
   world: { width: 640, height: 360, gravity: { x: 0, y: 1000 }, camera: { bounds: 'world' } },
   prefabs: {
     floor: { actor: 'Floor', physics: { bodyType: 'static' } },

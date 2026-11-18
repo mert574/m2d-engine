@@ -121,14 +121,13 @@ Annotations on an entity, such as a detection radius or a health readout, should
 
 ### Removing an entity
 
-Removing an entity takes two steps. Remove it from `game.entities`, and remove its body from the physics world.
+`game.removeEntity(entity)` takes an entity out of play: out of `game.entities`, its body out of the physics world, and `destroy()`ed, so it lets go of what it started — an `Interactive` registration, a looping sound. A `remove` rule, `Health`'s `whenDead: 'remove'` and a pickup taken all go through it, and every entity of a scene is destroyed when the scene leaves. Removing one that has gone already does nothing.
 
 ```javascript
-this.game.entities.delete(this);
-this.game.physics.remove(this.body);
+this.game.removeEntity(this);
 ```
 
-`Projectile.destroy()` does both. For other entities, call `entity.destroy()` as well when the entity has an `Interactive` constraint, so the input system stops hit-testing it.
+An actor that starts something outside itself stops it in `destroy()` and calls `super.destroy()`. (`Projectile.destroy()` is the exception that removes the projectile itself.)
 
 ### Reaching the scene
 

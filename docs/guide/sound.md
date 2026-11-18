@@ -50,15 +50,18 @@ engine.setVolume(0.35 + revs * 0.45);
 engine.stop();
 ```
 
-A scene says what plays while it shows. `world.music` (a level) or `music` (a UI scene) plays a track, and `world.ambience` loops sounds under the level, each faded in from silence and stopped when the scene leaves.
+A scene says what plays while it shows. `world.music` (a level) or `music` (a UI scene) plays a track. A looping sound under the level — wind, a hum, a generator — is the kit's `AmbientSound`, placed like any object: faded in from silence, stopped when its entity goes or the scene leaves, and with a `radius` heard only near where it stands.
 
 ```json
 "assets": { "sounds": { "wind": { "url": "sounds/wind.ogg" } }, "music": { "theme": { "url": "music/theme.ogg" } } },
-"world": {
-  "music": { "track": "theme" },
-  "ambience": [{ "sound": "wind", "volume": 0.6, "fadeIn": 2 }]
-}
+"world": { "music": { "track": "theme" } },
+"prefabs": {
+  "wind": { "actor": "AmbientSound", "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }, "properties": { "sound": "wind", "volume": 0.6, "fadeIn": 2 } }
+},
+"layers": [{ "name": "atmosphere", "objects": [{ "id": "wind-1", "prefab": "wind", "x": 0, "y": 0, "width": 16, "height": 16 }] }]
 ```
+
+The game registers it with `registerKitScenery(game)` from `m2d-kit/scenery`; see [the kit](../reference/kit#m2d-kit-scenery).
 
 A rule plays an effect with `{ "do": "sound", "key": "levelComplete" }`. See [the scene format](../reference/scene-format#world).
 

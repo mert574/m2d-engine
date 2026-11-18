@@ -8,8 +8,6 @@ import { parseColor } from './renderers/geometry/color.js';
 import { SceneRules } from './rules.js';
 import { SceneHud, sceneButton } from './hud.js';
 import { SceneCounters } from './counters.js';
-import { SceneBackdrop } from './sceneBackdrop.js';
-import { SceneAmbience } from './sceneAmbience.js';
 import { CameraControls, CONTROL_KEYS } from './cameraControls.js';
 import { bindingRatio } from './binding.js';
 import { SceneProps } from './sceneProps.js';
@@ -62,8 +60,6 @@ export class Scene {
     this.props = new SceneProps(this);
     /** Whole images from `assets.images`, by key; also in `sprites`, which HUD icons and images read. @type {Map<string, HTMLImageElement>} */
     this.images = new Map();
-    /** The sky, scatter layers and 2D particle fields; see sceneBackdrop.js. */
-    this.backdrop = new SceneBackdrop(this);
     /** The level's `paths`, by name. @type {Map<string, Path>} */
     this.paths = pathsOf(config);
     /**
@@ -284,7 +280,6 @@ export class Scene {
     if (this.game.editMode) return;
     this.hud?.listen();
     this.rules?.listen();
-    if (world.ambience?.length) this.ambience = new SceneAmbience(this.game, world.ambience);
     const camera = this.game.camera;
     const config = world.camera;
     if (config) {
@@ -324,9 +319,6 @@ export class Scene {
     }
   }
 
-  /** `world.particles` as the frame takes them, converted once. */
-  #particleFields = null;
-
   /** One particle field as the 3D frame takes it, at `at` or where the field says. */
   #frameField(given, at) {
     const f = withParticleDefaults(given);
@@ -345,17 +337,10 @@ export class Scene {
     };
   }
 
-  /** The 3D frame's lighting, post and particles from `world`, before the scene's own `onRender`. */
+  /** The 3D frame's lighting, post and particles, before the scene's own `onRender`. */
   #applyFrameLook(frame) {
-    const fields = this.config.world?.particles;
-    if (fields?.length) {
-      this.#particleFields ??= fields.map((given) => this.#frameField(given));
-    }
-    // The level's own fields first, then what entities declared this frame
-    // (#addEntityParticles); the renderer keeps the first MAX_PARTICLE_FIELDS.
-    if (this.#particleFields || this.#frameParticles) {
-      frame.particles = [...(this.#particleFields ?? []), ...(this.#frameParticles ?? [])];
-    }
+    // What entities declared this frame (#addEntityParticles); the renderer keeps the first MAX_PARTICLE_FIELDS.
+    if (this.#frameParticles) frame.particles = this.#frameParticles;
     const { lighting, post } = this.#currentLook();
     if (lighting) {
       const linear = (css) => { const [r, g, b] = parseColor(css); return [toLinear(r), toLinear(g), toLinear(b)]; };
@@ -717,13 +702,12 @@ export class Scene {
   }
 
   /**
-   * The editor's path for an edited look — `world.lighting`, `post`,
-   * `cycle` or `particles` — from the config, in place: a slider dragged
-   * over a particle field must not rebuild the level. Edit mode only.
+   * The editor's path for an edited look — `world.lighting`, `post` or
+   * `cycle` — from the config, in place: a slider dragged over the light
+   * must not rebuild the level. Edit mode only.
    */
   rebuildLook() {
     if (!this.game.editMode) throw new Error('Scene.rebuildLook is an edit-mode operation');
-    this.#particleFields = null;
     this.#lastLook = null;
     const cycle = this.config.world?.cycle;
     this.cycle = cycle ? cycleState(cycle) : null;
@@ -1304,7 +1288,7 @@ export class Scene {
 
   /**
    * Let go of what the scene's data started: rule and HUD listeners, the
-   * camera controls, the ambience loops, the UI scene's effects. On unload,
+   * camera controls, the UI scene's effects. On unload,
    * and before a load, since a game-over restart loads the scene again
    * without unloading it, and a second set would run beside the first.
    */
@@ -1315,8 +1299,6 @@ export class Scene {
     this.hud = null;
     this.cameraControls?.detach();
     this.cameraControls = null;
-    this.ambience?.stop();
-    this.ambience = null;
     this.effects = null;
   }
 
@@ -1326,9 +1308,11 @@ export class Scene {
     if (!headless && !this.game.editMode) this.config.onHide?.();
     if (!this.#serverRuns && !this.game.editMode) this.config.onExit?.();
 
-    // Those entities are gone with the scene; holding them here would keep
-    // every body of every scene ever loaded alive. onExit runs first so it
-    // can still look one up.
+    // Those entities are gone with the scene: each lets go of what it
+    // started (a sound loop, an input registration), and holding them here
+    // would keep every body of every scene ever loaded alive. onExit runs
+    // first so it can still look one up.
+    for (const entity of this.game.entities) entity.destroy?.();
     this.entitiesById.clear();
     this.spawned.clear();
     // A load still in the air must not land in a scene that has gone, and
@@ -1483,7 +1467,6 @@ export class Scene {
     this.ui.updateTree(deltaTime);
     this.focus?.prune();
     this.effects?.update(deltaTime);
-    this.ambience?.update(deltaTime);
   }
 
   draw(deltaTime) {
@@ -1492,10 +1475,6 @@ export class Scene {
     // draws, which is the entities' own `draw` below.
     const hooks = !this.game.editMode;
     const level = this.config.type === 'level';
-    const time = this.game.time?.elapsed ?? 0;
-
-    // The level's own sky, scatter and back particles, from the document.
-    if (level && this.backdrop.active) this.backdrop.drawBack(time);
 
     // World-space drawing that everything else sits on — a sky, parallax
     // scenery. Runs inside the world pass, before the background layer and
@@ -1506,7 +1485,6 @@ export class Scene {
 
     if (level) {
       this.drawWorld(deltaTime);
-      if (this.backdrop.active) this.backdrop.drawFront(time);
       this.#drawLightingFallback();
     }
 
@@ -1660,9 +1638,10 @@ export class Scene {
   #frameParticles = null;
 
   /**
-   * An entity's `entity.particles` record — one field, the shape a
-   * `world.particles` entry has — collected into the frame as
-   * `entity.light` is, placed at the body unless the record gives `at`.
+   * An entity's `entity.particles` record — one field of motes or smoke,
+   * `{ kind, count, at, extent, radius, color, opacity, emissive, speed,
+   * follow }` over its kind's defaults (particles.js) — collected into the
+   * frame as `entity.light` is, placed at the body unless it gives `at`.
    */
   #addEntityParticles(frame, entity) {
     const at = entity.particles.at ?? entity.body.renderPosition;

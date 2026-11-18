@@ -1,5 +1,6 @@
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { registerEffects } from 'm2d-kit/effects';
+import { registerKitScenery } from 'm2d-kit/scenery';
 import {
   EmberPlayer, DuskPlatform, DuskMovingPlatform, GlowCoin, DuskBee, ValleyGate
 } from './duskActors.js';
@@ -13,6 +14,8 @@ import { DuskValley } from './menuBackdrop.js';
 
 /** Register the cast, on a displayed game or the editor's. */
 export function register(game) {
+  // The fireflies and the falling leaves.
+  registerKitScenery(game);
   game.registerBackdropLayer('duskValley', () => new DuskValley());
   for (const [name, actor] of Object.entries({
     Player: EmberPlayer, Bee: DuskBee, Platform: DuskPlatform,

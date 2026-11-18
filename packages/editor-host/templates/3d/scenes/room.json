@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "name": "room",
   "type": "level",
   "world": { "dimensions": 3, "gravity": { "x": 0, "y": -9.81, "z": 0 } },

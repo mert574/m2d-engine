@@ -125,6 +125,7 @@
 | `registerIntents(set)` | Install the game's intents from `defineIntents`. Every player gets a queue. See [Intents](../guide/headless#intents) |
 | `entityById(id)` | The live entity with this network id, or `null` |
 | `spawn({ type, x, y, width, height, sprite, animation, options, physics, playerId })` | Create an entity from a registered actor and add it to the world, recording how so a server can send it. Returns the entity. See [Creating entities at runtime](../guide/entities#creating-entities-at-runtime) |
+| `removeEntity(entity)` | Take an entity out of play: out of `entities` and the physics world, then `destroy()`ed. Nothing for one already gone. See [Removing an entity](../guide/entities#removing-an-entity) |
 | `snapshot()` | The whole simulation, taken between ticks. See [Snapshots](../guide/game-loop#snapshots) |
 | `restore(snapshot)` | Put the simulation back to a snapshot taken in the current scene |
 | `trackState(key, { save, load })` | Have snapshots carry state that lives outside entities. Dropped when the next scene loads |

@@ -1,11 +1,11 @@
 /**
- * The Look tab: the lighting cycle and the particle fields of a level.
+ * The Look tab: the lighting cycle of a level.
  *
  * The cycle shows as a strip of the colours it moves through, from the
  * engine's own blend, with a scrubber that previews any phase in the
  * viewport without writing it; a state can be added from what the
- * scrubber shows. Particle fields are sliders that preview while they
- * drag and write one edit on release, like the gizmo.
+ * scrubber shows. (A sky, particles and ambient sound are scenery actors,
+ * placed from the Components tab and edited in the inspector.)
  */
 
 import { look, isPlainObject, type Op } from 'm2d-editor-core';
@@ -15,8 +15,6 @@ export interface LookPanelCallbacks {
   doc(): Record<string, unknown> | null;
   apply(ops: Op[], label: string): void;
   editable(): boolean;
-  /** Where a new particle field stands: the camera's target. */
-  target(): { x: number; y: number; z: number } | null;
   say(message: string): void;
 }
 
@@ -26,27 +24,6 @@ export interface LookPanelHandle {
 
 const STRIP_SAMPLES = 48;
 
-interface Slider { key: string; label: string; min: number; max: number; step: number }
-const SLIDERS: Slider[] = [
-  { key: 'count', label: 'Count', min: 0, max: 4000, step: 10 },
-  { key: 'radius', label: 'Radius', min: 0.005, max: 2, step: 0.005 },
-  { key: 'opacity', label: 'Opacity', min: 0, max: 1, step: 0.01 },
-  { key: 'speed', label: 'Speed', min: 0, max: 5, step: 0.05 },
-  { key: 'emissive', label: 'Glow', min: 0, max: 10, step: 0.1 }
-];
-
-/** The same fields in a 2D level, where a particle is pixels across and moves in px/s. */
-const SLIDERS_2D: Slider[] = [
-  { key: 'count', label: 'Count', min: 0, max: 600, step: 1 },
-  { key: 'radius', label: 'Size', min: 0.5, max: 24, step: 0.5 },
-  { key: 'opacity', label: 'Opacity', min: 0, max: 1, step: 0.01 },
-  { key: 'speed', label: 'Speed', min: 0, max: 1200, step: 5 },
-  { key: 'emissive', label: 'Glow', min: 0, max: 3, step: 0.05 }
-];
-
-/** What each dimension's Add buttons offer. */
-const KINDS: Record<2 | 3, look.ParticleKind[]> = { 2: ['fireflies', 'leaves', 'rain', 'sparks'], 3: ['motes', 'smoke'] };
-
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> & { className?: string } = {}, children: Array<Node | string> = []): HTMLElementTagNameMap[K] {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children);
@@ -55,7 +32,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLEl
 
 export function createLookPanel(container: HTMLElement, viewport: Viewport, callbacks: LookPanelCallbacks): LookPanelHandle {
   container.classList.add('look-panel');
-  let revealNewField = false;
 
   const cycleSection = (data: Record<string, unknown>): HTMLElement => {
     const section = el('section', { className: 'look-section' }, [el('h3', { textContent: 'Lighting cycle' })]);
@@ -114,62 +90,16 @@ export function createLookPanel(container: HTMLElement, viewport: Viewport, call
     return section;
   };
 
-  const particlesSection = (data: Record<string, unknown>): HTMLElement => {
-    const section = el('section', { className: 'look-section' }, [el('h3', { textContent: 'Particles' })]);
-    const three = viewport.dimensions === 3;
-    const world = isPlainObject(data.world) ? data.world : {};
-    const fields = Array.isArray(world.particles) ? world.particles as Record<string, unknown>[] : [];
-    const editable = callbacks.editable();
-    fields.forEach((field, index) => {
-      const full = look.particleField(field);
-      const card = el('div', { className: 'particle-card' }, [el('h4', { textContent: `${String(full.kind)} ${index + 1}` })]);
-      const preview = (key: string, value: unknown) => viewport.previewParticles(fields.map((each, i) => (i === index ? { ...each, [key]: value } : each)));
-      const commit = (key: string, value: unknown) => callbacks.apply([{ op: 'set', path: ['world', 'particles', index, key], value }], `Particles: ${key}`);
-      for (const slider of three ? SLIDERS : SLIDERS_2D) {
-        const input = el('input', { type: 'range', min: String(slider.min), max: String(slider.max), step: String(slider.step), value: String(full[slider.key]), disabled: !editable });
-        const shown = el('span', { className: 'value', textContent: String(full[slider.key]) });
-        input.addEventListener('input', () => { shown.textContent = input.value; preview(slider.key, Number(input.value)); });
-        input.addEventListener('change', () => commit(slider.key, Number(input.value)));
-        card.append(el('label', { className: 'slider' }, [el('span', { textContent: slider.label }), input, shown]));
-      }
-      const colour = el('input', { type: 'color', value: String(full.color).length === 7 ? String(full.color) : '#ffffff', disabled: !editable });
-      colour.addEventListener('input', () => preview('color', colour.value));
-      colour.addEventListener('change', () => commit('color', colour.value));
-      card.append(el('label', { className: 'slider' }, [el('span', { textContent: 'Colour' }), colour]));
-      if (!three) {
-        const front = el('input', { type: 'checkbox', checked: full.front === true, disabled: !editable });
-        front.addEventListener('change', () => commit('front', front.checked));
-        card.append(el('label', { className: 'slider', title: 'Drawn over the entities rather than behind them' }, [el('span', { textContent: 'In front' }), front]));
-      }
-      card.append(el('button', { type: 'button', className: 'danger', textContent: 'Remove', disabled: !editable, onclick: () => callbacks.apply([{ op: 'remove', path: ['world', 'particles'], index }], `Remove particle field ${index + 1}`) }));
-      section.append(card);
-    });
-    const add = (kind: look.ParticleKind) => {
-      const at = callbacks.target() ?? { x: 0, y: 0, z: 0 };
-      revealNewField = true;
-      callbacks.apply(look.addParticleField(data, kind, at), `Add ${kind}`);
-    };
-    section.append(el('div', { className: 'look-actions' }, KINDS[three ? 3 : 2].map((kind) => el('button', {
-      type: 'button', textContent: `Add ${kind}`, disabled: !editable, onclick: () => add(kind),
-      ...(kind === 'smoke' && { title: 'Rising from the camera\'s target' })
-    }))));
-    return section;
-  };
-
   const refresh = (): void => {
     const data = callbacks.doc();
     const scrolled = container.scrollTop;
     container.replaceChildren();
     if (!data || data.type !== 'level') {
-      container.append(el('p', { className: 'hint', textContent: 'A level\'s lighting cycle and particles edit here.' }));
+      container.append(el('p', { className: 'hint', textContent: 'A level\'s lighting cycle edits here.' }));
       return;
     }
-    container.append(cycleSection(data), particlesSection(data));
+    container.append(cycleSection(data));
     container.scrollTop = scrolled;
-    if (revealNewField) {
-      revealNewField = false;
-      [...container.querySelectorAll('.particle-card')].at(-1)?.scrollIntoView({ block: 'nearest' });
-    }
   };
 
   return { refresh };

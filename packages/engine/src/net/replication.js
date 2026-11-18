@@ -548,9 +548,7 @@ export function applyState(game, message, context = {}) {
     view?.forget(id);
     const entity = game.entityById(id);
     if (!entity) continue;
-    game.entities.delete(entity);
-    game.physics.remove(entity.body);
-    entity.destroy?.();
+    game.removeEntity(entity);
     if (game.player === entity) game.player = null;
   }
   const local = game.players.local;

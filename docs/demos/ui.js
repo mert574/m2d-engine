@@ -31,7 +31,7 @@ const BUTTON = { width: 100, height: 40, variant: 'secondary', fontSize: '16px' 
 // Scene JSON positions elements against anchors. The buttons name actions
 // the scene's onAction hook counts; the bar is a component the game registers.
 const scene = {
-  version: 4, type: 'ui', name: 'main',
+  version: 5, type: 'ui', name: 'main',
   elements: [
     { type: 'rect', id: 'background', fill: true, color: '#1b2a38' },
     { type: 'text', id: 'title', anchor: 'top', x: 0, y: 16,

@@ -69,10 +69,7 @@ export class Health extends Constraint {
       }
       // After onDeath, so a hook sees the entity still in the world; the
       // death rules key on `dead` and on absence alike.
-      if (this.whenDead === 'remove') {
-        this.entity.game.entities.delete(this.entity);
-        this.entity.game.physics.remove(this.entity.body);
-      }
+      if (this.whenDead === 'remove') this.entity.game.removeEntity(this.entity);
     }
   }
 

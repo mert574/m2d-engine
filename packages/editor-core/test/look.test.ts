@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { applyOps, look, structure } from '../src/index.ts';
 
 const level = (world: Record<string, unknown> = {}): Record<string, unknown> => ({
-  version: 4, type: 'level', name: 'yard', world, layers: []
+  version: 5, type: 'level', name: 'yard', world, layers: []
 });
 
 const cycled = () => level({
@@ -40,7 +40,7 @@ describe('cycle states', () => {
       states: [{ name: 'day', lighting: { ambient: '#336699' } }, { name: 'night', lighting: { ambient: '#336699' } }], phase: 0
     });
     expect(() => look.startCycle(data)).toThrow(/already has a cycle/);
-    const bare: Record<string, unknown> = { version: 4, type: 'level', layers: [] };
+    const bare: Record<string, unknown> = { version: 5, type: 'level', layers: [] };
     applyOps(bare, look.startCycle(bare));
     expect(structure.valueAt(bare, ['world', 'cycle', 'states'])).toHaveLength(2);
   });
@@ -69,25 +69,5 @@ describe('cycle states', () => {
 
     const two = level({ cycle: { states: [{}, {}] } });
     expect(() => look.removeState(two, 0)).toThrow(/at least two states/);
-  });
-});
-
-describe('particle fields', () => {
-  it('add written short, and read back with every default the scene draws with', () => {
-    const data = level({ dimensions: 3 });
-    applyOps(data, look.addParticleField(data, 'smoke', { x: 1, y: 0, z: 2 }));
-    applyOps(data, look.addParticleField(data, 'motes', { x: 0, y: 1, z: 0 }));
-    const fields = structure.valueAt(data, ['world', 'particles']) as Array<Record<string, unknown>>;
-    expect(fields[0]).toEqual({ kind: 'smoke', count: 120, at: { x: 1, y: 0, z: 2 } });
-    expect(look.particleField(fields[0]!)).toMatchObject({ radius: 0.5, opacity: 0.3, speed: 0.6, extent: { x: 0.6, y: 4, z: 0.6 } });
-    expect(look.particleField({ kind: 'motes', count: 10, radius: 0.1 })).toMatchObject({ radius: 0.1, opacity: 0.6, at: { x: 0, y: 0, z: 0 } });
-  });
-
-  it('add a 2D kind to a 2D level, with no place, and refuse the other dimension\'s', () => {
-    const flat = { version: 4, type: 'level', name: 'flat', world: { width: 800, height: 600 }, layers: [] };
-    applyOps(flat, look.addParticleField(flat, 'fireflies', { x: 0, y: 0, z: 0 }));
-    expect(structure.valueAt(flat, ['world', 'particles'])).toEqual([{ kind: 'fireflies', count: 40 }]);
-    expect(() => look.addParticleField(flat, 'smoke', { x: 0, y: 0, z: 0 })).toThrow(/not drawn in a 2D level/);
-    expect(() => look.addParticleField(level({ dimensions: 3 }), 'rain', { x: 0, y: 0, z: 0 })).toThrow(/not drawn in a 3D level/);
   });
 });

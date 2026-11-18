@@ -21,7 +21,7 @@ let companion: Companion;
 let client: Client;
 
 const level = (fields: Record<string, unknown> = {}) => JSON.stringify({
-  version: 4, type: 'level', name: 'room',
+  version: 5, type: 'level', name: 'room',
   world: { gravity: { x: 0, y: 1000 } },
   prefabs: { wall: { actor: 'Block', physics: { bodyType: 'static' } } },
   layers: [{ name: 'main', objects: [{ id: 'floor', prefab: 'wall', x: 0, y: 0 }] }],
@@ -34,7 +34,7 @@ beforeAll(async () => {
   await mkdir(join(root, 'node_modules', 'junk'), { recursive: true });
   await writeFile(join(root, 'scenes', 'room.json'), level());
   await writeFile(join(root, 'scenes', 'menu.json'), JSON.stringify({
-    version: 4, type: 'ui', name: 'menu',
+    version: 5, type: 'ui', name: 'menu',
     elements: [{ type: 'rect', id: 'background', fill: true, color: '#111' }]
   }, null, 2));
   await writeFile(join(root, 'scenes', 'lot.json'), level({ name: 'lot', generator: 'scripts/buildLot.mjs' }));
@@ -81,6 +81,8 @@ describe('the MCP server', () => {
     const actors = new Registry(BUILTIN_ACTORS);
     actors.set('Block', Block);
     actors.set('Shared', Block, 'kit');
+    class Mist { static description = 'Drawn by the 3D renderer'; static dimensions = 3; }
+    actors.set('Mist', Mist, 'kit');
     const constraintTypes = new Registry(BUILTIN_CONSTRAINTS);
     const prefabTemplates = new Registry();
     // The shape a kit registers (m2d-kit/actors); inlined so the host's
@@ -100,6 +102,14 @@ describe('the MCP server', () => {
       expect(of('Block').origin).toBe('game');
       expect(of('Shared').origin).toBe('kit');
       expect(of('Prop').origin).toBe('engine');
+      // An actor for one dimension says so, and a level of the other is refused naming it.
+      expect(of('Mist').dimensions).toBe(3);
+      expect(of('Block').dimensions).toBeUndefined();
+      await origins.callTool({ name: 'edit_scene', arguments: { path: 'scenes/room.json', label: 'Mist', ops: [
+        { op: 'set', path: ['prefabs', 'mist'], value: { actor: 'Mist' } }
+      ] } });
+      expect(textOf(await origins.callTool({ name: 'validate_scene', arguments: { path: 'scenes/room.json' } }))).toMatch(/prefabs\.mist\.actor.*Mist is for a 3D level, and this level is 2D/);
+      await origins.callTool({ name: 'undo', arguments: { path: 'scenes/room.json' } });
       expect(listed.constraints.find((c: { name: string }) => c.name === 'Health').origin).toBe('engine');
 
       // A prefab template is offered whole, and an agent's generic edit
@@ -131,7 +141,7 @@ describe('the MCP server', () => {
   it('reads a scene as canonical text', async () => {
     const text = textOf(await client.callTool({ name: 'read_scene', arguments: { path: 'scenes/room.json' } }));
     expect(JSON.parse(text).name).toBe('room');
-    expect(text).toContain('"version": 4');
+    expect(text).toContain('"version": 5');
   });
 
   it('validates, and reports a problem with its field path', async () => {
@@ -186,7 +196,7 @@ describe('the project declaration', () => {
     expect(await project.declared()).toBe(true);
     expect(await project.config()).toEqual({
       name: 'Rooms', definition: 'src/game.js', hooks: null, scenes: 'scenes', basePath: '.',
-      initialScene: null, display: {}, actions: {}, choices: {}
+      initialScene: null, display: {}, actions: {}, choices: {}, layers: []
     });
     await rm(join(root, 'm2d.project.json'));
   });
@@ -216,6 +226,10 @@ describe('the project declaration', () => {
       // The choices a scene's `set` may name, which the host builds its game with.
       await client.callTool({ name: 'edit_project', arguments: { ops: [{ op: 'set', path: ['choices'], value: { car: { values: ['tourer', 'sprint'], initial: 'tourer' } } }] } });
       expect((await new Project(root).config()).choices).toEqual({ car: { values: ['tourer', 'sprint'], initial: 'tourer' } });
+
+      // The collision layers a prefab's physics names, which the host's validator and the editor's games are built with.
+      await client.callTool({ name: 'edit_project', arguments: { ops: [{ op: 'set', path: ['layers'], value: ['ship', 'rock'] }] } });
+      expect((await new Project(root).config()).layers).toEqual(['ship', 'rock']);
     } finally {
       await rm(join(root, 'm2d.project.json'));
     }
@@ -341,7 +355,7 @@ describe('agents edit through the session', () => {
     expect(companion.session.isDirty(path)).toBe(false);
   });
 
-  it('works a lighting cycle and particles through the Look tab\'s actions', async () => {
+  it('works a lighting cycle through the Look tab\'s actions, and refuses the particles it no longer has', async () => {
     const path = 'scenes/room.json';
     const before = (await companion.session.snapshot(path)).state.undo;
     const call = (name: string, args: Record<string, unknown>) => client.callTool({ name, arguments: { path, ...args } });
@@ -361,6 +375,7 @@ describe('agents edit through the session', () => {
     expect(after).toMatchObject({ phase: 1, states: ['dusk', 'night'] });
     expect((await call('edit_look', { action: 'removeState', index: 0 })).isError).toBe(true);
     expect(textOf(await call('edit_look', { action: 'addState' }))).toMatch(/addState needs a phase/);
+    expect((await call('edit_look', { action: 'addParticles', kind: 'motes' })).isError).toBe(true);
 
     for (let i = 0; i < 6; i++) await call('undo', {});
     expect((await companion.session.snapshot(path)).state.undo).toBe(before);

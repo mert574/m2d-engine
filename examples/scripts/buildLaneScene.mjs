@@ -71,7 +71,7 @@ const RUN_SECONDS = LENGTH / SPEED;
 const SKY_PERIOD = Math.round((3 * RUN_SECONDS) / 2);
 
 const scene = {
-  version: 4,
+  version: 5,
   name: 'lane',
   type: 'level',
   gameType: 'autoScroller',

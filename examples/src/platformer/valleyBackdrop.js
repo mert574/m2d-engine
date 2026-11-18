@@ -17,7 +17,7 @@ import { seedRidges, ridgeProfile } from './dusk.js';
  * It is scenery placed in the scene, twice: the `back` layer draws the
  * sky, stars, sun, clouds and ridges under everything, and the `front`
  * layer the valley mist over the entities. The fireflies and falling
- * leaves are the scene's `world.particles`, the player's own light its
+ * leaves are the kit's `ParticleField`s, the player's own light its
  * prefab's `light`, and the ambient light and post pass `world.lighting`
  * and `world.post`; so the editor shows the valley as it plays.
  *

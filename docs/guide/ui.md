@@ -221,7 +221,7 @@ A game's menu is a UI scene, so the editor and an agent can change it. A `backdr
 
 ```json
 {
-  "version": 4, "type": "ui", "name": "mainMenu",
+  "version": 5, "type": "ui", "name": "mainMenu",
   "transition": { "enter": "fade", "exit": "fade" },
   "stagger": 0.08,
   "music": { "track": "theme" },

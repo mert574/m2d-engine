@@ -43,7 +43,7 @@ class ClockReadout extends UIText {
 const BUTTON = { width: 118, height: 36, variant: 'secondary', fontSize: '15px' };
 
 const scene = {
-  version: 4, type: 'level', name: 'main',
+  version: 5, type: 'level', name: 'main',
   world: { width: 640, height: 360, gravity: { x: 0, y: 900 }, camera: { bounds: 'world' } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.3 } },
@@ -79,8 +79,7 @@ export default async function start(canvas) {
     balls.push(current.spawnPrefab('ball', { x: game.rng.range(120, 520), y: 20, width: 24, properties: { color } }));
     if (balls.length > 60) {
       const oldest = balls.shift();
-      game.entities.delete(oldest);
-      game.physics.remove(oldest.body);
+      game.removeEntity(oldest);
     }
   }
 

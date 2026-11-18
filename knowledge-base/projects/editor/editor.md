@@ -6,6 +6,8 @@ Goal: a Godot-like editor in which every m2d game is built, played and shipped, 
 
 - MCP is an equal client ([[working-style]]); the editor must reach everything [[idiomatic-m2d]] puts in scene data.
 - A project is a plain folder with `m2d.project.json`, owned by the host ([[editor-host]]). DOM for the chrome, the engine canvas for viewports. Documents and their history live in the host.
+- **A project-file field the simulation reads reaches four games**: the page's (`projectOptions` in `bootProject`), the host's validator (`Project.config` in `serve.ts`), and the editor app's viewport (`projectGameOptions`) and in-browser validator (`buildValidator`). Each gets a test. `layers` reached only the page for a day and Salvage Run would not open in the editor, hidden by a cast in the host (18 Nov 2026).
+- **The host serves and builds any project against the workspace's `m2d-engine` and `m2d-kit`** (`engineAlias` in `build.ts`), so a fresh project from a template, with nothing installed, loads. A new package the templates import joins the aliases.
 
 ## Active
 

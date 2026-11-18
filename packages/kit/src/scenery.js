@@ -1,0 +1,78 @@
+/**
+ * Scenery any game could want: a 2D sky, seeded stars and clouds,
+ * particle fields in both dimensions, and looping ambient sound. Each is
+ * an actor placed in the scene (colliding with nothing, drawn at a
+ * `zIndex`), so the editor shows it, its inspector edits it, and an agent
+ * adds one through `edit_scene` like any other object. A game's own
+ * painting — a valley's ridges, a street's skyline — is the same idea
+ * written for one game.
+ */
+export { Sky } from './scenery/sky.js';
+export { Scatter, SCATTER_KINDS } from './scenery/scatter.js';
+export { ParticleField, FIELD_KINDS, FIELD_DEFAULTS_2D } from './scenery/particleField.js';
+export { AmbientSound } from './scenery/ambientSound.js';
+export { Scenery, BACK, FRONT } from './scenery/scenery.js';
+
+import { Sky } from './scenery/sky.js';
+import { Scatter } from './scenery/scatter.js';
+import { ParticleField } from './scenery/particleField.js';
+import { AmbientSound } from './scenery/ambientSound.js';
+
+/** Drawn, never touched: no collider stops anything at a backdrop. */
+const SCENERY_PHYSICS = { bodyType: 'static', isSensor: true, layer: 'none' };
+
+const scenery = (actor, properties) => ({ actor, physics: { ...SCENERY_PHYSICS }, properties });
+
+/**
+ * Ready-made `prefabs` entries for the component library and
+ * `list_components`: a scene copies one, then places an object of it.
+ * Where the object stands only matters to a field that does not follow
+ * the camera, to smoke's source and to a sound with a radius.
+ */
+export const SCENERY_TEMPLATES = {
+  sky: {
+    description: 'A dusk gradient behind the level',
+    dimensions: 2,
+    prefab: scenery('Sky', { top: '#0b1026', middle: '#243a63', bottom: '#5c6f8a', horizon: 0.58 })
+  },
+  stars: {
+    description: 'Twinkling stars across the top of the view',
+    dimensions: 2,
+    prefab: scenery('Scatter', { kind: 'stars', count: 200, seed: 7, band: { top: 0, bottom: 0.55 } })
+  },
+  fireflies: {
+    description: 'Fireflies wandering over the view; in a lit level the bright ones glow',
+    dimensions: 2,
+    prefab: scenery('ParticleField', { kind: 'fireflies', count: 40 })
+  },
+  rain: {
+    description: 'Slanted rain over everything',
+    dimensions: 2,
+    prefab: scenery('ParticleField', { kind: 'rain', count: 160 })
+  },
+  motes: {
+    description: 'Dust and pollen in the air around the camera, carried by the wind',
+    dimensions: 3,
+    prefab: scenery('ParticleField', { kind: 'motes', count: 400 })
+  },
+  smoke: {
+    description: 'Smoke rising from where the object stands, leaning downwind',
+    dimensions: 3,
+    prefab: scenery('ParticleField', { kind: 'smoke', count: 120 })
+  },
+  ambience: {
+    description: 'A looping sound under the level, faded in (set its sound; a radius makes it a place)',
+    prefab: scenery('AmbientSound', { fadeIn: 2 })
+  }
+};
+
+/**
+ * Register the scenery actors and their templates, marked as the kit's.
+ * Call it before the game's own registrations, so a game's class under
+ * one of these names wins.
+ */
+export function registerKitScenery(game) {
+  const kit = { origin: 'kit' };
+  for (const [name, klass] of Object.entries({ Sky, Scatter, ParticleField, AmbientSound })) game.registerActor(name, klass, kit);
+  for (const [name, template] of Object.entries(SCENERY_TEMPLATES)) game.registerPrefabTemplate(name, template, kit);
+}

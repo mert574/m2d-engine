@@ -28,7 +28,7 @@ class Floor extends Entity {
 // Its world says how big it is and how it is seen: the camera stays
 // inside the world's bounds, so a one-screen level opens centred on it.
 const scene = {
-  version: 4, type: 'level', name: 'main',
+  version: 5, type: 'level', name: 'main',
   world: { width: 640, height: 360, gravity: { x: 0, y: 1000 }, camera: { bounds: 'world' } },
   prefabs: {
     floor: { actor: 'Floor', physics: { bodyType: 'static' } },

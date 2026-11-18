@@ -8,7 +8,7 @@ The repository's memory — the only one an agent has, and the place to write an
   - [[idiomatic-m2d]]: how games are written on m2d;
   - [[code-style]]: rules for code itself;
   - [[demo-standards]]: quality, art direction, menus, assets;
-  - [[working-style]]: worktrees, GPU checks, waiting on background work, no symlinks, a share of the machine, one model build at a time, MCP parity, commits, reviewing with probes and invariants first, tests judged by what they catch, where things live.
+  - [[working-style]]: worktrees, GPU checks, before-and-after screenshots, waiting on background work, no symlinks, a share of the machine, one model build at a time, MCP parity, commits, reviewing with probes and invariants first, tests judged by what they catch, where things live.
 - Projects:
   - [[editor]], with [[idiomatic-examples]] (shipped Nov 2026);
   - [[networking]];

@@ -82,7 +82,6 @@ declare module 'm2d-engine/core/sceneSchema.js' {
   export const UI_SCHEMA: SchemaDescriptor;
   export const UI_KINDS: readonly string[];
   export const HUD_KINDS: readonly string[];
-  export const PARTICLE_KINDS: Readonly<Record<2 | 3, readonly string[]>>;
   export function schemaForType(type: string): SchemaDescriptor | null;
 }
 
@@ -138,7 +137,3 @@ declare module 'm2d-engine/core/projectSchema.js' {
   export function sceneNameOf(path: string): string;
 }
 
-declare module 'm2d-engine/core/particles.js' {
-  export const PARTICLE_DEFAULTS: Readonly<Record<'motes' | 'smoke' | 'fireflies' | 'leaves' | 'rain' | 'sparks', Readonly<Record<string, unknown> & { count: number }>>>;
-  export function withParticleDefaults(field: Record<string, unknown>): Record<string, unknown>;
-}

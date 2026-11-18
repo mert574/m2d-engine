@@ -1479,6 +1479,20 @@ export class M2D {
     return entity;
   }
 
+  /**
+   * Take an entity out of the world during play: out of the entity set
+   * and the physics world, and `destroy()`ed so it lets go of what it
+   * started (a sound loop, an input registration). What a `remove` rule
+   * and `Health.whenDead` do. Removing one that has gone already does
+   * nothing.
+   * @param {import('./entity.js').Entity} entity
+   */
+  removeEntity(entity) {
+    if (!this.entities.delete(entity)) return;
+    this.physics.remove(entity.body);
+    entity.destroy();
+  }
+
   gameOver() {
     // Inert in edit mode, like every other transition: nothing may take
     // the editor's viewport to the game-over screen or on to 'mainMenu'.

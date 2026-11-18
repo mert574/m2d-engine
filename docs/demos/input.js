@@ -27,7 +27,7 @@ class Block extends Entity {
 // Gravity is a counter the handlers turn, held between its min and max;
 // the world's y gravity follows it and the HUD shows it.
 const scene = {
-  version: 4, type: 'level', name: 'main',
+  version: 5, type: 'level', name: 'main',
   world: {
     width: 640, height: 360, gravity: { x: 0, y: 1000 }, camera: { bounds: 'world' },
     counters: { gravity: { initial: 1000, min: 0, max: 3000 } },
@@ -67,11 +67,7 @@ export default async function start(canvas) {
   const gravity = () => current().counters.get('gravity');
   const setGravity = (value) => current().counters.set('gravity', Math.round(value));
 
-  const remove = (entity) => {
-    game.entities.delete(entity);
-    game.physics.remove(entity.body);
-    entity.destroy();
-  };
+  const remove = (entity) => game.removeEntity(entity);
 
   // Opt an entity into pointer hit testing. Dragging steers the body with
   // velocity, so it still collides on the way and keeps its speed when released.

@@ -3,6 +3,7 @@ import { expect } from 'vitest';
 import { join } from 'node:path';
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { GlideControl } from 'm2d-kit/controls';
+import { Sky, Scatter, ParticleField, AmbientSound } from 'm2d-kit/scenery';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { AssetDatabase } from 'm2d-engine/core/assets.js';
 import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS, Registry } from 'm2d-engine/core/builtins.js';
@@ -20,6 +21,15 @@ import { CollisionLayers } from 'm2d-engine/core/collisionLayers.js';
  * against, so a mistyped param in a demo scene fails here.
  */
 const CONSTRAINT_CLASSES = { Chase, Footsteps, GlideControl };
+
+/**
+ * The kit's scenery, as the real classes for the same reason: a field's
+ * kind is checked against the level's dimension by the actor itself. Only
+ * for the demos that register it (`registerKitScenery`): Salvage Run has a
+ * `Sky` of its own.
+ */
+const SCENERY = { Sky, Scatter, ParticleField, AmbientSound };
+const KIT_SCENERY = new Set(['platformer', 'yard']);
 
 /** Actors each demo registers with `game.registerActor`. */
 export const DEMO_ACTORS = {
@@ -45,11 +55,12 @@ export const DEMO_CONSTRAINTS = {
 };
 
 /** A game stub exposing only what the loader cross-references. */
-export function makeGame({ actors = [], scenes = [], constraints = [], manifest = null, layers = [] } = {}) {
+export function makeGame({ actors = [], classes = {}, scenes = [], constraints = [], manifest = null, layers = [] } = {}) {
   // Registries, not plain maps: a scene may name an engine actor or
   // constraint the game never registered, exactly as it may in play.
   const actorMap = new Registry(BUILTIN_ACTORS);
   for (const name of actors) actorMap.set(name, class {});
+  for (const [name, klass] of Object.entries(classes)) actorMap.set(name, klass);
   const constraintMap = new Registry(BUILTIN_CONSTRAINTS);
   for (const name of constraints) constraintMap.set(name, CONSTRAINT_CLASSES[name]);
   const assets = new AssetDatabase();
@@ -74,6 +85,7 @@ export function gameFor(example) {
   const layers = existsSync(projectFile) ? JSON.parse(readFileSync(projectFile, 'utf8')).layers ?? [] : [];
   return makeGame({
     actors: DEMO_ACTORS[example],
+    classes: KIT_SCENERY.has(example) ? SCENERY : {},
     constraints: DEMO_CONSTRAINTS[example],
     manifest: manifestFor(example),
     scenes: sceneNamesOf(example),

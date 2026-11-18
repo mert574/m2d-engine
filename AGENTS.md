@@ -18,7 +18,7 @@ camera or a renderer:
 | --- | --- |
 | `packages/engine` | The engine, published to npm as `m2d-engine`. Source in `src/`, tests in `test/` |
 | `packages/server` | The authoritative multiplayer host, published as `m2d-server` |
-| `packages/kit` | `m2d-kit`: the stock cast, prefab templates and helpers — too opinionated for the engine, too reusable for one game. Plain JavaScript like the engine (TypeScript at the project's final phase); no DOM at load |
+| `packages/kit` | `m2d-kit`: the stock cast, scenery (sky, particles, ambient sound), prefab templates and helpers — too opinionated for the engine, too reusable for one game. Plain JavaScript like the engine (TypeScript at the project's final phase); no DOM at load |
 | `packages/editor-core` | The editor's headless core (document, writer, commands, validation). TypeScript, no DOM |
 | `packages/editor-host` | The editor's host: serves one game's project to the editor, holds the open documents and their history, and is the MCP server agents edit through |
 | `packages/editor` | The editor app: DOM panels around engine viewports |
@@ -56,7 +56,7 @@ that covers it in the same change, following
 | The editor: projects, templates, assets, play, build, MCP tools | `docs/guide/editor.md` |
 | Engine options and instance API | `docs/reference/engine-options.md` |
 | Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
-| The kit: the stock cast and prefab templates, genre controllers, effects, random, textures, the audio option | `docs/reference/kit.md` |
+| The kit: the stock cast and prefab templates, genre controllers, scenery (sky, scatter, particle fields, ambient sound), effects, random, textures, the audio option | `docs/reference/kit.md` |
 | Example games and music credits | `docs/examples/index.md`, `docs/examples/music-credits.md` |
 | Architecture and the rules each module keeps | `docs/contributing/architecture.md` |
 | The determinism contract: what simulation code may read | `docs/contributing/determinism.md` |
@@ -79,9 +79,9 @@ that covers it in the same change, following
 | --- | --- |
 | `README.md` | The map of every note and project; rules for writing (brief and complete, no redundancy, no orphans); keeping it current and choosing the scope (session, project, repository); templates. |
 | `notes/idiomatic-m2d.md` | How games are written on m2d: behaviour in actors, constraints and intents; everything else in scene data. Covers tunables (actor properties vs constraint params), what is not idiomatic (generated levels, custom ticks, hooks that set look or UI), and the showcase and docs demo exceptions. |
-| `notes/code-style.md` | Readable code with few comments; lifecycle overrides call super; a name is checked where it is read; state says what clears it; a forgotten write is awaited at close; a network fetch is tried again; an engine log is a refusal; fixes come with a repro. |
+| `notes/code-style.md` | Readable code with few comments; lifecycle overrides call super; a name is checked where it is read; state says what clears it; a forgotten write is awaited at close; a network fetch is tried again; an engine log is a refusal; an entity leaves through `game.removeEntity` and lets go in `destroy()`; fixes come with a repro. |
 | `notes/demo-standards.md` | The quality and art bar for examples: native AAA, every demo a showcase, bright new demos, distinct menus per game, free open assets and how to word them. |
-| `notes/working-style.md` | Parallel agents (a new port and temp dir after every owner message; never touch another agent's work), native Chrome when under WSL, waiting for background work before a turn ends, no symlinks in a worktree, a share of the machine, never all of it, one model build at a time (a `vite.config.js` edit restarts every dev server), the session summary at completion, MCP parity for editor features, one commit per phase, plain names over plan codes, and where roadmap, projects, docs and notes each live; reviewing with probes, invariants written before a concept ships, a test judged by what it would catch, and review briefs that steer. |
+| `notes/working-style.md` | Parallel agents (a new port and temp dir after every owner message; never touch another agent's work), native Chrome when under WSL, before-and-after screenshots through the editor against a noise floor, waiting for background work before a turn ends, no symlinks in a worktree, a share of the machine, never all of it, one model build at a time (a `vite.config.js` edit restarts every dev server), the session summary at completion, MCP parity for editor features, one commit per phase, plain names over plan codes, and where roadmap, projects, docs and notes each live; reviewing with probes, invariants written before a concept ships, a test judged by what it would catch, and review briefs that steer. |
 | `projects/editor/editor.md` | The editor project: its decisions, the backlog, and links to the shipped phase plans beside it. |
 | `projects/editor/idiomatic-examples.md` | Shipped Nov 2026: every example and docs demo moved onto idiomatic m2d in phases 0 to 6; its decisions (the allow-list, what stays a hook, choices as player state, menus as UI scenes) and the record of each phase. |
 | `projects/networking/networking.md` | Server-authoritative networking: the decision, the 3D online gaps, WebTransport datagrams, and what shipped. |

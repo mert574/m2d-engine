@@ -124,7 +124,7 @@ A scene binds the uids it wants to short local names in its `uses` block, and re
 
 ```json
 {
-  "version": 4,
+  "version": 5,
   "type": "level",
   "name": "row",
   "uses": { "zombie": "prefab-zombie", "goblin": "prefab-goblin" },

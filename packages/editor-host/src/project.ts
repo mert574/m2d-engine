@@ -51,6 +51,8 @@ export interface ProjectConfig {
   actions: Record<string, string[]>;
   /** The player's choices the project declares, each `{ values, initial }`. */
   choices: Record<string, unknown>;
+  /** The collision layers the project declares, in bit order; empty for none. */
+  layers: string[];
 }
 
 /** The file that makes a folder a project. */
@@ -86,7 +88,7 @@ export class Project {
   async config(): Promise<ProjectConfig> {
     const fallback: ProjectConfig = {
       name: this.root.split(sep).pop() ?? 'project', definition: null, hooks: null, scenes: 'scenes', basePath: '.',
-      initialScene: null, display: {}, actions: {}, choices: {}
+      initialScene: null, display: {}, actions: {}, choices: {}, layers: []
     };
     let raw: Record<string, unknown>;
     try {
@@ -104,7 +106,8 @@ export class Project {
       initialScene: typeof raw.initialScene === 'string' && raw.initialScene ? raw.initialScene : null,
       display: isRecord(raw.display) ? raw.display : {},
       actions: isRecord(raw.input) && isRecord(raw.input.actions) ? raw.input.actions as Record<string, string[]> : {},
-      choices: isRecord(raw.choices) ? raw.choices : {}
+      choices: isRecord(raw.choices) ? raw.choices : {},
+      layers: Array.isArray(raw.layers) ? raw.layers.filter((name): name is string => typeof name === 'string') : []
     };
   }
 

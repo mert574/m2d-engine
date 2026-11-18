@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "name": "yard",
   "type": "level",
   "title": "The Yard",
@@ -75,7 +75,6 @@
       "phase": 0,
       "ease": 1.5
     },
-    "ambience": [{ "sound": "wind", "fadeIn": 2 }],
     "rules": [
       {
         "when": { "event": "action", "action": "menu" },
@@ -235,6 +234,11 @@
           "params": { "sounds": ["step0", "step1", "step2", "step3"], "stride": 0.7, "minSpeed": 0.3 }
         }
       }
+    },
+    "wind": {
+      "actor": "AmbientSound",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" },
+      "properties": { "sound": "wind", "fadeIn": 2 }
     }
   },
   "layers": [
@@ -550,6 +554,21 @@
           "width": 0.5,
           "height": 1,
           "rotation": [0, 0, 0.018504, 0.999829]
+        }
+      ]
+    },
+    {
+      "name": "atmosphere",
+      "objects": [
+        {
+          "id": "wind-1",
+          "prefab": "wind",
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "width": 1,
+          "height": 1,
+          "depth": 1
         }
       ]
     }

@@ -140,6 +140,30 @@ Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lo
 
 `m2d-kit/controls`. No options. Sets the body's friction to zero while airborne and restores it on landing, so holding a direction into a wall does not make a dynamic player cling to it.
 
+## `m2d-kit/scenery`
+
+Backdrops, weather and ambient sound any game could want, as actors placed in the scene. Each collides with nothing whatever its prefab says, draws at a `zIndex` instead of at its body (under every layer at -1000, or over every entity at 1000, unless its object gives one), and covers the camera's visible area, so it has no edge at any zoom or rotation. All of it is presentation: stateless, seeded, the same on every machine, and drawn in the editor too, where the clock stands still. `registerKitScenery(game)` registers the four actors and the templates below. A game's own painting — a valley's ridges, a street's skyline — is an actor of its own on the same terms.
+
+| Actor | For | Properties | Is |
+| --- | --- | --- | --- |
+| `Sky` | 2D | `top`, `bottom`, `middle`, `horizon` (0.5) | A vertical gradient over the view, under everything; `middle` sits `horizon` of the way down. A 3D level's sky is its `environment` and `lighting` |
+| `Scatter` | 2D | `kind` (`stars`, `clouds`, `motes`), `count`, `seed`, `color`, `size` (px), `opacity`, `parallax`, `speed` (px/s), `twinkle`, `band { top, bottom }` | A seeded layer: stars twinkle by `twinkle`, clouds are soft puffs drifting at `speed`, motes rise. `parallax` 0 is fixed to the view and 1 moves with the world; `band` keeps it to a part of the view, as fractions from the top |
+| `ParticleField` | both | `kind`, `count`, `extent { x, y, z }`, `radius`, `color`, `opacity`, `emissive`, `speed`, `follow`, `seed` (2D) | See below |
+| `AmbientSound` | both | `sound`, `volume` (1), `fadeIn` (1 s), `rate` (1), `radius` (0) | A looping sound, faded in from silence. With a `radius` (px in 2D, metres in 3D) it is a place: full where it stands, falling off to silence that far from the camera (the view's centre in 2D, the eye in 3D); 0 fills the scene. Starts on its first frame, never in the editor or headless, and stops when its entity is removed or its scene leaves. A sound the game has not loaded is warned about once |
+
+**Particle fields.** Stateless: each particle is a function of its index, the seed and the time. A `kind` is drawn in one dimension, and a field of the other dimension's kind, or of none, is refused at load naming the property.
+
+- 2D: `fireflies` (wandering and pulsing, among the level), `leaves` (falling and turning), `rain` (slanted streaks) or `sparks` (rising and fading), the last three over the entities. `radius` and `extent` are px, `speed` px/s. `emissive` makes each bright one draw a small light in a lit level. With `follow` (the default) the field covers the view; without, the box of half sizes `extent` around the entity.
+- 3D: `motes` (dust and pollen through a box of half sizes `extent` around the camera, or around the entity without `follow`, carried by `world.lighting.wind`) or `smoke` (rising from the entity at `speed` metres a second through a column `extent.y` in half-height, widening by `extent.x` and `extent.z`, leaning downwind). The field is the entity's `particles` record, which the scene collects into the frame for the renderer as it collects a light; sixteen fields a frame at most. See [particle fields](./renderer#three-dimensions).
+
+| Template | For | Is |
+| --- | --- | --- |
+| `sky` | 2D | A dusk gradient |
+| `stars` | 2D | Stars across the top half of the view |
+| `fireflies`, `rain` | 2D | The particle field of that kind |
+| `motes`, `smoke` | 3D | The particle field of that kind; smoke rises from where its object stands |
+| `ambience` | both | An `AmbientSound` to give a sound |
+
 ## `m2d-kit/effects`
 
 Combat visuals. The engine's `Attack` and `DamageFlash` know the rules; what a swing or a hit looks like is the game's, so these are ordinary constraints a scene attaches next to the mechanical ones and tunes to its palette. `registerEffects(game)` registers both under the names below.

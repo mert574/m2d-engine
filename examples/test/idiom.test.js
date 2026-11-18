@@ -37,10 +37,10 @@ const HOOK_BUDGET = 40;
 const FORBIDDEN = [
   { name: 'camera', pattern: /\bgame\.camera\.|\bcamera\.(zoom|orbit|follow)\(/, instead: 'world.camera' },
   { name: 'ui', pattern: /\.ui\.add\(|new UI[A-Z]\w*\(/, instead: 'hud, or a UI scene' },
-  { name: 'audio', pattern: /\bplayMusic\(|\bsoundManager\.loop\(|\bplaySound\(/, instead: 'world.music, world.ambience, a sound rule' },
+  { name: 'audio', pattern: /\bplayMusic\(|\bsoundManager\.loop\(|\bplaySound\(/, instead: 'world.music, an AmbientSound, a sound rule' },
   { name: 'look', pattern: /\bsetPostEffects\(|\bsetAmbientLight\(|\bframe\.(sun|ambient|fog|post|bloom)\s*=/, instead: 'world.lighting, world.post' },
   { name: 'input', pattern: /\binput\.on\(|\bjustPressed\(/, instead: 'an action rule, world.camera controls' },
-  { name: 'drawing', pattern: /\brenderer\.draw\w*\(/, instead: 'world.sky, world.scatter, world.particles, tile layers' },
+  { name: 'drawing', pattern: /\brenderer\.draw\w*\(/, instead: 'a scenery actor (the kit\'s Sky, Scatter, ParticleField, or the game\'s own), tile layers' },
   { name: 'instanceof', pattern: /\binstanceof\b/, instead: 'prefab names: plot, counters, rules' }
 ];
 

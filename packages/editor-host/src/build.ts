@@ -20,15 +20,20 @@ import type { Project } from './project.ts';
 import type { Assets } from './assets.ts';
 
 const ENGINE = fileURLToPath(new URL('../../engine', import.meta.url));
+const KIT = fileURLToPath(new URL('../../kit', import.meta.url));
 
 /**
- * `m2d-engine` and `m2d-engine/...` as this workspace's engine, for the
- * editor's server and for builds: one engine, wherever the project is.
+ * `m2d-engine` and `m2d-kit`, and their entries, as this workspace's, for
+ * the editor's server and for builds: one engine and one kit, wherever the
+ * project is — a fresh one from a template has nothing installed. A kit
+ * entry `m2d-kit/<name>` is its `src/<name>.js`, as its exports map says.
  */
 export function engineAlias(): Alias[] {
   return [
     { find: /^m2d-engine$/, replacement: join(ENGINE, 'src', 'core', 'm2d.js') },
-    { find: /^m2d-engine\//, replacement: join(ENGINE, 'src') + '/' }
+    { find: /^m2d-engine\//, replacement: join(ENGINE, 'src') + '/' },
+    { find: /^m2d-kit$/, replacement: join(KIT, 'src', 'index.js') },
+    { find: /^m2d-kit\/(\w+)$/, replacement: join(KIT, 'src') + '/$1.js' }
   ];
 }
 

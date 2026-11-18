@@ -2,12 +2,11 @@
  * The document side of a level's look: the lighting cycle's blend at any
  * phase (the engine's own `cycleLook`, so what the editor previews is what
  * the game draws), the colours a cycle strip shows, and the edits that add
- * and remove cycle states and particle fields.
+ * and remove cycle states. (Particle fields are scenery actors, edited as
+ * objects.)
  */
 
 import { cycleLook } from 'm2d-engine/core/look.js';
-import { PARTICLE_DEFAULTS, withParticleDefaults } from 'm2d-engine/core/particles.js';
-import { PARTICLE_KINDS } from 'm2d-engine/core/sceneSchema.js';
 import { isPlainObject, valueAt } from './descriptors.ts';
 import type { Op } from './edits.ts';
 
@@ -89,25 +88,4 @@ export function removeState(data: unknown, index: number): Op[] {
   const moved = Math.floor(phase) > index ? phase - 1 : Math.min(phase, count - 2);
   if (moved !== phase) ops.push({ op: 'set', path: ['world', 'cycle', 'phase'], value: moved });
   return ops;
-}
-
-/** A particle field's every key: what it says, over its kind's defaults, as the scene draws it. */
-export const particleField = (field: Record<string, unknown>): Record<string, unknown> => withParticleDefaults(field);
-
-export type ParticleKind = 'motes' | 'smoke' | 'fireflies' | 'leaves' | 'rain' | 'sparks';
-
-/**
- * A new field of `kind`, written short: its kind and count, and in 3D
- * where it stands (a 2D field follows the view and needs no place).
- * Refused when the kind is the other dimension's.
- */
-export function addParticleField(data: unknown, kind: ParticleKind, at: { x: number; y: number; z: number }): Op[] {
-  const dimensions = worldOf(data).dimensions === 3 ? 3 : 2;
-  if (!(PARTICLE_KINDS[dimensions] as readonly string[]).includes(kind)) {
-    throw new Error(`'${kind}' particles are not drawn in a ${dimensions}D level (here: ${PARTICLE_KINDS[dimensions].join(', ')})`);
-  }
-  const fields = worldOf(data).particles;
-  const field = dimensions === 3 ? { kind, count: PARTICLE_DEFAULTS[kind].count, at } : { kind, count: PARTICLE_DEFAULTS[kind].count };
-  if (Array.isArray(fields)) return [{ op: 'insert', path: ['world', 'particles'], index: fields.length, value: field }];
-  return [isPlainObject(valueAt(data, ['world'])) ? { op: 'set', path: ['world', 'particles'], value: [field] } : { op: 'set', path: ['world'], value: { particles: [field] } }];
 }

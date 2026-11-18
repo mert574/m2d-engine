@@ -29,8 +29,7 @@ export default defineMatch({
     // The scene's own knight is the single-player one. Online, every
     // knight belongs to someone.
     const solo = game.player;
-    game.entities.delete(solo);
-    game.physics.remove(solo.body);
+    game.removeEntity(solo);
     game.player = null;
   },
 

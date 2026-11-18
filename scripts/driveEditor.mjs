@@ -509,7 +509,7 @@ const SUITES = {
     }
   },
 
-  /** The lot's Look tab: scrub the cycle without writing, add smoke, drag a slider to one edit. */
+  /** The lot's Look tab: scrub the cycle without writing; then smoke as an object, from the kit's template. */
   look: (context, report, out) =>
     drive(context, report, join(repo, 'examples/src/yard'), 'scenes/lot.json', async (page) => {
       await page.click('.tab[data-tab="look"]');
@@ -526,22 +526,28 @@ const SUITES = {
       report.check('scrubbing changes the picture', !resting.equals(scrubbed));
       report.check('scrubbing writes nothing', !(await history(page)).dirty);
 
-      const fieldsBefore = await page.evaluate(() => window.m2dEditor.remote.doc.data.world.particles?.length ?? 0);
-      await page.click('#look button:has-text("Add smoke")');
-      await page.waitForTimeout(300);
-      const fields = await page.evaluate(() => window.m2dEditor.remote.doc.data.world.particles);
-      report.check('Add smoke appends a field', fields.length === fieldsBefore + 1 && fields.at(-1).kind === 'smoke', JSON.stringify(fields.at(-1)));
+      const lookText = await page.locator('#look').innerText();
+      report.check('the Look tab holds the cycle only', !/Particles|Add smoke/.test(lookText));
+      const atmosphere = await page.evaluate(() => window.m2dEditor.remote.doc.data.layers.find((layer) => layer.name === 'atmosphere')?.objects.map((o) => o.id) ?? []);
+      report.check('the lot\'s motes, smoke and wind are placed objects', ['motes-1', 'smoke-1', 'wind-1'].every((id) => atmosphere.includes(id)), atmosphere.join(', '));
 
-      const radius = page.locator('#look .particle-card').last().locator('label:has-text("Radius") input');
-      const box = await radius.boundingBox();
-      const undoBefore = (await history(page)).undo;
-      await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2);
-      await page.mouse.down();
-      for (let step = 1; step <= 6; step++) await page.mouse.move(box.x + box.width * (0.25 + step * 0.08), box.y + box.height / 2);
-      report.check('a slider previews without writing while held', (await history(page)).undo === undoBefore);
-      await page.mouse.up();
+      // A new field, as a person adds one now: the kit's template from Components, placed from Assets.
+      await page.click('.tab[data-tab="components"]');
+      const sky = page.locator('.component-card[data-kind="prefab"][data-name="sky"] .component-actions button');
+      report.check('a 2D template offers no Insert in a 3D level', await sky.isDisabled());
+      await page.locator('.component-card[data-kind="prefab"][data-name="smoke"] .component-actions button').click();
       await page.waitForTimeout(300);
-      report.check('its release writes one edit', (await history(page)).undo === 'Particles: radius', (await history(page)).undo);
+      const inserted = (await history(page)).undo ?? '';
+      const name = inserted.replace(/^Insert prefab /, '');
+      report.check('Insert copies the smoke template into the scene', inserted.startsWith('Insert prefab ') &&
+        await page.evaluate((n) => window.m2dEditor.remote.doc.data.prefabs[n]?.actor === 'ParticleField', name), inserted);
+      await page.click('.tab[data-tab="assets"]');
+      const before = await canvas();
+      await page.locator('.asset-card', { hasText: name }).first().dblclick();
+      await page.waitForTimeout(1200);
+      const placed = await page.evaluate((n) => window.m2dEditor.remote.doc.data.layers.flatMap((layer) => layer.objects).filter((o) => o.prefab === n).length, name);
+      report.check('a double-click places one at the centre of the view', placed === 1, `${placed} placed`);
+      report.check('and its smoke draws there', !before.equals(await canvas()));
       await shoot(page, out, 'look-smoke', report);
       await undoToClean(page, report);
     }),

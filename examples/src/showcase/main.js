@@ -11,6 +11,7 @@ import rainSprite from './assets/rain.png';
 import gullSprite from './assets/gull.png';
 import { HarbourNight } from './menuBackdrop.js';
 import { audioOption } from 'm2d-kit/audio';
+import { registerKitScenery } from 'm2d-kit/scenery';
 // IDMf001: InDepthMelodics (CC BY 3.0); see docs/examples/music-credits.md.
 import lastTransmission from './music/kloquewurk-last-transmission.ogg';
 import g2Remix from './music/gbsr-g2-cockboymattt-remix.ogg';
@@ -39,9 +40,10 @@ let showcase = null;
 
 // The harness has no project file, so its menu scene is written here.
 game.registerBackdropLayer('harbourNight', () => new HarbourNight());
+registerKitScenery(game);
 game.sceneManager.addScene('mainMenu', {
   fetch: async () => ({
-    version: 4, name: 'mainMenu', type: 'ui', title: 'Main Menu',
+    version: 5, name: 'mainMenu', type: 'ui', title: 'Main Menu',
     transition: { enter: 'fade', exit: 'fade', duration: 0.3 },
     stagger: 0.07,
     music: { track: 'menu' },
@@ -73,25 +75,17 @@ game.sceneManager.addScene('mainMenu', {
   })
 });
 
+/** A backdrop that collides with nothing, as the kit's templates make one. */
+function scenery(actor, properties) {
+  return { actor, physics: { bodyType: 'static', isSensor: true, layer: 'none' }, properties };
+}
+
 game.sceneManager.addScene('showcase', {
   fetch: async () => ({
-    version: 4,
+    version: 5,
     name: 'showcase',
     type: 'level',
-    world: {
-      width: WORLD.width, height: WORLD.height, gravity: { x: 0, y: 0 },
-      // The engine's own backdrop and weather, under and over the stress
-      // layers: seeded, stateless and the same on every backend.
-      sky: { top: '#0b1026', middle: '#243a63', bottom: '#5c6f8a', horizon: 0.58 },
-      scatter: [
-        { kind: 'stars', count: 220, seed: 7, color: '#dce8ff', size: 2.2, opacity: 0.9, parallax: 0.05, twinkle: 0.6, band: { top: 0, bottom: 0.55 } },
-        { kind: 'clouds', count: 14, seed: 3, color: '#8fa6c8', size: 240, opacity: 0.18, parallax: 0.25, speed: 6, band: { top: 0.05, bottom: 0.5 } }
-      ],
-      particles: [
-        { kind: 'fireflies', count: 90, radius: 2.4, color: '#ffd27a', opacity: 0.9, emissive: 1, speed: 12, follow: true, front: false, seed: 11 },
-        { kind: 'sparks', count: 70, radius: 1.8, color: '#ffb46a', opacity: 0.8, emissive: 1, speed: 46, follow: true, front: true, seed: 5 }
-      ]
-    },
+    world: { width: WORLD.width, height: WORLD.height, gravity: { x: 0, y: 0 } },
     assets: {
       spritesheets: {
         mote: { url: moteSprite, frameWidth: 32, frameHeight: 32 },
@@ -102,8 +96,21 @@ game.sceneManager.addScene('showcase', {
         gull: { url: gullSprite, frameWidth: 48, frameHeight: 32 }
       }
     },
-    prefabs: {},
-    layers: []
+    // The kit's backdrop and weather, under and over the stress layers:
+    // seeded, stateless and the same on every backend.
+    prefabs: {
+      sky: scenery('Sky', { top: '#0b1026', middle: '#243a63', bottom: '#5c6f8a', horizon: 0.58 }),
+      stars: scenery('Scatter', { kind: 'stars', count: 220, seed: 7, color: '#dce8ff', size: 2.2, opacity: 0.9, parallax: 0.05, twinkle: 0.6, band: { top: 0, bottom: 0.55 } }),
+      clouds: scenery('Scatter', { kind: 'clouds', count: 14, seed: 3, color: '#8fa6c8', size: 240, opacity: 0.18, parallax: 0.25, speed: 6, band: { top: 0.05, bottom: 0.5 } }),
+      fireflies: scenery('ParticleField', { kind: 'fireflies', count: 90, radius: 2.4, color: '#ffd27a', opacity: 0.9, emissive: 1, speed: 12, follow: true, seed: 11 }),
+      sparks: scenery('ParticleField', { kind: 'sparks', count: 70, radius: 1.8, color: '#ffb46a', opacity: 0.8, emissive: 1, speed: 46, follow: true, seed: 5 })
+    },
+    layers: [{
+      name: 'atmosphere',
+      objects: ['sky', 'stars', 'clouds', 'fireflies', 'sparks'].map((prefab) => ({
+        id: prefab, prefab, x: WORLD.width / 2, y: WORLD.height / 2, width: 16, height: 16
+      }))
+    }]
   }),
 
   onEnter() {

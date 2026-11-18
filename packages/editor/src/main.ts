@@ -428,7 +428,6 @@ const lookPanel = createLookPanel($<HTMLElement>('#look'), viewport, {
   doc: () => remote?.doc.data ?? null,
   apply: (ops, label) => edit({ label, ops }),
   editable: () => !readOnly() && !playing,
-  target: () => viewport.cameraTarget(),
   say
 });
 const lookShown = () => !$<HTMLElement>('#look').hidden;
@@ -758,7 +757,7 @@ async function buildValidator(): Promise<void> {
   try {
     const options = definition.GAME ?? {};
     await initPhysics(options.dimensions === 3 ? { dimensions: 3 } : undefined);
-    const game = new M2D(null, { ...options, choices: project?.choices ?? {}, headless: true });
+    const game = new M2D(null, { ...options, choices: project?.choices ?? {}, layers: project?.layers ?? [], headless: true });
     definition.register(game);
     // The project's scene names, so a button's onClick or a rule's switch
     // naming a sibling scene checks as registered — the viewport's game
