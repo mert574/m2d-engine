@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { applyOps, stage, structure, type Rest } from '../src/index.ts';
 
 const level = (): Record<string, unknown> => ({
-  version: 5, type: 'level', name: 'yard',
+  version: 6, type: 'level', name: 'yard',
   world: { gravity: { x: 0, y: 900 }, player: 'hero', camera: { bounds: 'world', zoom: 2 }, rules: [{ when: 'start', do: [] }] },
   prefabs: {
     hero: { actor: 'Player', physics: { bodyType: 'dynamic' } },

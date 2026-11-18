@@ -28,9 +28,9 @@ A level scene declares what the world is like, the prefabs it builds entities fr
 
 <<< @/demos/first-game/scenes/level1.json
 
-The `world` says how big the level is and how it is seen. The hero is the `player`, which makes it `game.player` and the thing the camera follows, and `"bounds": "world"` keeps the camera inside the level while it does. Falling out of the level (below the world's `killPlane`, 50 px under its height unless the scene sets one) ends the game.
+The `world` says how big the level is and how it is seen. The hero is the `player`, which makes it `game.player` and the thing the camera follows, and `"bounds": "world"` keeps the camera inside the level while it does. Falling out of the level ends the game because the level says so: `pit` is a `Trigger` under the world, and the rule `fell` ends the game when the hero enters it. Nothing ends a level that does not say how.
 
-The hero is a `character` body, which slides along walls and never rotates. Platforms are `static` and use the built-in `Platform` actor, which draws its sprite tiled over its size. The tile is a 32 by 32 image; here it is an inline SVG so the demo needs no image file. A game points `url` at a PNG next to its scene files. The `hud` is the overlay drawn over the level: a line of text here, and meters, notices, a minimap or a menu button in a bigger game.
+The hero is a `character` body, which slides along walls and never rotates. Platforms are `static` and use the engine's `Prop` actor, which draws its sprite tiled over its size. The tile is a 32 by 32 image; here it is an inline SVG so the demo needs no image file. A game points `url` at a PNG next to its scene files. The `hud` is the overlay drawn over the level: a line of text here, and meters, notices, a minimap or a menu button in a bigger game.
 
 Positions are the centre of each object, in world units. Open the folder in the editor to drag a ledge, add one, or change the gravity, and the file is written for you. The loader rejects unknown fields and references to prefabs, sprite sheets or actors that do not exist, so a typo fails at load with the path to the field.
 
@@ -46,7 +46,7 @@ This hero has no sprite, so it draws itself as a rectangle. Movement comes from 
 
 ## The definition
 
-`game.js` registers the cast under the names the scenes use, and nothing else. It never draws, so the editor's checks, a test and a headless server can load it as the page does. The built-in actors, such as `Platform`, need no registering.
+`game.js` registers the cast under the names the scenes use, and nothing else. It never draws, so the editor's checks, a test and a headless server can load it as the page does. The engine's own actors, such as `Prop` and `Trigger`, need no registering.
 
 <<< @/demos/first-game/game.js
 

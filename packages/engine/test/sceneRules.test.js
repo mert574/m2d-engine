@@ -5,12 +5,12 @@ import { Trigger } from '../src/actors/trigger.js';
 import { Health } from '../src/constraints/health.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
-import { SCENE_VERSION } from '../src/core/sceneLoader.js';
+import { SCENE_VERSION, SceneLoader } from '../src/core/sceneLoader.js';
 import { blendLook, cycleLook, advanceCycle } from '../src/core/look.js';
 import { Coin } from './helpers/cast.js';
 
 /**
- * `world.rules`, `hud`, `world.cycle`, `world.killPlane`, a 2D `light`
+ * `world.rules`, `hud`, `world.cycle`, a pit that ends the game, a 2D `light`
  * and `physics.layer`: the parts of a level that used to live only in
  * hooks and actors, as scene data the engine runs.
  */
@@ -115,23 +115,32 @@ describe('rules', () => {
     second.game.destroy();
   });
 
-  it('fire the fall rules at the kill plane instead of the default game over', async () => {
-    const { game, scene } = await make(level({ killPlane: 100, rules: [
-      { when: { event: 'fall' }, then: [{ do: 'set', object: 'hero', property: 'fell', value: true }, { do: 'switch', scene: 'menu' }] }
-    ] }));
-    const hero = scene.entitiesById.get('hero');
-    hero.body.setPosition({ x: 50, y: 150 });
-    game.step(1);
-    expect(hero.fell).toBe(true);
-    expect(game.isGameOver).toBe(false);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(game.sceneManager.getCurrentScene()?.config.name).toBe('menu');
-    game.destroy();
-    const plain = await make(level({ killPlane: 100 }));
-    plain.scene.entitiesById.get('hero').body.setPosition({ x: 50, y: 150 });
-    plain.game.step(1);
-    expect(plain.game.isGameOver).toBe(true);
+  it('end the game when the player enters a pit, and nothing ends it implicitly', async () => {
+    const pit = {
+      prefabs: { ...level().prefabs, pit: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } } },
+      layers: [{ name: 'main', objects: [
+        ...level().layers[0].objects,
+        { id: 'pit', prefab: 'pit', x: 200, y: 450, width: 4400, height: 400 }
+      ] }]
+    };
+    // Far below the world with no pit: still playing, as the level says nothing about it.
+    const plain = await make(level());
+    plain.scene.entitiesById.get('hero').body.setPosition({ x: 50, y: 5000 });
+    for (let i = 0; i < 3; i++) plain.game.step(1);
+    expect(plain.game.isGameOver).toBe(false);
     plain.game.destroy();
+
+    const { game, scene } = await make(level({ rules: [{ id: 'fell', when: { event: 'enter', object: 'pit' }, then: [{ do: 'gameOver' }] }] }, pit));
+    scene.entitiesById.get('hero').body.setPosition({ x: -1000, y: 400 });
+    for (let i = 0; i < 3 && !game.isGameOver; i++) game.step(1);
+    expect(game.isGameOver).toBe(true);
+    game.destroy();
+  });
+
+  it('refuse a fall rule and a kill plane, which the format no longer has', () => {
+    const loader = new SceneLoader(null);
+    expect(() => loader.load(level({ killPlane: 100 }), 'rules')).toThrow(/killPlane/);
+    expect(() => loader.load(level({ rules: [{ when: { event: 'fall' }, then: [{ do: 'gameOver' }] }] }), 'rules')).toThrow(/fall/);
   });
 
   it('do not run in edit mode', async () => {

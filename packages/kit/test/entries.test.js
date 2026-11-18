@@ -24,7 +24,7 @@ describe('the kit\'s entries', () => {
 
   it('the index re-exports what the entries export', async () => {
     const index = await import('../src/index.js');
-    for (const name of ['Ghost', 'Bee', 'Coin', 'MovingPlatform', 'PREFAB_TEMPLATES', 'registerKitActors', 'AttackSwing', 'HitBurst', 'registerEffects', 'makeRng', 'range', 'tileTexture', 'audioOption', 'Sky', 'Scatter', 'ParticleField', 'AmbientSound', 'SCENERY_TEMPLATES', 'registerKitScenery']) {
+    for (const name of ['Ghost', 'Bee', 'Coin', 'MovingPlatform', 'PREFAB_TEMPLATES', 'registerKitActors', 'AttackSwing', 'HitBurst', 'registerEffects', 'makeRng', 'range', 'tileTexture', 'audioOption', 'Sky', 'Scatter', 'ParticleField', 'AmbientSound', 'SCENERY_TEMPLATES', 'registerKitScenery', 'GravityDial']) {
       expect(index, name).toHaveProperty(name);
     }
   });

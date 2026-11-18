@@ -1,6 +1,7 @@
 import { AmberBall, WoodCrate, Housing, Girder, Peg, Spout } from './machineActors.js';
 import { WorkshopBackdrop } from './workshopBackdrop.js';
 import { GaltonBoard } from './menuBackdrop.js';
+import { GravityDial } from 'm2d-kit/actors';
 
 /**
  * The playground's definition: the cast the workshop places, and nothing
@@ -17,4 +18,6 @@ export function register(game) {
   for (const [name, actor] of Object.entries({
     Ball: AmberBall, Box: WoodCrate, Housing, Girder, Peg, Spout, WorkshopBackdrop
   })) game.registerActor(name, actor);
+  // The world's gravity follows the counter the action rules turn.
+  game.registerActor('GravityDial', GravityDial, { origin: 'kit' });
 }

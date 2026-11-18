@@ -18,7 +18,7 @@ const WORLD = { width: 64 * 64, height: 48 * 64 };
 
 async function keep() {
   const game = new M2D(null, { headless: true, worldWidth: WORLD.width, worldHeight: WORLD.height, seed: 3 });
-  for (const [name, actor] of Object.entries({ ObliquePlayer: Knight, Ghost: Creature, Wall, Torch, Coin: Ember, Trigger: Stair, Quartermaster })) {
+  for (const [name, actor] of Object.entries({ ObliquePlayer: Knight, Ghost: Creature, Wall, Torch, Coin: Ember, Stair, Quartermaster })) {
     game.registerActor(name, actor);
   }
   game.sceneManager.addScene('keep', { fetch: async () => KEEP });

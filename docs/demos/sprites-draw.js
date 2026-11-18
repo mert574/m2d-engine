@@ -30,7 +30,7 @@ const caption = (id, x, row, text) => ({
 });
 
 const scene = {
-  version: 5, type: 'level', name: 'main',
+  version: 6, type: 'level', name: 'main',
   world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, camera: { bounds: 'world' } },
   hud: [
     caption('frame-0', 90, 0, 'frame 0'),

@@ -9,7 +9,7 @@
 | `width` | `1280` | Visible world width, in world units |
 | `height` | `720` | Visible world height, in world units |
 | `worldWidth` | `1920` | World width, used for tile layers. A level's `world.width` replaces it while that level shows |
-| `worldHeight` | `1080` | World height, used for tile layers and the fall-out check. A level's `world.height` replaces it while that level shows |
+| `worldHeight` | `1080` | World height, used for tile layers. A level's `world.height` replaces it while that level shows |
 | `clearColor` | `'#000'` | What the view is cleared to each frame. A scene's `world.clearColor` wins while it shows |
 | `aspectMode` | `'letterbox'` | `'letterbox'` keeps the view's aspect with bars. `'expand'` widens the view to fill the display |
 | `resolution` | `'native'`, or `0.5` when `dimensions` is `3` | World render resolution. `'native'`, a fraction of native such as `0.5`, or an absolute `{ width, height }` (only `height` sets the scale). A 3D frame is many passes over many pixels, so half of native is its default and the settings menu offers more |

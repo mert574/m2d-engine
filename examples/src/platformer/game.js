@@ -19,7 +19,7 @@ export function register(game) {
   game.registerBackdropLayer('duskValley', () => new DuskValley());
   for (const [name, actor] of Object.entries({
     Player: EmberPlayer, Bee: DuskBee, Platform: DuskPlatform,
-    MovingPlatform: DuskMovingPlatform, Coin: GlowCoin, Trigger: ValleyGate, ValleyBackdrop
+    MovingPlatform: DuskMovingPlatform, Coin: GlowCoin, ValleyGate, ValleyBackdrop
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
   registerEffects(game);

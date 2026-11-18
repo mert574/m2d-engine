@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "name": "workshop",
   "type": "level",
   "title": "The workshop",
@@ -19,7 +19,6 @@
       "grain": { "strength": 0.04 }
     },
     "counters": { "gravity": { "initial": 1000, "min": 0, "max": 3000 } },
-    "gravityBind": [{ "counter": "gravity", "axis": "y" }],
     "rules": [
       {
         "id": "heavier",
@@ -74,6 +73,11 @@
       "actor": "Spout",
       "physics": { "bodyType": "static", "isSensor": true },
       "properties": { "stock": [{ "prefab": "ball", "size": 32 }, { "prefab": "box", "size": 64 }] }
+    },
+    "gravityDial": {
+      "actor": "GravityDial",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" },
+      "properties": { "counter": "gravity" }
     }
   },
   "layers": [
@@ -98,7 +102,15 @@
           "height": 8,
           "properties": { "layer": "front" }
         },
-        { "id": "spout", "prefab": "spout", "x": 480, "y": 360, "width": 960, "height": 720 }
+        { "id": "spout", "prefab": "spout", "x": 480, "y": 360, "width": 960, "height": 720 },
+        {
+          "id": "gravity-dial",
+          "prefab": "gravityDial",
+          "x": 480,
+          "y": 16,
+          "width": 8,
+          "height": 8
+        }
       ]
     },
     {

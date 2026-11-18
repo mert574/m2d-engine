@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { Chase } from 'm2d-engine/constraints/chase.js';
 import { GlideControl } from 'm2d-kit/controls';
 import { Sky, Scatter, ParticleField, AmbientSound } from 'm2d-kit/scenery';
+import { GravityDial } from 'm2d-kit/actors';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { AssetDatabase } from 'm2d-engine/core/assets.js';
 import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS, Registry } from 'm2d-engine/core/builtins.js';
@@ -23,20 +24,20 @@ import { CollisionLayers } from 'm2d-engine/core/collisionLayers.js';
 const CONSTRAINT_CLASSES = { Chase, Footsteps, GlideControl };
 
 /**
- * The kit's scenery, as the real classes for the same reason: a field's
- * kind is checked against the level's dimension by the actor itself. Only
- * for the demos that register it (`registerKitScenery`): Salvage Run has a
- * `Sky` of its own.
+ * The kit actors each demo registers, as the real classes for the same
+ * reason: a field's kind is checked against the level's dimension, and a
+ * dial's counter against the level's counters, by the actor itself. Only
+ * where the demo registers them: Salvage Run has a `Sky` of its own.
  */
 const SCENERY = { Sky, Scatter, ParticleField, AmbientSound };
-const KIT_SCENERY = new Set(['platformer', 'yard']);
+export const KIT_CLASSES = { platformer: SCENERY, yard: SCENERY, physics: { GravityDial } };
 
 /** Actors each demo registers with `game.registerActor`. */
 export const DEMO_ACTORS = {
-  platformer: ['Player', 'Bee', 'Platform', 'MovingPlatform', 'Coin', 'Trigger', 'ValleyBackdrop'],
-  topdown: ['TopDownPlayer', 'Ghost', 'Platform', 'Coin', 'Trigger', 'Turret', 'FloorMarks', 'CeilingLamp'],
-  oblique: ['ObliquePlayer', 'Ghost', 'Tree', 'Decor', 'Bound', 'Pond', 'Coin', 'Trigger', 'Npc', 'GroundDetail'],
-  iso: ['ObliquePlayer', 'Ghost', 'Wall', 'Torch', 'Coin', 'Trigger', 'Quartermaster'],
+  platformer: ['Player', 'Bee', 'Platform', 'MovingPlatform', 'Coin', 'ValleyGate', 'ValleyBackdrop'],
+  topdown: ['TopDownPlayer', 'Ghost', 'Platform', 'Coin', 'ExtractionPad', 'Turret', 'FloorMarks', 'CeilingLamp'],
+  oblique: ['ObliquePlayer', 'Ghost', 'Tree', 'Decor', 'Bound', 'Pond', 'Coin', 'Clearing', 'Npc', 'GroundDetail'],
+  iso: ['ObliquePlayer', 'Ghost', 'Wall', 'Torch', 'Coin', 'Stair', 'Quartermaster'],
   belt: ['ObliquePlayer', 'Ghost', 'Lamp', 'Bound', 'Trigger', 'Street', 'Foreground'],
   drift: ['Ship', 'Meteor', 'Drone', 'Salvage', 'Gate', 'Bound', 'Sky'],
   yard: ['Hero', 'Ground', 'Crate'],
@@ -44,7 +45,7 @@ export const DEMO_ACTORS = {
   circuit: ['Road', 'RaceDirector', 'TrafficCar', 'Cone', 'Barrel', 'OilSlick', 'BoostPad', 'GateArm', 'Checkpoint', 'IceStretch', 'Tunnel'],
   maze: ['Gardener', 'Hedge', 'Fountain', 'FlowerBed', 'GardenBackdrop'],
   scroller: ['Meadow', 'ForeMeadow', 'ScrollFront', 'Bee', 'Flower', 'Pollen', 'Thistle', 'Wasp', 'Web', 'Hive'],
-  'first-game': ['Hero', 'Platform']
+  'first-game': ['Hero']
 };
 
 /** Constraints each demo registers, and so may attach from its scenes. */
@@ -85,7 +86,7 @@ export function gameFor(example) {
   const layers = existsSync(projectFile) ? JSON.parse(readFileSync(projectFile, 'utf8')).layers ?? [] : [];
   return makeGame({
     actors: DEMO_ACTORS[example],
-    classes: KIT_SCENERY.has(example) ? SCENERY : {},
+    classes: KIT_CLASSES[example] ?? {},
     constraints: DEMO_CONSTRAINTS[example],
     manifest: manifestFor(example),
     scenes: sceneNamesOf(example),

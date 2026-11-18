@@ -178,7 +178,7 @@ function directional(columns) {
 }
 
 const scene = {
-  version: 5, name: 'keep', type: 'level', gameType: 'isometric',
+  version: 6, name: 'keep', type: 'level', gameType: 'isometric',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth', projection: 'isometric', player: 'player-1' },
   assets: {
     spritesheets: {
@@ -208,7 +208,7 @@ const scene = {
     ember: { actor: 'Coin', physics: { bodyType: 'static', isSensor: true, shape: 'circle' } },
     skeleton: { actor: 'Ghost', spritesheet: 'skeleton', defaultAnimation: 'idle_down', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, friction: 0.1, frictionAir: 0.25 } },
     goblin: { actor: 'Ghost', spritesheet: 'goblin', defaultAnimation: 'idle_down', physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true, friction: 0.1, frictionAir: 0.25 } },
-    stair: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } },
+    stair: { actor: 'Stair', physics: { bodyType: 'static', isSensor: true } },
     quartermaster: { actor: 'Quartermaster', physics: { bodyType: 'static', isSensor: true } }
   },
   layers: [{ name: 'keep', type: 'objects', objects }]

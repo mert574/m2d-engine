@@ -62,7 +62,7 @@ export function prefabStage(data: Record<string, unknown>, prefab: string): Reco
   if (!isPlainObject(prefabs[prefab])) throw new Error(`there is no prefab '${prefab}'`);
   const three = dimensionsOf(data) === 3;
   const world = isPlainObject(data.world) ? clone(data.world) : {};
-  for (const key of ['player', 'rules', 'killPlane']) delete world[key];
+  for (const key of ['player', 'rules']) delete world[key];
   const camera = isPlainObject(world.camera) ? world.camera : {};
   delete camera.bounds;
   world.camera = { ...camera, follow: STAGE_ID };

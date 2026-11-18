@@ -31,7 +31,7 @@ import { choiceValue } from './projectSchema.js';
  * the version it was written for, and anything else is refused rather than
  * half-understood.
  */
-export const SCENE_VERSION = 5;
+export const SCENE_VERSION = 6;
 
 /**
  * What an `id` may look like: letters, digits, `-`, `_` and `.`, starting
@@ -320,7 +320,7 @@ const POST = s.object({
 }, { label: 'Post effects' });
 
 /** The events a rule may watch for. */
-export const RULE_EVENTS = ['start', 'collected', 'enter', 'death', 'fall', 'count', 'action', 'emit', 'notify'];
+export const RULE_EVENTS = ['start', 'collected', 'enter', 'death', 'count', 'action', 'emit', 'notify'];
 
 /** The actions a rule may take. */
 export const RULE_ACTIONS = ['notice', 'objective', 'say', 'sound', 'unseal', 'remove', 'set', 'count', 'switch', 'gameOver', 'cycle', 'camera'];
@@ -341,7 +341,6 @@ const RULE_WHEN = s.tagged('event', {
     object: s.string({ initial: 'player', description: 'The object that died, or "player"' }),
     objects: s.array(s.string(), { description: 'Fires once every one of these objects is gone: a wave cleared. Wins over object' })
   }),
-  fall: s.object({ event: s.string({ required: true }) }),
   count: s.object({
     event: s.string({ required: true }),
     counter: s.string({ required: true, description: 'A key in world.counters' }),
@@ -452,17 +451,6 @@ const POST_BINDING = s.object({
   full: s.number({ initial: 0, description: 'The field\'s value when the reading is 1' })
 }, { label: 'Post binding' });
 
-/**
- * The world's gravity along one axis, following a counter: a rule turns
- * the counter and the fall changes with it. The HUD shows the same
- * counter as a `{name}` text, so what a player is turning is readable
- * without a second number to keep in step.
- */
-const GRAVITY_BINDING = s.object({
-  counter: s.string({ required: true, description: 'A key in world.counters' }),
-  axis: s.enumOf(['x', 'y', 'z'], { initial: 'y' })
-}, { label: 'Gravity binding' });
-
 const WORLD = s.object({
   dimensions: s.enumOf(DIMENSIONS, {
     label: 'Dimensions',
@@ -490,8 +478,6 @@ const WORLD = s.object({
   clearColor: colour({ label: 'Clear colour', description: 'What the view shows where nothing is drawn' }),
   counters: s.record(COUNTER, { label: 'Counters', description: 'Numbers the rules and the HUD read by name' }),
   postBind: s.array(POST_BINDING, { label: 'Post bindings', description: 'Post effect fields that follow a value in play' }),
-  gravityBind: s.array(GRAVITY_BINDING, { label: 'Gravity bindings', description: 'Axes of gravity that follow a counter: a rule that turns the counter changes the fall' }),
-  killPlane: s.number({ label: 'Kill plane', unit: 'px', description: '2D: the player falling below this y fires the fall rules (game over without one); the world\'s height plus 50 by default' }),
   rules: s.array(RULE, { label: 'Rules', description: 'What happens when: see the guide' })
 });
 
@@ -1397,11 +1383,6 @@ export const LEVEL_SCHEMA = s.object({
           fail(`world.rules[${i}].then[${j}].do`, `a notify rule runs where the player's screen is and may only ${list(PRESENTATION_ACTIONS)}; '${action.do}' changes the world`);
         }
       });
-    });
-    (level.world?.gravityBind ?? []).forEach((binding, i) => {
-      if (typeof binding?.counter === 'string' && !counters.has(binding.counter)) {
-        fail(`world.gravityBind[${i}].counter`, counterMissing(binding.counter));
-      }
     });
     for (const [name, counter] of Object.entries(level.world?.counters ?? {})) {
       if (counter?.count !== undefined && counter.prefab === undefined) {

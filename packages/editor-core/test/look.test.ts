@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { applyOps, look, structure } from '../src/index.ts';
 
 const level = (world: Record<string, unknown> = {}): Record<string, unknown> => ({
-  version: 5, type: 'level', name: 'yard', world, layers: []
+  version: 6, type: 'level', name: 'yard', world, layers: []
 });
 
 const cycled = () => level({
@@ -40,7 +40,7 @@ describe('cycle states', () => {
       states: [{ name: 'day', lighting: { ambient: '#336699' } }, { name: 'night', lighting: { ambient: '#336699' } }], phase: 0
     });
     expect(() => look.startCycle(data)).toThrow(/already has a cycle/);
-    const bare: Record<string, unknown> = { version: 5, type: 'level', layers: [] };
+    const bare: Record<string, unknown> = { version: 6, type: 'level', layers: [] };
     applyOps(bare, look.startCycle(bare));
     expect(structure.valueAt(bare, ['world', 'cycle', 'states'])).toHaveLength(2);
   });

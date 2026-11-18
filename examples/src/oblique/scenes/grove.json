@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "name": "grove",
   "type": "level",
   "gameType": "oblique",
@@ -359,7 +359,7 @@
       "actor": "Coin",
       "physics": { "bodyType": "static", "isSensor": true, "footprint": { "height": 16 } }
     },
-    "clearing": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
+    "clearing": { "actor": "Clearing", "physics": { "bodyType": "static", "isSensor": true } },
     "maren": {
       "actor": "Npc",
       "spritesheet": "maren",

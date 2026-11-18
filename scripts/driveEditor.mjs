@@ -543,9 +543,14 @@ const SUITES = {
         await page.evaluate((n) => window.m2dEditor.remote.doc.data.prefabs[n]?.actor === 'ParticleField', name), inserted);
       await page.click('.tab[data-tab="assets"]');
       const before = await canvas();
-      await page.locator('.asset-card', { hasText: name }).first().dblclick();
-      await page.waitForTimeout(1200);
-      const placed = await page.evaluate((n) => window.m2dEditor.remote.doc.data.layers.flatMap((layer) => layer.objects).filter((o) => o.prefab === n).length, name);
+      // The panel lists the new prefab once it has redrawn; under load that is not at once.
+      const prefabCard = page.locator('.asset-card', { hasText: name }).first();
+      await prefabCard.waitFor({ timeout: 15000 });
+      await prefabCard.dblclick();
+      const countPlaced = () => page.evaluate((n) => window.m2dEditor.remote.doc.data.layers.flatMap((layer) => layer.objects).filter((o) => o.prefab === n).length, name);
+      for (let wait = 0; wait < 30 && await countPlaced() === 0; wait++) await page.waitForTimeout(200);
+      await page.waitForTimeout(800);
+      const placed = await countPlaced();
       report.check('a double-click places one at the centre of the view', placed === 1, `${placed} placed`);
       report.check('and its smoke draws there', !before.equals(await canvas()));
       await shoot(page, out, 'look-smoke', report);

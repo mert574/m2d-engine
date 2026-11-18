@@ -663,7 +663,7 @@ function groupsFor(kind: string, dimensions: 2 | 3): InspectorGroup[] | undefine
       { id: 'world', label: 'World', keys: ['dimensions', 'width', 'height', 'gravity', 'sort', 'projection', 'environment', 'player'], rest: true },
       { id: 'camera', label: 'Camera', keys: ['camera'] },
       { id: 'look', label: 'Look', keys: ['lighting', 'post', 'cycle'] },
-      { id: 'rules', label: 'Rules', keys: ['rules', 'killPlane'] },
+      { id: 'rules', label: 'Rules', keys: ['rules'] },
       { id: 'sound', label: 'Sound', keys: ['music'] }
     ];
   }

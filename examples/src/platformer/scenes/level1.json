@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "name": "level1",
   "type": "level",
   "gameType": "sideScroll",
@@ -50,6 +50,11 @@
       {
         "when": { "event": "action", "action": "menu" },
         "then": [{ "do": "switch", "scene": "mainMenu" }]
+      },
+      {
+        "id": "fell",
+        "when": { "event": "enter", "object": "pit" },
+        "then": [{ "do": "gameOver" }]
       }
     ]
   },
@@ -96,7 +101,7 @@
       "actor": "Bee",
       "physics": { "bodyType": "dynamic", "lockRotation": true, "friction": 0.1, "frictionAir": 0.01 }
     },
-    "trigger": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
+    "trigger": { "actor": "ValleyGate", "physics": { "bodyType": "static", "isSensor": true } },
     "backdrop": { "actor": "ValleyBackdrop", "physics": { "bodyType": "static", "isSensor": true } },
     "fireflies": {
       "actor": "ParticleField",
@@ -128,7 +133,8 @@
         "follow": false,
         "seed": 5
       }
-    }
+    },
+    "pit": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } }
   },
   "layers": [
     {
@@ -162,7 +168,8 @@
         { "id": "platform-7", "prefab": "platform", "x": 690, "y": 380, "width": 160 },
         { "id": "platform-8", "prefab": "platform", "x": 1010, "y": 300, "width": 224 },
         { "id": "platform-9", "prefab": "platform", "x": 16, "y": 720, "height": 1440 },
-        { "id": "platform-10", "prefab": "platform", "x": 1904, "y": 720, "height": 1440 }
+        { "id": "platform-10", "prefab": "platform", "x": 1904, "y": 720, "height": 1440 },
+        { "id": "pit", "prefab": "pit", "x": 960, "y": 1690, "width": 5920, "height": 400 }
       ]
     },
     {

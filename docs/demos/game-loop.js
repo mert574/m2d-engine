@@ -77,7 +77,7 @@ class LoopReadout extends UIText {
 const BUTTON = { width: 100, height: 36, variant: 'secondary', fontSize: '15px' };
 
 const scene = {
-  version: 5, type: 'level', name: 'main',
+  version: 6, type: 'level', name: 'main',
   world: { width: 640, height: 360, gravity: { x: 0, y: 900 }, camera: { bounds: 'world' } },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.3 } },

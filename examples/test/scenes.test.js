@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { SceneLoader, SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
 import { basename } from 'node:path';
-import { gameFor, sceneFiles, projectGames } from './helpers.js';
+import { gameFor, sceneFiles, projectGames, DEMO_ACTORS, KIT_CLASSES, bootHeadless } from './helpers.js';
 
 /**
  * Every scene the repo ships must satisfy the engine's scene schema, so
@@ -49,5 +49,16 @@ describe('each declared game loads its scenes with its own classes', async () =>
     const data = JSON.parse(readFileSync(path, 'utf8'));
     const displayed = Object.assign(Object.create(game), { headless: false });
     expect(() => new SceneLoader(displayed).load(data)).not.toThrow();
+  });
+});
+
+describe('the stub registries the sweep checks scenes against', () => {
+  // A name listed here and never registered by the game hides a scene that
+  // cannot load: the walkthrough named the kit's Platform for a phase.
+  it.each(Object.keys(DEMO_ACTORS))('%s lists what its definition registers', async (example) => {
+    const { game } = await bootHeadless(example === 'first-game' ? '../../docs/demos/first-game' : example);
+    const registered = [...game.actors.own.keys()].sort();
+    game.destroy();
+    expect([...DEMO_ACTORS[example], ...Object.keys(KIT_CLASSES[example] ?? {})].sort()).toEqual(registered);
   });
 });

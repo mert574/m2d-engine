@@ -1,12 +1,12 @@
 # Scene format
 
-A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `5`; see [Versions](#versions).
+A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `6`; see [Versions](#versions).
 
 ## Top level
 
 | Key | Scene types | Required | Meaning |
 | --- | --- | --- | --- |
-| `version` | both | yes | The format version the scene is written for. The current one is `5` |
+| `version` | both | yes | The format version the scene is written for. The current one is `6` |
 | `type` | both | yes | `"level"` or `"ui"` |
 | `name` | both | no | Free text. Error messages use the registered name |
 | `title` | both | no | Free text, unused by the engine |
@@ -27,7 +27,7 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | Key | Meaning |
 | --- | --- |
 | `dimensions` | `2` (default) or `3`. How many axes the simulation has. A 3D level needs a game built for it: `initPhysics({ dimensions: 3 })` and `new M2D(canvas, { dimensions: 3 })`. A 3D level is in metres with up along `+y`, so positions and sizes are metre-scale and the default object size of 32 is far too big; give every 3D object a `width` and `height`. See [Three dimensions](./physics#three-dimensions) |
-| `width`, `height` | Size of the playable area in world units. A level that sets them is the game's world size while it shows: tile layers, the kill plane and `"world"` camera bounds read it. A level that leaves them out uses the size the game was made with |
+| `width`, `height` | Size of the playable area in world units. A level that sets them is the game's world size while it shows: tile layers and `"world"` camera bounds read it. A level that leaves them out uses the size the game was made with |
 | `gravity` | `{ "x", "y" }` in px/s² with down along `+y`; in a 3D level `{ "x", "y", "z" }` in m/s² with down along `-y`, so Earth is `{ "x": 0, "y": -9.81, "z": 0 }`. Applied to the physics world when the scene loads |
 | `projection` | How the ground plane is seen: `"isometric"` or `"belt"`, or `{ "type", "ratio" }`. Isometric draws a ground square as a `2:ratio·2` diamond; belt keeps x and compresses y by `ratio`. Positions are drawn through it; physics stays flat. See [Perspectives](../guide/perspectives#isometric-a-projection-on-positions) |
 | `environment` | A 3D level only: a key in `assets.environments`. That HDR panorama lights the level and is its sky, in play and in the editor. A scene's `onRender` hook may still set `frame.environment` itself, and that wins |
@@ -41,9 +41,9 @@ A scene is a JSON object. The loader rejects any key that is not listed here and
 | `clearColor` | What the view is cleared to under everything while the scene shows. The game's `clearColor` option otherwise (`#000`) |
 | `counters` | Numbers the rules and the HUD read by name. A plain counter is `{ initial, min, max }` (initial 0): it changes through a rule's `count` action and is held between `min` and `max` where it gives them, so a score cannot go negative and a dial a key turns stops at the end of its travel without every rule that moves it saying so (a tally, which nothing sets, refuses them). A tally is `{ prefab, count }`: how many of the prefab's objects the scene `placed`, how many are `remaining`, or how many are gone (`taken`, the default), read off the world each time. Snapshots carry plain counters. Online, a client's tallies follow the world it is sent, while its plain counters stay at `initial` (they are counted on the server) |
 | `postBind` | Post fields that follow a value in play: each `{ effect, field, bind, empty, full }` sets `post[effect][field]` (field `strength` by default) between `empty` (at a reading of 0) and `full` (at 1). `bind` is a meter's (see [`hud`](#hud)): the player's health by default. The damage tear as health falls |
-| `gravityBind` | Axes of gravity that follow a counter: each `{ counter, axis }` (axis `y` by default) sets that component of `world.gravity` from `world.counters[counter]` every tick, after the rules have run. A counter it names must be declared, as a rule's must. A rule turns the counter and the fall changes with it, and the HUD shows the same counter as a `{name}` text. Axes nobody binds are left where the world put them |
-| `killPlane` | 2D: the `y` below which the player is lost; the world's height plus 50 by default. Crossing it fires the `fall` rules, or ends the game when there are none |
 | `rules` | What happens when, run by the engine each tick (headless too; not in the editor). See [Rules](#rules) |
+
+Nothing happens to a level it does not say. Falling out of one is game over only because the level places a pit under itself — a `Trigger` (a static sensor) below the world — and a rule `{ "when": { "event": "enter", "object": "pit" }, "then": [{ "do": "gameOver" }] }`; the same works in 3D. Gravity that follows a counter is the kit's `GravityDial` object (see [the kit](./kit#m2d-kit-actors)). Format 6 removed `killPlane`, the `fall` event and `gravityBind`.
 
 A sky, stars and clouds, particle fields and looping ambient sound are not `world` keys: each is a scenery actor placed in `layers` like any object, so the editor shows it and an agent places it with `edit_scene`. The kit ships them (`Sky`, `Scatter`, `ParticleField`, `AmbientSound`; see [the kit](./kit#m2d-kit-scenery)); a game's own painting is an actor of its own. Format 5 moved them there; a format-4 file that used `world.sky`, `scatter`, `particles` or `ambience` is refused, as any other version is.
 
@@ -83,7 +83,6 @@ Rules chain through an optional `id`: `after: [ids]` keeps a rule from firing un
 | `collected` | No object of `prefab` is left (and the scene placed some) |
 | `enter` | The player touches `object` (an id): a sensor or a body |
 | `death` | `object` (an id, or `"player"`, the default) is dead or gone; with `objects` (a list of placed ids), once every one is: a wave cleared |
-| `fall` | The player crossed `world.killPlane` this tick |
 | `count` | `counter` (a key in `world.counters`) is at least `atLeast`, or at most `atMost` |
 | `action` | A key of the named input `action` went down this tick, for the local player: a single-player rule (online, a player's request is an intent). The project declares actions in `m2d.project.json`; see [Input actions](../guide/input#named-actions) |
 | `emit` | Game code raised the world event `name` (`game.events.emit(name)`) since the last tick |
@@ -578,7 +577,7 @@ M2D scene 'yard': the scene is 3D but the game runs 2D physics — construct M2D
 A scene declares the format version it was written for, and the loader accepts exactly the one this engine reads. Anything else is refused rather than half-understood:
 
 ```
-Scene 'level1' at version: scene format 6 is newer than this engine understands (5); upgrade m2d-engine
+Scene 'level1' at version: scene format 7 is newer than this engine understands (6); upgrade m2d-engine
 ```
 
 There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and rewriting the scenes, which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.

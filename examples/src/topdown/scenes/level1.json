@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "name": "level1",
   "type": "level",
   "gameType": "topDown",
@@ -118,7 +118,7 @@
         "frictionAir": 0.2
       }
     },
-    "trigger": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
+    "trigger": { "actor": "ExtractionPad", "physics": { "bodyType": "static", "isSensor": true } },
     "turret": { "actor": "Turret", "physics": { "bodyType": "static", "layer": "enemy" } },
     "floorMarks": { "actor": "FloorMarks", "physics": { "bodyType": "static", "isSensor": true } },
     "lamp": {

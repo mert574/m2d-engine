@@ -46,8 +46,6 @@ export class SceneRules {
     /** The rules with an id, for after and before. */
     this.byId = new Map(this.rules.filter((rule) => rule.id).map((rule) => [rule.id, rule]));
     this.started = false;
-    /** Set by the kill plane check, read once. */
-    this.fell = false;
     /** World events already looked at, as `game.events.raised` counts them. */
     this.seenEvents = this.game.events?.raised ?? 0;
     /** The names `emit` rules hear this tick. @type {Set<string>} */
@@ -91,8 +89,6 @@ export class SceneRules {
       case 'death':
         if (when.objects) return when.objects.every((id) => this.#gone(this.#entity(id)));
         return this.#gone(this.#entity(when.object));
-      case 'fall':
-        return this.fell;
       case 'count': {
         const value = this.scene.counters?.get(when.counter) ?? 0;
         if (typeof when.atLeast === 'number' && value < when.atLeast) return false;
@@ -125,7 +121,6 @@ export class SceneRules {
       this.#fire(rule);
     }
     this.started = true;
-    this.fell = false;
   }
 
   /** The world events raised since the last tick looked. */

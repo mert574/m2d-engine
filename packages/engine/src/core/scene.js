@@ -194,9 +194,6 @@ export class Scene {
         load: (values) => { this.counters.values = new Map(values); }
       });
     }
-    // Before the first tick, so the level opens at the gravity its
-    // counter says rather than at `world.gravity` for one step.
-    this.#applyGravityBindings();
     // On a client the server runs the rules; only the notify rules, which
     // answer what the server tells this player, run here.
     if (!this.game.editMode && world.rules?.length) this.rules = new SceneRules(this, world.rules, { simulate: !this.#serverRuns });
@@ -1377,27 +1374,10 @@ export class Scene {
    */
   fixedUpdate(dt) {
     if (this.config.type === 'level') {
-      // The kill plane: the world's own, or its height plus a margin. Below
-      // it the player is gone — game over, unless the level's rules say
-      // what a fall does.
-      const killPlane = this.config.world?.killPlane ?? (this.game.physics.dimensions === 3 ? -Infinity : this.game.options.worldHeight + 50);
-      const player = this.game.player;
-      if (player && !player.dead && (this.game.physics.dimensions === 3 ? player.body.position.y < killPlane : player.body.position.y > killPlane)) {
-        const handled = this.rules?.rules.some((rule) => rule.when?.event === 'fall');
-        if (handled) this.rules.fell = true;
-        else {
-          this.game.gameOver();
-          return;
-        }
-      }
-
       // A copy: a tick may remove entities (a death, a projectile hit) or
       // add them (a spawner), and the set must not change under the loop.
       for (const entity of [...this.game.entities]) entity.fixedUpdate(dt);
       this.rules?.fixedUpdate(dt);
-      // After the rules, so a counter a rule just turned is the gravity
-      // this tick's physics step runs with.
-      this.#applyGravityBindings();
     }
 
     // Scene-level simulation that is not an entity: a director spawning
@@ -1405,28 +1385,6 @@ export class Scene {
     if (this.config.onFixedUpdate) {
       this.config.onFixedUpdate(dt);
     }
-  }
-
-  /**
-   * `world.gravityBind`: each bound axis of gravity set from its counter,
-   * leaving the others where the world put them. Simulation, so it runs
-   * headless and on a server too; the physics world is only told when a
-   * number actually changed.
-   */
-  #applyGravityBindings() {
-    const bindings = this.config.world?.gravityBind;
-    if (!bindings?.length || !this.counters) return;
-    const gravity = this.game.physics.gravity;
-    const wanted = { x: gravity.x, y: gravity.y, ...(gravity.z !== undefined && { z: gravity.z }) };
-    let changed = false;
-    for (const { counter, axis = 'y' } of bindings) {
-      if (!this.counters.has(counter)) continue;
-      const value = this.counters.get(counter);
-      if (wanted[axis] === value) continue;
-      wanted[axis] = value;
-      changed = true;
-    }
-    if (changed) this.game.physics.setGravity(wanted);
   }
 
   /**

@@ -191,39 +191,6 @@ describe('counters', () => {
   });
 });
 
-describe('gravity bound to a counter', () => {
-  it('opens at the counter and follows what a rule does to it', async () => {
-    const { game, scene } = await make(level({
-      gravity: { x: 0, y: 1000 },
-      counters: { pull: { initial: 400, min: 0, max: 900 } },
-      gravityBind: [{ counter: 'pull', axis: 'y' }],
-      rules: [{ when: { event: 'action', action: 'heavier' }, once: false, then: [{ do: 'count', counter: 'pull', add: 300 }] }]
-    }), { actions: { heavier: ['KeyH'] } });
-
-    // The level opens at what the counter says, not at world.gravity.
-    expect(game.physics.gravity.y).toBe(400);
-
-    let pressed = [];
-    game.input.setSnapshotSource(() => InputSnapshot.from({ pressed }));
-    pressed = ['KeyH'];
-    game.step(1);
-    expect(game.physics.gravity.y).toBe(700);
-    // And it stops at the counter's own ceiling rather than running on.
-    game.step(1);
-    game.step(1);
-    expect(game.physics.gravity.y).toBe(900);
-    // The axis nobody bound is left where the world put it.
-    expect(game.physics.gravity.x).toBe(0);
-    game.destroy();
-  });
-
-  it('refuses a binding that names an undeclared counter, as a rule is', () => {
-    const loader = new SceneLoader(null);
-    expect(() => loader.load(level({ gravity: { x: 0, y: 1000 }, gravityBind: [{ counter: 'pull' }] }), 'count'))
-      .toThrow(/gravityBind\[0\].counter: no counter named 'pull'/);
-  });
-});
-
 describe('rule events', () => {
   it('fire on a named input action pressed at the tick', async () => {
     const { game, scene } = await make(level({ rules: [

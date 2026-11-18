@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "name": "level",
   "type": "level",
   "world": {
@@ -11,6 +11,11 @@
       {
         "when": { "event": "action", "action": "menu" },
         "then": [{ "do": "switch", "scene": "menu" }]
+      },
+      {
+        "id": "fell",
+        "when": { "event": "enter", "object": "pit" },
+        "then": [{ "do": "gameOver" }]
       }
     ]
   },
@@ -19,7 +24,8 @@
     "sky": { "actor": "Prop", "physics": { "bodyType": "static", "isSensor": true } },
     "ground": { "actor": "Prop", "physics": { "bodyType": "static", "friction": 0.8 } },
     "platform": { "actor": "Prop", "physics": { "bodyType": "static", "friction": 0.8 } },
-    "goal": { "actor": "Prop", "physics": { "bodyType": "static", "isSensor": true } }
+    "goal": { "actor": "Prop", "physics": { "bodyType": "static", "isSensor": true } },
+    "pit": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } }
   },
   "layers": [
     {
@@ -80,7 +86,8 @@
           "height": 100,
           "properties": { "color": "#ffd23f", "radius": 8 }
         },
-        { "id": "player", "prefab": "player", "x": 120, "y": 780, "width": 28, "height": 40 }
+        { "id": "player", "prefab": "player", "x": 120, "y": 780, "width": 28, "height": 40 },
+        { "id": "pit", "prefab": "pit", "x": 800, "y": 1150, "width": 5600, "height": 400 }
       ]
     }
   ],

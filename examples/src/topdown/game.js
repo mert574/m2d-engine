@@ -16,7 +16,7 @@ export function register(game) {
   game.registerBackdropLayer('motionTracker', () => new MotionTracker());
   for (const [name, actor] of Object.entries({
     TopDownPlayer: ScannerAgent, Ghost: SpecterGhost, Platform: FacilityWall,
-    Coin: DataCore, Trigger: ExtractionPad, Turret: SentryTurret, FloorMarks, CeilingLamp
+    Coin: DataCore, ExtractionPad, Turret: SentryTurret, FloorMarks, CeilingLamp
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
   registerEffects(game);

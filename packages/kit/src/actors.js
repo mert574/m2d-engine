@@ -17,6 +17,7 @@ export { Platform } from './actors/platform.js';
 export { Turret } from './actors/turret.js';
 export { Rocket } from './actors/rocket.js';
 export { Npc } from './actors/npc.js';
+export { GravityDial } from './actors/gravityDial.js';
 
 import { Ghost, Bee } from './actors/ghost.js';
 import { Coin } from './actors/coin.js';
@@ -28,6 +29,7 @@ import { Platform } from './actors/platform.js';
 import { Turret } from './actors/turret.js';
 import { Rocket } from './actors/rocket.js';
 import { Npc } from './actors/npc.js';
+import { GravityDial } from './actors/gravityDial.js';
 
 /**
  * Prefab templates: ready-made `prefabs` entries the editor's component
@@ -74,7 +76,7 @@ export const PREFAB_TEMPLATES = {
  */
 export function registerKitActors(game) {
   const kit = { origin: 'kit' };
-  for (const [name, klass] of Object.entries({ Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc })) {
+  for (const [name, klass] of Object.entries({ Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc, GravityDial })) {
     game.registerActor(name, klass, kit);
   }
   for (const [name, template] of Object.entries(PREFAB_TEMPLATES)) {

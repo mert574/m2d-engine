@@ -16,7 +16,7 @@ export function register(game) {
   game.registerBackdropLayer('treeLine', () => new TreeLine());
   for (const [name, actor] of Object.entries({
     ObliquePlayer: Wanderer, Ghost: Wisp, Tree, Decor, Bound, Pond,
-    Coin: Lantern, Trigger: Clearing, Npc, GroundDetail
+    Coin: Lantern, Clearing, Npc, GroundDetail
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
   registerEffects(game);

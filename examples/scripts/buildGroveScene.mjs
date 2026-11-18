@@ -89,7 +89,7 @@ const prefabs = {
   player: { actor: 'ObliquePlayer', spritesheet: 'wanderer', defaultAnimation: 'idle_down', physics: { bodyType: 'character', frictionAir: 0.2, footprint: { height: 18, width: 30 } } },
   wisp: { actor: 'Ghost', physics: { bodyType: 'dynamic', lockRotation: true, friction: 0.1, frictionAir: 0.2 } },
   lantern: { actor: 'Coin', physics: { bodyType: 'static', isSensor: true, footprint: { height: 16 } } },
-  clearing: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } },
+  clearing: { actor: 'Clearing', physics: { bodyType: 'static', isSensor: true } },
   maren: { actor: 'Npc', spritesheet: 'maren', defaultAnimation: 'idle_down', physics: { bodyType: 'static', footprint: { height: 16, width: 28 } } },
   oswin: { actor: 'Npc', spritesheet: 'oswin', defaultAnimation: 'idle_down', physics: { bodyType: 'static', footprint: { height: 16, width: 28 } } },
   pond: { actor: 'Pond', physics: { bodyType: 'static', shape: 'circle' } },
@@ -261,7 +261,7 @@ for (const [x, y] of [[1500, 700], [2200, 1600], [700, 800], [2700, 1250], [1300
 add('player', SPAWN.x, SPAWN.y - CHARACTER_FRAME / 2, CHARACTER_FRAME, CHARACTER_FRAME, { spriteOffsetY: Math.round(CHARACTER_FRAME * CHARACTER_FEET) });
 
 const scene = {
-  version: 5, name: 'grove', type: 'level', gameType: 'oblique',
+  version: 6, name: 'grove', type: 'level', gameType: 'oblique',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth', player: 'player-1' },
   assets: { spritesheets },
   tileLayers: [{ name: 'ground', spritesheet: 'grass', zIndex: -1 }],

@@ -37,7 +37,7 @@ const pad = (id, dx, dy, code, label) => ({
 });
 
 const scene = {
-  version: 5, type: 'level', name: 'main',
+  version: 6, type: 'level', name: 'main',
   // The camera follows the player and, bounded by a one-screen world, stays centred on it.
   world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, player: 'ball', camera: { bounds: 'world' } },
   prefabs: {

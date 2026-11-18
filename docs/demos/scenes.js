@@ -43,7 +43,7 @@ class Goal extends Entity {
 
 // A UI scene: screen-space elements, positioned against anchors.
 const menu = {
-  version: 5, type: 'ui', name: 'mainMenu',
+  version: 6, type: 'ui', name: 'mainMenu',
   elements: [
     { type: 'rect', id: 'background', fill: true, color: '#1b2a38' },
     { type: 'text', id: 'title', anchor: 'center', x: 0, y: -90,
@@ -64,7 +64,7 @@ const menu = {
 // into the goal. What happens then is a rule, and the way back is a
 // button in the HUD: the level needs no hooks at all.
 const level = {
-  version: 5, type: 'level', name: 'level',
+  version: 6, type: 'level', name: 'level',
   world: {
     width: 640, height: 360, gravity: { x: 0, y: 900 }, player: 'ball', camera: { bounds: 'world' },
     rules: [

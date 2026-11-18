@@ -126,7 +126,7 @@ function circuitScene(map) {
 
   const bounds = track.bounds;   // left and top are 0 now, give or take a rounding
   return {
-    version: 5,
+    version: 6,
     name: map.name,
     type: 'level',
     gameType: 'topDown',

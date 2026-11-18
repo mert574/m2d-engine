@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "name": "keep",
   "type": "level",
   "gameType": "isometric",
@@ -316,7 +316,7 @@
         "frictionAir": 0.25
       }
     },
-    "stair": { "actor": "Trigger", "physics": { "bodyType": "static", "isSensor": true } },
+    "stair": { "actor": "Stair", "physics": { "bodyType": "static", "isSensor": true } },
     "quartermaster": { "actor": "Quartermaster", "physics": { "bodyType": "static", "isSensor": true } }
   },
   "layers": [

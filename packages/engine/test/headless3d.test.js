@@ -197,6 +197,30 @@ describe('a 3D level, headless', () => {
     expect(await print()).toBe(await print());
   });
 
+  it('loses its player the way a 2D level does: a pit, and a rule that ends the game', async () => {
+    const { Trigger } = await import('../src/actors/trigger.js');
+    const game = makeGame();
+    game.registerActor('Trigger', Trigger);
+    game.sceneManager.addScene('yard', { fetch: async () => ({
+      ...LEVEL,
+      world: { ...LEVEL.world, player: 'hero-1', rules: [{ id: 'fell', when: { event: 'enter', object: 'pit' }, then: [{ do: 'gameOver' }] }] },
+      prefabs: { ...LEVEL.prefabs, pit: { actor: 'Trigger', physics: { bodyType: 'static', isSensor: true } } },
+      layers: [{ name: 'main', objects: [
+        ...LEVEL.layers[0].objects,
+        { id: 'pit', prefab: 'pit', x: 0, y: -30, z: 0, width: 400, height: 20, depth: 400 }
+      ] }]
+    }) });
+    await game.sceneManager.switchTo('yard');
+    game.setupCollisionHandlers();
+    const hero = game.sceneManager.getCurrentScene().entitiesById.get('hero-1');
+    // Walked off the slab: it falls past the floor's edge into the pit.
+    hero.body.setPosition({ x: 20, y: 1, z: 0 });
+    for (let i = 0; i < 300 && !game.isGameOver; i++) game.step(1);
+    expect(hero.body.position.y).toBeLessThan(-15);
+    expect(game.isGameOver).toBe(true);
+    game.destroy();
+  });
+
   it('spawns into the world at runtime, with a third axis', async () => {
     const { game } = await loadYard();
     const extra = game.spawn({

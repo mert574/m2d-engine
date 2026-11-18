@@ -19,10 +19,11 @@ The stock gameplay cast, each a composition of the engine's capabilities, and wh
 
 | Export | Is |
 | --- | --- |
-| `Ghost` | A floating enemy that drifts toward the player: `Health` (100, half a second invulnerable, `whenDead: 'remove'`), `ContactDamage` (33, 480 px/s knockback), `Chase` (60 px/s, 36 idle, 400 range), `DamageFlash`. A scene retunes any of them by slot. Expects a `dynamic` body; sets the `enemy` category; plays the `damage` sound on a hit, wherever it was simulated |
+| `Ghost` | A floating enemy that drifts toward the player: `Health` (100, half a second invulnerable, `whenDead: 'remove'`), `ContactDamage` (33, 480 px/s knockback), `Chase` (60 px/s, 36 idle, 400 range), `DamageFlash`. A scene retunes any of them by slot. Expects a `dynamic` body, on whatever collision layer its prefab names; plays the `damage` sound on a hit, wherever it was simulated |
 | `Bee` | A `Ghost` that knocks harder: 720 px/s |
 | `Coin` | A pickup: `Hover` bobs it, the engine's [`Collectable`](./constraints#collectable) takes it on an avatar's touch. Expects a `static` sensor |
 | `MovingPlatform` | A kinematic platform patrolling `properties.path` with [`PathFollow`](./constraints#pathfollow); friction 1, so riders are carried |
+| `GravityDial` | One axis of the world's gravity following a counter: `properties.counter` (a plain counter in `world.counters`, checked at load) and `axis` (`y`). A rule that turns the counter changes the fall from the next tick, headless and on a server too. Collides with nothing and draws nothing; 2D and 3D |
 
 The players, the platform, the turret and the NPC came out of the engine with the rest of the cast; each expects certain prefab physics and reads certain `properties`, as below. Register what a game uses, or everything with `registerKitActors`.
 

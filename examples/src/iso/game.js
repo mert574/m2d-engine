@@ -45,7 +45,7 @@ const SPREAD = [[0, 0], [64, 0], [-64, 0], [0, 64], [64, 64], [-64, 64], [128, 0
 export function registerKeep(game) {
   game.registerBackdropLayer('vaultPlan', () => new VaultPlan());
   for (const [name, actor] of Object.entries({
-    ObliquePlayer: Knight, Ghost: Creature, Wall, Torch, Coin: Ember, Trigger: Stair, Quartermaster
+    ObliquePlayer: Knight, Ghost: Creature, Wall, Torch, Coin: Ember, Stair, Quartermaster
   })) game.registerActor(name, actor);
   // The shared effects the cast attaches in code, registered so a scene may retune them by slot.
   registerEffects(game);

@@ -2,6 +2,7 @@ import { M2D } from 'm2d-engine/core/m2d.js';
 import { initPhysics } from 'm2d-engine/core/physics/index.js';
 import { Entity } from 'm2d-engine/core/entity.js';
 import { Interactive } from 'm2d-engine/constraints/interactive.js';
+import { GravityDial } from 'm2d-kit/actors';
 
 /** How hard a grabbed body is pulled toward the pointer, per second. */
 const GRAB_STIFFNESS = 18;
@@ -25,18 +26,18 @@ class Block extends Entity {
 }
 
 // Gravity is a counter the handlers turn, held between its min and max;
-// the world's y gravity follows it and the HUD shows it.
+// the kit's GravityDial makes the world's y gravity follow it, and the HUD shows it.
 const scene = {
-  version: 5, type: 'level', name: 'main',
+  version: 6, type: 'level', name: 'main',
   world: {
     width: 640, height: 360, gravity: { x: 0, y: 1000 }, camera: { bounds: 'world' },
-    counters: { gravity: { initial: 1000, min: 0, max: 3000 } },
-    gravityBind: [{ counter: 'gravity', axis: 'y' }]
+    counters: { gravity: { initial: 1000, min: 0, max: 3000 } }
   },
   prefabs: {
     wall: { actor: 'Block', physics: { bodyType: 'static', friction: 0.5 } },
     box: { actor: 'Block', physics: { bodyType: 'dynamic', friction: 0.5, restitution: 0.2 } },
-    ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.6 } }
+    ball: { actor: 'Block', physics: { bodyType: 'dynamic', shape: 'circle', restitution: 0.6 } },
+    dial: { actor: 'GravityDial', physics: { bodyType: 'static', isSensor: true, layer: 'none' }, properties: { counter: 'gravity' } }
   },
   layers: [{ name: 'main', objects: [
     { id: 'floor', prefab: 'wall', x: 320, y: 350, width: 640, height: 20 },
@@ -46,7 +47,8 @@ const scene = {
     { id: 'box-2', prefab: 'box', x: 250, y: 300, width: 40, height: 40 },
     { id: 'box-3', prefab: 'box', x: 225, y: 250, width: 40, height: 40 },
     { id: 'ball-1', prefab: 'ball', x: 420, y: 200, width: 36, height: 36 },
-    { id: 'ball-2', prefab: 'ball', x: 480, y: 120, width: 28, height: 28 }
+    { id: 'ball-2', prefab: 'ball', x: 480, y: 120, width: 28, height: 28 },
+    { id: 'gravity-dial', prefab: 'dial', x: 320, y: 20, width: 8, height: 8 }
   ] }],
   hud: [
     { type: 'text', id: 'event', anchor: 'top', x: 0, y: 10, properties: { text: 'waiting for input', align: 'center', fontSize: '15px', color: '#eceff1' } },
@@ -58,6 +60,7 @@ export default async function start(canvas) {
   await initPhysics();
   const game = new M2D(canvas, { width: 640, height: 360, initialScene: 'main', performanceStats: false });
   game.registerActor('Block', Block);
+  game.registerActor('GravityDial', GravityDial, { origin: 'kit' });
 
   const current = () => game.sceneManager.getCurrentScene();
   const log = (type, event) => {
