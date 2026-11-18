@@ -46,6 +46,6 @@ Scoped 17 Nov 2026; each item's project under `knowledge-base/projects/` holds i
 
 ## Later
 
-- **Types**: `checkJs` over the JSDoc, or the engine in TypeScript. The toolchain is in (`npm run typecheck`) and every other package is TypeScript now; `checkJs` on the engine is about 5,900 errors, so it is a project, taken file by file with `// @ts-check` or as a conversion.
+- **Types**: `checkJs` over the JSDoc, or the engine in TypeScript (`projects/types`). The toolchain is in (`npm run typecheck`) and every other package is TypeScript now; `checkJs` on the engine is about 5,900 errors, so it is a project, taken file by file with `// @ts-check` or as a conversion. It ends with the editor's two hand-written descriptions of the engine deleted.
 - Lockstep or rollback networking, on `game.snapshot()`, Rapier's deterministic build and a deterministic math module.
 - Renaming the package: the name, the npm listing and the README still say 2D.

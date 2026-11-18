@@ -288,10 +288,21 @@ export class SentryTurret extends Turret {
       speed: this.rocketSpeed,
       damage: this.rocketDamage,
       direction: { ...this.aimDirection },
-      maxLifetime: this.boltLifetime
+      maxLifetime: this.boltLifetime,
+      // Past the gun that fired it and its fellows, as the kit's rocket
+      // goes. Without it a bolt dies on its first tick, inside the barrel
+      // it just left, and the sentries look asleep.
+      collisionMask: this.rocketMask
     });
     this.game.entities.add(bolt);
     this.game.physics.add(rocketBody);
+  }
+
+  /** The scan cone reaches as far as the turret sees, well past its housing. */
+  get drawBounds() {
+    const { x, y } = this.renderPosition;
+    const reach = this.detectionRange;
+    return { x: x - reach, y: y - reach, width: reach * 2, height: reach * 2 };
   }
 
   draw(deltaTime) {
@@ -523,6 +534,13 @@ export class ScannerAgent extends TopDownPlayer {
 
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+
+  /** The hand lamp's cone reaches well past the agent. */
+  get drawBounds() {
+    const { x, y } = this.renderPosition;
+    const reach = this.lampReach;
+    return { x: x - reach, y: y - reach, width: reach * 2, height: reach * 2 };
+  }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);

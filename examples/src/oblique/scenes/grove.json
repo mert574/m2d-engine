@@ -349,7 +349,11 @@
       "actor": "ObliquePlayer",
       "spritesheet": "wanderer",
       "defaultAnimation": "idle_down",
-      "physics": { "bodyType": "character", "frictionAir": 0.2, "footprint": { "width": 30, "height": 18 } }
+      "physics": {
+        "bodyType": "character",
+        "frictionAir": 0.2,
+        "footprint": { "width": 30, "height": 18, "headroom": 0.45 }
+      }
     },
     "wisp": {
       "actor": "Ghost",
@@ -364,13 +368,13 @@
       "actor": "Npc",
       "spritesheet": "maren",
       "defaultAnimation": "idle_down",
-      "physics": { "bodyType": "static", "footprint": { "width": 28, "height": 16 } }
+      "physics": { "bodyType": "static", "footprint": { "width": 28, "height": 16, "headroom": 0.45 } }
     },
     "oswin": {
       "actor": "Npc",
       "spritesheet": "oswin",
       "defaultAnimation": "idle_down",
-      "physics": { "bodyType": "static", "footprint": { "width": 28, "height": 16 } }
+      "physics": { "bodyType": "static", "footprint": { "width": 28, "height": 16, "headroom": 0.45 } }
     },
     "pond": { "actor": "Pond", "physics": { "bodyType": "static", "shape": "circle" } },
     "bound": { "actor": "Clip", "physics": { "bodyType": "static" } },

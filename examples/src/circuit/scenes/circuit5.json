@@ -73,6 +73,10 @@
   "prefabs": {
     "road": { "actor": "Road", "physics": { "bodyType": "static", "isSensor": true } },
     "director": { "actor": "RaceDirector", "physics": { "bodyType": "static", "isSensor": true } },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
+    },
     "boost": {
       "actor": "BoostPad",
       "physics": { "bodyType": "static", "isSensor": true },
@@ -109,10 +113,6 @@
         "restitution": 0.3
       },
       "properties": { "blue": "barrel", "blueDown": "barrelDown", "red": "barrelRed", "redDown": "barrelRedDown" }
-    },
-    "spawn": {
-      "actor": "SpawnPoint",
-      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -218,7 +218,7 @@
             "ghost": "carBlack"
           }
         },
-        { "id": "spawn-1", "prefab": "spawn", "x": 11227, "y": 3959, "width": 120, "height": 120 }
+        { "id": "spawn-1", "prefab": "spawn", "x": 4572, "y": 1525, "width": 120, "height": 120 }
       ]
     },
     {
@@ -303,41 +303,41 @@
         {
           "id": "checkpoint-1",
           "prefab": "checkpoint",
+          "x": 6053,
+          "y": 1736,
+          "width": 26,
+          "height": 238,
+          "angle": -0.656,
+          "properties": { "index": 0, "finish": false }
+        },
+        {
+          "id": "checkpoint-2",
+          "prefab": "checkpoint",
           "x": 5243,
           "y": 7510,
           "width": 26,
           "height": 160,
           "angle": -2.874,
-          "properties": { "index": 0, "finish": false }
+          "properties": { "index": 1, "finish": false }
         },
         {
-          "id": "checkpoint-2",
+          "id": "checkpoint-3",
           "prefab": "checkpoint",
           "x": 1167,
           "y": 4364,
           "width": 26,
           "height": 239,
           "angle": -0.796,
-          "properties": { "index": 1, "finish": false }
-        },
-        {
-          "id": "checkpoint-3",
-          "prefab": "checkpoint",
-          "x": 6053,
-          "y": 1736,
-          "width": 26,
-          "height": 238,
-          "angle": -0.656,
           "properties": { "index": 2, "finish": false }
         },
         {
           "id": "checkpoint-4",
           "prefab": "checkpoint",
-          "x": 11251,
-          "y": 4056,
+          "x": 4653,
+          "y": 1545,
           "width": 26,
-          "height": 142,
-          "angle": 1.49,
+          "height": 143,
+          "angle": 0.244,
           "properties": { "index": 3, "finish": true }
         },
         {

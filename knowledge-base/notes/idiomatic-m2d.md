@@ -33,6 +33,11 @@ Use the engine's helpers (Quest, Npc, the UI components) before writing your own
 - One number read in two places (a radius for the prompt and for the server) is one property both read.
 - Drawing constants internal to a look (a glow radius, a reed count) don't need declaring.
 
+## Drawn size and real size
+
+- **`entity.size` is what is drawn; `entity.body.size` is what is there.** They are the same thing until a prefab declares a `physics.footprint`, and then `size` becomes the sheet's cell — several times the body for a character sheet. Gameplay code that asks how far something reaches, or how wide it is in the world, reads the body. Hollow Grove's swing measured its arc from half a *cell* ahead of the player and so passed through every wisp it faced: the attack was impossible, and the bug was invisible in a game whose sprites match their bodies (18 Nov 2026).
+- **Anything drawn over an entity goes at `entity.overhead`**, not at the top of its frame: a health bar, a talk prompt, a quest marker. A sheet says how much of its cell is empty sky with `physics.footprint.headroom`, and the engine takes it off. Anchored to the frame instead, they float a character's height above the head.
+
 ## Not idiomatic
 
 - hooks that set the camera, light, audio or UI;

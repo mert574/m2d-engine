@@ -25,6 +25,11 @@ import { tileTexture } from 'm2d-kit/textures';
 const BUTTERFLIES = ['#fef6ef', '#f3d35a', '#eb9a54'];
 
 export class GardenBackdrop extends Entity {
+  /** It paints the court, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     layer: s.enumOf(['lawn', 'sky'], { initial: 'lawn', description: 'lawn: the turf under everything; sky: the cloud shadows and sun over it' }),
     lawnTexture: s.ref('image', { description: 'The mown turf, tiled' }),

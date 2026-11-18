@@ -44,11 +44,16 @@ async function circuit({ ice = false } = {}) {
   return { game, car, track };
 }
 
-/** The car aimed `degrees` off the road toward its right-hand barrier, at speed. */
-function aim(car, track, degrees, speed = 500) {
+/**
+ * The car aimed `degrees` off the road toward its right-hand barrier, at
+ * speed. `fromWall` is how far inside the barrier it starts: the default
+ * puts it where a clip of the edge is about to happen, and a case about
+ * the surface rather than the wall starts in the middle of the road.
+ */
+function aim(car, track, degrees, speed = 500, fromWall = 40) {
   const sample = track.pose(0.12).sample;
   const heading = Math.atan2(sample.ty, sample.tx) + degrees * Math.PI / 180;
-  car.body.setPosition({ x: sample.x + sample.nx * (sample.w - 40), y: sample.y + sample.ny * (sample.w - 40) });
+  car.body.setPosition({ x: sample.x + sample.nx * (sample.w - fromWall), y: sample.y + sample.ny * (sample.w - fromWall) });
   car.body.setAngle(heading);
   car.body.setVelocity({ x: Math.cos(heading) * speed, y: Math.sin(heading) * speed });
   return Math.atan2(sample.ty, sample.tx);
@@ -71,6 +76,21 @@ describe('Night Circuit\'s car', () => {
     game.destroy();
   });
 
+  it('keeps most of its speed when it clips the edge at a steeper angle', async () => {
+    // Clipping the edge of the road should cost a moment, not the lap:
+    // the car scrapes along the wall rather than stopping dead in it, and
+    // the wall gives nothing back as a shove.
+    const { game, car, track } = await circuit();
+    aim(car, track, 40);
+    let slowest = Infinity;
+    for (let i = 0; i < 40; i++) {
+      game.step(1);
+      slowest = Math.min(slowest, speedOf(car));
+    }
+    expect(slowest, 'a 40-degree clip stopped the car').toBeGreaterThan(260);
+    game.destroy();
+  });
+
   it('drives itself: full throttle with no key held, lifting only to brake', async () => {
     const { game, car, track } = await circuit();
     game.input.setSnapshotSource(() => null);
@@ -83,19 +103,34 @@ describe('Night Circuit\'s car', () => {
     game.destroy();
   });
 
-  it('slides on ice where it would have gripped on asphalt', async () => {
-    const onIce = await circuit({ ice: true });
-    const dry = await circuit();
-    for (const { game, car, track } of [onIce, dry]) {
-      game.input.setSnapshotSource(() => ({ down: ['ArrowRight'] }));
-      aim(car, track, 0, 450);
-      game.step(30);
-    }
-    expect(onIce.car.surface).toBe('ice');
-    expect(dry.car.surface).toBe('road');
-    expect(Math.abs(onIce.car.drive.lateralSpeed)).toBeGreaterThan(Math.abs(dry.car.drive.lateralSpeed) * 2);
-    onIce.game.destroy();
-    dry.game.destroy();
+  it('holds a slide on ice where asphalt would have scrubbed it off', async () => {
+    // Grip is exactly how fast the sideways part of the velocity dies, so
+    // that is what the test measures: the same sideways shove on each
+    // surface, no steering, no walls nearby.
+    const slide = async (ice) => {
+      const { game, car, track } = await circuit({ ice });
+      const sample = track.pose(0.12).sample;
+      const heading = Math.atan2(sample.ty, sample.tx);
+      car.body.setPosition({ x: sample.x, y: sample.y });
+      car.body.setAngle(heading);
+      // Along the nose, plus the same shove across it.
+      car.body.setVelocity({
+        x: Math.cos(heading) * 300 - Math.sin(heading) * 220,
+        y: Math.sin(heading) * 300 + Math.cos(heading) * 220
+      });
+      game.input.setSnapshotSource(() => null);
+      game.step(12);
+      const left = Math.abs(car.drive.lateralSpeed);
+      const surface = car.surface;
+      game.destroy();
+      return { left, surface };
+    };
+
+    const onIce = await slide(true);
+    const dry = await slide(false);
+    expect(onIce.surface).toBe('ice');
+    expect(dry.surface).toBe('road');
+    expect(onIce.left, 'the slide died on ice as fast as on asphalt').toBeGreaterThan(dry.left * 2);
   });
 
   it('loses a little speed on oil as well as its grip', async () => {

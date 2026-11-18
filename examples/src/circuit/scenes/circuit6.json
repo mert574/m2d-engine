@@ -72,6 +72,10 @@
   "prefabs": {
     "road": { "actor": "Road", "physics": { "bodyType": "static", "isSensor": true } },
     "director": { "actor": "RaceDirector", "physics": { "bodyType": "static", "isSensor": true } },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
+    },
     "ice": { "actor": "IceStretch", "physics": { "bodyType": "static", "isSensor": true } },
     "tunnel": { "actor": "Tunnel", "physics": { "bodyType": "static", "isSensor": true } },
     "boost": {
@@ -110,10 +114,6 @@
         "restitution": 0.3
       },
       "properties": { "blue": "barrel", "blueDown": "barrelDown", "red": "barrelRed", "redDown": "barrelRedDown" }
-    },
-    "spawn": {
-      "actor": "SpawnPoint",
-      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -218,7 +218,7 @@
             "pace": 1.3
           }
         },
-        { "id": "spawn-1", "prefab": "spawn", "x": 11853, "y": 4052, "width": 120, "height": 120 },
+        { "id": "spawn-1", "prefab": "spawn", "x": 8851, "y": 6666, "width": 120, "height": 120 },
         {
           "id": "ice-1",
           "prefab": "ice",
@@ -367,11 +367,11 @@
         {
           "id": "checkpoint-4",
           "prefab": "checkpoint",
-          "x": 11836,
-          "y": 4160,
+          "x": 8856,
+          "y": 6755,
           "width": 26,
-          "height": 156,
-          "angle": 1.857,
+          "height": 178,
+          "angle": 1.537,
           "properties": { "index": 3, "finish": true }
         },
         {

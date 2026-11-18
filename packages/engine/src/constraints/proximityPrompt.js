@@ -46,7 +46,9 @@ export class ProximityPrompt extends Constraint {
     const text = typeof this.text === 'function' ? this.text() : this.text;
     entity.game.worldOverlay.drawText({
       x: pos.x,
-      y: pos.y - entity.size.y / 2 - (this.offsetY ?? 10),
+      // Over the figure's head, not over the top of its sheet's cell: see
+      // Entity.overhead and a prefab's `footprint.headroom`.
+      y: entity.overhead - (this.offsetY ?? 10),
       text,
       fillStyle: this.color,
       fontSize: 13,

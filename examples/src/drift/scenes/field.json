@@ -13,8 +13,8 @@
       "lerp": 0.1,
       "bounds": "world",
       "followRotation": true,
-      "rotationLerp": 0.03,
-      "rotationMaxRate": 1.1,
+      "rotationLerp": 0.14,
+      "rotationMaxRate": 3,
       "speedZoom": { "out": 0.22, "at": 572, "ease": 0.05 }
     },
     "lighting": { "ambient": "#eceef6" },

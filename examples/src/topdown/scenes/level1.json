@@ -11,7 +11,7 @@
     "camera": { "bounds": "world" },
     "lighting": { "ambient": "#e4e6ec" },
     "post": {
-      "bloom": { "threshold": 0.7, "strength": 0.6, "blur": 28 },
+      "bloom": { "threshold": 0.75, "strength": 0.4, "blur": 24 },
       "vignette": { "strength": 0.2, "start": 0.55 },
       "grade": {
         "shadows": "#8b93a4",
@@ -20,10 +20,10 @@
         "saturation": 0.9,
         "contrast": 1.04
       },
-      "chromatic": { "strength": 0.002 },
-      "distortion": { "strength": 0.04 },
-      "grain": { "strength": 0.03 },
-      "scanlines": { "strength": 0.045, "density": 1.7 },
+      "chromatic": { "strength": 0.0012 },
+      "distortion": { "strength": 0.016 },
+      "grain": { "strength": 0.018 },
+      "scanlines": { "strength": 0.022, "density": 1.7 },
       "glitch": { "strength": 0 },
       "flash": { "color": "#ff3b2f", "strength": 0 }
     },
@@ -32,20 +32,20 @@
       {
         "effect": "chromatic",
         "bind": { "object": "player", "constraint": "", "ratio": "tear" },
-        "empty": 0.002,
-        "full": 0.014
+        "empty": 0.0012,
+        "full": 0.01
       },
       {
         "effect": "grain",
         "bind": { "object": "player", "constraint": "", "ratio": "tear" },
-        "empty": 0.03,
-        "full": 0.08
+        "empty": 0.018,
+        "full": 0.06
       },
       {
         "effect": "glitch",
         "bind": { "object": "player", "constraint": "", "ratio": "tear" },
         "empty": 0,
-        "full": 0.55
+        "full": 0.4
       },
       {
         "effect": "flash",
@@ -592,7 +592,14 @@
       "y": 16,
       "anchor": "top-right",
       "size": 150,
-      "plot": { "player": "#7dffc4", "coin": "#ffd56b", "ghost": "#ff6b6b" }
+      "plot": {
+        "wall": { "shape": "rect", "color": "rgba(148, 163, 184, 0.55)" },
+        "turret": { "shape": "dot", "color": "#c084fc", "size": 1.6 },
+        "player": { "shape": "dot", "color": "#7dffc4", "size": 2 },
+        "coin": { "shape": "dot", "color": "#ffd56b", "size": 1.6 },
+        "ghost": { "shape": "dot", "color": "#ff6b6b", "size": 1.6 }
+      },
+      "properties": { "background": "rgba(16, 20, 28, 0.88)" }
     }
   ]
 }

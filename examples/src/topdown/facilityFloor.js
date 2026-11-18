@@ -24,6 +24,11 @@ function viewOf(camera) {
 export class FloorMarks extends Entity {
   name = 'FloorMarks';
 
+  /** Scattered over the whole floor from a body in the corner: never culled. */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     seed: s.number({ initial: 21, description: 'Fixes the scatter: the same default as the menu, the same place' }),
     panels: s.number({ initial: 90, min: 0, description: 'Patches a shade off the base, so the ground has rooms in it' }),
@@ -105,6 +110,9 @@ export class FloorMarks extends Entity {
  * gives no light; a flickering one gutters. Where the renderer has no
  * light map, it paints its pool instead, faintly.
  */
+/** How far a lamp's painted pool reaches, where the renderer has no lights. */
+const POOL = 200;
+
 export class CeilingLamp extends Entity {
   name = 'CeilingLamp';
 
@@ -145,14 +153,20 @@ export class CeilingLamp extends Entity {
     this.light.intensity = this.baseIntensity * this.level;
   }
 
+  /** The painted pool reaches far past the housing; without this the cull would take the lamp and its light together. */
+  get drawBounds() {
+    const { x, y } = this.renderPosition;
+    return { x: x - POOL, y: y - POOL, width: POOL * 2, height: POOL * 2 };
+  }
+
   draw() {
     const renderer = this.game.renderer;
     const { x, y } = this.renderPosition;
     const level = this.level;
     if (level > 0 && !renderer.supports('lights')) {
       renderer.drawArc({
-        x, y, radius: 200,
-        fillStyle: { type: 'radial', x, y, r0: 0, r1: 200, stops: [{ offset: 0, color: 'rgba(255, 255, 255, 0.14)' }, { offset: 0.5, color: 'rgba(255, 255, 255, 0.06)' }, { offset: 1, color: 'rgba(226, 232, 240, 0)' }] },
+        x, y, radius: POOL,
+        fillStyle: { type: 'radial', x, y, r0: 0, r1: POOL, stops: [{ offset: 0, color: 'rgba(255, 255, 255, 0.14)' }, { offset: 0.5, color: 'rgba(255, 255, 255, 0.06)' }, { offset: 1, color: 'rgba(226, 232, 240, 0)' }] },
         globalAlpha: level
       });
     }

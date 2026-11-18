@@ -51,7 +51,7 @@ The players, the platform, the turret and the NPC came out of the engine with th
 `m2d-kit/actors`. Name `Player`. The `TopDownPlayer` for a 3/4 view, with a heading, Space to hop and a swing in any direction.
 
 - Everything `TopDownPlayer` has. Works best with a prefab `footprint`, so the body is the feet and the sprite stands above it.
-- `heading` is the direction last moved in, radians. X swings the `Attack` at it, `attackArc` wide (default 1.5π) with `attackRange` (60) and `attackKnockback` (6000), so a wisp above or below is in reach.
+- `heading` is the direction last moved in, radians. X swings the `Attack` at it, `attackArc` wide (default 1.5π) with `attackRange` (60), so a wisp above or below is in reach. `attackKnockback` is 0: an ordinary swing hurts without throwing bodies across the floor, which is what an ability like a cleave is for.
 - The hop is `elevation`: Space launches it at `jumpSpeed` (430 px/s) and `gravity` (1500 px/s²) brings it back. The collider never leaves the ground. `isAirborne` says whether the feet are off it; `jump()` hops from code; `onJump` and `onLand` hooks fire at the ends.
 - With an eight-facing sheet it plays `idle_<dir>`, `run_<dir>` and `swing_<dir>` for the heading; `spriteFit` is on, so the object's size is the drawn frame. `spriteOffsetY` shifts the sprite down for a sheet whose feet sit above the frame's bottom.
 - `properties`: `jumpSpeed`, `gravity`, `attackArc`, `attackRange`, `attackKnockback`, `spriteOffsetY`.

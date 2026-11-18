@@ -417,6 +417,17 @@ export class Pollen extends Entity {
 export class Thistle extends Entity {
   name = 'Thistle';
 
+  /**
+   * Rooted to the meadow floor: what it draws reaches from its own body
+   * down to the ground line, well past the body on a tall one.
+   */
+  get drawBounds() {
+    const { x, y } = this.renderPosition;
+    const width = this.size.x * 2;
+    const top = y - this.size.y / 2 - 8;
+    return { x: x - width / 2, y: top, width, height: this.game.options.worldHeight - top };
+  }
+
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     this.clock = options.sway ?? 0;
@@ -639,6 +650,17 @@ export class Wasp extends Entity {
 export class Web extends Entity {
   name = 'Web';
 
+  /**
+   * Rooted to the meadow floor: what it draws reaches from its own body
+   * down to the ground line, well past the body on a tall one.
+   */
+  get drawBounds() {
+    const { x, y } = this.renderPosition;
+    const width = this.size.x * 2;
+    const top = y - this.size.y / 2 - 8;
+    return { x: x - width / 2, y: top, width, height: this.game.options.worldHeight - top };
+  }
+
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
@@ -746,6 +768,17 @@ export class Web extends Entity {
 /** The hive on its post: the end of the lane. */
 export class Hive extends Entity {
   name = 'Hive';
+
+  /**
+   * Rooted to the meadow floor: what it draws reaches from its own body
+   * down to the ground line, well past the body on a tall one.
+   */
+  get drawBounds() {
+    const { x, y } = this.renderPosition;
+    const width = this.size.x * 2;
+    const top = y - this.size.y / 2 - 8;
+    return { x: x - width / 2, y: top, width, height: this.game.options.worldHeight - top };
+  }
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
   get lit() { return this.game.renderer.supports('lights'); }

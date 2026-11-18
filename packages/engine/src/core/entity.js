@@ -174,6 +174,14 @@ export class Entity {
     const frame = body.frame;
     this.size = frame ? { x: frame.width, y: frame.height } : body.size;
     this.frameOffset = frame ? { x: frame.offsetX ?? 0, y: frame.offsetY ?? 0 } : { x: 0, y: 0 };
+    /**
+     * How much of the drawn frame above the figure is empty sky, as a
+     * fraction of its height — a prefab's `physics.footprint.headroom`.
+     * A character sheet usually leaves room above the head for a jump or
+     * a hat, and `overhead` takes it off so a bar or a marker sits on the
+     * figure rather than floating over it.
+     */
+    this.headroom = frame?.headroom ?? 0;
 
     this._contacts = new Set();
   }
@@ -462,6 +470,18 @@ export class Entity {
   /** Bounds at the drawn position, for edge-anchored annotations. */
   get renderBounds() {
     return this.body.renderBounds;
+  }
+
+  /**
+   * The world y where anything drawn over this entity belongs: a health
+   * bar, a quest marker, a name. The top of the drawn frame, less the
+   * `headroom` its prefab declared — on a sheet whose figure stands in the
+   * lower half of its cell, the frame's top is far above the head and
+   * annotations anchored there float in the air.
+   * @type {number}
+   */
+  get overhead() {
+    return this.renderPosition.y - this.size.y / 2 + this.size.y * this.headroom;
   }
 
   /**

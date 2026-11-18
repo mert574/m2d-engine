@@ -1442,7 +1442,7 @@ export class M2D {
       bodyWidth = Math.min(width, physics.footprint.width ?? width);
       bodyHeight = Math.min(height, physics.footprint.height ?? height);
       bodyY = y + (height - bodyHeight) / 2;
-      frame = { width, height, offsetX: 0, offsetY: -(height - bodyHeight) / 2 };
+      frame = { width, height, offsetX: 0, offsetY: -(height - bodyHeight) / 2, headroom: physics.footprint.headroom ?? 0 };
     }
 
     const body = this.physics.dimensions === 3

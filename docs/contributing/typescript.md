@@ -90,8 +90,9 @@ how much precision the consumer needs.
 
 The editor packages each declare the engine surface they use —
 `packages/editor-core/src/engine.d.ts`, `packages/editor/src/ambient.d.ts`
-— precisely, and shrink those files to nothing when the engine gains real
-types.
+— precisely. Those two files are a debt, not a pattern to copy: they are a
+second description of the engine that nothing checks against the first,
+and deleting them is part of the Types item in the [roadmap](./roadmap).
 
 The kit instead takes what the engine's own source says, and nothing more:
 its classes extend the engine's, so inference carries the members, and

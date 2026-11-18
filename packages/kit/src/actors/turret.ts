@@ -144,6 +144,21 @@ export class Turret extends Entity {
     return blockers.length === 0;
   }
 
+  /**
+   * What a round this turret fires may hit: everything but the layer the
+   * turret itself is on, so it cannot shoot itself, or the other turrets
+   * and mobs that share its layer. On the unset first layer (bit 1)
+   * nothing is excluded — that layer is also the walls'.
+   *
+   * A game that fires a round of its own (the facility's phantom bolt)
+   * puts this on the body it builds, or the round dies against the gun
+   * that fired it on its first tick.
+   */
+  get rocketMask(): number {
+    const own = this.body.collisionFilter.category;
+    return (own & ~1) ? 0xFFFF & ~own : 0xFFFF;
+  }
+
   fireRocket(): void {
     const spawnOffset = 20;
     const spawnPos = {
@@ -155,11 +170,7 @@ export class Turret extends Entity {
     this.game.spawn({
       type: 'Rocket', x: spawnPos.x, y: spawnPos.y, width: 24, height: 8,
       physics: { friction: 0, frictionAir: 0, restitution: 0, density: 0.001 },
-      // Rockets ignore the turret's own layer — other turrets, its mobs —
-      // computed from its membership bit, so the kit names no layer. On the
-      // unset first layer (bit 1) nothing is excluded: that layer is also
-      // the walls'.
-      collisionMask: (this.body.collisionFilter.category & ~1) ? 0xFFFF & ~this.body.collisionFilter.category : 0xFFFF,
+      collisionMask: this.rocketMask,
       options: {
         speed: this.rocketSpeed,
         damage: this.rocketDamage,

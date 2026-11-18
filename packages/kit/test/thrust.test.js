@@ -38,25 +38,37 @@ describe('ThrustControl', () => {
 });
 
 describe('camera followRotation', () => {
-  it('eases the view toward the target heading, nose up', () => {
-    const camera = new Camera(800, 600, { followRotation: true, rotationLerp: 1 });
-    camera.follow({ body: { renderPosition: { x: 0, y: 0 }, renderAngle: Math.PI / 2 } });
-    camera.update(1 / 60);
-    // A nose pointing +y (down the screen unrotated) ends up pointing up.
-    expect(camera.rotation).toBeCloseTo(0);
-    camera.target.body.renderAngle = 0;
-    camera.rotationMaxRate = Infinity;
-    camera.update(1 / 60);
-    expect(camera.rotation).toBeCloseTo(-Math.PI / 2);
+  /** Where a point a hundred units ahead of the target lands on screen. */
+  function nose(camera, angle) {
+    const at = camera.worldToScreen(Math.cos(angle) * 100, Math.sin(angle) * 100);
+    const centre = camera.worldToScreen(0, 0);
+    return { x: at.x - centre.x, y: at.y - centre.y };
+  }
+
+  it('turns the view until the target\'s nose points up the screen', () => {
+    // The contract is where the ship is drawn, not what the angle reads:
+    // a view that is a half-turn out satisfies any test of the number and
+    // flies the ship down the screen (Salvage Run, until Nov 2026).
+    for (const angle of [0, Math.PI / 2, Math.PI, -0.7]) {
+      const camera = new Camera(800, 600, { followRotation: true, rotationLerp: 1, rotationMaxRate: Infinity });
+      camera.follow({ body: { renderPosition: { x: 0, y: 0 }, renderAngle: angle } });
+      camera.snap();
+      const ahead = nose(camera, angle);
+      expect(ahead.y, `nose at ${angle.toFixed(2)} rad`).toBeLessThan(-90);
+      expect(Math.abs(ahead.x)).toBeLessThan(1);
+    }
   });
 
   it('caps how fast the view may turn and ignores a wobble', () => {
     const camera = new Camera(800, 600, { followRotation: true, rotationLerp: 1, rotationMaxRate: 1, rotationDeadband: 0.05 });
     camera.follow({ body: { renderPosition: { x: 0, y: 0 }, renderAngle: Math.PI } });
+    const wanted = Math.PI + camera.rotationOffset;
     camera.update(0.5);
-    expect(camera.rotation).toBeCloseTo(0.5);
-    camera.rotation = Math.PI / 2 - 0.02;
+    // Half a second at a radian a second, the short way round (the view
+    // wants -π/2 here, not +3π/2).
+    expect(camera.rotation).toBeCloseTo(-0.5);
+    camera.rotation = wanted - 0.02;
     camera.update(0.5);
-    expect(camera.rotation).toBeCloseTo(Math.PI / 2 - 0.02);
+    expect(camera.rotation, 'a wobble is not followed').toBeCloseTo(wanted - 0.02);
   });
 });

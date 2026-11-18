@@ -25,6 +25,11 @@ import { makeRng, range } from 'm2d-kit/random';
  */
 
 export class WorkshopBackdrop extends Entity {
+  /** It paints the workshop, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     layer: s.enumOf(['back', 'front'], { initial: 'back', description: 'back: the room under everything; front: the dust and lamplight over it' }),
     seed: s.integer({ min: 0, initial: 5, description: 'Which scatter of dust; the menu\'s board is 5' })

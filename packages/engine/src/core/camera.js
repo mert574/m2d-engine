@@ -62,8 +62,13 @@ export class Camera {
      * stays up the screen. A rotating top-down game sets this.
      */
     this.followRotation = options.followRotation ?? false;
-    /** Added to the target's angle; -π/2 points a +x nose up the screen. */
-    this.rotationOffset = options.rotationOffset ?? -Math.PI / 2;
+    /**
+     * Added to the target's angle to get the view's rotation. The default
+     * puts a nose along +x (angle 0, the engine's convention) up the
+     * screen: the view turns the same way the body does, so the offset is
+     * +π/2, not −π/2 — the other sign flies the ship down the screen.
+     */
+    this.rotationOffset = options.rotationOffset ?? Math.PI / 2;
     /** Per-frame fraction at 60 Hz for the turn, like `lerp` for the move. */
     this.rotationLerp = options.rotationLerp ?? 0.04;
     /**

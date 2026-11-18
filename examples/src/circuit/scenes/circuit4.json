@@ -72,6 +72,10 @@
   "prefabs": {
     "road": { "actor": "Road", "physics": { "bodyType": "static", "isSensor": true } },
     "director": { "actor": "RaceDirector", "physics": { "bodyType": "static", "isSensor": true } },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
+    },
     "boost": {
       "actor": "BoostPad",
       "physics": { "bodyType": "static", "isSensor": true },
@@ -108,10 +112,6 @@
         "restitution": 0.3
       },
       "properties": { "blue": "barrel", "blueDown": "barrelDown", "red": "barrelRed", "redDown": "barrelRedDown" }
-    },
-    "spawn": {
-      "actor": "SpawnPoint",
-      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -215,7 +215,7 @@
             "ghost": "carBlack"
           }
         },
-        { "id": "spawn-1", "prefab": "spawn", "x": 10857, "y": 3564, "width": 120, "height": 120 }
+        { "id": "spawn-1", "prefab": "spawn", "x": 9259, "y": 4387, "width": 120, "height": 120 }
       ]
     },
     {
@@ -320,11 +320,11 @@
         {
           "id": "checkpoint-4",
           "prefab": "checkpoint",
-          "x": 10850,
-          "y": 3669,
+          "x": 9169,
+          "y": 4404,
           "width": 26,
-          "height": 179,
-          "angle": 1.855,
+          "height": 163,
+          "angle": 2.957,
           "properties": { "index": 3, "finish": true }
         },
         {

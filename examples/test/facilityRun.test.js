@@ -34,6 +34,27 @@ describe('The Facility, played through', () => {
     game.destroy();
   });
 
+  it('a sentry in range fires a bolt that lives long enough to hurt the operative', async () => {
+    // The bolt is the facility's own round, built by hand rather than
+    // through the kit's spawn, and it has to carry the same mask: one that
+    // may hit the turret that fired it dies in the barrel, which reads in
+    // play as sentries that never attack.
+    const { game, run } = await facility();
+    const turret = [...game.entities].find((entity) => entity.name === 'Turret');
+    const health = game.player.getConstraint('health');
+    game.player.body.setPosition({ x: turret.position.x + 60, y: turret.position.y });
+    run(2);
+
+    const bolt = [...game.entities].find((entity) => entity instanceof game.actors.get('Rocket'));
+    expect(bolt, 'the sentry fired nothing').toBeTruthy();
+    expect(bolt.dead, 'the bolt died on the tick it was fired').toBe(false);
+    expect(bolt.body.collisionFilter.mask & turret.body.collisionFilter.category).toBe(0);
+
+    run(20);
+    expect(health.currentHealth, 'the bolt never reached the operative').toBeLessThan(health.maxHealth);
+    game.destroy();
+  });
+
   it('is game over when the operative dies', async () => {
     const { game, run } = await facility();
     game.player.getConstraint('health').takeDamage(10_000);

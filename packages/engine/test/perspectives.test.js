@@ -42,6 +42,24 @@ describe('camera transform', () => {
     expect(area.bottom - area.top).toBeCloseTo(300);
   });
 
+  it('follows a body\'s rotation with its nose up the screen', () => {
+    // What `followRotation` is for: a ship flies up the screen whichever
+    // way it is pointing in the world. The offset's sign decides that, and
+    // the wrong one flies it *down* — which is how Salvage Run shipped.
+    const camera = new Camera(800, 600);
+    for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 3]) {
+      const body = { position: { x: 400, y: 300 }, angle, renderAngle: angle, renderPosition: { x: 400, y: 300 } };
+      camera.follow({ body, position: body.position });
+      camera.followRotation = true;
+      camera.snap();
+
+      const nose = camera.worldToScreen(400 + Math.cos(angle) * 100, 300 + Math.sin(angle) * 100);
+      const centre = camera.worldToScreen(400, 300);
+      expect(nose.y, `nose at ${angle.toFixed(2)} rad is up the screen`).toBeLessThan(centre.y - 90);
+      expect(Math.abs(nose.x - centre.x), 'and straight ahead').toBeLessThan(1);
+    }
+  });
+
   it('rotates the world the opposite way to the camera', () => {
     const camera = new Camera(800, 600);
     camera.x = 400;

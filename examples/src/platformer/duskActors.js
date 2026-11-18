@@ -750,6 +750,13 @@ export class DuskBee extends Bee {
  * only mean "this is the way out".
  */
 export class ValleyGate extends Trigger {
+  /** The column of light stands 220px above the trigger it marks. */
+  get drawBounds() {
+    const { x, y } = this.renderPosition;
+    const width = this.size.x;
+    return { x: x - width, y: y - this.size.y / 2 - 240, width: width * 2, height: this.size.y + 260 };
+  }
+
   get lit() { return this.game.renderer.supports('lights'); }
   get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 

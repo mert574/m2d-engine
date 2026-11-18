@@ -218,9 +218,11 @@ A map from prefab name to prefab.
 | `angle` | number, radians. An object's own `angle` overrides it | `0` |
 | `density` | number greater than 0. Mass is density times area | the engine default |
 | `mass` | number greater than 0. The body's absolute mass (kg in 3D), instead of the one derived from `density` and size | derived |
-| `footprint` | `{ "height", "width" }` | none |
+| `footprint` | `{ "height", "width", "headroom" }` | none |
 
 A `footprint` makes the collider the object's feet: a box `footprint.height` tall (and `footprint.width` wide, default the object's width) at the bottom of the object's rectangle. The sprite keeps the object's full size and stands above the collider, so a character can walk behind a tree whose trunk is the only solid part. The entity's `depth` is then the feet, which is what the default draw order sorts by. `height` must be positive; both are capped at the object's size.
+
+`headroom` (0 to 0.9) is how much of the drawn frame above the figure is empty sky, as a fraction of its height. A character sheet usually leaves room above the head, and anything the engine draws over an entity — a health bar, a talk prompt, a quest marker — sits at `entity.overhead`, which takes that room off. Without it those float over the top of the cell rather than over the character.
 
 An unknown key inside `physics` is an error, like everywhere else in the format.
 

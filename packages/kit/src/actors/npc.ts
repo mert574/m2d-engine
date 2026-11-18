@@ -105,7 +105,9 @@ export class Npc extends Entity {
       const pos = this.renderPosition;
       const bob = Math.sin(this.time * 3) * 3;
       this.game.worldOverlay.drawText({
-        x: pos.x, y: pos.y - this.size.y / 2 - 26 + bob, text: '!',
+        // Above the figure's head, and above the talk prompt when both
+        // show at once: the prompt sits at `overhead` less its own offset.
+        x: pos.x, y: this.overhead - 34 + bob, text: '!',
         fillStyle: this.markerColor, fontSize: 22, fontWeight: '700',
         textAlign: 'center', textBaseline: 'bottom'
       });

@@ -95,15 +95,20 @@ export class Health extends Constraint {
     if (this.currentHealth >= this.maxHealth) return;
 
     const pos = this.entity.renderPosition;
-    const size = this.entity.size;
+    const body = this.entity.body;
 
-    const barWidth = size.x;
+    // As wide as the thing that carries the health. For most entities the
+    // drawn frame is the body, so this is what it always was; for a
+    // character whose sprite stands on a small footprint, a bar the width
+    // of the sheet's cell would be several times the figure.
+    const barWidth = Math.max(24, body.size.x);
     // The bar is world-space geometry (its width is the entity's), but its
     // thickness is clamped so it cannot thin out below ~2 world-surface
     // pixels: at a low render resolution a fixed 4-unit bar rounds to nothing.
     const worldScale = this.entity.game.viewport?.worldScale || 1;
     const barHeight = Math.max(4, 2 / worldScale);
-    const barY = pos.y - size.y / 2 - 6 - barHeight; // Position above entity
+    // Over the figure's head, not over the top of its frame; see Entity.overhead.
+    const barY = this.entity.overhead - 6 - barHeight;
     const barX = pos.x - barWidth / 2;
 
     const renderer = this.entity.game.renderer;

@@ -45,6 +45,39 @@ const ROAD_ART = ['grass', 'dirt', 'sand', 'barrierWhite', 'barrierRed', 'curbWh
 const CAR_ART = ['carRed', 'carBlue', 'carGreen', 'carBlack', 'carYellow'];
 const named = (keys) => Object.fromEntries(keys.map((key) => [key, key]));
 
+/** How far `t` is round the lap from `start`, in [0, 1). */
+const lapOrder = (t, start) => ((t - start) % 1 + 1) % 1;
+
+/** The screen direction a grid may face, as an angle (y is down). */
+const FACINGS = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 };
+
+/**
+ * The lap fraction a circuit starts at: the straightest piece of road
+ * running the way the map asked (`start: 'up'`), or the fraction itself
+ * when a map names one. A grid on a bend reads as a mistake, so the
+ * search weighs how straight the road is there as well as how closely it
+ * faces the wanted way.
+ */
+function startFraction(track, start = 0) {
+  if (typeof start === 'number') return start;
+  const wanted = FACINGS[start];
+  if (wanted === undefined) throw new Error(`circuit start: '${start}' is not one of ${Object.keys(FACINGS).join(', ')} or a lap fraction`);
+  const turn = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  let best = 0;
+  let bestScore = Infinity;
+  const steps = 720;
+  for (let i = 0; i < steps; i++) {
+    const t = i / steps;
+    const here = track.pose(t).angle;
+    // How much the road turns over the next car-lengths: a straight grid.
+    const bend = turn(track.pose((t + 300 / track.length) % 1).angle, here)
+      + turn(here, track.pose((t - 300 / track.length + 1) % 1).angle);
+    const score = turn(here, wanted) + bend * 1.5;
+    if (score < bestScore) { bestScore = score; best = t; }
+  }
+  return Math.round(best * 1000) / 1000;
+}
+
 /** One circuit's scene. */
 function circuitScene(map) {
   // Shifted so the loop starts at the world's corner: a circuit's file
@@ -55,6 +88,10 @@ function circuitScene(map) {
   const track = new Track(shaped.controls.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy })));
   const { objects, add } = placer();
   const at = (t, offset = 0) => track.pose(t, offset);
+  // Where the lap begins. A map says which way it wants the grid to face
+  // (`start`), and the line goes to the straightest piece of road running
+  // that way; everything else on the lap keeps its place.
+  const startAt = startFraction(track, map.start);
 
   // Boost pads first: everything else draws over them. A map may also ask
   // for pads a car's length before its sharpest corners, which is what
@@ -68,11 +105,14 @@ function circuitScene(map) {
     const pose = at(spec.t, spec.o);
     add('oil', pose.x, pose.y, spec.r * 1.6, spec.r * 1.6, { radius: spec.r }, { angle: round(pose.angle) });
   }
-  // The checkpoints in lap order, then the finish line as the last of them.
-  [...map.checkpoints, 0].forEach((t, index) => {
+  // The checkpoints in lap order from the line, then the line itself as
+  // the last of them. The authored fractions stay where they are on the
+  // road; what the start decides is the order they come in.
+  const ordered = [...map.checkpoints].sort((a, b) => lapOrder(a, startAt) - lapOrder(b, startAt));
+  [...ordered, startAt].forEach((t, index) => {
     const pose = at(t, 0);
     add('checkpoint', pose.x, pose.y, 26, pose.width * 2 + 50,
-      { index, finish: index === map.checkpoints.length }, { angle: round(pose.angle) });
+      { index, finish: index === ordered.length }, { angle: round(pose.angle) });
   });
   // Traffic shuttles a stretch of road and a gate shuttles across one:
   // both are an open path the engine's PathFollow walks and reverses at.
@@ -122,7 +162,7 @@ function circuitScene(map) {
   course.add('road', 0, 0, 16, 16, { path: 'road', layer: 'over', art: named(ROAD_ART), ...roadLook(map) });
   course.add('director', 0, 0, 16, 16, { path: 'road', cars: named(CAR_ART), ghost: 'carBlack', ...(map.pace ? { pace: map.pace } : {}) });
   // Where the car starts: a car-length short of the line, so the lap arms as the nose crosses it.
-  const grid = at(1 - 90 / track.length, 0);
+  const grid = at(startAt - 90 / track.length, 0);
   course.add('spawn', grid.x, grid.y, 120, 120);
   for (const stretch of map.ice ?? []) course.add('ice', 0, 0, 16, 16, { path: 'road', from: stretch.from, to: stretch.to });
   if (map.tunnel) course.add('tunnel', 0, 0, 16, 16, { path: 'road', from: map.tunnel.from, to: map.tunnel.to });

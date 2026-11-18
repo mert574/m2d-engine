@@ -17,6 +17,12 @@ import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 export class Lamp extends Entity {
   name = 'Lamp';
 
+  /** The post stands 200px above its base, which is where its body is. */
+  get drawBounds() {
+    const a = this.renderAnchor;
+    return { x: a.x - 40, y: a.y - 200, width: 120, height: 220 };
+  }
+
   draw() {
     if (this.dead || !this.visible) return;
     const renderer = this.game.renderer;

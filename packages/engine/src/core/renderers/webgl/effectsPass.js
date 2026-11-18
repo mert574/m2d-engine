@@ -329,6 +329,11 @@ export class EffectsPass {
       if (caster.z < lightZ) continue;
       if (caster.minX > x + radius || caster.maxX < x - radius ||
           caster.minY > y + radius || caster.maxY < y - radius) continue;
+      // Nothing shadows the light standing inside it. Every edge of such a
+      // caster extrudes *away* from the light, so its volumes cover
+      // everything except the caster itself: a torch carried through a
+      // doorway would black out the room and light the doorframe.
+      if (x > caster.minX && x < caster.maxX && y > caster.minY && y < caster.maxY) continue;
       const pts = caster.points;
       const count = pts.length / 2;
       for (let i = 0; i < count; i++) {

@@ -24,10 +24,15 @@ const SURFACE = {
   oil: { grip: 0.16, drag: 1.1 }
 };
 
-/** Steepest hit on a barrier, from the wall, that scrapes along it rather than stopping. */
-const SCRAPE_MAX_ANGLE = Math.PI / 4;
+/**
+ * Steepest hit on a barrier, from the wall, that scrapes along it rather
+ * than stopping. Generous on purpose: clipping the edge of the road in an
+ * arcade racer should cost a moment, not the lap, so only a hit that is
+ * nearly head-on is left to the solver.
+ */
+const SCRAPE_MAX_ANGLE = Math.PI / 2.6;
 /** Share of the speed a scrape at that steepest angle costs; a shallower one costs less. */
-const SCRAPE_LOSS = 0.45;
+const SCRAPE_LOSS = 0.3;
 /** Share of the gap between heading and wall closed per tick of scraping. */
 const SCRAPE_ALIGN = 0.35;
 

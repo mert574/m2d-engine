@@ -150,6 +150,26 @@ describe('Attack in any direction', () => {
     expect(below.getConstraint('health').currentHealth).toBe(100);
   });
 
+  it('swings from the body, not from the drawn frame', () => {
+    // A 3/4-view character stands on a small footprint: its `size` is the
+    // sheet's cell, several times the body. Measuring the swing from half
+    // a cell ahead puts everything within reach *behind* the attack point,
+    // and the player swings through enemies without touching them.
+    const body = makeBody(game, 100, 100, 20, 20, { bodyType: 'static' });
+    body.frame = { width: 250, height: 250, offsetX: 0, offsetY: -115 };
+    const player = new Entity(body, null, game);
+    game.physics.add(player.body);
+    const attack = new Attack(player, { range: 60, arc: Math.PI, knockback: 0 });
+    player.addConstraint('attack', attack);
+    expect(player.size.x, 'the frame is the drawn cell').toBe(250);
+    const ahead = enemyAt(140, 100);
+    game.physics.step(1 / 60);
+
+    attack.startAttack(0); // to the right
+    attack.fixedUpdate(1 / 60);
+    expect(ahead.getConstraint('health').currentHealth).toBe(90);
+  });
+
   it('keeps the side-view contract for ±1', () => {
     const player = new Entity(makeBody(game, 100, 100, 20, 20, { bodyType: 'static' }), null, game);
     game.physics.add(player.body);

@@ -139,10 +139,14 @@ export class Attack extends Constraint {
       if (!body.entity || body.entity === this.entity || this.hits.has(body.entity)) continue;
 
       // Inside the swing? Measured from the edge of the attacker on the
-      // swing's side, so something pressed against it still counts.
+      // swing's side, so something pressed against it still counts. The
+      // edge is the *body's*: on a character whose sprite stands on a
+      // small footprint, `size` is the sheet's cell, and a point half a
+      // cell ahead would put everything in reach behind the swing.
+      const reach = this.entity.body.size.x / 2;
       const attackPoint = {
-        x: position.x + Math.cos(this.angle) * this.entity.size.x / 2,
-        y: position.y + Math.sin(this.angle) * this.entity.size.x / 2
+        x: position.x + Math.cos(this.angle) * reach,
+        y: position.y + Math.sin(this.angle) * reach
       };
       const angle = Angle.between(attackPoint, body.position);
 

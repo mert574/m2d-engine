@@ -397,7 +397,7 @@ A steppable row keeps faint chevrons either side of its value; they brighten wit
 
 ## UIMinimap
 
-`ui/minimap.js`. The world mapped into a box. `new UIMinimap(game, { bounds, size, plot, paths })`: `bounds` is the world size, `size` the width (the height follows the aspect), `plot(entity)` returns `null` or `{ shape, color, size }` with `shape` one of `dot`, `square`, `ring`, `area` (a filled circle at the entity's radius), and `paths` are polylines in world units. Draws the player as a heading arrow, the camera's view as a rectangle and `target` (an entity or `{ x, y }`) as a pulsing ring. `map(x, y)` converts world to map coordinates.
+`ui/minimap.js`. The world mapped into a box. `new UIMinimap(game, { bounds, size, plot, paths })`: `bounds` is the world size, `size` the width (the height follows the aspect), `plot(entity)` returns `null` or `{ shape, color, size }` with `shape` one of `dot`, `square`, `ring`, `rect` (the entity's own footprint to scale, which is what draws a level's walls as a plan), `area` (a filled circle at the entity's radius), and `paths` are polylines in world units. Draws the player as a heading arrow, the camera's view as a rectangle and `target` (an entity or `{ x, y }`) as a pulsing ring. `map(x, y)` converts world to map coordinates.
 
 ## UIAbilityBar
 

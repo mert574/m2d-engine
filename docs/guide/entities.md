@@ -110,6 +110,8 @@ The scene draws tile layers and entities in one ascending order: by `zIndex`, th
 
 A prefab with a `physics.footprint` gets a short collider at the bottom of its rectangle and a sprite that stands above it. The entity's `size` is the full frame, `frameOffset` is where the frame's centre sits relative to the body's, and `renderPosition` includes it, so a `draw` override that uses `renderPosition` and `size` draws the frame while `body.position` and `body.size` remain the feet. See [Perspectives](./perspectives).
 
+That split is worth keeping in mind in gameplay code: `size` is what is *drawn*, so anything that asks where the entity is in the world — the reach of a swing, the width of a health bar — reads `body.size` instead. For what is drawn *over* an entity there is `overhead`: the world y where a bar, a prompt or a marker belongs, which is the top of the frame less the `footprint.headroom` the prefab declared. A sheet that leaves half its cell empty above the head says `"headroom": 0.45`, and everything anchored there lands on the character rather than in the air above it.
+
 Annotations on an entity, such as a detection radius or a health readout, should go through `game.worldOverlay`. It takes world coordinates and draws at display resolution, so it stays sharp when the world render resolution is lowered. See [Display and resolution](./display#the-world-overlay).
 
 ### Ground detection

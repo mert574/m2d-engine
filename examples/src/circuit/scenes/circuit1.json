@@ -72,6 +72,10 @@
   "prefabs": {
     "road": { "actor": "Road", "physics": { "bodyType": "static", "isSensor": true } },
     "director": { "actor": "RaceDirector", "physics": { "bodyType": "static", "isSensor": true } },
+    "spawn": {
+      "actor": "SpawnPoint",
+      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
+    },
     "boost": {
       "actor": "BoostPad",
       "physics": { "bodyType": "static", "isSensor": true },
@@ -93,10 +97,6 @@
         "restitution": 0.3
       },
       "properties": { "blue": "barrel", "blueDown": "barrelDown", "red": "barrelRed", "redDown": "barrelRedDown" }
-    },
-    "spawn": {
-      "actor": "SpawnPoint",
-      "physics": { "bodyType": "static", "isSensor": true, "layer": "none" }
     }
   },
   "layers": [
@@ -200,7 +200,7 @@
             "ghost": "carBlack"
           }
         },
-        { "id": "spawn-1", "prefab": "spawn", "x": 10372, "y": 3748, "width": 120, "height": 120 }
+        { "id": "spawn-1", "prefab": "spawn", "x": 522, "y": 4330, "width": 120, "height": 120 }
       ]
     },
     {
@@ -236,41 +236,41 @@
         {
           "id": "checkpoint-1",
           "prefab": "checkpoint",
-          "x": 5481,
-          "y": 6612,
-          "width": 26,
-          "height": 293,
-          "angle": -2.998,
-          "properties": { "index": 0, "finish": false }
-        },
-        {
-          "id": "checkpoint-2",
-          "prefab": "checkpoint",
           "x": 526,
           "y": 4155,
           "width": 26,
           "height": 249,
           "angle": -1.539,
-          "properties": { "index": 1, "finish": false }
+          "properties": { "index": 0, "finish": false }
         },
         {
-          "id": "checkpoint-3",
+          "id": "checkpoint-2",
           "prefab": "checkpoint",
           "x": 5086,
           "y": 523,
           "width": 26,
           "height": 222,
           "angle": -0.02,
+          "properties": { "index": 1, "finish": false }
+        },
+        {
+          "id": "checkpoint-3",
+          "prefab": "checkpoint",
+          "x": 5481,
+          "y": 6612,
+          "width": 26,
+          "height": 293,
+          "angle": -2.998,
           "properties": { "index": 2, "finish": false }
         },
         {
           "id": "checkpoint-4",
           "prefab": "checkpoint",
-          "x": 10401,
-          "y": 3853,
+          "x": 523,
+          "y": 4242,
           "width": 26,
-          "height": 258,
-          "angle": 1.335,
+          "height": 246,
+          "angle": -1.549,
           "properties": { "index": 3, "finish": true }
         },
         {
@@ -415,14 +415,14 @@
         { "x": 6615.498, "y": 6740.029, "w": 113 },
         { "x": 6231.502, "y": 6714.232, "w": 116.728 },
         { "x": 5866.518, "y": 6669.385, "w": 119.588 },
-        { "x": 4984, "y": 5304 },
-        { "x": 5833, "y": 4666 },
-        { "x": 5416, "y": 3951 },
-        { "x": 4622, "y": 4454 },
-        { "x": 4331, "y": 5201 },
-        { "x": 4394, "y": 5996 },
-        { "x": 3505, "y": 6004 },
-        { "x": 3167, "y": 6373 },
+        { "x": 5522.322, "y": 6618.24, "w": 121.387 },
+        { "x": 5195.357, "y": 6573.484, "w": 122 },
+        { "x": 4877.036, "y": 6545.131, "w": 121.387 },
+        { "x": 4555.453, "y": 6538.208, "w": 119.588 },
+        { "x": 4218.196, "y": 6551.335, "w": 116.728 },
+        { "x": 3855.609, "y": 6576.579, "w": 113 },
+        { "x": 3463.716, "y": 6600.695, "w": 108.659 },
+        { "x": 3046.04, "y": 6607.511, "w": 104 },
         { "x": 2613.803, "y": 6580.956, "w": 99.341 },
         { "x": 2184.38, "y": 6508.066, "w": 95 },
         { "x": 1778.312, "y": 6381.306, "w": 91.272 },

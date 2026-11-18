@@ -39,6 +39,11 @@ export interface ObliquePlayerOptions {
   /** Swing width, radians. */
   attackArc?: number;
   attackRange?: number;
+  /**
+   * How hard a landed swing shoves what it hits. 0 by default: a 3/4-view
+   * game's ordinary attack hurts without throwing bodies across the floor
+   * — that is what an ability like a cleave is for.
+   */
   attackKnockback?: number;
   /**
    * Shift the sprite down, for a sheet whose figure's feet sit above the
@@ -58,7 +63,7 @@ export class ObliquePlayer extends TopDownPlayer {
     gravity: s.number({ initial: 1500, positive: true, unit: 'px/s²', description: 'Pull back down' }),
     attackArc: s.number({ initial: Math.PI * 1.5, positive: true, unit: 'rad', label: 'Attack arc', description: 'Swing width' }),
     attackRange: s.number({ initial: 60, positive: true, unit: 'px', label: 'Attack range' }),
-    attackKnockback: s.number({ initial: 6000, min: 0, label: 'Attack knockback' }),
+    attackKnockback: s.number({ initial: 0, min: 0, label: 'Attack knockback', description: 'How hard a landed swing shoves what it hits; 0 is the ordinary swing that only hurts' }),
     spriteOffsetY: s.number({ initial: 0, unit: 'px', label: 'Sprite offset Y', description: "Shift the sprite down, for a sheet whose figure's feet sit above the frame" }),
     spriteSize: s.number({ positive: true, unit: 'px', label: 'Sprite size', description: 'Drawn frame size when the object size is the ground body' })
   };
@@ -93,7 +98,7 @@ export class ObliquePlayer extends TopDownPlayer {
     const attack = this.getConstraint('attack') as Attack;
     attack.arc = options.attackArc ?? Math.PI * 1.5;
     attack.range = options.attackRange ?? 60;
-    attack.knockback = options.attackKnockback ?? 6000;
+    attack.knockback = options.attackKnockback ?? 0;
 
     const control = this.getConstraint('control') as KeyboardControl;
     const onJump = control.onJump;

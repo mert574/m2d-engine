@@ -582,7 +582,8 @@ const OBJECT_CONSTRAINTS = s.dynamic((value, ctx) => {
 
 const FOOTPRINT = s.object({
   width: s.number({ positive: true, unit: 'px' }),
-  height: s.number({ required: true, positive: true, unit: 'px' })
+  height: s.number({ required: true, positive: true, unit: 'px' }),
+  headroom: s.number({ min: 0, max: 0.9, description: 'How much of the frame above the figure is empty, as a fraction of its height: where a health bar or a quest marker sits (entity.overhead)' })
 }, { message: 'must be an object with a height and an optional width' });
 
 const PHYSICS = s.object({
@@ -1057,7 +1058,7 @@ export const HUD_KINDS = ['text', 'notice', 'meter', 'minimap', 'abilityBar', 'd
 
 /** A style a minimap plots with: what `UIMinimap` draws for one entity. */
 const PLOT_STYLE = {
-  shape: s.enumOf(['dot', 'ring', 'square', 'area', 'trail'], { description: 'area: a disc the size of the entity; trail: the line the entity gives as its trail (a worn track)' }),
+  shape: s.enumOf(['dot', 'ring', 'square', 'rect', 'area', 'trail'], { description: 'rect: the entity\'s footprint to scale, for walls and floors; area: a disc the size of the entity; trail: the line the entity gives as its trail (a worn track)' }),
   color: colour({ label: 'Colour' }),
   size: s.number({ positive: true, unit: 'px' })
 };

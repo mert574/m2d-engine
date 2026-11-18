@@ -86,6 +86,8 @@ export const MAPS = [
       width: (t) => 104 - 18 * Math.sin(t * Math.PI * 6)
     },
     checkpoints: [0.25, 0.5, 0.75],
+    /** Which way the grid faces; the line goes to the straightest road running that way. */
+    start: 'up',
     props: {
       cones: [coneRow(0.18, 40, 4), coneRow(0.52, -45, 4), coneRow(0.86, 0, 3, 36)],
       barrels: [{ t: 0.34, o: 70, n: 2 }, { t: 0.67, o: -75, n: 2 }],
@@ -117,6 +119,8 @@ export const MAPS = [
       width: (t) => 94 - 24 * Math.sin(t * Math.PI * 8 + 1)
     },
     checkpoints: [0.25, 0.5, 0.75],
+    /** Which way the grid faces; the line goes to the straightest road running that way. */
+    start: 'up',
     props: {
       cones: [coneRow(0.12, -50, 5), coneRow(0.41, 35, 5), coneRow(0.63, -30, 4), coneRow(0.9, 45, 4)],
       barrels: [
@@ -151,6 +155,8 @@ export const MAPS = [
       width: (t) => 82 - 26 * Math.sin(t * Math.PI * 10 + 2)
     },
     checkpoints: [0.25, 0.5, 0.75],
+    /** Which way the grid faces; the line goes to the straightest road running that way. */
+    start: 'up',
     props: {
       cones: [
         coneRow(0.08, 30, 5), coneRow(0.27, -40, 6), coneRow(0.5, 25, 5),
@@ -188,6 +194,8 @@ export const MAPS = [
       width: (t) => 76 - 24 * Math.sin(t * Math.PI * 12 + 0.5)
     },
     checkpoints: [0.25, 0.5, 0.75],
+    /** Which way the grid faces; the line goes to the straightest road running that way. */
+    start: 'left',
     props: {
       cones: [
         coneRow(0.1, -30, 6), coneRow(0.3, 40, 5), coneRow(0.47, -25, 6),
@@ -229,6 +237,8 @@ export const MAPS = [
       width: (t) => 72 - 26 * Math.sin(t * Math.PI * 14 + 1.7)
     },
     checkpoints: [0.25, 0.5, 0.75],
+    /** Which way the grid faces; the line goes to the straightest road running that way. */
+    start: 'right',
     props: {
       cones: [
         coneRow(0.05, 25, 6), coneRow(0.2, -35, 6), coneRow(0.35, 30, 5),
@@ -276,6 +286,8 @@ export const MAPS = [
       width: (t) => 70 - 22 * Math.sin(t * Math.PI * 12 + 0.9)
     },
     checkpoints: [0.25, 0.5, 0.75],
+    /** Which way the grid faces; the line goes to the straightest road running that way. */
+    start: 'down',
     tunnel: { from: 0.6, to: 0.68 },
     ice: [{ from: 0.3, to: 0.37 }, { from: 0.82, to: 0.87 }],
     props: {

@@ -229,7 +229,9 @@ export class RaceDirector extends Entity {
         x: wall.x, y: wall.y,
         width: wall.length, height: WALL_THICKNESS,
         angle: wall.angle, bodyType: 'static',
-        friction: 0.05, restitution: 0.4
+        // Barely any bounce: a wall takes the speed a hit costs, it does
+        // not hand it back as a shove into the road.
+        friction: 0.05, restitution: 0.05
       }));
     }
   }

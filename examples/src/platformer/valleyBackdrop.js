@@ -48,6 +48,11 @@ const LEVEL_SKY = [
 const LEVEL_RIDGES = ['#88a0bc', '#68829f', '#4d6482', '#374a66'];
 
 export class ValleyBackdrop extends Entity {
+  /** It paints the valley across the view, not its body: never culled (core/viewCull.js). */
+  get drawBounds() {
+    return null;
+  }
+
   static properties = {
     layer: s.enumOf(['back', 'front'], { initial: 'back', description: 'back: the sky and ridges under everything; front: the valley mist over it' }),
     seed: s.integer({ min: 0, initial: 11, description: 'Which valley: the menu\'s is 11' })

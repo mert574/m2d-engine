@@ -72,6 +72,13 @@ export class UIMinimap extends UIElement {
         if (points?.length > 1) paint.drawPath({ points: points.map((q) => this.map(q.x, q.y)), strokeStyle: mark.color, lineWidth: mark.size ?? 3 });
       } else if (mark.shape === 'area') {
         paint.drawArc({ x: p.x, y: p.y, radius: (mark.radius ?? entity.size.x / 2) * sx, fillStyle: mark.color });
+      } else if (mark.shape === 'rect') {
+        // The entity's own footprint, to scale: what draws a level's walls
+        // and floors as a plan instead of a scatter of dots. Never thinner
+        // than a hairline, or a wall would vanish on a small map.
+        const width = Math.max(1, entity.size.x * sx);
+        const height = Math.max(1, entity.size.y * sy);
+        paint.drawRect({ x: p.x - width / 2, y: p.y - height / 2, width, height, fillStyle: mark.color });
       } else {
         paint.drawArc({ x: p.x, y: p.y, radius: size, fillStyle: mark.color });
       }
