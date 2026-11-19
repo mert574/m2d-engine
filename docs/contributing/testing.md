@@ -1,21 +1,23 @@
 # Testing
 
 ```bash
-npm test               # all suites plus example scene validation
-npm run test:node      # engine Node suite, about half a second
-npm run test:browser   # engine browser suite in headless Chromium
+npm test               # every suite but the browser tier, plus example scene validation
+npm run test:node      # engine Node suite, no GPU
+npm run test:gpu       # engine GPU suite: WebGL2 and WebGPU in Node
+npm run test:browser   # engine browser tier in headless Chromium, on demand
 npm run test:watch     # Node suite, re-run on change
 npm run test:editor    # the editor's GUI, driven in a Chrome with the GPU
 ```
 
-The engine's tests are two Vitest projects declared in `packages/engine/vitest.config.js`.
+The engine's tests are three Vitest projects declared in `packages/engine/vitest.config.js`. `npm test` runs `node` and `gpu`.
 
 | Project | Files | Runs in | Why |
 | --- | --- | --- | --- |
-| `node` | everything outside `test/browser/` | Node, with `@napi-rs/canvas` as the rasterizer | Fast. Pixel assertions work without a browser |
-| `browser` | `test/browser/**` | Headless Chromium through Playwright | Node has no WebGL2 or WebGPU. The `webgpu.*.test.js` suites cover the 3D renderer: lighting, shadows, props, streaming, the loader and pixel-level smoke scenes |
+| `node` | everything outside `test/gpu/` and `test/browser/` | Node, with `@napi-rs/canvas` as the rasterizer | Fast. Pixel assertions on the Canvas backend and everything that needs no GPU |
+| `gpu` | `test/gpu/**` | Node, on the machine's GPU: WebGL2 through ANGLE, WebGPU through Dawn | The renderers' pixels without a browser. The WebGL conformance run, curves, shadow lights, views and the view cull, and the `webgpu.*.test.js` suites for the 3D renderer: lighting, shadows, props, streaming, the loader and pixel-level smoke scenes |
+| `browser` | `test/browser/**` and `test/gpu/**` | Headless Chromium through Playwright | What needs a real browser: Pointer Events, pointer lock, edit mode, WebGL context loss, the model loader's worker. It runs the `gpu` files too, which checks the Node stand-ins against Chromium. Not part of `npm test`: run it when you change one of those flows or the gpu environment |
 
-Both load `test/helpers/setupPhysics.js`, which awaits `initPhysics()` once per worker so every suite can construct a game synchronously.
+All three load `test/helpers/setupPhysics.js`, which awaits `initPhysics()` once per worker so every suite can construct a game synchronously.
 
 A suite that constructs an `M2D` in the node project installs a `window` global with `installWindowStub()` from `test/helpers/environment.js`. The stub carries the real `performance` object, which Rapier's WASM glue reads its clock through whenever `window` exists. A stub without it panics on the first physics step. See [Troubleshooting](./troubleshooting#development-environment).
 
@@ -25,7 +27,7 @@ In the examples workspace, `examples/test/scenes.test.js` validates every exampl
 
 | Layer | File | Project | Proves |
 | --- | --- | --- | --- |
-| Backend contract | `conformance/rendererConformance.js`, run once per backend | both | A backend rasterizes every primitive correctly |
+| Backend contract | `conformance/rendererConformance.js`, run once per backend | node, gpu, browser | A backend rasterizes every primitive correctly |
 | Caller contract | `engineDrawCalls.test.js` | node | Engine and actor code emit the right draw calls |
 | UI and wiring | `uiRenderer.test.js`, `rendererRegistry.test.js`, `rendererFallback.test.js` | node | Screen-space forwarding, backend selection, fallback |
 | Browser environment | `browser/environment.smoke.test.js` | browser | WebGL2 exists, pixel readback is top-left, fixtures upload |
@@ -54,6 +56,7 @@ Engine-level suites: `viewport.test.js` for sizing math and projection, `resizeL
 | `helpers/fixtures.js` | Test images |
 | `helpers/input.js` | `pointerDown`, `click`, `drag`, `scroll`, `keyDown` and clock helpers over `game.input.push` |
 | `helpers/environment.js` | Canvas creation and pixel readback for Node and the browser |
+| `helpers/gpuEnvironment.js` | The `gpu` project's browser stand-ins. See [The gpu project](#the-gpu-project) |
 | `helpers/setupPhysics.js` | Awaits `initPhysics()` once per worker |
 
 ## Test helpers shared with the kit
@@ -65,7 +68,7 @@ Engine-level suites: `viewport.test.js` for sizing math and projection, `resizeL
 One file. The WebGL2 backend's file is the template.
 
 ```js
-// test/browser/webglRenderer.conformance.test.js
+// test/gpu/webglRenderer.conformance.test.js
 import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.js';
 import { describeRendererConformance } from '../conformance/rendererConformance.js';
 import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js';
@@ -95,9 +98,25 @@ A flag set to `true` is a promise the suite enforces.
 
 The harness flag and the backend's runtime `capabilities` should agree. Some optional-feature tests run on every backend because `BaseRenderer` supplies a fallback: `drawParticles` draws one sprite per particle, and the light and post-effect methods are no-ops. Those tests assert the call works. The gated ones assert the behaviour the flag promises.
 
+## The gpu project
+
+`helpers/gpuEnvironment.js` is installed before any test module loads. It gives `document.createElement('canvas')` a canvas whose `'2d'` context is Skia (`@napi-rs/canvas`), whose `'webgl2'` context is ANGLE (`@onirenaud/node-webgl`) and whose `'webgpu'` context is Dawn (`webgpu`, Dawn's own Node binding). Around it, it stands in for what the renderers reach for: `createImageBitmap`, `ImageBitmap`, `ImageData`, `OffscreenCanvas`, `requestAnimationFrame`, a `fetch` that reads `file:` URLs, and the document tree as far as the 3D renderer's HUD overlay walks it. Dawn's Node binding has no canvas and no external images, so the environment supplies a `GPUCanvasContext` over a texture and a `copyExternalImageToTexture` that uploads the source's pixels. Nothing in the engine knows it is in Node.
+
+The GPU is the machine's own. Without one, Mesa's CPU drivers stand in: lavapipe for Dawn's Vulkan and llvmpipe for ANGLE's OpenGL. That is how CI runs it, with `mesa-vulkan-drivers`, `libgl1-mesa-dri` and `libegl1` installed. To run the suite on the CPU drivers on a machine that has a GPU:
+
+```bash
+VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json LIBGL_ALWAYS_SOFTWARE=1 npm run test:gpu
+```
+
+`M2D_DAWN_ADAPTER` names Dawn's adapter instead, and an unknown name makes it list them. `NODE_WEBGL_BACKEND` picks ANGLE's backend (`vulkan`, `gl`, `gles`, `swiftshader`). The assertions compare pixels with each other (lit brighter than shadowed, red where the red box is) or sample shape interiors with a tolerance, so a real GPU and a software one both pass.
+
+A test that needs a DOM element other than a canvas fails in this project with a message saying so. It belongs in `test/browser/`.
+
+On a machine with lavapipe installed, Dawn prints two `artificially reduced` warnings per test worker while it lists the adapters. They come from the native library and cannot be silenced from JavaScript.
+
 ## The browser project
 
-One-time setup:
+Run it when you change a flow only it covers (input, pointer lock, edit mode, context loss, the loader's worker) or `helpers/gpuEnvironment.js`. One-time setup:
 
 ```bash
 npx playwright install chromium
@@ -109,7 +128,13 @@ To use an installed Chrome or Chromium instead, set `M2D_BROWSER` to its path. I
 M2D_BROWSER=/usr/bin/chromium npm run test:browser
 ```
 
-Headless Chromium has no GPU. `vitest.browser.config.js` passes flags so WebGL2 uses the SwiftShader software rasterizer, and WebGPU runs on Dawn over SwiftShader's Vulkan. `browser/environment.smoke.test.js` fails first with a clear message if WebGL2 is still unavailable, and `browser/webgpu.smoke.test.js` does the same for WebGPU. The Vulkan flags are load-bearing: with only the ANGLE flags, the WebGPU instance is torn down on first use. A 2D-canvas snapshot of a WebGPU canvas reads back empty under SwiftShader, so 3D tests read pixels through `renderer.readPixels()` in the same task as the draw.
+Headless Chromium has no GPU. `vitest.browser.config.js` passes flags so WebGL2 uses the SwiftShader software rasterizer, and WebGPU runs on Dawn over SwiftShader's Vulkan. `browser/environment.smoke.test.js` fails first with a clear message if WebGL2 is still unavailable, and `gpu/webgpu.smoke.test.js` does the same for WebGPU. The Vulkan flags are load-bearing: with only the ANGLE flags, the WebGPU instance is torn down on first use. The config also launches Chromium without `DISPLAY`: SwiftShader's display connects to the X server named there even when headless, and a server that refuses it leaves the page with no WebGL2 at all. A 2D-canvas snapshot of a WebGPU canvas reads back empty under SwiftShader, so 3D tests read pixels through `renderer.readPixels()` in the same task as the draw.
+
+On a machine with a GPU, real-GPU flags replace the SwiftShader ones and run the tier several times faster:
+
+```bash
+M2D_BROWSER_FLAGS='--use-angle=gl-egl --enable-unsafe-webgpu --enable-features=Vulkan --ignore-gpu-blocklist' npm run test:browser
+```
 
 A minimal Linux or WSL2 install may lack system libraries. If the browser fails with `error while loading shared libraries`:
 

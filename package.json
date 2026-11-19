@@ -26,13 +26,16 @@
     "test": "npm run typecheck && npm run test --workspaces --if-present",
     "test:watch": "npm run test:watch --workspace packages/engine",
     "test:node": "npm run test:node --workspace packages/engine",
+    "test:gpu": "npm run test:gpu --workspace packages/engine",
     "test:browser": "npm run test:browser --workspace packages/engine",
     "test:editor": "node scripts/driveEditor.mjs"
   },
   "author": "Mert Yildiz",
   "license": "MIT",
   "allowScripts": {
-    "esbuild@0.21.5": true
+    "esbuild@0.21.5": true,
+    "webgpu@0.6.2": true,
+    "@onirenaud/node-webgl@0.2.0": true
   },
   "devDependencies": {
     "typescript": "^7.0.2"

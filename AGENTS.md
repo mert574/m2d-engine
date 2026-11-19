@@ -98,10 +98,11 @@ npm run docs:dev       # documentation site
 npm run editor examples/src/yard      # the editor on one game's folder (random port, printed; MCP at /mcp)
 npm run editor new my-game --template 3d   # a new project from a template (2d or 3d)
 npm run editor:mcp examples/src/yard  # the MCP endpoint over stdio, when no editor is running
-npm test               # typecheck, then node + browser engine suites and example scene validation
+npm test               # typecheck, then node + gpu engine suites and every workspace's tests
 npm run typecheck      # every workspace that has a tsconfig
-npm run test:node      # fast engine suite
-npm run test:browser   # WebGL2 conformance in headless Chromium
+npm run test:node      # fast engine suite, no GPU
+npm run test:gpu       # WebGL2 and WebGPU renderers in Node, on the GPU or Mesa's CPU drivers
+npm run test:browser   # browser tier in headless Chromium: input, edit mode, context loss; on demand
 npm run build          # site/ = docs + demos
 npx playwright install chromium   # once, for test:browser
 ```

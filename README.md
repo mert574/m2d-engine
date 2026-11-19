@@ -23,8 +23,9 @@ npm run dev              # example games on http://localhost:3000
 | `npm run dev:lan` | Serve them over HTTPS on every interface, so a browser on another machine can run the 3D demos |
 | `npm run build-models` | Fetch the yard's photoscanned models from Poly Haven and compile them into levels of detail, at the default quality levels (`npm run build-models --workspace examples -- --quality all` for every level). The dev server builds every level that is missing on start, so a fresh checkout takes a while the first time |
 | `npm run build-assets` | Build everything the examples load that is not committed (sprites, dev textures, the lot's models, the seeded scenes), skipping what is already there. The dev server and `npm run build` do this themselves; run it by hand before `npm test` on a fresh checkout |
-| `npm test` | Engine suites in Node and headless Chromium, plus example scene validation |
-| `npx playwright install chromium` | Once, for the headless-Chromium renderer suite |
+| `npm test` | Every workspace's suites, the engine's renderers included (drawn in Node on the GPU), plus example scene validation |
+| `npm run test:browser` | The engine's browser tier in headless Chromium, for input, edit mode and context loss. Run it when you change those flows |
+| `npx playwright install chromium` | Once, for the browser tier |
 | `npm run docs:dev` | Serve the documentation site |
 | `npm run build` | Build docs and demos into `site/` |
 

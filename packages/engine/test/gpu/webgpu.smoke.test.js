@@ -10,15 +10,15 @@ import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
 import { createCanvasElement } from '../helpers/environment.js';
 
 /**
- * The 3D renderer in the test browser: WebGPU works, a shaded scene draws
- * through the engine's frame loop with a sky, a sun, shadows and the HUD
- * on its overlay canvas, and a scene file's `mesh` block reaches the frame.
+ * The 3D renderer: WebGPU works, a shaded scene draws through the
+ * engine's frame loop with a sky, a sun, shadows and the HUD on its
+ * overlay canvas, and a scene file's `mesh` block reaches the frame.
  *
- * SwiftShader is slow and these frames are small; the assertions are about
- * relationships between pixels (lit brighter than shadowed, sky above the
- * horizon, red where the red box is), not exact values from a software
- * rasterizer. If this fails on `navigator.gpu`, check the WebGPU flags in
- * vitest.browser.config.js.
+ * The GPU may be a software one and these frames are small; the
+ * assertions are about relationships between pixels (lit brighter than
+ * shadowed, sky above the horizon, red where the red box is), not exact
+ * values from one rasterizer. If this fails on `navigator.gpu`, Dawn found
+ * no adapter: see the gpu project in docs/contributing/testing.md.
  */
 
 async function readPixels(renderer) {
@@ -80,9 +80,9 @@ function yardFrame(renderer, camera, { shadows = true } = {}) {
   return frame;
 }
 
-describe('WebGPU in the test browser', () => {
+describe('WebGPU in the test environment', () => {
   it('exposes navigator.gpu and hands out a device', async () => {
-    expect(webgpuSupported(), 'navigator.gpu missing: check --enable-unsafe-webgpu in vitest.browser.config.js').toBe(true);
+    expect(webgpuSupported(), 'navigator.gpu missing: Node needs the gpu environment, Chromium the WebGPU flags in vitest.browser.config.js').toBe(true);
     const device = await initWebGPU();
     expect(device).toBeTruthy();
     expect(await initWebGPU()).toBe(device);
@@ -361,12 +361,19 @@ describe('a 3D game through the engine loop', () => {
     game.renderer.setDebugEnabled(true);
 
     // Building the frame submits the route and the destination ring to the
-    // world overlay, which replays them projected when the frame draws.
+    // world overlay, which replays them projected when the frame draws. In
+    // 3D the ring is traced flat on the ground at the destination, not a
+    // screen-space circle.
     game.worldOverlay.clear();
     scene.frame3D(1 / 60);
-    const shapes = game.worldOverlay.shapes.map((shape) => shape.method);
-    expect(shapes).toContain('drawPath');
-    expect(shapes).toContain('drawArc');
+    const [route, ring] = game.worldOverlay.shapes;
+    expect(game.worldOverlay.shapes.map((shape) => shape.method)).toEqual(['drawPath', 'drawPath']);
+    expect(route.options.points.length).toBeGreaterThanOrEqual(2);
+    const ground = ring.options.points.map((p) => p.y);
+    expect(Math.max(...ground) - Math.min(...ground), 'the ring lies flat').toBeLessThan(1e-9);
+    const centre = ring.options.points.reduce((sum, p) => ({ x: sum.x + p.x, z: sum.z + p.z }), { x: 0, z: 0 });
+    const n = ring.options.points.length;
+    expect([centre.x / n, centre.z / n].map((v) => Math.round(v)), 'the ring is around the destination').toEqual([5, 5]);
 
     // Without the debug view, a click draws nothing.
     game.renderer.setDebugEnabled(false);

@@ -34,7 +34,7 @@ Scoped 17 Nov 2026; each item's project under `knowledge-base/projects/` holds i
 | **Asset caching**: every asset under a content-hashed URL from the manifest, and a service worker serving them cache-first from Cache Storage, pruned when a build stops naming them | `projects/asset-caching` | None |
 | **Asset import**: 3D models into glTF for the existing compiler (obj2gltf, assimp through WebAssembly, Blender when installed), and 2D art from Aseprite, PSD and packer JSON | `projects/asset-import` | Decide grid repacking or per-frame rectangles for sprite sheets |
 | **iOS**: on the latest iPhone the main menu draws and every game is black, on every renderer | To be named by the investigation | Investigation |
-| **Drop the Canvas 2D backend**: WebGL2 is the 2D floor; the capability flags that only Canvas lacks go with it | `projects/canvas-removal` | None |
+| **Drop the Canvas 2D backend**: WebGL2 is the 2D floor, the renderer capability flags go with it, and the GPU tests run in Node on Dawn and ANGLE so `npm test` needs no browser | `projects/canvas-removal` | None |
 
 ## Perspectives
 

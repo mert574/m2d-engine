@@ -17,7 +17,7 @@ import { MANIFEST_VERSION } from '../src/core/assetSchema.js';
 /**
  * Models on the CPU side: reading a .glb, the asset and scene plumbing that
  * names one, and the frame's culling. What the GPU makes of it is the
- * browser suite's business.
+ * gpu suite's business.
  */
 
 const fixture = (name) => {

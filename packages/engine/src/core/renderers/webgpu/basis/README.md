@@ -10,12 +10,15 @@ last resort. `basis.js` beside this directory is the engine's wrapper.
 Taken from the build three.js ships, which is the widely-exercised one:
 
 - Source: npm package `three@0.187.0`, `examples/jsm/libs/basis/`
-- sha256 `basis_transcoder.js` (before the export footer):
+- sha256 `basis_transcoder.js` (before the footer change):
   `8478b5b6d6b74e7d3082b89f6417321d8d1dc0307f2b30d4484bb11b441696a1`
 - sha256 `basis_transcoder.wasm`:
   `6cf17dc889352c42e9acf8897107978d127005fe3386c36a0e3845e27967630a`
 
-The one local change: an `export default BASIS;` footer appended to the
-`.js`, marked by a comment, so it imports as an ES module. To update,
-copy both files from a newer three release, re-append the footer, and
-refresh the checksums here.
+The one local change: the `.js` file's CommonJS and AMD footer is
+replaced by `export default BASIS;`, marked by a comment, so it imports
+as an ES module and nothing else. The footer's `module.exports`
+assignment broke the import under Vitest, whose module runner gives an
+ES module a CommonJS `module` that refuses it. To update, copy both
+files from a newer three release, replace the footer again, and refresh
+the checksums here.

@@ -21,8 +21,8 @@ let pending = null;
 
 /**
  * Compile and initialize the transcoder wasm, once per page. The vendored
- * script is imported here, not at the top, so nothing loads it — its UMD
- * footer included — until a KTX2 texture actually appears.
+ * script is imported here, not at the top, so nothing loads it until a
+ * KTX2 texture actually appears.
  */
 export function initBasis() {
   pending ??= import('./basis/basis_transcoder.js').then(({ default: BASIS }) => BASIS({

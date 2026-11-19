@@ -9,10 +9,11 @@
     "./test/helpers/*": "./test/helpers/*"
   },
   "scripts": {
-    "test": "npm run test:node && npm run test:browser",
+    "test": "vitest run --project node --project gpu",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:watch": "vitest --project node",
     "test:node": "vitest run --project node",
+    "test:gpu": "vitest run --project gpu",
     "test:browser": "vitest run --project browser"
   },
   "author": "Mert Yildiz",
@@ -24,10 +25,12 @@
   },
   "devDependencies": {
     "@napi-rs/canvas": "^1.1.0",
+    "@onirenaud/node-webgl": "0.2.0",
     "@vitest/browser": "^5.0.5",
     "@vitest/browser-playwright": "^5.0.5",
     "playwright": "^1.64.1",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "webgpu": "0.6.2"
   },
   "repository": {
     "type": "git",

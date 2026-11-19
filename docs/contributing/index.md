@@ -35,7 +35,7 @@ npm run build         # docs and demos into site/
 
 Sprite generation and the Node test suite use `@napi-rs/canvas`, which installs a prebuilt binding from the npm registry. Install with optional dependencies enabled, since the binding is one.
 
-The browser test suite needs Chromium once: `npx playwright install chromium`. See [Testing](./testing) for details and system packages.
+The GPU test suite draws in Node on the machine's GPU, or on Mesa's CPU drivers where there is none (`mesa-vulkan-drivers`, `libgl1-mesa-dri` and `libegl1` on Debian and Ubuntu). On Linux, `@onirenaud/node-webgl` compiles a small addon on install, which needs a C++ toolchain. The browser test tier, run on demand, needs Chromium once: `npx playwright install chromium`. See [Testing](./testing) for details and system packages.
 
 ## Making changes
 

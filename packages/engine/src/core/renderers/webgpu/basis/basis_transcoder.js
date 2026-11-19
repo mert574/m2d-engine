@@ -13,10 +13,5 @@ var Module=moduleArg;var readyPromiseResolve,readyPromiseReject;var readyPromise
 }
 );
 })();
-if (typeof exports === 'object' && typeof module === 'object')
-  module.exports = BASIS;
-else if (typeof define === 'function' && define['amd'])
-  define([], () => BASIS);
-
-// m2d: appended for ES module consumption; the only change to the vendored file.
+// m2d: the CommonJS and AMD footer replaced by an ES module export; the only change to the vendored file.
 export default BASIS;

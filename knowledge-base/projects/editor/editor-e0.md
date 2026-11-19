@@ -310,7 +310,7 @@ numbers await a desktop run of `yard?views=2`, the demo deliverable: a
 picture-in-picture canvas circling the hero on its own camera while the
 main view stays interactive.
 
-Tests: `test/browser/views.test.js` — two 3D views showing different
+Tests: `test/gpu/views.test.js` — two 3D views showing different
 pictures of one assembled frame (instances counted once), a view facing
 the scene from the opposite side (its frustum culled independently),
 remove-and-keep-rendering, and the 2D two-canvas walk with the

@@ -10,7 +10,7 @@ The site at [mert574.github.io/m2d-engine](https://mert574.github.io/m2d-engine/
 
 ## The Pages workflow
 
-`.github/workflows/pages.yml` runs on every push to `master` and on manual dispatch. It installs dependencies, installs Chromium, builds the examples' uncommitted assets (`.github/actions/example-assets`), runs `npm test`, runs `npm run build`, uploads `site/` as the Pages artifact and deploys it. The lot's models are built at the yard's default quality levels only, and the published yard offers no quality settings. A failing test or build stops the deployment.
+`.github/workflows/pages.yml` runs on every push to `master` and on manual dispatch. It installs dependencies, installs Mesa's software GPU drivers for the GPU tests, builds the examples' uncommitted assets (`.github/actions/example-assets`), runs `npm test`, runs `npm run build`, uploads `site/` as the Pages artifact and deploys it. The lot's models are built at the yard's default quality levels only, and the published yard offers no quality settings. A failing test or build stops the deployment.
 
 ### The asset caches
 
