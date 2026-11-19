@@ -14,7 +14,7 @@ import { makeRng, range } from 'm2d-kit/random';
  *
  * The water carries drifting ripple dashes and a glitter path under the
  * lighthouse. Both are deterministic and animated purely from `time`, like
- * every other layer, so the two backends stay comparable.
+ * every other layer, so the layers stay comparable.
  */
 export class Backdrop {
   /**

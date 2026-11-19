@@ -20,14 +20,12 @@ const VIEW = { width: 1280, height: 720 };
 const WORLD = { width: 2560, height: 1440 };
 
 const canvas = document.getElementById('screen');
-// B swaps the backend by reloading with ?renderer=; skip the menu on that
-// reload so the two backends can be compared without re-clicking Start.
 // Compile Rapier's WASM module before anything builds a physics world.
 await initPhysics();
 
 const game = new M2D(canvas, {
   pointerLock: false,
-  initialScene: new URLSearchParams(location.search).has('renderer') ? 'showcase' : 'mainMenu',
+  initialScene: 'mainMenu',
   width: VIEW.width,
   height: VIEW.height,
   worldWidth: WORLD.width,
@@ -56,7 +54,7 @@ game.sceneManager.addScene('mainMenu', {
       },
       {
         type: 'text', id: 'subtitle', x: 98, y: -48, anchor: 'left',
-        properties: { text: 'RENDERER COMPARISON', fontSize: '$font.size.caption', fontWeight: '$font.weight.medium', letterSpacing: '$font.tracking.widest', color: '$color.text.accent' }
+        properties: { text: 'RENDERER SHOWCASE', fontSize: '$font.size.caption', fontWeight: '$font.weight.medium', letterSpacing: '$font.tracking.widest', color: '$color.text.accent' }
       },
       ...[['start', 'Start', { onClick: 'showcase' }, 20], ['settings', 'Settings', { action: 'settings' }, 64]].map(([id, text, does, y]) => ({
         // The label sits 13 in from the item's edge (its bar's margin), on the title's.
@@ -131,9 +129,9 @@ game.sceneManager.addScene('showcase', {
 });
 
 // The two cycles the harbour runs on — the hour and the front crossing it —
-// can each be held, so two backends can be compared on one look rather
-// than whatever moment each happened to reach. Kept across the reload a
-// backend swap makes; the HUD says when either is held.
+// can each be held, so a look can be studied rather than whatever moment
+// the cycle happened to reach. Kept across reloads; the HUD says when
+// either is held.
 game.cvars.register('g_hour', {
   type: 'string', choices: HOUR_MODES, default: 'cycle', persist: true,
   description: 'The showcase\'s light: cycle through the hours, or hold one',
@@ -167,8 +165,8 @@ game.input.on('keydown', (event) => {
   if (showcase) SHORTCUTS[event.code]?.();
 });
 
-// Settings overlay (O): fullscreen, aspect mode, debug, backend swap, and
-// these resolution presets (only the world gets coarser — the same amount of
+// Settings overlay (O): fullscreen, aspect mode, debug, and these
+// resolution presets (only the world gets coarser — the same amount of
 // world stays visible and the HUD stays sharp).
 const RESOLUTIONS = ['native', { width: 1280, height: 720 }, { width: 854, height: 480 }, { width: 426, height: 240 }];
 new SettingsMenu(game, { resolutions: RESOLUTIONS }).addOption(audioOption(game));

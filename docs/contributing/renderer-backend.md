@@ -1,6 +1,6 @@
 # Writing a renderer backend
 
-A backend is a class that extends `BaseRenderer` and implements every method that throws `Method not implemented`. The engine, the UI layer and the conformance suite work against that contract, so a new backend needs no changes elsewhere. `packages/engine/src/core/renderers/canvasRenderer.js` is the smallest complete backend and the model for this page.
+A backend is a class that extends `BaseRenderer` and implements every method that throws `Method not implemented`. The engine, the UI layer and the conformance suite work against that contract, so a new backend needs no changes elsewhere. `packages/engine/src/core/renderers/webglRenderer.js` is the reference backend.
 
 ## Skeleton
 
@@ -94,7 +94,7 @@ Set `this.capabilities.<name> = true` for each optional feature the backend impl
 
 ## Testing it
 
-Add one test file that hands the backend to the conformance harness. Put it under `test/browser/` if the backend needs a real browser, otherwise next to `canvasRenderer.conformance.test.js`.
+Add one test file that hands the backend to the conformance harness. Put it under `test/gpu/` if the backend draws through WebGL2 or WebGPU, under `test/browser/` if it needs something only a browser has, otherwise under `test/`.
 
 ```javascript
 import { MyRenderer } from '../../src/core/renderers/myRenderer.js';
@@ -112,4 +112,4 @@ describeRendererConformance({
 
 `readPixels` returns RGBA with a top-left origin. While the backend is under construction, set a mandatory flag such as `shadows: false` to skip that group. Turn it back on as the feature lands. [Testing](./testing#validating-a-new-backend) describes the flags.
 
-Then run the renderer fallback and registry tests, `npm run test:node`, and view every example with `?renderer=mine`.
+Then run the registry tests, `npm test`, and view the examples with `renderer: 'mine'` in their options.

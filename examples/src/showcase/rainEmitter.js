@@ -11,9 +11,9 @@ import { PARTICLE_STRIDE } from 'm2d-engine/core/renderers/baseRenderer.js';
  * there and says so in the HUD rather than crawling.
  *
  * Positions are pure functions of time, not integrated. A drop's fall is
- * `(time * speed + phase) mod span`, so two backends running at different
- * frame rates still show the identical sky at the same moment — which is
- * what makes the frame-time numbers comparable.
+ * `(time * speed + phase) mod span`, so two runs at different frame rates
+ * still show the identical sky at the same moment — which is what makes
+ * the frame-time numbers comparable.
  */
 
 /** Static per-drop parameters: spawnX, speed, phase, size, alpha. */
@@ -97,8 +97,8 @@ export class RainEmitter {
    * Set how hard it is raining and which way.
    * @param {number} wind - Horizontal drift per unit of fall
    * @param {number} opacity - 0 dry, 1 the full downpour. The drops are
-   *   always all there: a comparison harness may not quietly draw fewer
-   *   of them because the weather turned.
+   *   always all there: a stress test may not quietly draw fewer of them
+   *   because the weather turned.
    */
   setWeather(wind, opacity) {
     this.wind = wind;

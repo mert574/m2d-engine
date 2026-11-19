@@ -13,9 +13,9 @@ The engine's tests are three Vitest projects declared in `packages/engine/vitest
 
 | Project | Files | Runs in | Why |
 | --- | --- | --- | --- |
-| `node` | everything outside `test/gpu/` and `test/browser/` | Node, with `@napi-rs/canvas` as the rasterizer | Fast. Pixel assertions on the Canvas backend and everything that needs no GPU |
-| `gpu` | `test/gpu/**` | Node, on the machine's GPU: WebGL2 through ANGLE, WebGPU through Dawn | The renderers' pixels without a browser. The WebGL conformance run, curves, shadow lights, views and the view cull, and the `webgpu.*.test.js` suites for the 3D renderer: lighting, shadows, props, streaming, the loader and pixel-level smoke scenes |
-| `browser` | `test/browser/**` and `test/gpu/**` | Headless Chromium through Playwright | What needs a real browser: Pointer Events, pointer lock, edit mode, WebGL context loss, the model loader's worker. It runs the `gpu` files too, which checks the Node stand-ins against Chromium. Not part of `npm test`: run it when you change one of those flows or the gpu environment |
+| `node` | everything outside `test/gpu/` and `test/browser/` | Node, with `@napi-rs/canvas` for fixtures | Fast. Everything that needs no GPU |
+| `gpu` | `test/gpu/**` | Node, on the machine's GPU: WebGL2 through ANGLE, WebGPU through Dawn | Everything that builds a game or draws. The WebGL conformance run, curves, shadow lights, views, the view cull, and the `webgpu.*.test.js` suites for the 3D renderer: lighting, shadows, props, streaming, the loader and pixel-level smoke scenes. `test/gpu/engine/` holds the engine-level suites that construct an `M2D` (resize lifecycle, settings menu, console, volumes, quality) |
+| `browser` | `test/browser/**` and `test/gpu/*` | Headless Chromium through Playwright | What needs a real browser: Pointer Events, pointer lock, edit mode, WebGL context loss, the model loader's worker. It runs the `gpu` renderer files too, which checks the Node stand-ins against Chromium; `test/gpu/engine/` stays out, since those suites use Node's `window` stub. Not part of `npm test`: run it when you change one of those flows or the gpu environment |
 
 All three load `test/helpers/setupPhysics.js`, which awaits `initPhysics()` once per worker so every suite can construct a game synchronously.
 
@@ -27,13 +27,13 @@ In the examples workspace, `examples/test/scenes.test.js` validates every exampl
 
 | Layer | File | Project | Proves |
 | --- | --- | --- | --- |
-| Backend contract | `conformance/rendererConformance.js`, run once per backend | node, gpu, browser | A backend rasterizes every primitive correctly |
+| Backend contract | `conformance/rendererConformance.js`, run once per backend | gpu, browser | A backend rasterizes every primitive correctly |
 | Caller contract | `engineDrawCalls.test.js` | node | Engine and actor code emit the right draw calls |
-| UI and wiring | `uiRenderer.test.js`, `rendererRegistry.test.js`, `rendererFallback.test.js` | node | Screen-space forwarding, backend selection, fallback |
+| UI and wiring | `uiRenderer.test.js`, `rendererRegistry.test.js`, `rendererRefusal.test.js` | node | Screen-space forwarding, backend selection, the refusal without WebGL2 |
 | Browser environment | `browser/environment.smoke.test.js` | browser | WebGL2 exists, pixel readback is top-left, fixtures upload |
 | Context loss | `browser/webglContextLoss.test.js` | browser | A resize during a lost WebGL context is replayed on restore |
 
-Engine-level suites: `viewport.test.js` for sizing math and projection, `resizeLifecycle.test.js` for camera, input mapping and filter plumbing across resizes, `worldOverlay.test.js`, `settingsMenu.test.js`, `pause.test.js` (the loop's pause gate, the tick and `game.time` integration), `time.test.js` (the clocks, the tick and timers, driven by hand), `determinism.test.js` (the same scene at 30, 60 and 144 frames per second ends in bit-identical state; seeded replay; the camera's frame-rate correction), `sceneActions.test.js`, `sceneLoader.test.js`, `constraints.test.js`, `geometry.test.js`.
+Engine-level suites: `viewport.test.js` for sizing math and projection, `gpu/engine/resizeLifecycle.test.js` for camera, input mapping and filter plumbing across resizes, `worldOverlay.test.js`, `settingsMenu.test.js`, `pause.test.js` (the loop's pause gate, the tick and `game.time` integration), `time.test.js` (the clocks, the tick and timers, driven by hand), `determinism.test.js` (the same scene at 30, 60 and 144 frames per second ends in bit-identical state; seeded replay; the camera's frame-rate correction), `sceneActions.test.js`, `sceneLoader.test.js`, `constraints.test.js`, `geometry.test.js`.
 
 `input.test.js` drives the input system through `game.input.push`, so the recognizers, router and coordinate mapping under test are the real ones. `browser/input.test.js` covers what needs a browser: real `PointerEvent` mapping, canvas capture styles, delivery inside the DOM handler and listener cleanup.
 
@@ -94,7 +94,7 @@ describeRendererConformance({
 A flag set to `true` is a promise the suite enforces.
 
 - Mandatory features `gradients`, `shadows`, `text`, `roundedCorners`, `clipping` and `transforms` default to `true`. Every finished backend does them.
-- Optional features `tint`, `blendModes`, `particles`, `lights` and `postEffects` default to `false`. Declining one is a permanent, legitimate answer. Canvas claims `blendModes`. WebGL claims all five.
+- Optional features `tint`, `blendModes`, `particles`, `lights` and `postEffects` default to `false`. Declining one is a permanent, legitimate answer. WebGL claims all five.
 
 The harness flag and the backend's runtime `capabilities` should agree. Some optional-feature tests run on every backend because `BaseRenderer` supplies a fallback: `drawParticles` draws one sprite per particle, and the light and post-effect methods are no-ops. Those tests assert the call works. The gated ones assert the behaviour the flag promises.
 
@@ -157,8 +157,6 @@ node scripts/driveEditor.mjs --out shots  # keep the screenshots somewhere known
 
 Each suite writes screenshots and a `report.json` to `--out`, a temp folder by default. The exit code is non-zero when a check fails. The browser comes from `packages/editor-host/src/chrome.ts`, the same launcher as the MCP `screenshot_scene`. It uses `M2D_CHROME`, then the Windows Chrome under WSL, then Playwright's Chromium. Each launch asks for debugging port 0 and reads the port Chrome took from its own profile. A port picked in advance could be taken by another agent's Chrome, and the harness would then drive and close that browser. The launcher also reaps its browser synchronously when the process exits, because a graceful close can lose the shutdown race: Vite installs its own SIGTERM handler and exits as soon as its server has closed.
 
-The Canvas backend's conformance run is repeated in the browser project so the suite's tolerances are proven against Chromium's rasterizer. A test that fails only there is a tolerance problem.
-
 ## A passing test is quiet
 
 Output belongs to failures. A test that expects the engine to refuse something silences the line it provokes (`const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})`, then asserts what was said and restores). A test that only happens to build a net client turns the client's logging off with `game.netLogLevel = 0`. Numbers a reader would want when a check fails go in the assertion's message, which prints only then.
@@ -167,4 +165,4 @@ Under an agent's terminal Vitest picks a minimal reporter that hides what passin
 
 ## Keeping the suite honest
 
-The suite was checked by mutation testing. Ten bugs were injected into the Canvas backend, among them swapped flips, an ignored `isScreenSpace`, a dropped `cornerRadius`, transposed tiles, a `popTransform` that did not restore and an ignored `globalAlpha`. All ten were caught. Repeat that exercise after adding tests to confirm they can fail.
+The conformance suite was checked by mutation testing when it was written. Ten bugs were injected into a backend, among them swapped flips, an ignored `isScreenSpace`, a dropped `cornerRadius`, transposed tiles, a `popTransform` that did not restore and an ignored `globalAlpha`. All ten were caught. Repeat that exercise after adding tests to confirm they can fail.

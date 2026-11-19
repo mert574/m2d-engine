@@ -31,5 +31,5 @@ new M2D(canvas, { basePath: '/repo/' });
 ## Checklist
 
 - The canvas has a CSS size. The engine sizes its drawing buffer from the element.
-- `?renderer=canvas` runs the game on the Canvas backend, which is what a visitor without WebGL2 sees.
+- A visitor without WebGL2 sees a line of text in the canvas's place, styled by the page through `.m2d-unsupported`. See [Engine options](../reference/engine-options).
 - Scene JSON `url` fields resolve under `basePath` on the published site.

@@ -15,7 +15,8 @@
 | `resolution` | `'native'`, or `0.5` when `dimensions` is `3` | World render resolution. `'native'`, a fraction of native such as `0.5`, or an absolute `{ width, height }` (only `height` sets the scale). A 3D frame is many passes over many pixels, so half of native is its default and the settings menu offers more |
 | `worldFilter` | `'linear'` | Upscaling filter below native resolution. `'nearest'` for pixel art |
 | `autoResize` | `true` | Follow the canvas's displayed size, the pixel ratio and fullscreen changes |
-| `renderer` | `'webgl'`, or `'webgpu'` when `dimensions` is `3` | Backend name, class or instance. `'canvas'` is the other 2D built-in. A `?renderer=` URL parameter overrides it. When the option is left at its default and WebGL2 is unavailable, the engine falls back to Canvas with a warning. A backend named explicitly that fails throws, as does one that draws in a different dimension from the game. See [Three dimensions](./renderer#three-dimensions) |
+| `renderer` | `'webgl'`, or `'webgpu'` when `dimensions` is `3` | Backend name, class or instance. A backend that cannot initialise throws, as does one that draws in a different dimension from the game. See [Three dimensions](./renderer#three-dimensions) |
+| `unsupportedText` | `null` | The line put in the canvas's place when the browser lacks WebGL2 (or WebGPU in 3D), as a `<p class="m2d-unsupported">`. `null` is the engine's wording, "This game needs a modern browser with WebGL 2."; `false` leaves the page as it is. The constructor throws either way, so no loop starts |
 | `performanceStats` | `true` | Add the frame-rate readout to the engine's debug layer |
 | `performanceStatsHotkey` | `'F3'` | Physical key code that expands the readout. `null` binds no key |
 | `devConsole` | `true` | Mount the [developer console](./console) (backquote). The cvar and command registries exist either way |

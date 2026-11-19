@@ -1,6 +1,6 @@
 # m2d-engine
 
-A 2D game engine for the browser: Rapier physics, a batched WebGL2 renderer with a Canvas 2D fallback, a fixed and deterministic simulation tick, JSON scenes, one input API for keyboard, mouse, touch and pen, and a themable UI.
+A 2D game engine for the browser: Rapier physics, a batched WebGL2 renderer, a fixed and deterministic simulation tick, JSON scenes, one input API for keyboard, mouse, touch and pen, and a themable UI.
 
 ```bash
 npm install m2d-engine

@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { Quality, qualityVariants, variantFolder, variantUrl } from '../src/core/quality.js';
-import { projectIssues } from '../src/core/projectSchema.js';
-import { projectOptions } from '../src/core/project.js';
-import { M2D } from '../src/core/m2d.js';
-import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
-import { UIOptionRow } from '../src/core/ui/optionRow.js';
-import { Scene } from '../src/core/scene.js';
-import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { Entity } from '../src/core/entity.js';
-import { parseGLB } from '../src/core/gltf.js';
-import { initPhysics } from '../src/core/physics/index.js';
-import { installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
+import { Quality, qualityVariants, variantFolder, variantUrl } from '../../../src/core/quality.js';
+import { projectIssues } from '../../../src/core/projectSchema.js';
+import { projectOptions } from '../../../src/core/project.js';
+import { M2D } from '../../../src/core/m2d.js';
+import { SettingsMenu } from '../../../src/core/ui/settingsMenu.js';
+import { UIOptionRow } from '../../../src/core/ui/optionRow.js';
+import { Scene } from '../../../src/core/scene.js';
+import { SceneLoader, SCENE_VERSION } from '../../../src/core/sceneLoader.js';
+import { Entity } from '../../../src/core/entity.js';
+import { parseGLB } from '../../../src/core/gltf.js';
+import { initPhysics } from '../../../src/core/physics/index.js';
+import { installWindowStub, displayCanvas, stubDocumentListeners } from '../../helpers/environment.js';
 
 /**
  * Texture and model quality: the levels a project builds its models at,
@@ -76,7 +76,7 @@ describe('quality settings', () => {
   beforeAll(stubDocumentListeners);
   beforeEach(() => installWindowStub());
 
-  const makeGame = (options) => new M2D(displayCanvas(1280, 720), { width: 1280, height: 720, renderer: 'canvas', performanceStats: false, ...options });
+  const makeGame = (options) => new M2D(displayCanvas(1280, 720), { width: 1280, height: 720, performanceStats: false, ...options });
   const labels = (menu) => {
     menu.open();
     const out = [];
@@ -122,7 +122,7 @@ describe('a resident model swapped for another level', () => {
   class Ground extends Entity { name = 'Ground'; }
 
   const box = async () => {
-    const buf = readFileSync(new URL('./fixtures/models/BoxTextured.glb', import.meta.url));
+    const buf = readFileSync(new URL('../../fixtures/models/BoxTextured.glb', import.meta.url));
     return parseGLB(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), { decodeImage: async () => ({ width: 0, height: 0 }) });
   };
 

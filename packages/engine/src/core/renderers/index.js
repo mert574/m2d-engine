@@ -1,21 +1,16 @@
 import { BaseRenderer } from './baseRenderer.js';
-import { CanvasRenderer } from './canvasRenderer.js';
 import { WebGLRenderer } from './webglRenderer.js';
 import { WebGPURenderer } from './webgpuRenderer.js';
 import { UIRenderer } from './uiRenderer.js';
 
 const registry = new Map([
   ['webgl', WebGLRenderer],
-  ['canvas', CanvasRenderer],
   ['webgpu', WebGPURenderer]
 ]);
 
 /** Backend used when none is specified, by the game's dimension. */
 export const DEFAULT_RENDERER = 'webgl';
 export const DEFAULT_RENDERER_3D = 'webgpu';
-
-/** Backend used when the default cannot initialise (no WebGL2). */
-export const FALLBACK_RENDERER = 'canvas';
 
 /**
  * Register a renderer backend under a name so it can be selected via the
@@ -49,5 +44,5 @@ export function createRenderer(renderer = DEFAULT_RENDERER) {
   return renderer;
 }
 
-export { BaseRenderer, CanvasRenderer, WebGLRenderer, WebGPURenderer, UIRenderer };
+export { BaseRenderer, WebGLRenderer, WebGPURenderer, UIRenderer };
 export { initWebGPU, webgpuSupported } from './webgpu/device.js';

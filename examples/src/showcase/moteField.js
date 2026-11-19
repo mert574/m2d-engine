@@ -21,7 +21,7 @@ import { makeRng, range } from 'm2d-kit/random';
  * discipline a batching backend asks of its caller.
  *
  * Nothing here is culled. The field submits every mote every frame so the
- * counters describe the same workload on both backends.
+ * counters describe the same workload on every run.
  */
 
 /** Tile indices in mote.png: warm tiles first, then cool. See generateSprites. */

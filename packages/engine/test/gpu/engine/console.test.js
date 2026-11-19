@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
-import { CVarRegistry } from '../src/core/console/cvars.js';
-import { CommandRegistry, tokenize, registerBuiltins } from '../src/core/console/commands.js';
-import { positionText } from '../src/core/ui/performanceStats.js';
-import { initPhysics, createPhysicsWorld } from '../src/core/physics/index.js';
-import { M2D } from '../src/core/m2d.js';
-import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
-import { keyDown, keyUp } from './helpers/input.js';
-import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
+import { CVarRegistry } from '../../../src/core/console/cvars.js';
+import { CommandRegistry, tokenize, registerBuiltins } from '../../../src/core/console/commands.js';
+import { positionText } from '../../../src/core/ui/performanceStats.js';
+import { initPhysics, createPhysicsWorld } from '../../../src/core/physics/index.js';
+import { M2D } from '../../../src/core/m2d.js';
+import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from '../../helpers/environment.js';
+import { keyDown, keyUp } from '../../helpers/input.js';
+import { SettingsMenu } from '../../../src/core/ui/settingsMenu.js';
 
 /**
  * The developer console: cvars, commands, and the drop-down itself.
@@ -86,7 +86,7 @@ describe('CVarRegistry', () => {
   it('treats a getter without a setter as read-only', () => {
     cvars.register('r_backend', { type: 'string', get: () => 'webgl' });
     expect(cvars.get('r_backend')).toBe('webgl');
-    expect(() => cvars.set('r_backend', 'canvas')).toThrow(/read-only/);
+    expect(() => cvars.set('r_backend', 'vulkan')).toThrow(/read-only/);
   });
 
   it('fires onChange only when the value actually changes', () => {
@@ -285,7 +285,7 @@ describe('DevConsole', () => {
 
   function makeGame(options = {}) {
     const game = new M2D(displayCanvas(1280, 720), {
-      width: 1280, height: 720, renderer: 'canvas', performanceStats: false,
+      width: 1280, height: 720, performanceStats: false,
       // Leave the global console alone: a wrapped console.log in one test
       // leaks into every later one in the file.
       ...options
@@ -496,7 +496,7 @@ describe('teleport and the position readout', () => {
   });
   beforeEach(() => installWindowStub());
 
-  const makeGame = () => new M2D(displayCanvas(1280, 720), { width: 1280, height: 720, renderer: 'canvas' });
+  const makeGame = () => new M2D(displayCanvas(1280, 720), { width: 1280, height: 720 });
   /** Run a line, returning what the console would show. */
   const run = (commands, line) => {
     const out = [];

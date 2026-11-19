@@ -28,7 +28,7 @@ const NOT_GAMES = new Set(['shots']);
  * harness: a code-driven director with an identical load on every backend
  * (see "Where it bends" in idiomatic-m2d.md).
  */
-const EXEMPT = { showcase: 'the code-driven renderer comparison harness' };
+const EXEMPT = { showcase: 'the code-driven renderer stress test' };
 
 /** How many lines of code a hooks module may have before it is doing a scene's job. */
 const HOOK_BUDGET = 40;

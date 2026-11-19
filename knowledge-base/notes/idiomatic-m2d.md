@@ -49,7 +49,7 @@ Use the engine's helpers (Quest, Npc, the UI components) before writing your own
 
 ## Where it bends
 
-- **The renderer showcase** stays a code-driven director. It is the backend comparison harness and needs an identical load on every backend. It should still show off as much of the engine's visual range as it can, and it is the one place art may be generated (see [[demo-standards]]).
+- **The renderer showcase** stays a code-driven director. It is the renderer's stress test and needs an identical load on every run. It should still show off as much of the engine's visual range as it can, and it is the one place art may be generated (see [[demo-standards]]).
 - **Docs demos** are single-file snippets (the first-game walkthrough, a project), still idiomatic: the camera, the world's size, the HUD and its buttons, the controls' actions and what happens when are the scene's. A page that teaches a raw API (the game loop, timers, draw calls, the pointer events) uses code for that API only; a widget the file cannot describe is a registered UI component the scene places.
 
 Related: [[code-style]], [[demo-standards]], [[working-style]], [[engine-surface]] (the engine held to the same shape)

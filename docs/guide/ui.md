@@ -244,7 +244,7 @@ Arrows, Tab and a controller move between the lines; Enter or a click picks one.
 new UIScreen({ name: 'pause', scrim: true, blurBehind: 10 })
 ```
 
-It needs the `postEffects` capability. On the Canvas backend there is no blur and the `scrim` carries the separation alone, the usual [capability degradation](../reference/renderer).
+It needs the `postEffects` capability; without it the `scrim` carries the separation alone, the usual [capability degradation](../reference/renderer).
 
 ## Built-in components
 

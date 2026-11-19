@@ -35,7 +35,7 @@ if (hasDOM) {
     return canvas;
   };
 
-  // CanvasRenderer allocates its world buffer via document.createElement.
+  // The sprite fixtures and the text labels draw on canvases from document.createElement.
   globalThis.document = {
     createElement(tag) {
       if (tag !== 'canvas') {

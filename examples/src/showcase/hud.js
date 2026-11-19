@@ -7,10 +7,10 @@ import { OPTIONAL_CAPABILITIES } from 'm2d-engine/core/renderers/baseRenderer.js
  * The showcase's whole argument lives in two numbers: `primitives` (what the
  * scene asked for) against `drawCalls` (what the backend submitted). They are
  * printed next to each other with the ratio spelled out, because that ratio is
- * the difference between the backends and it is otherwise invisible.
+ * what batching buys and it is otherwise invisible.
  *
- * The capability list is printed too, so a viewer on the Canvas backend can
- * see which parts of the scene are missing rather than wondering.
+ * The capability list is printed too, so a viewer can see which parts of
+ * the scene the backend draws.
  */
 export class Hud extends UIElement {
   /**

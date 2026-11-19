@@ -2,8 +2,9 @@ import { defineConfig } from 'vitest/config';
 
 // Three projects:
 //   node    - everything outside test/gpu/** and test/browser/**, in Node with @napi-rs/canvas
-//   gpu     - test/gpu/**, in Node on the machine's GPU: WebGL2 through ANGLE, WebGPU through Dawn
-//   browser - test/browser/** and test/gpu/**, in headless Chromium; run on demand
+//   gpu     - test/gpu/**, in Node on the machine's GPU: WebGL2 through ANGLE, WebGPU through Dawn;
+//             test/gpu/engine/** are the engine suites that build a game, Node only
+//   browser - test/browser/** and test/gpu/*, in headless Chromium; run on demand
 //
 //   npm test              node and gpu
 //   npm run test:node     node only (what `npm run test:watch` watches)

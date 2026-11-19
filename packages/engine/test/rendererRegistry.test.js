@@ -4,15 +4,15 @@ import {
   createRenderer,
   registerRenderer,
   BaseRenderer,
-  CanvasRenderer,
   WebGLRenderer,
+  WebGPURenderer,
   UIRenderer
 } from '../src/core/renderers/index.js';
 
 describe('renderer registry', () => {
   it('resolves the built-in backends by name', () => {
-    expect(createRenderer('canvas')).toBeInstanceOf(CanvasRenderer);
     expect(createRenderer('webgl')).toBeInstanceOf(WebGLRenderer);
+    expect(createRenderer('webgpu')).toBeInstanceOf(WebGPURenderer);
   });
 
   it('defaults to the WebGL2 backend', () => {
@@ -20,12 +20,12 @@ describe('renderer registry', () => {
   });
 
   it('accepts a renderer class', () => {
-    class CustomRenderer extends CanvasRenderer {}
+    class CustomRenderer extends WebGLRenderer {}
     expect(createRenderer(CustomRenderer)).toBeInstanceOf(CustomRenderer);
   });
 
   it('passes an existing instance straight through', () => {
-    const instance = new CanvasRenderer();
+    const instance = new WebGLRenderer();
     expect(createRenderer(instance)).toBe(instance);
   });
 
@@ -38,7 +38,7 @@ describe('renderer registry', () => {
 
   it('throws a helpful error for an unknown backend', () => {
     expect(() => createRenderer('nope')).toThrowError(/Unknown renderer: 'nope'/);
-    expect(() => createRenderer('nope')).toThrowError(/canvas/);
+    expect(() => createRenderer('nope')).toThrowError(/webgl, webgpu/);
   });
 
   it('exports the pieces a backend author needs', () => {

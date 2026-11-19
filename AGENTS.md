@@ -11,7 +11,7 @@ camera or a renderer:
 | | 2D | 3D |
 | --- | --- | --- |
 | Physics | Rapier 2D | Rapier 3D |
-| Renderer | Batched WebGL2, Canvas 2D fallback | Retained WebGPU |
+| Renderer | Batched WebGL2 | Retained WebGPU |
 | Units | Pixels, y down | Metres, y up |
 
 | Workspace | Contents |
@@ -190,8 +190,7 @@ npx playwright install chromium   # once, for test:browser
   and `compileModel.mjs` wrap it with the lot's lists and paths.
 - A new renderer feature is mandatory for every backend or declared through
   `capabilities`.
-- Both backends must pass `npm test`. Check visual changes with
-  `?renderer=canvas` and `?renderer=webgl`.
+- Every backend must pass `npm test`, which draws through them in Node.
 - Anything attached to `window` or `document` keeps a stable handler
   reference so `destroy()` can remove it.
 - Keys are physical codes (`'KeyW'`, `'Space'`), never characters.

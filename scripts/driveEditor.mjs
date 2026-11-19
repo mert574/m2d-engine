@@ -244,7 +244,7 @@ const SUITES = {
       if (await has(folder, 'index.html')) games.push(folder);
       if (await has(folder, 'm2d.project.json')) folders.push(folder);
     }
-    // The renderer showcase is the one game that is not a project: the code-driven comparison harness.
+    // The renderer showcase is the one game that is not a project: the code-driven stress test.
     const without = games.filter((folder) => !folders.includes(folder));
     report.check('every example but the showcase is a project', without.join() === 'showcase', `without a project: ${without.join(', ') || 'none'}`);
     for (const folder of folders.sort()) {

@@ -3,7 +3,7 @@ import { M2D } from '../../src/core/m2d.js';
 import { Entity } from '../../src/core/entity.js';
 import { initPhysics } from '../../src/core/physics/index.js';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
-import { createCanvasElement, readCanvas2DPixels, readWebGLPixels } from '../helpers/environment.js';
+import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js';
 
 /**
  * The view cull is a saving, never a difference: a frame drawn with it on
@@ -12,7 +12,7 @@ import { createCanvasElement, readCanvas2DPixels, readWebGLPixels } from '../hel
  * calls, and a cull that is a few units too tight still counts right while
  * clipping a sprite at the edge of the screen.
  *
- * Both 2D backends, at a few zooms and a rotation, over a level whose
+ * At a few zooms and a rotation, over a level whose
  * entities run well past the view in every direction.
  */
 
@@ -66,9 +66,9 @@ const LEVEL = {
   }]
 };
 
-async function makeGame(backend) {
+async function makeGame() {
   const canvas = canvasInDocument(W, H);
-  const game = new M2D(canvas, { width: W, height: H, renderer: backend, performanceStats: false, devConsole: false, worldWidth: 2000, worldHeight: 1200 });
+  const game = new M2D(canvas, { width: W, height: H, performanceStats: false, devConsole: false, worldWidth: 2000, worldHeight: 1200 });
   cleanup.push(() => game.destroy());
   game.registerActor('Blob', Blob);
   game.sceneManager.addScene('field', { fetch: async () => LEVEL });
@@ -76,16 +76,15 @@ async function makeGame(backend) {
   return { game, canvas };
 }
 
-const readPixels = (backend, canvas) => (backend === 'canvas' ? readCanvas2DPixels(canvas) : readWebGLPixels(canvas));
 
 /** Draw one frame and report the pixels and what it cost. */
-function frame(game, canvas, backend) {
+function frame(game, canvas) {
   game.renderer.resetStats();
   game.renderer.clear('#101014');
   game.drawWorld(game.sceneManager.getCurrentScene(), 0);
   // `primitives` is what the callers asked for; `drawCalls` is what the
   // backend submitted, and a batching one merges a whole level into one.
-  return { image: readPixels(backend, canvas), drawn: game.renderer.stats.primitives, culled: game.renderer.stats.culled };
+  return { image: readWebGLPixels(canvas), drawn: game.renderer.stats.primitives, culled: game.renderer.stats.culled };
 }
 
 /** Share of pixels where two frames disagree beyond a rasterizer's wobble. */
@@ -107,29 +106,27 @@ const VIEWS = [
   ['turned', { x: 1000, y: 600, zoom: 1.4, rotation: 0.7 }]
 ];
 
-for (const backend of ['canvas', 'webgl']) {
-  describe(`the view cull on the ${backend} backend`, () => {
-    beforeAll(() => initPhysics());
+describe('the view cull', () => {
+  beforeAll(() => initPhysics());
 
-    for (const [name, view] of VIEWS) {
-      it(`draws the same frame ${name}, with fewer draws`, async () => {
-        const { game, canvas } = await makeGame(backend);
-        Object.assign(game.camera, view);
-        // No padding: the bounds themselves decide, so a cull that is a
-        // little too tight clips a sprite at the edge instead of being
-        // covered by the camera's 100-unit margin.
-        game.camera.padding = { x: 0, y: 0 };
+  for (const [name, view] of VIEWS) {
+    it(`draws the same frame ${name}, with fewer draws`, async () => {
+      const { game, canvas } = await makeGame();
+      Object.assign(game.camera, view);
+      // No padding: the bounds themselves decide, so a cull that is a
+      // little too tight clips a sprite at the edge instead of being
+      // covered by the camera's 100-unit margin.
+      game.camera.padding = { x: 0, y: 0 };
 
-        game.cvars.set('r_cull', false);
-        const whole = frame(game, canvas, backend);
-        game.cvars.set('r_cull', true);
-        const culled = frame(game, canvas, backend);
+      game.cvars.set('r_cull', false);
+      const whole = frame(game, canvas);
+      game.cvars.set('r_cull', true);
+      const culled = frame(game, canvas);
 
-        expect(mismatch(whole.image, culled.image)).toBeLessThan(0.0005);
-        expect(culled.culled).toBeGreaterThan(0);
-        expect(whole.culled).toBe(0);
-        expect(culled.drawn).toBeLessThan(whole.drawn);
-      });
-    }
-  });
-}
+      expect(mismatch(whole.image, culled.image)).toBeLessThan(0.0005);
+      expect(culled.culled).toBeGreaterThan(0);
+      expect(whole.culled).toBe(0);
+      expect(culled.drawn).toBeLessThan(whole.drawn);
+    });
+  }
+});

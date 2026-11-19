@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
-import { M2D } from '../src/core/m2d.js';
-import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
-import { UIOptionRow } from '../src/core/ui/optionRow.js';
-import { UIScreen } from '../src/core/ui/screen.js';
-import { keyDown, keyUp } from './helpers/input.js';
+import { SCENE_VERSION } from '../../../src/core/sceneLoader.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from '../../helpers/environment.js';
+import { M2D } from '../../../src/core/m2d.js';
+import { SettingsMenu } from '../../../src/core/ui/settingsMenu.js';
+import { UIOptionRow } from '../../../src/core/ui/optionRow.js';
+import { UIScreen } from '../../../src/core/ui/screen.js';
+import { keyDown, keyUp } from '../../helpers/input.js';
 
 /**
  * The settings overlay every example mounts: resolution, fullscreen, aspect.
@@ -17,7 +17,7 @@ import { keyDown, keyUp } from './helpers/input.js';
 
 function makeGameWithMenu(options = {}, menuOptions = {}) {
   const game = new M2D(displayCanvas(1280, 720), {
-    width: 1280, height: 720, renderer: 'canvas', performanceStats: false, ...options
+    width: 1280, height: 720, performanceStats: false, ...options
   });
   const menu = new SettingsMenu(game, menuOptions);
   return { game, menu };
@@ -98,7 +98,7 @@ describe('SettingsMenu', () => {
     const { game, menu } = openMenu();
 
     expect(rows(menu).map((r) => r.label)).toEqual([
-      'Resolution', 'Fullscreen', 'Aspect', 'Renderer', 'Debug overlay', 'Music', 'Sound effects', 'Paused', 'Close'
+      'Resolution', 'Fullscreen', 'Aspect', 'Debug overlay', 'Music', 'Sound effects', 'Paused', 'Close'
     ]);
   });
 
@@ -205,7 +205,7 @@ describe('SettingsMenu', () => {
 
     const labels = rows(menu).map((r) => r.label);
     expect(labels).toEqual([
-      'Resolution', 'Fullscreen', 'Aspect', 'Renderer', 'Debug overlay', 'Music', 'Sound effects', 'Paused', 'Mute', 'Close'
+      'Resolution', 'Fullscreen', 'Aspect', 'Debug overlay', 'Music', 'Sound effects', 'Paused', 'Mute', 'Close'
     ]);
     clickRow(game, menu, 'Mute');
     expect(music).toBe(false);

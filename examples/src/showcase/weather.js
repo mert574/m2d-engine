@@ -14,9 +14,9 @@ import { advanceCycle, cycleLook } from 'm2d-engine/core/look.js';
  * passes, the air clears, and the light goes on turning from dusk through
  * night to first light on its own, longer cycle.
  *
- * Everything here is a function of the wall clock, so two backends are in
+ * Everything here is a function of the wall clock, so two runs are in
  * the same weather at the same moment, and — this is the part that
- * matters for a comparison harness — **the weather changes how the scene
+ * matters for a stress test — **the weather changes how the scene
  * looks, never how much of it there is**. No count moves with it. The
  * stress load is as fixed as it ever was.
  *
@@ -68,7 +68,7 @@ const HOURS = {
 /**
  * When lightning strikes, as fractions of the front. They sit inside the
  * squall and nowhere near each other; the brightest is the one at its
- * peak. Fixed rather than random, so both backends strike together.
+ * peak. Fixed rather than random, so two runs strike together.
  */
 const STRIKES = [
   { at: 0.42, power: 0.6 },
@@ -183,7 +183,7 @@ export class Weather {
   /**
    * What the camera does with the sea: a slow breath in and out with the
    * swell, a fraction of a degree of roll, and the knock of a near strike.
-   * Never more than a couple of percent — a comparison harness has to keep
+   * Never more than a couple of percent — a stress test has to keep
    * showing the same amount of world.
    */
   camera() {

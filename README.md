@@ -1,6 +1,6 @@
 # M2D Engine
 
-A 2D game engine for the browser: Rapier physics behind an engine-owned API, a batched WebGL2 renderer with a Canvas 2D fallback, a fixed and deterministic simulation tick, JSON scenes validated on load, one input API for keyboard, mouse, touch and pen, and a themable UI with screens, a settings menu and a developer console.
+A 2D game engine for the browser: Rapier physics behind an engine-owned API, a batched WebGL2 renderer, a fixed and deterministic simulation tick, JSON scenes validated on load, one input API for keyboard, mouse, touch and pen, and a themable UI with screens, a settings menu and a developer console.
 
 **[Documentation](https://mert574.github.io/m2d-engine/)** · **[Live demos](https://mert574.github.io/m2d-engine/examples/)**
 

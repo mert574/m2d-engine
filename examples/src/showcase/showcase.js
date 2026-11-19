@@ -19,8 +19,8 @@ import { Gulls } from './gulls.js';
  * world pass with the camera transform applied.
  *
  * The camera pans on a fixed path rather than following a player. That is
- * deliberate: the showcase is also the renderer comparison harness, and a
- * workload that depends on input cannot be compared between backends.
+ * deliberate: the showcase is the renderer's stress test, and a workload
+ * that depends on input cannot be compared between runs.
  */
 
 /** Primitive counts at load 1x. Each level multiplies all of them. */
@@ -307,8 +307,8 @@ export class Showcase {
   update(deltaTime) {
     this.time += deltaTime;
 
-    // The weather runs on the wall clock, so both backends are in the
-    // same weather at the same moment whatever their frame rate.
+    // The weather runs on the wall clock, so two runs are in the same
+    // weather at the same moment whatever their frame rate.
     this.weather.enabled = this.showing('weather');
     this.weather.update(this.game.time?.unscaledDelta ?? deltaTime);
     // The light and the post stack follow the hour and the front.

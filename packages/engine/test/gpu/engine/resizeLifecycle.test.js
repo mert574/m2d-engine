@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { createCanvasElement, installWindowStub, displayCanvas, setDisplaySize, stubDocumentListeners } from './helpers/environment.js';
-import { M2D } from '../src/core/m2d.js';
-import { UIElement } from '../src/core/ui/uiElement.js';
-import { pointerAtClient } from './helpers/input.js';
+import { createCanvasElement, installWindowStub, displayCanvas, setDisplaySize, stubDocumentListeners } from '../../helpers/environment.js';
+import { M2D } from '../../../src/core/m2d.js';
+import { UIElement } from '../../../src/core/ui/uiElement.js';
+import { pointerAtClient } from '../../helpers/input.js';
 
 /**
  * Fullscreen and resize lifecycle.
@@ -15,7 +15,7 @@ import { pointerAtClient } from './helpers/input.js';
 
 /** A canvas whose CSS size can be set, so resizes can be simulated. */
 function makeGame(canvas, options = {}) {
-  return new M2D(canvas, { width: 1280, height: 720, renderer: 'canvas', ...options });
+  return new M2D(canvas, { width: 1280, height: 720, ...options });
 }
 
 describe('resize lifecycle', () => {
@@ -110,8 +110,8 @@ describe('resize lifecycle', () => {
       expect(game.viewport.worldWidth).toBe(native);
     });
 
-    // The option used to reach the Canvas backend and be dropped silently by
-    // the WebGL one, so pin that it arrives and that it can change later.
+    // The option was once dropped silently by the WebGL backend, so pin that
+    // it arrives and that it can change later.
     it('passes the world filter through to the backend', () => {
       const canvas = displayCanvas(1280, 720);
       const game = makeGame(canvas, { worldFilter: 'nearest' });

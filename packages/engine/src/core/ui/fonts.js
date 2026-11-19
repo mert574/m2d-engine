@@ -12,7 +12,7 @@
  *
  * ## Why loading is a gate and not fire-and-forget
  *
- * Both backends rasterize text through the browser, and the WebGL backend
+ * Text is rasterized through the browser, and the WebGL backend
  * caches the result as a texture keyed by the text and its style
  * (`renderers/webgl/textLabels.js`). A label drawn before the font arrives is
  * rasterized in the fallback face *and cached that way*, so it never

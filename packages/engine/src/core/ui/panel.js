@@ -26,8 +26,7 @@ export class UIPanel extends UIElement {
    * @param {number|string} [options.borderWidth='$border.hairline']
    * @param {number|string} [options.cornerRadius='$radius.lg']
    * @param {'none'|'low'|'medium'|'high'} [options.elevation='none'] - Drop
-   *   shadow preset. Not free on the Canvas backend, which routes anything
-   *   with a shadow through a scratch canvas
+   *   shadow preset
    * @param {boolean} [options.interactive=false] - Take part in hit testing.
    *   Off by default so a decorative panel does not swallow clicks meant for
    *   the world; a modal's backing panel turns it on

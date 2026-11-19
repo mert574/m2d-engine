@@ -339,7 +339,7 @@ A screen on its way out stays in `stack.exiting`: it still draws, beneath the li
 
 ## UIBackdrop
 
-`new UIBackdrop(options)` from `backdrop.js`. The layered background a menu sits on, drawn back to front. Everything goes through the ordinary renderer contract, so it looks the same on both backends and needs no capability. Never a hit target.
+`new UIBackdrop(options)` from `backdrop.js`. The layered background a menu sits on, drawn back to front. Everything goes through the ordinary renderer contract and needs no capability. Never a hit target.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -360,7 +360,7 @@ A screen on its way out stays in `stack.exiting`: it still draws, beneath the li
 
 `blurBehind` on a `UIScreen` defocuses the game beneath it. The world's post-effect pass runs between the world and screen passes, so the UI drawn over it stays sharp.
 
-It needs the `postEffects` capability. WebGL2 has it; the Canvas backend does not, and the screen's `scrim` carries the separation alone, a deliberate degradation. When screens stack, the strongest `blurBehind` wins, and other post effects already set (bloom, vignette) are left untouched.
+It needs the `postEffects` capability; without it the screen's `scrim` carries the separation alone, a deliberate degradation. When screens stack, the strongest `blurBehind` wins, and other post effects already set (bloom, vignette) are left untouched.
 
 ## UIOptionRow
 

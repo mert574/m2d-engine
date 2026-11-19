@@ -150,7 +150,7 @@ new SettingsMenu(game).addOption({
 
 `value` reads live state, `step(±1)` changes it (Left, Right, click and Enter all step), `choices` feeds the row's tick track, and `description` shows in the footer while the row is focused. Rows join a built-in section by name (`Display`, `Rendering`, `Effects`, `Game`) or group under their own caption; an action row passes `activate` instead of `step`. Every demo adds a shared Audio row this way.
 
-The mounted menu is `game.settings`. A scene button with `"action": "settings"` opens it. Choosing the renderer backend reloads the page with `?renderer=canvas` or `?renderer=webgl`.
+The mounted menu is `game.settings`. A scene button with `"action": "settings"` opens it.
 
 The menu is pushed onto `game.ui`, so it sits over a live, loaded game, and closing pops back to whatever was below. Every row is a view onto a [cvar](../reference/console), the same `r_aspect` the developer console sets, so resolution, aspect and the world filter persist across sessions, and a change made in either place shows up in the other. It draws through `game.drawOverlays()`, which the engine loop calls at the end of every frame; a game with its own loop must call that, and `game.ui.update(deltaTime)` before it.
 

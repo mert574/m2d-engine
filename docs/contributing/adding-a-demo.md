@@ -58,7 +58,7 @@ The dev server and the build run the sprite generator with `--missing`, so they 
 
 ## Checking it
 
-Run `npm run dev` and open the example. Run `audit_project` over MCP (or the editor's Problems panel) and fix what it finds. Check it on both backends with `?renderer=canvas` and `?renderer=webgl`. Run `npm test` and `npm run build`, then `npm run preview` to check the built site.
+Run `npm run dev` and open the example. Run `audit_project` over MCP (or the editor's Problems panel) and fix what it finds. Run `npm test` and `npm run build`, then `npm run preview` to check the built site.
 
 ## Assets
 

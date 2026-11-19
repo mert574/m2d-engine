@@ -7,8 +7,7 @@ import { makeRng, range } from 'm2d-kit/random';
  * place from the shore. Stars over a dark sea, a moon laying its path on
  * the water, a lighthouse on the point with its beam turning, and lanterns
  * along the jetty. It is the showcase's own imagery, drawn with none of the
- * showcase's machinery: arcs, lines, paths and gradients, so it looks the
- * same on both backends before the comparison has started.
+ * showcase's machinery: arcs, lines, paths and gradients.
  */
 
 const HORIZON = 0.64;

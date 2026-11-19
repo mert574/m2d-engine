@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
-import { M2D } from '../src/core/m2d.js';
-import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
-import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
-import { initPhysics } from '../src/core/physics/index.js';
+import { M2D } from '../../../src/core/m2d.js';
+import { SettingsMenu } from '../../../src/core/ui/settingsMenu.js';
+import { displayCanvas, installWindowStub, stubDocumentListeners } from '../../helpers/environment.js';
+import { initPhysics } from '../../../src/core/physics/index.js';
 
 /**
  * Music and effects volumes: cvars over the sound manager's live values,
@@ -21,7 +21,7 @@ function memoryStorage() {
   };
 }
 
-const makeGame = () => new M2D(displayCanvas(640, 360), { width: 640, height: 360, renderer: 'canvas', saveId: 'volumes' });
+const makeGame = () => new M2D(displayCanvas(640, 360), { width: 640, height: 360, saveId: 'volumes' });
 
 describe('music and effects volumes', () => {
   beforeAll(async () => {

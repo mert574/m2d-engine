@@ -4,7 +4,7 @@ The big picture, one line per item. Each large item's plan, backlog and record l
 
 ## Done
 
-- **Renderer**: batched WebGL2 with a Canvas 2D fallback; WebGPU 3D with PBR, shadows, clustered lights, glTF, post and particles.
+- **Renderer**: batched WebGL2 in 2D; WebGPU 3D with PBR, shadows, clustered lights, glTF, post and particles.
 - **Core**: scenes, entities, constraints, camera, input, the fixed tick and the [determinism contract](./determinism).
 - **UI**: themed element tree, layout, focus, the screen stack, motion, the console.
 - **Perspectives**: every view in the table below marked shipped.

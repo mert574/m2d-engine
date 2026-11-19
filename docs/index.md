@@ -4,7 +4,7 @@ layout: home
 hero:
   name: M2D Engine
   text: A 2D and 3D game engine for the browser
-  tagline: Rapier physics, a WebGL2 renderer with a Canvas 2D fallback, a WebGPU 3D renderer, JSON scenes and one input API for keyboard, mouse, touch and pen.
+  tagline: Rapier physics, a WebGL2 renderer, a WebGPU 3D renderer, JSON scenes and one input API for keyboard, mouse, touch and pen.
   actions:
     - theme: brand
       text: Get started

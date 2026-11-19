@@ -16,7 +16,7 @@ import { Camera3D } from './camera3d.js';
 import { meshFor, lightFor } from './presentation3d.js';
 import { SoundManager } from './soundManager.js';
 import { ImageCache } from './imageCache.js';
-import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D, FALLBACK_RENDERER } from './renderers/index.js';
+import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D } from './renderers/index.js';
 import { computeViewport, sameViewport, viewToUI } from './viewport.js';
 import { WorldOverlay } from './ui/worldOverlay.js';
 import { Theme, createTheme } from './ui/theme.js';
@@ -49,6 +49,13 @@ const MAX_FRAME_DELTA = 0.1;
 
 const defaultOptions = {
   renderer: DEFAULT_RENDERER,
+  /**
+   * The line shown in the canvas's place when the browser lacks the GPU
+   * API the renderer needs. Null for the engine's own wording; `false` to
+   * leave the page as it is and only throw.
+   * @type {string|false|null}
+   */
+  unsupportedText: null,
   basePath: '',
   initialScene: null,
   /**
@@ -223,11 +230,6 @@ function defaultSaveId() {
   return typeof location !== 'undefined' ? location.pathname : '';
 }
 
-function rendererOverrideFromURL() {
-  if (typeof location === 'undefined' || !location.search) return null;
-  return new URLSearchParams(location.search).get('renderer');
-}
-
 export class M2D {
   /**
    * How often an edit-mode game redraws when nothing invalidated it: often
@@ -279,8 +281,6 @@ export class M2D {
     }
     
     // Initialize renderer backend and its screen-space (UI) view.
-    // A `?renderer=<name>` query parameter overrides the option so any
-    // example can be viewed with another backend without code changes.
     this.canvas = canvas;
     // A 3D frame is many passes over many pixels; half of native is the
     // sane default and the menu is right there for more. 2D keeps native.
@@ -301,7 +301,7 @@ export class M2D {
     this.pendingResize = false;
 
     this.viewport = this.#computeViewport();
-    this.renderer = this.#initRenderer(canvas, rendererOverrideFromURL() || this.#rendererOption());
+    this.renderer = this.#initRenderer(canvas, this.#rendererOption());
     // A 3D renderer draws the HUD through a 2D backend of its own, on a
     // canvas laid over the world; see WebGPURenderer.
     this.uiRenderer = new UIRenderer(this.renderer.uiBackend ?? this.renderer);
@@ -642,11 +642,6 @@ export class M2D {
     this.soundManager = new SilentSound();
   }
 
-  /**
-   * Create and initialise the backend. When the *default* backend cannot
-   * start (typically no WebGL2), fall back to the Canvas backend with a
-   * warning; an explicitly requested backend that fails is an error.
-   */
   /** The `renderer` option, defaulting by dimension when the game did not choose. */
   #rendererOption() {
     if ('renderer' in (this.constructorOptions || {})) return this.options.renderer;
@@ -677,18 +672,33 @@ export class M2D {
       worldFilter: this.options.worldFilter,
       textureFilter: this.options.textureFilter
     };
-    let renderer = createRenderer(selection);
+    const renderer = createRenderer(selection);
     this.#checkRendererDimension(renderer);
     try {
       renderer.init(canvas, size);
-      return renderer;
     } catch (error) {
-      if (selection !== DEFAULT_RENDERER || 'renderer' in (this.constructorOptions || {})) throw error;
-      console.warn(`M2D: '${DEFAULT_RENDERER}' renderer unavailable (${error.message}); falling back to '${FALLBACK_RENDERER}'`);
-      renderer = createRenderer(FALLBACK_RENDERER);
-      renderer.init(canvas, size);
-      return renderer;
+      this.#refuseDisplay(canvas, renderer);
+      throw error;
     }
+    return renderer;
+  }
+
+  /**
+   * A browser without the GPU API the renderer needs gets a line of text
+   * where the game would have been, and no game: the constructor throws
+   * after this, so no loop ever starts. `unsupportedText` is the line, or
+   * `false` to leave the canvas alone for a page that explains itself.
+   */
+  #refuseDisplay(canvas, renderer) {
+    const text = this.options.unsupportedText;
+    if (text === false) return;
+    const document = canvas?.ownerDocument;
+    if (!document || typeof canvas.replaceWith !== 'function') return;
+    const api = renderer.dimensions === 3 ? 'WebGPU' : 'WebGL 2';
+    const notice = document.createElement('p');
+    notice.className = 'm2d-unsupported';
+    notice.textContent = text ?? `This game needs a modern browser with ${api}.`;
+    canvas.replaceWith(notice);
   }
 
   /**
@@ -847,19 +857,6 @@ export class M2D {
         set: (value) => this.renderer.setShadowQuality(value)
       });
     }
-
-    cvars.register('r_renderer', {
-      type: 'string',
-      choices: ['webgl', 'canvas', 'webgpu'],
-      default: DEFAULT_RENDERER,
-      description: 'Rendering backend. Setting it reloads the page with ?renderer=',
-      get: () => this.renderer.constructor.name.replace(/Renderer$/, '').toLowerCase(),
-      set: (value) => {
-        const params = new URLSearchParams(location.search);
-        params.set('renderer', value);
-        location.search = params.toString();
-      }
-    });
 
     cvars.register('g_paused', {
       type: 'boolean',
@@ -2003,10 +2000,10 @@ export class M2D {
       this.running = true;
       return;
     }
-    // Before the first label is drawn, not alongside it. Both backends
-    // rasterize text through the browser and the WebGL one caches the
-    // result as a texture keyed by text and style, so a label drawn in the
-    // fallback face stays in the fallback face. See ui/fonts.js.
+    // Before the first label is drawn, not alongside it. Text is rasterized
+    // through the browser and cached as a texture keyed by text and style,
+    // so a label drawn in the fallback face stays in the fallback face. See
+    // ui/fonts.js.
     this.fonts = await loadUIFonts();
 
     this.drawLoading();

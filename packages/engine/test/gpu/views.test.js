@@ -7,7 +7,7 @@ import { initWebGPU } from '../../src/core/renderers/webgpu/device.js';
 import { Camera3D } from '../../src/core/camera3d.js';
 import { box, plane } from '../../src/core/renderers/geometry/primitives.js';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
-import { createCanvasElement, readCanvas2DPixels } from '../helpers/environment.js';
+import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js';
 
 /**
  * Multiple live views of one scene — the editor plan's hard requirement
@@ -154,7 +154,7 @@ describe('2D: several views of one scene', () => {
     await initPhysics();
     const canvas = canvasInDocument(320, 180);
     const game = new M2D(canvas, {
-      width: 320, height: 180, renderer: 'canvas', performanceStats: false, editMode: true
+      width: 320, height: 180, performanceStats: false, editMode: true
     });
     cleanup.push(() => game.destroy());
     game.registerActor('Block', Block);
@@ -172,15 +172,15 @@ describe('2D: several views of one scene', () => {
     game.drawWorld(scene, 0);
 
     const at = (image, x, y) => pixels(image).at(x, y);
-    const mainCentre = at(readCanvas2DPixels(canvas), 160, 90);
-    let sideCentre = at(readCanvas2DPixels(sideCanvas), 160, 90);
+    const mainCentre = at(readWebGLPixels(canvas), 160, 90);
+    let sideCentre = at(readWebGLPixels(sideCanvas), 160, 90);
     expect(mainCentre[0]).toBeGreaterThan(180);           // #ff6600 on the main canvas
     expect(sideCentre[0]).toBeLessThan(40);               // empty space on the side one
 
     // Swing the side camera onto the block: now both see it.
     view.camera.x = 320; view.camera.y = 180;
     game.drawWorld(scene, 0);
-    sideCentre = at(readCanvas2DPixels(sideCanvas), 160, 90);
+    sideCentre = at(readWebGLPixels(sideCanvas), 160, 90);
     expect(sideCentre[0]).toBeGreaterThan(180);
 
     // The swap restored the game's own renderer and camera.

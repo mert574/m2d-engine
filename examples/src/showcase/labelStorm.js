@@ -3,12 +3,11 @@ import { makeRng, range } from 'm2d-kit/random';
 /**
  * A storm of floating damage numbers.
  *
- * Text is the layer where the two backends differ most in *kind*. The WebGL
- * backend rasterises each distinct string once into a cached label texture and
- * then draws it as a textured quad; the Canvas backend re-runs the browser's
- * text shaper on every call. Labels are therefore drawn from a small fixed
- * vocabulary — exactly the pattern a real game produces, and the one the cache
- * is built for.
+ * Text is the layer with a cache to exercise. The WebGL backend rasterises
+ * each distinct string once into a cached label texture and then draws it as
+ * a textured quad. Labels are therefore drawn from a small fixed vocabulary —
+ * exactly the pattern a real game produces, and the one the cache is built
+ * for.
  */
 const VOCABULARY = [
   '12', '27', '41', '68', '94', '115', '203', '377',

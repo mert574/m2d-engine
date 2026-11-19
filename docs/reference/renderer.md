@@ -7,12 +7,10 @@ All drawing goes through a renderer backend. `game.renderer` draws in world spac
 | Selector | Effect |
 | --- | --- |
 | `renderer: 'webgl'` | WebGL2 backend. The default for a 2D game |
-| `renderer: 'canvas'` | Canvas 2D backend |
 | `renderer: 'webgpu'` | The 3D renderer. The default for a game with `dimensions: 3`; see [Three dimensions](#three-dimensions) |
 | `renderer: SomeRendererClass` or an instance | A custom backend |
-| `?renderer=canvas` in the page URL | Overrides the option |
 
-When the default backend cannot initialize, usually because WebGL2 is unavailable, the engine falls back to Canvas with a console warning. An explicitly requested backend that fails throws.
+A browser without WebGL2 (or WebGPU, for a 3D game) gets no game: the constructor throws, and a line of text replaces the canvas, saying a modern browser is needed. The `unsupportedText` option changes the wording or, set to `false`, leaves the page to the game. See [Engine options](./engine-options).
 
 A renderer draws in two dimensions or three, and must match the game's `dimensions`: the 2D backends have no mesh and the 3D one has no sprite. A mismatch throws at construction with the option that fixes it.
 
@@ -25,14 +23,14 @@ registerRenderer('mine', MyRenderer);    // then renderer: 'mine'
 
 Every method on this page is mandatory for a backend. Some options are optional features a backend may decline. A backend that lacks one ignores the option and draws without it.
 
-| Capability | WebGL2 | Canvas | Enables |
-| --- | --- | --- | --- |
-| `tint` | yes | no | `tint` on `drawSprite` and `drawImage` |
-| `blendModes` | yes | yes | `blend` on any draw call |
-| `particles` | yes | fallback | Batched `drawParticles` with per-particle colour. Without it, one sprite per particle, uncoloured |
-| `lights` | yes | no | `setAmbientLight` and `drawLight` |
-| `lightShadows` | yes | no | `shadows` on `drawLight` and `drawShadowCaster` |
-| `postEffects` | yes | no | `setPostEffects` |
+| Capability | WebGL2 | Enables |
+| --- | --- | --- |
+| `tint` | yes | `tint` on `drawSprite` and `drawImage` |
+| `blendModes` | yes | `blend` on any draw call |
+| `particles` | yes | Batched `drawParticles` with per-particle colour. Without it, one sprite per particle, uncoloured |
+| `lights` | yes | `setAmbientLight` and `drawLight` |
+| `lightShadows` | yes | `shadows` on `drawLight` and `drawShadowCaster` |
+| `postEffects` | yes | `setPostEffects` |
 
 ```javascript
 if (game.renderer.supports('lights')) game.renderer.setAmbientLight('#303848');
@@ -119,7 +117,7 @@ Top-left anchored rectangle.
 
 Filling a partial arc fills the circular segment between the arc and its chord. For a pie slice, draw a closed path through the centre.
 
-Canvas 2D draws a true curve. The WebGL backend approximates one with line segments and picks how many from the radius as drawn, with the camera's zoom included, so a curve stays smooth when zoomed into. The count is capped, so a deep zoom costs a bounded number of vertices. The same applies to a `cornerRadius` on `drawRect` and `pushClip`.
+The WebGL backend approximates a curve with line segments and picks how many from the radius as drawn, with the camera's zoom included, so a curve stays smooth when zoomed into. The count is capped, so a deep zoom costs a bounded number of vertices. The same applies to a `cornerRadius` on `drawRect` and `pushClip`.
 
 ### drawPath
 
@@ -141,7 +139,7 @@ Canvas 2D draws a true curve. The WebGL backend approximates one with line segme
 | `textAlign` | `'left'` | `left`, `center` or `right` |
 | `textBaseline` | `'top'` | `top`, `middle`, `alphabetic` or `bottom` |
 
-`measureText(text, { fontSize, fontFamily, fontWeight, fontStyle, letterSpacing })` returns `{ width, height }`. Metrics must reflect the style that would be rendered; both backends build the font shorthand through the same `geometry/font.js` helper so they cannot drift apart.
+`measureText(text, { fontSize, fontFamily, fontWeight, fontStyle, letterSpacing })` returns `{ width, height }`. Metrics must reflect the style that would be rendered; measuring and drawing build the font shorthand through the same `geometry/font.js` helper so they cannot drift apart.
 
 ### drawParticles
 

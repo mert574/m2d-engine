@@ -348,8 +348,7 @@ export class ForeMeadow extends Entity {
     });
 
     // The dusk itself: a violet scrim rising with the run, under the HUD
-    // and over the world, which is what carries the time of day on the
-    // canvas backend too.
+    // and over the world.
     if (t > 0.02) {
       renderer.drawRect({
         x: area.left, y: area.top, width, height: floor,

@@ -53,7 +53,7 @@ describe('input in a real browser', () => {
     // Pointer lock needs a user gesture a synthetic event cannot supply, and
     // would hide the absolute coordinates these tests are about.
     const game = new M2D(canvas, {
-      width: 640, height: 360, renderer: 'canvas', pointerLock: false, ...options
+      width: 640, height: 360, pointerLock: false, ...options
     });
     games.push(game);
     return { game, canvas };
@@ -290,7 +290,7 @@ describe('input in a real browser', () => {
       return Promise.reject(new Error('no user gesture in a synthetic event'));
     };
 
-    const game = new M2D(canvas, { width: 640, height: 360, renderer: 'canvas', pointerLock: true });
+    const game = new M2D(canvas, { width: 640, height: 360, pointerLock: true });
     games.push(game);
 
     let dispatching = true;

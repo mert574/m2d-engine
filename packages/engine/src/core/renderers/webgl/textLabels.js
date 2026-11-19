@@ -5,7 +5,7 @@ import { buildFontString, fontSizePx, applyLetterSpacing } from '../geometry/fon
  * Text for the GPU backend: each unique (text, style) is rasterized once by
  * the browser's own text engine into a small 2D canvas, uploaded as a
  * texture, and drawn as a quad. Using the 2D text engine means glyph shapes,
- * alignment and baselines match the Canvas backend exactly.
+ * alignment and baselines are the browser's own.
  *
  * Labels not drawn for a while are evicted (dynamic text such as an FPS
  * counter changes every frame).
@@ -29,7 +29,7 @@ export class TextLabels {
     this.cache.clear();
   }
 
-  /** Same font string the Canvas backend builds, so metrics agree. */
+  /** The one font string, so measuring and rasterizing agree. */
   static font(options) {
     return buildFontString(options);
   }

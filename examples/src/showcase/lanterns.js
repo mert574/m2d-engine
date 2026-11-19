@@ -4,11 +4,9 @@ import { makeRng, range } from 'm2d-kit/random';
  * Harbour lanterns, and the lighting layer.
  *
  * Each lantern is a sprite plus a `drawLight`, and the lighthouse lamp adds
- * one more that pulses with the beam's flare. On a backend with `lights` the
- * scene is genuinely dark and these carve it open; on one without, the layer
- * draws only the sprites and the world stays flat and evenly lit — which is
- * the clearest single difference between the two backends in the whole
- * showcase.
+ * one more that pulses with the beam's flare. With `lights` the scene is
+ * genuinely dark and these carve it open; without, the layer draws only the
+ * sprites and the world stays flat and evenly lit.
  *
  * Lights are submitted every frame like any other draw, so flicker is just a
  * per-lantern phase evaluated at draw time.

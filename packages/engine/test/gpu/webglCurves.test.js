@@ -6,11 +6,10 @@ import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js'
  * Curves are tessellated for the size they are *drawn*, not the size they
  * are authored.
  *
- * The WebGL backend turns an arc into line segments; Canvas 2D draws a
+ * The WebGL backend turns an arc into line segments; a Canvas 2D context draws a
  * true curve. So a circle that comes out smooth at one zoom has to come
  * out smooth at another — otherwise zooming in on a shape reveals the
- * polygon under it, and the two backends disagree about a frame they are
- * both supposed to draw.
+ * polygon under it.
  *
  * Each case draws the same *on-screen* circle twice: once large at zoom
  * 1, once small at a zoom that scales it back up. The two must match.

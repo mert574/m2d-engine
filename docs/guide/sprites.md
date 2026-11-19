@@ -67,7 +67,7 @@ When `frames` lists several pairs without an `fps`, the first pair shows.
 ## Drawing a sprite directly
 
 <Demo name="sprites-draw">
-One four-frame sheet drawn eight ways through the renderer: a single frame, flipped, rotating, scaled, animated at six frames per second, tinted, fading and layered. The tint column shows the sheet unchanged on the Canvas backend, which lacks the capability.
+One four-frame sheet drawn eight ways through the renderer: a single frame, flipped, rotating, scaled, animated at six frames per second, tinted, fading and layered.
 </Demo>
 
 `sprite.draw(animation, x, y, options)` draws one frame centred on a point. The options are passed to the renderer's `drawSprite`, so `width`, `height`, `rotation`, `flipX`, `flipY`, `globalAlpha` and `tint` all apply.

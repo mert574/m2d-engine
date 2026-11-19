@@ -1,12 +1,11 @@
 /**
- * The CSS font shorthand both backends set text with.
+ * The CSS font shorthand text is measured and rasterized with.
  *
- * Shared rather than duplicated because the two have to agree *exactly*:
- * the Canvas backend measures and draws with it, and the WebGL backend
- * measures with it and keys its rasterized label cache on it. A backend that
- * built the string even slightly differently would lay text out against one
- * font and draw it in another, and the only symptom would be text that is
- * subtly mispositioned on one backend.
+ * One builder, because measuring and drawing have to agree *exactly*: the
+ * WebGL backend measures with it and keys its rasterized label cache on it.
+ * A string built even slightly differently in one place would lay text out
+ * against one font and draw it in another, and the only symptom would be
+ * text that is subtly mispositioned.
  */
 
 /** Order is fixed by CSS: style, then weight, then size, then family. */

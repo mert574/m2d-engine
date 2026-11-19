@@ -134,8 +134,14 @@ export async function launchGpuChrome(options: LaunchOptions = {}): Promise<GpuC
 
   let output = '';
   let spawnError = '';
+  // A headless Chrome draws to no display, yet its GPU process still opens
+  // the X server named in DISPLAY, and one that refuses the connection
+  // leaves the page with no WebGL2 and no WebGPU adapter. Headed, the
+  // window needs it.
+  const { DISPLAY, WAYLAND_DISPLAY, ...headlessEnv } = process.env;
   const child = spawn(binary, [...switches, '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], {
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: options.headed ? process.env : headlessEnv
   });
   child.stdout?.on('data', (chunk) => { output = (output + String(chunk)).slice(-2000); });
   child.stderr?.on('data', (chunk) => { output = (output + String(chunk)).slice(-2000); });

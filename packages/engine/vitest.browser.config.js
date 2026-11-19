@@ -2,9 +2,10 @@ import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 
 // Browser project, run on demand: the tests that need a real browser
-// (test/browser/**) and the gpu project's tests (test/gpu/**), which run
-// here too so the Node stand-ins in helpers/gpuEnvironment.js are checked
-// against Chromium.
+// (test/browser/**) and the gpu project's renderer tests (test/gpu/*), which
+// run here too so the Node stand-ins in helpers/gpuEnvironment.js are checked
+// against Chromium. test/gpu/engine/** stays out: those suites build games
+// with Node's window and document stubs, which a browser already has.
 //
 // One-time setup:  npx playwright install chromium
 // Run:             npm run test:browser
@@ -27,7 +28,7 @@ export default defineConfig({
   },
   test: {
     name: 'browser',
-    include: ['test/browser/**/*.test.js', 'test/gpu/**/*.test.js'],
+    include: ['test/browser/**/*.test.js', 'test/gpu/*.test.js'],
     setupFiles: ['./test/helpers/setupPhysics.js'],
     browser: {
       enabled: true,

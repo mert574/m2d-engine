@@ -3,7 +3,7 @@ import { M2D } from '../../src/core/m2d.js';
 import { Entity } from '../../src/core/entity.js';
 import { initPhysics } from '../../src/core/physics/index.js';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
-import { readCanvas2DPixels } from '../helpers/environment.js';
+import { readWebGLPixels } from '../helpers/environment.js';
 
 /**
  * Edit mode at the DOM boundary: the half the node suite cannot answer
@@ -71,7 +71,7 @@ describe('edit mode in a real browser', () => {
     await initPhysics();
     const canvas = mountCanvas();
     const game = new M2D(canvas, {
-      width: 640, height: 360, renderer: 'canvas', pointerLock: false,
+      width: 640, height: 360, pointerLock: false,
       performanceStats: false, editMode
     });
     game.registerActor('Block', Block);
@@ -92,7 +92,7 @@ describe('edit mode in a real browser', () => {
     game.drawWorld(game.sceneManager.getCurrentScene(), 0);
 
     // The block's own draw ran — the document is visible…
-    const { width, height, data } = readCanvas2DPixels(canvas);
+    const { width, height, data } = readWebGLPixels(canvas);
     const at = (x, y) => data.subarray((y * width + x) * 4, (y * width + x) * 4 + 3);
     const centre = at(Math.round(width / 2), Math.round(height / 2));
     expect(centre[0]).toBeGreaterThan(180);        // #ff6600
@@ -130,7 +130,7 @@ describe('edit mode in a real browser', () => {
     expect(game.cvars.storage).toBeNull();
 
     const played = new M2D(mountCanvas(), {
-      width: 64, height: 64, renderer: 'canvas', performanceStats: false
+      width: 64, height: 64, performanceStats: false
     });
     cleanup.push(() => played.destroy());
     expect(played.cvars.storage).not.toBeNull();

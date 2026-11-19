@@ -94,7 +94,7 @@ When the view is larger than the bounded area, the camera centres on that area. 
 | `getVisibleArea()` | The visible world rectangle as `{ left, right, top, bottom }`. Under rotation, the bounding box of the turned view |
 | `viewExtents()` | The width and height of that rectangle in world units |
 | `isVisible(x, y, width, height)` | Whether a rectangle with its top-left at `x`, `y` intersects the visible area, grown by `padding`. `padding` defaults to `{ x: 100, y: 100 }` and is set on the camera directly |
-| `matrix` | The world-to-view affine both backends apply |
+| `matrix` | The world-to-view affine the renderer applies |
 
 Input events already carry world coordinates, and `game.worldToUI(x, y)` maps a world point into UI space. These helpers are for everything else.
 
