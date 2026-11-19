@@ -134,8 +134,8 @@ export class Chase extends Constraint {
     const { entity } = this;
     const reach = this.path ? this.detectionRange * 2 : this.detectionRange;
     const quarry = entity.game.players.nearestAvatar(entity.position, this.#solid ? Infinity : reach);
-    // Strictly inside the range, as the distance test always was — on the
-    // ground plane, which nearestAvatar's own (x, y) cut cannot judge in 3D.
+    // Strictly inside the range, on the ground plane — nearestAvatar's own
+    // (x, y) cut cannot judge that in 3D.
     return quarry && this.#groundDistance(entity.position, quarry.position) < reach ? quarry : null;
   }
 
@@ -154,8 +154,8 @@ export class Chase extends Constraint {
     this.repathTime += dt;
     const end = this.path?.[this.path.length - 1];
     const strayed = !end || this.#groundDistance(end, quarry.position) > this.#arrive() * 2;
-    // At the same cadence: a route a moving obstacle rolled onto is stale
-    // even while the quarry stands still.
+    // Once the repath clock has run out, also stale: a route a moving
+    // obstacle rolled onto, even while the quarry stands still.
     const blocked = this.path && this.repathTime >= this.repath
       && nav.routeBlocked([entity.position, ...this.path.slice(this.waypoint)]);
     if (!this.path || (this.repathTime >= this.repath && (strayed || blocked))) {

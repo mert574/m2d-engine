@@ -210,8 +210,8 @@ export class Nav {
    * ground plane. The cheap staleness test a walker runs between re-plans:
    * a cart rolls onto the line a route was funnelled along, and the route
    * is stale long before the walker presses against it. The list is plain
-   * simulation state, so this is a handful of segment-against-box clips —
-   * no query into the wasm, and nothing re-planned unless it says so.
+   * simulation state, so this is a handful of segment-against-box clips,
+   * with no query into the wasm.
    *
    * @param {{x: number, y: number, z?: number}[]} points - The corners
    *   still ahead, the walker's own position first

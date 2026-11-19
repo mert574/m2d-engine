@@ -3,8 +3,8 @@ import { s } from '../core/schema.js';
 
 /**
  * How close to a path point counts as arrived: 1 px flat, 2 cm in a 3D
- * scene — a px-minded 1 would be a whole metre there, and the snap to the
- * exact point on arrival becomes a visible jump (the court's cart did).
+ * scene — a px-minded 1 is a whole metre there, and the snap to the exact
+ * point on arrival becomes a visible jump.
  */
 const ARRIVE_DISTANCE = 1;
 const ARRIVE_DISTANCE_3D = 0.02;

@@ -164,10 +164,9 @@ export class PointerMove extends Constraint {
     const speed = this.speed * (projection && this.speedSpace === 'screen' ? projection.groundSpeedScale(nx, ny) : 1);
     const body = this.entity.body;
 
-    // A moving obstacle rolled onto the route: the walk is stale before it
-    // presses against anything. Checked four times a second against the
-    // tracked obstacle list — plain boxes, no query — and re-planned only
-    // when a remaining segment actually crosses one.
+    // A moving obstacle rolled onto the route makes the walk stale before
+    // it presses against anything: checked four times a second, re-planned
+    // only when a remaining segment actually crosses a tracked box.
     if (this.path) {
       this.obstacleWatch += dt;
       if (this.obstacleWatch >= 0.25) {
@@ -219,9 +218,7 @@ export class PointerMove extends Constraint {
       if (solid) return { x: p.x, y: (p.y ?? 0) + lift, z: p.z ?? 0 };
       return projection ? projection.toScreen(p.x, p.y) : { x: p.x, y: p.y };
     };
-    // From the feet: the line is the way still to walk, anchored on the
-    // ground where the walker stands, not at its body's centre or at a
-    // corner already passed.
+    // The way still to walk, anchored at the walker's feet on the ground.
     const at = this.entity.renderPosition;
     const from = solid ? { x: at.x, y: 0, z: at.z ?? 0 } : { x: at.x, y: at.y };
     const ahead = [from, ...(this.path ? this.path.slice(this.waypoint) : [this.destination])];

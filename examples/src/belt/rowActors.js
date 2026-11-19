@@ -81,7 +81,6 @@ export class Thug extends Ghost {
     this.addConstraint('strike', new Attack(this, {
       damage: 14, range: 95, arc: Math.PI * 0.9, cooldown: 100, knockback: 3000,
       targets: ['player'],
-      // The telegraph is the attack's own now; the behaviour aims and waits.
       windup: this.windupTime * 60,
       onStart: () => {
         this.game.soundManager.playSound('attack');
@@ -118,8 +117,7 @@ export class Thug extends Ghost {
       this.body.setVelocity({ x: 0, y: 0 });
       return;
     }
-    // Popped into the air, the ladder freezes: no windup starts off the
-    // ground, as the hand-rolled strike always gated.
+    // Popped into the air, the ladder freezes: no windup starts off the ground.
     this.getConstraint('behavior').suspended = this.elevation > 0;
     super.fixedUpdate(dt);
     if (this.dead) return;

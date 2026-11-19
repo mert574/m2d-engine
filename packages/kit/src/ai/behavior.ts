@@ -303,11 +303,9 @@ export class Behavior extends Constraint {
       this.stalled = 0;
     }
 
-    // A corner is accepted only within a step — accepting it at the body's
-    // radius swallows a doorway's corner from outside the door line and
-    // cuts the turn into the wall's face (the pathfinding project hit the
-    // same trap with PointerMove's 2-unit floor). Only the final goal gets
-    // the generous radius.
+    // A corner is accepted only within a step: accepted at the body's
+    // radius it is swallowed from outside the door line, and the turn cuts
+    // into the wall's face. Only the final goal gets the generous radius.
     const step = this.#solid ? 0.25 : 8;
     const arrive = this.#arrive();
     while (this.route && this.waypoint < this.route.length - 1) {
@@ -538,7 +536,7 @@ export class Behavior extends Constraint {
         ? { x: home.x + dx, y: home.y, z: (home.z ?? 0) + dy }
         : { x: home.x + dx, y: home.y + dy };
     }
-    if (this.#walkTo(this.wanderTarget!, dt, this.idleSpeed)) this.#halt();
+    this.#walkTo(this.wanderTarget!, dt, this.idleSpeed);
   }
 
   /**
