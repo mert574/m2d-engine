@@ -1,4 +1,25 @@
 import { viewToUI } from '../viewport.js';
+
+/**
+ * A circle's outline as path points on the ground: around (x, y) flat, or
+ * around (x, z) at height `y` in 3D. What a debug ring is drawn with in a
+ * 3D scene, where `drawArc` is a screen-space circle — a ring that should
+ * lie on the floor is a path of projected points.
+ * @param {{x: number, y: number, z?: number}} centre
+ * @param {number} radius
+ * @param {number} [segments]
+ */
+export function groundCircle({ x, y, z }, radius, segments = 32) {
+  const points = [];
+  for (let i = 0; i <= segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    points.push(z === undefined
+      ? { x: x + Math.cos(a) * radius, y: y + Math.sin(a) * radius }
+      : { x: x + Math.cos(a) * radius, y, z: z + Math.sin(a) * radius });
+  }
+  return points;
+}
+
 /**
  * World-anchored overlay: annotations drawn *on* the world, not *in* it.
  *

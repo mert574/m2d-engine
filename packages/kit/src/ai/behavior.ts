@@ -2,6 +2,7 @@ import { Constraint } from 'm2d-engine/core/constraint.js';
 import { s } from 'm2d-engine/core/schema.js';
 import { canSee } from 'm2d-engine/core/senses.js';
 import { Angle } from 'm2d-engine/core/math.js';
+import { groundCircle } from 'm2d-engine/core/ui/worldOverlay.js';
 import type { Entity } from 'm2d-engine/core/entity.js';
 
 /** A point, on whichever plane the game runs. */
@@ -45,6 +46,8 @@ export interface BehaviorOptions {
   wanderInterval?: number;
   /** The nav agent profile the behaviour's own walks route as. */
   agent?: string;
+  /** The visible tell over its head on a state change; on unless turned off. */
+  tell?: boolean;
 }
 
 /** Seconds of no headway before a walk asks for its route again. */
@@ -87,10 +90,14 @@ export class Behavior extends Constraint {
     idleSpeed: s.number({ positive: true, unit: 'px/s', label: 'Wander speed', description: 'Defaults to 60% of speed' }),
     wander: s.number({ initial: 0, min: 0, unit: 'px', description: 'With no patrol path: wander this far around home; 0 stands still' }),
     wanderInterval: s.number({ initial: 2, positive: true, unit: 's' }),
-    agent: s.ref('navAgent', { label: 'Nav agent', description: "The profile its own walks route as (m2d.project.json navAgents); the only one when unset" })
+    agent: s.ref('navAgent', { label: 'Nav agent', description: "The profile its own walks route as (m2d.project.json navAgents); the only one when unset" }),
+    tell: s.boolean({ initial: true, description: 'The tell over its head: ! on alarm, ? giving up — the state ladder made visible in plain play' })
   };
 
-  static override replicated = ['state', 'stateTime', 'lastSeen', 'facing'];
+  static override replicated = ['state', 'stateTime', 'lastSeen', 'facing', 'sinceSeen'];
+
+  /** Its debug drawing handles 3D itself, so the 3D frame runs it too. */
+  static draws3D = true;
 
   declare entity: Entity;
 
@@ -110,6 +117,7 @@ export class Behavior extends Constraint {
   wander: number;
   wanderInterval: number;
   agent?: string;
+  tell: boolean;
 
   state: BehaviorState;
   /** Seconds in the current state. */
@@ -158,6 +166,7 @@ export class Behavior extends Constraint {
     this.wander = options.wander ?? 0;
     this.wanderInterval = options.wanderInterval ?? 2;
     this.agent = options.agent;
+    this.tell = options.tell ?? true;
 
     this.state = 'patrol';
     this.stateTime = 0;
@@ -523,5 +532,93 @@ export class Behavior extends Constraint {
     if (chase) chase.suspended = !hunting;
     const path = this.#path();
     if (path) path.suspended = this.state !== 'patrol';
+  }
+
+  /**
+   * The tell, in plain play: an exclamation over the head while it is on
+   * the hunt — red with the quarry in its senses, amber walking a cold
+   * trail — and a grey question mark giving up. Replicated state drives
+   * it, so a client shows the same ladder. Under `r_debug` the working
+   * state joins it: the view cone and leash on the ground, the last-seen
+   * mark, its own route, and the state's name.
+   */
+  override draw(): void {
+    const entity = this.entity as any;
+    if (entity.dead) return;
+    const game = entity.game;
+    const overlay = game.worldOverlay;
+    const solid = this.#solid;
+    const position = entity.renderPosition;
+
+    if (this.tell && this.state !== 'patrol') {
+      const engaged = this.state !== 'return';
+      const glyph = engaged ? '!' : '?';
+      const colour = !engaged ? 'rgba(158, 170, 184, 0.9)'
+        : this.sinceSeen < this.patience ? '#ff5f52' : '#ffb35e';
+      // A pop on the switch, settling in a third of a second.
+      const pop = Math.max(0, 1 - this.stateTime / 0.35);
+      const label = {
+        text: glyph, fillStyle: colour,
+        fontSize: `${Math.round(16 + 10 * pop)}px`, fontFamily: 'monospace',
+        textAlign: 'center', textBaseline: 'bottom'
+      };
+      if (solid) {
+        overlay.drawText({ ...label, x: position.x, y: position.y + entity.size.y * 0.75, z: position.z, offsetY: -4 });
+      } else {
+        overlay.drawText({ ...label, x: position.x, y: entity.overhead, offsetY: -6 });
+      }
+    }
+
+    if (!game.renderer.isDebugEnabled()) return;
+    const place = (p: Point) => (solid ? { x: p.x, y: 0.08, z: p.z ?? 0 } : { x: p.x, y: p.y });
+    const pos = place(position);
+
+    // The view cone: a wedge on the ground around the facing — or the full
+    // circle when it sees all around.
+    const cone = Math.min(this.sightCone, Math.PI * 2);
+    const wedge: Point[] = [];
+    const segments = 24;
+    const from = this.facing - cone / 2;
+    for (let i = 0; i <= segments; i++) {
+      const a = from + (i / segments) * cone;
+      const dx = Math.cos(a) * this.sightRange;
+      const dy = Math.sin(a) * this.sightRange;
+      wedge.push(solid ? { x: pos.x + dx, y: 0.08, z: (pos.z ?? 0) + dy } : { x: pos.x + dx, y: pos.y + dy });
+    }
+    if (cone < Math.PI * 2 - 1e-6) wedge.unshift({ ...pos }), wedge.push({ ...pos });
+    overlay.drawPath({ points: wedge, strokeStyle: 'rgba(122, 215, 255, 0.5)', lineWidth: solid ? 2 : 1 });
+
+    if (this.leash && this.home) {
+      overlay.drawPath({
+        points: groundCircle(place(this.home), this.leash),
+        strokeStyle: 'rgba(158, 170, 184, 0.35)', lineWidth: 1
+      });
+    }
+
+    if (this.lastSeen && this.state !== 'patrol') {
+      const seen = place(this.lastSeen);
+      const r = solid ? 0.3 : 8;
+      const cross = solid
+        ? [{ x: seen.x - r, y: seen.y, z: (seen.z ?? 0) - r }, { x: seen.x + r, y: seen.y, z: (seen.z ?? 0) + r },
+          { x: seen.x, y: seen.y, z: seen.z }, { x: seen.x - r, y: seen.y, z: (seen.z ?? 0) + r }, { x: seen.x + r, y: seen.y, z: (seen.z ?? 0) - r }]
+        : [{ x: seen.x - r, y: seen.y - r }, { x: seen.x + r, y: seen.y + r },
+          { x: seen.x, y: seen.y }, { x: seen.x - r, y: seen.y + r }, { x: seen.x + r, y: seen.y - r }];
+      overlay.drawPath({ points: cross, strokeStyle: '#ff5f52', lineWidth: solid ? 2 : 1.5 });
+    }
+
+    if (this.route) {
+      overlay.drawPath({
+        points: this.route.slice(Math.max(0, this.waypoint - 1)).map(place),
+        strokeStyle: 'rgba(255, 179, 94, 0.7)', lineWidth: solid ? 2 : 1.5
+      });
+    }
+
+    overlay.drawText({
+      text: this.state, fillStyle: '#9eeaff',
+      fontSize: '11px', fontFamily: 'monospace', textAlign: 'center', textBaseline: 'top',
+      ...(solid
+        ? { x: position.x, y: position.y + entity.size.y * 0.75, z: position.z, offsetY: 2 }
+        : { x: position.x, y: entity.overhead, offsetY: 2 })
+    });
   }
 }

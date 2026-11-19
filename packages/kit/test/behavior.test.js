@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { makeTestGame, makeBody } from 'm2d-engine/test/helpers/testGame.js';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -309,7 +310,41 @@ describe('the cast and its ownership', () => {
   });
 
   it('declares what a watcher needs replicated', () => {
-    expect(Behavior.replicated).toEqual(['state', 'stateTime', 'lastSeen', 'facing']);
+    expect(Behavior.replicated).toEqual(['state', 'stateTime', 'lastSeen', 'facing', 'sinceSeen']);
+  });
+
+  it('tells its state in plain play, and lays its working state on the overlay under debug', () => {
+    const game = makeTestGame();
+    const npc = new Entity(makeBody(game, 100, 100, 20, 20, { bodyType: 'dynamic' }), null, game);
+    const behavior = new Behavior(npc, { sightCone: Math.PI / 2, leash: 120 });
+    npc.addConstraint('behavior', behavior);
+    behavior.home = { x: 100, y: 100 };
+    const overlay = game.worldOverlay;
+
+    // Patrolling, cvars off: nothing over its head and nothing on the ground.
+    game.renderer.setDebugEnabled(false);
+    behavior.draw();
+    expect(overlay.shapes).toHaveLength(0);
+    expect(overlay.labels).toHaveLength(0);
+
+    // On the hunt: the tell alone, with the cvars still off.
+    behavior.state = 'alert';
+    behavior.stateTime = 1;
+    behavior.sinceSeen = 0;
+    behavior.lastSeen = { x: 160, y: 100 };
+    behavior.draw();
+    expect(overlay.shapes).toHaveLength(0);
+    expect(overlay.labels).toHaveLength(1);
+    expect(overlay.labels[0].text).toBe('!');
+
+    // Debug on: the cone, the leash, the last-seen mark and the state name.
+    overlay.shapes.length = 0;
+    overlay.labels.length = 0;
+    game.renderer.setDebugEnabled(true);
+    behavior.draw();
+    expect(overlay.shapes.length).toBeGreaterThanOrEqual(3);
+    expect(overlay.labels.map((label) => label.text)).toEqual(['!', 'alert']);
+    game.destroy?.();
   });
 
   it('works with no navmesh: the walks go straight and the ladder stands', async () => {

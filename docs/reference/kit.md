@@ -154,7 +154,9 @@ NPC intelligence. `registerKitAi(game)` registers it (also part of `registerKit`
 
 Alert begins only from a sighting — `canSee` (see [Sight](./gameplay#sight)): within `sightRange`, inside `sightCone` radians around the way it last moved, nothing in `sightBlockers` (static geometry when unset) in between, looked for every `senseInterval` seconds — or from a heard world event: a name in `hears` (`step` unless set) with an `at` within `hearingRange` (0, the default, is deaf), never its own. `patience` seconds without a sighting sends it to the last-seen point and then home. The strike is telegraphed within `strikeRange` (the attack's own range when 0) with the cooldown ready, and `recover` seconds follow the swing. `leash` bounds the hunt absolutely: beyond it of home the walk home begins, and a quarry camped outside the leash is ignored rather than paced at the line. Without an `attack` slot the telegraph rungs are skipped — contact damage does the hurting.
 
-Every decision is a plain field, so a snapshot mid-telegraph restores exactly; `state`, `stateTime`, `lastSeen` and `facing` replicate (the attack replicates its own windup), so a client draws a ladder it never simulated. `home` is where the first tick found it.
+Every decision is a plain field, so a snapshot mid-telegraph restores exactly; `state`, `stateTime`, `lastSeen`, `facing` and `sinceSeen` replicate (the attack replicates its own windup), so a client draws a ladder it never simulated. `home` is where the first tick found it.
+
+The ladder is visible. In plain play the **tell** (`tell`, on unless turned off) floats over the NPC's head: a red `!` with the quarry in its senses, amber walking a cold trail, a grey `?` giving up — replicated state drives it, so watchers see the same. Under `r_debug` the working state joins it, in 2D and 3D alike: the view cone and the leash on the ground, the last-seen mark, its own route and the state's name.
 
 ## `m2d-kit/scenery`
 

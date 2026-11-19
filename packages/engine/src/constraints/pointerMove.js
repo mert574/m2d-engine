@@ -1,5 +1,6 @@
 import { Constraint } from '../core/constraint.js';
 import { s } from '../core/schema.js';
+import { groundCircle } from '../core/ui/worldOverlay.js';
 
 /**
  * Click to move: a press on the world sets a destination on the ground, and
@@ -199,11 +200,19 @@ export class PointerMove extends Constraint {
     const ahead = this.path ? this.path.slice(Math.max(0, this.waypoint - 1)) : [this.entity.position, this.destination];
     overlay.drawPath({ points: ahead.map(place), strokeStyle: 'rgba(122, 215, 255, 0.8)', lineWidth: solid ? 2.5 : 1.5 });
     const end = place(this.destination);
-    overlay.drawArc({
-      ...end, radius: solid ? 6 : Math.max(5, this.arrive),
-      startAngle: 0, endAngle: Math.PI * 2,
-      strokeStyle: 'rgba(122, 215, 255, 0.9)', lineWidth: solid ? 2.5 : 1.5,
-      ...(solid && { screenRadius: true })
-    });
+    if (solid) {
+      // Flat on the floor, as the walk is: a screen-space circle reads as
+      // a marker floating at the camera, not a place on the ground.
+      overlay.drawPath({
+        points: groundCircle(end, Math.max(0.3, this.arrive)),
+        strokeStyle: 'rgba(122, 215, 255, 0.9)', lineWidth: 2.5
+      });
+    } else {
+      overlay.drawArc({
+        ...end, radius: Math.max(5, this.arrive),
+        startAngle: 0, endAngle: Math.PI * 2,
+        strokeStyle: 'rgba(122, 215, 255, 0.9)', lineWidth: 1.5
+      });
+    }
   }
 }

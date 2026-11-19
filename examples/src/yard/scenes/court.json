@@ -70,7 +70,7 @@
       "physics": { "bodyType": "kinematic", "shape": "box" },
       "mesh": { "shape": "box", "color": "#7a4f2d", "roughness": 0.8 },
       "constraints": {
-        "patrol": { "type": "PathFollow", "params": { "path": "rounds", "speed": 1.2, "waitTime": 1.5 } },
+        "patrol": { "type": "PathFollow", "params": { "path": "rounds", "speed": 1.2, "waitTime": 1500 } },
         "blocks": { "type": "NavObstacle", "params": { "margin": 0.1, "granularity": 0.3 } }
       }
     },
@@ -80,7 +80,7 @@
     },
     "sentry": {
       "actor": "Prop",
-      "physics": { "bodyType": "character", "shape": "capsule", "lockRotation": true },
+      "physics": { "bodyType": "dynamic", "shape": "capsule", "lockRotation": true, "frictionAir": 0.2 },
       "mesh": { "shape": "capsule", "color": "#b5484d", "roughness": 0.6 },
       "constraints": {
         "path": {
@@ -91,8 +91,8 @@
         "behavior": {
           "type": "Behavior",
           "params": {
-            "sightRange": 9,
-            "sightCone": 1.9,
+            "sightRange": 8,
+            "sightCone": 1.6,
             "senseInterval": 0.25,
             "patience": 2,
             "leash": 9,
@@ -104,13 +104,13 @@
     },
     "hearer": {
       "actor": "Prop",
-      "physics": { "bodyType": "character", "shape": "capsule", "lockRotation": true },
+      "physics": { "bodyType": "dynamic", "shape": "capsule", "lockRotation": true, "frictionAir": 0.2 },
       "mesh": { "shape": "capsule", "color": "#4a7fb5", "roughness": 0.6 },
       "constraints": {
         "behavior": {
           "type": "Behavior",
           "params": {
-            "sightRange": 3,
+            "sightRange": 2,
             "senseInterval": 0.3,
             "patience": 2.5,
             "hearingRange": 11,
@@ -124,7 +124,7 @@
     },
     "stalker": {
       "actor": "Prop",
-      "physics": { "bodyType": "character", "shape": "capsule", "lockRotation": true },
+      "physics": { "bodyType": "dynamic", "shape": "capsule", "lockRotation": true, "frictionAir": 0.2 },
       "mesh": { "shape": "capsule", "color": "#7d5ba6", "roughness": 0.6 },
       "constraints": {
         "chase": {
@@ -134,7 +134,7 @@
         "behavior": {
           "type": "Behavior",
           "params": {
-            "sightRange": 7,
+            "sightRange": 6.5,
             "senseInterval": 0.2,
             "patience": 3,
             "speed": 2.8,

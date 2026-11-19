@@ -1,6 +1,7 @@
 import { Constraint } from '../core/constraint.js';
 import { s } from '../core/schema.js';
 import { Vec2 } from '../core/math.js';
+import { groundCircle } from '../core/ui/worldOverlay.js';
 
 /**
  * Enemy movement: chase the nearest player while one is within range,
@@ -40,6 +41,8 @@ import { Vec2 } from '../core/math.js';
  */
 export class Chase extends Constraint {
   static description = 'Chase the nearest player while one is in range, routed over the navmesh when the scene has one, else wander or stand';
+  /** Its debug drawing handles 3D itself, so the 3D frame runs it too. */
+  static draws3D = true;
   static params = {
     speed: s.number({ initial: 60, positive: true, unit: 'px/s', label: 'Pursuit speed' }),
     idleSpeed: s.number({ positive: true, unit: 'px/s', label: 'Wander speed', description: 'Defaults to 60% of speed' }),
@@ -246,47 +249,62 @@ export class Chase extends Constraint {
     // Annotations on top of the game, so they go to the world overlay:
     // world coordinates and sizes, rasterized at display resolution. The
     // 3-unit target dot in particular would vanish at a low render
-    // resolution if it were drawn into the world surface.
+    // resolution if it were drawn into the world surface. In 3D everything
+    // lies on the ground, lifted a hair above the floor.
     const overlay = entity.game.worldOverlay;
-    const pos = entity.renderPosition;
+    const solid = this.#solid;
+    // On the floor, a hair up against z-fighting; body centres are grounded.
+    const place = (p) => (solid ? { x: p.x, y: 0.06, z: p.z ?? 0 } : { x: p.x, y: p.y });
+    const pos = place(entity.renderPosition);
 
-    overlay.drawArc({
-      x: pos.x, y: pos.y, radius: this.detectionRange,
-      startAngle: 0, endAngle: Math.PI * 2,
-      strokeStyle: 'rgba(255, 214, 51, 0.4)', lineWidth: 1
-    });
+    if (solid) {
+      overlay.drawPath({
+        points: groundCircle(pos, this.detectionRange),
+        strokeStyle: 'rgba(255, 214, 51, 0.4)', lineWidth: 1
+      });
+    } else {
+      overlay.drawArc({
+        x: pos.x, y: pos.y, radius: this.detectionRange,
+        startAngle: 0, endAngle: Math.PI * 2,
+        strokeStyle: 'rgba(255, 214, 51, 0.4)', lineWidth: 1
+      });
+    }
 
+    const target = place(this.target);
     overlay.drawArc({
-      x: this.target.x, y: this.target.y, radius: 3,
-      startAngle: 0, endAngle: Math.PI * 2, fillStyle: '#ffd633'
+      ...target, radius: 3,
+      startAngle: 0, endAngle: Math.PI * 2, fillStyle: '#ffd633',
+      ...(solid && { screenRadius: true })
     });
     overlay.drawLine({
-      x1: pos.x, y1: pos.y, x2: this.target.x, y2: this.target.y,
+      x1: pos.x, y1: pos.y, z1: pos.z, x2: target.x, y2: target.y, z2: target.z,
       strokeStyle: 'rgba(255, 214, 51, 0.4)', lineWidth: 1
     });
 
-    overlay.drawText({
-      text: `target: ${this.wanderTime.toFixed(2)}/${this.wanderInterval}`,
-      x: entity.renderBounds.min.x,
-      y: entity.renderBounds.max.y,
-      offsetY: 5,
-      fillStyle: '#ff9999',
-      fontSize: '12px', fontFamily: 'monospace',
-      textAlign: 'left', textBaseline: 'top'
-    });
+    if (!solid) {
+      overlay.drawText({
+        text: `target: ${this.wanderTime.toFixed(2)}/${this.wanderInterval}`,
+        x: entity.renderBounds.min.x,
+        y: entity.renderBounds.max.y,
+        offsetY: 5,
+        fillStyle: '#ff9999',
+        fontSize: '12px', fontFamily: 'monospace',
+        textAlign: 'left', textBaseline: 'top'
+      });
+    }
 
     if (this.path) {
       overlay.drawPath({
-        points: this.path.slice(Math.max(0, this.waypoint - 1)),
+        points: this.path.slice(Math.max(0, this.waypoint - 1)).map(place),
         strokeStyle: 'rgba(107, 199, 255, 0.6)', lineWidth: 1.5
       });
     }
 
     const quarry = this.#quarry();
     if (quarry) {
-      const player = quarry.renderPosition;
+      const player = place(quarry.renderPosition);
       overlay.drawLine({
-        x1: pos.x, y1: pos.y, x2: player.x, y2: player.y,
+        x1: pos.x, y1: pos.y, z1: pos.z, x2: player.x, y2: player.y, z2: player.z,
         strokeStyle: 'rgba(255, 107, 107, 0.4)', lineWidth: 1
       });
     }

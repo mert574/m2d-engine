@@ -1,8 +1,13 @@
 import { Constraint } from '../core/constraint.js';
 import { s } from '../core/schema.js';
 
-/** How close to a path point counts as arrived, in px. */
+/**
+ * How close to a path point counts as arrived: 1 px flat, 2 cm in a 3D
+ * scene — a px-minded 1 would be a whole metre there, and the snap to the
+ * exact point on arrival becomes a visible jump (the court's cart did).
+ */
 const ARRIVE_DISTANCE = 1;
+const ARRIVE_DISTANCE_3D = 0.02;
 
 /**
  * Patrols a kinematic body along a list of points, pausing at each one.
@@ -89,6 +94,11 @@ export class PathFollow extends Constraint {
     else if (params.speed !== undefined && !this.accelerationSet) this.acceleration = this.speed * 2;
   }
 
+  /** The arrive radius for this game's units. */
+  get #arrive() {
+    return (this.entity.game.options.dimensions ?? 2) === 3 ? ARRIVE_DISTANCE_3D : ARRIVE_DISTANCE;
+  }
+
   /** With `face`: point `entity.heading` along the velocity; a halt keeps the last heading. */
   #setHeading(velocity) {
     if (!this.face) return;
@@ -129,7 +139,7 @@ export class PathFollow extends Constraint {
     const dy = target.y - position.y;
     const distance = Math.hypot(dx, dy);
 
-    if (distance < ARRIVE_DISTANCE) {
+    if (distance < this.#arrive) {
       this.waitLeft = this.waitTime;
       this.#halt();
       this.entity.body.setNextPosition(target);
@@ -168,7 +178,7 @@ export class PathFollow extends Constraint {
     }
 
     const remaining = Math.abs(this.goal - this.distance);
-    if (remaining < ARRIVE_DISTANCE) {
+    if (remaining < this.#arrive) {
       this.distance = route.wrap(this.goal);
       if (!route.closed && (this.distance <= 0 || this.distance >= route.length)) this.direction = -this.direction;
       this.waitLeft = this.waitTime;
@@ -200,7 +210,7 @@ export class PathFollow extends Constraint {
   #nextGoal() {
     const route = this.route;
     const d = this.distance;
-    const ahead = ARRIVE_DISTANCE / 2;
+    const ahead = this.#arrive / 2;
     if (route.closed) {
       if (!this.stopAtPoints) return Infinity;
       return route.stops.find((stop) => stop > d + ahead) ?? route.stops[0] + route.length;
