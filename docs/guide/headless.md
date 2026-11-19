@@ -32,11 +32,13 @@ Beeline is split this way. `examples/src/scroller/game.js` is its cast, `scenes/
 node examples/src/scroller/simulate.mjs 600
 ```
 
-`game.js` and everything it imports must run in Node. It cannot touch the DOM, use Vite-only imports such as `import.meta.glob`, or read the renderer outside `draw`. An actor that wants to know a renderer capability asks when it draws:
+`game.js` and everything it imports must run in Node. It cannot touch the DOM, use Vite-only imports such as `import.meta.glob`, or read the renderer outside `draw`. An actor that reads the renderer does so when it draws:
 
 ```javascript
 class Pollen extends Entity {
-  get lit() { return this.game.renderer.supports('lights'); }
+  draw() {
+    this.game.renderer.drawLight({ x: this.renderPosition.x, y: this.renderPosition.y, radius: 40, color: '#ffe9a8' });
+  }
 }
 ```
 

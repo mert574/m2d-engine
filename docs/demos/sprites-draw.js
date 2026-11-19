@@ -30,7 +30,7 @@ const caption = (id, x, row, text) => ({
 });
 
 const scene = {
-  version: 6, type: 'level', name: 'main',
+  version: 7, type: 'level', name: 'main',
   world: { width: 640, height: 360, gravity: { x: 0, y: 0 }, camera: { bounds: 'world' } },
   hud: [
     caption('frame-0', 90, 0, 'frame 0'),
@@ -72,7 +72,6 @@ export default async function start(canvas) {
 
       // Row two: animation, colour and layering.
       renderer.drawSprite({ ...tile, ...size, x: 90, y: 270, tileX: frame });
-      // tint needs the capability; a backend without it draws the sprite untinted.
       renderer.drawSprite({ ...tile, ...size, x: 230, y: 270, tileX: frame, tint: '#ff8a65' });
       renderer.drawSprite({ ...tile, ...size, x: 370, y: 270, tileX: frame, globalAlpha: 0.5 + Math.sin(time * 3) * 0.4 });
       renderer.drawSprite({ ...tile, ...size, x: 500, y: 262, tileX: 0 });

@@ -56,7 +56,7 @@ const label = (bounds) => (bounds ? 'bounds on. turn off' : 'bounds off. turn on
 // The world is larger than the 640 by 360 view. Its camera follows the
 // mover, eases toward it, and stays inside the world's bounds.
 const scene = {
-  version: 6, type: 'level', name: 'main',
+  version: 7, type: 'level', name: 'main',
   world: {
     width: 1600, height: 900, gravity: { x: 0, y: 0 },
     camera: { follow: 'mover', lerp: 0.08, bounds: 'world' }

@@ -194,8 +194,6 @@ export class GardenBackdrop extends Entity {
       renderer.drawArc({ x: x + 1.6 * (0.4 + 0.6 * Math.abs(-flap)), y, radius: 2.2, fillStyle: b.color });
     }
 
-    if (!renderer.supports('lights')) return;
-
     // The sun: one broad warm light over the view. Morning, not noon — the
     // grade above does the colour, this adds the glow.
     renderer.drawLight({

@@ -36,12 +36,6 @@ export class WebGLRenderer extends BaseRenderer {
    */
   constructor(options = {}) {
     super();
-    this.capabilities.tint = true;
-    this.capabilities.blendModes = true;
-    this.capabilities.particles = true;
-    this.capabilities.lights = true;
-    this.capabilities.lightShadows = true;
-    this.capabilities.postEffects = true;
 
     /** Ambient light colour, or null when lighting is off. */
     this.ambientLight = null;

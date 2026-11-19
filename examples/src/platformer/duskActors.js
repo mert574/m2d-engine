@@ -43,8 +43,6 @@ const RIM = 'rgba(255, 190, 110, 0.6)';
  */
 export class EmberPlayer extends Player {
   /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -69,7 +67,7 @@ export class EmberPlayer extends Player {
     const speed = Math.hypot(vel.x, vel.y);
 
     // Sparks shed off the frame when it is really moving.
-    if (speed > 80 && this.blend) {
+    if (speed > 80) {
       const bx = -vel.x / speed;
       const by = -vel.y / speed;
       for (let i = 0; i < 3; i++) {
@@ -80,7 +78,7 @@ export class EmberPlayer extends Player {
           radius: 1.8 - i * 0.4,
           fillStyle: '#ffc37c',
           globalAlpha: Math.min(1, speed / 260) * (0.7 - i * 0.2),
-          blend: this.blend
+          blend: 'additive'
         });
       }
     }
@@ -96,7 +94,7 @@ export class EmberPlayer extends Player {
         ]
       },
       globalAlpha: 0.8 + 0.2 * Math.sin(this.clock * 3),
-      blend: this.blend
+      blend: 'additive'
     });
 
     // The panes, at the body's angle: the same box the physics has.
@@ -202,7 +200,6 @@ export class EmberPlayer extends Player {
 }
 
 export class DuskPlatform extends Platform {
-  get lit() { return this.game.renderer.supports('lights'); }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -456,8 +453,11 @@ export class DuskPlatform extends Platform {
 }
 
 export class DuskMovingPlatform extends MovingPlatform {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  /** Its lamp under the deck lights past the platform. */
+  get drawBounds() {
+    return this.boundsAround(130 + this.size.y);
+  }
+
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -501,7 +501,7 @@ export class DuskMovingPlatform extends MovingPlatform {
       x: left + 8, y: pos.y - 1.5, width: w - 16, height: 3,
       fillStyle: '#f5a850',
       globalAlpha: 0.3 + 0.4 * pulse,
-      blend: this.blend,
+      blend: 'additive',
       cornerRadius: 1.5
     });
     for (let i = 0; i < 3; i++) {
@@ -510,33 +510,29 @@ export class DuskMovingPlatform extends MovingPlatform {
         x: x - 2, y: pos.y - 4, width: 4, height: 8,
         fillStyle: '#f8b968',
         globalAlpha: (0.25 + 0.45 * pulse) * (i === 1 ? 1 : 0.7),
-        blend: this.blend,
+        blend: 'additive',
         cornerRadius: 2
       });
     }
-    if (this.blend) {
-      renderer.drawArc({
-        x: pos.x, y: top + h + 6, radius: w * 0.26,
-        fillStyle: {
-          type: 'radial', x: pos.x, y: top + h + 6, r0: 0, r1: w * 0.26,
-          stops: [
-            { offset: 0, color: 'rgba(255, 190, 120, 0.22)' },
-            { offset: 1, color: 'rgba(255, 190, 120, 0)' }
-          ]
-        },
-        globalAlpha: pulse,
-        blend: this.blend
-      });
-    }
+    renderer.drawArc({
+      x: pos.x, y: top + h + 6, radius: w * 0.26,
+      fillStyle: {
+        type: 'radial', x: pos.x, y: top + h + 6, r0: 0, r1: w * 0.26,
+        stops: [
+          { offset: 0, color: 'rgba(255, 190, 120, 0.22)' },
+          { offset: 1, color: 'rgba(255, 190, 120, 0)' }
+        ]
+      },
+      globalAlpha: pulse,
+      blend: 'additive'
+    });
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: pos.x, y: pos.y + h,
-        radius: 130,
-        color: '#ffc277',
-        intensity: 0.4 * pulse
-      });
-    }
+    renderer.drawLight({
+      x: pos.x, y: pos.y + h,
+      radius: 130,
+      color: '#ffc277',
+      intensity: 0.4 * pulse
+    });
 
     for (const constraint of this.constraints.values()) {
       constraint.draw(deltaTime);
@@ -545,8 +541,6 @@ export class DuskMovingPlatform extends MovingPlatform {
 }
 
 export class GlowCoin extends Coin {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -580,12 +574,10 @@ export class GlowCoin extends Coin {
             { offset: 1, color: 'rgba(255, 206, 110, 0)' }
           ]
         },
-        blend: this.blend
+        blend: 'additive'
       });
       this.sprite.draw(this.currentAnim, pos.x, pos.y, { width: this.size.x, height: this.size.y, frame: this.animFrame });
-      if (this.lit) {
-        renderer.drawLight({ x: pos.x, y: pos.y, radius: 70, color: '#ffce6e', intensity: 0.4 });
-      }
+      renderer.drawLight({ x: pos.x, y: pos.y, radius: 70, color: '#ffce6e', intensity: 0.4 });
       for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
       return;
     }
@@ -603,7 +595,7 @@ export class GlowCoin extends Coin {
           { offset: 1, color: 'rgba(255, 206, 110, 0)' }
         ]
       },
-      blend: this.blend
+      blend: 'additive'
     });
 
     renderer.drawRect({
@@ -635,14 +627,12 @@ export class GlowCoin extends Coin {
       });
     }
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: pos.x, y: pos.y,
-        radius: 70,
-        color: '#ffce6e',
-        intensity: 0.4
-      });
-    }
+    renderer.drawLight({
+      x: pos.x, y: pos.y,
+      radius: 70,
+      color: '#ffce6e',
+      intensity: 0.4
+    });
 
     for (const constraint of this.constraints.values()) {
       constraint.draw(deltaTime);
@@ -651,8 +641,6 @@ export class GlowCoin extends Coin {
 }
 
 export class DuskBee extends Bee {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -693,7 +681,7 @@ export class DuskBee extends Bee {
         ]
       },
       globalAlpha: throb,
-      blend: this.blend
+      blend: 'additive'
     });
 
     renderer.pushTransform({ x: pos.x, y: pos.y + bob, scaleX: facing });
@@ -732,11 +720,9 @@ export class DuskBee extends Bee {
     });
     renderer.popTransform();
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: pos.x, y: pos.y, radius: 90, color: '#ff7a5e', intensity: 0.35 * throb
-      });
-    }
+    renderer.drawLight({
+      x: pos.x, y: pos.y, radius: 90, color: '#ff7a5e', intensity: 0.35 * throb
+    });
 
     for (const constraint of this.constraints.values()) {
       constraint.draw(deltaTime);
@@ -750,15 +736,10 @@ export class DuskBee extends Bee {
  * only mean "this is the way out".
  */
 export class ValleyGate extends Trigger {
-  /** The column of light stands 220px above the trigger it marks. */
+  /** The column of light stands 220px above the trigger it marks, and its light reaches 220px around. */
   get drawBounds() {
-    const { x, y } = this.renderPosition;
-    const width = this.size.x;
-    return { x: x - width, y: y - this.size.y / 2 - 240, width: width * 2, height: this.size.y + 260 };
+    return this.boundsAround(Math.max(this.size.x, 270));
   }
-
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -789,7 +770,7 @@ export class ValleyGate extends Trigger {
         ]
       },
       globalAlpha: breathe,
-      blend: this.blend
+      blend: 'additive'
     });
 
     // Rising sparks, each on its own loop up the column.
@@ -801,7 +782,7 @@ export class ValleyGate extends Trigger {
         x, y, radius: 1.8,
         fillStyle: '#d9f4ff',
         globalAlpha: (1 - cycle) * 0.9,
-        blend: this.blend
+        blend: 'additive'
       });
     }
 
@@ -812,13 +793,11 @@ export class ValleyGate extends Trigger {
       cornerRadius: 1.25
     });
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: cx, y: base - 40,
-        radius: 220,
-        color: '#9fdcff',
-        intensity: 0.55 * breathe
-      });
-    }
+    renderer.drawLight({
+      x: cx, y: base - 40,
+      radius: 220,
+      color: '#9fdcff',
+      intensity: 0.55 * breathe
+    });
   }
 }

@@ -461,7 +461,7 @@ export class SettingsMenu {
    * @param {boolean} [options.pauseWhenOpen=false] - Pause the game while the
    *   menu is open, restoring the previous pause state on close
    * @param {number} [options.blurBehind=14] - How far to defocus the world
-   *   behind the panel. Needs the `postEffects` capability; `0` disables it
+   *   behind the panel; `0` disables it
    * @param {Array<Object>} [options.options] - Game rows to add, as
    *   `addOption` takes them
    */

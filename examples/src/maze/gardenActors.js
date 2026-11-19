@@ -173,6 +173,11 @@ export class Gardener extends Entity {
  * next court — or, after the last map, back out to the garden plan.
  */
 export class Fountain extends Entity {
+  /** Its spray lights the court past the basin. */
+  get drawBounds() {
+    return this.boundsAround(130);
+  }
+
   name = 'Fountain';
 
   constructor(body, sprite, game) {
@@ -182,7 +187,6 @@ export class Fountain extends Entity {
   }
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get lit() { return this.game.renderer.supports('lights'); }
 
   /**
    * The map is walked. The simulation only says so; the court's notify
@@ -246,11 +250,9 @@ export class Fountain extends Entity {
     const spout = 0.85 + 0.15 * Math.sin(this.clock * 6);
     renderer.drawArc({ x: pos.x, y: pos.y, radius: 3.4 * spout, fillStyle: '#f3fbff' });
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: pos.x, y: pos.y, radius: 130, color: '#dff2ff', intensity: 0.4 * spout
-      });
-    }
+    renderer.drawLight({
+      x: pos.x, y: pos.y, radius: 130, color: '#dff2ff', intensity: 0.4 * spout
+    });
   }
 }
 /**

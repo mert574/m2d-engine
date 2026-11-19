@@ -98,7 +98,7 @@ export class AttackSwing extends Constraint {
     const centre = facing + (sweep - 0.5) * Math.PI * 0.9 * this.direction;
     const halfWidth = Math.PI * 0.22 * (1 - t * 0.5);
     const fade = 1 - t;
-    const blend = renderer.supports('blendModes') ? 'additive' : undefined;
+    const blend = 'additive';
 
     const inner = range * 0.45;
     const outer = range * (0.85 + 0.15 * sweep);
@@ -183,7 +183,7 @@ export class HitBurst extends Constraint {
     const pos = entity.renderPosition;
     const t = 1 - this.timeLeft / this.duration;
     const reach = this.radius ?? Math.max(entity.size.x, entity.size.y);
-    const blend = renderer.supports('blendModes') ? 'additive' : undefined;
+    const blend = 'additive';
 
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: reach * 0.7,

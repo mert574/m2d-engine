@@ -117,7 +117,6 @@ export class Meadow extends Entity {
   name = 'Meadow';
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
@@ -194,7 +193,7 @@ export class Meadow extends Entity {
           { offset: 1, color: 'rgba(255, 200, 140, 0)' }
         ]
       },
-      blend: this.blend
+      blend: 'additive'
     });
     // God rays while the sun is high, swinging slowly.
     const rayAlpha = 0.07 * (1 - t * 0.8);
@@ -209,7 +208,7 @@ export class Meadow extends Entity {
             { x: sunX + Math.cos(angle + 0.1) * reach, y: sunY + Math.sin(angle + 0.1) * reach }
           ],
           fillStyle: `rgba(255, 236, 190, ${rayAlpha})`,
-          blend: this.blend
+          blend: 'additive'
         });
       }
     }
@@ -291,7 +290,7 @@ export class Meadow extends Entity {
       const span = width + 160;
       const x = area.left - 80 + ((seed.phase * 300 + time * seed.speed) % span + span) % span;
       const y = seed.y + Math.sin(time * 0.8 + seed.phase) * seed.wobble;
-      renderer.drawArc({ x, y, radius: 2.2, fillStyle: 'rgba(255, 253, 244, 0.85)', blend: this.blend });
+      renderer.drawArc({ x, y, radius: 2.2, fillStyle: 'rgba(255, 253, 244, 0.85)', blend: 'additive' });
       renderer.drawArc({ x, y: y + 3.4, radius: 1, fillStyle: 'rgba(120, 110, 80, 0.5)' });
     }
   }
@@ -311,8 +310,6 @@ export class ForeMeadow extends Entity {
   name = 'ForeMeadow';
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
@@ -356,7 +353,7 @@ export class ForeMeadow extends Entity {
       });
       renderer.drawRect({
         x: area.left, y: area.top, width, height: floor,
-        fillStyle: `rgba(255, 120, 60, ${0.05 * t})`, blend: this.blend
+        fillStyle: `rgba(255, 120, 60, ${0.05 * t})`, blend: 'additive'
       });
     }
 
@@ -374,10 +371,10 @@ export class ForeMeadow extends Entity {
             type: 'radial', x, y, r0: 0, r1: 7,
             stops: [{ offset: 0, color: `rgba(200, 255, 140, ${0.5 * alpha})` }, { offset: 1, color: 'rgba(200, 255, 140, 0)' }]
           },
-          blend: this.blend
+          blend: 'additive'
         });
         renderer.drawArc({ x, y, radius: 1.6, fillStyle: `rgba(226, 255, 170, ${alpha})` });
-        if (this.lit && blink > 0.7) {
+        if (blink > 0.7) {
           renderer.drawLight({ x, y, radius: 46, color: '#c8ff8c', intensity: 0.5 * alpha });
         }
       }

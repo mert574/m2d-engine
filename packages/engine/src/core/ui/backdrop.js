@@ -35,9 +35,8 @@ import { UIElement } from './uiElement.js';
  * ## Why it is not a shader
  *
  * All of it is drawn through the ordinary renderer contract — gradient
- * descriptors, arcs, lines — so it needs no capability. The world's post-effect blur is the only part of
- * phase 3 that is backend-dependent, and that applies to the *game* behind
- * a modal rather than to a menu's own background.
+ * descriptors, arcs, lines. The world's post-effect blur applies to the
+ * *game* behind a modal rather than to a menu's own background.
  *
  * Everything is sized against live UI space every frame, because UI space
  * grows with the aspect ratio and no fixed rectangle can be relied on to

@@ -196,12 +196,10 @@ export class Housing extends MachinePart {
 }
 
 /** Additive where the backend blends; asked at draw time, since a headless game has no renderer. */
-const additiveIfSupported = (game) => (game.renderer.supports('blendModes') ? 'additive' : undefined);
 
 export class AmberBall extends Entity {
   name = 'Ball';
 
-  get blend() { return additiveIfSupported(this.game); }
 
   draw() {
     if (this.dead || !this.visible) return;
@@ -210,7 +208,7 @@ export class AmberBall extends Entity {
     const pos = this.renderPosition;
     const r = this.size.x / 2;
 
-    drawGrabHalo(renderer, this, r * 2.6, this.blend);
+    drawGrabHalo(renderer, this, r * 2.6, 'additive');
 
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: r,
@@ -247,7 +245,6 @@ export class AmberBall extends Entity {
 export class WoodCrate extends Entity {
   name = 'Box';
 
-  get blend() { return additiveIfSupported(this.game); }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -262,7 +259,7 @@ export class WoodCrate extends Entity {
     const w = this.size.x;
     const h = this.size.y;
 
-    drawGrabHalo(renderer, this, Math.max(w, h) * 1.3, this.blend);
+    drawGrabHalo(renderer, this, Math.max(w, h) * 1.3, 'additive');
 
     renderer.pushTransform({ x: pos.x, y: pos.y, rotation: this.renderAngle });
 

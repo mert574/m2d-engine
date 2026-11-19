@@ -31,14 +31,12 @@ export class Gulls {
    * @param {Object} options.sheet - The gull sheet
    * @param {{width: number, height: number}} options.bounds - World bounds
    * @param {number} options.horizonY - They fly above this
-   * @param {{tint: boolean}} options.features
    */
-  constructor({ renderer, sheet, bounds, horizonY, features }) {
+  constructor({ renderer, sheet, bounds, horizonY }) {
     this.renderer = renderer;
     this.sheet = sheet;
     this.bounds = bounds;
     this.horizonY = horizonY;
-    this.features = features;
     this.time = 0;
     this.gulls = [];
     this.count = 0;
@@ -97,9 +95,10 @@ export class Gulls {
         tileHeight,
         width: tileWidth * gull.band.scale,
         height: tileHeight * gull.band.scale,
-        // Haze takes the far birds; without tint they simply fade.
+        // Haze takes the far birds.
         globalAlpha: gull.band.alpha,
-        ...(this.features.tint && { tint: '#cfe0ff', tintStrength: 1 - gull.band.parallax })
+        tint: '#cfe0ff',
+        tintStrength: 1 - gull.band.parallax
       });
     }
   }

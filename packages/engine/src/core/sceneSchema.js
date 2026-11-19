@@ -31,7 +31,7 @@ import { choiceValue } from './projectSchema.js';
  * the version it was written for, and anything else is refused rather than
  * half-understood.
  */
-export const SCENE_VERSION = 6;
+export const SCENE_VERSION = 7;
 
 /**
  * What an `id` may look like: letters, digits, `-`, `_` and `.`, starting
@@ -298,7 +298,6 @@ const CAMERA = s.object({
  */
 const LIGHTING = s.object({
   ambient: colour({ description: '2D: the ambient light; set, the world is lit (actors add lights). Unset, full brightness' }),
-  fallback: colour({ description: '2D: a wash laid over the view on a renderer without lights (Canvas), standing in for the ambient' }),
   sun: s.object({
     direction: s.object({ x: s.number(), y: s.number(), z: s.number() }, { description: 'Where the light goes; down is negative y' }),
     color: colour({ label: 'Colour' }),

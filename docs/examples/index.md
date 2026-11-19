@@ -142,7 +142,7 @@ A batching stress test for the renderer. The scene is a harbour at night. It has
 
 Over that steady load the weather turns. A front crosses the harbour every two and a half minutes: the wind gets up and leans the rain and the reed bank, the sea breathes in a slow camera zoom and a fraction of a degree of roll, the colour goes cold and grainy behind the rain, and lightning flashes the frame and knocks the camera. The light runs on its own longer cycle, dusk through night to first light, and the full post stack — bloom, vignette, colour grade, chromatic aberration, grain and blur — moves with both. The lighthouse beam is a shadowed spot light, so the lantern posts throw shadows that swing as it sweeps. The overlay names the weather and the hour. Either cycle can be held from the keyboard or the developer console (`g_hour`, `g_weather`), so a look can be studied; a hold is kept across reloads, and the overlay marks it.
 
-The overlay reports frames per second, primitives, draw calls and state changes. It also lists the optional capabilities the active backend supports. On WebGL2 the scene collapses into a handful of draw calls.
+The overlay reports frames per second, primitives, draw calls and state changes. The scene collapses into a handful of draw calls.
 
 The scene is deterministic. Layers are built from a seeded random generator, the camera pans a fixed path, and the weather runs on the wall clock — so every run is the same workload, in the same weather at the same moment. The weather changes how the harbour looks, never how much of it there is: no count moves with it.
 

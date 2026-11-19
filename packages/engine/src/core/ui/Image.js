@@ -16,8 +16,7 @@ export class UIImage extends UIElement {
    * @param {number} [options.imageScale=1] - Multiplier on the drawn size.
    *   Distinct from `UIElement`'s `scale`, which is a *transform* applied to
    *   the element and everything under it
-   * @param {string} [options.tint] - Colour multiplied into every texel.
-   *   Ignored by backends without the `tint` capability
+   * @param {string} [options.tint] - Colour multiplied into every texel
    * @param {boolean} [options.interactive=false] - Take part in hit testing
    */
   constructor(options = {}) {

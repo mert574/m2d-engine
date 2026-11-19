@@ -14,8 +14,7 @@ import { s } from 'm2d-engine/core/schema.js';
  * menu's: the dark reserves violet for the instrument and the infrastructure,
  * white-violet for the ghosts it tracks, and red for the things that shoot.
  *
- * Decoration is deterministic from each body's position, and every optional
- * renderer capability is asked for once in the constructor.
+ * Decoration is deterministic from each body's position.
  */
 
 /** A seed that is stable for an entity across reloads: where it stands. */
@@ -110,9 +109,12 @@ export class FacilityWall extends Platform {
 }
 
 export class SpecterGhost extends Ghost {
+  /** Its glow reaches past the body. */
+  get drawBounds() {
+    return this.boundsAround(150);
+  }
+
   /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -160,7 +162,7 @@ export class SpecterGhost extends Ghost {
         radius: r * (0.65 - i * 0.16) * breathe,
         fillStyle: 'rgba(214, 224, 240, 0.5)',
         globalAlpha: (0.3 - i * 0.08) * flicker,
-        blend: this.blend
+        blend: 'additive'
       });
     }
 
@@ -176,7 +178,7 @@ export class SpecterGhost extends Ghost {
         ]
       },
       globalAlpha: flicker,
-      blend: this.blend
+      blend: 'additive'
     });
     renderer.drawArc({
       x: pos.x, y: pos.y - 1, radius: r * 0.62 * breathe,
@@ -200,14 +202,12 @@ export class SpecterGhost extends Ghost {
       fillStyle: 'rgba(24, 12, 48, 0.85)'
     });
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: pos.x, y: pos.y,
-        radius: 150,
-        color: '#d8e4ff',
-        intensity: 0.5 * flicker
-      });
-    }
+    renderer.drawLight({
+      x: pos.x, y: pos.y,
+      radius: 150,
+      color: '#d8e4ff',
+      intensity: 0.5 * flicker
+    });
 
     for (const constraint of this.constraints.values()) {
       constraint.draw(deltaTime);
@@ -223,7 +223,7 @@ class PhantomBolt extends Rocket {
     const renderer = this.game.renderer;
     const pos = this.renderPosition;
     const dir = this.direction;
-    const blend = renderer.supports('blendModes') ? 'additive' : undefined;
+    const blend = 'additive';
 
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: 14,
@@ -248,17 +248,13 @@ class PhantomBolt extends Rocket {
       });
     }
 
-    if (renderer.supports('lights')) {
-      renderer.drawLight({
-        x: pos.x, y: pos.y, radius: 120, color: '#ff7a5e', intensity: 0.6
-      });
-    }
+    renderer.drawLight({
+      x: pos.x, y: pos.y, radius: 120, color: '#ff7a5e', intensity: 0.6
+    });
   }
 }
 
 export class SentryTurret extends Turret {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   static properties = {
     boltLifetime: s.number({ initial: 6, positive: true, unit: 's', label: 'Bolt lifetime' })
@@ -383,14 +379,12 @@ export class SentryTurret extends Turret {
       globalAlpha: locked ? 0.7 + 0.3 * charge : 0.5 + 0.3 * Math.sin(this.clock * 2.4)
     });
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: pos.x, y: pos.y,
-        radius: 120,
-        color: locked ? '#ff6a50' : '#aab6d0',
-        intensity: locked ? 0.55 : 0.3
-      });
-    }
+    renderer.drawLight({
+      x: pos.x, y: pos.y,
+      radius: 120,
+      color: locked ? '#ff6a50' : '#aab6d0',
+      intensity: locked ? 0.55 : 0.3
+    });
 
     for (const constraint of this.constraints.values()) {
       constraint.draw(deltaTime);
@@ -399,8 +393,6 @@ export class SentryTurret extends Turret {
 }
 
 export class DataCore extends Coin {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -428,7 +420,7 @@ export class DataCore extends Coin {
           { offset: 1, color: 'rgba(255, 196, 110, 0)' }
         ]
       },
-      blend: this.blend
+      blend: 'additive'
     });
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: r * 0.55,
@@ -449,15 +441,13 @@ export class DataCore extends Coin {
         radius: 1.6,
         fillStyle: '#ffe8bc',
         globalAlpha: 0.9,
-        blend: this.blend
+        blend: 'additive'
       });
     }
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: pos.x, y: pos.y, radius: 80, color: '#ffc46e', intensity: 0.45
-      });
-    }
+    renderer.drawLight({
+      x: pos.x, y: pos.y, radius: 80, color: '#ffc46e', intensity: 0.45
+    });
 
     for (const constraint of this.constraints.values()) {
       constraint.draw(deltaTime);
@@ -467,8 +457,11 @@ export class DataCore extends Coin {
 
 /** The exit as an extraction pad: a beacon, not a debug rectangle. */
 export class ExtractionPad extends Trigger {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  /** Its light reaches past the pad. */
+  get drawBounds() {
+    return this.boundsAround(180);
+  }
+
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -494,7 +487,7 @@ export class ExtractionPad extends Trigger {
           { offset: 1, color: 'rgba(125, 255, 196, 0)' }
         ]
       },
-      blend: this.blend
+      blend: 'additive'
     });
 
     // A rotating dashed ring: machinery waiting, not an area-of-effect.
@@ -518,11 +511,9 @@ export class ExtractionPad extends Trigger {
       globalAlpha: breathe
     });
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: pos.x, y: pos.y, radius: 180, color: '#7dffc4', intensity: 0.5 * breathe
-      });
-    }
+    renderer.drawLight({
+      x: pos.x, y: pos.y, radius: 180, color: '#7dffc4', intensity: 0.5 * breathe
+    });
   }
 }
 
@@ -532,14 +523,9 @@ export class ScannerAgent extends TopDownPlayer {
     lampSpread: s.number({ initial: 0.42, positive: true, unit: 'rad', label: 'Hand lamp spread', description: 'Half the cone\'s width' })
   };
 
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
-
-  /** The hand lamp's cone reaches well past the agent. */
+  /** Its ambient light fills the view, so it is never culled (core/viewCull.js). */
   get drawBounds() {
-    const { x, y } = this.renderPosition;
-    const reach = this.lampReach;
-    return { x: x - reach, y: y - reach, width: reach * 2, height: reach * 2 };
+    return null;
   }
 
   constructor(body, sprite, game, options = {}) {
@@ -618,7 +604,7 @@ export class ScannerAgent extends TopDownPlayer {
           { offset: 1, color: 'rgba(255, 240, 214, 0)' }
         ]
       },
-      blend: this.blend
+      blend: 'additive'
     });
 
     // The agent from above: shadow, shoulders, pack, head, visor.
@@ -657,17 +643,15 @@ export class ScannerAgent extends TopDownPlayer {
       lineWidth: 2.2
     });
 
-    if (this.lit) {
-      renderer.drawLight({
-        x: pos.x + cos * reach * 0.45, y: pos.y + sin * reach * 0.45,
-        radius: reach * 0.85,
-        color: '#ffe6c4',
-        intensity: 0.45
-      });
-      // A low fill around the agent, as wide as the view, so nothing it
-      // can see is pure black; the ceiling lamps do the real lighting.
-      renderer.drawLight({ x: pos.x, y: pos.y, radius: this.game.camera.width, color: '#9aa3b8', intensity: 0.32 });
-    }
+    renderer.drawLight({
+      x: pos.x + cos * reach * 0.45, y: pos.y + sin * reach * 0.45,
+      radius: reach * 0.85,
+      color: '#ffe6c4',
+      intensity: 0.45
+    });
+    // A low fill around the agent, as wide as the view, so nothing it
+    // can see is pure black; the ceiling lamps do the real lighting.
+    renderer.drawLight({ x: pos.x, y: pos.y, radius: this.game.camera.width, color: '#9aa3b8', intensity: 0.32 });
 
     for (const constraint of this.constraints.values()) {
       constraint.draw(deltaTime);

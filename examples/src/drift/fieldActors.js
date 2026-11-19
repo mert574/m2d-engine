@@ -26,8 +26,6 @@ export class Laser extends Projectile {
   name = 'Laser';
 
   /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
-  get lit() { return this.game.renderer.supports('lights'); }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, { speed: 900, damage: 12, maxLifetime: 1.6, destroyOnWallHit: true, ...options });
@@ -47,9 +45,9 @@ export class Laser extends Projectile {
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: 22,
       fillStyle: { type: 'radial', x: pos.x, y: pos.y, r0: 0, r1: 22, stops: [{ offset: 0, color: `${this.tint}66` }, { offset: 1, color: `${this.tint}00` }] },
-      blend: this.blend
+      blend: 'additive'
     });
-    if (this.lit) renderer.drawLight({ x: pos.x, y: pos.y, radius: 90, color: this.tint, intensity: 0.5, z: 10 });
+    renderer.drawLight({ x: pos.x, y: pos.y, radius: 90, color: this.tint, intensity: 0.5, z: 10 });
   }
 }
 
@@ -76,6 +74,11 @@ export function fireLaser(owner, angle, { sprite = null, tint, targetNames, dama
  * damage overlays appear as health falls.
  */
 export class Ship extends Entity {
+  /** The thruster flare lights the field well past the hull. */
+  get drawBounds() {
+    return this.boundsAround(360);
+  }
+
   name = 'Player';
 
   static properties = {
@@ -94,9 +97,6 @@ export class Ship extends Entity {
     damage2: s.ref('spritesheet', { label: 'Damage 2', description: 'The hull at a third' }),
     damage3: s.ref('spritesheet', { label: 'Damage 3', description: 'The hull nearly gone' })
   };
-
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
@@ -195,9 +195,9 @@ export class Ship extends Entity {
       renderer.drawArc({
         x: fx, y: fy, radius: 40 + throttle * 16,
         fillStyle: { type: 'radial', x: fx, y: fy, r0: 0, r1: 40 + throttle * 16, stops: [{ offset: 0, color: control.boosting ? 'rgba(255, 170, 90, 0.45)' : 'rgba(120, 190, 255, 0.4)' }, { offset: 1, color: 'rgba(120, 190, 255, 0)' }] },
-        blend: this.blend
+        blend: 'additive'
       });
-      if (this.lit) renderer.drawLight({ x: fx, y: fy, radius: 220 + throttle * 80, color: control.boosting ? '#ffb070' : '#7fb8ff', intensity: 0.8, z: 20 });
+      renderer.drawLight({ x: fx, y: fy, radius: 220 + throttle * 80, color: control.boosting ? '#ffb070' : '#7fb8ff', intensity: 0.8, z: 20 });
     }
 
     super.draw(deltaTime);
@@ -211,7 +211,7 @@ export class Ship extends Entity {
       this.shieldSprite?.draw('default', pos.x, pos.y, { width: 110, height: 90, rotation: angle, globalAlpha: 0.8 * a });
     }
     // Cockpit running light.
-    if (this.lit) renderer.drawLight({ x: pos.x, y: pos.y, radius: 160, color: '#bfe3ff', intensity: 0.35, z: 30 });
+    renderer.drawLight({ x: pos.x, y: pos.y, radius: 160, color: '#bfe3ff', intensity: 0.35, z: 30 });
   }
 }
 
@@ -229,8 +229,6 @@ export class Meteor extends Entity {
   };
 
   static SIZES = { big: { next: 'med', health: 60, sheets: ['brownMed1', 'greyMed2'], size: 70 }, med: { next: 'small', health: 30, sheets: ['brownSmall1', 'greySmall2'], size: 43 }, small: { next: null, health: 14 } };
-
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
@@ -289,17 +287,19 @@ export class Meteor extends Entity {
     super.draw(deltaTime);
     if (this.flash > 0) {
       const pos = this.renderPosition;
-      this.game.renderer.drawArc({ x: pos.x, y: pos.y, radius: this.size.x * 0.55, fillStyle: `rgba(255, 240, 220, ${0.5 * this.flash / 0.12})`, blend: this.blend });
+      this.game.renderer.drawArc({ x: pos.x, y: pos.y, radius: this.size.x * 0.55, fillStyle: `rgba(255, 240, 220, ${0.5 * this.flash / 0.12})`, blend: 'additive' });
     }
   }
 }
 
 /** A drone: hunts the ship, turns to face it, fires red bolts in range. */
 export class Drone extends Entity {
-  name = 'Drone';
+  /** Its running light reaches past the hull. */
+  get drawBounds() {
+    return this.boundsAround(140);
+  }
 
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  name = 'Drone';
 
   static properties = {
     fireRange: s.number({ initial: 700, positive: true, unit: 'px', label: 'Fire range' }),
@@ -362,20 +362,22 @@ export class Drone extends Entity {
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: 46,
       fillStyle: { type: 'radial', x: pos.x, y: pos.y, r0: 10, r1: 46, stops: [{ offset: 0, color: 'rgba(255, 90, 70, 0.25)' }, { offset: 1, color: 'rgba(255, 90, 70, 0)' }] },
-      blend: this.blend
+      blend: 'additive'
     });
     super.draw(deltaTime);
-    if (this.hurt > 0) renderer.drawArc({ x: pos.x, y: pos.y, radius: this.size.x * 0.6, fillStyle: `rgba(255, 220, 200, ${0.6 * this.hurt / 0.15})`, blend: this.blend });
-    if (this.lit) renderer.drawLight({ x: pos.x, y: pos.y, radius: 140, color: '#ff6a5a', intensity: 0.45, z: 20 });
+    if (this.hurt > 0) renderer.drawArc({ x: pos.x, y: pos.y, radius: this.size.x * 0.6, fillStyle: `rgba(255, 220, 200, ${0.6 * this.hurt / 0.15})`, blend: 'additive' });
+    renderer.drawLight({ x: pos.x, y: pos.y, radius: 140, color: '#ff6a5a', intensity: 0.45, z: 20 });
   }
 }
 
 /** A salvage pod: spins, glows, and counts toward the gate. */
 export class Salvage extends Entity {
-  name = 'Salvage';
+  /** Its glow reaches past the crate. */
+  get drawBounds() {
+    return this.boundsAround(160);
+  }
 
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  name = 'Salvage';
 
   constructor(body, sprite, game) {
     super(body, sprite, game);
@@ -403,17 +405,20 @@ export class Salvage extends Entity {
     this.game.renderer.drawArc({
       x: pos.x, y: pos.y, radius: 48 * pulse,
       fillStyle: { type: 'radial', x: pos.x, y: pos.y, r0: 0, r1: 48 * pulse, stops: [{ offset: 0, color: 'rgba(255, 214, 110, 0.45)' }, { offset: 1, color: 'rgba(255, 214, 110, 0)' }] },
-      blend: this.blend
+      blend: 'additive'
     });
     super.draw(deltaTime);
-    if (this.lit) this.game.renderer.drawLight({ x: pos.x, y: pos.y, radius: 160 * pulse, color: '#ffd66e', intensity: 0.6, z: 20 });
+    this.game.renderer.drawLight({ x: pos.x, y: pos.y, radius: 160 * pulse, color: '#ffd66e', intensity: 0.6, z: 20 });
   }
 }
 
 /** The jump gate: a ring of light that opens when every pod is aboard. */
 export class Gate extends Trigger {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  /** Its light reaches three radii out. */
+  get drawBounds() {
+    return this.boundsAround(Math.max(this.size.x, this.size.y) * 1.5);
+  }
+
 
   static properties = {
     sealed: s.boolean({ initial: true, description: 'Closed until a rule unseals it' })
@@ -437,7 +442,7 @@ export class Gate extends Trigger {
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: r * 1.4 * breathe,
       fillStyle: { type: 'radial', x: pos.x, y: pos.y, r0: r * 0.5, r1: r * 1.4 * breathe, stops: [{ offset: 0, color: `rgba(${colour}, 0.3)` }, { offset: 1, color: `rgba(${colour}, 0)` }] },
-      blend: this.blend
+      blend: 'additive'
     });
     renderer.drawArc({ x: pos.x, y: pos.y, radius: r, strokeStyle: `rgba(${colour}, 0.9)`, lineWidth: 5 });
     renderer.drawArc({ x: pos.x, y: pos.y, radius: r * 0.78, strokeStyle: `rgba(${colour}, 0.45)`, lineWidth: 2 });
@@ -446,7 +451,7 @@ export class Gate extends Trigger {
       const a = this.time * (this.sealed ? 0.4 : 1.2) + (i / 4) * Math.PI * 2;
       this.beacon?.draw('default', pos.x + Math.cos(a) * r, pos.y + Math.sin(a) * r, { width: 34, height: 33, rotation: a });
     }
-    if (this.lit) renderer.drawLight({ x: pos.x, y: pos.y, radius: r * 3, color: this.sealed ? '#9a70ff' : '#78dcff', intensity: 0.7 * breathe, z: 10 });
+    renderer.drawLight({ x: pos.x, y: pos.y, radius: r * 3, color: this.sealed ? '#9a70ff' : '#78dcff', intensity: 0.7 * breathe, z: 10 });
   }
 }
 
@@ -468,8 +473,6 @@ export class Sky extends Entity {
     seed: s.number({ initial: 5, description: 'Fixes where the stars fall' }),
     stars: s.integer({ initial: 900, min: 0 })
   };
-
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
@@ -504,7 +507,7 @@ export class Sky extends Entity {
       const x = n.x + camera.x * 0.7;
       const y = n.y + camera.y * 0.7;
       if (x + n.r < area.left || x - n.r > area.right || y + n.r < area.top || y - n.r > area.bottom) continue;
-      renderer.drawArc({ x, y, radius: n.r, fillStyle: { type: 'radial', x, y, r0: 0, r1: n.r, stops: [{ offset: 0, color: `rgba(${n.colour}, 0.34)` }, { offset: 0.55, color: `rgba(${n.colour}, 0.12)` }, { offset: 1, color: `rgba(${n.colour}, 0)` }] }, blend: this.blend });
+      renderer.drawArc({ x, y, radius: n.r, fillStyle: { type: 'radial', x, y, r0: 0, r1: n.r, stops: [{ offset: 0, color: `rgba(${n.colour}, 0.34)` }, { offset: 0.55, color: `rgba(${n.colour}, 0.12)` }, { offset: 1, color: `rgba(${n.colour}, 0)` }] }, blend: 'additive' });
     }
     const sx = camera.x * 0.5;
     const sy = camera.y * 0.5;

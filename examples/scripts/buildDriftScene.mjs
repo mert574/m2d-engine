@@ -137,7 +137,7 @@ add('player', START.x, START.y, 60, 60);
 add('spawn', START.x, START.y, 120, 120);
 
 const scene = {
-  version: 6, name: 'field', type: 'level', gameType: 'rotatingTopDown',
+  version: 7, name: 'field', type: 'level', gameType: 'rotatingTopDown',
   world: { width: W, height: H, gravity: { x: 0, y: 0 }, sort: 'depth' },
   assets: { spritesheets },
   // The far star field, barely moving; the Sky entity draws the nearer

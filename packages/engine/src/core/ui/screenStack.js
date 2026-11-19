@@ -253,12 +253,12 @@ export class ScreenStack {
    *
    * The world's post-effect pass runs between the world and screen passes,
    * so blurring there dims and softens the game without touching the UI
-   * drawn over it. A backend without `postEffects` ignores it and the
-   * screen's scrim carries the separation alone.
+   * drawn over it. A 3D world has its own post stack and no screen blur
+   * yet; there the scrim carries the separation alone.
    */
   #applyWorldEffects() {
     const renderer = this.game.renderer;
-    if (!renderer.supports?.('postEffects')) return;
+    if (renderer.dimensions === 3) return;
 
     let blur = 0;
     for (const screen of this.screens) blur = Math.max(blur, screen.blurBehind ?? 0);

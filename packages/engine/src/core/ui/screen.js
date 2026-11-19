@@ -55,8 +55,7 @@ export class UIScreen extends UIElement {
    *   `{enter, exit}` pair, or `null` for an instant change
    * @param {number} [options.transitionDuration] - Overrides the theme
    * @param {number} [options.blurBehind=0] - Blur the world behind this
-   *   screen by this many units. Needs the `postEffects` capability;
-   *   backends without it fall back to the scrim alone
+   *   screen by this many units. In 3D the scrim alone separates them
    */
   constructor(options = {}) {
     super({ pivot: 'top-left', ...options });

@@ -49,14 +49,14 @@ describe('UIRenderer', () => {
       expect('isScreenSpace' in options).toBe(false);
     });
 
-    it('drawParticles forwards with isScreenSpace set, through the sprite fallback', () => {
-      // The recording backend has no particles capability, so the base
-      // renderer expands the buffer into sprites; the flag must survive.
-      ui.drawParticles({ image: {}, tileWidth: 8, tileHeight: 8, data: new Float32Array([1, 2, 4, 0, 1, 1, 1, 1]) });
+    it('drawParticles forwards with isScreenSpace set', () => {
+      const data = new Float32Array([1, 2, 4, 0, 1, 1, 1, 1]);
+      ui.drawParticles({ image: {}, tileWidth: 8, tileHeight: 8, data });
 
-      const sprites = backend.optionsFor('drawSprite');
-      expect(sprites).toHaveLength(1);
-      expect(sprites[0].isScreenSpace).toBe(true);
+      const fields = backend.optionsFor('drawParticles');
+      expect(fields).toHaveLength(1);
+      expect(fields[0].isScreenSpace).toBe(true);
+      expect(fields[0].data).toBe(data);
     });
 
     it('marks clips and transforms as screen-space', () => {

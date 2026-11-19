@@ -26,7 +26,7 @@ const PROJECT = {
 };
 
 const LEVEL = {
-  version: 6, type: 'level', name: 'room',
+  version: 7, type: 'level', name: 'room',
   world: { width: 400, height: 400, gravity: { x: 0, y: 0 } },
   prefabs: { wall: { actor: 'Prop', physics: { bodyType: 'static' } } },
   layers: [{ name: 'main', objects: [{ id: 'wall', prefab: 'wall', x: 230, y: 200, width: 340, height: 20 }] }]

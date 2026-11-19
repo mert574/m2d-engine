@@ -104,6 +104,17 @@ In a 2D game the engine asks `isVisible` for every entity before drawing it: one
 
 What is tested is the entity's `drawBounds`: by default its drawn footprint at its drawn position — the body's size, or the sprite's where `spriteSize` is larger, and the diagonal when it is turned — grown by the camera's `padding`, which is the room a health bar or a readout above the body draws in.
 
+An entity whose drawing reaches past its body but still around it, a lamp with its light, returns the box its drawing really covers; `boundsAround(reach)` builds one from the drawn position:
+
+```js
+class Lamp extends Entity {
+  /** Its light reaches 240 px past the post. */
+  get drawBounds() {
+    return this.boundsAround(240);
+  }
+}
+```
+
 An entity that draws beyond its body says so by returning `null`, and is never skipped:
 
 ```js

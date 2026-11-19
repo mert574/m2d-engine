@@ -236,8 +236,8 @@ describe('presentation in a headless game fails by name', () => {
 
   it('asking the renderer from a constructor', async () => {
     const game = headless();
-    await expect(probeScene(game, { construct: (g) => g.renderer.supports('lights') }))
-      .rejects.toThrow(/read supports on game\.renderer/);
+    await expect(probeScene(game, { construct: (g) => g.renderer.getStats() }))
+      .rejects.toThrow(/read getStats on game\.renderer/);
   });
 
   it('reading the live devices instead of the snapshot', async () => {

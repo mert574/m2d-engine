@@ -32,7 +32,7 @@ export class Watcher extends Entity {
 }
 
 export const SCENE = {
-  version: 6, type: 'level', name: 'watch',
+  version: 7, type: 'level', name: 'watch',
   world: { width: 800, height: 400, gravity: { x: 0, y: 0 } },
   prefabs: {
     watcher: { actor: 'Watcher', physics: { bodyType: 'dynamic', layer: 'mob' } }

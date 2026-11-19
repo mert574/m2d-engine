@@ -1,6 +1,6 @@
 # Renderer API
 
-All drawing goes through a renderer backend. `game.renderer` draws in world space with the camera applied (the render plane; a scene's projection is applied by callers to positions, not by the renderer). `game.uiRenderer` draws in screen space. It forwards the draw primitives, the transform and clip stack, `measureText`, `hitTest`, `setCursor`, `clear`, `capabilities` and `supports` with `isScreenSpace` set. Lights, post effects, statistics and the debug flag are on `game.renderer` only. The contract is defined by `BaseRenderer` in `packages/engine/src/core/renderers/baseRenderer.js`.
+All drawing goes through a renderer backend. `game.renderer` draws in world space with the camera applied (the render plane; a scene's projection is applied by callers to positions, not by the renderer). `game.uiRenderer` draws in screen space. It forwards the draw primitives, the transform and clip stack, `measureText`, `hitTest`, `setCursor` and `clear` with `isScreenSpace` set. Lights, post effects, statistics and the debug flag are on `game.renderer` only. The contract is defined by `BaseRenderer` in `packages/engine/src/core/renderers/baseRenderer.js`.
 
 ## Choosing a backend
 
@@ -19,24 +19,9 @@ import { registerRenderer } from 'm2d-engine/core/renderers/index.js';
 registerRenderer('mine', MyRenderer);    // then renderer: 'mine'
 ```
 
-## Capabilities
+## Everything is mandatory
 
-Every method on this page is mandatory for a backend. Some options are optional features a backend may decline. A backend that lacks one ignores the option and draws without it.
-
-| Capability | WebGL2 | Enables |
-| --- | --- | --- |
-| `tint` | yes | `tint` on `drawSprite` and `drawImage` |
-| `blendModes` | yes | `blend` on any draw call |
-| `particles` | yes | Batched `drawParticles` with per-particle colour. Without it, one sprite per particle, uncoloured |
-| `lights` | yes | `setAmbientLight` and `drawLight` |
-| `lightShadows` | yes | `shadows` on `drawLight` and `drawShadowCaster` |
-| `postEffects` | yes | `setPostEffects` |
-
-```javascript
-if (game.renderer.supports('lights')) game.renderer.setAmbientLight('#303848');
-game.renderer.capabilities;            // { tint, blendModes, particles, lights, lightShadows, postEffects }
-game.renderer.supportedCapabilities(); // names that are true
-```
+Every method and option on this page is mandatory for a backend: tint, blending, batched particles, lights, shadow casters and the post pass included. The conformance suite holds every backend to all of it, and a game never asks what the backend can do.
 
 ## Common options
 
@@ -47,7 +32,7 @@ Every draw call accepts these.
 | `isScreenSpace` | Draw in screen space, ignoring the camera. `game.uiRenderer` sets this for you |
 | `globalAlpha` | Opacity from 0 to 1, applied once to the whole primitive |
 | `shadow` | `{ color, blur, offsetX, offsetY }`. One shadow cast by the primitive's whole silhouette |
-| `blend` | `'normal'`, `'additive'`, `'multiply'` or `'screen'`. Needs `blendModes` |
+| `blend` | `'normal'`, `'additive'`, `'multiply'` or `'screen'` |
 
 Colours are CSS strings. `fillStyle` and `strokeStyle` also accept a gradient descriptor.
 
@@ -73,7 +58,7 @@ Draws one frame of a sprite sheet, centred on `x`, `y`.
 | `width`, `height` | frame size | Drawn size |
 | `rotation` | `0` | Radians |
 | `flipX`, `flipY` | `false` | |
-| `tint` | | Colour multiplied into the frame. Needs `tint` |
+| `tint` | | Colour multiplied into the frame |
 
 ### drawAnimation
 
@@ -88,7 +73,7 @@ Draws an image stretched to a rectangle, anchored at the top-left.
 | `image`, `x`, `y` | |
 | `width`, `height` | Defaults to the image size |
 | `sourceX`, `sourceY`, `sourceWidth`, `sourceHeight` | A region of the image |
-| `tint` | Needs `tint` |
+| `tint` | Colour multiplied into the image |
 
 ### drawRect
 
@@ -167,7 +152,7 @@ renderer.setPostEffects(null);
 
 Lights are submitted every frame. A light is a disc; give it `angle` and `cone` (the full apex angle, radians) and it is a spot, still bounded by `radius`. `intensity` above 1 pushes the lit area past the scene's own brightness, which is what feeds bloom.
 
-With the `lightShadows` capability, a light drawn with `shadows: true` is blocked by the frame's shadow casters: `drawShadowCaster` takes a polygon (`points`), a rectangle (`x`, `y`, `width`, `height`, `rotation`) or a circle (`x`, `y`, `radius`), and everything behind that silhouette, as seen from the light, stays at ambient. Casters are submitted per frame like lights. A wall drawn in one pass can this way shadow the ground drawn beneath it. Without the capability the flag is ignored and the light shines through.
+A light drawn with `shadows: true` is blocked by the frame's shadow casters: `drawShadowCaster` takes a polygon (`points`), a rectangle (`x`, `y`, `width`, `height`, `rotation`) or a circle (`x`, `y`, `radius`), and everything behind that silhouette, as seen from the light, stays at ambient. Casters are submitted per frame like lights. A wall drawn in one pass can this way shadow the ground drawn beneath it.
 
 Post effects apply to the world pass only, so UI stays unaffected. Every effect is optional and off unless given; `setPostEffects` replaces the whole set, so pass everything you want each time.
 
@@ -349,7 +334,7 @@ Skinning happens on the GPU: the joint matrices of every skinned instance go int
 
 ## Writing a backend
 
-Subclass `BaseRenderer`, implement every method that throws `Method not implemented`, set the capabilities you support and register the class. [Writing a renderer backend](../contributing/renderer-backend) walks through it.
+Subclass `BaseRenderer`, implement every method that throws `Method not implemented` and register the class. [Writing a renderer backend](../contributing/renderer-backend) walks through it.
 
 ## Ground shadows
 

@@ -39,7 +39,7 @@ export class Sonar extends Constraint {
 
   draw() {
     const renderer = this.entity.game.renderer;
-    const blend = renderer.supports('blendModes') ? 'additive' : undefined;
+    const blend = 'additive';
     const age = this.time - this.ping.at;
     for (const lag of [0, 0.35]) {
       const t = (age - lag) / this.seconds;

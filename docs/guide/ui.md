@@ -221,7 +221,7 @@ A game's menu is a UI scene, so the editor and an agent can change it. A `backdr
 
 ```json
 {
-  "version": 6, "type": "ui", "name": "mainMenu",
+  "version": 7, "type": "ui", "name": "mainMenu",
   "transition": { "enter": "fade", "exit": "fade" },
   "stagger": 0.08,
   "music": { "track": "theme" },
@@ -244,7 +244,7 @@ Arrows, Tab and a controller move between the lines; Enter or a click picks one.
 new UIScreen({ name: 'pause', scrim: true, blurBehind: 10 })
 ```
 
-It needs the `postEffects` capability; without it the `scrim` carries the separation alone, the usual [capability degradation](../reference/renderer).
+In 3D the world has no screen blur yet and the `scrim` carries the separation alone.
 
 ## Built-in components
 

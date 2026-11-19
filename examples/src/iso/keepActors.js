@@ -49,8 +49,6 @@ export class Wall extends Platform {
   };
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -78,22 +76,23 @@ export class Wall extends Platform {
     }
     const pos = this.renderPosition;
     this.sprite.draw(this.currentAnim, pos.x, pos.y, { width: this.spriteSize.x, height: this.spriteSize.y, globalAlpha: alpha });
-    if (this.lit) {
-      const g = this.position;
-      this.game.renderer.drawShadowCaster({ points: diamond(this.game.projection, g.x, g.y, TILE * 0.9) });
-    }
+    const g = this.position;
+    this.game.renderer.drawShadowCaster({ points: diamond(this.game.projection, g.x, g.y, TILE * 0.9) });
   }
 }
 
 /** A wall torch: an animated flame on a block's lit face, and a light. */
 export class Torch extends Entity {
+  /** Its flame lights the hall far past the bracket. */
+  get drawBounds() {
+    return this.boundsAround(400);
+  }
+
   static properties = {
     face: s.enumOf(['east', 'south'], { initial: 'east', label: 'Face', description: "Which of the block's lit faces the bracket hangs on" })
   };
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   name = 'Torch';
 
@@ -130,17 +129,15 @@ export class Torch extends Entity {
     this.game.renderer.drawArc({
       x: fx, y: fy, radius: 70,
       fillStyle: { type: 'radial', x: fx, y: fy, r0: 0, r1: 70, stops: [{ offset: 0, color: `rgba(255, 170, 90, ${0.35 * flicker})` }, { offset: 1, color: 'rgba(255, 170, 90, 0)' }] },
-      blend: this.blend
+      blend: 'additive'
     });
-    if (this.lit) this.game.renderer.drawLight({ x: fx, y: fy, radius: 380 * flicker, color: EMBER, intensity: 1.0, shadows: true, z: 60 });
+    this.game.renderer.drawLight({ x: fx, y: fy, radius: 380 * flicker, color: EMBER, intensity: 1.0, shadows: true, z: 60 });
   }
 }
 
 /** An ember: a hot coal to gather. */
 export class Ember extends Coin {
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -173,19 +170,22 @@ export class Ember extends Coin {
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: 34 * pulse,
       fillStyle: { type: 'radial', x: pos.x, y: pos.y, r0: 0, r1: 34 * pulse, stops: [{ offset: 0, color: 'rgba(255, 150, 70, 0.45)' }, { offset: 1, color: 'rgba(255, 150, 70, 0)' }] },
-      blend: this.blend
+      blend: 'additive'
     });
     renderer.drawArc({ x: pos.x, y: pos.y, radius: 7, fillStyle: { type: 'radial', x: pos.x - 2, y: pos.y - 2, r0: 0, r1: 7, stops: [{ offset: 0, color: '#fff1c8' }, { offset: 0.5, color: EMBER }, { offset: 1, color: '#9a3a1a' }] } });
-    if (this.lit) renderer.drawLight({ x: pos.x, y: pos.y, radius: 140 * pulse, color: EMBER, intensity: 0.6, z: 20 });
+    renderer.drawLight({ x: pos.x, y: pos.y, radius: 140 * pulse, color: EMBER, intensity: 0.6, z: 20 });
   }
 }
 
 /** The stair down: a glowing descent, sealed until every ember is gathered. */
 export class Stair extends Trigger {
+  /** Its glow reaches past the steps. */
+  get drawBounds() {
+    return this.boundsAround(240);
+  }
+
   static replicated = ['sealed'];
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   static properties = {
     sealed: s.boolean({ initial: true, description: 'Closed until a rule unseals it' })
@@ -205,14 +205,14 @@ export class Stair extends Trigger {
     const points = diamond(this.game.projection, g.x, g.y, this.size.x);
     const colour = this.sealed ? '150, 110, 255' : '255, 200, 120';
     const breathe = 0.8 + 0.2 * Math.sin(this.time * 1.5);
-    renderer.drawPath({ points, closed: true, fillStyle: `rgba(${colour}, ${0.18 * breathe})`, strokeStyle: `rgba(${colour}, 0.8)`, lineWidth: 2, blend: this.blend });
+    renderer.drawPath({ points, closed: true, fillStyle: `rgba(${colour}, ${0.18 * breathe})`, strokeStyle: `rgba(${colour}, 0.8)`, lineWidth: 2, blend: 'additive' });
     // Steps: three shrinking diamonds going down.
     for (let s = 1; s <= 3; s++) {
       const inner = diamond(this.game.projection, g.x, g.y, this.size.x * (1 - s * 0.25));
       renderer.drawPath({ points: inner.map(p => ({ x: p.x, y: p.y + s * 6 })), closed: true, fillStyle: `rgba(10, 8, 14, ${0.35 + s * 0.15})`, strokeStyle: `rgba(${colour}, ${0.5 - s * 0.1})`, lineWidth: 1 });
     }
     const a = this.renderAnchor;
-    if (this.lit) renderer.drawLight({ x: a.x, y: a.y, radius: 220, color: this.sealed ? '#9a70ff' : '#ffc878', intensity: 0.5 * breathe, z: 10 });
+    renderer.drawLight({ x: a.x, y: a.y, radius: 220, color: this.sealed ? '#9a70ff' : '#ffc878', intensity: 0.5 * breathe, z: 10 });
   }
 }
 
@@ -278,13 +278,16 @@ export class Creature extends Ghost {
  * whatever direction they last faced.
  */
 export class Knight extends ObliquePlayer {
+  /** The carried torch lights the hall far past the figure. */
+  get drawBounds() {
+    return this.boundsAround(360);
+  }
+
   /** Its ability effects and pose hold, for a client to draw. */
   static replicated = ['effects', 'swingHold'];
   /** Clicking to walk is movement too, so a client runs it early as well. */
   static predictedConstraints = ['walk'];
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     // The knight's defaults, under whatever the scene sets: a declared property typed in the inspector must win.
@@ -350,7 +353,7 @@ export class Knight extends ObliquePlayer {
     }
     super.draw(deltaTime);
     drawOver(this, this.effects);
-    if (this.lit) renderer.drawLight({ x: a.x, y: a.y - 40, radius: 320, color: '#ffd9a8', intensity: 0.8, z: 40 });
+    renderer.drawLight({ x: a.x, y: a.y - 40, radius: 320, color: '#ffd9a8', intensity: 0.8, z: 40 });
   }
 }
 
@@ -360,14 +363,17 @@ export class Knight extends ObliquePlayer {
  * the body the distance rule measures to and the prompt that says so.
  */
 export class Quartermaster extends Entity {
+  /** The lamp over the counter lights past the stall. */
+  get drawBounds() {
+    return this.boundsAround(220);
+  }
+
   name = 'Quartermaster';
   static replicated = ['stock'];
 
   static properties = {
     tradeRadius: s.number({ initial: 140, positive: true, unit: 'px', label: 'Trade radius', description: 'How close a knight trades: the prompt shows within it and the server allows a trade within it' })
   };
-
-  get lit() { return this.game.renderer.supports('lights'); }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
@@ -416,7 +422,7 @@ export class Quartermaster extends Entity {
     renderer.drawArc({ x: 22, y: -36, radius: 6, fillStyle: '#e8c49a' });
     renderer.popTransform();
 
-    if (this.lit) renderer.drawLight({ x: a.x + 34, y: a.y - 50, radius: 160, color: '#ffc06a', intensity: 0.6, z: 30 });
+    renderer.drawLight({ x: a.x + 34, y: a.y - 50, radius: 160, color: '#ffc06a', intensity: 0.6, z: 30 });
   }
 }
 

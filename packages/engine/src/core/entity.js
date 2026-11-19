@@ -507,6 +507,19 @@ export class Entity {
     return { x: x - width / 2, y: y - height / 2, width, height };
   }
 
+  /**
+   * The footprint of drawing that reaches `reach` units from the drawn
+   * position in every direction: a light, a glow, a scan cone. For a
+   * `drawBounds` override whose drawing is wider than the body but still
+   * bounded by it.
+   * @param {number} reach - Distance from the drawn position, in world units
+   * @returns {{x: number, y: number, width: number, height: number}}
+   */
+  boundsAround(reach) {
+    const { x, y } = this.renderPosition;
+    return { x: x - reach, y: y - reach, width: reach * 2, height: reach * 2 };
+  }
+
   get velocity() {
     return this.body.velocity;
   }

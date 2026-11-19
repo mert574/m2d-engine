@@ -37,7 +37,7 @@
  *   whose standard deviation is blur / 2 (the Canvas 2D definition).
  * - {string} blend - How the primitive combines with what is already there:
  *   `'normal'` (default, source-over), `'additive'`, `'multiply'` or
- *   `'screen'`. Optional; requires the `blendModes` capability.
+ *   `'screen'`. Optional.
  *
  * ## State stacks
  *
@@ -47,50 +47,16 @@
  * belongs to either the world or the screen pass, chosen by `isScreenSpace`
  * on the push.
  *
- * ## Capabilities
+ * ## Everything is mandatory
  *
- * Everything documented above is mandatory: a backend that cannot do it is not
- * a backend. Beyond that baseline the contract also describes *optional*
- * features, which a backend advertises through `capabilities`. Callers query
- * them and degrade; the conformance suite skips what a backend does not claim.
- *
- * Optional features exist because backends are genuinely different. Additive
- * blending, per-draw tint and full-screen post effects are nearly free on a
- * GPU and expensive or impossible on Canvas 2D. Rather than hold every backend
- * to the slowest common denominator, the contract lets a backend decline, and
- * the choice of backend becomes an informed one.
- *
- * A backend that does not support an optional feature **ignores** the option
- * and draws as though it had been omitted. It must not throw: a scene written
- * against a GPU backend still runs on Canvas, just without the glow. Callers
- * that need to know ask `supports()` first — the showcase example prints the
- * list so a viewer can see what is missing rather than guess.
+ * A backend that cannot do something documented here is not a backend: the
+ * conformance suite holds every one to all of it, tint, blending, batched
+ * particles, lights, shadow casters and the post pass included. A game
+ * writes to the contract and never asks what the backend can do.
  *
  * This is an abstract class and cannot be instantiated directly.
  */
 
-/**
- * Optional backend features, all defaulting to unsupported. A backend
- * overrides `capabilities` with the subset it implements.
- *
- * - `tint` - Per-draw colour modulation on sprites and images
- * - `blendModes` - `blend: 'additive' | 'multiply' | 'screen'` on draw calls
- * - `particles` - Bulk particle submission: `drawParticles` goes to the GPU
- *   as a few batched draw calls with per-particle colour. Every backend can
- *   *call* it — `BaseRenderer` falls back to one `drawSprite` per particle,
- *   honouring position, size, rotation and alpha but not colour — so the flag
- *   means "fast and coloured", and callers use it to decide how many to emit.
- * - `lights` - `drawLight` accumulates into a light map that is multiplied
- *   over the world at `endFrame`. Lighting is switched on by
- *   `setAmbientLight`: with no ambient set the map would be white and the
- *   lights would have nothing to darken, so a backend that supports this
- *   treats a null ambient as "lighting off" and skips the whole pass.
- * - `postEffects` - `setPostEffects` applies a full-screen pass (bloom,
- *   vignette, blur) to the world between the world and screen passes, so UI
- *   drawn in the screen pass stays untouched.
- *
- * @type {Readonly<Record<string, boolean>>}
- */
 /**
  * Floats per particle in a `drawParticles` buffer:
  * x, y, size, rotation, r, g, b, a — colour is straight (not premultiplied),
@@ -100,15 +66,6 @@
 import { identityViewport } from '../viewport.js';
 
 export const PARTICLE_STRIDE = 8;
-
-export const OPTIONAL_CAPABILITIES = Object.freeze({
-  tint: false,
-  blendModes: false,
-  particles: false,
-  lights: false,
-  lightShadows: false,
-  postEffects: false
-});
 
 export class BaseRenderer {
   #debugEnabled = false;
@@ -144,13 +101,6 @@ export class BaseRenderer {
      * @type {'linear'|'nearest'}
      */
     this.worldFilter = 'linear';
-
-    /**
-     * Optional features this backend supports. Subclasses override the ones
-     * they implement; everything unlisted stays unsupported.
-     * @type {Record<string, boolean>}
-     */
-    this.capabilities = { ...OPTIONAL_CAPABILITIES };
 
     // FPS tracking (backend-agnostic)
     this.frameCount = 0;
@@ -350,11 +300,11 @@ export class BaseRenderer {
    * @param {boolean} [options.flipY=false] - Flip vertically
    * @param {string} [options.tint] - Colour multiplied into every texel, e.g.
    *   `'#ff8080'` for a hit flash. The tint's own alpha scales the result.
-   *   Optional; requires the `tint` capability.
+   *   Optional.
    * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
    * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
    * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
-   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there
    */
   drawSprite(options) { throw new Error('Method not implemented'); }
 
@@ -388,27 +338,25 @@ export class BaseRenderer {
   /**
    * Set the ambient light the world is lit by, and switch lighting on.
    *
-   * No-op unless the backend claims `lights`. Pass `null` to turn lighting
-   * back off; the world then renders at full brightness as if no light had
-   * ever been submitted.
+   * Pass `null` to turn lighting back off; the world then renders at full
+   * brightness as if no light had ever been submitted.
    * @param {string|null} color - Ambient colour, e.g. `'#303848'`
    */
-  setAmbientLight(color) {}
+  setAmbientLight(color) { throw new Error('Method not implemented'); }
 
   /**
    * Add a light to the current frame's light map.
    *
    * Lights are cleared at `beginFrame`, so they are submitted every frame
-   * like any other draw. No-op unless the backend claims `lights` and an
-   * ambient has been set.
+   * like any other draw. Without an ambient set, lighting is off and a
+   * light changes nothing.
    * A light is a disc by default. Give it `angle` and `cone` and it is a
    * spot: full brightness inside the cone, falling to nothing at its edge,
    * still bounded by `radius` — a headlight, a street lamp, a beacon sweep.
    *
    * `shadows: true` makes this light cast shadows: geometry submitted with
    * `drawShadowCaster` this frame blocks it, and everything behind that
-   * geometry stays at ambient. Needs the `lightShadows` capability; without
-   * it the flag is ignored and the light shines through.
+   * geometry stays at ambient.
    *
    * @param {Object} options - Light options
    * @param {number} options.x - Centre X
@@ -428,7 +376,7 @@ export class BaseRenderer {
    *   0.2 does not
    * @param {boolean} [options.isScreenSpace=false] - Position in screen space
    */
-  drawLight(options) {}
+  drawLight(options) { throw new Error('Method not implemented'); }
 
   /**
    * Submit geometry that blocks shadowed lights this frame.
@@ -439,8 +387,6 @@ export class BaseRenderer {
    * ambient — which is what lets a wall in one layer throw a shadow across
    * the ground drawn beneath it. Casters are cleared at `beginFrame` and
    * submitted per frame, exactly like lights.
-   *
-   * No-op unless the backend claims `lightShadows`.
    *
    * @param {Object} options - One of three shapes:
    * @param {Array<{x: number, y: number}>} [options.points] - A polygon, in
@@ -455,12 +401,10 @@ export class BaseRenderer {
    * @param {number} [options.z=Infinity] - How tall the caster is. It
    *   blocks lights whose `z` is at most this; the default blocks all
    */
-  drawShadowCaster(options) {}
+  drawShadowCaster(options) { throw new Error('Method not implemented'); }
 
   /**
    * Configure the full-screen post pass, or pass `null` to disable it.
-   *
-   * No-op unless the backend claims `postEffects`.
    * @param {Object|null} effects - Effect configuration
    * @param {Object} [effects.bloom] - { threshold, strength, blur }
    * @param {Object} [effects.vignette] - { strength, start }
@@ -470,14 +414,11 @@ export class BaseRenderer {
    *   sits behind a modal screen: the game reads as *behind* the menu rather
    *   than merely dimmed
    */
-  setPostEffects(effects) {}
+  setPostEffects(effects) { throw new Error('Method not implemented'); }
 
   /**
-   * Draw many copies of one sprite tile from a packed buffer.
-   *
-   * The default implementation is the fallback described under
-   * `OPTIONAL_CAPABILITIES.particles`: a `drawSprite` per particle. Backends
-   * that claim `particles` override it with a batched path.
+   * Draw many copies of one sprite tile from a packed buffer, as a few
+   * batched draw calls with per-particle colour.
    *
    * @param {Object} options - Drawing options
    * @param {HTMLImageElement} options.image - Spritesheet image
@@ -490,37 +431,7 @@ export class BaseRenderer {
    * @param {string} [options.blend] - Blend mode for every particle
    * @param {number} [options.globalAlpha] - Multiplied into every particle's alpha
    */
-  drawParticles(options) {
-    const { image, tileX = 0, tileY = 0, tileWidth, tileHeight, data, blend, isScreenSpace } = options;
-    if (!image || !data) return;
-
-    const available = Math.floor(data.length / PARTICLE_STRIDE);
-    const count = Math.min(options.count ?? available, available);
-    const aspect = tileWidth / tileHeight;
-    const alphaScale = options.globalAlpha ?? 1;
-
-    for (let i = 0; i < count; i++) {
-      const o = i * PARTICLE_STRIDE;
-      const alpha = data[o + 7] * alphaScale;
-      if (alpha <= 0) continue;
-
-      this.drawSprite({
-        image,
-        tileX,
-        tileY,
-        tileWidth,
-        tileHeight,
-        x: data[o],
-        y: data[o + 1],
-        width: data[o + 2] * aspect,
-        height: data[o + 2],
-        rotation: data[o + 3],
-        globalAlpha: alpha,
-        blend,
-        isScreenSpace
-      });
-    }
-  }
+  drawParticles(options) { throw new Error('Method not implemented'); }
 
   /**
    * Draw an image stretched to a destination rectangle (top-left anchored).
@@ -535,11 +446,11 @@ export class BaseRenderer {
    * @param {number} [options.sourceWidth] - Source rect width
    * @param {number} [options.sourceHeight] - Source rect height
    * @param {string} [options.tint] - Colour multiplied into every texel.
-   *   Optional; requires the `tint` capability.
+   *   Optional.
    * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
    * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
    * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
-   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there
    */
   drawImage(options) { throw new Error('Method not implemented'); }
 
@@ -558,7 +469,7 @@ export class BaseRenderer {
    * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
    * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
    * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
-   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there
    */
   drawRect(options) { throw new Error('Method not implemented'); }
 
@@ -574,7 +485,7 @@ export class BaseRenderer {
    * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
    * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
    * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
-   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there
    */
   drawLine(options) { throw new Error('Method not implemented'); }
 
@@ -602,7 +513,7 @@ export class BaseRenderer {
    * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
    * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
    * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
-   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there
    */
   drawArc(options) { throw new Error('Method not implemented'); }
 
@@ -617,7 +528,7 @@ export class BaseRenderer {
    * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
    * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
    * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
-   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there
    */
   drawPath(options) { throw new Error('Method not implemented'); }
 
@@ -644,7 +555,7 @@ export class BaseRenderer {
    * @param {boolean} [options.isScreenSpace=false] - Draw in screen space, ignoring the camera
    * @param {number} [options.globalAlpha] - Opacity multiplier in [0, 1]
    * @param {{color?: string, blur?: number, offsetX?: number, offsetY?: number}} [options.shadow] - Drop shadow or glow
-   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there; needs the `blendModes` capability
+   * @param {'normal'|'additive'|'multiply'|'screen'} [options.blend] - How it combines with what is already there
    */
   drawText(options) { throw new Error('Method not implemented'); }
 
@@ -727,23 +638,6 @@ export class BaseRenderer {
    */
   setCursor(style) { throw new Error('Method not implemented'); }
 
-  /**
-   * Whether this backend supports an optional feature.
-   * @param {keyof OPTIONAL_CAPABILITIES} feature - Capability name
-   * @returns {boolean} Whether the backend implements it
-   */
-  supports(feature) {
-    return this.capabilities[feature] === true;
-  }
-
-  /**
-   * Names of the optional features this backend supports.
-   * @returns {string[]} Supported capability names
-   */
-  supportedCapabilities() {
-    return Object.keys(this.capabilities).filter((name) => this.capabilities[name]);
-  }
-
   // === Debug rendering state (shared by all backends) ===
 
   /**
@@ -817,8 +711,8 @@ export class BaseRenderer {
 
   /**
    * Count backend state changes by diffing against the last seen values.
-   * Canvas backends track style strings; GPU backends may track bound
-   * textures/programs instead or count directly into stats.stateChanges.
+   * A backend may track bound textures and programs this way, or count
+   * directly into stats.stateChanges.
    */
   trackStateChange(newState) {
     const lastState = this.stats.lastState;

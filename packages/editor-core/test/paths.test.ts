@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { applyOps, sceneOutline, structure, paths } from '../src/index.ts';
 
 const scene = (): Record<string, unknown> => ({
-  version: 6, type: 'level', name: 'room',
+  version: 7, type: 'level', name: 'room',
   prefabs: {
     platform: { actor: 'MovingPlatform' },
     guard: { actor: 'Guard', constraints: { patrol: { type: 'PathFollow', params: { path: 'beat' } } } }

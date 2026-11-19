@@ -207,7 +207,6 @@ export class RaceCar extends Entity {
     const angle = this.renderAngle;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const additive = renderer.supports('blendModes') ? 'additive' : undefined;
 
     // Drift charge: sparks at the rear wheels, yellow then blue as the
     // mini-turbo charges — the kart-racer tell that a release will pay out.
@@ -222,7 +221,7 @@ export class RaceCar extends Entity {
           const jitter = ((this.game.time.frame * 7 + i * 13 + side * 5) % 11) / 11;
           renderer.drawArc({
             x: wx - cos * (4 + jitter * 16), y: wy - sin * (4 + jitter * 16),
-            radius: 1.5 + (1 - jitter) * 2, fillStyle: color, blend: additive
+            radius: 1.5 + (1 - jitter) * 2, fillStyle: color, blend: 'additive'
           });
         }
       }
@@ -239,7 +238,7 @@ export class RaceCar extends Entity {
         renderer.drawLine({
           x1: pos.x - cos * back - sin * side, y1: pos.y - sin * back + cos * side,
           x2: pos.x - cos * (back + 40) - sin * side, y2: pos.y - sin * (back + 40) + cos * side,
-          strokeStyle: `rgba(170, 220, 255, ${0.7 * strength * (1 - phase)})`, lineWidth: 2, blend: additive
+          strokeStyle: `rgba(170, 220, 255, ${0.7 * strength * (1 - phase)})`, lineWidth: 2, blend: 'additive'
         });
       }
     }
@@ -277,7 +276,7 @@ export class RaceCar extends Entity {
         renderer.drawArc({
           x: tailX, y: tailY, radius: 7 + (this.game.time.frame % 3),
           fillStyle: 'rgba(130, 200, 255, 0.8)',
-          blend: renderer.supports('blendModes') ? 'additive' : undefined
+          blend: 'additive'
         });
       }
     }
@@ -329,6 +328,11 @@ export class GhostCar {
 
 /** A slow car patrolling a stretch of the track. Kinematic: it does not yield. */
 export class TrafficCar extends Entity {
+  /** Its headlights reach far ahead of the car. */
+  get drawBounds() {
+    return this.boundsAround(240);
+  }
+
   static properties = { image: s.ref('image', { description: 'The car it is drawn as' }) };
 
   name = 'TrafficCar';
@@ -572,6 +576,11 @@ export class BoostPad extends Entity {
  * ramps it so being hit is a shove, not an execution — but it will shove.
  */
 export class GateArm extends Entity {
+  /** Its warning lamp lights the road well past the arm. */
+  get drawBounds() {
+    return this.boundsAround(130);
+  }
+
   static properties = { image: s.ref('image', { description: 'The barrier the beam is drawn as' }) };
 
   name = 'GateArm';
@@ -828,7 +837,6 @@ export class Tunnel extends RoadStretch {
     if (this.dead || !this.visible || !this.ready()) return;
     const renderer = this.game.renderer;
     const area = this.game.camera.getVisibleArea();
-    const additive = renderer.supports('blendModes') ? 'additive' : undefined;
 
     for (const [a, b] of this.pairs(area, 80)) {
       this.quad(a, b, a.w + 46, b.w + 46, '#04050a');          // the walls' tops
@@ -838,7 +846,7 @@ export class Tunnel extends RoadStretch {
       if (strip.x < area.left - 200 || strip.x > area.right + 200 || strip.y < area.top - 200 || strip.y > area.bottom + 200) continue;
       renderer.drawLine({
         x1: strip.x - strip.nx * 14, y1: strip.y - strip.ny * 14, x2: strip.x + strip.nx * 14, y2: strip.y + strip.ny * 14,
-        strokeStyle: this.lightColor, lineWidth: 3, blend: additive
+        strokeStyle: this.lightColor, lineWidth: 3, blend: 'additive'
       });
       renderer.drawLight({ x: strip.x, y: strip.y, radius: 110, color: this.lightColor, intensity: 0.55 });
     }
@@ -865,14 +873,14 @@ export class Tunnel extends RoadStretch {
         type: 'radial', x: pos.x + cos * 40, y: pos.y + sin * 40, r0: 0, r1: 70,
         stops: [{ offset: 0, color: 'rgba(255, 232, 196, 0.16)' }, { offset: 1, color: 'rgba(255, 232, 196, 0)' }]
       },
-      blend: additive
+      blend: 'additive'
     });
     const tailX = pos.x - cos * CAR.bodyLength * 0.5;
     const tailY = pos.y - sin * CAR.bodyLength * 0.5;
     for (const side of [-1, 1]) {
       renderer.drawArc({
         x: tailX - sin * side * CAR.bodyWidth * 0.36, y: tailY + cos * side * CAR.bodyWidth * 0.36,
-        radius: 2.5, fillStyle: 'rgba(255, 80, 60, 0.75)', blend: additive
+        radius: 2.5, fillStyle: 'rgba(255, 80, 60, 0.75)', blend: 'additive'
       });
     }
   }

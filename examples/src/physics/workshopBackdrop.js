@@ -18,10 +18,8 @@ import { makeRng, range } from 'm2d-kit/random';
  * and the film grade are `world.lighting` and `world.post`, so the editor
  * shows the workshop as it plays.
  *
- * Every optional capability is asked for when drawing: on Canvas the
- * lights and additive blends drop out and the painted colours carry the
- * room. Nothing here touches the renderer until it draws, so a headless
- * game builds the scene without one.
+ * Nothing here touches the renderer until it draws, so a headless game
+ * builds the scene without one.
  */
 
 export class WorkshopBackdrop extends Entity {
@@ -73,16 +71,12 @@ export class WorkshopBackdrop extends Entity {
 
   draw() {
     if (this.dead || !this.visible) return;
-    const features = {
-      blendModes: this.game.renderer.supports('blendModes'),
-      lights: this.game.renderer.supports('lights')
-    };
-    if (this.layer === 'back') this.drawRoom(features);
-    else this.drawDust(features);
+    if (this.layer === 'back') this.drawRoom();
+    else this.drawDust();
   }
 
   /** The room. Under everything. */
-  drawRoom(features) {
+  drawRoom() {
     const renderer = this.game.renderer;
     const { width, height } = this.bounds;
 
@@ -112,26 +106,24 @@ export class WorkshopBackdrop extends Entity {
     });
 
     // Shafts of lamplight through the dust, barely there.
-    if (features.blendModes) {
-      for (const side of [-1, 1]) {
-        renderer.drawPath({
-          points: [
-            { x: this.lamp.x, y: this.lamp.y },
-            { x: this.lamp.x + side * width * 0.34, y: height },
-            { x: this.lamp.x + side * width * 0.16, y: height }
-          ],
-          closed: true,
-          fillStyle: {
-            type: 'linear', x0: 0, y0: this.lamp.y, x1: 0, y1: height,
-            stops: [
-              { offset: 0, color: 'rgba(255, 205, 150, 0.07)' },
-              { offset: 1, color: 'rgba(255, 205, 150, 0)' }
-            ]
-          },
-          blend: 'additive',
-          globalAlpha: 0.8 + 0.2 * Math.sin(this.time * 0.4 + side)
-        });
-      }
+    for (const side of [-1, 1]) {
+      renderer.drawPath({
+        points: [
+          { x: this.lamp.x, y: this.lamp.y },
+          { x: this.lamp.x + side * width * 0.34, y: height },
+          { x: this.lamp.x + side * width * 0.16, y: height }
+        ],
+        closed: true,
+        fillStyle: {
+          type: 'linear', x0: 0, y0: this.lamp.y, x1: 0, y1: height,
+          stops: [
+            { offset: 0, color: 'rgba(255, 205, 150, 0.07)' },
+            { offset: 1, color: 'rgba(255, 205, 150, 0)' }
+          ]
+        },
+        blend: 'additive',
+        globalAlpha: 0.8 + 0.2 * Math.sin(this.time * 0.4 + side)
+      });
     }
 
     // The lamp itself: cord, shade, bulb. The glow has to come from
@@ -190,7 +182,7 @@ export class WorkshopBackdrop extends Entity {
   }
 
   /** The dust and the frame's lights. Over the entities. */
-  drawDust(features) {
+  drawDust() {
     const renderer = this.game.renderer;
     const { width, height } = this.bounds;
 
@@ -206,8 +198,6 @@ export class WorkshopBackdrop extends Entity {
         globalAlpha: mote.alpha * beam * twinkle
       });
     }
-
-    if (!features.lights) return;
 
     renderer.drawLight({
       x: this.lamp.x, y: this.lamp.y,

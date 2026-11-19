@@ -47,7 +47,6 @@ export class Tree extends Platform {
   };
 
   /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
-  get lit() { return this.game.renderer.supports('lights'); }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -84,9 +83,7 @@ export class Tree extends Platform {
     this.sprite.draw('default', 0, -h / 2, { width: w, height: h, globalAlpha: alpha });
     renderer.popTransform();
 
-    if (this.lit) {
-      renderer.drawShadowCaster({ x: feet.x, y: base - 16, width: this.body.size.x, height: 32 });
-    }
+    renderer.drawShadowCaster({ x: feet.x, y: base - 16, width: this.body.size.x, height: 32 });
     for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
   }
 }
@@ -164,8 +161,11 @@ export class Pond extends Platform {
  * and light, footsteps, and the three abilities with their effects.
  */
 export class Wanderer extends ObliquePlayer {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  /** The lantern on the staff lights the grove far past the figure. */
+  get drawBounds() {
+    return this.boundsAround(340);
+  }
+
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -218,24 +218,24 @@ export class Wanderer extends ObliquePlayer {
     renderer.drawArc({
       x: lx, y: ly, radius: 60,
       fillStyle: { type: 'radial', x: lx, y: ly, r0: 0, r1: 60, stops: [{ offset: 0, color: 'rgba(255, 190, 110, 0.3)' }, { offset: 1, color: 'rgba(255, 190, 110, 0)' }] },
-      blend: this.blend
+      blend: 'additive'
     });
-    if (this.lit) {
-      renderer.drawLight({ x: lx, y: ly, radius: 320, color: AMBER, intensity: 0.9, shadows: true, z: 24 });
-    }
+    renderer.drawLight({ x: lx, y: ly, radius: 320, color: AMBER, intensity: 0.9, shadows: true, z: 24 });
     drawFlashes(this, this.effects);
   }
 }
 
 /** A wisp: a cold light that drifts and hunts. */
 export class Wisp extends Ghost {
+  /** Its glow reaches past the body. */
+  get drawBounds() {
+    return this.boundsAround(150);
+  }
+
   static properties = {
     elevation: s.number({ initial: 28, min: 0, unit: 'px', description: 'How high it floats' }),
     repelSpeed: s.number({ initial: 260, positive: true, unit: 'px/s', label: 'Repel speed', description: 'How fast the walker\'s ward drives it off' })
   };
-
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -295,12 +295,12 @@ export class Wisp extends Ghost {
     groundShadow(renderer, feet.x, feet.y + this.body.size.y / 2, this.size.x * 0.9, 0.8, 0.45);
     this.trail.forEach((p, i) => {
       const t = 1 - i / this.trail.length;
-      renderer.drawArc({ x: p.x, y: p.y, radius: r * (0.3 + t * 0.5), fillStyle: WISP, globalAlpha: 0.08 * t, blend: this.blend });
+      renderer.drawArc({ x: p.x, y: p.y, radius: r * (0.3 + t * 0.5), fillStyle: WISP, globalAlpha: 0.08 * t, blend: 'additive' });
     });
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: r * 2.6,
       fillStyle: { type: 'radial', x: pos.x, y: pos.y, r0: 0, r1: r * 2.6, stops: [{ offset: 0, color: 'rgba(191, 234, 255, 0.35)' }, { offset: 1, color: 'rgba(191, 234, 255, 0)' }] },
-      blend: this.blend
+      blend: 'additive'
     });
     renderer.drawArc({
       x: pos.x, y: pos.y, radius: r,
@@ -309,15 +309,18 @@ export class Wisp extends Ghost {
         stops: [{ offset: 0, color: '#ffffff' }, { offset: 0.5, color: hurt ? '#ffd3d3' : WISP }, { offset: 1, color: hurt ? 'rgba(255, 120, 120, 0.6)' : 'rgba(120, 190, 230, 0.6)' }]
       }
     });
-    if (this.lit) renderer.drawLight({ x: pos.x, y: pos.y, radius: 150, color: WISP, intensity: 0.7, z: 30 });
+    renderer.drawLight({ x: pos.x, y: pos.y, radius: 150, color: WISP, intensity: 0.7, z: 30 });
     for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
   }
 }
 
 /** A lantern on a post: the pickup. It lights the ground until it is taken. */
 export class Lantern extends Coin {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  /** Its light reaches far past the post. */
+  get drawBounds() {
+    return this.boundsAround(290);
+  }
+
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -355,9 +358,9 @@ export class Lantern extends Coin {
     renderer.drawArc({
       x: lx, y: ly, radius: 54,
       fillStyle: { type: 'radial', x: lx, y: ly, r0: 0, r1: 54, stops: [{ offset: 0, color: `rgba(255, 180, 94, ${0.4 * flicker})` }, { offset: 1, color: 'rgba(255, 180, 94, 0)' }] },
-      blend: this.blend
+      blend: 'additive'
     });
-    if (this.lit) renderer.drawLight({ x: lx, y: ly, radius: 260 * flicker, color: AMBER, intensity: 0.8, shadows: true, z: 40 });
+    renderer.drawLight({ x: lx, y: ly, radius: 260 * flicker, color: AMBER, intensity: 0.8, shadows: true, z: 40 });
     for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
   }
 }
@@ -367,8 +370,11 @@ export class Lantern extends Coin {
  * sealed by a ward until the quest opens it.
  */
 export class Clearing extends Trigger {
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
+  /** Its light reaches past the ring of stones. */
+  get drawBounds() {
+    return this.boundsAround(240);
+  }
+
 
   static properties = {
     sealed: s.boolean({ initial: true, description: 'Closed until a rule unseals it' })
@@ -399,7 +405,7 @@ export class Clearing extends Trigger {
     renderer.drawArc({
       x: 0, y: 0, radius: rx * breathe,
       fillStyle: { type: 'radial', x: 0, y: 0, r0: 0, r1: rx * breathe, stops: [{ offset: 0, color: `rgba(${colour}, 0.26)` }, { offset: 1, color: `rgba(${colour}, 0)` }] },
-      blend: this.blend
+      blend: 'additive'
     });
     if (this.sealed) {
       // The ward: runes turning on the ground.
@@ -425,7 +431,7 @@ export class Clearing extends Trigger {
       });
       if (this.sealed) renderer.drawArc({ x, y: y - stone.h * 0.6, radius: 3, fillStyle: `rgba(${colour}, ${0.6 + 0.4 * Math.sin(this.time * 3 + stone.a)})` });
     }
-    if (this.lit) renderer.drawLight({ x: pos.x, y: pos.y, radius: 240, color: this.sealed ? '#b996ff' : '#dff5d0', intensity: 0.55 * breathe, z: 10 });
+    renderer.drawLight({ x: pos.x, y: pos.y, radius: 240, color: this.sealed ? '#b996ff' : '#dff5d0', intensity: 0.55 * breathe, z: 10 });
   }
 }
 
@@ -451,9 +457,6 @@ export class GroundDetail extends Entity {
     seed: s.number({ initial: 11, description: 'Fixes the scatter of grass and flowers' }),
     texture: s.ref('image', { description: 'The dirt the track is painted with: an image, or a sprite sheet\'s' })
   };
-
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
-  get tint() { return this.game.renderer.supports('tint') ? '#c9b48e' : undefined; }
 
   /** The track as the minimap draws it (a `trail` plot). */
   get trail() { return this.segments; }

@@ -389,7 +389,6 @@ describe('motion', () => {
 
   describe('world blur behind a screen', () => {
     it('asks the renderer for a blur while the screen is up', () => {
-      game.renderer.capabilities.postEffects = true;
       const applied = [];
       game.renderer.setPostEffects = (effects) => {
         game.renderer.postEffects = effects;
@@ -403,9 +402,9 @@ describe('motion', () => {
       expect(applied.at(-1)).toBe(null);
     });
 
-    it('does nothing on a backend without post effects', () => {
-      // Canvas degrades to the scrim alone rather than erroring.
-      game.renderer.capabilities.postEffects = false;
+    it('does nothing for a 3D world, which has no screen blur yet', () => {
+      // The scrim alone separates the menu from the game there.
+      game.renderer.dimensions = 3;
       const applied = [];
       game.renderer.setPostEffects = (effects) => applied.push(effects);
 
@@ -415,7 +414,6 @@ describe('motion', () => {
     });
 
     it('keeps the strongest blur when screens stack', () => {
-      game.renderer.capabilities.postEffects = true;
       game.renderer.setPostEffects = (effects) => { game.renderer.postEffects = effects; };
 
       game.ui.push(new UIScreen({ name: 'a', blurBehind: 4 }));
@@ -427,7 +425,6 @@ describe('motion', () => {
     });
 
     it('leaves other post effects alone', () => {
-      game.renderer.capabilities.postEffects = true;
       game.renderer.setPostEffects = (effects) => { game.renderer.postEffects = effects; };
       game.renderer.postEffects = { bloom: { strength: 1 } };
 

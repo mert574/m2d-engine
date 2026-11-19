@@ -163,13 +163,6 @@ export class CeilingLamp extends Entity {
     const renderer = this.game.renderer;
     const { x, y } = this.renderPosition;
     const level = this.level;
-    if (level > 0 && !renderer.supports('lights')) {
-      renderer.drawArc({
-        x, y, radius: POOL,
-        fillStyle: { type: 'radial', x, y, r0: 0, r1: POOL, stops: [{ offset: 0, color: 'rgba(255, 255, 255, 0.14)' }, { offset: 0.5, color: 'rgba(255, 255, 255, 0.06)' }, { offset: 1, color: 'rgba(226, 232, 240, 0)' }] },
-        globalAlpha: level
-      });
-    }
     renderer.drawRect({ x: x - 9, y: y - 9, width: 18, height: 18, fillStyle: '#0c0d12', strokeStyle: 'rgba(160, 170, 190, 0.35)', lineWidth: 1.5, cornerRadius: 3 });
     renderer.drawArc({ x, y, radius: 4, fillStyle: level > 0 ? '#f4f6ff' : '#2a2d36', globalAlpha: level > 0 ? 0.5 + 0.5 * level : 1 });
   }

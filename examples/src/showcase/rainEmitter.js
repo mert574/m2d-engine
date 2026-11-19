@@ -5,10 +5,8 @@ import { PARTICLE_STRIDE } from 'm2d-engine/core/renderers/baseRenderer.js';
  * Rain over the harbour, submitted as one particle buffer.
  *
  * This is the `particles` layer. Every drop is eight floats in a single
- * Float32Array that goes to the backend in one `drawParticles` call. A
- * backend with the capability turns that into a handful of draw calls; one
- * without it falls back to a sprite per drop, so the emitter caps itself
- * there and says so in the HUD rather than crawling.
+ * Float32Array that goes to the backend in one `drawParticles` call, which
+ * the backend turns into a handful of draw calls.
  *
  * Positions are pure functions of time, not integrated. A drop's fall is
  * `(time * speed + phase) mod span`, so two runs at different frame rates
@@ -20,7 +18,6 @@ import { PARTICLE_STRIDE } from 'm2d-engine/core/renderers/baseRenderer.js';
 const PARAM_STRIDE = 5;
 
 /** Drops a fallback backend is asked to draw as individual sprites. */
-const FALLBACK_CAP = 800;
 
 export class RainEmitter {
   /**
@@ -29,15 +26,13 @@ export class RainEmitter {
    * @param {Object} options.sheet - Rain streak SpriteSheet
    * @param {{width: number, height: number}} options.bounds - World bounds
    * @param {number} options.waterline - World Y the rain falls to
-   * @param {Object} options.features - Optional backend features in use
    * @param {number} [options.seed=777] - RNG seed
    */
-  constructor({ renderer, sheet, bounds, waterline, features, seed = 777 }) {
+  constructor({ renderer, sheet, bounds, waterline, seed = 777 }) {
     this.renderer = renderer;
     this.sheet = sheet;
     this.bounds = bounds;
     this.waterline = waterline;
-    this.features = features;
     this.seed = seed;
     this.time = 0;
     /** Wind as a horizontal drift per unit of fall. */
@@ -48,21 +43,13 @@ export class RainEmitter {
     this.data = new Float32Array(0);
     this.params = new Float32Array(0);
     this.count = 0;
-    /** Count requested before the fallback cap, for the HUD. */
-    this.requested = 0;
-  }
-
-  /** @returns {boolean} Whether this backend had to cap the drop count */
-  capped() {
-    return this.count < this.requested;
   }
 
   /**
    * @param {number} count - Desired drop count
    */
   setCount(count) {
-    this.requested = Math.max(0, Math.floor(count));
-    const target = this.features.particles ? this.requested : Math.min(this.requested, FALLBACK_CAP);
+    const target = Math.max(0, Math.floor(count));
     const rng = makeRng(this.seed);
 
     this.params = new Float32Array(target * PARAM_STRIDE);
@@ -140,7 +127,7 @@ export class RainEmitter {
       tileHeight: this.sheet.tileH,
       data: this.data,
       count: this.count,
-      blend: this.features.blendModes ? 'screen' : undefined
+      blend: 'screen'
     });
   }
 }

@@ -70,36 +70,18 @@ export class Showcase {
     const horizonY = waterline - 420;
     const shoreY = waterline + 40;
 
-    /**
-     * Optional backend features this run can use. The scene asks once and
-     * passes the answer down, rather than every layer querying per draw. A
-     * backend would ignore an option it does not support anyway — asking is
-     * what lets the layers choose a different look instead of silently
-     * losing one.
-     * @type {{tint: boolean, blendModes: boolean, particles: boolean}}
-     */
-    this.features = {
-      tint: renderer.supports('tint'),
-      blendModes: renderer.supports('blendModes'),
-      particles: renderer.supports('particles'),
-      lights: renderer.supports('lights'),
-      postEffects: renderer.supports('postEffects')
-    };
-
     this.field = new MoteField({
       renderer,
       sheet: spriteSheets.get('mote'),
       bounds,
-      waterline,
-      features: this.features
+      waterline
     });
 
     this.reeds = new ReedBed({
       renderer,
       sheet: spriteSheets.get('reed'),
       bounds,
-      waterline,
-      features: this.features
+      waterline
     });
 
     this.labels = new LabelStorm({ renderer, bounds });
@@ -108,16 +90,14 @@ export class Showcase {
       renderer,
       sheet: spriteSheets.get('gull'),
       bounds,
-      horizonY,
-      features: this.features
+      horizonY
     });
 
     this.rain = new RainEmitter({
       renderer,
       sheet: spriteSheets.get('rain'),
       bounds,
-      waterline,
-      features: this.features
+      waterline
     });
 
     this.lighthouse = new Lighthouse({
@@ -127,8 +107,7 @@ export class Showcase {
       baseY: shoreY + 30,
       reach: bounds.width * 0.72,
       horizonY,
-      scale: 2.6,
-      features: this.features
+      scale: 2.6
     });
 
     this.backdrop = new Backdrop({
@@ -136,8 +115,7 @@ export class Showcase {
       bounds,
       horizonY,
       shoreY,
-      glitterX: this.lighthouse.x,
-      features: this.features
+      glitterX: this.lighthouse.x
     });
 
     this.lanterns = new Lanterns({
@@ -145,8 +123,7 @@ export class Showcase {
       sheet: spriteSheets.get('lantern'),
       bounds,
       shoreY,
-      lighthouse: this.lighthouse,
-      features: this.features
+      lighthouse: this.lighthouse
     });
 
     this.minimap = new Minimap(game, {
@@ -259,9 +236,7 @@ export class Showcase {
    * Push the lighting and post-effect settings the current toggles imply.
    *
    * These are persistent renderer state rather than per-frame draws, so they
-   * are set when they change, not every frame. A backend without the
-   * capability ignores them, which is exactly the intended degradation: the
-   * scene stays evenly lit instead of going dark with nothing to light it.
+   * are set when they change, not every frame.
    */
   applyEffects() {
     const renderer = this.game.renderer;
@@ -273,11 +248,7 @@ export class Showcase {
   /** @returns {Array<{name: string, enabled: boolean, count: string|number}>} HUD rows */
   layerSummary() {
     return this.layers.map((layer) => {
-      let count = layer.target.count ?? '';
-      if (layer.target === this.rain && this.rain.capped()) {
-        count = `${count} (capped, no particles)`;
-      }
-      return { name: layer.name, enabled: layer.enabled, count };
+      return { name: layer.name, enabled: layer.enabled, count: layer.target.count ?? '' };
     });
   }
 

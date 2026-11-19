@@ -38,15 +38,13 @@ export class MoteField {
    * @param {Object} options.sheet - Mote SpriteSheet
    * @param {{width: number, height: number}} options.bounds - World bounds motes wrap within
    * @param {number} options.waterline - World Y dividing bank from water
-   * @param {Object} options.features - Optional backend features in use
    * @param {number} [options.seed=1337] - RNG seed
    */
-  constructor({ renderer, sheet, bounds, waterline, features, seed = 1337 }) {
+  constructor({ renderer, sheet, bounds, waterline, seed = 1337 }) {
     this.renderer = renderer;
     this.sheet = sheet;
     this.bounds = bounds;
     this.waterline = waterline;
-    this.features = features;
     this.seed = seed;
     this.motes = [];
     /** Motes split by blend mode, so each group is one batch. */
@@ -188,7 +186,7 @@ export class MoteField {
   draw() {
     // Mist behind, then the glowing motes in front of it.
     this.#drawGroup(this.dim, undefined);
-    this.#drawGroup(this.glowing, this.features.blendModes ? 'additive' : undefined);
+    this.#drawGroup(this.glowing, 'additive');
   }
 
   /**

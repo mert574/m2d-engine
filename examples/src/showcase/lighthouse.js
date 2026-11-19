@@ -65,7 +65,6 @@ export class Lighthouse {
    * @param {number} options.x - World X of the tower's centre
    * @param {number} options.baseY - World Y the tower stands on
    * @param {number} options.reach - Beam length in world units
-   * @param {Object} options.features - Optional backend features in use
    * @param {number} [options.scale=1] - Sprite scale; the tower is a landmark,
    *   so it is drawn well above its native 64x160
    * @param {number} options.horizonY - World Y of the horizon, i.e. the
@@ -74,9 +73,8 @@ export class Lighthouse {
    *   read. The lamp may sit above or below it; the sign falls out of the
    *   subtraction either way.
    */
-  constructor({ renderer, sheet, x, baseY, reach, features, horizonY, scale = 1 }) {
+  constructor({ renderer, sheet, x, baseY, reach, horizonY, scale = 1 }) {
     this.renderer = renderer;
-    this.features = features;
     this.sheet = sheet;
     this.x = x;
     this.baseY = baseY;
@@ -245,13 +243,13 @@ export class Lighthouse {
 
     // Light adds to what it falls on. Without the blend the shafts just paint
     // a pale wash over the scene instead of lighting it.
-    const blend = this.features.blendModes ? 'additive' : undefined;
+    const blend = 'additive';
 
     // The beam is geometry in the world pass, so the light map multiplies it
     // like everything else — and over the dark night sky that crushes it to a
     // grey smudge. A point light cannot express a shaft, so the beam instead
     // pre-compensates for the ambient it is about to be multiplied by.
-    const lightCompensation = this.features.lights ? 1.8 : 1;
+    const lightCompensation = 1.8;
     const alpha = intensity * shaft * lightCompensation;
 
     renderer.pushTransform({
@@ -293,7 +291,7 @@ export class Lighthouse {
   drawHalo() {
     const renderer = this.renderer;
     const { flare } = this.#projection();
-    const lightCompensation = this.features.lights ? 1.6 : 1;
+    const lightCompensation = 1.6;
     const scale = 0.55 + flare * 1.0;
 
     renderer.pushTransform({ x: this.x, y: this.lampY, scaleX: scale, scaleY: scale });
@@ -301,7 +299,7 @@ export class Lighthouse {
       x: 0,
       y: 0,
       radius: HALO_RADIUS,
-      blend: this.features.blendModes ? 'additive' : undefined,
+      blend: 'additive',
       globalAlpha: Math.min(0.82, (0.4 + flare * 0.34) * lightCompensation),
       fillStyle: flare > 0.001 ? this.flareGradient : this.haloGradient
     });

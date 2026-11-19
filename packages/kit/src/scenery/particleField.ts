@@ -174,7 +174,6 @@ const DRAWERS: Record<FieldKind2D, Drawer> = {
     const halo = { inner: `rgba(${r}, ${g}, ${b}, 0.5)`, outer: `rgba(${r}, ${g}, ${b}, 0)` };
     // The core is the colour run halfway to white: the hot centre of the glow.
     const core = `rgb(${(r + 255) >> 1}, ${(g + 255) >> 1}, ${(b + 255) >> 1})`;
-    const blend = renderer.supports?.('blendModes') ? 'additive' : undefined;
     const reach = field.radius * 3.2;
     let lights = 0;
     for (let i = 0; i < field.count; i++) {
@@ -184,10 +183,10 @@ const DRAWERS: Record<FieldKind2D, Drawer> = {
       const y = box.top + d * box.height + Math.cos(time * (0.25 + a * 0.3) + d * 50) * wander * 0.6;
       const pulse = 0.5 + 0.5 * Math.sin(time * (1.2 + c * 1.6) + a * 60);
       renderer.drawArc({
-        x, y, radius: reach, globalAlpha: field.opacity * pulse, blend,
+        x, y, radius: reach, globalAlpha: field.opacity * pulse, blend: 'additive',
         fillStyle: { type: 'radial', x, y, r0: 0, r1: reach, stops: [{ offset: 0, color: halo.inner }, { offset: 1, color: halo.outer }] }
       });
-      renderer.drawArc({ x, y, radius: field.radius * 0.73, fillStyle: core, globalAlpha: field.opacity * (0.35 + 0.65 * pulse), blend });
+      renderer.drawArc({ x, y, radius: field.radius * 0.73, fillStyle: core, globalAlpha: field.opacity * (0.35 + 0.65 * pulse), blend: 'additive' });
       if (glow && lights < MAX_GLOWS && pulse > 0.5) {
         renderer.drawLight({ x, y, radius: field.radius * 14, color: field.color, intensity: field.emissive * pulse });
         lights++;

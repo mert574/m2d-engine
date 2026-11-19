@@ -23,16 +23,14 @@ export class Lanterns {
    * @param {{width: number, height: number}} options.bounds - World bounds
    * @param {number} options.shoreY - World Y of the water/bank boundary
    * @param {import('./lighthouse.js').Lighthouse} options.lighthouse - Lamp to light
-   * @param {Object} options.features - Optional backend features in use
    * @param {number} [options.seed=5150] - RNG seed
    */
-  constructor({ renderer, sheet, bounds, shoreY, lighthouse, features, seed = 5150 }) {
+  constructor({ renderer, sheet, bounds, shoreY, lighthouse, seed = 5150 }) {
     this.renderer = renderer;
     this.sheet = sheet;
     this.bounds = bounds;
     this.shoreY = shoreY;
     this.lighthouse = lighthouse;
-    this.features = features;
     this.time = 0;
 
     const rng = makeRng(seed);

@@ -24,16 +24,14 @@ export class Backdrop {
    * @param {number} options.horizonY - Sky/water boundary (the eye level)
    * @param {number} options.shoreY - Water/bank boundary
    * @param {number} options.glitterX - World X the glitter path sits under
-   * @param {Object} options.features - Optional backend features in use
    * @param {number} [options.seed=2024] - RNG seed
    */
-  constructor({ renderer, bounds, horizonY, shoreY, glitterX, features, seed = 2024 }) {
+  constructor({ renderer, bounds, horizonY, shoreY, glitterX, seed = 2024 }) {
     this.renderer = renderer;
     this.bounds = bounds;
     this.horizonY = horizonY;
     this.shoreY = shoreY;
     this.glitterX = glitterX;
-    this.features = features;
     this.time = 0;
 
     const rng = makeRng(seed);
@@ -160,7 +158,7 @@ export class Backdrop {
     const { width } = this.bounds;
     const span = this.shoreY - this.horizonY;
     const time = this.time;
-    const blend = this.features.blendModes ? 'additive' : undefined;
+    const blend = 'additive';
 
     renderer.drawRect({
       x: 0,

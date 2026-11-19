@@ -118,6 +118,19 @@ export class RecordingRenderer extends BaseRenderer {
     this.#record('drawText', options);
   }
 
+  // === Lights, particles and post ===
+  drawParticles(options) { this.#record('drawParticles', options); }
+  setAmbientLight(color) {
+    this.ambientLight = color;
+    this.#record('setAmbientLight', color);
+  }
+  drawLight(options) { this.#record('drawLight', options); }
+  drawShadowCaster(options) { this.#record('drawShadowCaster', options); }
+  setPostEffects(effects) {
+    this.postEffects = effects;
+    this.#record('setPostEffects', effects);
+  }
+
   // === Transform & clip ===
   pushTransform(transform) { this.#record('pushTransform', transform); }
   popTransform() { this.#record('popTransform'); }

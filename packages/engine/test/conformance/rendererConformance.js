@@ -6,7 +6,7 @@ import {
   expectTransparentAt,
   differsFrom
 } from '../helpers/pixels.js';
-import { OPTIONAL_CAPABILITIES, PARTICLE_STRIDE } from '../../src/core/renderers/baseRenderer.js';
+import { PARTICLE_STRIDE } from '../../src/core/renderers/baseRenderer.js';
 import {
   makeTileSheet,
   makeAsymmetricTile,
@@ -27,31 +27,15 @@ import {
  *     name: 'WebGLRenderer',
  *     createRenderer: () => new WebGLRenderer(),
  *     createTarget: (w, h) => createCanvasElement(w, h),
- *     readPixels: (target) => readWebGLPixels(target),  // RGBA, top-left origin
- *     capabilities: { gradients: true, shadows: false, text: true, ... }
+ *     readPixels: (target) => readWebGLPixels(target)   // RGBA, top-left origin
  *   });
  *
- * Capabilities let a partially-implemented backend skip what it does not
- * support yet while still being held to everything it claims.
+ * Every part of the contract is mandatory, so nothing here is gated.
  *
  * Assertions sample shape interiors with colour tolerance rather than
  * comparing exact buffers, so backends may differ in antialiasing.
  */
 export function describeRendererConformance(harness) {
-  const caps = {
-    gradients: true,
-    shadows: true,
-    text: true,
-    roundedCorners: true,
-    clipping: true,
-    transforms: true,
-    // Optional contract features default to unsupported, so a backend is only
-    // held to the ones it claims. Mandatory flags above default to true and
-    // exist for backends still under construction.
-    ...OPTIONAL_CAPABILITIES,
-    ...(harness.capabilities || {})
-  };
-
   const W = 200;
   const H = 120;
   const BG = '#000000';
@@ -442,7 +426,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(snap, 40, 45, '#ff0000', { label: 'stroke' });
       });
 
-      it.skipIf(!caps.roundedCorners)('rounds corners when cornerRadius is set', () => {
+      it('rounds corners when cornerRadius is set', () => {
         renderFrame({
           world: r => r.drawRect({
             x: 40, y: 30, width: 60, height: 50, cornerRadius: 20, fillStyle: '#ff0000'
@@ -454,7 +438,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(snap, 41, 31, BG, { label: 'corner is cut away' });
       });
 
-      it.skipIf(!caps.gradients)('fills with a linear gradient descriptor', () => {
+      it('fills with a linear gradient descriptor', () => {
         renderFrame({
           world: r => r.drawRect({
             x: 20, y: 40, width: 160, height: 40,
@@ -479,7 +463,7 @@ export function describeRendererConformance(harness) {
         expect(right[0]).toBeLessThan(60);
       });
 
-      it.skipIf(!caps.gradients)('fills with a radial gradient descriptor', () => {
+      it('fills with a radial gradient descriptor', () => {
         renderFrame({
           world: r => r.drawRect({
             x: 0, y: 0, width: W, height: H,
@@ -503,7 +487,7 @@ export function describeRendererConformance(harness) {
         expect(edge).toBeLessThan(centre - 120);
       });
 
-      it.skipIf(!caps.gradients)('honours translucent gradient stops', () => {
+      it('honours translucent gradient stops', () => {
         // Absolute, not relative: a stop at alpha 0.5 over the opaque black
         // world clear must land near 128. Backends that premultiply the ramp
         // twice square the alpha and land near 64 instead, which stays
@@ -525,7 +509,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 100, 60, '#808080', { tolerance: 10, label: 'half-alpha centre' });
       });
 
-      it.skipIf(!caps.gradients)('honours a translucent linear gradient stop', () => {
+      it('honours a translucent linear gradient stop', () => {
         renderFrame({
           world: r => r.drawRect({
             x: 0, y: 0, width: W, height: H,
@@ -555,7 +539,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 40, 35, '#808080', { tolerance: 6, label: 'alpha blend' });
       });
 
-      it.skipIf(!caps.shadows)('casts a shadow outside the shape', () => {
+      it('casts a shadow outside the shape', () => {
         renderFrame({
           world: r => r.drawRect({
             x: 50, y: 50, width: 20, height: 20,
@@ -569,7 +553,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(snap, 60, 60, '#ffffff', { label: 'shape itself' });
       });
 
-      it.skipIf(!caps.shadows)('casts the shadow from the whole silhouette, stroke included', () => {
+      it('casts the shadow from the whole silhouette, stroke included', () => {
         // A 20x20 rect with a 10px stroke covers 45..75; its shadow, offset by
         // 40, covers 85..115. A fill-only shadow would start at 90.
         renderFrame({
@@ -587,7 +571,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(snap, 47, 60, '#ffffff', { label: 'stroke itself' });
       });
 
-      it.skipIf(!caps.shadows)('casts a single shadow when globalAlpha is set', () => {
+      it('casts a single shadow when globalAlpha is set', () => {
         // Fill, stroke and shadow are one primitive: alpha applies once, so the
         // shadow under the stroke is not darker than the shadow under the fill.
         renderFrame({
@@ -765,7 +749,7 @@ export function describeRendererConformance(harness) {
     });
 
     // ===================================================================
-    describe.skipIf(!caps.text)('drawText', () => {
+    describe('drawText', () => {
       const ink = differsFrom(BG);
 
       it('renders visible glyphs', () => {
@@ -960,7 +944,7 @@ export function describeRendererConformance(harness) {
     });
 
     // ===================================================================
-    describe.skipIf(!caps.text)('measureText', () => {
+    describe('measureText', () => {
       it('reports zero width for empty text', () => {
         expect(renderer.measureText('', { fontSize: '16px' }).width).toBe(0);
       });
@@ -1110,7 +1094,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 100, 78, '#00ffff', { label: 'stripe moved to bottom' });
       });
 
-      it.skipIf(!caps.transforms)('rotates about the sprite centre', () => {
+      it('rotates about the sprite centre', () => {
         renderFrame({
           world: r => r.drawSprite({
             image: sheet, x: 100, y: 60,
@@ -1233,7 +1217,7 @@ export function describeRendererConformance(harness) {
     });
 
     // ===================================================================
-    describe.skipIf(!caps.transforms)('transform stack', () => {
+    describe('transform stack', () => {
       it('translates subsequent draws', () => {
         renderFrame({
           world: r => {
@@ -1310,7 +1294,7 @@ export function describeRendererConformance(harness) {
         expect(bounds.minY).toBe(0);
       });
 
-      it.skipIf(!caps.clipping)('nests a clip inside a transform and restores both', () => {
+      it('nests a clip inside a transform and restores both', () => {
         renderFrame({
           world: r => {
             r.pushTransform({ x: 50, y: 30 });
@@ -1331,7 +1315,7 @@ export function describeRendererConformance(harness) {
     });
 
     // ===================================================================
-    describe.skipIf(!caps.clipping)('clip stack', () => {
+    describe('clip stack', () => {
       const fillEverything = r =>
         r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ff0000' });
 
@@ -1377,7 +1361,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(snap, 120, 60, BG, { label: 'only inside the second clip' });
       });
 
-      it.skipIf(!caps.roundedCorners)('supports rounded clip rectangles', () => {
+      it('supports rounded clip rectangles', () => {
         renderFrame({
           world: r => {
             r.pushClip({ x: 40, y: 30, width: 60, height: 50, cornerRadius: 20 });
@@ -1423,7 +1407,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(snap, 60, 70, TILE_COLORS.topLeft, { label: 'screen sprite' });
       });
 
-      it.skipIf(!caps.clipping)('applies screen-space clips', () => {
+      it('applies screen-space clips', () => {
         renderFrame({
           screen: r => {
             r.pushClip({ x: 40, y: 30, width: 40, height: 30, isScreenSpace: true });
@@ -1437,7 +1421,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(snap, 150, 100, BG, { label: 'outside screen clip' });
       });
 
-      it.skipIf(!caps.transforms)('applies screen-space transforms', () => {
+      it('applies screen-space transforms', () => {
         renderFrame({
           screen: r => {
             r.pushTransform({ x: 50, y: 30, isScreenSpace: true });
@@ -1650,7 +1634,7 @@ export function describeRendererConformance(harness) {
         expect(renderer.getStats().primitives).toBe(50);
       });
 
-      it.skipIf(!caps.particles)('submits a field in far fewer draw calls than particles', () => {
+      it('submits a field in far fewer draw calls than particles', () => {
         const sheet = makeSolidImage(TILE, TILE, '#ffffff');
         const list = [];
         for (let i = 0; i < 2000; i++) list.push({ x: (i * 7) % W, y: (i * 13) % H, size: 3 });
@@ -1660,7 +1644,7 @@ export function describeRendererConformance(harness) {
         expect(renderer.getStats().drawCalls).toBeLessThan(20);
       });
 
-      it.skipIf(!caps.particles)('applies per-particle colour', () => {
+      it('applies per-particle colour', () => {
         const sheet = makeSolidImage(TILE, TILE, '#ffffff');
         renderFrame({
           world: r => r.drawParticles({
@@ -1675,8 +1659,8 @@ export function describeRendererConformance(harness) {
     });
 
     // ===================================================================
-    describe('optional: tint', () => {
-      it.skipIf(!caps.tint)('multiplies a sprite by the tint colour', () => {
+    describe('tint', () => {
+      it('multiplies a sprite by the tint colour', () => {
         const sheet = makeSolidImage(TILE, TILE, '#ffffff');
         renderFrame({
           world: r => r.drawSprite({
@@ -1687,7 +1671,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 100, 60, '#ff0000', { label: 'tinted white sprite' });
       });
 
-      it.skipIf(!caps.tint)('leaves a sprite unchanged for a white tint', () => {
+      it('leaves a sprite unchanged for a white tint', () => {
         const sheet = makeSolidImage(TILE, TILE, '#3366cc');
         renderFrame({
           world: r => r.drawSprite({
@@ -1698,7 +1682,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 100, 60, '#3366cc', { label: 'white tint is identity' });
       });
 
-      it.skipIf(!caps.tint)('scales coverage by the tint alpha', () => {
+      it('scales coverage by the tint alpha', () => {
         const sheet = makeSolidImage(TILE, TILE, '#ffffff');
         renderFrame({
           world: r => r.drawSprite({
@@ -1712,8 +1696,8 @@ export function describeRendererConformance(harness) {
     });
 
     // ===================================================================
-    describe('optional: blend modes', () => {
-      it.skipIf(!caps.blendModes)('adds colour with the additive blend', () => {
+    describe('blend modes', () => {
+      it('adds colour with the additive blend', () => {
         renderFrame({
           world: (r) => {
             r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#0000ff' });
@@ -1723,7 +1707,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 100, 60, '#ff00ff', { label: 'red added onto blue' });
       });
 
-      it.skipIf(!caps.blendModes)('darkens with the multiply blend', () => {
+      it('darkens with the multiply blend', () => {
         renderFrame({
           world: (r) => {
             r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#ffff00' });
@@ -1733,7 +1717,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 100, 60, '#00ff00', { label: 'yellow x cyan' });
       });
 
-      it.skipIf(!caps.blendModes)('draws normally when blend is omitted', () => {
+      it('draws normally when blend is omitted', () => {
         renderFrame({
           world: (r) => {
             r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#0000ff' });
@@ -1743,7 +1727,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 100, 60, '#ff0000', { label: 'source-over default' });
       });
 
-      it.skipIf(!caps.blendModes)('does not leak the blend mode into later draws', () => {
+      it('does not leak the blend mode into later draws', () => {
         renderFrame({
           world: (r) => {
             r.drawRect({ x: 0, y: 0, width: 200, height: 120, fillStyle: '#0000ff' });
@@ -1758,7 +1742,7 @@ export function describeRendererConformance(harness) {
     });
 
     // ===================================================================
-    describe('optional: lights', () => {
+    describe('lights', () => {
       it('accepts lighting calls on any backend without throwing', () => {
         expect(() => {
           renderFrame({
@@ -1772,7 +1756,7 @@ export function describeRendererConformance(harness) {
         renderer.setAmbientLight(null);
       });
 
-      it.skipIf(!caps.lights)('darkens the world by the ambient colour', () => {
+      it('darkens the world by the ambient colour', () => {
         renderer.setAmbientLight('#808080');
         renderFrame({
           world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' })
@@ -1781,7 +1765,7 @@ export function describeRendererConformance(harness) {
         renderer.setAmbientLight(null);
       });
 
-      it.skipIf(!caps.lights)('brightens where a light falls and not outside it', () => {
+      it('brightens where a light falls and not outside it', () => {
         renderer.setAmbientLight('#202020');
         renderFrame({
           world: (r) => {
@@ -1796,7 +1780,7 @@ export function describeRendererConformance(harness) {
         renderer.setAmbientLight(null);
       });
 
-      it.skipIf(!caps.lights)('renders at full brightness once ambient is cleared', () => {
+      it('renders at full brightness once ambient is cleared', () => {
         renderer.setAmbientLight('#303030');
         renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
         renderer.setAmbientLight(null);
@@ -1804,7 +1788,7 @@ export function describeRendererConformance(harness) {
         expectColorAt(read(), 100, 60, '#ffffff', { label: 'lighting disabled again' });
       });
 
-      it.skipIf(!caps.lights)('keeps clipping working while lighting is on', () => {
+      it('keeps clipping working while lighting is on', () => {
         renderer.setAmbientLight('#ffffff');
         renderFrame({
           world: (r) => {
@@ -1819,7 +1803,7 @@ export function describeRendererConformance(harness) {
         renderer.setAmbientLight(null);
       });
 
-      it.skipIf(!caps.lights)('leaves the screen pass unlit', () => {
+      it('leaves the screen pass unlit', () => {
         renderer.setAmbientLight('#202020');
         renderFrame({
           world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }),
@@ -1830,7 +1814,7 @@ export function describeRendererConformance(harness) {
         renderer.setAmbientLight(null);
       });
 
-      it.skipIf(!caps.lights)('confines a spot light to its cone', () => {
+      it('confines a spot light to its cone', () => {
         renderer.setAmbientLight('#101010');
         renderFrame({
           world: (r) => {
@@ -1848,7 +1832,7 @@ export function describeRendererConformance(harness) {
         renderer.setAmbientLight(null);
       });
 
-      it.skipIf(!caps.lightShadows)('blocks a shadowed light behind a caster', () => {
+      it('blocks a shadowed light behind a caster', () => {
         renderer.setAmbientLight('#101010');
         renderFrame({
           world: (r) => {
@@ -1868,7 +1852,7 @@ export function describeRendererConformance(harness) {
         renderer.setAmbientLight(null);
       });
 
-      it.skipIf(!caps.lightShadows)('blocks a shadowed light behind a circular caster', () => {
+      it('blocks a shadowed light behind a circular caster', () => {
         renderer.setAmbientLight('#101010');
         renderFrame({
           world: (r) => {
@@ -1882,7 +1866,7 @@ export function describeRendererConformance(harness) {
         renderer.setAmbientLight(null);
       });
 
-      it.skipIf(!caps.lightShadows)('lets a high light clear a low caster', () => {
+      it('lets a high light clear a low caster', () => {
         // A street lamp over a barrier: the barrier shadows headlights at
         // ground level and nothing hanging above it. Two identical setups in
         // one frame, differing only in the light's z.
@@ -1903,26 +1887,10 @@ export function describeRendererConformance(harness) {
         expect(lampBehind).toBeGreaterThan(headlightBehind + 30);
         renderer.setAmbientLight(null);
       });
-
-      it.skipIf(!caps.lights)('ignores the shadows flag when shadow casting is unsupported', () => {
-        // A backend with lights but no lightShadows must not throw and must
-        // let the light shine through.
-        renderer.setAmbientLight('#101010');
-        expect(() => {
-          renderFrame({
-            world: (r) => {
-              r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' });
-              r.drawShadowCaster({ x: 100, y: 60, width: 10, height: 60 });
-              r.drawLight({ x: 30, y: 60, radius: 200, color: '#ffffff', shadows: true });
-            }
-          });
-        }).not.toThrow();
-        renderer.setAmbientLight(null);
-      });
     });
 
     // ===================================================================
-    describe('optional: post effects', () => {
+    describe('post effects', () => {
       it('accepts post-effect calls on any backend without throwing', () => {
         expect(() => {
           renderer.setPostEffects({ vignette: { strength: 0.5 } });
@@ -1931,7 +1899,7 @@ export function describeRendererConformance(harness) {
         renderer.setPostEffects(null);
       });
 
-      it.skipIf(!caps.postEffects)('darkens the corners with a vignette', () => {
+      it('darkens the corners with a vignette', () => {
         renderer.setPostEffects({ vignette: { strength: 0.9, start: 0.2 } });
         renderFrame({
           world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' })
@@ -1944,7 +1912,7 @@ export function describeRendererConformance(harness) {
         renderer.setPostEffects(null);
       });
 
-      it.skipIf(!caps.postEffects)('spreads light outward with bloom', () => {
+      it('spreads light outward with bloom', () => {
         // Sample just outside a bright square: unbloomed it is the black
         // clear, bloomed it picks up the halo. The margin is calibrated to
         // the actual Gaussian falloff at this distance rather than guessed.
@@ -1962,7 +1930,7 @@ export function describeRendererConformance(harness) {
         expect(bloomed).toBeGreaterThan(plain + 15);
       });
 
-      it.skipIf(!caps.postEffects)('defocuses the world with blur', () => {
+      it('defocuses the world with blur', () => {
         // A hard edge becomes a ramp: sample just outside a white square.
         // Unblurred that is the black clear; blurred it picks up the spread.
         const square = r => r.drawRect({ x: 80, y: 40, width: 40, height: 40, fillStyle: '#ffffff' });
@@ -1979,7 +1947,7 @@ export function describeRendererConformance(harness) {
         expect(blurred).toBeGreaterThan(plain + 15);
       });
 
-      it.skipIf(!caps.postEffects)('softens the inside of a shape too', () => {
+      it('softens the inside of a shape too', () => {
         // Not just an outward halo like bloom: the centre of a blurred edge
         // loses brightness as it mixes with what is beyond it.
         const square = r => r.drawRect({ x: 80, y: 40, width: 40, height: 40, fillStyle: '#ffffff' });
@@ -2012,7 +1980,7 @@ export function describeRendererConformance(harness) {
         renderer.setPostEffects(null);
       });
 
-      it.skipIf(!caps.postEffects)('desaturates with a grade', () => {
+      it('desaturates with a grade', () => {
         renderer.setPostEffects({ grade: { saturation: 0 } });
         renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ff0000' }) });
         const [r, g, b] = read().at(100, 60);
@@ -2022,7 +1990,7 @@ export function describeRendererConformance(harness) {
         renderer.setPostEffects(null);
       });
 
-      it.skipIf(!caps.postEffects)('flashes the frame toward a colour', () => {
+      it('flashes the frame toward a colour', () => {
         renderer.setPostEffects({ flash: { color: '#00ff00', strength: 1 } });
         renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
         const [r, g, b] = read().at(100, 60);
@@ -2032,7 +2000,7 @@ export function describeRendererConformance(harness) {
         renderer.setPostEffects(null);
       });
 
-      it.skipIf(!caps.postEffects)('returns to an untouched frame once disabled', () => {
+      it('returns to an untouched frame once disabled', () => {
         renderer.setPostEffects({ vignette: { strength: 1, start: 0 } });
         renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
         renderer.setPostEffects(null);

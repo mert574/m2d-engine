@@ -77,26 +77,13 @@ describeRendererConformance({
   name: 'WebGLRenderer',
   createRenderer: () => new WebGLRenderer({ contextAttributes: { preserveDrawingBuffer: true } }),
   createTarget: (width, height) => createCanvasElement(width, height),
-  readPixels: readWebGLPixels,
-  capabilities: {
-    // Mandatory. Default true. Turn one off only while the backend is under construction.
-    gradients: true, shadows: true, text: true, roundedCorners: true, clipping: true, transforms: true,
-    // Optional. Default false. Turn one on as the backend claims it.
-    tint: true, blendModes: true, particles: true, lights: true, postEffects: true
-  }
+  readPixels: readWebGLPixels
 });
 ```
 
 `readPixels` must return RGBA with a top-left origin. `readWebGLPixels` does the row flip that `gl.readPixels` needs. `readCanvas2DPixels` is the 2D counterpart. The renderer must keep its drawing buffer so the test can read it after the frame.
 
-### Harness capabilities
-
-A flag set to `true` is a promise the suite enforces.
-
-- Mandatory features `gradients`, `shadows`, `text`, `roundedCorners`, `clipping` and `transforms` default to `true`. Every finished backend does them.
-- Optional features `tint`, `blendModes`, `particles`, `lights` and `postEffects` default to `false`. Declining one is a permanent, legitimate answer. WebGL claims all five.
-
-The harness flag and the backend's runtime `capabilities` should agree. Some optional-feature tests run on every backend because `BaseRenderer` supplies a fallback: `drawParticles` draws one sprite per particle, and the light and post-effect methods are no-ops. Those tests assert the call works. The gated ones assert the behaviour the flag promises.
+Nothing in the suite is gated: every primitive, tint, blending, batched particles, lights, shadow casters and the post pass are all held to. A backend under construction runs one group at a time with Vitest's `-t` filter (`npx vitest run --project gpu -t 'drawRect'`).
 
 ## The gpu project
 

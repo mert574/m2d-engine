@@ -21,11 +21,9 @@ import { seedRidges, ridgeProfile } from './dusk.js';
  * prefab's `light`, and the ambient light and post pass `world.lighting`
  * and `world.post`; so the editor shows the valley as it plays.
  *
- * Everything is deterministic from the seed and animated from `time`, and
- * every optional capability is asked for when drawing: on Canvas the
- * lights and additive blends drop out and the painted colours carry the
- * scene. Nothing here touches the renderer until it draws, so a headless
- * game builds the scene without it.
+ * Everything is deterministic from the seed and animated from `time`.
+ * Nothing here touches the renderer until it draws, so a headless game
+ * builds the scene without it.
  */
 
 /** Sampling step along a ridge, in world units. */
@@ -148,16 +146,6 @@ export class ValleyBackdrop extends Entity {
     return this.game.renderer;
   }
 
-  /** What this renderer can do, asked once it is drawing. */
-  get features() {
-    this.#features ??= {
-      blendModes: this.renderer.supports('blendModes'),
-      lights: this.renderer.supports('lights')
-    };
-    return this.#features;
-  }
-
-  #features = null;
 
   /** @param {number} deltaTime - Seconds since the last frame */
   update(deltaTime) {
@@ -254,15 +242,12 @@ export class ValleyBackdrop extends Entity {
     });
 
     // The low sun warms everything on its side of the valley.
-    if (this.features.lights) {
-      const sun = this.#sunAt(view);
-      renderer.drawLight({ x: sun.x, y: sun.y, radius: view.width * 1.4, color: '#ffb46a', intensity: 0.75 });
-    }
+    const sun = this.#sunAt(view);
+    renderer.drawLight({ x: sun.x, y: sun.y, radius: view.width * 1.4, color: '#ffb46a', intensity: 0.75 });
   }
 
-  /** Slowly turning shafts of late light. Additive or not at all. */
+  /** Slowly turning shafts of late light. */
   #drawRays(renderer, view) {
-    if (!this.features.blendModes) return;
     const sun = this.#sunAt(view);
     const reach = view.width * 0.9;
     for (const ray of this.rays) {

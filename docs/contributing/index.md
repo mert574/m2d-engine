@@ -41,7 +41,7 @@ The GPU test suite draws in Node on the machine's GPU, or on Mesa's CPU drivers 
 
 - Keep engine behaviour separate from example-specific actors and rules. Behaviour another game could want belongs in a constraint.
 - Use elapsed seconds for timers and movement. Check simulation changes at more than one frame rate; the [determinism contract](./determinism) says what simulation code may read, and `test/determinism.test.js` must keep passing.
-- Renderer changes must keep `npm test` passing. A new backend feature is either mandatory for every backend or declared through `capabilities` with callers degrading. See [Capabilities](../reference/renderer#capabilities).
+- Renderer changes must keep `npm test` passing. A new backend feature is mandatory for every backend and gets its conformance tests in the same change. See [Renderer](../reference/renderer).
 - Adding a scene JSON field means adding a descriptor to `packages/engine/src/core/sceneSchema.js` and a row to the [scene format reference](../reference/scene-format).
 - Run `npm test` and `npm run build`, then check the affected demos with `npm run preview`. Check rendering, controls, scene transitions and audio after a user gesture.
 - New packages are TypeScript and extend the shared config. The engine stays JavaScript for now. See [TypeScript](./typescript).

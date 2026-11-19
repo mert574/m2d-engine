@@ -31,15 +31,13 @@ export class ReedBed {
    * @param {Object} options.sheet - Reed SpriteSheet
    * @param {{width: number, height: number}} options.bounds - World bounds
    * @param {number} options.waterline - World Y the reeds stand on
-   * @param {Object} options.features - Optional backend features in use
    * @param {number} [options.seed=4242] - RNG seed
    */
-  constructor({ renderer, sheet, bounds, waterline, features, seed = 4242 }) {
+  constructor({ renderer, sheet, bounds, waterline, seed = 4242 }) {
     this.renderer = renderer;
     this.sheet = sheet;
     this.bounds = bounds;
     this.waterline = waterline;
-    this.features = features;
     this.seed = seed;
     this.tileCount = Math.max(1, Math.floor(sheet.image.width / sheet.tileW));
     this.reeds = [];
@@ -102,7 +100,6 @@ export class ReedBed {
     const image = this.sheet.image;
     const tileWidth = this.sheet.tileW;
     const tileHeight = this.sheet.tileH;
-    const tinted = this.features.tint;
 
     for (const reed of this.reeds) {
       const wind = this.wind ?? 0;
@@ -125,7 +122,7 @@ export class ReedBed {
         height: reed.height,
         rotation: angle,
         globalAlpha: reed.alpha,
-        tint: tinted ? reed.tint : undefined
+        tint: reed.tint
       });
     }
   }

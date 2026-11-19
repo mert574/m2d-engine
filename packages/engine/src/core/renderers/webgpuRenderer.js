@@ -26,7 +26,7 @@ import * as mat4 from './geometry/mat4.js';
  * everything to draw, and `render(frame)` draws it.
  *
  * It extends `BaseRenderer` for the parts that are not about drawing — the
- * viewport, the statistics, the debug flag, the capability table — and so
+ * viewport, the statistics, the debug flag — and so
  * that the 2D primitives fail loudly if anything calls them. `dimensions`
  * is how the engine tells the two kinds apart.
  *

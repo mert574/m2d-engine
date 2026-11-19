@@ -28,7 +28,7 @@ class Block extends Entity {
 // Gravity is a counter the handlers turn, held between its min and max;
 // the kit's GravityDial makes the world's y gravity follow it, and the HUD shows it.
 const scene = {
-  version: 6, type: 'level', name: 'main',
+  version: 7, type: 'level', name: 'main',
   world: {
     width: 640, height: 360, gravity: { x: 0, y: 1000 }, camera: { bounds: 'world' },
     counters: { gravity: { initial: 1000, min: 0, max: 3000 } }

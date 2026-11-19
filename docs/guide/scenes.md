@@ -14,7 +14,7 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
 
 ```json
 {
-  "version": 6,
+  "version": 7,
   "type": "level",
   "name": "level1",
   "world": {
@@ -125,7 +125,7 @@ The scene names the uids it wants, binds them to short local names, and reads as
 
 ```json
 {
-  "version": 6,
+  "version": 7,
   "type": "level",
   "name": "row",
   "uses": { "zombie": "prefab-zombie", "goblin": "prefab-goblin" },
@@ -164,7 +164,7 @@ A UI scene has `"type": "ui"` and an `elements` array instead of layers. Element
 
 ```json
 {
-  "version": 6,
+  "version": 7,
   "type": "ui",
   "name": "mainMenu",
   "elements": [

@@ -41,7 +41,7 @@ game.registerBackdropLayer('harbourNight', () => new HarbourNight());
 registerKitScenery(game);
 game.sceneManager.addScene('mainMenu', {
   fetch: async () => ({
-    version: 6, name: 'mainMenu', type: 'ui', title: 'Main Menu',
+    version: 7, name: 'mainMenu', type: 'ui', title: 'Main Menu',
     transition: { enter: 'fade', exit: 'fade', duration: 0.3 },
     stagger: 0.07,
     music: { track: 'menu' },
@@ -75,7 +75,7 @@ game.sceneManager.addScene('mainMenu', {
 
 game.sceneManager.addScene('showcase', {
   fetch: async () => ({
-    version: 6,
+    version: 7,
     name: 'showcase',
     type: 'level',
     world: { width: WORLD.width, height: WORLD.height, gravity: { x: 0, y: 0 } },

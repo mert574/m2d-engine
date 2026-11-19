@@ -11,7 +11,6 @@ import { identityViewport } from 'm2d-engine/core/viewport.js';
 export class MyRenderer extends BaseRenderer {
   constructor() {
     super();
-    this.capabilities.blendModes = true;   // claim only what you implement
     this.target = null;
   }
 
@@ -74,7 +73,7 @@ Every draw method receives one options object. The shapes and defaults are in th
 
 Two behaviours are pinned by tests because backends get them wrong. A partial `drawArc` fill is the circular segment between the arc and its chord. Translucent gradient stops are premultiplied once.
 
-`drawAnimation` and `drawParticles` have working implementations in the base. Override `drawParticles` only when claiming the `particles` capability.
+`drawAnimation` has a working implementation in the base. `drawParticles` is a backend's own: a packed buffer drawn as a few batched calls with per-particle colour.
 
 ## Transform and clip stacks
 
@@ -84,9 +83,9 @@ Two behaviours are pinned by tests because backends get them wrong. A partial `d
 
 `drawText` renders a string with the given font, alignment and baseline, with an optional outline drawn under the fill. `measureText(text, style)` returns `{ width, height }` for the same font. A GPU backend can rasterize text through a 2D canvas into a texture, as the WebGL2 backend does in `webgl/textLabels.js`.
 
-## Optional capabilities
+## Lights and post effects
 
-Set `this.capabilities.<name> = true` for each optional feature the backend implements. The names are `tint`, `blendModes`, `particles`, `lights` and `postEffects`. A backend that does not claim one ignores the option and must not throw. `setAmbientLight`, `drawLight` and `setPostEffects` are no-ops in the base.
+`setAmbientLight`, `drawLight`, `drawShadowCaster` and `setPostEffects` are part of the contract like every draw call. The WebGL2 backend's `webgl/effectsPass.js` is the reference: lights accumulate into a light map multiplied over the world at `endFrame`, casters block the lights drawn with `shadows`, and the post pass runs between the world and screen passes.
 
 ## Cursor
 
@@ -105,11 +104,10 @@ describeRendererConformance({
   name: 'MyRenderer',
   createRenderer: () => new MyRenderer(),
   createTarget: (width, height) => createCanvasElement(width, height),
-  readPixels: readWebGLPixels,
-  capabilities: { tint: false, blendModes: true, particles: false, lights: false, postEffects: false }
+  readPixels: readWebGLPixels
 });
 ```
 
-`readPixels` returns RGBA with a top-left origin. While the backend is under construction, set a mandatory flag such as `shadows: false` to skip that group. Turn it back on as the feature lands. [Testing](./testing#validating-a-new-backend) describes the flags.
+`readPixels` returns RGBA with a top-left origin. The whole suite runs; a backend under construction uses Vitest's `-t` filter to run one group at a time. [Testing](./testing#validating-a-new-backend) has the details.
 
 Then run the registry tests, `npm test`, and view the examples with `renderer: 'mine'` in their options.

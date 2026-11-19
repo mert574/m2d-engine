@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { audit, type SceneInput } from '../src/index.ts';
 
 const scene = (path: string, name: string, data: Record<string, unknown>): SceneInput => ({
-  path, name, data: { version: 6, type: 'level', name, ...data }
+  path, name, data: { version: 7, type: 'level', name, ...data }
 });
 
 const project = (): SceneInput[] => [

@@ -43,7 +43,7 @@ function courtScene(config, next) {
 
   return {
     scene: {
-      version: 6,
+      version: 7,
       name: config.scene,
       type: 'level',
       gameType: 'topDown',

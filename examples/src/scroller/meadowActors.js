@@ -358,8 +358,6 @@ export class Pollen extends Entity {
   name = 'Pollen';
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get lit() { return this.game.renderer.supports('lights'); }
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game) {
     super(body, sprite, game);
@@ -393,7 +391,7 @@ export class Pollen extends Entity {
         type: 'radial', x: pos.x, y, r0: 0, r1: 15 * pulse,
         stops: [{ offset: 0, color: 'rgba(255, 196, 64, 0.65)' }, { offset: 1, color: 'rgba(255, 196, 64, 0)' }]
       },
-      blend: this.blend
+      blend: 'additive'
     });
     renderer.drawArc({ x: pos.x, y, radius: 4.6, fillStyle: '#ffb217' });
     renderer.drawArc({ x: pos.x - 1, y: y - 1.2, radius: 1.8, fillStyle: '#fff6d0' });
@@ -407,9 +405,7 @@ export class Pollen extends Entity {
         strokeStyle: 'rgba(255, 240, 190, 0.8)', lineWidth: 1.2
       });
     }
-    if (this.lit) {
-      renderer.drawLight({ x: pos.x, y, radius: 70, color: '#ffce6e', intensity: 0.5 * pulse });
-    }
+    renderer.drawLight({ x: pos.x, y, radius: 70, color: '#ffce6e', intensity: 0.5 * pulse });
   }
 }
 
@@ -662,7 +658,6 @@ export class Web extends Entity {
   }
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get blend() { return this.game.renderer.supports('blendModes') ? 'additive' : undefined; }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
@@ -759,7 +754,7 @@ export class Web extends Entity {
       const r = 0.33 + (i % 2) * 0.14;
       renderer.drawArc({
         x: cx + Math.cos(angle) * w * r, y: cy + Math.sin(angle) * h * r,
-        radius: 2, fillStyle: 'rgba(255, 246, 220, 0.9)', blend: this.blend
+        radius: 2, fillStyle: 'rgba(255, 246, 220, 0.9)', blend: 'additive'
       });
     }
   }
@@ -781,7 +776,6 @@ export class Hive extends Entity {
   }
 
   /** Asked when drawing: a headless game has no renderer to ask at construction. */
-  get lit() { return this.game.renderer.supports('lights'); }
 
   constructor(body, sprite, game) {
     super(body, sprite, game);
@@ -819,9 +813,7 @@ export class Hive extends Entity {
     // The doorway, warm from inside — the one lit window at dusk.
     renderer.drawArc({ x: pos.x, y: pos.y + 26, radius: 7, fillStyle: '#2e2008' });
     renderer.drawArc({ x: pos.x, y: pos.y + 26, radius: 4, fillStyle: '#ffb24a' });
-    if (this.lit) {
-      renderer.drawLight({ x: pos.x, y: pos.y + 24, radius: 150, color: '#ffc06a', intensity: 0.7 });
-    }
+    renderer.drawLight({ x: pos.x, y: pos.y + 24, radius: 150, color: '#ffc06a', intensity: 0.7 });
 
     for (let i = 0; i < 2; i++) {
       const t = clock * (1.2 + i * 0.4) + i * 2.6;

@@ -414,7 +414,7 @@ describe('a project file', () => {
   });
 });
 
-describe('a level\'s own HUD widgets and its lighting fallback', () => {
+describe('a level\'s own HUD widgets', () => {
   it('places a HUD component the game registers, with the element\'s position and properties', async () => {
     const made = [];
     const renderer = new RecordingRenderer();
@@ -459,20 +459,6 @@ describe('a level\'s own HUD widgets and its lighting fallback', () => {
     expect(() => loader.load(withButton({ text: 'both', action: 'a', onClick: 'other' }), 'look')).toThrow(/both action/);
     expect(() => loader.load(withButton({ text: 'lost', onClick: 'nowhere' }), 'look')).toThrow(/no scene named 'nowhere'/);
     expect(() => loader.load(withButton({ text: 'ok', onClick: 'other' }), 'look')).not.toThrow();
-  });
-
-  it('lays the fallback wash over the view only where the renderer has no lights', async () => {
-    const { game, renderer, scene } = await show(level({ lighting: { ambient: '#334', fallback: 'rgba(0, 0, 40, 0.3)' } }));
-    const washes = () => renderer.optionsFor('drawRect').filter((rect) => rect.fillStyle === 'rgba(0, 0, 40, 0.3)');
-    vi.spyOn(renderer, 'supports').mockImplementation((what) => what !== 'lights');
-    renderer.reset();
-    scene.draw(0.016);
-    expect(washes()).toHaveLength(1);
-    renderer.supports.mockImplementation(() => true);
-    renderer.reset();
-    scene.draw(0.016);
-    expect(washes()).toHaveLength(0);
-    game.destroy();
   });
 });
 

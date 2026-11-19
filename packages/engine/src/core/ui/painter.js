@@ -62,11 +62,6 @@ export class UIPainter {
     return this.renderer?.height ?? 0;
   }
 
-  /** Whether the backend implements an optional feature. */
-  supports(feature) {
-    return this.renderer?.supports(feature) ?? false;
-  }
-
   // === Draw calls ===
 
   drawRect(options) {

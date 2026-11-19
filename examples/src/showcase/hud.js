@@ -1,5 +1,4 @@
 import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
-import { OPTIONAL_CAPABILITIES } from 'm2d-engine/core/renderers/baseRenderer.js';
 
 /**
  * Stats and controls overlay.
@@ -8,9 +7,6 @@ import { OPTIONAL_CAPABILITIES } from 'm2d-engine/core/renderers/baseRenderer.js
  * scene asked for) against `drawCalls` (what the backend submitted). They are
  * printed next to each other with the ratio spelled out, because that ratio is
  * what batching buys and it is otherwise invisible.
- *
- * The capability list is printed too, so a viewer can see which parts of
- * the scene the backend draws.
  */
 export class Hud extends UIElement {
   /**
@@ -116,60 +112,7 @@ export class Hud extends UIElement {
       });
     });
 
-    // Each panel says how tall it was, so adding a capability or a layer
-    // moves the one below rather than drawing on top of it.
-    const capabilities = this.drawCapabilities(renderer, padding, padding + height + 10);
-    this.drawLayers(renderer, padding, padding + height + 20 + capabilities);
-  }
-
-  /**
-   * Print every optional capability with a tick or cross. Reading the list
-   * from OPTIONAL_CAPABILITIES rather than a local copy means features added
-   * to the contract show up here automatically, unsupported until claimed.
-   */
-  drawCapabilities(renderer, x, y) {
-    const names = Object.keys(OPTIONAL_CAPABILITIES);
-    // Returns its height; see draw().
-    const lineHeight = 16;
-    const height = 20 + names.length * lineHeight + 8;
-
-    renderer.drawRect({
-      x,
-      y,
-      width: 330,
-      height,
-      fillStyle: 'rgba(6, 14, 22, 0.82)',
-      strokeStyle: 'rgba(120, 200, 255, 0.4)',
-      lineWidth: 1,
-      cornerRadius: 8
-    });
-
-    renderer.drawText({
-      text: 'optional capabilities',
-      x: x + 12,
-      y: y + 8,
-      fillStyle: 'rgba(160, 220, 255, 0.8)',
-      fontSize: '12px',
-      fontFamily: 'monospace',
-      textAlign: 'left',
-      textBaseline: 'top'
-    });
-
-    names.forEach((name, index) => {
-      const supported = this.game.renderer.supports(name);
-      renderer.drawText({
-        text: `${supported ? '+' : '-'} ${name}`,
-        x: x + 12,
-        y: y + 26 + index * lineHeight,
-        fillStyle: supported ? '#7CFFB2' : 'rgba(200, 200, 200, 0.45)',
-        fontSize: '12px',
-        fontFamily: 'monospace',
-        textAlign: 'left',
-        textBaseline: 'top'
-      });
-    });
-
-    return height;
+    this.drawLayers(renderer, padding, padding + height + 10);
   }
 
   /**

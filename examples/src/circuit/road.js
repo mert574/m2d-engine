@@ -408,7 +408,6 @@ export class Road extends Entity {
     const dt = this.game.time.unscaledDelta;
     const width = area.right - area.left;
     const height = area.bottom - area.top;
-    const additive = renderer.supports('blendModes') ? 'additive' : undefined;
 
     if (weather.rain) {
       const want = Math.round(140 * weather.rain);
@@ -462,7 +461,7 @@ export class Road extends Entity {
               { offset: 1, color: 'rgba(190, 205, 235, 0)' }
             ]
           },
-          blend: additive
+          blend: 'additive'
         });
       }
     }

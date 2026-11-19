@@ -76,7 +76,7 @@ Backends:
 - `uiRenderer.js` wraps any backend and forwards calls with `isScreenSpace: true`. A new backend gets the UI layer for free.
 - `index.js` holds the registry and the default names by dimension. There is no fallback: a backend that fails to initialize throws from the constructor, after `M2D` has put a line of text in the canvas's place, so a visitor without WebGL2 reads why instead of seeing nothing.
 
-Optional capabilities exist because the backends differ in cost. A backend that lacks one ignores the option. The conformance harness's `capabilities` field is a different thing: it gates mandatory tests while a backend is under construction. See [Testing](./testing).
+Every feature of the contract is mandatory, lights and post effects included: with one 2D backend there is nothing to degrade to, so games write to the contract and never ask what the backend can do. See [Testing](./testing).
 
 Behaviours pinned by tests because they are easy to get wrong:
 
@@ -209,4 +209,4 @@ What this does not make deterministic: two machines. Rapier's npm build is not c
 
 ## The renderer showcase
 
-`examples/src/showcase/` is the renderer's stress test. It reports `primitives` against `drawCalls` on screen. Layers are built from a seeded generator and the camera pans a fixed path, so every run is the same workload. Layers submit every primitive every frame and avoid per-sprite transforms, so the counters measure the backend's batching. Clipping is covered in world space by the lighthouse beam and in screen space by the chart. The rain layer uses the `particles` capability and the lights layer uses `lights`. The beam's gradient descriptor is built once and its intensity goes through `globalAlpha`, because new stop strings would re-bake the gradient texture every frame.
+`examples/src/showcase/` is the renderer's stress test. It reports `primitives` against `drawCalls` on screen. Layers are built from a seeded generator and the camera pans a fixed path, so every run is the same workload. Layers submit every primitive every frame and avoid per-sprite transforms, so the counters measure the backend's batching. Clipping is covered in world space by the lighthouse beam and in screen space by the chart. The rain layer is one `drawParticles` buffer and the lights layer is `drawLight` calls. The beam's gradient descriptor is built once and its intensity goes through `globalAlpha`, because new stop strings would re-bake the gradient texture every frame.

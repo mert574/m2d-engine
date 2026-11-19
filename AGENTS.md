@@ -55,7 +55,7 @@ that covers it in the same change, following
 | Multiplayer: match modules, the server, tickets, the client, replication | `docs/guide/multiplayer.md` |
 | The editor: projects, templates, assets, play, build, MCP tools | `docs/guide/editor.md` |
 | Engine options and instance API | `docs/reference/engine-options.md` |
-| Renderer contract, capabilities, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
+| Renderer contract, writing a backend | `docs/reference/renderer.md`, `docs/contributing/renderer-backend.md` |
 | The kit: the stock cast and prefab templates, genre controllers, scenery (sky, scatter, particle fields, ambient sound), effects, random, textures, the audio option | `docs/reference/kit.md` |
 | Example games and music credits | `docs/examples/index.md`, `docs/examples/music-credits.md` |
 | Architecture and the rules each module keeps | `docs/contributing/architecture.md` |
@@ -81,12 +81,13 @@ that covers it in the same change, following
 | `notes/idiomatic-m2d.md` | How games are written on m2d: behaviour in actors, constraints and intents; everything else in scene data. Covers tunables (actor properties vs constraint params), what is not idiomatic (generated levels, custom ticks, hooks that set look or UI), and the showcase and docs demo exceptions. |
 | `notes/code-style.md` | Readable code with few comments; lifecycle overrides call super; a name is checked where it is read; state says what clears it; a forgotten write is awaited at close; a network fetch is tried again; an engine log is a refusal; an entity leaves through `game.removeEntity` and lets go in `destroy()`; fixes come with a repro. |
 | `notes/demo-standards.md` | The quality and art bar for examples: native AAA, every demo a showcase, bright new demos, distinct menus per game, free open assets and how to word them. |
-| `notes/working-style.md` | Parallel agents (a new port and temp dir after every owner message; never touch another agent's work), native Chrome when under WSL, before-and-after screenshots through the editor against a noise floor, waiting for background work before a turn ends, no symlinks in a worktree, a share of the machine, never all of it, one model build at a time (a `vite.config.js` edit restarts every dev server), the session summary at completion, reporting only what was wrong before the work began, MCP parity for editor features, one commit per phase, plain names over plan codes, and where roadmap, projects, docs and notes each live; reviewing with probes, invariants written before a concept ships, a test judged by what it would catch, stand-ins checked against what they stand for, and review briefs that steer. |
+| `notes/working-style.md` | Parallel agents (a new port and temp dir after every owner message; never touch another agent's work), native Chrome when under WSL, before-and-after screenshots through the editor against a noise floor, waiting for background work before a turn ends, no symlinks in a worktree, a share of the machine, never all of it, one model build at a time (a `vite.config.js` edit restarts every dev server), the session summary at completion, reporting only what was wrong before the work began, MCP parity for editor features, one commit per phase, plain names over plan codes, and where roadmap, projects, docs and notes each live; reviewing with probes, invariants written before a concept ships, a test judged by what it would catch, a recorder that records the whole contract, stand-ins checked against what they stand for, and review briefs that steer. |
 | `projects/editor/editor.md` | The editor project: its decisions, the backlog, and links to the shipped phase plans beside it. |
 | `projects/editor/idiomatic-examples.md` | Shipped Nov 2026: every example and docs demo moved onto idiomatic m2d in phases 0 to 6; its decisions (the allow-list, what stays a hook, choices as player state, menus as UI scenes) and the record of each phase. |
 | `projects/networking/networking.md` | Server-authoritative networking: the decision, the 3D online gaps, WebTransport datagrams, and what shipped. |
 | `projects/engine-surface/engine-surface.md` | The test for what is first-class in the engine; the `m2d-kit` package for everything reusable but opinionated; the demotions to kit actors, constraints and prefabs; phases laid as dependency layers. |
 | `projects/3d/3d.md` | 3D places and the asset library: backlog and record, with the renderer's plan `3d-and-editor` beside it. |
+| `projects/canvas-removal/canvas-removal.md` | Shipped Nov 2026: the Canvas 2D backend and the renderer capability flags removed, every contract feature mandatory, a page without WebGL2 told so, and the GPU tests run in Node on Dawn and ANGLE with the browser tier on demand; the decisions and what each phase learned. |
 
 ## Commands
 
@@ -188,9 +189,9 @@ npx playwright install chromium   # once, for test:browser
 - The asset pipeline (Poly Haven fetch, model compiler) lives in
   `packages/editor-host/src/pipeline/`. The examples' `fetchPolyHaven.mjs`
   and `compileModel.mjs` wrap it with the lot's lists and paths.
-- A new renderer feature is mandatory for every backend or declared through
-  `capabilities`.
-- Every backend must pass `npm test`, which draws through them in Node.
+- A new renderer feature is mandatory for every backend, with its
+  conformance tests in the same change. Every backend must pass `npm test`,
+  which draws through them in Node.
 - Anything attached to `window` or `document` keeps a stable handler
   reference so `destroy()` can remove it.
 - Keys are physical codes (`'KeyW'`, `'Space'`), never characters.

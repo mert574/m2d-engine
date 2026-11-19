@@ -92,7 +92,7 @@ for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
 
 `renderOffset` and `renderAngleOffset` add a visual displacement on top of the body's transform without moving the body. The `Hover` constraint uses them to make a pickup bob.
 
-An entity whose drawing falls outside the view is not drawn at all; it still ticks and still collides. An override that draws beyond its body — a backdrop over the view, a strip along a path — says so by returning `null` from `drawBounds`, or returns the rectangle its drawing really covers. See [the view cull](./camera#what-the-view-cull-skips).
+An entity whose drawing falls outside the view is not drawn at all; it still ticks and still collides. An override that draws beyond its body — a backdrop over the view, a strip along a path — says so by returning `null` from `drawBounds`, or returns the rectangle its drawing really covers (`boundsAround(reach)` for a light or glow around the body). See [the view cull](./camera#what-the-view-cull-skips).
 
 ### Draw order
 
