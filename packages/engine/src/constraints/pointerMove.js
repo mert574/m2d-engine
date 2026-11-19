@@ -65,6 +65,8 @@ export class PointerMove extends Constraint {
     this.waypoint = 0;
     /** Seconds the walk has made no headway: a collision shoved it off its route. */
     this.stalled = 0;
+    /** The clock on the obstacle check: is the route still clear? */
+    this.obstacleWatch = 0;
   }
 
   /**
@@ -162,6 +164,26 @@ export class PointerMove extends Constraint {
     const speed = this.speed * (projection && this.speedSpace === 'screen' ? projection.groundSpeedScale(nx, ny) : 1);
     const body = this.entity.body;
 
+    // A moving obstacle rolled onto the route: the walk is stale before it
+    // presses against anything. Checked four times a second against the
+    // tracked obstacle list — plain boxes, no query — and re-planned only
+    // when a remaining segment actually crosses one.
+    if (this.path) {
+      this.obstacleWatch += dt;
+      if (this.obstacleWatch >= 0.25) {
+        this.obstacleWatch = 0;
+        const nav = this.entity.game.nav;
+        if (nav?.routeBlocked([this.entity.position, ...this.path.slice(this.waypoint)])) {
+          const destination = this.destination;
+          if (!this.#head(destination)) {
+            this.stop();
+            body.setVelocity(solid ? { x: 0, y: body.velocity.y, z: 0 } : { x: 0, y: 0 });
+            return;
+          }
+        }
+      }
+    }
+
     // A walk that makes no headway was shoved off its route — a collision,
     // a corner clipped too tight. After half a second it asks again from
     // where it actually stands; a destination no longer reachable stops it.
@@ -197,7 +219,12 @@ export class PointerMove extends Constraint {
       if (solid) return { x: p.x, y: (p.y ?? 0) + lift, z: p.z ?? 0 };
       return projection ? projection.toScreen(p.x, p.y) : { x: p.x, y: p.y };
     };
-    const ahead = this.path ? this.path.slice(Math.max(0, this.waypoint - 1)) : [this.entity.position, this.destination];
+    // From the feet: the line is the way still to walk, anchored on the
+    // ground where the walker stands, not at its body's centre or at a
+    // corner already passed.
+    const at = this.entity.renderPosition;
+    const from = solid ? { x: at.x, y: 0, z: at.z ?? 0 } : { x: at.x, y: at.y };
+    const ahead = [from, ...(this.path ? this.path.slice(this.waypoint) : [this.destination])];
     overlay.drawPath({ points: ahead.map(place), strokeStyle: 'rgba(122, 215, 255, 0.8)', lineWidth: solid ? 2.5 : 1.5 });
     const end = place(this.destination);
     if (solid) {

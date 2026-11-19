@@ -144,6 +144,11 @@
           }
         }
       }
+    },
+    "water": {
+      "actor": "Prop",
+      "physics": { "bodyType": "static", "shape": "box", "isSensor": true, "layer": "none" },
+      "mesh": { "shape": "box", "color": "#2e6f8e", "roughness": 0.15 }
     }
   },
   "layers": [
@@ -229,6 +234,16 @@
           "width": 5,
           "height": 0.8,
           "depth": 4
+        },
+        {
+          "id": "pond-water",
+          "prefab": "water",
+          "x": -7,
+          "y": 0.12,
+          "z": 4,
+          "width": 4.8,
+          "height": 0.24,
+          "depth": 3.8
         },
         {
           "id": "cart",

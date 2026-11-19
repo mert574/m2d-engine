@@ -366,6 +366,72 @@ describe('navmesh', () => {
       expect(route(game).length).toBeGreaterThan(300);
     });
 
+    it('routeBlocked clips the remaining corners against the tracked boxes, angled ones included', async () => {
+      const game = await bootDynamic();
+      game.nav.addObstacle({ x: 200, y: 150, halfX: 20, halfY: 20 });
+      // Straight through the box; beside it; ending before it.
+      expect(game.nav.routeBlocked([{ x: 200, y: 80 }, { x: 200, y: 320 }])).toBe(true);
+      expect(game.nav.routeBlocked([{ x: 240, y: 80 }, { x: 240, y: 320 }])).toBe(false);
+      expect(game.nav.routeBlocked([{ x: 200, y: 80 }, { x: 200, y: 120 }])).toBe(false);
+      // A thin box turned 45°: its corners reach where its sides do not.
+      game.nav.addObstacle({ x: 300, y: 200, halfX: 40, halfY: 2, angle: Math.PI / 4 });
+      expect(game.nav.routeBlocked([{ x: 320, y: 150 }, { x: 320, y: 250 }])).toBe(true);
+      expect(game.nav.routeBlocked([{ x: 340, y: 160 }, { x: 345, y: 170 }])).toBe(false);
+      game.destroy();
+    });
+
+    it('a walk re-plans when an obstacle rolls onto its route, and stops when the way is gone', async () => {
+      const scene = makeScene({ navmeshes: { goblin: { url: dynUrl, stamp: dynStamp } } });
+      scene.prefabs.walker = {
+        actor: 'Prop',
+        physics: { bodyType: 'dynamic', shape: 'circle', lockRotation: true },
+        constraints: { walk: { type: 'PointerMove', params: { speed: 120, arrive: 6 } } }
+      };
+      scene.layers[0].objects.push({ id: 'walker', prefab: 'walker', x: 200, y: 80, width: 20, height: 20 });
+      const game = await boot(scene, DYNAMIC_GAME);
+      game.players.local.avatar = game.sceneManager.getCurrentScene().entitiesById.get('walker');
+      const entity = game.players.local.avatar;
+      const walk = entity.getConstraint('walk');
+      let first = true;
+      game.input.setSnapshotSource(() => {
+        const pointer = { ui: { x: 0, y: 0 }, world: { x: 200, y: 320 }, isDown: first, pressed: first, pressedButtons: first ? 1 : 0, buttons: first ? 1 : 0, type: 'mouse' };
+        first = false;
+        return { down: [], pressed: [], pointer };
+      });
+      game.step(2);
+      expect(walk.moving).toBe(true);
+
+      // The gap — the only way through — closes while the walk is young.
+      const id = game.nav.addObstacle({ x: 30, y: 200, halfX: 30, halfY: 30 });
+      let travelled = 0;
+      let last = { ...entity.position };
+      for (let i = 0; i < 120 && walk.moving; i++) {
+        game.step(1);
+        travelled += Math.hypot(entity.position.x - last.x, entity.position.y - last.y);
+        last = { ...entity.position };
+      }
+      // It noticed within the quarter-second watch and stood down — long
+      // before walking the ~200 units to press against the box.
+      expect(walk.moving).toBe(false);
+      expect(travelled).toBeLessThan(120);
+
+      // The gap opens again, but a box sits beside the route's first leg:
+      // the walk replans around it and still arrives.
+      game.nav.removeObstacle(id);
+      first = true; // click again
+      game.step(2);
+      expect(walk.moving).toBe(true);
+      const before = walk.path.map((p) => ({ ...p }));
+      game.nav.addObstacle({ x: 150, y: 130, halfX: 25, halfY: 25 });
+      game.step(30);
+      expect(walk.moving).toBe(true);
+      expect(walk.path).not.toEqual(before);
+      for (let i = 0; i < 60 * 20 && walk.moving; i++) game.step(1);
+      expect(walk.moving).toBe(false);
+      expect(Math.hypot(entity.position.x - 200, entity.position.y - 320)).toBeLessThan(20);
+      game.destroy();
+    });
+
     it('a restore converges the mesh to the snapshot it rewinds to', async () => {
       const game = await bootDynamic();
       const open = game.snapshot();

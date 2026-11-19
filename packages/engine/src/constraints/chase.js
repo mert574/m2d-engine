@@ -154,7 +154,11 @@ export class Chase extends Constraint {
     this.repathTime += dt;
     const end = this.path?.[this.path.length - 1];
     const strayed = !end || this.#groundDistance(end, quarry.position) > this.#arrive() * 2;
-    if (!this.path || (this.repathTime >= this.repath && strayed)) {
+    // At the same cadence: a route a moving obstacle rolled onto is stale
+    // even while the quarry stands still.
+    const blocked = this.path && this.repathTime >= this.repath
+      && nav.routeBlocked([entity.position, ...this.path.slice(this.waypoint)]);
+    if (!this.path || (this.repathTime >= this.repath && (strayed || blocked))) {
       this.repathTime = 0;
       const route = nav.findPath(entity.position, quarry.position, { agent: this.agent });
       if (route) {
@@ -295,7 +299,7 @@ export class Chase extends Constraint {
 
     if (this.path) {
       overlay.drawPath({
-        points: this.path.slice(Math.max(0, this.waypoint - 1)).map(place),
+        points: [pos, ...this.path.slice(this.waypoint).map(place)],
         strokeStyle: 'rgba(107, 199, 255, 0.6)', lineWidth: 1.5
       });
     }

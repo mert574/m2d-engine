@@ -142,6 +142,8 @@ export class Behavior extends Constraint {
   stalled: number;
   /** Stalls in a row on the same goal, for the corner-wedge escape. */
   stallStrikes: number;
+  /** The clock on the obstacle check: is the route still clear? */
+  routeWatch: number;
   /** The wander clock and target, seeded like Chase's. */
   wanderTime: number;
   wanderTarget: Point | null;
@@ -182,6 +184,7 @@ export class Behavior extends Constraint {
     this.goal = null;
     this.stalled = 0;
     this.stallStrikes = 0;
+    this.routeWatch = 0;
     this.wanderTime = 0;
     this.wanderTarget = null;
     this.warned = false;
@@ -271,6 +274,7 @@ export class Behavior extends Constraint {
     this.waypoint = 0;
     this.stalled = 0;
     this.stallStrikes = 0;
+    this.routeWatch = 0;
   }
 
   /**
@@ -324,6 +328,20 @@ export class Behavior extends Constraint {
       return true;
     }
     if (!distance) return false;
+
+    // A moving obstacle rolled onto the route: stale before it presses
+    // against anything. Checked four times a second against the tracked
+    // obstacle list; a crossing forgets the goal, and the next tick plans
+    // afresh from where it stands.
+    if (this.route) {
+      this.routeWatch += dt;
+      if (this.routeWatch >= 0.25) {
+        this.routeWatch = 0;
+        if (game.nav?.routeBlocked?.([this.entity.position, ...this.route.slice(this.waypoint)])) {
+          this.goal = null;
+        }
+      }
+    }
 
     // Shoved off the route — a collision, a clipped corner — it asks again
     // from where it actually stands after half a second of no headway. A
@@ -608,7 +626,7 @@ export class Behavior extends Constraint {
 
     if (this.route) {
       overlay.drawPath({
-        points: this.route.slice(Math.max(0, this.waypoint - 1)).map(place),
+        points: [pos, ...this.route.slice(this.waypoint).map(place)],
         strokeStyle: 'rgba(255, 179, 94, 0.7)', lineWidth: solid ? 2 : 1.5
       });
     }

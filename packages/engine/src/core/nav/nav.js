@@ -22,6 +22,28 @@ import { bakeStamp } from './stamp.js';
 import { fetchBinary } from './fetchBinary.js';
 
 /** Whether two obstacle boxes differ in any field. */
+/**
+ * Whether the segment a→b, already in a box's own frame, crosses the box
+ * of half-extents (hx, hy): a Liang-Barsky clip that only answers yes/no.
+ */
+function segmentCrossesBox(ax, ay, bx, by, hx, hy) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  let enter = 0;
+  let exit = 1;
+  for (const [p, q] of [[-dx, ax + hx], [dx, hx - ax], [-dy, ay + hy], [dy, hy - ay]]) {
+    if (p === 0) {
+      if (q < 0) return false; // parallel and outside this slab
+      continue;
+    }
+    const t = q / p;
+    if (p < 0) enter = Math.max(enter, t);
+    else exit = Math.min(exit, t);
+    if (enter > exit) return false;
+  }
+  return true;
+}
+
 const movedBox = (a, b) => a.x !== b.x || a.y !== b.y || (a.z ?? 0) !== (b.z ?? 0)
   || a.halfX !== b.halfX || a.halfY !== b.halfY || (a.halfZ ?? 0) !== (b.halfZ ?? 0) || (a.angle ?? 0) !== (b.angle ?? 0);
 
@@ -181,6 +203,43 @@ export class Nav {
 
   removeObstacle(id) {
     if (this.obstacles.delete(id)) this.#dirty = true;
+  }
+
+  /**
+   * Whether a route's corners cross any tracked obstacle's box on the
+   * ground plane. The cheap staleness test a walker runs between re-plans:
+   * a cart rolls onto the line a route was funnelled along, and the route
+   * is stale long before the walker presses against it. The list is plain
+   * simulation state, so this is a handful of segment-against-box clips —
+   * no query into the wasm, and nothing re-planned unless it says so.
+   *
+   * @param {{x: number, y: number, z?: number}[]} points - The corners
+   *   still ahead, the walker's own position first
+   * @returns {boolean}
+   */
+  routeBlocked(points) {
+    if (this.obstacles.size === 0 || points.length < 2) return false;
+    const solid = (this.game.options.dimensions ?? 2) === 3;
+    const ground = (p) => (solid ? { x: p.x, y: p.z ?? 0 } : { x: p.x, y: p.y });
+    for (const box of this.obstacles.values()) {
+      const hx = box.halfX;
+      const hy = solid ? (box.halfZ ?? box.halfX) : box.halfY;
+      const cx = box.x;
+      const cy = solid ? (box.z ?? 0) : box.y;
+      const c = Math.cos(box.angle ?? 0);
+      const s = Math.sin(box.angle ?? 0);
+      for (let i = 1; i < points.length; i++) {
+        const a = ground(points[i - 1]);
+        const b = ground(points[i]);
+        // Into the box's frame, then a slab clip against its half-extents.
+        const ax = (a.x - cx) * c + (a.y - cy) * s;
+        const ay = -(a.x - cx) * s + (a.y - cy) * c;
+        const bx = (b.x - cx) * c + (b.y - cy) * s;
+        const by = -(b.x - cx) * s + (b.y - cy) * c;
+        if (segmentCrossesBox(ax, ay, bx, by, hx, hy)) return true;
+      }
+    }
+    return false;
   }
 
   /**
