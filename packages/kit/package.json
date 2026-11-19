@@ -1,7 +1,7 @@
 {
   "name": "m2d-kit",
-  "version": "0.3.0",
-  "description": "Ready-to-use pieces for games on m2d: the stock cast (players, platforms, mobs, pickups, a turret, an NPC), scenery (a sky, stars and clouds, particle fields, ambient sound), genre controllers, prefab templates, combat effects and helpers \u2014 compositions of the engine's capabilities, too opinionated for the engine and too reusable to live in one game. TypeScript, published as JavaScript with its declarations; imports nothing from the DOM at load, so a server can import a game that imports it.",
+  "version": "0.4.0",
+  "description": "Ready-to-use pieces for games on m2d: the stock cast (players, platforms, mobs, pickups, a turret, an NPC), scenery (a sky, stars and clouds, particle fields, ambient sound), genre controllers, prefab templates, combat effects and helpers — compositions of the engine's capabilities, too opinionated for the engine and too reusable to live in one game. TypeScript, published as JavaScript with its declarations; imports nothing from the DOM at load, so a server can import a game that imports it.",
   "type": "module",
   "exports": {
     ".": {
@@ -15,6 +15,10 @@
     "./controls": {
       "types": "./dist/controls.d.ts",
       "default": "./dist/controls.js"
+    },
+    "./ai": {
+      "types": "./dist/ai.d.ts",
+      "default": "./dist/ai.js"
     },
     "./scenery": {
       "types": "./dist/scenery.d.ts",
@@ -50,10 +54,11 @@
     "node": ">=24"
   },
   "peerDependencies": {
-    "m2d-engine": "^1.9.0"
+    "m2d-engine": "^1.11.0"
   },
   "devDependencies": {
     "m2d-engine": "*",
+    "m2d-server": "^0.1.1",
     "vitest": "^5.0.5"
   },
   "repository": {

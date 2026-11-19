@@ -89,7 +89,7 @@ Defaults: speed 480, damage 25, lifetime 6 s; it hurts the players' avatars unle
 
 ## `m2d-kit/controls`
 
-Genre controllers: how a body answers held keys in one kind of game. The engine's `KeyboardControl` and `PointerMove` are the plain capabilities; these are opinionated, and a game attaches one from a scene's `constraints` or an actor's constructor. `registerKitControls(game)` registers the four under their names; `registerKit(game)` from `m2d-kit` registers the cast, the controls and the effects together.
+Genre controllers: how a body answers held keys in one kind of game. The engine's `KeyboardControl` and `PointerMove` are the plain capabilities; these are opinionated, and a game attaches one from a scene's `constraints` or an actor's constructor. `registerKitControls(game)` registers the four under their names; `registerKit(game)` from `m2d-kit` registers the cast, the controls, the scenery, the effects and the AI together.
 
 ### ThrustControl
 
@@ -143,6 +143,18 @@ Fields and methods: `surfaceGrip` (set it per tick from the world: 1 asphalt, lo
 ### WallSlip
 
 `m2d-kit/controls`. No options. Sets the body's friction to zero while airborne and restores it on landing, so holding a direction into a wall does not make a dynamic player cling to it.
+
+## `m2d-kit/ai`
+
+NPC intelligence. `registerKitAi(game)` registers it (also part of `registerKit`); one entry, so a game without NPCs never loads it.
+
+### Behavior
+
+`m2d-kit/ai`. The NPC ladder — patrol, alert, telegraph, attack, recover, return — as one constraint over the engine's capabilities, driven entirely by what the NPC honestly senses. It conducts rather than performs: patrol belongs to a `path` slot (`PathFollow`) or a seeded `wander` around home (standing still with neither), the hunt to the `chase` slot (routing and pack separation included), the blow to the `attack` slot, whose `windup` is the telegraph. The behaviour owns those slots' `suspended` every tick it runs; a game that must take over (a ward repelling the pack) suspends the behaviour itself, which freezes the arrangement. Its own movement is only the walk to a point it knows — a noise, the last-seen position, home — routed over the navmesh (`agent`) when one is loaded, straight when not; in 3D the ground plane is (x, z) and the body keeps its vertical speed.
+
+Alert begins only from a sighting — `canSee` (see [Sight](./gameplay#sight)): within `sightRange`, inside `sightCone` radians around the way it last moved, nothing in `sightBlockers` (static geometry when unset) in between, looked for every `senseInterval` seconds — or from a heard world event: a name in `hears` (`step` unless set) with an `at` within `hearingRange` (0, the default, is deaf), never its own. `patience` seconds without a sighting sends it to the last-seen point and then home. The strike is telegraphed within `strikeRange` (the attack's own range when 0) with the cooldown ready, and `recover` seconds follow the swing. `leash` bounds the hunt absolutely: beyond it of home the walk home begins, and a quarry camped outside the leash is ignored rather than paced at the line. Without an `attack` slot the telegraph rungs are skipped — contact damage does the hurting.
+
+Every decision is a plain field, so a snapshot mid-telegraph restores exactly; `state`, `stateTime`, `lastSeen` and `facing` replicate (the attack replicates its own windup), so a client draws a ladder it never simulated. `home` is where the first tick found it.
 
 ## `m2d-kit/scenery`
 

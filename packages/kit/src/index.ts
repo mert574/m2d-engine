@@ -11,6 +11,8 @@
  */
 export { Ghost, Bee, Coin, MovingPlatform, Player, TopDownPlayer, ObliquePlayer, Platform, Turret, Rocket, Npc, GravityDial, Clip, PREFAB_TEMPLATES, registerKitActors } from './actors.ts';
 export { WallSlip, GlideControl, CarControl, ThrustControl, registerKitControls } from './controls.ts';
+export { Behavior, registerKitAi } from './ai.ts';
+export type { BehaviorOptions, BehaviorState } from './ai.ts';
 export { Sky, Scatter, ParticleField, AmbientSound, PathStrip, SCENERY_TEMPLATES, registerKitScenery } from './scenery.ts';
 export { AttackSwing, HitBurst, registerEffects } from './effects.ts';
 export { makeRng, range } from './random.ts';
@@ -25,6 +27,7 @@ import { registerKitActors } from './actors.ts';
 import { registerKitControls } from './controls.ts';
 import { registerKitScenery } from './scenery.ts';
 import { registerEffects } from './effects.ts';
+import { registerKitAi } from './ai.ts';
 
 /** Everything the kit registers, in one call, before the game's own registrations. */
 export function registerKit(game: M2D): void {
@@ -32,4 +35,5 @@ export function registerKit(game: M2D): void {
   registerKitControls(game);
   registerKitScenery(game);
   registerEffects(game);
+  registerKitAi(game);
 }
