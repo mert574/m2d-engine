@@ -23,6 +23,7 @@ Each item ships with MCP support. Reviewed against the code on 17 Nov 2026; the 
 - Terrain brushes, once terrain exists ([[3d]])
 - Export targets: an itch zip, a PWA manifest
 - Hosting a match from the editor on `m2d-server`, and a replica inspector
+- **3D play can crash rapier3d at boot** (`RuntimeError: unreachable` / `memory access out of bounds` from the wasm, page errors at play start; the sim then ticks 0 steps or limps). Reproduced on the shipped yard as on new scenes, 19 Nov 2026, driving the editor headless on this machine; the same scenes play clean when a plain engine page boots them, so it is the editor's play path (likely the old viewport game's teardown racing the new game). Pre-existing — pathfinding's court demo only made it visible
 
 ## Record
 

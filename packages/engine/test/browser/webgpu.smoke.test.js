@@ -346,6 +346,35 @@ describe('a 3D game through the engine loop', () => {
     expect(sky[2], `sky through game.update: ${sky}`).toBeGreaterThan(sky[0]);
   });
 
+  it('draws a click\'s route on the overlay in debug view: the 3D frame runs a draws3D constraint', async () => {
+    const { Entity } = await import('../../src/core/entity.js');
+    const { PointerMove } = await import('../../src/constraints/pointerMove.js');
+    const { game } = game3D();
+    game.registerActor('Ground', class extends Entity { name = 'Ground'; });
+    game.registerActor('Crate', class extends Entity { name = 'Crate'; });
+    game.sceneManager.addScene('yard', { fetch: async () => YARD });
+    await game.sceneManager.switchTo('yard');
+    const scene = game.sceneManager.getCurrentScene();
+    const crate = scene.entitiesById.get('crate');
+    crate.addConstraint('walk', new PointerMove(crate, { speed: 2 }));
+    crate.getConstraint('walk').goTo(5, 5);
+    game.renderer.setDebugEnabled(true);
+
+    // Building the frame submits the route and the destination ring to the
+    // world overlay, which replays them projected when the frame draws.
+    game.worldOverlay.clear();
+    scene.frame3D(1 / 60);
+    const shapes = game.worldOverlay.shapes.map((shape) => shape.method);
+    expect(shapes).toContain('drawPath');
+    expect(shapes).toContain('drawArc');
+
+    // Without the debug view, a click draws nothing.
+    game.renderer.setDebugEnabled(false);
+    game.worldOverlay.clear();
+    scene.frame3D(1 / 60);
+    expect(game.worldOverlay.shapes).toHaveLength(0);
+  });
+
   it('collects an entity\'s particle field into the frame, placed at its body', async () => {
     const { Entity } = await import('../../src/core/entity.js');
     const { game } = game3D();

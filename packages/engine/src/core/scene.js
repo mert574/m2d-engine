@@ -1679,6 +1679,15 @@ export class Scene {
       }
       for (const entity of game.entities) {
         if (entity.particles && !entity.dead && entity.visible) this.#addEntityParticles(frame, entity);
+        // Constraints that can annotate a 3D view (a route, a click ring)
+        // say so with `static draws3D`; the 2D world pass calls every
+        // constraint's draw, but only through `entity.draw`, which a 3D
+        // frame never runs.
+        if (!entity.dead && entity.visible !== false) {
+          for (const constraint of entity.constraints.values()) {
+            if (constraint.constructor.draws3D) constraint.draw(deltaTime);
+          }
+        }
         const mesh = entity.mesh;
         if (!mesh || mesh.visible === false || !entity.visible || entity.dead) continue;
         const body = entity.body;

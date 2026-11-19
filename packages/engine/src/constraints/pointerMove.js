@@ -36,6 +36,8 @@ import { s } from '../core/schema.js';
  */
 export class PointerMove extends Constraint {
   static description = 'Click to move: a press on the world sets a destination to walk to, routed over the navmesh when the scene has one';
+  /** Its debug drawing handles 3D itself, so the 3D frame runs it too. */
+  static draws3D = true;
   static params = {
     speed: s.number({ initial: 200, positive: true, unit: 'px/s' }),
     speedSpace: s.enumOf(['screen', 'world'], { initial: 'screen' }),
@@ -66,10 +68,13 @@ export class PointerMove extends Constraint {
 
   /**
    * Walk somewhere from code: routed like a click, and ignored like one
-   * when no route exists. Returns whether the walk was taken.
+   * when no route exists. Returns whether the walk was taken. In a 3D
+   * scene two arguments are a ground point — `goTo(x, z)`, as the pointer
+   * gives one — and a third is the full position's height: `goTo(x, y, z)`.
    */
-  goTo(x, y) {
-    return this.#head({ x, y });
+  goTo(x, y, z) {
+    if (z !== undefined) return this.#head({ x, y, z });
+    return this.#head(this.#solid ? { x, y: 0, z: y } : { x, y });
   }
 
   stop() {
