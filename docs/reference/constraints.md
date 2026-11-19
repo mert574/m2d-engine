@@ -58,6 +58,8 @@ Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `
 
 `combo` makes the attack a chain: an array of steps (`{ damage, knockback, arc }`, each overriding the base), advanced when a swing starts within `comboWindow` seconds (default 0.8) of the last one ending, and reset otherwise. The cooldown still gates every swing. `onStart(step)` fires per swing and `onHit(entity, step)` per target a swing lands on; a finisher that launches pops the target's `elevation` there. Ash Row's three-punch chain and its sweep kick (a second `Attack` under its own constraint name) are the worked example.
 
+`windup` telegraphs the swing: `startAttack` commits the direction and waits that many frames before the swing itself — the hit check, the animation, `onStart` — happens, so the blow is dodgeable. `cancelWindup()` drops a telegraph without swinging (a stun, a death). `isWindingUp` and `windupTime` are replicated, and the windup's own `params` arrive on both sides, so a client draws the telegraph from the same numbers the server swings by; in debug view the committed arc closes in as the windup runs out.
+
 `constraints/attack.js`. A melee attack that damages enemies within a half circle in the facing direction and knocks them back.
 
 | Option | Default | Meaning |
@@ -65,6 +67,7 @@ Methods: `takeDamage(amount)`, `heal(amount)`, `isInvulnerable()`. Properties: `
 | `damage` * | `10` | |
 | `range` * | `40` | Radius in px |
 | `cooldown` * | `30` | In 60ths of a second |
+| `windup` * | `0` | Telegraph before the swing, in 60ths of a second; the direction commits when it starts |
 | `onStart()` | | Called when an attack begins |
 
 Call `startAttack(direction)` with `1` or `-1`. It does nothing during the cooldown. Hits are found once, at the start of the attack, with an `overlaps` query. Targets are bodies with the `enemy` collision category and a `Health` constraint that is not invulnerable. Each target takes `damage` and a fixed knockback impulse. The attack sets the entity's animation to `attackRight` or `attackLeft` and leaves it there. The built-in players switch back to `idle` from their movement handler.

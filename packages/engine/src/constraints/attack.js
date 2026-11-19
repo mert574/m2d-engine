@@ -26,6 +26,12 @@ const KNOCKBACK_IMPULSE = { x: 8335, y: -4997 };
  * @param {number} [options.damage=10]
  * @param {number} [options.range=40] - Reach from the entity's centre, px
  * @param {number} [options.cooldown=30] - Between swings, in 60 Hz frames
+ * @param {number} [options.windup=0] - Telegraph before the swing, in 60 Hz
+ *   frames. `startAttack` commits the direction and starts the windup; the
+ *   swing itself — the hit check, the animation, `onStart` — happens when it
+ *   runs out, so the telegraph is dodgeable and a mid-windup snapshot
+ *   resumes it. `isWindingUp` and `windupTime` replicate, so a client can
+ *   draw the telegraph
  * @param {number} [options.arc=Math.PI] - Width of the swing, radians
  * @param {number} [options.knockback] - Impulse along the swing; defaults
  *   to the side view's fling. 0 disables it
@@ -51,6 +57,7 @@ export class Attack extends Constraint {
     damage: s.number({ initial: 10, min: 0 }),
     range: s.number({ initial: 40, positive: true, unit: 'px' }),
     cooldown: s.number({ initial: 30, min: 0, unit: 'frames at 60fps' }),
+    windup: s.number({ initial: 0, min: 0, unit: 'frames at 60fps', description: 'Telegraph before the swing; the direction commits when it starts' }),
     arc: s.number({ initial: Math.PI, min: 0, unit: 'rad' }),
     knockback: s.number({ min: 0, unit: 'px/s' }),
     comboWindow: s.number({ initial: 0.8, min: 0, unit: 's' }),
@@ -63,13 +70,14 @@ export class Attack extends Constraint {
    * same one still in progress and run `onStart` for it (its look, its
    * sound) without running the simulation. See `replicaUpdated`.
    */
-  static replicated = ['swings', 'step', 'angle', 'direction', 'sideways', 'isAttacking', 'attackTime'];
+  static replicated = ['swings', 'step', 'angle', 'direction', 'sideways', 'isAttacking', 'attackTime', 'isWindingUp', 'windupTime'];
 
   constructor(entity, options = {}) {
     super(entity);
     this.damage = options.damage || 10;
     this.range = options.range || 40;
     this.cooldown = (options.cooldown || 30) / 60; // convert frames to seconds (assuming 60fps baseline)
+    this.windup = (options.windup || 0) / 60;
     this.arc = options.arc ?? Math.PI;
     this.knockback = options.knockback;
     this.combo = options.combo ?? null;
@@ -85,6 +93,10 @@ export class Attack extends Constraint {
     this.swings = 0;
 
     this.isAttacking = false;
+    /** Mid-telegraph: the direction is committed, the swing not yet made. */
+    this.isWindingUp = false;
+    /** Seconds into the windup, for a telegraph drawn by progress. */
+    this.windupTime = 0;
     this.currentCooldown = 0;
     this.direction = 1; // 1 for right, -1 for left
     /** The swing's centre, radians, y down. 0 is right. */
@@ -96,11 +108,33 @@ export class Attack extends Constraint {
     this.hasCheckedHits = false;
   }
 
+  /**
+   * The frame-counted times arrive in frames (from a scene retuning this
+   * constraint) but are kept in seconds, as the constructor keeps them.
+   */
+  configure(params) {
+    const { cooldown, windup, ...rest } = params;
+    super.configure(rest);
+    if (cooldown !== undefined) this.cooldown = cooldown / 60;
+    if (windup !== undefined) this.windup = windup / 60;
+  }
+
   fixedUpdate(dt) {
     if (this.currentCooldown > 0) {
       this.currentCooldown -= dt;
     }
     if (!this.isAttacking) this.sinceSwing += dt;
+
+    if (this.isWindingUp) {
+      this.windupTime += dt;
+      // With a hair of slack: n frames of accumulated dt land a few ulps
+      // under n/60, and a 12-frame windup should swing on its 12th tick.
+      if (this.windupTime >= this.windup - 1e-9) {
+        this.isWindingUp = false;
+        this.windupTime = 0;
+        this.#swing();
+      }
+    }
 
     if (this.isAttacking) {
       // Check for hits only on the first tick of the attack
@@ -179,13 +213,33 @@ export class Attack extends Constraint {
   }
 
   /**
-   * Swing.
+   * Swing — or, with a `windup`, commit the direction and telegraph first.
    * @param {number} direction - `1` or `-1` for a side-view swing to the
    *   right or left, or any other number as an angle in radians
    */
   startAttack(direction) {
-    if (this.currentCooldown > 0) return;
+    if (this.currentCooldown > 0 || this.isWindingUp) return;
 
+    // ±1 exactly is the side-view contract; anything else is an angle.
+    this.sideways = direction === 1 || direction === -1;
+    this.angle = this.sideways ? (direction > 0 ? 0 : Math.PI) : direction;
+    this.direction = Math.cos(this.angle) >= 0 ? 1 : -1;
+    if (this.windup > 0) {
+      this.isWindingUp = true;
+      this.windupTime = 0;
+      return;
+    }
+    this.#swing();
+  }
+
+  /** Drop a telegraph without swinging: a stun, a death, a change of mind. */
+  cancelWindup() {
+    this.isWindingUp = false;
+    this.windupTime = 0;
+  }
+
+  /** The swing itself: the windup's end, or `startAttack` with none. */
+  #swing() {
     // Advance the chain when this swing follows the last closely enough.
     if (this.combo) {
       this.step = this.sinceSwing <= this.comboWindow ? (this.step + 1) % this.combo.length : 0;
@@ -193,15 +247,11 @@ export class Attack extends Constraint {
     this.sinceSwing = 0;
     this.swings++;
     this.isAttacking = true;
-    // ±1 exactly is the side-view contract; anything else is an angle.
-    this.sideways = direction === 1 || direction === -1;
-    this.angle = this.sideways ? (direction > 0 ? 0 : Math.PI) : direction;
-    this.direction = Math.cos(this.angle) >= 0 ? 1 : -1;
     this.hits.clear();
     this.currentCooldown = this.cooldown;
     this.attackTime = 0;
     this.entity.setAnimation(this.direction > 0 ? 'attackRight' : 'attackLeft');
-    
+
     if (this.onStart) {
       this.onStart(Math.max(0, this.step));
     }
@@ -233,5 +283,19 @@ export class Attack extends Constraint {
       strokeStyle: 'rgba(0, 150, 255, 0.3)',
       fill: false
     });
+    // A telegraph in progress: the committed arc closing in as it runs out.
+    if (this.isWindingUp && this.windup > 0) {
+      const left = 1 - this.windupTime / this.windup;
+      this.entity.game.worldOverlay.drawArc({
+        x: pos.x,
+        y: pos.y,
+        radius: Math.max(2, this.range * left),
+        startAngle: this.angle - this.arc / 2,
+        endAngle: this.angle + this.arc / 2,
+        strokeStyle: 'rgba(255, 160, 60, 0.7)',
+        lineWidth: 1.5,
+        fill: false
+      });
+    }
   }
 }

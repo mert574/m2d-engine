@@ -57,6 +57,20 @@ describe('WorldEvents', () => {
     expect(flash.timeLeft).toBeGreaterThan(0);
   });
 
+  it('since and sinceData are the simulation-side read, with and without the payload', () => {
+    const game = makeTestGame();
+    const cursor = game.events.raised;
+    game.events.emit('step', { id: 1, at: { x: 5, y: 6 } });
+    game.events.emit('cry', { id: 2 });
+    expect(game.events.since(cursor)).toEqual(['step', 'cry']);
+    expect(game.events.sinceData(cursor)).toEqual([
+      { name: 'step', data: { id: 1, at: { x: 5, y: 6 } } },
+      { name: 'cry', data: { id: 2 } }
+    ]);
+    // A cursor moved up to the raised count has heard everything.
+    expect(game.events.sinceData(game.events.raised)).toEqual([]);
+  });
+
   it('holds a bounded queue when nobody drains it', () => {
     const game = makeTestGame();
     for (let i = 0; i < 400; i++) game.events.emit('spark', { i });

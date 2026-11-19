@@ -52,6 +52,17 @@ export class SceneRules {
     this.emitted = new Set();
     /** The notify listeners, dropped by `unlisten`. */
     this.#off = [];
+    // What the rules have done is simulation state: the fired flags and the
+    // event cursor rewind with a snapshot, or a restored run would fire a
+    // once-rule twice and skip the events the abandoned timeline had heard.
+    this.game.trackState?.('rules', {
+      save: () => ({ seenEvents: this.seenEvents, started: this.started, fired: this.rules.map((rule) => rule.fired) }),
+      load: ({ seenEvents, started, fired }) => {
+        this.seenEvents = seenEvents;
+        this.started = started;
+        fired.forEach((value, i) => { this.rules[i].fired = value; });
+      }
+    });
   }
 
   #off;

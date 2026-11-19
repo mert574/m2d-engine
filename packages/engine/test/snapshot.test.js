@@ -57,6 +57,29 @@ describe('snapshot and restore', () => {
     });
   }
 
+  it('the raised events rewind with the world, so a hearing cursor replays the same tail', async () => {
+    const game = await arena();
+    game.step(10);
+    game.events.emit('noise', { at: { x: 1, y: 2 } });
+    // A hearing constraint's cursor: a plain field the snapshot carries.
+    const cursor = game.events.raised;
+    const snapshot = game.snapshot();
+    game.step(5);
+    game.events.emit('clang', { at: { x: 3, y: 4 } });
+    const firstRun = game.events.sinceData(cursor);
+    expect(firstRun.map(({ name }) => name)).toContain('clang');
+
+    game.restore(snapshot);
+    // The abandoned timeline's events are gone with it...
+    expect(game.events.raised).toBe(cursor);
+    expect(game.events.sinceData(cursor)).toEqual([]);
+    // ...and the run after the restore raises the same tail again.
+    game.step(5);
+    game.events.emit('clang', { at: { x: 3, y: 4 } });
+    expect(game.events.sinceData(cursor)).toEqual(firstRun);
+    game.destroy();
+  });
+
   it('entities spawned after the snapshot go, and ones removed after it come back as themselves', async () => {
     const game = await arena();
     const hold = controller(game);
@@ -227,7 +250,9 @@ describe('snapshot and restore', () => {
     game.restore(snapshot);
     expect(waves).toBe(2);
     await game.sceneManager.switchTo('other');
-    expect(game.trackedState.size).toBe(0);
+    // The scene's registrations are gone; the engine's own — the world
+    // events' rewind — registers afresh on every load.
+    expect([...game.trackedState.keys()]).toEqual(['events']);
     expect(() => game.trackState('x', {})).toThrow(/save, load/);
     game.destroy();
   });

@@ -137,6 +137,29 @@ describe('rules', () => {
     game.destroy();
   });
 
+  it('what the rules did rewinds with a snapshot: a fired once-rule arms again, a heard emit is unheard', async () => {
+    const { game, scene } = await make(level({
+      counters: { alarms: {} },
+      rules: [{ when: { event: 'emit', name: 'alarm' }, then: [{ do: 'count', counter: 'alarms', add: 1 }] }]
+    }));
+    game.step(2);
+    const snapshot = game.snapshot();
+    game.events.emit('alarm', {});
+    game.step(2);
+    expect(scene.counters.get('alarms')).toBe(1);
+
+    game.restore(snapshot);
+    expect(scene.counters.get('alarms')).toBe(0);
+    // The abandoned timeline's alarm went with it: nothing left to hear...
+    game.step(2);
+    expect(scene.counters.get('alarms')).toBe(0);
+    // ...and the rearmed rule hears the next one as its first.
+    game.events.emit('alarm', {});
+    game.step(2);
+    expect(scene.counters.get('alarms')).toBe(1);
+    game.destroy();
+  });
+
   it('do not run in edit mode', async () => {
     const { game, scene } = await make(level({ rules: [{ when: { event: 'start' }, then: [{ do: 'set', object: 'gate', property: 'started', value: true }] }] }), { editMode: true });
     expect(scene.rules).toBeFalsy();

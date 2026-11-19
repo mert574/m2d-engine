@@ -185,6 +185,66 @@ describe('Attack in any direction', () => {
   });
 });
 
+describe('Attack windup', () => {
+  let game;
+  beforeEach(() => { game = makeTestGame(); });
+
+  function duel(windup) {
+    const player = new Entity(makeBody(game, 100, 100, 20, 20, { bodyType: 'static' }), null, game);
+    game.physics.add(player.body);
+    const attack = new Attack(player, { range: 60, windup, knockback: 0 });
+    player.addConstraint('attack', attack);
+    const body = makeBody(game, 150, 100, 20, 20, { bodyType: 'dynamic' });
+    const enemy = new Entity(body, null, game);
+    enemy.addConstraint('health', new Health(enemy, { maxHealth: 100 }));
+    game.physics.add(body);
+    game.physics.step(1 / 60);
+    return { attack, enemy };
+  }
+
+  it('telegraphs for its frames, then swings with the direction it committed to', () => {
+    const { attack, enemy } = duel(12);
+    attack.startAttack(1);
+    expect(attack.isWindingUp).toBe(true);
+    expect(attack.swings).toBe(0);
+    // Mid-windup nothing has happened to the target, and the telegraph
+    // cannot be re-aimed by asking again.
+    for (let i = 0; i < 6; i++) attack.fixedUpdate(1 / 60);
+    attack.startAttack(-1);
+    expect(attack.direction).toBe(1);
+    expect(enemy.getConstraint('health').currentHealth).toBe(100);
+    // The windup runs out: the swing happens in that same tick.
+    for (let i = 0; i < 6; i++) attack.fixedUpdate(1 / 60);
+    expect(attack.isWindingUp).toBe(false);
+    expect(attack.swings).toBe(1);
+    expect(enemy.getConstraint('health').currentHealth).toBe(90);
+  });
+
+  it('a cancelled windup never swings; without one the swing is immediate as ever', () => {
+    const { attack, enemy } = duel(12);
+    attack.startAttack(1);
+    for (let i = 0; i < 6; i++) attack.fixedUpdate(1 / 60);
+    attack.cancelWindup();
+    for (let i = 0; i < 20; i++) attack.fixedUpdate(1 / 60);
+    expect(attack.swings).toBe(0);
+    expect(enemy.getConstraint('health').currentHealth).toBe(100);
+
+    const instant = duel(0);
+    instant.attack.startAttack(1);
+    instant.attack.fixedUpdate(1 / 60);
+    expect(instant.attack.swings).toBe(1);
+    expect(instant.enemy.getConstraint('health').currentHealth).toBe(90);
+  });
+
+  it('a scene retune keeps the frame units: cooldown and windup arrive in frames, live in seconds', () => {
+    const { attack } = duel(12);
+    attack.configure({ windup: 30, cooldown: 60, damage: 25 });
+    expect(attack.windup).toBeCloseTo(0.5);
+    expect(attack.cooldown).toBeCloseTo(1);
+    expect(attack.damage).toBe(25);
+  });
+});
+
 describe('Abilities', () => {
   it('casts on a key edge, honours cooldown and locks', () => {
     const game = makeTestGame();

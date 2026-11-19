@@ -148,10 +148,15 @@ game.events.on('damage', ({ id, amount }) => { /* a HUD, a camera shake */ });
 | `events.on(name, handler)` | Listen for events that are not one entity's. Returns a function that stops listening |
 | `events.take()` | The events raised since the last take. The frame loop and the match host call it |
 | `events.dispatch(events)` | Deliver them. Called with the frame's own on a game alone, and with the server's on a client |
+| `events.since(after)` | The names raised after event number `after`. Simulation-side: a level rule's `emit` trigger reads it |
+| `events.sinceData(after)` | As `since`, with each event's data: how an NPC hears a footstep and where it landed |
+| `events.raised` | How many events have ever been raised: the cursor `since` and `sinceData` count from |
 
 An event that names an entity reaches that entity's `onWorldEvent(name, data)`, which offers it to each of its constraints, the path `onCollisionStart` takes. That is how `DamageFlash` flashes and `Footsteps` makes its sound without subscribing to anything, and it costs one lookup per event rather than a call to every entity in the world.
 
 Delivery is always **after** the tick that raised it, never inside it, so presentation cannot feed back into the simulation it is reacting to and a game behaves the same way alone and online. `Health` raises `damage`, `death` and `heal`; `Footsteps` raises `step` with the sound to play.
+
+The simulation itself may also listen — a rule firing on `emit`, an NPC hearing a noise — but through `since` and `sinceData`, never `on`: the reader keeps its own cursor (a `raised` count read earlier) as a plain field and polls inside its `fixedUpdate`, so it hears an event in the tick it was raised. The cursor, the count and the recent events all rewind with a snapshot, which is what keeps a hearing NPC deterministic across a restore.
 
 ## Intents
 

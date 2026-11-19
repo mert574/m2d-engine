@@ -753,18 +753,28 @@ export class RapierPhysicsWorld3D extends PhysicsWorldBase {
 
     const hits = [];
     const ray = new RAPIER.Ray(from, direction);
+    const record = (body, hit) => {
+      hits.push({
+        body,
+        point: Vec3.add(from, Vec3.scale(direction, hit.timeOfImpact)),
+        normal: { x: hit.normal.x, y: hit.normal.y, z: hit.normal.z },
+        distance: hit.timeOfImpact
+      });
+    };
     this.rWorld.intersectionsWithRay(ray, length, true, (hit) => {
       const body = this.byCollider.get(hit.collider.handle);
-      if (body && (!filter || filter(body))) {
-        hits.push({
-          body,
-          point: Vec3.add(from, Vec3.scale(direction, hit.timeOfImpact)),
-          normal: { x: hit.normal.x, y: hit.normal.y, z: hit.normal.z },
-          distance: hit.timeOfImpact
-        });
+      if (body && !this.unindexed.has(body) && (!filter || filter(body))) {
+        record(body, hit);
       }
       return true;
     });
+    // As the 2D backend: the broad phase cannot be trusted about bodies
+    // added or moved since the last step, so their shapes are asked directly.
+    for (const body of this.unindexed) {
+      if (filter && !filter(body)) continue;
+      const hit = body.queryShape.castRayAndGetNormal(ray, body.position, body.rotation, length, true);
+      if (hit) record(body, hit);
+    }
     return hits.sort((a, b) => a.distance - b.distance);
   }
 }

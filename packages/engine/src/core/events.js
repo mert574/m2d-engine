@@ -29,6 +29,14 @@
  * cannot feed back into the simulation it is reacting to, and so a game
  * behaves the same way alone and online.
  *
+ * The simulation itself may also listen — a level rule firing on `emit`,
+ * an NPC hearing a footstep — but through `since` and `sinceData`, never
+ * `on`: the reader keeps its own cursor (a `raised` count) as a plain
+ * field, polls inside its `fixedUpdate`, and so hears an event in the tick
+ * it was raised in (or the next, when raised later in the same tick's
+ * order). The count and the recent events rewind with a snapshot, so a
+ * restored run hears exactly what the first one heard.
+ *
  * ## Who hears one
  *
  * An event that names an entity (`id`, a network id) reaches that entity's
@@ -61,7 +69,7 @@ export class WorldEvents {
     this.listeners = new Map();
     /** How many events have been raised, ever: what `since` counts from. */
     this.raised = 0;
-    /** The last few events' names with their numbers, for `since`. @type {Array<[number, string]>} */
+    /** The last few events with their numbers, for `since` and `sinceData`. @type {Array<[number, string, object]>} */
     this.recent = [];
   }
 
@@ -75,6 +83,18 @@ export class WorldEvents {
    */
   since(after) {
     return this.recent.filter(([n]) => n > after).map(([, name]) => name);
+  }
+
+  /**
+   * As `since`, but with each event's data: what a constraint that hears
+   * the world reads — an NPC turning toward a footstep's `at`. Simulation
+   * code; treat the data as read-only, since every reader gets the same
+   * object.
+   * @param {number} after - A `raised` count read earlier
+   * @returns {{name: string, data: object}[]}
+   */
+  sinceData(after) {
+    return this.recent.filter(([n]) => n > after).map(([, name, data]) => ({ name, data }));
   }
 
   /**
@@ -93,7 +113,7 @@ export class WorldEvents {
     this.queue.push([name, data]);
     this.raised++;
     if (this.recent.length >= MAX_QUEUED) this.recent.shift();
-    this.recent.push([this.raised, name]);
+    this.recent.push([this.raised, name, data]);
   }
 
   /**
@@ -138,5 +158,18 @@ export class WorldEvents {
     this.queue.length = 0;
     this.recent.length = 0;
     this.listeners.clear();
+    // The raised count and the recent list are what `since` readers cursor
+    // into with plain fields a snapshot carries, so both rewind with the
+    // world — or a restored run would replay events of the abandoned
+    // timeline as new. Registered here because a scene load clears the
+    // tracked state just before it clears the events. The queue stays:
+    // it is delivery, and what was already handed out cannot be unsaid.
+    this.game.trackState?.('events', {
+      save: () => ({ raised: this.raised, recent: this.recent.map((entry) => [...entry]) }),
+      load: ({ raised, recent }) => {
+        this.raised = raised;
+        this.recent = recent.map((entry) => [...entry]);
+      }
+    });
   }
 }
