@@ -113,8 +113,17 @@ describe("Cinder Keep's click to move", () => {
     knight.body.setPosition({ x: 3944, y: 1480 });
     knight.body.setVelocity({ x: 0, y: 0 });
     const goblins = [...Array(4)].map((_, i) => game.sceneManager.getCurrentScene().entitiesById.get(`test-goblin-${i}`));
-    // Hunt from the next room: the shipped range is a room's worth.
-    for (const goblin of goblins) goblin.getConstraint('chase').detectionRange = 4000;
+    // Hunt from the next room: the shipped senses are a room's worth.
+    for (const goblin of goblins) {
+      goblin.getConstraint('chase').detectionRange = 4000;
+      const behavior = goblin.getConstraint('behavior');
+      behavior.sightRange = 4000;
+      behavior.hearingRange = 4000;
+      behavior.patience = 4;
+    }
+    // The hunt starts honestly: a step heard through the wall puts the
+    // pack on the trail; sight takes over where the corridor opens.
+    game.events.emit('step', { id: knight.netId, at: { x: knight.position.x, y: knight.position.y } });
 
     for (let i = 0; i < 60 * 60; i++) {
       game.step(1);
@@ -179,7 +188,23 @@ describe("Cinder Keep's goblins online", () => {
     game.netLogLevel = 0;
     registerKeep(game);
     game.sceneManager.addScene('keep', { fetch: navMatchScene, ...sceneHooks(game).keep });
-    game.input.setSnapshotSource(() => ({ down: [], pointer: { world: { x: 0, y: 0 }, buttons: 0 } }));
+    // A mutable pointer, so the test can click once the world is in: the
+    // knight's steps are what tells the vault pack he is there at all.
+    let click = null;
+    let held = 0;
+    game.input.setSnapshotSource(() => {
+      const first = click !== null && held === 0;
+      const at = click ?? { x: 0, y: 0 };
+      const pointer = {
+        ui: { x: 0, y: 0 }, world: { x: at.x, y: at.y },
+        isDown: click !== null, pressed: first,
+        pressedButtons: first ? 1 : 0, buttons: click ? 1 : 0, type: 'mouse'
+      };
+      if (click && ++held > 12) click = null;
+      return { down: [], pressed: [], pointer };
+    });
+    // Held a dozen ticks, so the press survives the send interval.
+    const clickFloor = (x, y) => { held = 0; click = { x, y }; };
     const net = await NetClient.connect(game, { url, ticket: issueTicket(SECRET, { player: 'ranger', match: 'keep' }), schema: KEEP_INPUT });
     const timer = setInterval(() => game.step(1), 1000 / 60);
     client = { stop() { clearInterval(timer); net.close(); } };
@@ -189,6 +214,12 @@ describe("Cinder Keep's goblins online", () => {
     const knight = game.players.local.avatar;
     const goblins = () => [...game.entities].filter((entity) => entity.sceneId?.startsWith('vault-goblin'));
     await until(() => goblins().length === 4);
+
+    // A short walk down the hall: the steps it raises are heard in the
+    // vault, through the wall, and the hunt starts from them.
+    const spawnAt = { ...knight.position };
+    clickFloor(3944, 1280);
+    await until(() => Math.hypot(knight.position.x - spawnAt.x, knight.position.y - spawnAt.y) > 40);
 
     // They arrive around the long wall — a hunt that cannot route pushes it
     // forever — and never stand inside one on the way.

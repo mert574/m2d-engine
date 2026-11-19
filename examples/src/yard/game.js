@@ -1,6 +1,7 @@
 import { Hero, Ground, Crate } from './actors.js';
 import { YardAfternoon } from './menuBackdrop.js';
 import { registerKitScenery } from 'm2d-kit/scenery';
+import { registerKitAi } from 'm2d-kit/ai';
 
 /**
  * The yard's definition: the cast and the options its simulation depends
@@ -14,6 +15,8 @@ export const GAME = { dimensions: 3 };
 export function register(game) {
   // The wind, and the lot's motes and chimney smoke.
   registerKitScenery(game);
+  // The court's NPCs: the behaviour ladder their prefabs declare.
+  registerKitAi(game);
   for (const [name, actor] of Object.entries({ Hero, Ground, Crate })) {
     game.registerActor(name, actor);
   }

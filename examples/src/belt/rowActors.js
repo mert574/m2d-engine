@@ -5,6 +5,7 @@ import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { Attack } from 'm2d-engine/constraints/attack.js';
 import { drawGroundShadow, shadowForLift } from 'm2d-engine/core/renderers/shadows.js';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
+import { Behavior } from 'm2d-kit/ai';
 
 /**
  * Ash Row's cast. Everything stands on the ground plane: x along the
@@ -79,12 +80,21 @@ export class Thug extends Ghost {
     this.constraints.delete('contactDamage');
     this.addConstraint('strike', new Attack(this, {
       damage: 14, range: 95, arc: Math.PI * 0.9, cooldown: 100, knockback: 3000,
-      targets: ['player']
+      targets: ['player'],
+      // The telegraph is the attack's own now; the behaviour aims and waits.
+      windup: this.windupTime * 60,
+      onStart: () => {
+        this.game.soundManager.playSound('attack');
+        this.strikeFlash = 0.3;
+        this.strikeHold = 0.45;
+      }
     }));
-    /** The windup: seconds of raised arms before the strike lands. */
-    this.windup = 0;
+    this.addConstraint('behavior', new Behavior(this, {
+      sightRange: 1600, patience: 2.5, strikeRange: this.reach,
+      recover: 0.6, speed: 95, idleSpeed: 40
+    }));
+    /** Presentation: seconds the raised-arms pose holds after a blow. */
     this.strikeHold = 0;
-    this.strikeWait = 1 + game.rng.next();
     this.addConstraint('hitBurst', new HitBurst(this, { color: '#ffd0a0', radius: 40 }));
     const health = this.constraints.get('health');
     const onDamage = health.onDamage;
@@ -108,34 +118,11 @@ export class Thug extends Ghost {
       this.body.setVelocity({ x: 0, y: 0 });
       return;
     }
+    // Popped into the air, the ladder freezes: no windup starts off the
+    // ground, as the hand-rolled strike always gated.
+    this.getConstraint('behavior').suspended = this.elevation > 0;
     super.fixedUpdate(dt);
     if (this.dead) return;
-    // The swing: wind up in reach, strike at the end of the windup. The
-    // avatar is asked for on the two ticks that use one, not every tick.
-    this.strikeWait = Math.max(0, this.strikeWait - dt);
-    this.strikeHold = Math.max(0, this.strikeHold - dt);
-    if (this.windup > 0) {
-      this.windup -= dt;
-      this.body.setVelocity({ x: 0, y: 0 });
-      const player = this.windup <= 0 ? this.game.players.nearestAvatar(this.position) : null;
-      if (player) {
-        const dx = player.position.x - this.position.x;
-        const dy = player.position.y - this.position.y;
-        this.heading = Math.atan2(dy, dx);
-        this.getConstraint('strike').startAttack(this.heading);
-        this.game.soundManager.playSound('attack');
-        this.strikeHold = 0.45;
-        this.strikeWait = 1.4 + this.game.rng.next() * 0.8;
-        this.strikeFlash = 0.3;
-      }
-    } else if (this.strikeWait <= 0 && this.elevation === 0) {
-      const player = this.game.players.nearestAvatar(this.position);
-      const dist = player ? Math.hypot(player.position.x - this.position.x, player.position.y - this.position.y) : Infinity;
-      if (dist < this.reach) {
-        this.windup = this.windupTime;
-        this.animTime = 0;
-      }
-    }
     if (this.elevation > 0 || this.lift > 0) {
       this.lift -= 1400 * dt;
       this.elevation = Math.max(0, this.elevation + this.lift * dt);
@@ -146,6 +133,7 @@ export class Thug extends Ghost {
   update(deltaTime) {
     super.update(deltaTime);
     this.strikeFlash = Math.max(0, (this.strikeFlash ?? 0) - deltaTime);
+    this.strikeHold = Math.max(0, this.strikeHold - deltaTime);
     const v = this.velocity;
     const speed = Math.hypot(v.x, v.y);
     // Hysteresis on both the gait and the facing: flipping animation on
@@ -161,8 +149,10 @@ export class Thug extends Ghost {
     }
     const hurt = (this.constraints.get('damageFlash')?.timeLeft ?? 0) > 0;
     const airborne = this.elevation > 0;
-    if (this.windup > 0 || this.strikeHold > 0) {
-      // The raised-arms pose, held through the windup and the blow.
+    const strike = this.getConstraint('strike');
+    if (strike.isWindingUp || this.strikeHold > 0) {
+      // The raised-arms pose, held through the windup and the blow. The
+      // windup is the attack's replicated state, so a client holds it too.
       this.setDirectionalAnimation('swing', this.heading);
     } else {
       this.setDirectionalAnimation(airborne ? 'die' : hurt ? 'hit' : this.moving ? 'run' : 'idle', this.heading);
@@ -176,8 +166,9 @@ export class Thug extends Ghost {
     drawGroundShadow(renderer, a.x, a.y, 46, { ...shadowForLift(this.renderElevation), ratio: 0.3 });
     // The tell: a ring tightening at the feet through the windup, and a
     // flash along the blow when it lands.
-    if (this.windup > 0) {
-      const k = this.windup / this.windupTime;
+    const strike = this.getConstraint('strike');
+    if (strike.isWindingUp && strike.windup > 0) {
+      const k = Math.max(0, 1 - strike.windupTime / strike.windup);
       renderer.pushTransform({ x: a.x, y: a.y, scaleX: 1, scaleY: 0.4 });
       renderer.drawArc({ x: 0, y: 0, radius: 30 + 50 * k, strokeStyle: `rgba(255, 120, 80, ${0.9 - 0.5 * k})`, lineWidth: 3 });
       renderer.popTransform();

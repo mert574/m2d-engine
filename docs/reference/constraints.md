@@ -163,7 +163,7 @@ The body is *steered*, not placed: it still collides on its way to the hand and 
 
 ## Chase
 
-`constraints/chase.js`. Pursues the nearest player's avatar within range and wanders around its current position otherwise. Pauses while the entity's `ContactDamage` reports it stunned. With a [navmesh](./navigation) loaded the hunt routes around the walls, asking again every `repath` seconds while the quarry strays from the route's end; a hunt holding a route keeps its quarry out to twice the range, since a detour walks away before it closes in. An unreachable quarry is seeked straight, as ever.
+`constraints/chase.js`. Pursues the nearest player's avatar within range and wanders around its current position otherwise. Pauses while the entity's `ContactDamage` reports it stunned. With a [navmesh](./navigation) loaded the hunt routes around the walls, asking again every `repath` seconds while the quarry strays from the route's end; a hunt holding a route keeps its quarry out to twice the range, since a detour walks away before it closes in. An unreachable quarry is seeked straight, as ever. In a 3D scene the hunt, the wander and the separation all work the (x, z) ground plane and leave the body its vertical speed, so a chaser neither flies at its quarry nor hovers.
 
 | Option | Default | Meaning |
 | --- | --- | --- |

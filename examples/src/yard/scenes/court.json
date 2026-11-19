@@ -21,7 +21,12 @@
     "lighting": { "shadowDistance": 50 }
   },
   "assets": {
-    "navmeshes": { "walker": { "url": "scenes/court.walker.navmesh", "stamp": "ffacbed78ef73f31" } }
+    "navmeshes": { "walker": { "url": "scenes/court.walker.navmesh", "stamp": "ffacbed78ef73f31" } },
+    "sounds": {
+      "step0": { "url": "sounds/footstep-grass-1.wav", "volume": 0.45 },
+      "step1": { "url": "sounds/footstep-grass-2.wav", "volume": 0.45 },
+      "step2": { "url": "sounds/footstep-grass-3.wav", "volume": 0.45 }
+    }
   },
   "prefabs": {
     "floor": {
@@ -53,6 +58,10 @@
             "agent": "walker",
             "maxPathLength": 60
           }
+        },
+        "steps": {
+          "type": "Footsteps",
+          "params": { "sounds": ["step0", "step1", "step2"], "stride": 0.9, "minSpeed": 0.5 }
         }
       }
     },
@@ -68,6 +77,73 @@
     "start": {
       "actor": "SpawnPoint",
       "physics": { "bodyType": "static", "shape": "box", "isSensor": true, "layer": "none" }
+    },
+    "sentry": {
+      "actor": "Prop",
+      "physics": { "bodyType": "character", "shape": "capsule", "lockRotation": true },
+      "mesh": { "shape": "capsule", "color": "#b5484d", "roughness": 0.6 },
+      "constraints": {
+        "path": {
+          "type": "PathFollow",
+          "params": { "path": "beat", "speed": 1.6, "waitTime": 1200, "face": true }
+        },
+        "chase": { "type": "Chase", "params": { "speed": 3.4, "detectionRange": 9, "agent": "walker" } },
+        "behavior": {
+          "type": "Behavior",
+          "params": {
+            "sightRange": 9,
+            "sightCone": 1.9,
+            "senseInterval": 0.25,
+            "patience": 2,
+            "leash": 9,
+            "speed": 2.6,
+            "agent": "walker"
+          }
+        }
+      }
+    },
+    "hearer": {
+      "actor": "Prop",
+      "physics": { "bodyType": "character", "shape": "capsule", "lockRotation": true },
+      "mesh": { "shape": "capsule", "color": "#4a7fb5", "roughness": 0.6 },
+      "constraints": {
+        "behavior": {
+          "type": "Behavior",
+          "params": {
+            "sightRange": 3,
+            "senseInterval": 0.3,
+            "patience": 2.5,
+            "hearingRange": 11,
+            "speed": 2.8,
+            "idleSpeed": 1.2,
+            "wander": 2.5,
+            "agent": "walker"
+          }
+        }
+      }
+    },
+    "stalker": {
+      "actor": "Prop",
+      "physics": { "bodyType": "character", "shape": "capsule", "lockRotation": true },
+      "mesh": { "shape": "capsule", "color": "#7d5ba6", "roughness": 0.6 },
+      "constraints": {
+        "chase": {
+          "type": "Chase",
+          "params": { "speed": 3.2, "detectionRange": 7, "agent": "walker", "separation": 1.2 }
+        },
+        "behavior": {
+          "type": "Behavior",
+          "params": {
+            "sightRange": 7,
+            "senseInterval": 0.2,
+            "patience": 3,
+            "speed": 2.8,
+            "idleSpeed": 1.4,
+            "wander": 3,
+            "agent": "walker"
+          }
+        }
+      }
     }
   },
   "layers": [
@@ -182,11 +258,39 @@
           "width": 1,
           "height": 2,
           "depth": 1
+        },
+        {
+          "id": "sentry",
+          "prefab": "sentry",
+          "x": 12,
+          "y": 0.9,
+          "z": -9,
+          "width": 0.7,
+          "height": 1.8
+        },
+        {
+          "id": "hearer",
+          "prefab": "hearer",
+          "x": -10,
+          "y": 0.9,
+          "z": 8,
+          "width": 0.7,
+          "height": 1.8
+        },
+        {
+          "id": "stalker",
+          "prefab": "stalker",
+          "x": 6,
+          "y": 0.9,
+          "z": 1,
+          "width": 0.7,
+          "height": 1.8
         }
       ]
     }
   ],
   "paths": {
-    "rounds": { "points": [{ "x": -2, "y": 0.5, "z": -3 }, { "x": -2, "y": 0.5, "z": 3 }], "closed": true }
+    "rounds": { "points": [{ "x": -2, "y": 0.5, "z": -3 }, { "x": -2, "y": 0.5, "z": 3 }], "closed": true },
+    "beat": { "points": [{ "x": 12, "y": 0.9, "z": -9 }, { "x": 12, "y": 0.9, "z": 8 }], "closed": false }
   }
 }

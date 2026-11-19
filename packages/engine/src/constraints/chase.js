@@ -17,6 +17,9 @@ import { Vec2 } from '../core/math.js';
  * `separation` set, nearby fellow chasers push the heading apart, so a
  * pack arrives as a half-circle instead of a stack.
  *
+ * In a 3D scene the hunt walks the (x, z) ground plane and leaves the
+ * body its vertical speed, so it still falls while it closes in.
+ *
  * In debug view it draws its own working state — detection radius, the
  * current wander target, the route and the pursuit line — through the
  * world overlay.
@@ -80,16 +83,41 @@ export class Chase extends Constraint {
     else if (params.speed !== undefined && !this.idleSpeedSet) this.idleSpeed = this.speed * 0.6;
   }
 
+  /** Whether this game's ground plane is (x, z): a 3D scene. */
+  get #solid() {
+    return (this.entity.game.options.dimensions ?? 2) === 3;
+  }
+
+  /** A point's ground coordinates: (x, y) flat, (x, z) in 3D. */
+  #ground(point) {
+    return { x: point.x, y: this.#solid ? (point.z ?? 0) : point.y };
+  }
+
+  #groundDistance(a, b) {
+    const ga = this.#ground(a);
+    const gb = this.#ground(b);
+    return Math.hypot(gb.x - ga.x, gb.y - ga.y);
+  }
+
+  /** Walk the ground at `speed` along the unit ground direction. */
+  #setGroundVelocity(dir, speed) {
+    const body = this.entity.body;
+    body.setVelocity(this.#solid
+      ? { x: dir.x * speed, y: body.velocity.y, z: dir.y * speed }
+      : { x: dir.x * speed, y: dir.y * speed });
+  }
+
   #newWanderTarget() {
     const r = this.wanderRadius;
-    const { x, y } = this.entity.position;
+    const position = this.entity.position;
     // Seeded: a wander target is simulation state, and a restart with the
     // same seed has to pick the same one.
     const rng = this.entity.game.rng;
-    return {
-      x: x + rng.range(-r, r),
-      y: y + rng.range(-r, r)
-    };
+    const dx = rng.range(-r, r);
+    const dy = rng.range(-r, r);
+    return this.#solid
+      ? { x: position.x + dx, y: position.y, z: (position.z ?? 0) + dy }
+      : { x: position.x + dx, y: position.y + dy };
   }
 
   /**
@@ -102,9 +130,10 @@ export class Chase extends Constraint {
   #quarry() {
     const { entity } = this;
     const reach = this.path ? this.detectionRange * 2 : this.detectionRange;
-    const quarry = entity.game.players.nearestAvatar(entity.position, reach);
-    // Strictly inside the range, as the distance test always was.
-    return quarry && Vec2.distance(entity.position, quarry.position) < reach ? quarry : null;
+    const quarry = entity.game.players.nearestAvatar(entity.position, this.#solid ? Infinity : reach);
+    // Strictly inside the range, as the distance test always was — on the
+    // ground plane, which nearestAvatar's own (x, y) cut cannot judge in 3D.
+    return quarry && this.#groundDistance(entity.position, quarry.position) < reach ? quarry : null;
   }
 
   /**
@@ -121,7 +150,7 @@ export class Chase extends Constraint {
 
     this.repathTime += dt;
     const end = this.path?.[this.path.length - 1];
-    const strayed = !end || Vec2.distance(end, quarry.position) > this.#arrive() * 2;
+    const strayed = !end || this.#groundDistance(end, quarry.position) > this.#arrive() * 2;
     if (!this.path || (this.repathTime >= this.repath && strayed)) {
       this.repathTime = 0;
       const route = nav.findPath(entity.position, quarry.position, { agent: this.agent });
@@ -135,16 +164,21 @@ export class Chase extends Constraint {
     if (!this.path) return quarry.position;
     const arrive = this.#arrive();
     while (this.waypoint < this.path.length - 1
-      && Vec2.distance(entity.position, this.path[this.waypoint]) <= arrive) {
+      && this.#groundDistance(entity.position, this.path[this.waypoint]) <= arrive) {
       this.waypoint++;
     }
     return this.path[Math.min(this.waypoint, this.path.length - 1)];
   }
 
-  /** How close a corner is "reached": the body's own radius, at least a step. */
+  /**
+   * How close a corner is "reached": the body's own radius, at least a
+   * step — a step being 8 px flat and a quarter metre in 3D, where 8 of
+   * the world's units would swallow whole corners.
+   */
   #arrive() {
     const size = this.entity.body.size;
-    return Math.max(8, Math.max(size.x, size.y) / 2);
+    const half = Math.max(size.x, this.#solid ? (size.z ?? size.x) : size.y) / 2;
+    return Math.max(this.#solid ? 0.25 : 8, half);
   }
 
   /**
@@ -157,10 +191,10 @@ export class Chase extends Constraint {
     const { entity } = this;
     if (!this.separation) return { x: 0, y: 0 };
     const push = { x: 0, y: 0 };
-    const mine = entity.position;
+    const mine = this.#ground(entity.position);
     for (const other of entity.game.entities) {
       if (other === entity || other.dead || !other.getConstraint?.('chase')) continue;
-      const theirs = other.position;
+      const theirs = this.#ground(other.position);
       const dx = mine.x - theirs.x;
       const dy = mine.y - theirs.y;
       const distance = Math.hypot(dx, dy);
@@ -181,10 +215,10 @@ export class Chase extends Constraint {
     const quarry = this.#quarry();
     if (quarry) {
       const target = this.#huntTarget(quarry, dt);
-      const dir = Vec2.normalize(Vec2.direction(entity.position, target));
+      const dir = Vec2.normalize(Vec2.direction(this.#ground(entity.position), this.#ground(target)));
       const push = this.#separationPush();
       const heading = Vec2.normalize({ x: dir.x + push.x, y: dir.y + push.y });
-      entity.body.setVelocity(Vec2.scale(heading.x || heading.y ? heading : dir, this.speed));
+      this.#setGroundVelocity(heading.x || heading.y ? heading : dir, this.speed);
       return;
     }
     if (this.path) {
@@ -198,9 +232,10 @@ export class Chase extends Constraint {
       this.target = this.#newWanderTarget();
       this.wanderTime = 0;
     }
-    if (Vec2.distance(entity.position, this.target) > 1) {
-      const dir = Vec2.direction(entity.position, this.target);
-      entity.body.setVelocity(Vec2.scale(Vec2.normalize(dir), this.idleSpeed));
+    // "There" is within a step, which is not one px in a metre world.
+    if (this.#groundDistance(entity.position, this.target) > (this.#solid ? 0.1 : 1)) {
+      const dir = Vec2.direction(this.#ground(entity.position), this.#ground(this.target));
+      this.#setGroundVelocity(Vec2.normalize(dir), this.idleSpeed);
     }
   }
 

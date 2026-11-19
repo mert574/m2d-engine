@@ -7,6 +7,7 @@ import { PointerMove } from 'm2d-engine/constraints/pointerMove.js';
 import { Angle } from 'm2d-engine/core/math.js';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 import { makeRng, range } from 'm2d-kit/random';
+import { Behavior } from 'm2d-kit/ai';
 import { drawGroundShadow } from 'm2d-engine/core/renderers/shadows.js';
 import { knightAbilities, tickAbilities, tickFlashes, drawUnder, drawOver } from './abilities.js';
 import { ProximityPrompt } from 'm2d-engine/constraints/proximityPrompt.js';
@@ -228,13 +229,18 @@ export class Creature extends Ghost {
     this.heading = Math.PI / 2;
     const chase = this.constraints.get('chase');
     chase.speed = 85;
-    chase.idleSpeed = 30;
     chase.detectionRange = 360;
-    chase.wanderRadius = 90;
     // The hunt routes over the keep's navmesh (the knight's profile fits a
     // goblin too) and the pack spreads instead of stacking at the knight.
     chase.agent = 'knight';
     chase.separation = 44;
+    // What starts a hunt is honest now: a knight seen within a room, or
+    // his steps heard through a wall — the stone carries them further than
+    // the eye reaches. The walk to a heard step routes like the hunt.
+    this.addConstraint('behavior', new Behavior(this, {
+      sightRange: 360, hearingRange: 520, patience: 2,
+      speed: 85, idleSpeed: 30, wander: 90, agent: 'knight'
+    }));
     this.contact = this.constraints.get('contactDamage');
     this.contact.damage = 18;
     this.contact.knockbackStrength = 260;

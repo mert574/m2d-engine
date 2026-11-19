@@ -50,11 +50,13 @@ export class Footsteps extends Constraint {
   step() {
     const entity = this.entity;
     if (this.sounds.length) {
-      const { x, y } = entity.position;
+      const { x, y, z } = entity.position;
       entity.game.events?.emit('step', {
         id: entity.netId,
         sound: this.sounds[this.index % this.sounds.length],
-        at: { x: Math.round(x), y: Math.round(y) }
+        // `z` rides along in 3D, so a listener on the (x, z) ground plane
+        // (an NPC's hearing) measures the step where it landed.
+        at: { x: Math.round(x), y: Math.round(y), ...(z !== undefined && { z: Math.round(z) }) }
       });
     }
     this.onStep?.(this.index);

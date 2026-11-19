@@ -37,9 +37,16 @@ export default defineMatch({
     registerKeep(game);
     game.sceneManager.addScene('keep', { fetch: scene });
     await game.sceneManager.switchTo('keep');
-    // The vault pack hunts from the next room over, past the shipped range.
+    // The vault pack hunts from the next room over, past the shipped
+    // senses: eyes and ears a hall wide, and the patience to walk a heard
+    // step down around the long wall.
     for (const entity of game.entities) {
-      if (entity.sceneId?.startsWith('vault-goblin')) entity.getConstraint('chase').detectionRange = 1400;
+      if (!entity.sceneId?.startsWith('vault-goblin')) continue;
+      entity.getConstraint('chase').detectionRange = 1400;
+      const behavior = entity.getConstraint('behavior');
+      behavior.sightRange = 1400;
+      behavior.hearingRange = 1400;
+      behavior.patience = 4;
     }
   }
 });

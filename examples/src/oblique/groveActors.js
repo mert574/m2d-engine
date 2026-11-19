@@ -4,6 +4,7 @@ import { Coin, Ghost, ObliquePlayer, Platform } from 'm2d-kit/actors';
 import { Trigger } from 'm2d-engine/actors/trigger.js';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 import { makeRng, range } from 'm2d-kit/random';
+import { Behavior } from 'm2d-kit/ai';
 import { drawGroundShadow } from 'm2d-engine/core/renderers/shadows.js';
 import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
 import { groveAbilities, tickWard, drawWardUnder, drawFlashes, tickFlashes } from './skills.js';
@@ -244,9 +245,10 @@ export class Wisp extends Ghost {
     this.trail = [];
     const chase = this.constraints.get('chase');
     chase.speed = 110;
-    chase.idleSpeed = 40;
     chase.detectionRange = 420;
-    chase.wanderRadius = 160;
+    this.addConstraint('behavior', new Behavior(this, {
+      sightRange: 420, patience: 2, speed: 110, idleSpeed: 40, wander: 160
+    }));
     this.elevation = options.elevation ?? 28;
     this.repelSpeed = options.repelSpeed ?? 260;
     /** Seconds left of the walker's ward pushing this one away. */
@@ -255,10 +257,12 @@ export class Wisp extends Ghost {
 
   fixedUpdate(dt) {
     if (this.dead) return;
-    // Driven off by the ward: the chase is suspended, everything else ticks.
-    const chase = this.getConstraint('chase');
-    chase.suspended = this.repelled > 0;
-    if (this.repelled > 0) {
+    // Driven off by the ward: the behaviour stands aside (which freezes
+    // its arrangement), the chase is held down, and the flight is ours.
+    const repelled = this.repelled > 0;
+    this.getConstraint('behavior').suspended = repelled;
+    if (repelled) {
+      this.getConstraint('chase').suspended = true;
       this.repelled -= dt;
       const player = this.game.players.nearestAvatar(this.position);
       if (player) {

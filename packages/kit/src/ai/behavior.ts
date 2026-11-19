@@ -37,6 +37,8 @@ export interface BehaviorOptions {
   leash?: number;
   /** The behaviour's own walking speed (to a noise, the last-seen point, home), px/s. */
   speed?: number;
+  /** The wander's pace, px/s; defaults to 60% of speed. */
+  idleSpeed?: number;
   /** With no patrol path: wander this far around home, px; 0 stands still. */
   wander?: number;
   /** Seconds between wander targets. */
@@ -82,6 +84,7 @@ export class Behavior extends Constraint {
     recover: s.number({ initial: 0.5, min: 0, unit: 's' }),
     leash: s.number({ initial: 0, min: 0, unit: 'px', description: 'How far from home the hunt may go; 0 is unleashed' }),
     speed: s.number({ initial: 60, positive: true, unit: 'px/s', description: 'Its own walks: to a noise, the last-seen point, home' }),
+    idleSpeed: s.number({ positive: true, unit: 'px/s', label: 'Wander speed', description: 'Defaults to 60% of speed' }),
     wander: s.number({ initial: 0, min: 0, unit: 'px', description: 'With no patrol path: wander this far around home; 0 stands still' }),
     wanderInterval: s.number({ initial: 2, positive: true, unit: 's' }),
     agent: s.ref('navAgent', { label: 'Nav agent', description: "The profile its own walks route as (m2d.project.json navAgents); the only one when unset" })
@@ -102,6 +105,8 @@ export class Behavior extends Constraint {
   recover: number;
   leash: number;
   speed: number;
+  idleSpeed: number;
+  idleSpeedSet: boolean;
   wander: number;
   wanderInterval: number;
   agent?: string;
@@ -127,6 +132,8 @@ export class Behavior extends Constraint {
   goal: Point | null;
   /** Seconds the walk has made no headway. */
   stalled: number;
+  /** Stalls in a row on the same goal, for the corner-wedge escape. */
+  stallStrikes: number;
   /** The wander clock and target, seeded like Chase's. */
   wanderTime: number;
   wanderTarget: Point | null;
@@ -146,6 +153,8 @@ export class Behavior extends Constraint {
     this.recover = options.recover ?? 0.5;
     this.leash = options.leash ?? 0;
     this.speed = options.speed ?? 60;
+    this.idleSpeed = options.idleSpeed ?? this.speed * 0.6;
+    this.idleSpeedSet = options.idleSpeed !== undefined;
     this.wander = options.wander ?? 0;
     this.wanderInterval = options.wanderInterval ?? 2;
     this.agent = options.agent;
@@ -163,6 +172,7 @@ export class Behavior extends Constraint {
     this.waypoint = 0;
     this.goal = null;
     this.stalled = 0;
+    this.stallStrikes = 0;
     this.wanderTime = 0;
     this.wanderTarget = null;
     this.warned = false;
@@ -171,6 +181,13 @@ export class Behavior extends Constraint {
     // this (the usual actor order) would otherwise get one free shove in
     // before the first drive, nudging the guard and its facing off its post.
     this.#drive(false);
+  }
+
+  /** `idleSpeed` follows `speed` unless it was set, as Chase's does. */
+  override configure(params: Record<string, unknown>): void {
+    super.configure(params);
+    if (params.idleSpeed !== undefined) this.idleSpeedSet = true;
+    else if (params.speed !== undefined && !this.idleSpeedSet) this.idleSpeed = this.speed * 0.6;
   }
 
   /** Whether this game's ground plane is (x, z): a 3D scene. */
@@ -211,10 +228,14 @@ export class Behavior extends Constraint {
     return this.strikeRange || (this.#attack()?.range ?? 0);
   }
 
-  /** How close counts as arrived: the body's own radius, at least a step. */
+  /**
+   * How close counts as arrived: the body's own radius, at least a step —
+   * 8 px flat, a quarter metre in 3D, where 8 world units swallow corners.
+   */
   #arrive(): number {
     const size = (this.entity.body as any).size;
-    return Math.max(8, Math.max(size.x, size.y) / 2);
+    const half = Math.max(size.x, this.#solid ? (size.z ?? size.x) : size.y) / 2;
+    return Math.max(this.#solid ? 0.25 : 8, half);
   }
 
   #halt(): void {
@@ -240,6 +261,7 @@ export class Behavior extends Constraint {
     this.route = null;
     this.waypoint = 0;
     this.stalled = 0;
+    this.stallStrikes = 0;
   }
 
   /**
@@ -248,7 +270,7 @@ export class Behavior extends Constraint {
    * headway. Returns true when arrived. In 3D the body keeps its vertical
    * speed, so it still falls while it walks.
    */
-  #walkTo(target: Point, dt: number): boolean {
+  #walkTo(target: Point, dt: number, speed: number = this.speed): boolean {
     const game = this.entity.game as any;
     const body = this.entity.body as any;
     const position = this.#ground(this.entity.position as Point);
@@ -268,10 +290,16 @@ export class Behavior extends Constraint {
       this.stalled = 0;
     }
 
+    // A corner is accepted only within a step — accepting it at the body's
+    // radius swallows a doorway's corner from outside the door line and
+    // cuts the turn into the wall's face (the pathfinding project hit the
+    // same trap with PointerMove's 2-unit floor). Only the final goal gets
+    // the generous radius.
+    const step = this.#solid ? 0.25 : 8;
     const arrive = this.#arrive();
     while (this.route && this.waypoint < this.route.length - 1) {
       const corner = this.#ground(this.route[this.waypoint]!);
-      if (Math.hypot(corner.x - position.x, corner.y - position.y) > arrive) break;
+      if (Math.hypot(corner.x - position.x, corner.y - position.y) > step) break;
       this.waypoint++;
     }
     const next = this.#ground(this.route
@@ -289,23 +317,32 @@ export class Behavior extends Constraint {
     if (!distance) return false;
 
     // Shoved off the route — a collision, a clipped corner — it asks again
-    // from where it actually stands after half a second of no headway.
+    // from where it actually stands after half a second of no headway. A
+    // re-route that stalls again is wedged on a corner the funnel grazes
+    // (the route hugs walls at the agent's radius, which a body its own
+    // size touches): give that corner up and aim past it, then alternate.
     const velocity = this.#ground(body.velocity as Point);
-    if (Math.hypot(velocity.x, velocity.y) < this.speed * 0.2) {
+    if (Math.hypot(velocity.x, velocity.y) < speed * 0.2) {
       this.stalled += dt;
       if (this.stalled >= STALL) {
         this.stalled = 0;
-        this.goal = null; // re-route next tick
+        this.stallStrikes++;
+        if (this.stallStrikes % 2 === 0 && this.route && this.waypoint < this.route.length - 1) {
+          this.waypoint++;
+        } else {
+          this.goal = null; // re-route next tick
+        }
       }
     } else {
       this.stalled = 0;
+      this.stallStrikes = 0;
     }
 
     const nx = dx / distance;
     const ny = dy / distance;
     body.setVelocity(this.#solid
-      ? { x: nx * this.speed, y: body.velocity.y, z: ny * this.speed }
-      : { x: nx * this.speed, y: ny * this.speed });
+      ? { x: nx * speed, y: body.velocity.y, z: ny * speed }
+      : { x: nx * speed, y: ny * speed });
     return false;
   }
 
@@ -410,6 +447,9 @@ export class Behavior extends Constraint {
           && attack.currentCooldown <= 0 && !attack.isWindingUp) {
           this.#halt();
           this.facing = Angle.between(entity.position, quarry.position);
+          // The pose turns with the aim; the attack itself is 2D-minded,
+          // so this rung only runs flat.
+          (entity as any).heading = this.facing;
           attack.startAttack(this.facing);
           this.#enter(attack.isWindingUp ? 'telegraph' : 'attack');
           break;
@@ -465,17 +505,13 @@ export class Behavior extends Constraint {
       this.wanderTime = 0;
       const rng = (this.entity.game as any).rng;
       const home = this.home as Point;
-      const target: Point = {
-        x: home.x + rng.range(-this.wander, this.wander),
-        y: home.y + rng.range(-this.wander, this.wander)
-      };
-      if (this.#solid) {
-        target.z = (home.z ?? 0) + (target.y - home.y);
-        target.y = home.y;
-      }
-      this.wanderTarget = target;
+      const dx = rng.range(-this.wander, this.wander);
+      const dy = rng.range(-this.wander, this.wander);
+      this.wanderTarget = this.#solid
+        ? { x: home.x + dx, y: home.y, z: (home.z ?? 0) + dy }
+        : { x: home.x + dx, y: home.y + dy };
     }
-    if (this.#walkTo(this.wanderTarget, dt)) this.#halt();
+    if (this.#walkTo(this.wanderTarget!, dt, this.idleSpeed)) this.#halt();
   }
 
   /**
