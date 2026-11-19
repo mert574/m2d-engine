@@ -151,7 +151,7 @@ export class ParticleField extends Scenery {
     const field = this.field;
     const draw = field && DRAWERS[field.kind];
     if (!field || !draw) return;
-    const glow = field.emissive > 0 && !!this.game.renderer.supports?.('lights') && !!this.scene?.currentLighting?.ambient;
+    const glow = field.emissive > 0 && !!this.scene?.currentLighting?.ambient;
     draw(this.game.renderer, field, this.#box(area, field), time, glow);
   }
 

@@ -48,8 +48,6 @@ export class Wall extends Platform {
     seed: s.number({ description: 'Fixes the weathering; the position decides when unset' })
   };
 
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.spriteFit = true;
@@ -91,8 +89,6 @@ export class Torch extends Entity {
   static properties = {
     face: s.enumOf(['east', 'south'], { initial: 'east', label: 'Face', description: "Which of the block's lit faces the bracket hangs on" })
   };
-
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
 
   name = 'Torch';
 
@@ -137,7 +133,10 @@ export class Torch extends Entity {
 
 /** An ember: a hot coal to gather. */
 export class Ember extends Coin {
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
+  /** Its glow reaches past the coin. */
+  get drawBounds() {
+    return this.boundsAround(140);
+  }
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -185,8 +184,6 @@ export class Stair extends Trigger {
   }
 
   static replicated = ['sealed'];
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
-
   static properties = {
     sealed: s.boolean({ initial: true, description: 'Closed until a rule unseals it' })
   };
@@ -287,8 +284,6 @@ export class Knight extends ObliquePlayer {
   static replicated = ['effects', 'swingHold'];
   /** Clicking to walk is movement too, so a client runs it early as well. */
   static predictedConstraints = ['walk'];
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
-
   constructor(body, sprite, game, options = {}) {
     // The knight's defaults, under whatever the scene sets: a declared property typed in the inspector must win.
     super(body, sprite, game, { attackRange: 70, attackArc: Math.PI * 1.4, jumpSpeed: 0, ...options });

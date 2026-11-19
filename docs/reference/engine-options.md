@@ -16,7 +16,7 @@
 | `worldFilter` | `'linear'` | Upscaling filter below native resolution. `'nearest'` for pixel art |
 | `autoResize` | `true` | Follow the canvas's displayed size, the pixel ratio and fullscreen changes |
 | `renderer` | `'webgl'`, or `'webgpu'` when `dimensions` is `3` | Backend name, class or instance. A backend that cannot initialise throws, as does one that draws in a different dimension from the game. See [Three dimensions](./renderer#three-dimensions) |
-| `unsupportedText` | `null` | The line put in the canvas's place when the browser lacks WebGL2 (or WebGPU in 3D), as a `<p class="m2d-unsupported">`. `null` is the engine's wording, "This game needs a modern browser with WebGL 2."; `false` leaves the page as it is. The constructor throws either way, so no loop starts |
+| `unsupportedText` | `null` | The line put in the canvas's place when the browser lacks WebGL2 (or WebGPU in 3D), as a `<p class="m2d-unsupported">`. `null` is the engine's wording, "This game needs a modern browser with WebGL 2."; `false` leaves the page as it is. The constructor throws either way, so no loop starts. `bootProject` shows the same line when a 3D project's WebGPU is missing |
 | `performanceStats` | `true` | Add the frame-rate readout to the engine's debug layer |
 | `performanceStatsHotkey` | `'F3'` | Physical key code that expands the readout. `null` binds no key |
 | `devConsole` | `true` | Mount the [developer console](./console) (backquote). The cvar and command registries exist either way |

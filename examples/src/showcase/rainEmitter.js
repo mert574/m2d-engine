@@ -17,8 +17,6 @@ import { PARTICLE_STRIDE } from 'm2d-engine/core/renderers/baseRenderer.js';
 /** Static per-drop parameters: spawnX, speed, phase, size, alpha. */
 const PARAM_STRIDE = 5;
 
-/** Drops a fallback backend is asked to draw as individual sprites. */
-
 export class RainEmitter {
   /**
    * @param {Object} options - Emitter options

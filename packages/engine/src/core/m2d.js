@@ -18,6 +18,7 @@ import { SoundManager } from './soundManager.js';
 import { ImageCache } from './imageCache.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D } from './renderers/index.js';
 import { computeViewport, sameViewport, viewToUI } from './viewport.js';
+import { showUnsupported } from './unsupported.js';
 import { WorldOverlay } from './ui/worldOverlay.js';
 import { Theme, createTheme } from './ui/theme.js';
 import { loadUIFonts } from './ui/fonts.js';
@@ -677,28 +678,10 @@ export class M2D {
     try {
       renderer.init(canvas, size);
     } catch (error) {
-      this.#refuseDisplay(canvas, renderer);
+      showUnsupported(canvas, this.options.unsupportedText, renderer.dimensions === 3 ? 'WebGPU' : 'WebGL 2');
       throw error;
     }
     return renderer;
-  }
-
-  /**
-   * A browser without the GPU API the renderer needs gets a line of text
-   * where the game would have been, and no game: the constructor throws
-   * after this, so no loop ever starts. `unsupportedText` is the line, or
-   * `false` to leave the canvas alone for a page that explains itself.
-   */
-  #refuseDisplay(canvas, renderer) {
-    const text = this.options.unsupportedText;
-    if (text === false) return;
-    const document = canvas?.ownerDocument;
-    if (!document || typeof canvas.replaceWith !== 'function') return;
-    const api = renderer.dimensions === 3 ? 'WebGPU' : 'WebGL 2';
-    const notice = document.createElement('p');
-    notice.className = 'm2d-unsupported';
-    notice.textContent = text ?? `This game needs a modern browser with ${api}.`;
-    canvas.replaceWith(notice);
   }
 
   /**

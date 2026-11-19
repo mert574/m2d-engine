@@ -42,8 +42,6 @@ const RIM = 'rgba(255, 190, 110, 0.6)';
  * a real source.
  */
 export class EmberPlayer extends Player {
-  /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.clock = 0;
@@ -200,7 +198,6 @@ export class EmberPlayer extends Player {
 }
 
 export class DuskPlatform extends Platform {
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.sway = 0;
@@ -458,7 +455,6 @@ export class DuskMovingPlatform extends MovingPlatform {
     return this.boundsAround(130 + this.size.y);
   }
 
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.sway = 0;
@@ -541,7 +537,6 @@ export class DuskMovingPlatform extends MovingPlatform {
 }
 
 export class GlowCoin extends Coin {
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
 
@@ -641,7 +636,6 @@ export class GlowCoin extends Coin {
 }
 
 export class DuskBee extends Bee {
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.menace = makeRng(seedFrom(body.position))() * Math.PI * 2;

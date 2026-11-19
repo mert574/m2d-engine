@@ -357,8 +357,6 @@ export class Flower extends Entity {
 export class Pollen extends Entity {
   name = 'Pollen';
 
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
-
   constructor(body, sprite, game) {
     super(body, sprite, game);
     this.clock = (body.position.x * 0.013) % (Math.PI * 2);
@@ -657,8 +655,6 @@ export class Web extends Entity {
     return { x: x - width / 2, y: top, width, height: this.game.options.worldHeight - top };
   }
 
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     this.torn = false;
@@ -762,6 +758,11 @@ export class Web extends Entity {
 
 /** The hive on its post: the end of the lane. */
 export class Hive extends Entity {
+  /** Its lamp lights the meadow past the hive. */
+  get drawBounds() {
+    return this.boundsAround(174);
+  }
+
   name = 'Hive';
 
   /**
@@ -774,8 +775,6 @@ export class Hive extends Entity {
     const top = y - this.size.y / 2 - 8;
     return { x: x - width / 2, y: top, width, height: this.game.options.worldHeight - top };
   }
-
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
 
   constructor(body, sprite, game) {
     super(body, sprite, game);

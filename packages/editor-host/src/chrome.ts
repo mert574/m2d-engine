@@ -138,10 +138,14 @@ export async function launchGpuChrome(options: LaunchOptions = {}): Promise<GpuC
   // the X server named in DISPLAY, and one that refuses the connection
   // leaves the page with no WebGL2 and no WebGPU adapter. Headed, the
   // window needs it.
-  const { DISPLAY, WAYLAND_DISPLAY, ...headlessEnv } = process.env;
+  const env = { ...process.env };
+  if (!options.headed) {
+    delete env.DISPLAY;
+    delete env.WAYLAND_DISPLAY;
+  }
   const child = spawn(binary, [...switches, '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], {
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: options.headed ? process.env : headlessEnv
+    env
   });
   child.stdout?.on('data', (chunk) => { output = (output + String(chunk)).slice(-2000); });
   child.stderr?.on('data', (chunk) => { output = (output + String(chunk)).slice(-2000); });

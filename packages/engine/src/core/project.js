@@ -29,6 +29,7 @@
  */
 
 import { M2D } from './m2d.js';
+import { showUnsupported } from './unsupported.js';
 import { DISPLAY_KEYS, checkProject, sceneNameOf } from './projectSchema.js';
 import { initPhysics } from './physics/index.js';
 import { SettingsMenu } from './ui/settingsMenu.js';
@@ -105,8 +106,14 @@ export async function bootProject(canvas, { project, definition, hooks = null, s
   const dimensions = (options.dimensions ?? game.dimensions) === 3 ? 3 : 2;
   if (dimensions === 3) {
     const { initWebGPU, webgpuSupported } = await import('./renderers/index.js');
-    if (!webgpuSupported()) throw new Error(`M2D project '${project.name}' is 3D and needs WebGPU: Chrome or Edge with a GPU`);
-    await Promise.all([initWebGPU(), initPhysics({ dimensions: 3 })]);
+    const device = (webgpuSupported()
+      ? initWebGPU()
+      : Promise.reject(new Error(`M2D project '${project.name}' is 3D and needs WebGPU: Chrome or Edge with a GPU`))
+    ).catch((error) => {
+      showUnsupported(canvas, options.unsupportedText, 'WebGPU');
+      throw error;
+    });
+    await Promise.all([device, initPhysics({ dimensions: 3 })]);
   } else {
     await initPhysics();
   }

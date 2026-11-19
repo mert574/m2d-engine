@@ -11,7 +11,7 @@ import { makeRng, range } from 'm2d-kit/random';
  * as dots on a dial.
  *
  * The sweep's trail is a fan of thin wedges with falling alpha. A conic
- * gradient would be one call, but neither backend has one and forty
+ * gradient would be one call, but the backend has none and forty
  * triangles are cheaper than they sound.
  */
 

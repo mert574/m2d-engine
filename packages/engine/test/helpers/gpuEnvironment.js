@@ -27,6 +27,7 @@ delete process.env.DISPLAY;
 delete process.env.WAYLAND_DISPLAY;
 
 Object.assign(globalThis, gpuGlobals);
+globalThis.navigator ??= {};
 const dawnFlags = process.env.M2D_DAWN_ADAPTER ? [`adapter=${process.env.M2D_DAWN_ADAPTER}`] : [];
 Object.defineProperty(globalThis.navigator, 'gpu', { value: createDawn(dawnFlags), configurable: true });
 

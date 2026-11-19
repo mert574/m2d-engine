@@ -25,8 +25,6 @@ const sheet = (game, name) => game.sceneManager.getCurrentScene()?.spriteSheets.
 export class Laser extends Projectile {
   name = 'Laser';
 
-  /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, { speed: 900, damage: 12, maxLifetime: 1.6, destroyOnWallHit: true, ...options });
     this.tint = options.tint ?? '#7fd4ff';
@@ -418,7 +416,6 @@ export class Gate extends Trigger {
   get drawBounds() {
     return this.boundsAround(Math.max(this.size.x, this.size.y) * 1.5);
   }
-
 
   static properties = {
     sealed: s.boolean({ initial: true, description: 'Closed until a rule unseals it' })

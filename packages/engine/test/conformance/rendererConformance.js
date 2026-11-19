@@ -1583,7 +1583,7 @@ export function describeRendererConformance(harness) {
         return data;
       }
 
-      it('draws every particle at its position and size (any backend)', () => {
+      it('draws every particle at its position and size', () => {
         const sheet = makeSolidImage(TILE, TILE, '#ffffff');
         renderFrame({
           world: r => r.drawParticles({
@@ -1743,19 +1743,6 @@ export function describeRendererConformance(harness) {
 
     // ===================================================================
     describe('lights', () => {
-      it('accepts lighting calls on any backend without throwing', () => {
-        expect(() => {
-          renderFrame({
-            world: (r) => {
-              r.setAmbientLight('#404040');
-              r.drawLight({ x: 100, y: 60, radius: 50, color: '#ffffff' });
-              r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' });
-            }
-          });
-        }).not.toThrow();
-        renderer.setAmbientLight(null);
-      });
-
       it('darkens the world by the ambient colour', () => {
         renderer.setAmbientLight('#808080');
         renderFrame({
@@ -1891,14 +1878,6 @@ export function describeRendererConformance(harness) {
 
     // ===================================================================
     describe('post effects', () => {
-      it('accepts post-effect calls on any backend without throwing', () => {
-        expect(() => {
-          renderer.setPostEffects({ vignette: { strength: 0.5 } });
-          renderFrame({ world: r => r.drawRect({ x: 0, y: 0, width: W, height: H, fillStyle: '#ffffff' }) });
-        }).not.toThrow();
-        renderer.setPostEffects(null);
-      });
-
       it('darkens the corners with a vignette', () => {
         renderer.setPostEffects({ vignette: { strength: 0.9, start: 0.2 } });
         renderFrame({
@@ -1964,7 +1943,7 @@ export function describeRendererConformance(harness) {
         expect(edge).toBeLessThan(sharp - 20);
       });
 
-      it('accepts the lens, grade and surface effects on any backend without throwing', () => {
+      it('accepts the lens, grade and surface effects without throwing', () => {
         expect(() => {
           renderer.setPostEffects({
             distortion: { strength: 0.1 },

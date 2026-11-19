@@ -114,8 +114,6 @@ export class SpecterGhost extends Ghost {
     return this.boundsAround(150);
   }
 
-  /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     this.drift = makeRng(seedFrom(body.position))() * Math.PI * 2;
@@ -217,6 +215,11 @@ export class SpecterGhost extends Ghost {
 
 /** The turret's bolt as an energy round rather than a cartoon missile. */
 class PhantomBolt extends Rocket {
+  /** Its glow reaches past the bolt. */
+  get drawBounds() {
+    return this.boundsAround(120);
+  }
+
   draw() {
     if (this.dead) return;
 
@@ -255,7 +258,6 @@ class PhantomBolt extends Rocket {
 }
 
 export class SentryTurret extends Turret {
-
   static properties = {
     boltLifetime: s.number({ initial: 6, positive: true, unit: 's', label: 'Bolt lifetime' })
   };
@@ -393,7 +395,6 @@ export class SentryTurret extends Turret {
 }
 
 export class DataCore extends Coin {
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
 
@@ -461,7 +462,6 @@ export class ExtractionPad extends Trigger {
   get drawBounds() {
     return this.boundsAround(180);
   }
-
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);

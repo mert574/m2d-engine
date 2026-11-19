@@ -146,7 +146,6 @@ export class ValleyBackdrop extends Entity {
     return this.game.renderer;
   }
 
-
   /** @param {number} deltaTime - Seconds since the last frame */
   update(deltaTime) {
     this.time += deltaTime;

@@ -107,12 +107,8 @@ export class FloorMarks extends Entity {
 /**
  * A ceiling fixture: its light is the prefab's `light`, and this draws the
  * housing, which hangs nearest the eye. A dead one keeps its housing and
- * gives no light; a flickering one gutters. Where the renderer has no
- * light map, it paints its pool instead, faintly.
+ * gives no light; a flickering one gutters.
  */
-/** How far a lamp's painted pool reaches, where the renderer has no lights. */
-const POOL = 200;
-
 export class CeilingLamp extends Entity {
   name = 'CeilingLamp';
 
@@ -151,12 +147,6 @@ export class CeilingLamp extends Entity {
       this.light = { ...this.light };
     }
     this.light.intensity = this.baseIntensity * this.level;
-  }
-
-  /** The painted pool reaches far past the housing; without this the cull would take the lamp and its light together. */
-  get drawBounds() {
-    const { x, y } = this.renderPosition;
-    return { x: x - POOL, y: y - POOL, width: POOL * 2, height: POOL * 2 };
   }
 
   draw() {

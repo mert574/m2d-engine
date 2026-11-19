@@ -3,7 +3,7 @@ import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { s } from '../src/core/schema.js';
 import { RecordingRenderer } from './helpers/recordingRenderer.js';
-import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
+import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
 import { scroll, keyDown } from './helpers/input.js';
 import { SCENE_VERSION, SceneLoader } from '../src/core/sceneLoader.js';
 import { PROJECT_SCHEMA, projectIssues, projectOptions, bootProject, sceneNameOf, combineSceneHooks } from '../src/core/project.js';
@@ -411,6 +411,16 @@ describe('a project file', () => {
   it('refuses to boot a project its schema rejects', async () => {
     await expect(bootProject(null, { project: { name: '' }, definition: { register() {} }, options: { headless: true } }))
       .rejects.toThrow(/M2D project: name/);
+  });
+
+  it('tells a page without WebGPU so, in the canvas\'s place, and refuses a 3D project', async () => {
+    const canvas = createCanvasElement(64, 48);
+    let notice = null;
+    canvas.ownerDocument = { createElement: (tag) => ({ tag, className: '', textContent: '' }) };
+    canvas.replaceWith = (element) => { notice = element; };
+    await expect(bootProject(canvas, { project: { name: 'Yard' }, definition: { register() {}, GAME: { dimensions: 3 } } }))
+      .rejects.toThrow(/needs WebGPU/);
+    expect(notice).toMatchObject({ tag: 'p', className: 'm2d-unsupported', textContent: 'This game needs a modern browser with WebGPU.' });
   });
 });
 

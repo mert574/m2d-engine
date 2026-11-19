@@ -88,6 +88,22 @@ describe('the backdrops', () => {
     game.destroy();
   });
 
+  it('light the fireflies\' glow in a lit level and leave it unlit where no ambient is set', async () => {
+    const fireflies = { actor: 'ParticleField', physics: SCENERY, properties: { kind: 'fireflies', count: 40 } };
+    const lightsDrawn = async (world) => {
+      const { game, renderer, scene } = await show(level({ world, prefabs: { fireflies }, objects: [placed('fireflies-1', 'fireflies')] }));
+      renderer.reset();
+      scene.draw(0.016);
+      const lights = renderer.optionsFor('drawLight');
+      game.destroy();
+      return lights;
+    };
+    const lit = await lightsDrawn({ lighting: { ambient: '#334' } });
+    expect(lit.length).toBeGreaterThan(0);
+    expect(lit[0].color).toBe('#ffe48a');
+    expect(await lightsDrawn({})).toHaveLength(0);
+  });
+
   it('draw leaves, rain and sparks over the entities unless the object says otherwise', async () => {
     const rain = { actor: 'ParticleField', physics: SCENERY, properties: { kind: 'rain', count: 5 } };
     const { game, renderer, scene } = await show(level({

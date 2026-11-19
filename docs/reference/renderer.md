@@ -12,7 +12,7 @@ All drawing goes through a renderer backend. `game.renderer` draws in world spac
 
 A browser without WebGL2 (or WebGPU, for a 3D game) gets no game: the constructor throws, and a line of text replaces the canvas, saying a modern browser is needed. The `unsupportedText` option changes the wording or, set to `false`, leaves the page to the game. See [Engine options](./engine-options).
 
-A renderer draws in two dimensions or three, and must match the game's `dimensions`: the 2D backends have no mesh and the 3D one has no sprite. A mismatch throws at construction with the option that fixes it.
+A renderer draws in two dimensions or three, and must match the game's `dimensions`: the 2D backend has no mesh and the 3D one has no sprite. A mismatch throws at construction with the option that fixes it.
 
 ```javascript
 import { registerRenderer } from 'm2d-engine/core/renderers/index.js';

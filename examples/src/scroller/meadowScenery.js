@@ -116,8 +116,6 @@ export class Meadow extends Entity {
 
   name = 'Meadow';
 
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);
     body.setCollisionFilter({ category: 0, mask: 0 });
@@ -308,8 +306,6 @@ export class ForeMeadow extends Entity {
   };
 
   name = 'ForeMeadow';
-
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game);

@@ -195,11 +195,8 @@ export class Housing extends MachinePart {
   }
 }
 
-/** Additive where the backend blends; asked at draw time, since a headless game has no renderer. */
-
 export class AmberBall extends Entity {
   name = 'Ball';
-
 
   draw() {
     if (this.dead || !this.visible) return;
@@ -244,7 +241,6 @@ export class AmberBall extends Entity {
 
 export class WoodCrate extends Entity {
   name = 'Box';
-
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);

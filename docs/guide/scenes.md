@@ -79,7 +79,7 @@ A level scene has `"type": "level"`. It declares the assets it needs, the prefab
 
 | Field | Purpose |
 | --- | --- |
-| `version` | The scene format version this engine reads, `6`; see the reference's version table |
+| `version` | The scene format version this engine reads, `7`; see the reference's version table |
 | `world` | The level's size, its gravity in px/s² (`{ "x": 0, "y": 1000 }` is a normal downward pull; `0` for top-down games), which object is the `player`, and its `rules`. Nothing happens that the level does not say: here falling into `pit`, a `Trigger` under the world, ends the game |
 | `assets.spritesheets` | Images, their frame size and named animations. See [Sprites and animation](./sprites) |
 | `background` | One frame of a sprite sheet tiled across the whole world, behind everything else |

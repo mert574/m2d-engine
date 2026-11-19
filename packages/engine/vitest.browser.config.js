@@ -19,7 +19,9 @@ const flags = process.env.M2D_BROWSER_FLAGS?.split(' ').filter(Boolean);
 // Headless Chromium draws to no display, but SwiftShader's ANGLE display
 // still connects to the one in DISPLAY and fails to initialise when that X
 // server refuses it, leaving the page with no WebGL2 at all.
-const { DISPLAY, WAYLAND_DISPLAY, ...env } = process.env;
+const env = { ...process.env };
+delete env.DISPLAY;
+delete env.WAYLAND_DISPLAY;
 export default defineConfig({
   // Pre-bundle the WASM physics module; discovering it mid-run makes Vite
   // reload the page under the tests.

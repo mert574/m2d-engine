@@ -1,12 +1,12 @@
 # Scene format
 
-A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `6`; see [Versions](#versions).
+A scene is a JSON object. The loader rejects any key that is not listed here and any reference that does not resolve. The current format version is `7`; see [Versions](#versions).
 
 ## Top level
 
 | Key | Scene types | Required | Meaning |
 | --- | --- | --- | --- |
-| `version` | both | yes | The format version the scene is written for. The current one is `6` |
+| `version` | both | yes | The format version the scene is written for. The current one is `7` |
 | `type` | both | yes | `"level"` or `"ui"` |
 | `name` | both | no | Free text. Error messages use the registered name |
 | `title` | both | no | Free text, unused by the engine |
@@ -589,13 +589,16 @@ M2D scene 'yard': the scene is 3D but the game runs 2D physics — construct M2D
 A scene declares the format version it was written for, and the loader accepts exactly the one this engine reads. Anything else is refused rather than half-understood:
 
 ```
-Scene 'level1' at version: scene format 7 is newer than this engine understands (6); upgrade m2d-engine
+Scene 'level1' at version: scene format 8 is newer than this engine understands (7); upgrade m2d-engine
 ```
 
 There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and rewriting the scenes, which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.
 
 | Version | Change |
 | --- | --- |
+| 7 | `world.lighting.fallback` removed with the Canvas backend it stood in for: WebGL2 is the 2D floor and every level is lit. Nov 2026 |
+| 6 | `world.killPlane`, the fall event and `world.gravityBind` removed: a level ends only as its rules say, with a pit `Trigger` where it needs one. Nov 2026 |
+| 5 | `world.sky`, `scatter`, `particles` and `ambience` removed: a sky, stars, particle fields and ambient sound are kit scenery actors placed in `layers`. Nov 2026 |
 | 4 | `paths`: named lines a `PathFollow` follows. Nov 2026 |
 | 3 | `layers[].scenes[]`: scene instances (composition). Nov 2026 |
 | 2 | The format the editor was built against |

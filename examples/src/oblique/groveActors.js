@@ -36,6 +36,7 @@ export function groundShadow(renderer, x, y, width, spread = 1, fade = 1) {
 
 const AMBER = '#ffb45e';
 const WISP = '#bfeaff';
+const DIRT = '#c9b48e';
 
 /**
  * A tree: a painted sprite standing on a trunk-sized footprint, swaying a
@@ -45,8 +46,6 @@ export class Tree extends Platform {
   static properties = {
     seed: s.number({ description: 'Fixes the sway; the position decides when unset' })
   };
-
-  /** Presentation: read from the renderer when drawing, never in simulation (a headless game has none). */
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -165,7 +164,6 @@ export class Wanderer extends ObliquePlayer {
   get drawBounds() {
     return this.boundsAround(340);
   }
-
 
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
@@ -321,7 +319,6 @@ export class Lantern extends Coin {
     return this.boundsAround(290);
   }
 
-
   constructor(body, sprite, game, options = {}) {
     super(body, sprite, game, options);
     const rng = makeRng(seedFrom(body.position));
@@ -374,7 +371,6 @@ export class Clearing extends Trigger {
   get drawBounds() {
     return this.boundsAround(240);
   }
-
 
   static properties = {
     sealed: s.boolean({ initial: true, description: 'Closed until a rule unseals it' })
@@ -552,7 +548,7 @@ export class GroundDetail extends Entity {
         renderer.drawSprite({
           image: this.ground, x: s.x, y: s.y, rotation: s.angle,
           tileX: s.u, tileY: 0, tileWidth: 256, tileHeight: 512,
-          width: s.length, height: pw, globalAlpha: 0.9, tint: this.tint
+          width: s.length, height: pw, globalAlpha: 0.9, tint: DIRT
         });
       } else {
         renderer.pushTransform({ x: s.x, y: s.y, rotation: s.angle });

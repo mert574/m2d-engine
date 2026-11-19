@@ -186,8 +186,6 @@ export class Fountain extends Entity {
     this.triggered = false;
   }
 
-  /** Asked when drawing: a headless game has no renderer to ask at construction. */
-
   /**
    * The map is walked. The simulation only says so; the court's notify
    * rule holds the send-off, the chime and the way to the next court,
