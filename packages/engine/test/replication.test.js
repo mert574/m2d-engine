@@ -182,7 +182,7 @@ describe('replication', () => {
 
   it('a tap on a tick that sent nothing goes out with the next message', async () => {
     const { net, socket } = await pair();
-    const { InputSnapshot } = await import('../src/core/input/snapshot.js');
+    const { InputSnapshot } = await import('../src/core/input/snapshot.ts');
     socket.outbox.length = 0;
     // The clock estimate falls behind what was already sent: this tick sends nothing.
     net.lastSent = net.targetTick + 50;

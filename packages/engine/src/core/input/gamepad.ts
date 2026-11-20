@@ -22,7 +22,7 @@
 const BUTTONS = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Back', 'Start', 'L3', 'R3', 'Up', 'Down', 'Left', 'Right', 'Guide'];
 
 /** The standard mapping's sticks: axis index to the controls its two ends are. */
-const AXES = [
+const AXES: [string, string][] = [
   ['LeftStickLeft', 'LeftStickRight'], ['LeftStickUp', 'LeftStickDown'],
   ['RightStickLeft', 'RightStickRight'], ['RightStickUp', 'RightStickDown']
 ];
@@ -35,7 +35,7 @@ const RELEASE = 0.4;
 export const GAMEPAD_CONTROLS = [...BUTTONS, ...AXES.flat()];
 
 /** What each control stands for unless a game says otherwise. An empty string is nothing. */
-export const GAMEPAD_KEYS = Object.freeze({
+export const GAMEPAD_KEYS: Readonly<Record<string, string>> = Object.freeze({
   Up: 'ArrowUp', Down: 'ArrowDown', Left: 'ArrowLeft', Right: 'ArrowRight',
   LeftStickUp: 'ArrowUp', LeftStickDown: 'ArrowDown', LeftStickLeft: 'ArrowLeft', LeftStickRight: 'ArrowRight',
   RightStickUp: '', RightStickDown: '', RightStickLeft: '', RightStickRight: '',
@@ -46,35 +46,42 @@ export const GAMEPAD_KEYS = Object.freeze({
 
 const NO_MODIFIERS = Object.freeze({ shift: false, ctrl: false, alt: false, meta: false });
 
+/** The key records a pad produces, into the input manager's queue. */
+interface PadSink {
+  push(record: { kind: 'keydown' | 'keyup'; code: string; key: string; time: number; modifiers: typeof NO_MODIFIERS }): void;
+}
+
 export class GamepadSource {
-  /**
-   * @param {{push: (record: object) => void}} sink - Where key records go
-   * @param {Record<string, string>|false} [mapping] - Overrides of `GAMEPAD_KEYS`, or `false` for no pads
-   */
-  constructor(sink, mapping = {}) {
+  sink: PadSink;
+  mapping: Record<string, string> | null;
+  /** The controls held last poll, for the sticks' hysteresis. */
+  controls: Set<string>;
+  /** The key codes down because of a pad. */
+  held: Set<string>;
+
+  /** `mapping` overrides `GAMEPAD_KEYS`; `false` reads no pads at all. */
+  constructor(sink: PadSink, mapping: Record<string, string> | false = {}) {
     this.sink = sink;
     this.mapping = mapping === false ? null : { ...GAMEPAD_KEYS, ...mapping };
     for (const control of Object.keys(mapping || {})) {
       if (!GAMEPAD_CONTROLS.includes(control)) throw new Error(`M2D gamepad: no control named '${control}' (controls: ${GAMEPAD_CONTROLS.join(', ')})`);
     }
-    /** The controls held last poll, for the sticks' hysteresis. @type {Set<string>} */
     this.controls = new Set();
-    /** The key codes down because of a pad. @type {Set<string>} */
     this.held = new Set();
   }
 
   /** The connected pads, where the page has any. */
-  static pads() {
+  static pads(): Gamepad[] {
     if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return [];
-    return [...navigator.getGamepads()].filter(Boolean);
+    return [...navigator.getGamepads()].filter((pad): pad is Gamepad => Boolean(pad));
   }
 
   /** Read every pad and push the key edges since the last poll. */
-  poll(now) {
+  poll(now: number): void {
     if (!this.mapping) return;
-    const controls = new Set();
+    const controls = new Set<string>();
     for (const pad of GamepadSource.pads()) this.#read(pad, controls);
-    const codes = new Set();
+    const codes = new Set<string>();
     for (const control of controls) {
       const code = this.mapping[control];
       if (code) codes.add(code);
@@ -86,18 +93,19 @@ export class GamepadSource {
   }
 
   /** Let every key up: the game is going away. */
-  release(now = 0) {
+  release(now = 0): void {
     for (const code of this.held) this.#push('keyup', code, now);
     this.held = new Set();
     this.controls = new Set();
   }
 
-  #read(pad, out) {
+  #read(pad: Gamepad, out: Set<string>): void {
     pad.buttons?.forEach((button, i) => {
       const name = BUTTONS[i];
       if (!name) return;
+      // Some pads report a bare number; the API says GamepadButton.
       const value = typeof button === 'number' ? button : button.value ?? (button.pressed ? 1 : 0);
-      if (button.pressed || this.#past(name, value)) out.add(name);
+      if ((button as GamepadButton).pressed || this.#past(name, value)) out.add(name);
     });
     pad.axes?.forEach((value, i) => {
       const ends = AXES[i];
@@ -108,11 +116,11 @@ export class GamepadSource {
   }
 
   /** Whether a travel counts as held, with hysteresis against the last poll. */
-  #past(control, value) {
+  #past(control: string, value: number): boolean {
     return value > (this.controls.has(control) ? RELEASE : PRESS);
   }
 
-  #push(kind, code, time) {
+  #push(kind: 'keydown' | 'keyup', code: string, time: number): void {
     this.sink.push({ kind, code, key: code, time, modifiers: NO_MODIFIERS });
   }
 }

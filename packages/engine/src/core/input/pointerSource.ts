@@ -33,8 +33,31 @@ const LINE_HEIGHT = 16;
 /** Pixels one 'page' of scroll is worth (`WheelEvent.deltaMode === 2`). */
 const PAGE_HEIGHT = 800;
 
+/** A normalized pointer record, as the input manager's queue takes it. */
+export interface PointerRecord {
+  kind: 'down' | 'move' | 'up' | 'cancel' | 'wheel';
+  pointerId: number;
+  pointerType: string;
+  button: number;
+  buttons: number;
+  clientX: number | null;
+  clientY: number | null;
+  movementX: number;
+  movementY: number;
+  scrollX: number;
+  scrollY: number;
+  modifiers: { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean };
+  time: number;
+}
+
+/** Where pointer records go: the input manager's queue. */
+interface PointerSink {
+  push(record: PointerRecord): void;
+  flush(): void;
+}
+
 /** CSS the canvas needs so the browser stops competing for pointer input. */
-const CAPTURE_STYLES = {
+const CAPTURE_STYLES: Record<string, string> = {
   touchAction: 'none',
   overscrollBehavior: 'contain',
   userSelect: 'none',
@@ -47,7 +70,7 @@ const CAPTURE_STYLES = {
 };
 
 /** Which modifier keys were held, as plain data the rest of the engine reads. */
-function modifiersOf(event) {
+function modifiersOf(event: MouseEvent) {
   return {
     shift: event.shiftKey === true,
     ctrl: event.ctrlKey === true,
@@ -57,24 +80,25 @@ function modifiersOf(event) {
 }
 
 /** Wheel deltas in whatever unit the browser chose, converted to pixels. */
-function scrollPixels(event) {
+function scrollPixels(event: WheelEvent) {
   const unit = event.deltaMode === 1 ? LINE_HEIGHT : event.deltaMode === 2 ? PAGE_HEIGHT : 1;
   return { x: event.deltaX * unit, y: event.deltaY * unit };
 }
 
 export class PointerSource {
-  /**
-   * @param {HTMLCanvasElement} canvas - Surface to claim
-   * @param {{push: (record: object) => void, flush: () => void}} sink -
-   *   Receives normalized records; `flush` is called when one must be acted
-   *   on inside the originating user gesture.
-   */
-  constructor(canvas, sink) {
+  /** Surface to claim. */
+  canvas: HTMLCanvasElement;
+  /** Receives normalized records; `flush` runs when one must be acted on inside the originating gesture. */
+  sink: PointerSink;
+  /** Teardown thunks, so destroy() can undo exactly what was registered. */
+  listeners: (() => void)[];
+  /** Pointer ids currently down, for synthesising cancels on focus loss. */
+  active: Set<number>;
+
+  constructor(canvas: HTMLCanvasElement, sink: PointerSink) {
     this.canvas = canvas;
     this.sink = sink;
-    /** Teardown thunks, so destroy() can undo exactly what was registered. */
     this.listeners = [];
-    /** Pointer ids currently down, for synthesising cancels on focus loss. */
     this.active = new Set();
 
     this.#applyCaptureStyles();
@@ -85,7 +109,7 @@ export class PointerSource {
   }
 
   #applyCaptureStyles() {
-    const style = this.canvas?.style;
+    const style = this.canvas?.style as unknown as Record<string, string> | undefined;
     if (!style) return;
     for (const [property, value] of Object.entries(CAPTURE_STYLES)) {
       style[property] = value;
@@ -93,15 +117,16 @@ export class PointerSource {
   }
 
   /** Register `handler` for `type` and remember how to remove it again. */
-  #on(target, type, handler, options) {
-    target.addEventListener(type, handler, options);
-    this.listeners.push(() => target.removeEventListener(type, handler, options));
+  #on(target: EventTarget, type: string, handler: (event: never) => void, options?: AddEventListenerOptions) {
+    const listener = handler as EventListener;
+    target.addEventListener(type, listener, options);
+    this.listeners.push(() => target.removeEventListener(type, listener, options));
   }
 
   #listen() {
     const canvas = this.canvas;
 
-    this.#on(canvas, 'pointerdown', (event) => {
+    this.#on(canvas, 'pointerdown', (event: PointerEvent) => {
       this.active.add(event.pointerId);
       // Capture first: without it the browser stops delivering moves the
       // moment the pointer leaves the canvas, and every drag that overshoots
@@ -113,7 +138,7 @@ export class PointerSource {
         try {
           canvas.setPointerCapture?.(event.pointerId);
         } catch (error) {
-          if (error.name !== 'InvalidStateError' && error.name !== 'NotFoundError') throw error;
+          if ((error as DOMException).name !== 'InvalidStateError' && (error as DOMException).name !== 'NotFoundError') throw error;
         }
       }
       // Suppressing the default also suppresses focus, so take it by hand.
@@ -123,11 +148,11 @@ export class PointerSource {
       this.sink.flush();
     });
 
-    this.#on(canvas, 'pointermove', (event) => {
+    this.#on(canvas, 'pointermove', (event: PointerEvent) => {
       this.#push(event, 'move');
     });
 
-    const release = (kind) => (event) => {
+    const release = (kind: 'up' | 'cancel') => (event: PointerEvent) => {
       this.active.delete(event.pointerId);
       canvas.releasePointerCapture?.(event.pointerId);
       this.#push(event, kind);
@@ -137,7 +162,7 @@ export class PointerSource {
     this.#on(canvas, 'pointercancel', release('cancel'));
 
     // Non-passive, because the point is to prevent the page from scrolling.
-    this.#on(canvas, 'wheel', (event) => {
+    this.#on(canvas, 'wheel', (event: WheelEvent) => {
       event.preventDefault();
       const scroll = scrollPixels(event);
       this.sink.push({
@@ -158,7 +183,7 @@ export class PointerSource {
     }, { passive: false });
 
     // Right-click belongs to the game, not to the browser.
-    this.#on(canvas, 'contextmenu', (event) => event.preventDefault());
+    this.#on(canvas, 'contextmenu', (event: Event) => event.preventDefault());
 
     // A pointer held while the window loses focus never reports its release:
     // the button would stay stuck down forever. Cancel it instead.
@@ -167,7 +192,7 @@ export class PointerSource {
     }
   }
 
-  #push(event, kind) {
+  #push(event: PointerEvent, kind: PointerRecord['kind']): void {
     this.sink.push({
       kind,
       pointerId: event.pointerId,
@@ -188,7 +213,7 @@ export class PointerSource {
   }
 
   /** Cancel every pointer currently down, e.g. when the window blurs. */
-  cancelAll() {
+  cancelAll(): void {
     if (this.active.size === 0) return;
     for (const pointerId of this.active) {
       this.sink.push({
@@ -211,7 +236,7 @@ export class PointerSource {
     this.sink.flush();
   }
 
-  destroy() {
+  destroy(): void {
     for (const remove of this.listeners) remove();
     this.listeners = [];
     this.active.clear();

@@ -30,29 +30,34 @@ const ARROW = Object.freeze([
   { x: 11.6, y: 11 }
 ]);
 
+import type { M2D } from '../m2d.js';
+
 export class Cursor {
+  game: M2D;
+  /** Whether the engine should hold pointer lock when it can. */
+  enabled: boolean;
+  /** Whether the browser currently has the canvas locked. */
+  locked: boolean;
+  /** Set while a request is in flight, so presses do not pile them up. */
+  pending: boolean;
   /**
-   * @param {import('../m2d.js').M2D} game
-   * @param {Object} [options]
-   * @param {boolean} [options.pointerLock=false] - Confine and hide the system
-   *   cursor, drawing a virtual one instead
+   * Draw the virtual cursor. Only meaningful while locked — unlocked, the
+   * system cursor is the real one and drawing a second would be a bug.
    */
-  constructor(game, options = {}) {
+  draws: boolean;
+  /** Position in UI units. */
+  ui: { x: number; y: number };
+  listeners: (() => void)[];
+
+  /** `pointerLock` confines and hides the system cursor, drawing a virtual one instead. */
+  constructor(game: M2D, options: { pointerLock?: boolean } = {}) {
     this.game = game;
-    /** Whether the engine should hold pointer lock when it can. */
     this.enabled = options.pointerLock ?? false;
-    /** Whether the browser currently has the canvas locked. */
     this.locked = false;
-    /** Set while a request is in flight, so presses do not pile them up. */
     this.pending = false;
-    /**
-     * Draw the virtual cursor. Only meaningful while locked — unlocked, the
-     * system cursor is the real one and drawing a second would be a bug.
-     */
     this.draws = true;
 
     const viewport = game.viewport;
-    /** Position in UI units. @type {{x: number, y: number}} */
     this.ui = { x: viewport.uiWidth / 2, y: viewport.uiHeight / 2 };
 
     this.listeners = [];
@@ -72,7 +77,7 @@ export class Cursor {
     this.pending = false;
     if (locked === this.locked) return;
     this.locked = locked;
-    this.game.input?.emitLockChange(locked);
+    (this.game.input as { emitLockChange?(locked: boolean): void } | null)?.emitLockChange?.(locked);
   }
 
   /**
@@ -84,7 +89,7 @@ export class Cursor {
    * A refusal is therefore expected, not an error: it is dropped here and the
    * next press tries again.
    */
-  request() {
+  request(): void {
     if (!this.enabled || this.locked || this.pending) return;
     const canvas = this.game.canvas;
     if (typeof canvas?.requestPointerLock !== 'function') return;
@@ -102,7 +107,7 @@ export class Cursor {
   }
 
   /** Release pointer lock, if this canvas holds it. */
-  exit() {
+  exit(): void {
     if (typeof document !== 'undefined' && document.pointerLockElement === this.game.canvas) {
       document.exitPointerLock?.();
     }
@@ -111,15 +116,14 @@ export class Cursor {
   /**
    * Turn pointer lock on or off at runtime. Turning it on takes effect at the
    * next press, since locking needs a user gesture.
-   * @param {boolean} enabled
    */
-  setEnabled(enabled) {
+  setEnabled(enabled: boolean): void {
     this.enabled = enabled;
     if (!enabled) this.exit();
   }
 
   /** Place the cursor from a real pointer position, in UI units. */
-  setUI(x, y) {
+  setUI(x: number, y: number): void {
     this.ui.x = x;
     this.ui.y = y;
   }
@@ -132,7 +136,7 @@ export class Cursor {
    * absolute position — the virtual cursor must move at exactly the speed the
    * real one would have.
    */
-  moveBy(movementX, movementY) {
+  moveBy(movementX: number, movementY: number): void {
     const { pixelRatio, uiScale, uiWidth, uiHeight } = this.game.viewport;
     const scale = pixelRatio / uiScale;
     this.ui.x = Math.min(Math.max(this.ui.x + movementX * scale, 0), uiWidth);
@@ -140,7 +144,7 @@ export class Cursor {
   }
 
   /** Keep the cursor inside UI space after the viewport changed. */
-  clampToViewport() {
+  clampToViewport(): void {
     const { uiWidth, uiHeight } = this.game.viewport;
     this.ui.x = Math.min(Math.max(this.ui.x, 0), uiWidth);
     this.ui.y = Math.min(Math.max(this.ui.y, 0), uiHeight);
@@ -150,9 +154,9 @@ export class Cursor {
    * Draw the virtual cursor. The engine calls this last, above every overlay,
    * and it is a no-op unless the engine owns the cursor.
    */
-  draw() {
+  draw(): void {
     if (!this.locked || !this.draws) return;
-    const ui = this.game.uiRenderer;
+    const ui = this.game.uiRenderer!;
     const points = ARROW.map(({ x, y }) => ({ x: this.ui.x + x, y: this.ui.y + y }));
     ui.drawPath({
       points,
@@ -163,7 +167,7 @@ export class Cursor {
     });
   }
 
-  destroy() {
+  destroy(): void {
     for (const remove of this.listeners) remove();
     this.listeners = [];
     this.exit();

@@ -37,7 +37,7 @@
 import { applyState } from './replication.js';
 import { ReplicaView } from './interpolation.js';
 import { Predictor } from './prediction.js';
-import { InputSnapshot } from '../core/input/snapshot.js';
+import { InputSnapshot } from '../core/input/snapshot.ts';
 
 /** Ticks of input sent ahead of the server's estimated clock. */
 const DEFAULT_LEAD = 2;

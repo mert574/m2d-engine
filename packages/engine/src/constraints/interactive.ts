@@ -13,7 +13,8 @@ export type HitArea = 'body' | { width: number; height: number } | { radius: num
 export interface InteractiveEvent {
   type: string;
   world: { x: number; y: number };
-  start: { world: { x: number; y: number } };
+  /** Where the gesture began; carried by the drag events. */
+  start?: { world: { x: number; y: number } };
   dropTarget?: { entity?: Entity } | null;
   consume(): void;
   [key: string]: unknown;
@@ -242,8 +243,8 @@ export class Interactive extends Constraint {
         // past the slop radius, and using that would jump the entity by
         // exactly that much on the first frame.
         this.grabOffset = {
-          x: this.entity.position.x - event.start.world.x,
-          y: this.entity.position.y - event.start.world.y
+          x: this.entity.position.x - event.start!.world.x,
+          y: this.entity.position.y - event.start!.world.y
         };
         if (this.follow) this.#holdAt(event.world);
         break;

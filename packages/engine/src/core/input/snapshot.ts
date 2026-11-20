@@ -18,8 +18,41 @@
 const HEADING_STEPS = 4096;
 const TURN = Math.PI * 2;
 
+/**
+ * The pointer as of the sample. `world` is on the ground plane (through
+ * the scene's projection, if any); `pressed` is true on the tick a button
+ * went down and `pressedButtons` is the mask of which, even if it was
+ * released again before the tick.
+ */
+export interface SnapshotPointer {
+  ui: { x: number; y: number };
+  world: { x: number; y: number; z?: number };
+  isDown: boolean;
+  pressed?: boolean;
+  pressedButtons?: number;
+  buttons: number;
+  type?: string;
+}
+
+/** `toJSON`'s shape, which `from` rebuilds (any part may be omitted). */
+export interface SnapshotJSON {
+  down?: string[];
+  pressed?: string[];
+  released?: string[];
+  pointer?: {
+    ui?: { x?: number; y?: number };
+    world?: { x?: number; y?: number; z?: number };
+    isDown?: boolean;
+    pressed?: boolean;
+    pressedButtons?: number;
+    buttons?: number;
+    type?: string;
+  };
+  heading?: number;
+}
+
 /** An angle wrapped into the turn and snapped to the grid above. */
-export function snapHeading(heading) {
+export function snapHeading(heading: number): number {
   if (!Number.isFinite(heading)) return 0;
   const steps = Math.round((heading / TURN) * HEADING_STEPS) % HEADING_STEPS;
   let wrapped = steps;
@@ -30,37 +63,34 @@ export function snapHeading(heading) {
 }
 
 export class InputSnapshot {
+  readonly down: Set<string>;
+  readonly pressed: Set<string>;
+  readonly released: Set<string>;
   /**
-   * @param {object} state
-   * @param {Set<string>} state.down
-   * @param {Set<string>} state.pressed
-   * @param {Set<string>} state.released
-   * @param {object} state.pointer
-   * @param {number} [state.heading=0]
+   * Which way the view faced on the ground plane when the tick was
+   * sampled, in radians (a 3D camera's yaw; 0 in 2D and headless), so a
+   * character steered relative to the view never reads the camera.
    */
-  constructor({ down, pressed, released, pointer, heading = 0 }) {
+  readonly heading: number;
+  readonly pointer: SnapshotPointer;
+
+  constructor({ down, pressed, released, pointer, heading = 0 }: {
+    down: Set<string>;
+    pressed: Set<string>;
+    released: Set<string>;
+    pointer: SnapshotPointer;
+    heading?: number;
+  }) {
     this.down = down;
     this.pressed = pressed;
     this.released = released;
-    /**
-     * Which way the view faced on the ground plane when the tick was
-     * sampled, in radians (a 3D camera's yaw; 0 in 2D and headless), so a
-     * character steered relative to the view never reads the camera.
-     */
     this.heading = heading;
-    /**
-     * `{ ui, world, isDown, pressed, pressedButtons, buttons, type }` as of
-     * the sample. `world` is on the ground plane (through the scene's
-     * projection, if any); `pressed` is true on the tick a button went
-     * down and `pressedButtons` is the mask of which, even if it was
-     * released again before the tick.
-     */
     this.pointer = pointer;
     Object.freeze(this);
   }
 
   /** Nothing held, nothing pressed, pointer at the origin. */
-  static empty() {
+  static empty(): InputSnapshot {
     return new InputSnapshot({
       down: new Set(),
       pressed: new Set(),
@@ -75,7 +105,7 @@ export class InputSnapshot {
    * replay needs to reproduce the tick: `JSON.stringify` works directly on
    * an array of these, and `InputSnapshot.from` turns them back.
    */
-  toJSON() {
+  toJSON(): SnapshotJSON {
     return {
       down: [...this.down],
       pressed: [...this.pressed],
@@ -96,10 +126,8 @@ export class InputSnapshot {
   /**
    * Rebuild a snapshot from `toJSON` output (or anything shaped like it —
    * a recorder that only stores key codes can omit the rest).
-   * @param {object} json
-   * @returns {InputSnapshot}
    */
-  static from(json = {}) {
+  static from(json: SnapshotJSON = {}): InputSnapshot {
     const pointer = json.pointer ?? {};
     return new InputSnapshot({
       down: new Set(json.down ?? []),
@@ -118,22 +146,22 @@ export class InputSnapshot {
     });
   }
 
-  /** Whether a physical key was held. @param {string} code */
-  isDown(code) { return this.down.has(code); }
+  /** Whether a physical key was held. */
+  isDown(code: string): boolean { return this.down.has(code); }
 
   /** Whether a key went down this frame, seen by this tick only. */
-  justPressed(code) { return this.pressed.has(code); }
+  justPressed(code: string): boolean { return this.pressed.has(code); }
 
   /** Whether a key came up this frame, seen by this tick only. */
-  justReleased(code) { return this.released.has(code); }
+  justReleased(code: string): boolean { return this.released.has(code); }
 
   /** A -1..1 axis from two keys. Both held cancel out. */
-  axis(negative, positive) {
+  axis(negative: string, positive: string): number {
     return (this.down.has(positive) ? 1 : 0) - (this.down.has(negative) ? 1 : 0);
   }
 
   /** A direction from four keys, normalized so diagonals are not faster. */
-  vector(up, down, left, right) {
+  vector(up: string, down: string, left: string, right: string): { x: number; y: number } {
     const x = this.axis(left, right);
     const y = this.axis(up, down);
     if (x !== 0 && y !== 0) {

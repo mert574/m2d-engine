@@ -16,22 +16,78 @@
  * and `findPath` speaks world 2D points; in 3D it speaks world metres.
  */
 
-import { NavAreas } from './navAreas.js';
-import { navGeometryOf, AGENT_DEFAULTS } from './navGeometry.js';
-import { bakeStamp } from './stamp.js';
-import { fetchBinary } from './fetchBinary.js';
+import { NavAreas } from './navAreas.ts';
+import { navGeometryOf, AGENT_DEFAULTS } from './navGeometry.ts';
+import { bakeStamp } from './stamp.ts';
+import type { NavAgent } from './stamp.ts';
+import { fetchBinary } from './fetchBinary.ts';
+import type { M2D } from '../m2d.js';
+
+/** A point either dimension's world hands around. */
+interface Point3ish { x: number; y: number; z?: number }
+
+/** A nav-space vector, as Detour speaks it. */
+interface NavVec { x: number; y: number; z: number }
+
+/**
+ * The recast/Detour members the queries touch. The package's own types do
+ * not resolve under nodenext (see navBake.ts), so the calls made here are
+ * declared, not the engine described.
+ */
+interface MeshQuery {
+  destroy?(): void;
+  findNearestPoly(point: NavVec, options: { filter: unknown; halfExtents: NavVec }): { success: boolean; nearestRef: number; nearestPoint: NavVec };
+  computePath(from: NavVec, to: NavVec, options: { filter: unknown; halfExtents: NavVec }): { success: boolean; path?: NavVec[] };
+}
+interface TileCacheLike {
+  destroy?(): void;
+  addBoxObstacle(centre: NavVec, half: NavVec, angle: number): { success: boolean; obstacle: unknown };
+  removeObstacle(obstacle: unknown): void;
+  update(navMesh: unknown): { upToDate: boolean };
+}
+interface RecastRuntime {
+  init(): Promise<void>;
+  importNavMesh(bytes: Uint8Array): { navMesh: NavMeshLike };
+  importTileCache(bytes: Uint8Array, process: unknown): { navMesh: NavMeshLike; tileCache: TileCacheLike };
+  NavMeshQuery: new (mesh: NavMeshLike) => MeshQuery;
+  QueryFilter: new () => { setAreaCost(id: number, cost: number): void };
+  getNavMeshPositionsAndIndices(mesh: NavMeshLike): [number[], number[]];
+}
+interface NavMeshLike { destroy?(): void }
+
+/** One loaded mesh and everything a query needs around it. */
+interface LoadedMesh {
+  navMesh: NavMeshLike;
+  tileCache: TileCacheLike | null;
+  query: MeshQuery;
+  filter: unknown;
+  debug: { positions: number[]; indices: number[] };
+  refs: Map<number, { obstacle: unknown; box: ObstacleBox }>;
+  overlayGeometry?: unknown;
+}
+
+/** A tracked obstacle box, in world terms. */
+interface ObstacleBox {
+  x: number;
+  y: number;
+  z?: number;
+  halfX: number;
+  halfY?: number;
+  halfZ?: number;
+  angle?: number;
+}
 
 /** Whether two obstacle boxes differ in any field. */
 /**
  * Whether the segment a→b, already in a box's own frame, crosses the box
  * of half-extents (hx, hy): a Liang-Barsky clip that only answers yes/no.
  */
-function segmentCrossesBox(ax, ay, bx, by, hx, hy) {
+function segmentCrossesBox(ax: number, ay: number, bx: number, by: number, hx: number, hy: number): boolean {
   const dx = bx - ax;
   const dy = by - ay;
   let enter = 0;
   let exit = 1;
-  for (const [p, q] of [[-dx, ax + hx], [dx, hx - ax], [-dy, ay + hy], [dy, hy - ay]]) {
+  for (const [p, q] of [[-dx, ax + hx], [dx, hx - ax], [-dy, ay + hy], [dy, hy - ay]] as [number, number][]) {
     if (p === 0) {
       if (q < 0) return false; // parallel and outside this slab
       continue;
@@ -44,36 +100,38 @@ function segmentCrossesBox(ax, ay, bx, by, hx, hy) {
   return true;
 }
 
-const movedBox = (a, b) => a.x !== b.x || a.y !== b.y || (a.z ?? 0) !== (b.z ?? 0)
+const movedBox = (a: ObstacleBox, b: ObstacleBox) => a.x !== b.x || a.y !== b.y || (a.z ?? 0) !== (b.z ?? 0)
   || a.halfX !== b.halfX || a.halfY !== b.halfY || (a.halfZ ?? 0) !== (b.halfZ ?? 0) || (a.angle ?? 0) !== (b.angle ?? 0);
 
 export class Nav {
+  game: M2D;
+  /** The project's nav areas, name to id and cost. */
+  areas: NavAreas;
+  /** The project's agent profiles, by name. */
+  agents: Map<string, NavAgent>;
+  /** One loaded mesh per agent profile. */
+  meshes: Map<string, LoadedMesh>;
+  /** What load found wrong, for the editor's audit and the console. */
+  issues: { kind: 'missing' | 'stale' | 'undeclared' | 'static'; agent: string | null; message: string }[];
   /**
-   * @param {import('../m2d.js').M2D} game
-   * @param {{navAreas?: object, navAgents?: object}} options - The project's declarations.
+   * The dynamic obstacles, id to a plain box record: simulation state,
+   * carried by `trackState`; the wasm tile caches are derived from it.
    */
-  constructor(game, { navAreas, navAgents } = {}) {
+  obstacles: Map<number, ObstacleBox>;
+  /** The next obstacle id, part of the tracked state. */
+  nextObstacleId: number;
+  /** The recast module, kept once a scene loads a mesh. */
+  recast: RecastRuntime | null;
+
+  /** `options` are the project's declarations. */
+  constructor(game: M2D, { navAreas, navAgents }: { navAreas?: Record<string, { cost?: number }>; navAgents?: Record<string, NavAgent> } = {}) {
     this.game = game;
-    /** The project's nav areas, name to id and cost. */
     this.areas = new NavAreas(navAreas);
-    /** The project's agent profiles, by name. @type {Map<string, object>} */
     this.agents = new Map(Object.entries(navAgents ?? {}));
-    /** One loaded mesh per agent profile: `{ navMesh, query, filter, debug }`. @type {Map<string, object>} */
     this.meshes = new Map();
-    /**
-     * What load found wrong, for the editor's audit and the console:
-     * `{ kind: 'missing'|'stale'|'undeclared'|'static', agent, message }[]`.
-     */
     this.issues = [];
-    /**
-     * The dynamic obstacles, id to a plain box record: simulation state,
-     * carried by `trackState`; the wasm tile caches are derived from it.
-     * @type {Map<number, object>}
-     */
     this.obstacles = new Map();
-    /** The next obstacle id, part of the tracked state. */
     this.nextObstacleId = 1;
-    /** The recast module, kept once a scene loads a mesh. */
     this.recast = null;
   }
 
@@ -81,9 +139,9 @@ export class Nav {
   #dirty = false;
 
   /** An agent profile by name; unnamed, the only one a query could mean. */
-  agent(name) {
+  agent(name?: string): string {
     if (name === undefined) {
-      if (this.agents.size === 1) return this.agents.keys().next().value;
+      if (this.agents.size === 1) return this.agents.keys().next().value!;
       throw new Error(`M2D nav: say which agent (m2d.project.json navAgents: ${[...this.agents.keys()].join(', ') || 'none declared'})`);
     }
     if (!this.agents.has(name)) {
@@ -93,7 +151,7 @@ export class Nav {
   }
 
   /** Whether a mesh for this agent (or the only agent) is loaded. */
-  has(agent) {
+  has(agent?: string): boolean {
     try {
       return this.meshes.has(this.agent(agent));
     } catch {
@@ -106,18 +164,17 @@ export class Nav {
    * built. A problem is reported, never thrown: a stale mesh still plays,
    * it just plays on yesterday's walls, and the report is how that gets
    * fixed rather than shipped.
-   * @param {import('../scene.js').Scene} scene
    */
-  async loadScene(scene) {
+  async loadScene(scene: { config: { name?: string; assets?: { navmeshes?: Record<string, { url: string; stamp?: string }> } } }): Promise<void> {
     this.unload();
     const entries = Object.entries(scene.config.assets?.navmeshes ?? {});
     if (!entries.length) return;
-    const recast = await import('recast-navigation');
+    const recast = await (import('recast-navigation') as Promise<unknown> as Promise<RecastRuntime>);
     const { importNavMesh, NavMeshQuery, QueryFilter, getNavMeshPositionsAndIndices, init } = recast;
     await init();
     this.recast = recast;
 
-    const report = (kind, agent, message) => {
+    const report = (kind: 'missing' | 'stale' | 'undeclared', agent: string, message: string) => {
       this.issues.push({ kind, agent, message });
       console.warn(`M2D nav: ${message}`);
     };
@@ -129,20 +186,21 @@ export class Nav {
       }
       let bytes;
       try {
-        bytes = await fetchBinary((this.game.options.basePath ?? '') + entry.url);
+        bytes = await fetchBinary(((this.game.options as { basePath?: string }).basePath ?? '') + entry.url);
       } catch (error) {
-        report('missing', agentName, `scene '${scene.config.name}' names navmesh '${entry.url}' for agent '${agentName}', which did not load (${error.message}); bake it in the editor`);
+        report('missing', agentName, `scene '${scene.config.name}' names navmesh '${entry.url}' for agent '${agentName}', which did not load (${(error as Error).message}); bake it in the editor`);
         continue;
       }
-      const stamp = bakeStamp(navGeometryOf(this.game, this.agents.get(agentName), scene), this.agents.get(agentName), this.areas);
+      const agentProfile = this.agents.get(agentName)!;
+      const stamp = bakeStamp(navGeometryOf(this.game, agentProfile, scene as never), agentProfile, this.areas);
       if (stamp !== entry.stamp) {
         report('stale', agentName, `scene '${scene.config.name}': the navmesh for agent '${agentName}' is stale — the level's colliders, nav volumes or agent no longer match the bake; bake it again in the editor`);
       }
-      const profile = this.agents.get(agentName);
-      let navMesh, tileCache = null;
+      const profile = this.agents.get(agentName)!;
+      let navMesh: NavMeshLike, tileCache: TileCacheLike | null = null;
       if (profile.dynamic) {
-        const { tileCacheMeshProcess } = await import('./navBake.js');
-        const imported = recast.importTileCache(bytes, tileCacheMeshProcess(recast));
+        const { tileCacheMeshProcess } = await import('./navBake.ts');
+        const imported = recast.importTileCache(bytes, tileCacheMeshProcess(recast as never));
         navMesh = imported.navMesh;
         tileCache = imported.tileCache;
       } else {
@@ -161,8 +219,8 @@ export class Nav {
     // tracked state.
     if ([...this.meshes.values()].some((mesh) => mesh.tileCache)) {
       this.game.trackState('nav.obstacles', {
-        save: () => ({ next: this.nextObstacleId, list: [...this.obstacles.entries()].map(([id, box]) => [id, { ...box }]) }),
-        load: (data) => {
+        save: () => ({ next: this.nextObstacleId, list: [...this.obstacles.entries()].map(([id, box]) => [id, { ...box }] as [number, ObstacleBox]) }),
+        load: (data: { next: number; list: [number, ObstacleBox][] }) => {
           this.nextObstacleId = data.next;
           this.obstacles = new Map(data.list.map(([id, box]) => [id, { ...box }]));
           this.#converge();
@@ -179,7 +237,7 @@ export class Nav {
    * (`angle` the body's), with `z`, `halfZ` and `y` the height in 3D.
    * On a scene with no dynamic mesh it is reported once and ignored.
    */
-  addObstacle(box) {
+  addObstacle(box: ObstacleBox): number {
     if (![...this.meshes.values()].some((mesh) => mesh.tileCache)) {
       if (!this.issues.some((issue) => issue.kind === 'static')) {
         const message = 'an obstacle was added but no nav agent is dynamic (m2d.project.json navAgents.<name>.dynamic); the mesh will not cut';
@@ -195,13 +253,13 @@ export class Nav {
   }
 
   /** Move or resize an obstacle: the old cut heals, the new one lands. */
-  moveObstacle(id, box) {
+  moveObstacle(id: number, box: ObstacleBox): void {
     if (!this.obstacles.has(id)) return;
     this.obstacles.set(id, { ...box });
     this.#dirty = true;
   }
 
-  removeObstacle(id) {
+  removeObstacle(id: number): void {
     if (this.obstacles.delete(id)) this.#dirty = true;
   }
 
@@ -213,24 +271,22 @@ export class Nav {
    * simulation state, so this is a handful of segment-against-box clips,
    * with no query into the wasm.
    *
-   * @param {{x: number, y: number, z?: number}[]} points - The corners
-   *   still ahead, the walker's own position first
-   * @returns {boolean}
+   * `points` are the corners still ahead, the walker's own position first.
    */
-  routeBlocked(points) {
+  routeBlocked(points: Point3ish[]): boolean {
     if (this.obstacles.size === 0 || points.length < 2) return false;
-    const solid = (this.game.options.dimensions ?? 2) === 3;
-    const ground = (p) => (solid ? { x: p.x, y: p.z ?? 0 } : { x: p.x, y: p.y });
+    const solid = ((this.game.options as { dimensions?: number }).dimensions ?? 2) === 3;
+    const ground = (p: Point3ish) => (solid ? { x: p.x, y: p.z ?? 0 } : { x: p.x, y: p.y });
     for (const box of this.obstacles.values()) {
       const hx = box.halfX;
-      const hy = solid ? (box.halfZ ?? box.halfX) : box.halfY;
+      const hy = solid ? (box.halfZ ?? box.halfX) : box.halfY!;
       const cx = box.x;
       const cy = solid ? (box.z ?? 0) : box.y;
       const c = Math.cos(box.angle ?? 0);
       const s = Math.sin(box.angle ?? 0);
       for (let i = 1; i < points.length; i++) {
-        const a = ground(points[i - 1]);
-        const b = ground(points[i]);
+        const a = ground(points[i - 1]!);
+        const b = ground(points[i]!);
         // Into the box's frame, then a slab clip against its half-extents.
         const ax = (a.x - cx) * c + (a.y - cy) * s;
         const ay = -(a.x - cx) * s + (a.y - cy) * c;
@@ -247,19 +303,19 @@ export class Nav {
    * the wasm state is a pure function of it. `M2D.fixedUpdate` calls this
    * before the entities run; with nothing dirty it costs a flag read.
    */
-  tick() {
+  tick(): void {
     if (!this.#dirty) return;
     this.#dirty = false;
     this.#converge();
   }
 
   /** Make each tile cache's obstacles match the list, and rebuild to quiet. */
-  #converge() {
-    const flat = (this.game.options.dimensions ?? 2) !== 3;
+  #converge(): void {
+    const flat = ((this.game.options as { dimensions?: number }).dimensions ?? 2) !== 3;
     for (const [agentName, mesh] of this.meshes) {
       if (!mesh.tileCache) continue;
       // In flat 2D the cut spans the mesh's whole height, as a wall does.
-      const rise = AGENT_DEFAULTS(this.agents.get(agentName)).height * 4;
+      const rise = AGENT_DEFAULTS(this.agents.get(agentName)!).height * 4;
       for (const [id, ref] of mesh.refs) {
         if (!this.obstacles.has(id)) {
           mesh.tileCache.removeObstacle(ref.obstacle);
@@ -277,8 +333,8 @@ export class Nav {
           ? { x: box.x, y: 0, z: box.y }
           : { x: box.x, y: box.y, z: box.z ?? 0 };
         const half = flat
-          ? { x: box.halfX, y: rise, z: box.halfY }
-          : { x: box.halfX, y: box.halfY, z: box.halfZ ?? box.halfX };
+          ? { x: box.halfX, y: rise, z: box.halfY! }
+          : { x: box.halfX, y: box.halfY!, z: box.halfZ ?? box.halfX };
         const added = mesh.tileCache.addBoxObstacle(centre, half, flat ? -(box.angle ?? 0) : (box.angle ?? 0));
         if (added.success) mesh.refs.set(id, { obstacle: added.obstacle, box: { ...box } });
       }
@@ -288,14 +344,14 @@ export class Nav {
         const { upToDate } = mesh.tileCache.update(mesh.navMesh);
         if (upToDate) break;
       }
-      const [positions, indices] = this.recast.getNavMeshPositionsAndIndices(mesh.navMesh);
+      const [positions, indices] = this.recast!.getNavMeshPositionsAndIndices(mesh.navMesh);
       mesh.debug = { positions, indices };
       mesh.overlayGeometry = null;
     }
   }
 
   /** Free the wasm-side meshes: their memory is manual. */
-  unload() {
+  unload(): void {
     for (const { navMesh, tileCache, query } of this.meshes.values()) {
       query.destroy?.();
       tileCache?.destroy?.();
@@ -314,19 +370,15 @@ export class Nav {
    * y}` in 2D, `{x, y, z}` in 3D — from the straightened (funnelled) path,
    * weighed by the nav areas' costs.
    *
-   * @param {{x: number, y: number, z?: number}} from
-   * @param {{x: number, y: number, z?: number}} to
-   * @param {{agent?: string, maxLength?: number}} [options]
-   * @returns {{points: object[], length: number}|null}
    */
-  findPath(from, to, { agent, maxLength } = {}) {
+  findPath(from: Point3ish, to: Point3ish, { agent, maxLength }: { agent?: string; maxLength?: number } = {}): { points: Point3ish[]; length: number } | null {
     const name = this.agent(agent);
     const mesh = this.meshes.get(name);
     if (!mesh) return null;
-    const profile = AGENT_DEFAULTS(this.agents.get(name));
-    const flat = (this.game.options.dimensions ?? 2) !== 3;
-    const toNav = (p) => (flat ? { x: p.x, y: 0, z: p.y } : { x: p.x, y: p.y, z: p.z ?? 0 });
-    const fromNav = (v) => (flat ? { x: v.x, y: v.z } : { x: v.x, y: v.y, z: v.z });
+    const profile = AGENT_DEFAULTS(this.agents.get(name)!);
+    const flat = ((this.game.options as { dimensions?: number }).dimensions ?? 2) !== 3;
+    const toNav = (p: Point3ish): NavVec => (flat ? { x: p.x, y: 0, z: p.y } : { x: p.x, y: p.y, z: p.z ?? 0 });
+    const fromNav = (v: NavVec): Point3ish => (flat ? { x: v.x, y: v.z } : { x: v.x, y: v.y, z: v.z });
     const reach = profile.radius * 4;
     const halfExtents = { x: reach, y: Math.max(profile.height * 4, reach), z: reach };
 
@@ -343,13 +395,13 @@ export class Nav {
 
     // Detour answers a blocked goal with its best partial path; a route
     // that gives up short of the goal is no route.
-    const last = result.path[result.path.length - 1];
+    const last = result.path![result.path!.length - 1]!;
     if (Math.hypot(last.x - snapped.x, last.z - snapped.z) > reach) return null;
 
-    const points = result.path.map(fromNav);
+    const points = result.path!.map(fromNav);
     let length = 0;
-    for (let i = 1; i < result.path.length; i++) {
-      const a = result.path[i - 1], b = result.path[i];
+    for (let i = 1; i < result.path!.length; i++) {
+      const a = result.path![i - 1]!, b = result.path![i]!;
       length += Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
     }
     if (maxLength !== undefined && length > maxLength) return null;
@@ -360,15 +412,13 @@ export class Nav {
    * The nearest point on the mesh to a world point, or null off it: where
    * a click beside a wall actually means, and whether a spot is walkable
    * at all.
-   * @param {{x: number, y: number, z?: number}} point
-   * @param {{agent?: string}} [options]
    */
-  nearestPoint(point, { agent } = {}) {
+  nearestPoint(point: Point3ish, { agent }: { agent?: string } = {}): Point3ish | null {
     const name = this.agent(agent);
     const mesh = this.meshes.get(name);
     if (!mesh) return null;
-    const profile = AGENT_DEFAULTS(this.agents.get(name));
-    const flat = (this.game.options.dimensions ?? 2) !== 3;
+    const profile = AGENT_DEFAULTS(this.agents.get(name)!);
+    const flat = ((this.game.options as { dimensions?: number }).dimensions ?? 2) !== 3;
     const nav = flat ? { x: point.x, y: 0, z: point.y } : { x: point.x, y: point.y, z: point.z ?? 0 };
     const reach = profile.radius * 4;
     const result = mesh.query.findNearestPoly(nav, {

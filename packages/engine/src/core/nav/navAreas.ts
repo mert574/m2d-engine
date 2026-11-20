@@ -20,9 +20,11 @@ export const WALKABLE_AREA = 63;
 export const BLOCKED_AREA = 0;
 
 export class NavAreas {
-  /** @param {Record<string, {cost?: number}>} [areas] - The project's `navAreas`. */
-  constructor(areas = {}) {
-    /** @type {Map<string, {id: number, cost: number}>} name to its id and cost. */
+  /** Name to its id and cost. */
+  areas: Map<string, { id: number; cost: number }>;
+
+  /** `areas` is the project's `navAreas`. */
+  constructor(areas: Record<string, { cost?: number }> = {}) {
     this.areas = new Map([
       ['walkable', { id: WALKABLE_AREA, cost: 1 }],
       ['blocked', { id: BLOCKED_AREA, cost: Infinity }]
@@ -38,12 +40,12 @@ export class NavAreas {
   }
 
   /** The declared names, the engine's own first. */
-  get names() {
+  get names(): string[] {
     return [...this.areas.keys()];
   }
 
   /** An area's id, for marking and filtering. */
-  id(name) {
+  id(name: string): number {
     const area = this.areas.get(name);
     if (!area) {
       throw new Error(`M2D: no nav area named '${name}' (m2d.project.json navAreas: ${this.names.join(', ')})`);
@@ -52,12 +54,12 @@ export class NavAreas {
   }
 
   /** Every area's traversal cost by id, for a query filter. */
-  get costs() {
+  get costs(): { id: number; cost: number }[] {
     return [...this.areas.values()].filter((area) => area.id !== BLOCKED_AREA).map(({ id, cost }) => ({ id, cost }));
   }
 
   /** What the stamp hashes: the names, ids and costs, in declaration order. */
-  get spec() {
+  get spec(): (string | number)[][] {
     return [...this.areas.entries()].map(([name, { id, cost }]) => [name, id, cost === Infinity ? 'inf' : cost]);
   }
 }

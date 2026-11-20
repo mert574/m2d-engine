@@ -57,54 +57,103 @@ const LONG_PRESS = 500;
 const PRIMARY = 0;
 const SECONDARY = 2;
 
-function distance(a, b) {
+import type { InputTarget, RoutedEvent } from './router.ts';
+
+/** A point in UI or world units. */
+interface Point { x: number; y: number }
+
+/** The press state one pointer carries between events. */
+interface PressState {
+  id: number;
+  pointerType: string;
+  button: number;
+  downTarget: InputTarget | null | undefined;
+  downTime: number;
+  downUI: Point;
+  downWorld: Point;
+  lastUI: Point;
+  lastWorld: Point;
+  dragging: boolean;
+  subject: InputTarget | null;
+  suppressClick: boolean;
+  longPressed: boolean;
+}
+
+/** The two live pointers as a span: centre, separation and angle. */
+interface Span {
+  centre: { ui: Point; world: Point };
+  distance: number;
+  angle: number;
+}
+
+/**
+ * The members this recognizer reads off a dispatched pointer event; the
+ * full event is the input manager's.
+ */
+interface PointerLikeEvent {
+  pointerId: number;
+  pointerType: string;
+  button: number;
+  time: number;
+  ui: Point;
+  world: Point;
+  target?: InputTarget | null;
+}
+
+function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function delta(from, to) {
+function delta(from: Point, to: Point): Point {
   return { x: to.x - from.x, y: to.y - from.y };
 }
 
+/** Builds a dispatchable event from a source pointer event. */
+type MakeEvent = (type: string, source: unknown, extra?: Record<string, unknown>) => RoutedEvent;
+
 export class GestureRecognizer {
-  /**
-   * @param {Object} deps
-   * @param {(type: string, source: object, extra?: object) => object} deps.makeEvent -
-   *   Builds a dispatchable event from a source pointer event
-   * @param {(event: object) => void} deps.dispatch - Routes a built event
-   * @param {(...types: string[]) => boolean} deps.listening - Whether anything
-   *   subscribes to any of these event types
-   */
-  constructor({ makeEvent, dispatch, listening }) {
+  makeEvent: MakeEvent;
+  dispatch: (event: RoutedEvent) => void;
+  /** Whether anything subscribes to any of these event types. */
+  listening: (...types: string[]) => boolean;
+  /** Live press state per pointer id. */
+  pointers: Map<number, PressState>;
+  /** The last click, for pairing a double. */
+  lastClick: { time: number; ui: Point } | null;
+  /** Two-pointer pinch state, or null. */
+  pinch: { initial: Span; last: Span } | null;
+
+  constructor({ makeEvent, dispatch, listening }: {
+    makeEvent: MakeEvent;
+    dispatch: (event: RoutedEvent) => void;
+    listening: (...types: string[]) => boolean;
+  }) {
     this.makeEvent = makeEvent;
     this.dispatch = dispatch;
     this.listening = listening;
-
-    /** Live press state per pointer id. @type {Map<number, object>} */
     this.pointers = new Map();
-    /** The last click, for pairing a double. */
     this.lastClick = null;
-    /** Two-pointer pinch state, or null. */
     this.pinch = null;
   }
 
   /** Press state for `id`, or undefined if that pointer is not down. */
-  get(id) {
+  get(id: number): PressState | undefined {
     return this.pointers.get(id);
   }
 
   /** Whether any pointer is mid-drag. */
-  get dragging() {
+  get dragging(): boolean {
     for (const state of this.pointers.values()) if (state.dragging) return true;
     return false;
   }
 
   /**
-   * @param {object} event - The dispatched `pointerdown`. It has already been
-   *   routed, so `event.target` is resolved — which is what lets a click be
-   *   defined as "pressed and released on the same thing".
+   * `event` is the dispatched `pointerdown`. It has already been routed, so
+   * `event.target` is resolved — which is what lets a click be defined as
+   * "pressed and released on the same thing".
    */
-  pointerDown(event) {
-    const state = {
+  pointerDown(event: PointerLikeEvent): void {
+    const state: PressState = {
       id: event.pointerId,
       pointerType: event.pointerType,
       button: event.button,
@@ -126,7 +175,7 @@ export class GestureRecognizer {
     }
   }
 
-  pointerMove(event) {
+  pointerMove(event: PointerLikeEvent): void {
     const state = this.pointers.get(event.pointerId);
 
     if (this.pinch) {
@@ -151,7 +200,7 @@ export class GestureRecognizer {
       // pointer once it has travelled past the slop radius — by then it has
       // usually left the thing it grabbed. The same capture keeps a fast
       // drag from being handed to everything it flies over.
-      state.subject = state.downTarget;
+      state.subject = state.downTarget ?? null;
       this.dispatch(this.#dragEvent('dragstart', event, state));
       this.#advance(state, event);
       return;
@@ -166,13 +215,13 @@ export class GestureRecognizer {
    * deltas are measured from the previous position and advancing first
    * would make every one of them zero.
    */
-  #advance(state, event) {
+  #advance(state: PressState | undefined, event: PointerLikeEvent): void {
     if (!state) return;
     state.lastUI = { ...event.ui };
     state.lastWorld = { ...event.world };
   }
 
-  pointerUp(event, { cancelled = false } = {}) {
+  pointerUp(event: PointerLikeEvent, { cancelled = false }: { cancelled?: boolean } = {}): void {
     const state = this.pointers.get(event.pointerId);
     this.pointers.delete(event.pointerId);
 
@@ -215,9 +264,9 @@ export class GestureRecognizer {
    * Advance time-based recognition. Called once per frame rather than from a
    * timer: a long press that fires at a frame boundary is indistinguishable
    * to the player, and there is no timer left to leak on teardown.
-   * @param {number} now - Milliseconds on the same clock as event times
+   * `now` is milliseconds on the same clock as event times.
    */
-  update(now) {
+  update(now: number): void {
     if (this.pointers.size === 0) return;
     if (!this.listening('rightclick')) return;
     for (const state of this.pointers.values()) {
@@ -246,14 +295,14 @@ export class GestureRecognizer {
    * is no target to compare: quick releases count as clicks despite motion,
    * and longer presses must stay within the click radius.
    */
-  #completesClick(state, event) {
+  #completesClick(state: PressState, event: PointerLikeEvent): boolean {
     if (state.downTarget) return event.target === state.downTarget;
     return event.time - state.downTime < DRAG_DELAY ||
       distance(state.downUI, event.ui) <= CLICK_SLOP;
   }
 
   /** A synthetic source event at a pointer's current position. */
-  #sourceFrom(state) {
+  #sourceFrom(state: PressState) {
     return {
       pointerId: state.id,
       pointerType: state.pointerType,
@@ -264,7 +313,7 @@ export class GestureRecognizer {
     };
   }
 
-  #dragEvent(type, event, state, extra = {}) {
+  #dragEvent(type: string, event: PointerLikeEvent, state: PressState, extra: Record<string, unknown> = {}): RoutedEvent {
     return this.makeEvent(type, event, {
       start: { ui: { ...state.downUI }, world: { ...state.downWorld } },
       delta: {
@@ -283,7 +332,7 @@ export class GestureRecognizer {
   // === Pinch ===
 
   /** The two live pointers as a span: centre, separation and angle. */
-  #span() {
+  #span(): Span | null {
     const [a, b] = [...this.pointers.values()];
     if (!a || !b) return null;
     return {
@@ -296,7 +345,7 @@ export class GestureRecognizer {
     };
   }
 
-  #startPinch(event) {
+  #startPinch(event: PointerLikeEvent): void {
     const span = this.#span();
     if (!span || span.distance === 0) return;
 
@@ -314,15 +363,15 @@ export class GestureRecognizer {
     this.dispatch(this.makeEvent('pinchstart', event, this.#pinchDetail(span)));
   }
 
-  #updatePinch(event) {
+  #updatePinch(event: PointerLikeEvent): void {
     const span = this.#span();
     if (!span) return;
     this.dispatch(this.makeEvent('pinch', event, this.#pinchDetail(span)));
-    this.pinch.last = span;
+    this.pinch!.last = span;
   }
 
-  #endPinch(event) {
-    const span = this.pinch.last;
+  #endPinch(event: PointerLikeEvent): void {
+    const span = this.pinch!.last;
     this.dispatch(this.makeEvent('pinchend', event, this.#pinchDetail(span)));
     this.pinch = null;
     // The remaining finger is not a fresh press — leaving it live would make
@@ -330,8 +379,8 @@ export class GestureRecognizer {
     for (const state of this.pointers.values()) state.suppressClick = true;
   }
 
-  #pinchDetail(span) {
-    const { initial, last } = this.pinch;
+  #pinchDetail(span: Span): Record<string, unknown> {
+    const { initial, last } = this.pinch!;
     return {
       centre: span.centre,
       ui: span.centre.ui,
@@ -345,7 +394,7 @@ export class GestureRecognizer {
   }
 
   /** Forget all in-flight gestures, e.g. on scene change or teardown. */
-  reset() {
+  reset(): void {
     this.pointers.clear();
     this.pinch = null;
     this.lastClick = null;

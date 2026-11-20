@@ -7,7 +7,7 @@ import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { LayerManager } from '../src/core/layerManager.ts';
 import { KeyboardControl } from '../src/constraints/keyboardControl.ts';
 import { PointerMove } from '../src/constraints/pointerMove.ts';
-import { InputSnapshot } from '../src/core/input/inputManager.js';
+import { InputSnapshot } from '../src/core/input/inputManager.ts';
 
 /**
  * The isometric perspective: a projection applied to positions only. The

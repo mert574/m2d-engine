@@ -34,43 +34,80 @@
  * per event answers for all of them at once.
  */
 
+import type { M2D } from '../m2d.js';
+import type { Interactive } from '../../constraints/interactive.ts';
+
+/** Anything input can land on: a UI element, an Interactive, an overlay. */
+export interface InputTarget {
+  handleInput(event: RoutedEvent): void;
+}
+
+/**
+ * A built input event as the router sees it. The input manager builds the
+ * full shape (core/input/inputManager, JavaScript until later this phase);
+ * these are the members routing itself reads and writes.
+ */
+export interface RoutedEvent {
+  type: string;
+  pointerType?: string;
+  ui: { x: number; y: number };
+  world: { x: number; y: number; z?: number };
+  consumed: boolean;
+  consume(): void;
+  /** A capture's owner: the drag's subject receives the gesture unresolved. */
+  subject?: InputTarget | null;
+  target?: InputTarget | null;
+  dropTarget?: InputTarget | null;
+  handledByUI?: boolean;
+  [key: string]: unknown;
+}
+
+/** The scene UI container's side of the router. */
+interface UIContainerLike {
+  hitTest(x: number, y: number, exclude?: InputTarget | null): InputTarget | null;
+  treeHandles(type: string): boolean;
+}
+
+type Band = 'overlay' | 'ui' | 'world';
+
 /** Band order. Earlier bands see events first and can consume them. */
-const BANDS = ['overlay', 'ui', 'world'];
+const BANDS: Band[] = ['overlay', 'ui', 'world'];
 
 /** Pointer types that have a hover state at all. A finger does not. */
 const HOVER_TYPES = new Set(['mouse', 'pen']);
 
+type Subscriber = { handler: (event: RoutedEvent) => void; band: Band };
+
 export class InputRouter {
-  /**
-   * @param {import('../m2d.js').M2D} game
-   */
-  constructor(game) {
+  game: M2D;
+  subscribers: Map<string, Set<Subscriber>>;
+  /** Registered `Interactive` constraints. */
+  interactives: Set<Interactive>;
+  /** Whether any interactive needs a physics point query. */
+  needsPhysicsQuery: boolean;
+  /** The current scene's UI container, or null between scenes. */
+  uiContainer: UIContainerLike | null;
+  /** What the pointer is currently over, across all bands. */
+  hovered: InputTarget | null;
+
+  constructor(game: M2D) {
     this.game = game;
-    /** type -> Set<{handler, band}> */
     this.subscribers = new Map();
-    /** Registered `Interactive` constraints. @type {Set<object>} */
     this.interactives = new Set();
-    /** Whether any interactive needs a physics point query. */
     this.needsPhysicsQuery = false;
-    /** The current scene's UI container, or null between scenes. */
     this.uiContainer = null;
-    /** What the pointer is currently over, across all bands. */
     this.hovered = null;
   }
 
   // === Subscriptions ===
 
   /**
-   * Listen for an event type.
-   * @param {string} type - Event type, e.g. 'click' or 'pinch'
-   * @param {(event: object) => void} handler
-   * @param {Object} [options]
-   * @param {'overlay'|'ui'|'world'} [options.band='world'] - Relative order
-   *   among subscribers; all subscribers run after targets either way
-   * @returns {() => void} Unsubscribe
+   * Listen for an event type (`'click'`, `'pinch'`). `band` orders
+   * subscribers relative to each other; all run after targets either way.
+   * Returns the unsubscribe.
    */
-  on(type, handler, options = {}) {
-    const entry = { handler, band: options.band || 'world' };
+  on(type: string, handler: (event: RoutedEvent) => void, options: { band?: Band } = {}): () => void {
+    const entry: Subscriber = { handler, band: options.band || 'world' };
     let set = this.subscribers.get(type);
     if (!set) {
       set = new Set();
@@ -87,9 +124,8 @@ export class InputRouter {
    * Whether anything at all would receive one of these event types. Gesture
    * recognizers ask before doing any work, and for pinch the answer also
    * decides whether a second finger joins a gesture or starts its own drag.
-   * @param {...string} types
    */
-  listening(...types) {
+  listening(...types: string[]): boolean {
     for (const type of types) {
       if (this.subscribers.has(type)) return true;
       // The whole tree, not just the root: the root never wants anything
@@ -106,19 +142,19 @@ export class InputRouter {
   // === Registration ===
 
   /** Point the UI band at the active scene's container. */
-  setUIContainer(container) {
+  setUIContainer(container: UIContainerLike | null): void {
     if (this.uiContainer !== container) this.clearHover();
     this.uiContainer = container;
   }
 
   /** Add an `Interactive` constraint to the world band. */
-  addInteractive(interactive) {
+  addInteractive(interactive: Interactive): void {
     this.interactives.add(interactive);
     this.#refreshQueryNeed();
   }
 
   /** Remove an `Interactive` constraint; also drops it as the hover target. */
-  removeInteractive(interactive) {
+  removeInteractive(interactive: Interactive): void {
     this.interactives.delete(interactive);
     if (this.hovered === interactive) this.hovered = null;
     this.#refreshQueryNeed();
@@ -138,9 +174,8 @@ export class InputRouter {
 
   /**
    * Route one event through the bands.
-   * @param {object} event - A built input event
    */
-  dispatch(event) {
+  dispatch(event: RoutedEvent): void {
     const notified = this.#route(event);
     // A release is cleanup, not an action: whatever is holding something
     // for that pointer (an on-screen key under a thumb that slid away) must
@@ -149,12 +184,12 @@ export class InputRouter {
   }
 
   /** The bands, then the subscribers. Returns whether the subscribers were told. */
-  #route(event) {
+  #route(event: RoutedEvent): boolean {
     // The engine's own UI is modal: a blocking screen takes the event before
     // any target gets a chance at it, which is the whole of "the menu blocks
     // the game". The stack decides which of its layers that is; the router
     // no longer asks each one in turn.
-    this.game.ui?.handleInput(event);
+    (this.game.ui as { handleInput(event: RoutedEvent): void } | null)?.handleInput(event);
     if (event.consumed) {
       // Tells the input manager to keep this press out of the simulation.
       event.handledByUI = true;
@@ -183,11 +218,8 @@ export class InputRouter {
     return true;
   }
 
-  /**
-   * @param {object} event
-   * @param {boolean} [all=false] - Tell every subscriber, even once one has consumed the event
-   */
-  #notifySubscribers(event, all = false) {
+  /** With `all`, tell every subscriber, even once one has consumed the event. */
+  #notifySubscribers(event: RoutedEvent, all = false): void {
     const set = this.subscribers.get(event.type);
     if (!set || set.size === 0) return;
     // Snapshot: a handler is allowed to unsubscribe itself, or anything else.
@@ -199,12 +231,8 @@ export class InputRouter {
     }
   }
 
-  /**
-   * The topmost thing under the event, searched band by band.
-   * @param {object} event
-   * @param {object} [exclude] - Target to skip (the subject of a drop)
-   */
-  #resolveTarget(event, exclude = null) {
+  /** The topmost thing under the event, searched band by band; `exclude` skips the subject of a drop. */
+  #resolveTarget(event: RoutedEvent, exclude: InputTarget | null = null): InputTarget | null {
     const element = this.uiContainer?.hitTest(event.ui.x, event.ui.y, exclude);
     if (element) {
       event.handledByUI = true;
@@ -213,27 +241,29 @@ export class InputRouter {
     return this.#worldTarget(event, exclude);
   }
 
-  #worldTarget(event, exclude) {
+  #worldTarget(event: RoutedEvent, exclude: InputTarget | null): InputTarget | null {
     if (this.interactives.size === 0) return null;
 
-    // One query answers for every body-shaped interactive at once.
-    let bodies = null;
+    // One query answers for every body-shaped interactive at once. The
+    // receiver is cast (the union's point types disagree until phase 10).
+    let bodies: Set<unknown> | null = null;
     if (this.needsPhysicsQuery) {
-      bodies = new Set(this.game.physics.queryPoint(event.world));
+      const physics = this.game.physics as unknown as { queryPoint(point: { x: number; y: number; z?: number }): unknown[] };
+      bodies = new Set(physics.queryPoint(event.world));
     }
 
-    let best = null;
+    let best: InputTarget | null = null;
     let bestPriority = -Infinity;
     for (const interactive of this.interactives) {
       if (interactive === exclude || !interactive.active) continue;
       const hit = interactive.usesBodyShape
-        ? bodies.has(interactive.entity.body)
+        ? bodies!.has(interactive.entity.body)
         : interactive.containsWorld(event.world);
       if (!hit) continue;
       // `>=` so that, at equal priority, the most recently registered wins —
       // registration order is creation order, which is also draw order.
       if (interactive.priority >= bestPriority) {
-        best = interactive;
+        best = interactive as InputTarget;
         bestPriority = interactive.priority;
       }
     }
@@ -249,16 +279,16 @@ export class InputRouter {
    * touching the screen at all, and synthesising a hover from a tap leaves
    * every button it passed over stuck highlighted.
    *
-   * @param {object} event - The move event driving the update
-   * @param {(type: string, source: object, extra?: object) => object} makeEvent
+   * `event` is the move event driving the update; `makeEvent` builds the
+   * enter/leave events from it.
    */
-  updateHover(event, makeEvent) {
-    if (!HOVER_TYPES.has(event.pointerType)) return;
+  updateHover(event: RoutedEvent, makeEvent: (type: string, source: RoutedEvent, extra?: Record<string, unknown>) => RoutedEvent): void {
+    if (!HOVER_TYPES.has(event.pointerType!)) return;
 
     // The engine's UI resolves its own hover first. When it owns the
     // pointer — a control under it, or any blocking screen — nothing in the
     // scene or the world may show a hover state.
-    const ui = this.game.ui;
+    const ui = this.game.ui as { updateHover(event: RoutedEvent): void; ownsPointer(event: RoutedEvent): boolean } | null;
     if (ui) {
       ui.updateHover(event);
       if (ui.ownsPointer(event)) {
@@ -277,14 +307,14 @@ export class InputRouter {
   }
 
   /** Drop the hover target, telling it so when there is an event to build from. */
-  clearHover(makeEvent = null, source = null) {
+  clearHover(makeEvent: ((type: string, source: RoutedEvent) => RoutedEvent) | null = null, source: RoutedEvent | null = null): void {
     if (!this.hovered) return;
     const previous = this.hovered;
     this.hovered = null;
     if (makeEvent && source) previous.handleInput(makeEvent('hoverend', source));
   }
 
-  destroy() {
+  destroy(): void {
     this.subscribers.clear();
     this.interactives.clear();
     this.uiContainer = null;

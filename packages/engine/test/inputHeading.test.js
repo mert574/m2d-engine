@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { InputSnapshot, headingOf } from '../src/core/input/inputManager.js';
-import { snapHeading } from '../src/core/input/snapshot.js';
+import { InputSnapshot, headingOf } from '../src/core/input/inputManager.ts';
+import { snapHeading } from '../src/core/input/snapshot.ts';
 import { InputSchema, InputGate } from '../src/net/input.js';
 
 /**

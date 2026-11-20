@@ -153,7 +153,7 @@ export class Predictor {
    * that was sent for it.
    *
    * @param {number} tick - The server tick this input will be applied at
-   * @param {import('../core/input/snapshot.js').InputSnapshot} snapshot
+   * @param {import('../core/input/snapshot.ts').InputSnapshot} snapshot
    */
   predict(tick, snapshot) {
     const entity = this.entity;

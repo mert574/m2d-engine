@@ -5,7 +5,7 @@ import { UIRenderer } from '../core/renderers/uiRenderer.ts';
 import { WorldOverlay } from '../core/ui/worldOverlay.ts';
 import { WorldEvents } from '../core/events.ts';
 import { Camera } from '../core/camera.ts';
-import { InputManager } from '../core/input/index.js';
+import { InputManager } from '../core/input/index.ts';
 import { viewToUI } from '../core/viewport.ts';
 import { createTheme } from '../core/ui/theme.js';
 import { ScreenStack } from '../core/ui/screenStack.js';

@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { M2D } from '../src/core/m2d.js';
 import { initPhysics } from '../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { navGeometryOf } from '../src/core/nav/navGeometry.js';
-import { bakeNavMesh } from '../src/core/nav/navBake.js';
+import { navGeometryOf } from '../src/core/nav/navGeometry.ts';
+import { bakeNavMesh } from '../src/core/nav/navBake.ts';
 
 /**
  * The navmesh in three dimensions, headless: the same bake, asset and

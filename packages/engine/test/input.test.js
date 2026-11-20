@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { InputSnapshot } from '../src/core/input/inputManager.js';
+import { InputSnapshot } from '../src/core/input/inputManager.ts';
 
 import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { Entity } from '../src/core/entity.ts';

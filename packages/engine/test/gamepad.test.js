@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { makeTestGame } from '../src/testing/testGame.js';
-import { GamepadSource, GAMEPAD_KEYS } from '../src/core/input/gamepad.js';
+import { GamepadSource, GAMEPAD_KEYS } from '../src/core/input/gamepad.ts';
 
 /**
  * A gamepad is read as keys: polled each frame, each held control becomes

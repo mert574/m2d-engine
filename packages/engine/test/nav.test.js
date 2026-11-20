@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { M2D } from '../src/core/m2d.js';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { navGeometryOf } from '../src/core/nav/navGeometry.js';
-import { bakeNavMesh } from '../src/core/nav/navBake.js';
-import { NavAreas } from '../src/core/nav/navAreas.js';
+import { navGeometryOf } from '../src/core/nav/navGeometry.ts';
+import { bakeNavMesh } from '../src/core/nav/navBake.ts';
+import { NavAreas } from '../src/core/nav/navAreas.ts';
 import '../src/testing/setup.js';
 
 /**

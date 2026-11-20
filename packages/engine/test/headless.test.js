@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { inspect } from 'node:util';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.ts';
-import { InputSnapshot } from '../src/core/input/snapshot.js';
+import { InputSnapshot } from '../src/core/input/snapshot.ts';
 import {
   SCENE, OTHER, ARENA_ACTORS, fingerprint, CAPTURE_AT, prepareCoverage
 } from './helpers/scenarios.js';

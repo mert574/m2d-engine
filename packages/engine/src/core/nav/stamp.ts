@@ -13,7 +13,7 @@
 export const BAKE_FORMAT = 'm2d-nav-1/recast-navigation-0.44';
 
 /** FNV-1a over a string, 64-bit via two 32-bit lanes, as a hex string. */
-export function fnv1a64(text) {
+export function fnv1a64(text: string): string {
   let a = 0x811c9dc5, b = 0xcbf29ce4;
   for (let i = 0; i < text.length; i++) {
     const c = text.charCodeAt(i);
@@ -25,13 +25,26 @@ export function fnv1a64(text) {
   return b.toString(16).padStart(8, '0') + a.toString(16).padStart(8, '0');
 }
 
-/**
- * The stamp for one agent's bake of one scene's geometry.
- * @param {object} geometry - `navGeometryOf`'s result
- * @param {object} agent - The agent profile, `{ radius, height, step, slope }`
- * @param {import('./navAreas.js').NavAreas} areas
- */
-export function bakeStamp(geometry, agent, areas) {
+import type { NavAreas } from './navAreas.ts';
+
+/** The agent profile a bake is for. */
+export interface NavAgent {
+  radius: number;
+  height?: number;
+  step?: number;
+  slope?: number;
+  dynamic?: boolean;
+}
+
+/** What `navGeometryOf` extracts, as the stamp hashes it. */
+export interface NavGeometry {
+  positions: number[];
+  indices: number[];
+  volumes: unknown[];
+}
+
+/** The stamp for one agent's bake of one scene's geometry. */
+export function bakeStamp(geometry: NavGeometry, agent: NavAgent, areas: NavAreas): string {
   return fnv1a64(JSON.stringify({
     format: BAKE_FORMAT,
     agent: [agent.radius, agent.height ?? null, agent.step ?? null, agent.slope ?? null, agent.dynamic ?? false],

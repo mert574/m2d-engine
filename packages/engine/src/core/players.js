@@ -23,7 +23,7 @@
  * rule; the order is a function of the tick, so every replay agrees.
  */
 
-import { InputSnapshot } from './input/snapshot.js';
+import { InputSnapshot } from './input/snapshot.ts';
 import { IntentQueue } from '../net/intents.js';
 
 export class Player {

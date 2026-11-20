@@ -3,7 +3,7 @@ import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { M2D } from '../src/core/m2d.js';
 import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.js';
 import { defineIntents, reject, slot, entity } from '../src/net/intents.js';
-import { InputSnapshot } from '../src/core/input/snapshot.js';
+import { InputSnapshot } from '../src/core/input/snapshot.ts';
 import { ARENA_ACTORS } from './helpers/scenarios.js';
 
 /**

@@ -12,7 +12,7 @@ import { Abilities } from '../../src/constraints/abilities.ts';
 import { Footsteps } from '../../src/constraints/footsteps.ts';
 import { InputSchema, InputGate } from '../../src/net/input.js';
 import { Rng } from '../../src/core/rng.ts';
-import { InputSnapshot } from '../../src/core/input/snapshot.js';
+import { InputSnapshot } from '../../src/core/input/snapshot.ts';
 import { Bee, Coin, Ghost, MovingPlatform, Npc, ObliquePlayer, Platform, Player, TopDownPlayer, Turret } from './cast.js';
 
 /*

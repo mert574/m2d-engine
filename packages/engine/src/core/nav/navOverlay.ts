@@ -15,32 +15,48 @@ const EDGE_ALPHA = 0.5;
 /** How far above the ground a 3D overlay floats, in metres. */
 const LIFT_3D = 0.05;
 
-const rgba = (hex, alpha) => {
+import type { M2D } from '../m2d.js';
+import type { Frame3D, Material3D } from '../renderers/frame3d.ts';
+
+/** The nav meshes' members this overlay reads; core/nav/nav is JavaScript until later this phase. */
+interface DebugMesh {
+  debug: { positions: Float32Array | number[]; indices: Uint32Array | number[] };
+  overlayGeometry?: { positions: Float32Array; normals: Float32Array; uvs: Float32Array; indices: Uint16Array | Uint32Array } | null;
+}
+
+/** The members of a 3D scene this overlay draws through. */
+interface OverlayScene {
+  game: M2D;
+  meshMaterial(options: { opacity: number; emissiveColor: string; emissive: number }): Material3D;
+}
+
+const rgba = (hex: string, alpha: number) => {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 };
 
 /** Whether the navmesh is drawn now: always in the editor, so a bad bake is visible and fixable; in play with `r_shownav`. */
-export function navShown(game) {
+export function navShown(game: M2D): boolean {
   return Boolean(game.editMode || game.showNav);
 }
 
 /** Every loaded mesh's triangles on the 2D world overlay. The 2D draw pass calls it after the tool boxes. */
-export function drawNavMesh2D(game) {
+export function drawNavMesh2D(game: M2D): void {
   if (!navShown(game)) return;
   const projection = game.projection;
   let index = 0;
-  for (const { debug } of game.nav.meshes.values()) {
-    const color = COLORS[index++ % COLORS.length];
+  const meshes = (game.nav as { meshes: Map<string, DebugMesh> }).meshes;
+  for (const { debug } of meshes.values()) {
+    const color = COLORS[index++ % COLORS.length]!;
     const fill = rgba(color, FILL_ALPHA);
     const stroke = rgba(color, EDGE_ALPHA);
     const { positions, indices } = debug;
     for (let i = 0; i < indices.length; i += 3) {
       const points = [];
       for (let corner = 0; corner < 3; corner++) {
-        const at = indices[i + corner] * 3;
+        const at = indices[i + corner]! * 3;
         // Nav (x, z) is world (x, y); nav y is height and 2D has none.
-        const x = positions[at], y = positions[at + 2];
+        const x = positions[at]!, y = positions[at + 2]!;
         points.push(projection ? projection.toScreen(x, y) : { x, y });
       }
       game.worldOverlay.drawPath({ points, closed: true, fillStyle: fill, strokeStyle: stroke, lineWidth: 1 });
@@ -49,21 +65,22 @@ export function drawNavMesh2D(game) {
 }
 
 /** Every loaded mesh as a translucent surface in the 3D frame. The frame build calls it after the tool volumes. */
-export function addNavMesh3D(scene, frame) {
+export function addNavMesh3D(scene: OverlayScene, frame: Frame3D): void {
   const game = scene.game;
   if (!navShown(game)) return;
   let index = 0;
-  for (const mesh of game.nav.meshes.values()) {
-    const color = COLORS[index++ % COLORS.length];
+  const meshes = (game.nav as { meshes: Map<string, DebugMesh> }).meshes;
+  for (const mesh of meshes.values()) {
+    const color = COLORS[index++ % COLORS.length]!;
     if (!mesh.overlayGeometry) {
       const { positions, indices } = mesh.debug;
       const lifted = new Float32Array(positions.length);
       const normals = new Float32Array(positions.length);
       const uvs = new Float32Array((positions.length / 3) * 2);
       for (let i = 0; i < positions.length; i += 3) {
-        lifted[i] = positions[i];
-        lifted[i + 1] = positions[i + 1] + LIFT_3D;
-        lifted[i + 2] = positions[i + 2];
+        lifted[i] = positions[i]!;
+        lifted[i + 1] = positions[i + 1]! + LIFT_3D;
+        lifted[i + 2] = positions[i + 2]!;
         normals[i + 1] = 1;
       }
       const index32 = positions.length / 3 > 65535;
@@ -72,7 +89,7 @@ export function addNavMesh3D(scene, frame) {
         indices: index32 ? new Uint32Array(indices) : new Uint16Array(indices)
       };
     }
-    frame.add(mesh.overlayGeometry, {
+    frame.add(mesh.overlayGeometry!, {
       position: { x: 0, y: 0, z: 0 },
       rotation: { x: 0, y: 0, z: 0, w: 1 },
       scale: { x: 1, y: 1, z: 1 },

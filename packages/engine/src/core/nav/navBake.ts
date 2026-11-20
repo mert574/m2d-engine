@@ -12,17 +12,96 @@
  * recast WebAssembly is nothing a game pays for unless it navigates.
  */
 
-import { WALKABLE_AREA } from './navAreas.js';
-import { AGENT_DEFAULTS } from './navGeometry.js';
-import { bakeStamp } from './stamp.js';
+import { WALKABLE_AREA } from './navAreas.ts';
+import type { NavAreas } from './navAreas.ts';
+import { AGENT_DEFAULTS } from './navGeometry.ts';
+import type { BakeGeometry } from './navGeometry.ts';
+import { bakeStamp } from './stamp.ts';
+import type { NavAgent } from './stamp.ts';
+
+/**
+ * The recast members this bake touches. The package ships its own types,
+ * but they do not resolve under nodenext (`"type": "module"` with
+ * extensionless internal re-exports), so — like the vendored transcoder —
+ * the handful of calls made here are declared, not the engine described.
+ */
+interface RecastHandle { destroy(): void }
+interface RecastArray extends RecastHandle { copy(values: number[]): void; resize(n: number): void }
+interface RcConfig {
+  cs: number; ch: number; width: number; height: number;
+  walkableRadius: number; walkableHeight: number; walkableClimb: number; walkableSlopeAngle: number;
+  borderSize: number; tileSize: number; maxEdgeLen: number; maxSimplificationError: number;
+  minRegionArea: number; mergeRegionArea: number; maxVertsPerPoly: number;
+  detailSampleDist: number; detailSampleMaxError: number;
+}
+interface PolyMesh extends RecastHandle {
+  npolys(): number;
+  areas(i: number): number;
+  setAreas(i: number, area: number): void;
+  setFlags(i: number, flags: number): void;
+}
+interface NavMeshHandle extends RecastHandle {
+  initSolo(data: unknown): boolean;
+}
+type Vec3Array = [number, number, number];
+interface Recast {
+  init(): Promise<void>;
+  createRcConfig(partial: Record<string, number>): RcConfig;
+  calcGridSize(min: Vec3Array, max: Vec3Array, cs: number): { width: number; height: number };
+  RecastBuildContext: new () => RecastHandle;
+  VerticesArray: new () => RecastArray;
+  TrianglesArray: new () => RecastArray;
+  TriangleAreasArray: new () => RecastArray;
+  allocHeightfield(): RecastHandle;
+  freeHeightfield(h: RecastHandle): void;
+  createHeightfield(context: RecastHandle, heightfield: RecastHandle, width: number, height: number, min: Vec3Array, max: Vec3Array, cs: number, ch: number): boolean;
+  markWalkableTriangles(context: RecastHandle, slope: number, verts: RecastArray, nv: number, tris: RecastArray, nt: number, areas: RecastArray): void;
+  rasterizeTriangles(context: RecastHandle, verts: RecastArray, nv: number, tris: RecastArray, areas: RecastArray, nt: number, heightfield: RecastHandle, climb: number): boolean;
+  filterLowHangingWalkableObstacles(context: RecastHandle, climb: number, heightfield: RecastHandle): void;
+  filterLedgeSpans(context: RecastHandle, height: number, climb: number, heightfield: RecastHandle): void;
+  filterWalkableLowHeightSpans(context: RecastHandle, height: number, heightfield: RecastHandle): void;
+  allocCompactHeightfield(): RecastHandle;
+  freeCompactHeightfield(h: RecastHandle): void;
+  buildCompactHeightfield(context: RecastHandle, height: number, climb: number, heightfield: RecastHandle, compact: RecastHandle): boolean;
+  erodeWalkableArea(context: RecastHandle, radius: number, compact: RecastHandle): boolean;
+  markBoxArea(context: RecastHandle, min: number[], max: number[], area: number, compact: RecastHandle): void;
+  buildDistanceField(context: RecastHandle, compact: RecastHandle): boolean;
+  buildRegions(context: RecastHandle, compact: RecastHandle, border: number, minArea: number, mergeArea: number): boolean;
+  allocContourSet(): RecastHandle;
+  freeContourSet(c: RecastHandle): void;
+  buildContours(context: RecastHandle, compact: RecastHandle, maxError: number, maxEdgeLen: number, contours: RecastHandle, flags: number): boolean;
+  allocPolyMesh(): PolyMesh;
+  freePolyMesh(p: PolyMesh): void;
+  buildPolyMesh(context: RecastHandle, contours: RecastHandle, nvp: number, polyMesh: PolyMesh): boolean;
+  allocPolyMeshDetail(): RecastHandle;
+  freePolyMeshDetail(d: RecastHandle): void;
+  buildPolyMeshDetail(context: RecastHandle, polyMesh: PolyMesh, compact: RecastHandle, sampleDist: number, maxError: number, detail: RecastHandle): boolean;
+  NavMeshCreateParams: new () => RecastHandle & {
+    setPolyMeshCreateParams(p: PolyMesh): void;
+    setPolyMeshDetailCreateParams(d: RecastHandle): void;
+    setWalkableHeight(v: number): void;
+    setWalkableRadius(v: number): void;
+    setWalkableClimb(v: number): void;
+    setCellSize(v: number): void;
+    setCellHeight(v: number): void;
+    setBuildBvTree(v: boolean): void;
+  };
+  createNavMeshData(params: unknown): { success: boolean; navMeshData: unknown };
+  NavMesh: new () => NavMeshHandle;
+  exportNavMesh(mesh: NavMeshHandle): Uint8Array;
+  exportTileCache(mesh: NavMeshHandle, cache: RecastHandle): Uint8Array;
+  getNavMeshPositionsAndIndices(mesh: NavMeshHandle): [number[], number[]];
+  TileCacheMeshProcess: new (process: (params: { polyCount(): number }, polyAreas: { set(i: number, v: number): void }, polyFlags: { set(i: number, v: number): void }) => void) => unknown;
+  Recast: { RC_CONTOUR_TESS_WALL_EDGES: number };
+}
 
 /** The recast module, initialised once. */
-let recastReady = null;
+let recastReady: Promise<Recast> | null = null;
 
 /** Load and initialise recast-navigation's core, once. */
-export async function initRecast() {
+export async function initRecast(): Promise<Recast> {
   if (!recastReady) {
-    recastReady = import('recast-navigation').then(async (module) => {
+    recastReady = (import('recast-navigation') as Promise<unknown> as Promise<Recast>).then(async (module) => {
       await module.init();
       return module;
     });
@@ -31,7 +110,7 @@ export async function initRecast() {
 }
 
 /** The Recast build settings an agent profile means, in world units. */
-export function bakeConfig(agent) {
+export function bakeConfig(agent: NavAgent) {
   const { radius, height, step, slope } = AGENT_DEFAULTS(agent);
   // The voxel grid is sized to the agent: fine enough that doorways of
   // twice the radius survive, coarse enough that a big level bakes fast.
@@ -56,14 +135,10 @@ export function bakeConfig(agent) {
 }
 
 /**
- * Bake one agent's navmesh from extracted geometry.
- *
- * @param {object} geometry - `navGeometryOf`'s result
- * @param {object} agent - The agent profile, `{ radius, height?, step?, slope? }`
- * @param {import('./navAreas.js').NavAreas} areas - For volume area ids and the stamp
- * @returns {Promise<{data: Uint8Array, stamp: string, polys: number}>}
+ * Bake one agent's navmesh from extracted geometry. `areas` gives the
+ * volume area ids and goes into the stamp.
  */
-export async function bakeNavMesh(geometry, agent, areas) {
+export async function bakeNavMesh(geometry: BakeGeometry, agent: NavAgent, areas: NavAreas): Promise<{ data: Uint8Array; stamp: string; polys: number }> {
   const R = await initRecast();
   const { positions, indices, volumes } = geometry;
   if (!indices.length) throw new Error('M2D nav bake: the level has no geometry to bake from');
@@ -85,9 +160,9 @@ export async function bakeNavMesh(geometry, agent, areas) {
   rcConfig.height = grid.height;
 
   const context = new R.RecastBuildContext();
-  const freeable = [];
+  const freeable: (() => void)[] = [];
   const free = () => { for (const f of freeable.reverse()) f(); freeable.length = 0; };
-  const fail = (message) => { free(); throw new Error(`M2D nav bake: ${message}`); };
+  const fail = (message: string): never => { free(); throw new Error(`M2D nav bake: ${message}`); };
 
   try {
     const vertsArray = new R.VerticesArray();
@@ -202,13 +277,17 @@ export async function bakeNavMesh(geometry, agent, areas) {
  * costly nav volume is refused here — `blocked` ones became geometry in
  * the extraction and work as ever.
  */
-async function bakeTileCache(geometry, agent, areas, R) {
+async function bakeTileCache(geometry: BakeGeometry, agent: NavAgent, areas: NavAreas, R: Recast): Promise<{ data: Uint8Array; stamp: string; polys: number }> {
   const { positions, indices, volumes } = geometry;
   const costly = volumes.find((volume) => volume.area !== 'blocked' && volume.area !== 'walkable');
   if (costly) {
     throw new Error(`M2D nav bake: agent is dynamic (a tile cache), which cannot mark the costly nav area '${costly.area}'; make the volume blocked, or the agent static`);
   }
-  const { generateTileCache } = await import('recast-navigation/generators');
+  const { generateTileCache } = await (import('recast-navigation/generators') as Promise<unknown> as Promise<{
+    generateTileCache(positions: number[], indices: number[], config: Record<string, unknown>): {
+      success: boolean; error?: string; navMesh: NavMeshHandle; tileCache: RecastHandle;
+    };
+  }>);
   const bounds = boundsOf(positions);
   const config = bakeConfig(agent);
   bounds.min[1] -= config.ch;
@@ -228,8 +307,8 @@ async function bakeTileCache(geometry, agent, areas, R) {
 }
 
 /** How every tile cache marks its polygons: plain ground, one flag, as the solo bake ends up. */
-export function tileCacheMeshProcess(R) {
-  return new R.TileCacheMeshProcess((params, polyAreas, polyFlags) => {
+export function tileCacheMeshProcess(R: Recast) {
+  return new R.TileCacheMeshProcess((params: { polyCount(): number }, polyAreas: { set(i: number, v: number): void }, polyFlags: { set(i: number, v: number): void }) => {
     for (let i = 0; i < params.polyCount(); ++i) {
       polyAreas.set(i, 0);
       polyFlags.set(i, 1);
@@ -238,13 +317,13 @@ export function tileCacheMeshProcess(R) {
 }
 
 /** The geometry's axis-aligned bounds, as recast takes them. */
-function boundsOf(positions) {
-  const min = [Infinity, Infinity, Infinity];
-  const max = [-Infinity, -Infinity, -Infinity];
+function boundsOf(positions: number[]): { min: [number, number, number]; max: [number, number, number] } {
+  const min: [number, number, number] = [Infinity, Infinity, Infinity];
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
   for (let i = 0; i < positions.length; i += 3) {
     for (let axis = 0; axis < 3; axis++) {
-      min[axis] = Math.min(min[axis], positions[i + axis]);
-      max[axis] = Math.max(max[axis], positions[i + axis]);
+      min[axis] = Math.min(min[axis]!, positions[i + axis]!);
+      max[axis] = Math.max(max[axis]!, positions[i + axis]!);
     }
   }
   return { min, max };

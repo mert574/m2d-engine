@@ -61,7 +61,7 @@
  * Nothing here knows about a socket or the DOM.
  */
 
-import { InputSnapshot, snapHeading } from '../core/input/snapshot.js';
+import { InputSnapshot, snapHeading } from '../core/input/snapshot.ts';
 
 /** Bits in a held mask. JavaScript's bitwise operators work on 32. */
 const MAX_KEYS = 32;

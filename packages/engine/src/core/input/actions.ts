@@ -15,69 +15,71 @@
  * thing. An `action` rule reads the local player's snapshot, so it is a
  * single-player rule; online, a player's request of the world is an intent.
  */
+/** The snapshot members an action read needs. */
+interface ActionSnapshot {
+  justPressed(code: string): boolean;
+  isDown(code: string): boolean;
+}
+
 export class InputActions {
-  /**
-   * @param {Record<string, string[]>} [declared] - Action name to key codes
-   * @param {Object} [options]
-   * @param {string|null} [options.storageKey] - Where the player's bindings
-   *   are kept; null keeps none
-   */
-  constructor(declared = {}, { storageKey = null } = {}) {
-    /** The project's own bindings, which `reset` returns to. */
+  /** The project's own bindings, which `reset` returns to. */
+  declared: Record<string, string[]>;
+  /** Where the player's bindings are kept; null keeps none. */
+  storageKey: string | null;
+  bindings: Map<string, string[]>;
+  /** The action a settings row is waiting to rebind, or null. */
+  listening: string | null;
+
+  /** `declared` maps action names to key codes. */
+  constructor(declared: Record<string, string[]> = {}, { storageKey = null }: { storageKey?: string | null } = {}) {
     this.declared = Object.fromEntries(Object.entries(declared).map(([name, codes]) => [name, [...codes]]));
     this.storageKey = storageKey;
-    /** @type {Map<string, string[]>} */
     this.bindings = new Map(Object.entries(this.declared).map(([name, codes]) => [name, [...codes]]));
     for (const [name, codes] of Object.entries(this.#stored())) {
-      if (this.bindings.has(name) && Array.isArray(codes)) this.bindings.set(name, codes.filter((code) => typeof code === 'string'));
+      if (this.bindings.has(name) && Array.isArray(codes)) this.bindings.set(name, (codes as unknown[]).filter((code): code is string => typeof code === 'string'));
     }
-    /** The action a settings row is waiting to rebind, or null. */
     this.listening = null;
   }
 
   /** Every action's name, in declaration order. */
-  get names() {
+  get names(): string[] {
     return [...this.bindings.keys()];
   }
 
-  has(name) {
+  has(name: string): boolean {
     return this.bindings.has(name);
   }
 
   /** The key codes that perform an action; empty for one not declared. */
-  codes(name) {
+  codes(name: string): string[] {
     return this.bindings.get(name) ?? [];
   }
 
-  /**
-   * Whether an action's key went down at this tick.
-   * @param {string} name
-   * @param {{justPressed: (code: string) => boolean}} snapshot - A tick's input
-   */
-  pressed(name, snapshot) {
+  /** Whether an action's key went down at this tick, on a tick's snapshot. */
+  pressed(name: string, snapshot: ActionSnapshot | null | undefined): boolean {
     return this.codes(name).some((code) => snapshot?.justPressed(code));
   }
 
   /** Whether one of an action's keys was held at this tick. */
-  down(name, snapshot) {
+  down(name: string, snapshot: ActionSnapshot | null | undefined): boolean {
     return this.codes(name).some((code) => snapshot?.isDown(code));
   }
 
   /** Bind an action to new keys (the player's choice), and keep it. */
-  rebind(name, codes) {
+  rebind(name: string, codes: string[]): void {
     if (!this.bindings.has(name)) throw new Error(`M2D actions: no action named '${name}' (declared: ${this.names.join(', ') || 'none'})`);
     this.bindings.set(name, [...codes]);
     this.#store();
   }
 
   /** Every action back to the project's keys. */
-  reset() {
+  reset(): void {
     for (const [name, codes] of Object.entries(this.declared)) this.bindings.set(name, [...codes]);
     this.#store();
   }
 
   /** The player's bindings, as stored. */
-  #stored() {
+  #stored(): Record<string, unknown> {
     if (!this.storageKey || typeof localStorage === 'undefined') return {};
     try {
       const value = JSON.parse(localStorage.getItem(this.storageKey) ?? '{}');
@@ -87,7 +89,7 @@ export class InputActions {
     }
   }
 
-  #store() {
+  #store(): void {
     if (!this.storageKey || typeof localStorage === 'undefined') return;
     const changed = Object.fromEntries([...this.bindings].filter(([name, codes]) => codes.join() !== (this.declared[name] ?? []).join()));
     try {
@@ -99,8 +101,8 @@ export class InputActions {
 }
 
 /** A key code as a player reads it: `KeyE` as E, `ArrowUp` as ↑. */
-export function keyLabel(code) {
-  const arrows = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' };
-  if (arrows[code]) return arrows[code];
+export function keyLabel(code: string): string {
+  const arrows: Record<string, string> = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' };
+  if (arrows[code]) return arrows[code]!;
   return code.replace(/^Key|^Digit/, '').replace(/^(Shift|Control|Alt|Meta)(Left|Right)$/, '$1');
 }

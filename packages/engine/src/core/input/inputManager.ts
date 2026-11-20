@@ -44,57 +44,129 @@
  */
 
 import { mapPointer, uiToView } from '../viewport.ts';
-import { PointerSource } from './pointerSource.js';
-import { Keyboard } from './keyboard.js';
-import { GamepadSource } from './gamepad.js';
-import { Cursor } from './cursor.js';
-import { GestureRecognizer } from './gestures.js';
-import { InputRouter } from './router.js';
-import { InputSnapshot, snapHeading } from './snapshot.js';
+import { PointerSource } from './pointerSource.ts';
+import type { PointerRecord } from './pointerSource.ts';
+import { Keyboard } from './keyboard.ts';
+import type { KeyRecord } from './keyboard.ts';
+import { GamepadSource } from './gamepad.ts';
+import { Cursor } from './cursor.ts';
+import { GestureRecognizer } from './gestures.ts';
+import { InputRouter } from './router.ts';
+import type { InputTarget, RoutedEvent } from './router.ts';
+import type { Interactive } from '../../constraints/interactive.ts';
+import { InputSnapshot, snapHeading } from './snapshot.ts';
+import type { M2D } from '../m2d.js';
+import type { SnapshotJSON } from './snapshot.ts';
 
 export { InputSnapshot };
 
 const NO_MODIFIERS = Object.freeze({ shift: false, ctrl: false, alt: false, meta: false });
 
+/** A queued record: a pointer's or a key's. */
+type InputRecord = PointerRecord | KeyRecord;
+
+/** A point in some space. */
+interface Point { x: number; y: number }
+
+/** A record's position, resolved into every space the engine uses. */
+interface ResolvedPosition {
+  ui: Point;
+  view: Point;
+  world: { x: number; y: number; z?: number };
+  inContent: boolean;
+}
+
+/** The modifier set every event carries. */
+type Modifiers = { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean };
+
+/** What `#makeEvent` accepts: anything already carrying coordinates. */
+interface EventSource {
+  pointerId?: number;
+  pointerType?: string;
+  button?: number;
+  buttons?: number;
+  ui?: Point;
+  view?: Point;
+  world?: { x: number; y: number; z?: number };
+  inContent?: boolean;
+  modifiers?: Modifiers;
+  time?: number;
+}
+
+/** The built event; see the module doc for the full shape. */
+export type InputEvent = RoutedEvent & {
+  pointerId: number;
+  button: number;
+  buttons: number;
+  view: Point;
+  inContent: boolean;
+  modifiers: Modifiers;
+  time: number;
+};
+
 
 /** A 3D camera's yaw off its flattened forward vector (`{ x: sin, z: cos }` is forward again); 0 for a 2D camera. */
-export function headingOf(camera) {
-  const forward = camera?.forward;
+export function headingOf(camera: unknown): number {
+  const forward = (camera as { forward?: { x: number; z: number } } | null)?.forward;
   return forward ? snapHeading(Math.atan2(forward.x, forward.z)) : 0;
 }
 
 export class InputManager {
+  game: M2D;
+  /** Pending records, drained by `flush`. */
+  queue: InputRecord[];
+  /** Guards against a handler re-entering the drain loop. */
+  draining: boolean;
+  /** After destroy() the manager is inert; late records are dropped. */
+  destroyed: boolean;
+  /** Buttons currently held, as a DOM `buttons` bitmask. */
+  buttons: number;
+  /** Which kind of device moved the pointer last. */
+  pointerType: string;
+  /** The input the simulation reads; see `sample`. */
+  snapshot: InputSnapshot;
+  /** Whether this frame's key edges have already been handed to a tick. */
+  edgesSampled: boolean;
+  carriedPressed: Set<string>;
+  carriedReleased: Set<string>;
+  pointerPressed: number;
+  claimedButtons: number;
+  /** The replay/network seam; see `setSnapshotSource`. */
+  snapshotSource: (() => InputSnapshot | SnapshotJSON | null | undefined) | null;
+  cursor: Cursor;
+  router: InputRouter;
+  recognizer: GestureRecognizer;
+  pointerSource: PointerSource;
+  keyboard: Keyboard;
+  /** Gamepads, read as keys and polled each frame. */
+  gamepads: GamepadSource;
+  /** Live pointer state for code that polls instead of subscribing. */
+  pointer: {
+    readonly ui: Point;
+    readonly view: Point;
+    readonly world: { x: number; y: number; z?: number };
+    readonly isDown: boolean;
+    readonly buttons: number;
+    readonly type: string;
+    readonly locked: boolean;
+  };
+
   /**
-   * @param {import('../m2d.js').M2D} game
-   * @param {Object} [options]
-   * @param {boolean} [options.pointerLock=false] - Confine the pointer to the
-   *   canvas and draw a virtual cursor (see cursor.js)
-   * @param {Iterable<string>} [options.preventDefault] - Key codes whose
-   *   browser default is suppressed
-   * @param {Record<string, string>|false} [options.gamepad] - What each
-   *   gamepad control stands for, over the defaults; `false` for no pads
-   *   (see gamepad.js)
+   * `pointerLock` confines the pointer to the canvas and draws a virtual
+   * cursor (see cursor.ts); `preventDefault` lists key codes whose browser
+   * default is suppressed; `gamepad` maps pad controls over the defaults,
+   * `false` reading no pads (see gamepad.ts).
    */
-  constructor(game, options = {}) {
+  constructor(game: M2D, options: { pointerLock?: boolean; preventDefault?: Iterable<string>; gamepad?: Record<string, string> | false } = {}) {
     this.game = game;
-    /** Pending records, drained by `flush`. */
     this.queue = [];
-    /** Guards against a handler re-entering the drain loop. */
     this.draining = false;
-    /** After destroy() the manager is inert; late records are dropped. */
     this.destroyed = false;
-    /** Buttons currently held, as a DOM `buttons` bitmask. */
     this.buttons = 0;
-    /** Which kind of device moved the pointer last. */
     this.pointerType = 'mouse';
 
-    /**
-     * The input the simulation reads. Taken by `sample()` at the top of
-     * every tick (`game.fixedUpdate` does it) so each tick sees one
-     * well-defined state however the frames fall, and so a replay or a
-     * network layer can later substitute what a peer sent for that tick.
-     * @type {InputSnapshot}
-     */
+    // The input the simulation reads; taken by `sample()` at the top of
+    // every tick so each tick sees one well-defined state.
     this.snapshot = InputSnapshot.empty();
     /** Whether this frame's key edges have already been handed to a tick. */
     this.edgesSampled = false;
@@ -118,24 +190,19 @@ export class InputManager {
      * world once the menu closes. See `#onDown`.
      */
     this.claimedButtons = 0;
-    /**
-     * When set, `sample()` asks this instead of the live devices — the seam
-     * a replay (or, one day, a network layer) feeds recorded ticks through.
-     * @type {(() => InputSnapshot|object|null)|null}
-     */
     this.snapshotSource = null;
 
     this.cursor = new Cursor(game, options);
     this.router = new InputRouter(game);
     this.recognizer = new GestureRecognizer({
-      makeEvent: (type, source, extra) => this.#makeEvent(type, source, extra),
+      makeEvent: (type, source, extra) => this.#makeEvent(type, source as EventSource, extra),
       dispatch: (event) => this.router.dispatch(event),
       listening: (...types) => this.router.listening(...types)
     });
 
-    const sink = { push: (record) => this.push(record), flush: () => this.flush() };
-    this.pointerSource = new PointerSource(game.canvas, sink);
-    this.keyboard = new Keyboard(game.canvas, sink, options);
+    const sink = { push: (record: InputRecord) => this.push(record), flush: () => this.flush() };
+    this.pointerSource = new PointerSource(game.canvas!, sink);
+    this.keyboard = new Keyboard(game.canvas!, sink, options);
     /** Gamepads, read as keys and polled each frame. */
     this.gamepads = new GamepadSource(sink, options.gamepad);
 
@@ -145,6 +212,7 @@ export class InputManager {
      * that never reported another event, and a cached world position would
      * quietly go stale.
      */
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     this.pointer = {
       get ui() { return self.cursor.ui; },
@@ -167,61 +235,59 @@ export class InputManager {
    * through the scene's projection if it has one, so `event.world` is
    * where a click lands on the plane the simulation runs on.
    */
-  toWorld(view) {
-    const render = this.game.camera.screenToWorld(view.x, view.y);
+  toWorld(view: Point): { x: number; y: number; z?: number } {
+    // Either camera answers screenToWorld; the union's returns disagree until phase 10.
+    const camera = this.game.camera as unknown as { screenToWorld(x: number, y: number): { x: number; y: number; z?: number } };
+    const render = camera.screenToWorld(view.x, view.y);
     return this.game.projection ? this.game.projection.toWorld(render.x, render.y) : render;
   }
 
   /**
-   * Listen for an input event.
-   * @param {string} type - e.g. 'click', 'drag', 'pinch', 'scroll', 'keydown'
-   * @param {(event: object) => void} handler
-   * @param {{band?: 'overlay'|'ui'|'world'}} [options]
-   * @returns {() => void} Unsubscribe
+   * Listen for an input event (`'click'`, `'drag'`, `'pinch'`, `'scroll'`,
+   * `'keydown'`). Returns the unsubscribe.
    */
-  on(type, handler, options) {
+  on(type: string, handler: (event: RoutedEvent) => void, options?: { band?: 'overlay' | 'ui' | 'world' }): () => void {
     return this.router.on(type, handler, options);
   }
 
-  /** Whether a physical key is held. @param {string} code e.g. 'KeyW' */
-  isDown(code) { return this.keyboard.isDown(code); }
+  /** Whether a physical key (e.g. 'KeyW') is held. */
+  isDown(code: string): boolean { return this.keyboard.isDown(code); }
 
   /** Whether a physical key went down this frame. */
-  justPressed(code) { return this.keyboard.justPressed(code); }
+  justPressed(code: string): boolean { return this.keyboard.justPressed(code); }
 
   /** Whether a physical key came up this frame. */
-  justReleased(code) { return this.keyboard.justReleased(code); }
+  justReleased(code: string): boolean { return this.keyboard.justReleased(code); }
 
   /** A -1..1 axis from two keys. @see Keyboard#axis */
-  axis(negative, positive) { return this.keyboard.axis(negative, positive); }
+  axis(negative: string, positive: string): number { return this.keyboard.axis(negative, positive); }
 
   /** A normalized direction vector from four keys. @see Keyboard#vector */
-  vector(up, down, left, right) { return this.keyboard.vector(up, down, left, right); }
+  vector(up: string, down: string, left: string, right: string): Point { return this.keyboard.vector(up, down, left, right); }
 
   /** What the player's keyboard prints on a code, for binding UI. */
-  keyLabel(code) { return this.keyboard.label(code); }
+  keyLabel(code: string): string { return this.keyboard.label(code); }
 
   /** Whether the browser currently has the pointer locked to the canvas. */
-  get pointerLocked() { return this.cursor.locked; }
+  get pointerLocked(): boolean { return this.cursor.locked; }
 
   /**
    * Turn pointer lock on or off. Off by default; turning it on takes effect
    * at the next press, since the browser requires a user gesture.
-   * @param {boolean} enabled
    */
-  setPointerLock(enabled) { this.cursor.setEnabled(enabled); }
+  setPointerLock(enabled: boolean): void { this.cursor.setEnabled(enabled); }
 
   /** Release pointer lock without disabling it; the next press re-acquires. */
-  unlockPointer() { this.cursor.exit(); }
+  unlockPointer(): void { this.cursor.exit(); }
 
   /** Register an `Interactive` constraint with the world band. */
-  addInteractive(interactive) { this.router.addInteractive(interactive); }
+  addInteractive(interactive: Interactive): void { this.router.addInteractive(interactive); }
 
   /** Unregister an `Interactive` constraint. */
-  removeInteractive(interactive) { this.router.removeInteractive(interactive); }
+  removeInteractive(interactive: Interactive): void { this.router.removeInteractive(interactive); }
 
   /** Point the UI band at a scene's container (null between scenes). */
-  setUIContainer(container) { this.router.setUIContainer(container); }
+  setUIContainer(container: Parameters<InputRouter['setUIContainer']>[0]): void { this.router.setUIContainer(container); }
 
   /**
    * Build an event that did not come from a device.
@@ -235,12 +301,8 @@ export class InputManager {
    * It is built, not dispatched — the caller delivers it to the target it
    * already resolved, rather than sending it back through hit testing that
    * would land somewhere else entirely.
-   *
-   * @param {string} type - Event type, e.g. 'click'
-   * @param {object} [extra] - Fields merged onto the event
-   * @returns {object}
    */
-  makeSyntheticEvent(type, extra = {}) {
+  makeSyntheticEvent(type: string, extra: Record<string, unknown> = {}): RoutedEvent {
     return this.#makeEvent(type, {
       ui: this.cursor.ui,
       pointerType: this.pointerType,
@@ -252,10 +314,9 @@ export class InputManager {
 
   /**
    * Start-of-frame: deliver everything buffered since the last frame, then
-   * let time-based gestures (long press) fire.
-   * @param {number} now - Frame timestamp in ms
+   * let time-based gestures (long press) fire. `now` is the frame timestamp in ms.
    */
-  beginFrame(now) {
+  beginFrame(now: number): void {
     this.gamepads.poll(now);
     this.flush();
     this.recognizer.update(now);
@@ -263,7 +324,7 @@ export class InputManager {
   }
 
   /** End-of-frame: retire this frame's key edges, unless no tick took them. */
-  endFrame() {
+  endFrame(): void {
     if (!this.edgesSampled) {
       for (const code of this.keyboard.pressed) this.carriedPressed.add(code);
       for (const code of this.keyboard.released) this.carriedReleased.add(code);
@@ -283,10 +344,8 @@ export class InputManager {
    *
    * The source may return an `InputSnapshot`, plain `toJSON()` output, or
    * null for "nothing held". Pass `null` to give the devices back.
-   *
-   * @param {(() => InputSnapshot|object|null)|null} source
    */
-  setSnapshotSource(source) {
+  setSnapshotSource(source: (() => InputSnapshot | SnapshotJSON | null | undefined) | null | undefined): void {
     this.snapshotSource = source ?? null;
   }
 
@@ -297,11 +356,9 @@ export class InputManager {
    * edges go to the *first* tick sampled in a frame and to no other, so a
    * frame that runs two ticks to catch up does not fire a jump twice. The
    * per-frame `justPressed` API is unaffected; the UI and game code outside
-   * the tick still see the edges for the whole frame.
-   *
-   * @returns {InputSnapshot} Also stored as `snapshot`.
+   * the tick still see the edges for the whole frame. Also stored as `snapshot`.
    */
-  sample() {
+  sample(): InputSnapshot {
     if (this.snapshotSource) {
       const fed = this.snapshotSource();
       this.snapshot = fed instanceof InputSnapshot
@@ -312,7 +369,7 @@ export class InputManager {
     // A blocking screen (an inventory, a dialog, the console) owns the
     // keyboard and the pointer while it is up: typing in it or holding an
     // arrow over it must not move the avatar. The tick sees nothing held.
-    if (this.game.ui?.capturesInput) {
+    if ((this.game.ui as { capturesInput?: boolean } | null)?.capturesInput) {
       this.edgesSampled = true;
       // Nothing that happened under the screen survives it.
       this.carriedPressed.clear();
@@ -325,8 +382,8 @@ export class InputManager {
     const edges = !this.edgesSampled;
     this.edgesSampled = true;
     const pointer = this.pointer;
-    const pressed = edges ? new Set([...this.carriedPressed, ...keyboard.pressed]) : new Set();
-    const released = edges ? new Set([...this.carriedReleased, ...keyboard.released]) : new Set();
+    const pressed = edges ? new Set([...this.carriedPressed, ...keyboard.pressed]) : new Set<string>();
+    const released = edges ? new Set([...this.carriedReleased, ...keyboard.released]) : new Set<string>();
     const pointerPressed = edges ? this.pointerPressed : 0;
     const worldButtons = pointer.buttons & ~this.claimedButtons;
     if (edges) {
@@ -353,24 +410,24 @@ export class InputManager {
   }
 
   /** Keep the cursor inside UI space after a viewport change. */
-  onResize() {
+  onResize(): void {
     this.cursor.clampToViewport();
   }
 
   /** Draw the virtual cursor, above everything. No-op unless locked. */
-  draw() {
+  draw(): void {
     this.cursor.draw();
   }
 
   /** Called by Cursor when the browser grants or drops the lock. */
-  emitLockChange(locked) {
+  emitLockChange(locked: boolean): void {
     this.router.dispatch(this.#makeEvent('pointerlockchange', {
       ui: this.cursor.ui,
       pointerType: this.pointerType
     }, { locked }));
   }
 
-  destroy() {
+  destroy(): void {
     this.gamepads.release();
     this.flush();
     this.destroyed = true;
@@ -391,12 +448,10 @@ export class InputManager {
    * synthesized input is a real requirement, not just a testing convenience:
    * on-screen touch controls, replays and demo recordings all need to inject
    * events that no device produced. Records use the shape documented in
-   * pointerSource.js; call `flush()` to deliver immediately, or let the next
+   * pointerSource.ts; call `flush()` to deliver immediately, or let the next
    * frame do it.
-   *
-   * @param {object} record
    */
-  push(record) {
+  push(record: InputRecord): void {
     // A destroyed game must not keep interpreting input. An in-flight DOM
     // event can still land after teardown, and acting on it would leave a
     // key held down in an engine nobody is driving any more.
@@ -420,19 +475,19 @@ export class InputManager {
   }
 
   /** Deliver everything queued, in order. Safe to call at any time. */
-  flush() {
+  flush(): void {
     if (this.draining) return;
     this.draining = true;
     try {
       while (this.queue.length > 0) {
-        this.#process(this.queue.shift());
+        this.#process(this.queue.shift()!);
       }
     } finally {
       this.draining = false;
     }
   }
 
-  #process(record) {
+  #process(record: InputRecord): void {
     switch (record.kind) {
       case 'keydown':
       case 'keyup':
@@ -461,7 +516,7 @@ export class InputManager {
    * consumes the event. A key held when the menu opened has to come back up
    * in the game's state, or the player keeps running after it closes.
    */
-  #onKey(record) {
+  #onKey(record: KeyRecord): void {
     const build = () => this.#makeEvent(record.kind, {
       ui: this.cursor.ui,
       pointerType: this.pointerType,
@@ -492,7 +547,7 @@ export class InputManager {
    * world until it is released: clicking a menu item, or the button that
    * closes the menu, must not also walk the avatar to where the cursor was.
    */
-  #onDown(record) {
+  #onDown(record: PointerRecord): void {
     this.pointerType = record.pointerType;
     this.buttons = record.buttons;
     const event = this.#resolve('pointerdown', record);
@@ -503,10 +558,10 @@ export class InputManager {
     const bit = 1 << (record.button ?? 0);
     if (event.handledByUI) this.claimedButtons |= bit;
     else this.pointerPressed |= bit;
-    this.recognizer.pointerDown(event);
+    this.recognizer.pointerDown(event as unknown as Parameters<GestureRecognizer['pointerDown']>[0]);
   }
 
-  #onMove(record) {
+  #onMove(record: PointerRecord): void {
     this.pointerType = record.pointerType;
     this.buttons = record.buttons;
     const event = this.#resolve('pointermove', record);
@@ -514,19 +569,19 @@ export class InputManager {
     // pointermove sees the state the move produced, not the previous one.
     this.router.updateHover(event, (type, source, extra) => this.#makeEvent(type, source, extra));
     this.router.dispatch(event);
-    this.recognizer.pointerMove(event);
+    this.recognizer.pointerMove(event as unknown as Parameters<GestureRecognizer['pointerMove']>[0]);
   }
 
-  #onUp(record, cancelled) {
+  #onUp(record: PointerRecord, cancelled: boolean): void {
     this.buttons = record.buttons;
     // A claimed button is the world's again once it is up.
     this.claimedButtons &= record.buttons ?? 0;
     const event = this.#resolve('pointerup', record, { cancelled });
     this.router.dispatch(event);
-    this.recognizer.pointerUp(event, { cancelled });
+    this.recognizer.pointerUp(event as unknown as Parameters<GestureRecognizer['pointerUp']>[0], { cancelled });
   }
 
-  #onWheel(record) {
+  #onWheel(record: PointerRecord): void {
     const event = this.#resolve('scroll', record, {
       scroll: { x: record.scrollX, y: record.scrollY }
     });
@@ -543,16 +598,16 @@ export class InputManager {
    * modes produce the same three coordinate spaces, so nothing downstream
    * needs to know which one it is in.
    */
-  #positionFor(record) {
+  #positionFor(record: { kind: string; clientX?: number | null; clientY?: number | null; movementX?: number; movementY?: number }): ResolvedPosition {
     const viewport = this.game.viewport;
     const cursor = this.cursor;
 
     if (cursor.locked) {
-      if (record.kind === 'move') cursor.moveBy(record.movementX, record.movementY);
+      if (record.kind === 'move') cursor.moveBy(record.movementX!, record.movementY!);
     } else if (record.clientX != null && typeof this.game.canvas?.getBoundingClientRect === 'function') {
       const mapped = mapPointer({
-        clientX: record.clientX,
-        clientY: record.clientY,
+        clientX: record.clientX!,
+        clientY: record.clientY!,
         rect: this.game.canvas.getBoundingClientRect(),
         viewport
       });
@@ -580,7 +635,7 @@ export class InputManager {
   }
 
   /** Build a dispatchable event straight from a DOM record. */
-  #resolve(type, record, extra) {
+  #resolve(type: string, record: PointerRecord, extra?: Record<string, unknown>): RoutedEvent {
     const position = this.#positionFor(record);
     return this.#makeEvent(type, {
       pointerId: record.pointerId,
@@ -597,7 +652,7 @@ export class InputManager {
    * Build an event from a source that already carries coordinates — either a
    * resolved record or another event a gesture is deriving from.
    */
-  #makeEvent(type, source, extra = {}) {
+  #makeEvent(type: string, source: EventSource, extra: Record<string, unknown> = {}): RoutedEvent {
     const event = {
       type,
       pointerId: source.pointerId ?? -1,
@@ -611,26 +666,27 @@ export class InputManager {
       modifiers: source.modifiers ?? NO_MODIFIERS,
       time: source.time ?? 0,
       /** Primary recipient, filled in by the router. */
-      target: null,
+      target: null as InputTarget | null,
       /** The dragged target, on drag events. */
-      subject: null,
+      subject: null as InputTarget | null,
       /** What a drop landed on, underneath the subject. */
-      dropTarget: null,
+      dropTarget: null as InputTarget | null,
       consumed: false,
       /** Set by the router when the UI took the event. */
       handledByUI: false,
-      consume() { this.consumed = true; },
+      consume(this: { consumed: boolean }) { this.consumed = true; },
       ...extra
-    };
+    } as unknown as RoutedEvent;
     // A gesture derived from a synthetic source carries at most a UI
     // position; fill in whatever spaces it left out. The cursor is always
     // current, so a source with no position at all can still be placed.
     if (!event.ui) {
       Object.assign(event, this.#positionFor({ kind: 'synthetic', clientX: null }));
     } else if (!event.view) {
-      event.view = uiToView({ x: event.ui.x, y: event.ui.y, viewport: this.game.viewport });
+      const view = uiToView({ x: event.ui.x, y: event.ui.y, viewport: this.game.viewport });
+      event.view = view;
       if (!event.world) {
-        event.world = this.toWorld(event.view);
+        event.world = this.toWorld(view);
       }
     }
     return event;

@@ -18,17 +18,18 @@
  * speakers: `SilentSound` accepts every call and does nothing.
  */
 
-import { InputSnapshot } from './input/snapshot.js';
+import { InputSnapshot } from './input/snapshot.ts';
+import type { SnapshotJSON } from './input/snapshot.ts';
 import { SoundManager } from './soundManager.ts';
 
 const DOCS = 'docs/contributing/determinism.md';
 
 /**
  * An object that throws on any use, naming what was touched.
- * @param {string} name - How game code reaches it, e.g. `game.camera`.
+ * `name` is how game code reaches it, e.g. `game.camera`.
  */
-export function presentationGuard(name) {
-  const fail = (what) => {
+export function presentationGuard(name: string): unknown {
+  const fail = (what: string): never => {
     throw new Error(
       `M2D headless: ${what} ${name}, which is presentation and does not exist in a headless game. ` +
       `Simulation code must not depend on it; see ${DOCS}.`
@@ -55,7 +56,7 @@ export function presentationGuard(name) {
 export class SilentSound {}
 for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(SoundManager.prototype))) {
   if (name === 'constructor' || typeof descriptor.value !== 'function') continue;
-  SilentSound.prototype[name] = name === 'loop' ? () => null : () => {};
+  (SilentSound.prototype as Record<string, unknown>)[name] = name === 'loop' ? () => null : () => {};
 }
 
 /**
@@ -64,19 +65,25 @@ for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors
  * The live device API (`isDown`, `on`, the pointer) is presentation and
  * throws, as do the guards.
  */
+/** What a snapshot source returns: a built snapshot, its JSON, or nothing. */
+type SnapshotSource = () => InputSnapshot | SnapshotJSON | null | undefined;
+
 class HeadlessInputState {
+  snapshot: InputSnapshot;
+  snapshotSource: SnapshotSource | null;
+
   constructor() {
     this.snapshot = InputSnapshot.empty();
     this.snapshotSource = null;
   }
 
   /** See `InputManager.setSnapshotSource`. */
-  setSnapshotSource(source) {
+  setSnapshotSource(source: SnapshotSource | null | undefined): void {
     this.snapshotSource = source ?? null;
   }
 
   /** See `InputManager.sample`. */
-  sample() {
+  sample(): InputSnapshot {
     const fed = this.snapshotSource?.();
     this.snapshot = fed instanceof InputSnapshot
       ? fed
@@ -92,7 +99,7 @@ class HeadlessInputState {
   destroy() {}
 }
 
-export function createHeadlessInput() {
+export function createHeadlessInput(): HeadlessInputState {
   const state = new HeadlessInputState();
   return new Proxy(state, {
     get(target, key, receiver) {

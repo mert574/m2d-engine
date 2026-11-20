@@ -6,7 +6,7 @@ import { UIElement } from './uiElement.js';
 import { UIOptionRow } from './optionRow.js';
 import { Stack, Spacer } from './layout/stack.js';
 import { UIRectangle } from './Rectangle.js';
-import { keyLabel } from '../input/actions.js';
+import { keyLabel } from '../input/actions.ts';
 
 /**
  * Scale presets offered as resolutions, besides 'native'. A scale is a

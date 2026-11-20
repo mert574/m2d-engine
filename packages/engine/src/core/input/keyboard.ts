@@ -47,6 +47,22 @@
  * wholesale, and doing so must not re-expose the browser's find bar
  * underneath the engine's own bindings.
  */
+/** A queued key record; `consumed` is set by the router during the flush. */
+export interface KeyRecord {
+  kind: 'keydown' | 'keyup';
+  code: string;
+  key: string;
+  modifiers: { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean };
+  time: number;
+  consumed?: boolean;
+}
+
+/** Where key records go: the input manager's queue. */
+interface KeySink {
+  push(record: KeyRecord): void;
+  flush(): void;
+}
+
 const DEFAULT_PREVENTED = new Set([
   'Space', 'Tab', 'Enter',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
@@ -58,7 +74,7 @@ const DEFAULT_PREVENTED = new Set([
  * pointer events do: a shortcut is a key *and* its modifiers, and Shift+Tab
  * is a different binding from Tab.
  */
-function modifiersOf(event) {
+function modifiersOf(event: KeyboardEvent) {
   return {
     shift: event.shiftKey === true,
     ctrl: event.ctrlKey === true,
@@ -68,7 +84,7 @@ function modifiersOf(event) {
 }
 
 /** Human-readable fallback for a `code` the layout map cannot name. */
-function readableCode(code) {
+function readableCode(code: string): string {
   return code
     .replace(/^Key/, '')
     .replace(/^Digit/, '')
@@ -78,34 +94,35 @@ function readableCode(code) {
 }
 
 export class Keyboard {
+  /** Element that holds keyboard focus. */
+  canvas: HTMLCanvasElement;
+  sink: KeySink;
+  /** Codes whose browser default is suppressed; replaces the built-in list. */
+  prevented: Set<string>;
+  /** Codes currently held. */
+  down: Set<string>;
   /**
-   * @param {HTMLCanvasElement} canvas - Element that holds keyboard focus
-   * @param {{push: (record: object) => void, flush: () => void}} sink -
-   *   Receives `{kind: 'keydown'|'keyup', ...}` records
-   * @param {Object} [options]
-   * @param {Iterable<string>} [options.preventDefault] - Codes whose browser
-   *   default is suppressed; replaces the built-in list
+   * Codes whose press the engine's UI consumed, so auto-repeats of the
+   * same key keep being kept from the browser. Cleared on release.
    */
-  constructor(canvas, sink, options = {}) {
+  claimed: Set<string>;
+  /** Codes that went down this frame. */
+  pressed: Set<string>;
+  /** Codes that came up this frame. */
+  released: Set<string>;
+  listeners: (() => void)[];
+  /** Resolved layout map, when the browser offers one. */
+  layout: { get?(code: string): string | undefined } | null;
+
+  constructor(canvas: HTMLCanvasElement, sink: KeySink, options: { preventDefault?: Iterable<string> } = {}) {
     this.canvas = canvas;
     this.sink = sink;
     this.prevented = new Set(options.preventDefault ?? DEFAULT_PREVENTED);
-
-    /** Codes currently held. @type {Set<string>} */
     this.down = new Set();
-    /**
-     * Codes whose press the engine's UI consumed, so auto-repeats of the
-     * same key keep being kept from the browser. Cleared on release.
-     * @type {Set<string>}
-     */
     this.claimed = new Set();
-    /** Codes that went down this frame. @type {Set<string>} */
     this.pressed = new Set();
-    /** Codes that came up this frame. @type {Set<string>} */
     this.released = new Set();
-
     this.listeners = [];
-    /** Resolved layout map, when the browser offers one. */
     this.layout = null;
 
     if (canvas && canvas.tabIndex === undefined) canvas.tabIndex = 0;
@@ -115,9 +132,10 @@ export class Keyboard {
     this.#loadLayout();
   }
 
-  #on(target, type, handler) {
-    target.addEventListener(type, handler);
-    this.listeners.push(() => target.removeEventListener(type, handler));
+  #on(target: EventTarget, type: string, handler: (event: never) => void) {
+    const listener = handler as EventListener;
+    target.addEventListener(type, listener);
+    this.listeners.push(() => target.removeEventListener(type, listener));
   }
 
   #listen() {
@@ -127,7 +145,7 @@ export class Keyboard {
     // state, driven from the queue. Keeping the two in one place is what
     // lets synthesized key input (replays, on-screen keys) behave exactly
     // like the real thing.
-    this.#on(this.canvas, 'keydown', (event) => {
+    this.#on(this.canvas, 'keydown', (event: KeyboardEvent) => {
       const code = event.code;
       // A modifier held means the player is reaching for a *browser*
       // shortcut, so the engine never takes those.
@@ -143,7 +161,7 @@ export class Keyboard {
       // an edge that repeats is not an edge.
       if (event.repeat || this.down.has(code)) return;
 
-      const record = {
+      const record: KeyRecord = {
         kind: 'keydown', code, key: event.key,
         modifiers: modifiersOf(event), time: event.timeStamp
       };
@@ -163,7 +181,7 @@ export class Keyboard {
       }
     });
 
-    this.#on(this.canvas, 'keyup', (event) => {
+    this.#on(this.canvas, 'keyup', (event: KeyboardEvent) => {
       this.claimed.delete(event.code);
       if (!this.down.has(event.code)) return;
       this.sink.push({
@@ -182,7 +200,9 @@ export class Keyboard {
   /** Ask the browser what the player's keycaps actually say. */
   async #loadLayout() {
     try {
-      const map = await navigator?.keyboard?.getLayoutMap?.();
+      // The keyboard layout map is not in TS7's DOM lib yet.
+      const keyboard = (navigator as { keyboard?: { getLayoutMap?(): Promise<{ get(code: string): string | undefined }> } })?.keyboard;
+      const map = await keyboard?.getLayoutMap?.();
       if (map) this.layout = map;
     } catch {
       // Unsupported or blocked by permissions policy; readableCode() covers it.
@@ -190,11 +210,10 @@ export class Keyboard {
   }
 
   /**
-   * Move the held-key state for one queued record.
-   * @param {{kind: 'keydown'|'keyup', code: string}} record
-   * @returns {boolean} Whether this was a real edge worth dispatching
+   * Move the held-key state for one queued record. Returns whether this
+   * was a real edge worth dispatching.
    */
-  apply(record) {
+  apply(record: { kind: 'keydown' | 'keyup'; code: string }): boolean {
     if (record.kind === 'keydown') {
       if (this.down.has(record.code)) return false;
       this.down.add(record.code);
@@ -207,43 +226,40 @@ export class Keyboard {
   }
 
   /** Drop every held key, as if all were released. */
-  releaseAll() {
+  releaseAll(): void {
     for (const code of this.down) this.released.add(code);
     this.down.clear();
     this.claimed.clear();
   }
 
   /** Whether `code` is held right now. */
-  isDown(code) {
+  isDown(code: string): boolean {
     return this.down.has(code);
   }
 
   /** Whether `code` went down during this frame. */
-  justPressed(code) {
+  justPressed(code: string): boolean {
     return this.pressed.has(code);
   }
 
   /** Whether `code` came up during this frame. */
-  justReleased(code) {
+  justReleased(code: string): boolean {
     return this.released.has(code);
   }
 
   /**
    * A -1..1 axis from two keys, the shape movement code actually wants.
    * Both held cancel out.
-   * @param {string} negative - Code driving the axis negative
-   * @param {string} positive - Code driving the axis positive
    */
-  axis(negative, positive) {
+  axis(negative: string, positive: string): number {
     return (this.down.has(positive) ? 1 : 0) - (this.down.has(negative) ? 1 : 0);
   }
 
   /**
    * A direction vector from four keys, normalized so diagonals are not
    * faster than the cardinals.
-   * @returns {{x: number, y: number}}
    */
-  vector(up, down, left, right) {
+  vector(up: string, down: string, left: string, right: string): { x: number; y: number } {
     const x = this.axis(left, right);
     const y = this.axis(up, down);
     if (x !== 0 && y !== 0) {
@@ -253,24 +269,20 @@ export class Keyboard {
     return { x, y };
   }
 
-  /**
-   * What the player's keyboard prints on `code`, for binding UI.
-   * @param {string} code - Physical key code
-   * @returns {string} The keycap legend, or a readable form of the code
-   */
-  label(code) {
+  /** What the player's keyboard prints on `code`: the keycap legend, or a readable form of the code. */
+  label(code: string): string {
     const printed = this.layout?.get?.(code);
     if (printed) return printed.toUpperCase();
     return readableCode(code);
   }
 
   /** Clear this frame's edges. Called by the engine at the end of a frame. */
-  endFrame() {
+  endFrame(): void {
     this.pressed.clear();
     this.released.clear();
   }
 
-  destroy() {
+  destroy(): void {
     for (const remove of this.listeners) remove();
     this.listeners = [];
     this.down.clear();
