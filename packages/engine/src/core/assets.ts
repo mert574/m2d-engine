@@ -19,10 +19,16 @@
 
 import { validate } from './schema.ts';
 import { MANIFEST_SCHEMA, MANIFEST_VERSION } from './assetSchema.ts';
+import type { Infer } from './schema.ts';
+
+/** One validated manifest entry; the manifest schema is the source of truth. */
+type AssetEntry = Infer<typeof MANIFEST_SCHEMA>['assets'][string];
 
 /** An error carrying the path of the manifest field that caused it. */
 export class AssetManifestError extends Error {
-  constructor(path, message) {
+  path: string;
+
+  constructor(path: string, message: string) {
     super(`Asset manifest${path ? ` at ${path}` : ''}: ${message}`);
     this.name = 'AssetManifestError';
     this.path = path;
@@ -30,41 +36,41 @@ export class AssetManifestError extends Error {
 }
 
 export class AssetDatabase {
+  /** Uid to validated asset entry. */
+  assets: Map<string, AssetEntry>;
+  /** Prefixed onto every asset `source`. */
+  basePath: string;
+
   constructor() {
-    /** @type {Map<string, object>} uid to validated asset entry. */
     this.assets = new Map();
-    /** Prefixed onto every asset `source`. */
     this.basePath = '';
   }
 
   /**
    * Validate a manifest and index it, replacing anything loaded before.
-   *
-   * @param {object} data - A parsed manifest document.
-   * @param {object} [options]
-   * @param {Map<string, Function>} [options.actors] - For checking that a
-   *   prefab asset names a registered actor, the same cross-reference a
-   *   scene's inline prefab gets. Omitted, the check is skipped.
-   * @returns {this}
+   * `data` is a parsed manifest document; `actors` is for checking that a
+   * prefab asset names a registered actor, the same cross-reference a
+   * scene's inline prefab gets — omitted, the check is skipped.
    */
-  load(data, { actors = null } = {}) {
-    const fail = (path, message) => { throw new AssetManifestError(path, message); };
+  load(data: unknown, { actors = null }: { actors?: Map<string, unknown> | null } = {}): this {
+    const fail = (path: string, message: string): never => { throw new AssetManifestError(path, message); };
 
     if (!data || typeof data !== 'object') fail('', 'manifest is not an object');
-    if (data.version !== MANIFEST_VERSION) {
-      fail('version', `expected ${MANIFEST_VERSION}, got ${JSON.stringify(data.version)}`);
+    const document = data as Record<string, unknown>;
+    if (document.version !== MANIFEST_VERSION) {
+      fail('version', `expected ${MANIFEST_VERSION}, got ${JSON.stringify(document.version)}`);
     }
 
-    const refs = {};
+    const refs: Record<string, { has(name: string): boolean; describe(name: string): string }> = {};
     if (actors) {
       refs.actor = {
-        has: name => actors.has(name),
-        describe: name => `actor '${name}' is not registered ` +
+        has: (name) => actors.has(name),
+        describe: (name) => `actor '${name}' is not registered ` +
           `(registered: ${[...actors.keys()].join(', ') || 'none'})`
       };
     }
 
-    const manifest = validate(MANIFEST_SCHEMA, data, { fail, refs });
+    const manifest = validate(MANIFEST_SCHEMA, data, { fail, refs }) as Infer<typeof MANIFEST_SCHEMA>;
 
     this.assets = new Map(Object.entries(manifest.assets));
     this.basePath = manifest.basePath ?? '';
@@ -72,17 +78,17 @@ export class AssetDatabase {
   }
 
   /** Whether an asset with this uid is loaded. */
-  has(uid) {
+  has(uid: string): boolean {
     return this.assets.has(uid);
   }
 
   /** The raw asset entry, or null. */
-  get(uid) {
+  get(uid: string): AssetEntry | null {
     return this.assets.get(uid) ?? null;
   }
 
   /** Every uid, for error messages and an editor's browser. */
-  get uids() {
+  get uids(): string[] {
     return [...this.assets.keys()];
   }
 
@@ -91,16 +97,16 @@ export class AssetDatabase {
    * entry has, so everything downstream — validation, `SpriteSheet`, the
    * renderer — sees one kind of sprite sheet and not two.
    */
-  spritesheet(uid) {
+  spritesheet(uid: string): Record<string, unknown> | null {
     const asset = this.get(uid);
     if (asset?.type !== 'spritesheet') return null;
-    return { url: this.basePath + asset.source, ...asset.import };
+    return { url: this.basePath + asset.source, ...(asset.import as Record<string, unknown>) };
   }
 
   /**
    * A model asset in the shape a scene's inline `assets.models` entry has.
    */
-  model(uid) {
+  model(uid: string): { url: string } | null {
     const asset = this.get(uid);
     if (asset?.type !== 'model') return null;
     return { url: this.basePath + asset.source };
@@ -112,10 +118,10 @@ export class AssetDatabase {
    * the entry, so a scene that binds the asset lights the same way the
    * manifest says it should.
    */
-  environment(uid) {
+  environment(uid: string): Record<string, unknown> | null {
     const asset = this.get(uid);
     if (asset?.type !== 'environment') return null;
-    return { url: this.basePath + asset.source, ...asset.import };
+    return { url: this.basePath + asset.source, ...(asset.import as Record<string, unknown>) };
   }
 
   /**
@@ -127,14 +133,11 @@ export class AssetDatabase {
    * `sheetName` and `modelName` map the one to the other — the caller has
    * just bound that sheet or model into the scene.
    *
-   * @param {string} uid
-   * @param {(sheetUid: string) => string} sheetName
-   * @param {(modelUid: string) => string} [modelName]
    */
-  prefab(uid, sheetName, modelName) {
+  prefab(uid: string, sheetName: (sheetUid: string) => string, modelName?: (modelUid: string) => string): Record<string, unknown> | null {
     const asset = this.get(uid);
     if (asset?.type !== 'prefab') return null;
-    const prefab = { ...asset.data };
+    const prefab = { ...(asset.data as Record<string, unknown> & { spritesheet?: string; mesh?: { model?: string } }) };
     if (prefab.spritesheet) prefab.spritesheet = sheetName(prefab.spritesheet);
     if (prefab.mesh?.model && modelName) {
       prefab.mesh = { ...prefab.mesh, model: modelName(prefab.mesh.model) };

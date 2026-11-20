@@ -1,5 +1,7 @@
 import { s } from '../core/schema.ts';
-import { Interactive } from './interactive.js';
+import { Interactive } from './interactive.ts';
+import type { InteractiveEvent, InteractiveOptions } from './interactive.ts';
+import type { Entity } from '../core/entity.ts';
 
 /**
  * Pick a dynamic body up with the pointer, carry it, and fling it.
@@ -27,13 +29,13 @@ import { Interactive } from './interactive.js';
  * else. Two-dimensional: the hand is where the pointer is on the plane.
  */
 export class Grabbable extends Interactive {
-  static description = 'Pick a dynamic body up with the pointer, carry it and fling it';
+  static override description = 'Pick a dynamic body up with the pointer, carry it and fling it';
 
-  static params = {
+  static override params: Record<string, import('../core/schema.ts').SchemaDescriptor> = {
     // Everything Interactive takes but `follow`, which this replaces (a
     // grabbed body is steered, never placed), and `draggable`, which is
     // what a grab is.
-    ...(({ follow, draggable, ...rest }) => rest)(Interactive.params),
+    ...(({ follow, draggable, ...rest }) => rest)(Interactive.params as Record<string, import('../core/schema.ts').SchemaDescriptor> & { follow: unknown; draggable: unknown }),
     cursor: s.string({ editor: 'cursor', initial: 'grab', description: 'CSS cursor while hovered' }),
     stiffness: s.number({
       initial: 18, positive: true, unit: '1/s',
@@ -53,15 +55,17 @@ export class Grabbable extends Interactive {
     })
   };
 
-  /**
-   * @param {import('../core/entity.js').Entity} entity
-   * @param {Object} [options] - `Interactive`'s, minus `follow`, plus:
-   * @param {number} [options.stiffness=18]
-   * @param {number} [options.maxSpeed=0] - 0 for no limit
-   * @param {boolean} [options.removable=false]
-   * @param {string} [options.removeSound]
-   */
-  constructor(entity, options = {}) {
+  stiffness: number;
+  maxSpeed: number;
+  removable: boolean;
+  removeSound: string | null;
+  /** Where the hand holds the body, in world coordinates, or null while not held. */
+  target: { x: number; y: number } | null;
+  /** A right-click asked for this body to go; the next tick does it. */
+  removing: boolean;
+
+  /** `options` are `Interactive`'s, minus `follow`, plus the grip's own. */
+  constructor(entity: Entity, options: Omit<InteractiveOptions, 'follow'> & { stiffness?: number; maxSpeed?: number; removable?: boolean; removeSound?: string } = {}) {
     super(entity, {
       cursor: 'grab',
       ...options,
@@ -75,20 +79,17 @@ export class Grabbable extends Interactive {
     this.maxSpeed = options.maxSpeed ?? 0;
     this.removable = options.removable ?? false;
     this.removeSound = options.removeSound ?? null;
-
-    /** Where the hand holds the body, in world coordinates, or null while not held. */
     this.target = null;
-    /** A right-click asked for this body to go; the next tick does it. */
     this.removing = false;
   }
 
   /** Right-clicking a removable body is handled even with no handler of the game's own. */
-  handles(type) {
+  override handles(type: string): boolean {
     if (type === 'rightclick' && this.removable && this.active) return true;
     return super.handles(type);
   }
 
-  handleInput(event) {
+  override handleInput(event: InteractiveEvent): void {
     // First: a drag start measures `grabOffset` there, and this reads it.
     super.handleInput(event);
     if (!this.active) return;
@@ -110,7 +111,7 @@ export class Grabbable extends Interactive {
     }
   }
 
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     super.fixedUpdate(dt);
     if (this.removing) {
       this.#remove();

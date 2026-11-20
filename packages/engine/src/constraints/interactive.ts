@@ -1,5 +1,63 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
 import { s } from '../core/schema.ts';
+import type { SchemaDescriptor } from '../core/schema.ts';
+
+/** The hit shapes an interactive entity can declare. */
+export type HitArea = 'body' | { width: number; height: number } | { radius: number };
+
+/**
+ * A routed pointer event as the input router delivers it; the full shape
+ * is the input manager's (core/input, still JavaScript this phase).
+ */
+export interface InteractiveEvent {
+  type: string;
+  world: { x: number; y: number };
+  start: { world: { x: number; y: number } };
+  dropTarget?: { entity?: Entity } | null;
+  consume(): void;
+  [key: string]: unknown;
+}
+
+type Handler = (event: InteractiveEvent) => void;
+
+/** The handler options, by event; see `EVENT_HANDLERS`. */
+export interface InteractiveHandlers {
+  onPointerDown?: Handler;
+  onPointerUp?: Handler;
+  onClick?: Handler;
+  onDoubleClick?: Handler;
+  onRightClick?: Handler;
+  onHover?: Handler;
+  onHoverEnd?: Handler;
+  onDragStart?: Handler;
+  onDrag?: Handler;
+  onDragEnd?: Handler;
+  onDrop?: Handler;
+  onScroll?: Handler;
+}
+
+/** What `Interactive` takes beside the handlers. */
+export interface InteractiveOptions extends InteractiveHandlers {
+  hitArea?: HitArea;
+  /** Deliver drag events. */
+  draggable?: boolean;
+  /** Move the body with the pointer while dragging (implies `draggable`). */
+  follow?: boolean;
+  /** Higher wins when shapes overlap; ties go to the most recently created entity. */
+  priority?: number;
+  /** CSS cursor while hovered. */
+  cursor?: string;
+  /** Stop the event after handling, so entities underneath do not also react. */
+  consume?: boolean;
+  enabled?: boolean;
+}
+
+/** The input-router members this constraint registers with. */
+interface InteractiveRouter {
+  addInteractive(interactive: Interactive): void;
+  removeInteractive(interactive: Interactive): void;
+}
 
 /**
  * Makes an entity respond to the pointer.
@@ -40,13 +98,13 @@ import { s } from '../core/schema.ts';
  * into the simple answer (place the body under the pointer each frame).
  */
 export class Interactive extends Constraint {
-  static description = 'Respond to the pointer: hover, click, drag';
-  static params = {
+  static override description = 'Respond to the pointer: hover, click, drag';
+  static override params: Record<string, SchemaDescriptor> = {
     hitArea: s.union([
-      s.enumOf(['body'], { match: value => typeof value === 'string' }),
+      s.enumOf(['body'], { match: (value: unknown): boolean => typeof value === 'string' }),
       s.object({ width: s.number({ required: true }), height: s.number({ required: true }) },
-        { match: value => value?.width !== undefined }),
-      s.object({ radius: s.number({ required: true }) }, { match: value => value?.radius !== undefined })
+        { match: (value: unknown): boolean => (value as { width?: number })?.width !== undefined }),
+      s.object({ radius: s.number({ required: true }) }, { match: (value: unknown): boolean => (value as { radius?: number })?.radius !== undefined })
     ], { initial: 'body', message: "must be 'body', { width, height } or { radius }" }),
     follow: s.boolean({ initial: false }),
     draggable: s.boolean({ description: 'Defaults to follow' }),
@@ -56,32 +114,20 @@ export class Interactive extends Constraint {
     enabled: s.boolean({ initial: true })
   };
 
-  /**
-   * @param {import('../core/entity.js').Entity} entity
-   * @param {Object} [options]
-   * @param {'body'|{width: number, height: number}|{radius: number}} [options.hitArea='body']
-   * @param {boolean} [options.draggable=false] - Deliver drag events
-   * @param {boolean} [options.follow=false] - Move the body with the pointer
-   *   while dragging (implies `draggable`)
-   * @param {number} [options.priority=0] - Higher wins when shapes overlap;
-   *   ties go to the most recently created entity
-   * @param {string} [options.cursor] - CSS cursor while hovered
-   * @param {boolean} [options.consume=true] - Stop the event after handling,
-   *   so entities underneath do not also react
-   * @param {(event: object) => void} [options.onPointerDown]
-   * @param {(event: object) => void} [options.onPointerUp]
-   * @param {(event: object) => void} [options.onClick]
-   * @param {(event: object) => void} [options.onDoubleClick]
-   * @param {(event: object) => void} [options.onRightClick]
-   * @param {(event: object) => void} [options.onHover]
-   * @param {(event: object) => void} [options.onHoverEnd]
-   * @param {(event: object) => void} [options.onDragStart]
-   * @param {(event: object) => void} [options.onDrag]
-   * @param {(event: object) => void} [options.onDragEnd]
-   * @param {(event: object) => void} [options.onDrop]
-   * @param {(event: object) => void} [options.onScroll]
-   */
-  constructor(entity, options = {}) {
+  hitArea: HitArea;
+  follow: boolean;
+  draggable: boolean;
+  priority: number;
+  cursor: string | null;
+  consume: boolean;
+  enabled: boolean;
+  isHovered: boolean;
+  isDragging: boolean;
+  grabOffset: { x: number; y: number };
+  heldAt: { x: number; y: number } | null;
+  handlers: Map<string, Handler>;
+
+  constructor(entity: Entity, options: InteractiveOptions = {}) {
     super(entity);
 
     this.hitArea = options.hitArea ?? 'body';
@@ -110,11 +156,11 @@ export class Interactive extends Constraint {
       if (handler) this.handlers.set(type, handler.bind(entity));
     }
 
-    entity.game.input.addInteractive(this);
+    (entity.game.input as unknown as InteractiveRouter).addInteractive(this);
   }
 
   /** Event type -> option name. Also defines what `handles()` can report. */
-  static EVENT_HANDLERS = Object.freeze([
+  static EVENT_HANDLERS: readonly [string, keyof InteractiveHandlers][] = Object.freeze([
     ['pointerdown', 'onPointerDown'],
     ['pointerup', 'onPointerUp'],
     ['click', 'onClick'],
@@ -130,10 +176,10 @@ export class Interactive extends Constraint {
   ]);
 
   /** Event types a drag produces, enabled as a group by `draggable`. */
-  static DRAG_EVENTS = Object.freeze(['dragstart', 'drag', 'dragend', 'drop']);
+  static DRAG_EVENTS: readonly string[] = Object.freeze(['dragstart', 'drag', 'dragend', 'drop']);
 
   /** Whether the hit test needs a physics point query. */
-  get usesBodyShape() {
+  get usesBodyShape(): boolean {
     return this.hitArea === 'body';
   }
 
@@ -142,7 +188,7 @@ export class Interactive extends Constraint {
    * router until something tears it down, and clicking where it used to be
    * must not land on it.
    */
-  get active() {
+  get active(): boolean {
     return this.enabled && !this.entity.dead;
   }
 
@@ -151,7 +197,7 @@ export class Interactive extends Constraint {
    * that lazily-recognized gestures (pinch, long press) stay switched off
    * when nothing wants them.
    */
-  handles(type) {
+  handles(type: string): boolean {
     if (!this.active) return false;
     if (this.draggable && Interactive.DRAG_EVENTS.includes(type)) return true;
     // Hover drives the cursor style even with no handler attached.
@@ -164,28 +210,29 @@ export class Interactive extends Constraint {
    * shapes — a `'body'` hit area is resolved by the router's shared physics
    * query instead.
    */
-  containsWorld(point) {
+  containsWorld(point: { x: number; y: number }): boolean {
     const { x, y } = this.entity.position;
-    if (this.hitArea.radius !== undefined) {
-      return Math.hypot(point.x - x, point.y - y) <= this.hitArea.radius;
+    const area = this.hitArea as { radius?: number; width?: number; height?: number };
+    if (area.radius !== undefined) {
+      return Math.hypot(point.x - x, point.y - y) <= area.radius;
     }
-    const halfWidth = this.hitArea.width / 2;
-    const halfHeight = this.hitArea.height / 2;
+    const halfWidth = area.width! / 2;
+    const halfHeight = area.height! / 2;
     return Math.abs(point.x - x) <= halfWidth && Math.abs(point.y - y) <= halfHeight;
   }
 
-  /** Receive a routed event. @param {object} event */
-  handleInput(event) {
+  /** Receive a routed event. */
+  handleInput(event: InteractiveEvent): void {
     if (!this.active) return;
 
     switch (event.type) {
       case 'hover':
         this.isHovered = true;
-        if (this.cursor) this.entity.game.uiRenderer.setCursor(this.cursor);
+        if (this.cursor) this.entity.game.uiRenderer!.setCursor(this.cursor);
         break;
       case 'hoverend':
         this.isHovered = false;
-        if (this.cursor) this.entity.game.uiRenderer.setCursor('default');
+        if (this.cursor) this.entity.game.uiRenderer!.setCursor('default');
         break;
       case 'dragstart':
         if (!this.draggable) return;
@@ -222,12 +269,12 @@ export class Interactive extends Constraint {
   }
 
   /** Aim the hold under the pointer, preserving where it was grabbed. */
-  #holdAt(world) {
+  #holdAt(world: { x: number; y: number }): void {
     this.heldAt = { x: world.x + this.grabOffset.x, y: world.y + this.grabOffset.y };
   }
 
   /** Hold a `follow` drag's body where the pointer last put it. */
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     if (!this.heldAt) return;
     const body = this.entity.body;
     // setPosition teleports and carries no riders, which is exactly right
@@ -239,7 +286,7 @@ export class Interactive extends Constraint {
   }
 
   /** Stop responding to the pointer without removing the constraint. */
-  setEnabled(enabled) {
+  setEnabled(enabled: boolean): void {
     this.enabled = enabled;
     if (!enabled) {
       this.isHovered = false;
@@ -247,12 +294,12 @@ export class Interactive extends Constraint {
     }
   }
 
-  destroy() {
-    this.entity.game.input.removeInteractive(this);
+  override destroy(): void {
+    (this.entity.game.input as unknown as InteractiveRouter).removeInteractive(this);
   }
 
   /** Back in the world after a snapshot restore: hit-tested again. */
-  revive() {
-    this.entity.game.input.addInteractive(this);
+  override revive(): void {
+    (this.entity.game.input as unknown as InteractiveRouter).addInteractive(this);
   }
 }

@@ -10,7 +10,7 @@ import { transferablesOf, workersAvailable } from '../src/core/modelLoader.ts';
 import { Camera3D } from '../src/core/camera3d.ts';
 import { box, boundingSphere } from '../src/core/renderers/geometry/primitives.ts';
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { MANIFEST_VERSION } from '../src/core/assetSchema.ts';
 

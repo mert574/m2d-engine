@@ -182,7 +182,7 @@ export class ReplicaView {
 
   /**
    * Record one entity's transform at a tick.
-   * @param {import('../core/entity.js').Entity} entity
+   * @param {import('../core/entity.ts').Entity} entity
    * @param {number} tick
    */
   record(entity, tick) {

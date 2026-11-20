@@ -1,4 +1,7 @@
 import { s } from './schema.ts';
+import type { SchemaDescriptor } from './schema.ts';
+import type { Entity } from './entity.ts';
+import type { PhysicsBody } from './physics/index.ts';
 
 /**
  * A reusable behaviour attached to an entity.
@@ -29,7 +32,7 @@ export const KEY_BINDINGS = s.record(s.string({ nonEmpty: true }), {
 
 export class Constraint {
   /** Fields a server sends when they change. See `Entity.replicated`. */
-  static replicated = [];
+  static replicated: string[] = [];
 
   /**
    * The constraint's tunable data, as schema descriptors keyed by option
@@ -43,21 +46,22 @@ export class Constraint {
    * `default` — see `configure`.
    *
    * Null declares that the constraint takes any params, unchecked.
-   *
-   * @type {Record<string, import('./schema.ts').SchemaDescriptor> | null}
    */
-  static params = {};
+  static params: Record<string, SchemaDescriptor> | null = {};
 
-  /** One line on what the constraint does, for an editor's component library. @type {string} */
+  /** One line on what the constraint does, for an editor's component library. */
   static description = '';
 
-  constructor(entity) {
+  entity: Entity;
+  /**
+   * Set, the entity skips this constraint's ticks (it still draws): a
+   * stun, a repel, a cutscene holding an actor still without detaching
+   * what it was doing.
+   */
+  suspended: boolean;
+
+  constructor(entity: Entity) {
     this.entity = entity;
-    /**
-     * Set, the entity skips this constraint's ticks (it still draws): a
-     * stun, a repel, a cutscene holding an actor still without detaching
-     * what it was doing.
-     */
     this.suspended = false;
   }
 
@@ -70,29 +74,27 @@ export class Constraint {
    * not simply stored: when another field is derived from it, or when
    * changing it has to invalidate something.
    *
-   * @param {Object} params - Validated against `static params`.
+   * `params` is validated against `static params`.
    */
-  configure(params) {
+  configure(params: Record<string, unknown>): void {
     Object.assign(this, params);
   }
 
   /**
-   * One simulation tick.
-   * @param {number} dt - Seconds; always `game.time.fixedTimestep`.
+   * One simulation tick. `dt` is seconds; always `game.time.fixedTimestep`.
    */
-  fixedUpdate(dt) {
+  fixedUpdate(dt: number): void {
     // Override in child classes
   }
 
   /**
-   * One frame of presentation.
-   * @param {number} deltaTime - Seconds of game time this frame.
+   * One frame of presentation. `deltaTime` is seconds of game time this frame.
    */
-  update(deltaTime) {
+  update(deltaTime: number): void {
     // Override in child classes
   }
 
-  onCollisionStart(other) {
+  onCollisionStart(other: PhysicsBody): void {
     // Override in child classes
   }
 
@@ -100,18 +102,22 @@ export class Constraint {
    * An event the simulation raised about this constraint's entity, after
    * the tick that raised it. Presentation: a flash, a sound, a burst. See
    * core/events.js.
-   * @param {string} name
-   * @param {object} data
    */
-  onWorldEvent(name, data) {
+  onWorldEvent(name: string, data: Record<string, unknown>): void {
     // Override in child classes
   }
 
-  onCollisionEnd(other) {
+  onCollisionEnd(other: PhysicsBody): void {
     // Override in child classes
   }
 
-  draw(deltaTime) {
+  draw(deltaTime: number): void {
     // Override in child classes
   }
+
+  /** Release what the constraint registered elsewhere; see `Entity.destroy`. */
+  destroy?(): void;
+
+  /** Take back what `destroy` let go of; see `Entity.revive`. */
+  revive?(): void;
 }

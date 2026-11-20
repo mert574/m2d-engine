@@ -1,4 +1,68 @@
 import { Angle, DIRECTIONS_8 as DIRECTIONS } from './math.ts';
+import type { SchemaDescriptor } from './schema.ts';
+import type { Constraint } from './constraint.ts';
+import type { PhysicsBody } from './physics/index.ts';
+import type { SpriteSheet } from './spriteSheet.ts';
+import type { M2D } from './m2d.js';
+// Type-only: the conventional attach names below name the built-in classes.
+import type { Attack } from '../constraints/attack.ts';
+import type { Chase } from '../constraints/chase.ts';
+import type { Collectable } from '../constraints/collectable.ts';
+import type { ContactDamage } from '../constraints/contactDamage.ts';
+import type { DamageFlash } from '../constraints/damageFlash.ts';
+import type { Footsteps } from '../constraints/footsteps.ts';
+import type { Grabbable } from '../constraints/grabbable.ts';
+import type { Health } from '../constraints/health.ts';
+import type { Hover } from '../constraints/hover.ts';
+import type { Interactive } from '../constraints/interactive.ts';
+import type { KeyboardControl } from '../constraints/keyboardControl.ts';
+import type { PathFollow } from '../constraints/pathFollow.ts';
+import type { PointerMove } from '../constraints/pointerMove.ts';
+import type { ProximityPrompt } from '../constraints/proximityPrompt.ts';
+
+/**
+ * The names a constraint is conventionally attached under, to the class
+ * found there — what types `getConstraint('attack')` without a cast. The
+ * imports are type-only: the entity still knows nothing of the built-ins
+ * at runtime. A name not listed here falls back to `Constraint`.
+ */
+export interface ConstraintNameMap {
+  attack: Attack;
+  chase: Chase;
+  collectable: Collectable;
+  contactDamage: ContactDamage;
+  damageFlash: DamageFlash;
+  footsteps: Footsteps;
+  grab: Grabbable;
+  health: Health;
+  hover: Hover;
+  interactive: Interactive;
+  control: KeyboardControl;
+  path: PathFollow;
+  pointerMove: PointerMove;
+  prompt: ProximityPrompt;
+}
+
+/**
+ * Optional members subclasses provide as fields *or* accessors (a trigger
+ * computes `toolInPlay`), declared on the merged interface so the base
+ * class defines no own property that would shadow a subclass's getter.
+ */
+export interface Entity {
+  /** A tool entity's own label, over its class's; see core/toolVolumes.ts. */
+  readonly toolLabel?: string;
+  /** A tool entity that shows its box in play too (a trigger made visible). */
+  readonly toolInPlay?: boolean;
+  /** The 2D light block a scene gave this entity, or none. */
+  light?: { range?: number; offset?: { x?: number; y?: number }; [key: string]: unknown } | null;
+  /**
+   * The direction of travel, kept by whatever steers the entity
+   * (`PathFollow`, `Chase`, an actor's own control): screen angle in 2D,
+   * yaw about +y in 3D. A 3D model steers by it; a 2D actor reads it when
+   * drawing.
+   */
+  heading?: number;
+}
 
 export class Entity {
   name = 'Entity';
@@ -30,14 +94,12 @@ export class Entity {
    * doing nothing; an inspector reads it to draw the entity's fields.
    * Callbacks stay out of it: they are code, not scene data. An actor that
    * declares nothing takes any bag of properties, unchecked, as before.
-   * @type {Object<string, object>|null}
    */
-  static properties = null;
+  static properties: Record<string, SchemaDescriptor> | null = null;
 
   /**
    * One line on what the actor is, for an editor's component library.
    * Empty means the class has nothing to say for itself beyond its name.
-   * @type {string}
    */
   static description = '';
 
@@ -45,9 +107,8 @@ export class Entity {
    * The one dimension the actor is for, 2 or 3, or null for both. A level
    * of the other dimension naming it is refused at load, and the editor
    * offers it only where it fits: a 2D sky has nothing to draw in 3D.
-   * @type {2|3|null}
    */
-  static dimensions = null;
+  static dimensions: 2 | 3 | null = null;
 
   /**
    * A tool entity — a trigger, a spawn point, an invisible wall — says so
@@ -55,20 +116,43 @@ export class Entity {
    * of that colour, always in the editor and in play under `r_showtools`.
    * Null for everything a player sees. A tool entity with no art draws
    * nothing itself and, in 3D, has no default mesh. See core/toolVolumes.js.
-   * @type {{color: string, label: string}|null}
    */
-  static tool = null;
+  static tool: { color: string; label: string } | null = null;
 
   /**
    * `(properties, { dimensions, fail }) => void`, or null: refuses at load
    * a combination of properties that cannot work, which a descriptor alone
    * cannot say — smoke in a 2D level. `properties` is the object's over
    * its prefab's; `fail(key, message)` names the property.
-   * @type {((properties: object, context: {dimensions: 2|3, fail: (key: string, message: string) => never}) => void)|null}
    */
-  static refineProperties = null;
+  static refineProperties: ((properties: Record<string, unknown>, context: { dimensions: 2 | 3; fail: (key: string, message: string) => never }) => void) | null = null;
 
-  constructor(body, sprite, game) {
+  body: PhysicsBody;
+  sprite: SpriteSheet | null;
+  game: M2D;
+  netId: number | null;
+  sceneId: string | null;
+  playerId: string | null;
+  constraints: Map<string, Constraint>;
+  currentAnim: string | null;
+  spriteFit: boolean;
+  spriteSize: { x: number; y: number } | null;
+  animTime: number;
+  dead: boolean;
+  visible: boolean;
+  renderOffset: { x: number; y: number };
+  renderAngleOffset: number;
+  zIndex: number;
+  elevation: number;
+  _previousElevation: number;
+  renderElevationOverride: number | null;
+  size: { x: number; y: number };
+  frameOffset: { x: number; y: number };
+  headroom: number;
+  _contacts: Set<PhysicsBody>;
+  _depth: number | undefined;
+
+  constructor(body: PhysicsBody, sprite: SpriteSheet | null, game: M2D) {
     if (!body) {
       throw new Error('Physics body is required');
     }
@@ -84,7 +168,6 @@ export class Entity {
      * A stable id for networking, allocated in creation order and reset
      * with the scene, so a server and a client that build the same scene
      * agree on it. Null in a game object without the allocator (tests).
-     * @type {number|null}
      */
     this.netId = game.allocateNetId?.(this) ?? null;
     /**
@@ -92,13 +175,11 @@ export class Entity {
      * an entity spawned during play. Author-chosen and stable across edits
      * and reloads, unlike `netId`, which is allocated in creation order.
      * Look one up with `scene.entitiesById`.
-     * @type {string|null}
      */
     this.sceneId = null;
     /**
      * The player whose input drives this entity, by id, or null for the
      * local player. See core/players.js.
-     * @type {string|null}
      */
     this.playerId = null;
 
@@ -117,7 +198,6 @@ export class Entity {
      * The drawn size under `spriteFit`, when it differs from the body's
      * size: an isometric block whose ground footprint is 64 by 64 draws as
      * a 128 by 128 image. Null means the entity's `size`.
-     * @type {{x: number, y: number}|null}
      */
     this.spriteSize = null;
     /** Seconds into the current animation; `update` advances it. */
@@ -193,7 +273,7 @@ export class Entity {
    * every 3/4 and isometric game shares: whatever stands lower on the
    * ground is in front. Assign a number to pin an entity's depth instead.
    */
-  get depth() {
+  get depth(): number {
     if (this._depth !== undefined) return this._depth;
     const pos = this.body.renderPosition;
     const feetY = pos.y + this.body.size.y / 2;
@@ -201,15 +281,19 @@ export class Entity {
     return projection ? projection.toScreen(pos.x, feetY).y : feetY;
   }
 
-  set depth(value) {
+  set depth(value: number | undefined) {
     this._depth = value;
   }
 
-  addConstraint(name, constraint) {
+  addConstraint<K extends keyof ConstraintNameMap & string>(name: K, constraint: ConstraintNameMap[K]): void;
+  addConstraint(name: string, constraint: Constraint): void;
+  addConstraint(name: string, constraint: Constraint): void {
     this.constraints.set(name, constraint);
   }
 
-  getConstraint(name) {
+  getConstraint<K extends keyof ConstraintNameMap & string>(name: K): ConstraintNameMap[K] | undefined;
+  getConstraint(name: string): Constraint | undefined;
+  getConstraint(name: string): Constraint | undefined {
     return this.constraints.get(name);
   }
 
@@ -236,7 +320,7 @@ export class Entity {
    * so one actor serves a single-player game and every player on a server.
    */
   get input() {
-    return (this.player ?? this.game.players?.local)?.snapshot ?? this.game.input.snapshot;
+    return (this.player ?? this.game.players?.local)?.snapshot ?? this.game.input!.snapshot;
   }
 
   destroy() {
@@ -266,23 +350,21 @@ export class Entity {
    * a step. Presentation — it runs after the tick that raised it, and on a
    * client for an event the server raised. Offered to each constraint, the
    * way a collision is. See core/events.js.
-   * @param {string} name
-   * @param {object} data
    */
-  onWorldEvent(name, data) {
+  onWorldEvent(name: string, data: Record<string, unknown>): void {
     for (const constraint of this.constraints.values()) {
       constraint.onWorldEvent?.(name, data);
     }
   }
 
-  onCollisionStart(other) {
+  onCollisionStart(other: PhysicsBody): void {
     this._contacts.add(other);
     for (const constraint of this.constraints.values()) {
       constraint.onCollisionStart(other);
     }
   }
 
-  onCollisionEnd(other) {
+  onCollisionEnd(other: PhysicsBody): void {
     this._contacts.delete(other);
     for (const constraint of this.constraints.values()) {
       constraint.onCollisionEnd(other);
@@ -293,10 +375,9 @@ export class Entity {
    * One simulation tick. Runs once per fixed step, before physics, with the
    * constant `dt`; this is where movement, cooldowns, damage and spawning
    * belong. The base method ticks the constraints. Call `super.fixedUpdate`
-   * when overriding.
-   * @param {number} dt - Seconds; always `game.time.fixedTimestep`.
+   * when overriding. `dt` is seconds; always `game.time.fixedTimestep`.
    */
-  fixedUpdate(dt) {
+  fixedUpdate(dt: number): void {
     if (this.dead) return;
 
     // The baseline `renderElevation` blends from. Taken here, before the
@@ -325,9 +406,8 @@ export class Entity {
    * cycles, flashes, anything visual that is not the physics body. The base
    * method updates the constraints. Nothing here should change what the
    * simulation sees; that is `fixedUpdate`.
-   * @param {number} deltaTime - Seconds of game time this frame.
    */
-  update(deltaTime) {
+  update(deltaTime: number): void {
     if (this.dead) return;
 
     this.animTime += deltaTime;
@@ -337,16 +417,16 @@ export class Entity {
   }
 
   /** The frame of the current animation to draw now. */
-  get animFrame() {
+  get animFrame(): number {
     if (!this.sprite || !this.currentAnim) return 0;
     return this.sprite.frameAt(this.currentAnim, this.animTime);
   }
 
-  draw(deltaTime) {
+  draw(deltaTime: number): void {
     if (this.dead || !this.visible) return;
 
     const pos = this.renderPosition;
-    if ((!this.sprite || !this.sprite.width) && this.constructor.tool) {
+    if ((!this.sprite || !this.sprite.width) && (this.constructor as typeof Entity).tool) {
       // A tool entity with no art has no look of its own: its tool box is
       // the engine's, where tools are shown (core/toolVolumes.js).
       for (const constraint of this.constraints.values()) constraint.draw(deltaTime);
@@ -463,8 +543,10 @@ export class Entity {
   }
 
   /** The angle to draw this entity at. See `renderPosition`. */
-  get renderAngle() {
-    return this.body.renderAngle + this.renderAngleOffset;
+  get renderAngle(): number {
+    // A 3D body has `renderRotation` instead; nothing draws through this
+    // getter in 3D, so the 2D read stands (NaN on a 3D body, as before).
+    return (this.body as { renderAngle: number }).renderAngle + this.renderAngleOffset;
   }
 
   /** Bounds at the drawn position, for edge-anchored annotations. */
@@ -478,9 +560,8 @@ export class Entity {
    * `headroom` its prefab declared — on a sheet whose figure stands in the
    * lower half of its cell, the frame's top is far above the head and
    * annotations anchored there float in the air.
-   * @type {number}
    */
-  get overhead() {
+  get overhead(): number {
     return this.renderPosition.y - this.size.y / 2 + this.size.y * this.headroom;
   }
 
@@ -497,9 +578,8 @@ export class Entity {
    * Null for an entity whose drawing is not bounded by its body — scenery
    * painting the view, a strip along a path — which is never culled. A
    * class that draws beyond its footprint says so by overriding this.
-   * @type {{x: number, y: number, width: number, height: number}|null}
    */
-  get drawBounds() {
+  get drawBounds(): { x: number; y: number; width: number; height: number } | null {
     const { x, y } = this.renderPosition;
     let width = Math.max(this.size.x, this.spriteSize?.x ?? 0);
     let height = Math.max(this.size.y, this.spriteSize?.y ?? 0);
@@ -511,11 +591,9 @@ export class Entity {
    * The footprint of drawing that reaches `reach` units from the drawn
    * position in every direction: a light, a glow, a scan cone. For a
    * `drawBounds` override whose drawing is wider than the body but still
-   * bounded by it.
-   * @param {number} reach - Distance from the drawn position, in world units
-   * @returns {{x: number, y: number, width: number, height: number}}
+   * bounded by it. `reach` is distance from the drawn position, in world units.
    */
-  boundsAround(reach) {
+  boundsAround(reach: number): { x: number; y: number; width: number; height: number } {
     const { x, y } = this.renderPosition;
     return { x: x - reach, y: y - reach, width: reach * 2, height: reach * 2 };
   }
@@ -527,12 +605,9 @@ export class Entity {
   /**
    * Switch animations. The cycle restarts when the name changes and keeps
    * its place when it does not, so calling this every frame with the same
-   * name is safe.
-   * @param {string|null} name
-   * @param {Object} [options]
-   * @param {boolean} [options.restart=false] - Restart even if unchanged
+   * name is safe. `restart` restarts even when the name is unchanged.
    */
-  setAnimation(name, { restart = false } = {}) {
+  setAnimation(name: string | null, { restart = false }: { restart?: boolean } = {}): void {
     if (!this.sprite) return;
     if (!name || !this.sprite.animations) {
       this.currentAnim = null;
@@ -550,12 +625,11 @@ export class Entity {
    * DIRECTIONS_8), falling back to the base name when the sheet has no such
    * variant. A sheet with four facings can define only `down`, `up`,
    * `left` and `right`; the diagonals fall back to the nearest cardinal.
-   * @param {string} base - Animation family, e.g. `'run'`
-   * @param {number} angle - Facing in radians on the ground plane, y down;
-   *   mapped to the screen under a projection
-   * @param {Object} [options] - Passed to `setAnimation` (`restart`)
+   * `base` is the animation family (e.g. `'run'`), `angle` the facing in
+   * radians on the ground plane, y down, mapped to the screen under a
+   * projection; `options` go to `setAnimation` (`restart`).
    */
-  setDirectionalAnimation(base, angle, options) {
+  setDirectionalAnimation(base: string, angle: number, options?: { restart?: boolean }): void {
     if (!this.sprite) return;
     // The sheet's facings are what the viewer sees, so a ground heading is
     // turned into its on-screen angle under a projection.
@@ -574,27 +648,27 @@ export class Entity {
     this.setAnimation(base, options);
   }
 
-  isFalling(threshold = 30) {
+  isFalling(threshold = 30): boolean {
     return this.velocity.y > threshold;
   }
 
-  isJumping(threshold = -30) {
+  isJumping(threshold = -30): boolean {
     return this.velocity.y < threshold;
   }
 
-  isMovingHorizontally(threshold = 6) {
+  isMovingHorizontally(threshold = 6): boolean {
     return Math.abs(this.velocity.x) > threshold;
   }
 
-  isMovingLeft(threshold = 6) {
+  isMovingLeft(threshold = 6): boolean {
     return this.velocity.x < -threshold;
   }
 
-  isMovingRight(threshold = 6) {
+  isMovingRight(threshold = 6): boolean {
     return this.velocity.x > threshold;
   }
 
-  isInAir() {
+  isInAir(): boolean {
     return !this.isOnGround();
   }
 
@@ -611,7 +685,7 @@ export class Entity {
    * cutoff, and at 0.5 it accepts slopes up to 60° while still rejecting
    * walls.
    */
-  isOnGround() {
+  isOnGround(): boolean {
     return this.groundBody !== null;
   }
 
@@ -626,8 +700,15 @@ export class Entity {
     const GROUND_NORMAL = 0.5;
     if (this.body.bodyType === 'character') return this.body.groundBody;
 
-    const up = this.game.physics.up;
-    const surface = this.game.physics
+    // The members read off either backend's world, named structurally: the
+    // union's methods disagree on their body parameter until phase 10.
+    const physics = this.game.physics as unknown as {
+      up: { x: number; y: number; z?: number };
+      surfacesWith(body: PhysicsBody, keep: (other: PhysicsBody) => boolean):
+        { body: PhysicsBody; normal: { x: number; y: number; z?: number } }[];
+    };
+    const up = physics.up;
+    const surface = physics
       .surfacesWith(this.body, (other) => !other.isSensor)
       .find(({ normal }) => -(normal.x * up.x + normal.y * up.y + (normal.z ?? 0) * (up.z ?? 0)) > GROUND_NORMAL);
     return surface ? surface.body : null;

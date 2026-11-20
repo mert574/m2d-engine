@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
-import { Projectile } from '../src/core/projectile.js';
-import { Health } from '../src/constraints/health.js';
+import { Entity } from '../src/core/entity.ts';
+import { Projectile } from '../src/core/projectile.ts';
+import { Health } from '../src/constraints/health.ts';
 import { initPhysics } from '../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 

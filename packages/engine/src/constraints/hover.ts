@@ -1,4 +1,5 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
 import { s } from '../core/schema.ts';
 
 /**
@@ -8,20 +9,25 @@ import { s } from '../core/schema.ts';
  * baseline ever noticing — teleporting the body every frame for decoration
  * made it the one thing on screen that never interpolated.
  *
- * @param {object} options
- * @param {number} [options.amplitude] - Bob height, px. 0 disables the bob.
- * @param {number} [options.frequency] - Bob rate, rad/s of the sine phase.
- * @param {number} [options.spin] - Spin rate, rad/s. 0 disables the spin.
+ * `amplitude` is bob height in px (0 disables the bob), `frequency` the
+ * bob rate in rad/s of the sine phase, `spin` the spin rate in rad/s (0
+ * disables the spin).
  */
 export class Hover extends Constraint {
-  static description = 'A visual idle motion: bob on a sine wave, spin at a constant rate';
-  static params = {
+  static override description = 'A visual idle motion: bob on a sine wave, spin at a constant rate';
+  static override params = {
     amplitude: s.number({ initial: 5, min: 0, unit: 'px' }),
     frequency: s.number({ initial: 2, min: 0, unit: 'Hz' }),
     spin: s.number({ initial: 0, unit: 'rad/s' })
   };
 
-  constructor(entity, options = {}) {
+  amplitude: number;
+  frequency: number;
+  spin: number;
+  phase: number;
+  angle: number;
+
+  constructor(entity: Entity, options: { amplitude?: number; frequency?: number; spin?: number } = {}) {
     super(entity);
     this.amplitude = options.amplitude ?? 5;
     this.frequency = options.frequency ?? 2;
@@ -32,7 +38,7 @@ export class Hover extends Constraint {
 
   // Presentation: it only writes render offsets, so it runs per frame on the
   // game-time delta and never touches the simulation.
-  update(deltaTime) {
+  override update(deltaTime: number): void {
     this.phase += this.frequency * deltaTime;
     this.angle += this.spin * deltaTime;
     this.entity.renderOffset.y = Math.sin(this.phase) * this.amplitude;

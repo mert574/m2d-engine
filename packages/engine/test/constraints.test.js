@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
 import { makeTestGame, makeBody } from '../src/testing/testGame.js';
-import { Entity } from '../src/core/entity.js';
-import { PathFollow } from '../src/constraints/pathFollow.js';
-import { Hover } from '../src/constraints/hover.js';
-import { Health } from '../src/constraints/health.js';
-import { KeyboardControl } from '../src/constraints/keyboardControl.js';
+import { Entity } from '../src/core/entity.ts';
+import { PathFollow } from '../src/constraints/pathFollow.ts';
+import { Hover } from '../src/constraints/hover.ts';
+import { Health } from '../src/constraints/health.ts';
+import { KeyboardControl } from '../src/constraints/keyboardControl.ts';
 import { holdKeys } from '../src/testing/input.js';
 
 /**

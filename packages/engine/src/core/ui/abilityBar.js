@@ -5,7 +5,7 @@ import { UIElement } from './uiElement.js';
  * cooldown sweep with the seconds left, a lock mark, and the key and label
  * underneath. Reads the constraint each frame, so it needs no wiring.
  *
- * @param {() => import('../../constraints/abilities.js').Abilities|null} source -
+ * @param {() => import('../../constraints/abilities.ts').Abilities|null} source -
  *   Where to find the constraint, e.g. `() => game.player?.getConstraint('abilities')`
  * @param {Object} [options] - `UIElement` options, plus:
  * @param {number} [options.slot=50] - Slot size

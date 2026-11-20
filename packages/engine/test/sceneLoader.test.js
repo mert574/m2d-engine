@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 import { initPhysics } from '../src/core/physics/index.ts';
 import { SceneLoader, SceneValidationError, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { Choices } from '../src/core/choices.ts';

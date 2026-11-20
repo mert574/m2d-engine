@@ -125,7 +125,8 @@ export class GlideControl extends Constraint {
    */
   #open(x: number, y: number, direction: Vec2): boolean {
     const body = this.entity.body;
-    const radius = Math.min(body.width, body.height) / 2 * 0.95;
+    const flat = body as unknown as { width: number; height: number };
+    const radius = Math.min(flat.width, flat.height) / 2 * 0.95;
     const hits = this.entity.game.physics.overlaps(
       { x: x + direction.x * this.grid, y: y + direction.y * this.grid, radius },
       (other: { isSensor: boolean }) => !other.isSensor && other !== body

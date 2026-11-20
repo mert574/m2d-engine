@@ -3,13 +3,13 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 // A spy on the console is undone however the test ends, so a failure cannot mute the rest of the file.
 afterEach(() => vi.restoreAllMocks());
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
-import { Constraint } from '../src/core/constraint.js';
+import { Entity } from '../src/core/entity.ts';
+import { Constraint } from '../src/core/constraint.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { s } from '../src/core/schema.ts';
-import { Chase } from '../src/constraints/chase.js';
-import { Hover } from '../src/constraints/hover.js';
-import { KeyboardControl } from '../src/constraints/keyboardControl.js';
+import { Chase } from '../src/constraints/chase.ts';
+import { Hover } from '../src/constraints/hover.ts';
+import { KeyboardControl } from '../src/constraints/keyboardControl.ts';
 
 /**
  * Constraints declared in a scene file.

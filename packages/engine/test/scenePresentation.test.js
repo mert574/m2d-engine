@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 import { s } from '../src/core/schema.ts';
 import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
 import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from '../src/testing/environment.js';
@@ -147,7 +147,7 @@ class Holder extends Entity {
 
 describe('an entity that goes', () => {
   it('is destroyed when its scene leaves, when a rule removes it and when Health removes it', async () => {
-    const { Health } = await import('../src/constraints/health.js');
+    const { Health } = await import('../src/constraints/health.ts');
     const renderer = new RecordingRenderer();
     const game = new M2D(displayCanvas(320, 180), { width: 320, height: 180, renderer, devConsole: false, performanceStats: false });
     game.registerActor('Dot', Dot);

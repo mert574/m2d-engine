@@ -75,7 +75,7 @@ export class ObliquePlayer extends TopDownPlayer {
   /** Upward speed of the hop, px/s; 0 on the ground. Replicated. */
   lift: number;
   /** The direction last moved in, radians. Replicated. */
-  heading: number;
+  override heading: number;
   /** A game's hook for the hop's sound or dust. */
   onJump: (() => void) | undefined;
   /** A game's hook for the landing. */
@@ -93,12 +93,12 @@ export class ObliquePlayer extends TopDownPlayer {
     this.renderOffset.y = options.spriteOffsetY ?? 0;
     if (options.spriteSize) this.spriteSize = { x: options.spriteSize, y: options.spriteSize };
 
-    const attack = this.getConstraint('attack') as Attack;
+    const attack = this.getConstraint('attack')!;
     attack.arc = options.attackArc ?? Math.PI * 1.5;
     attack.range = options.attackRange ?? 60;
     attack.knockback = options.attackKnockback ?? 0;
 
-    const control = this.getConstraint('control') as KeyboardControl;
+    const control = this.getConstraint('control')!;
     const onJump = control.onJump;
     control.onJump = () => {
       onJump?.();
@@ -139,7 +139,7 @@ export class ObliquePlayer extends TopDownPlayer {
   override update(deltaTime: number): void {
     super.update(deltaTime);
     if (!this.sprite) return;
-    const attack = this.getConstraint('attack') as Attack | undefined;
+    const attack = this.getConstraint('attack');
     const velocity = this.velocity;
     const moving = Math.hypot(velocity.x, velocity.y) > 20;
     if (attack?.isAttacking || (attack && attack.attackTime > 0 && attack.attackTime < attack.attackAnimEndTime && this.currentAnim?.startsWith('swing'))) {

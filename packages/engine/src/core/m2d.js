@@ -9,7 +9,7 @@ import { InputManager } from './input/index.js';
 import { InputActions } from './input/actions.js';
 import { Choices } from './choices.ts';
 import { LayerManager } from './layerManager.ts';
-import { AssetDatabase } from './assets.js';
+import { AssetDatabase } from './assets.ts';
 import { SceneManager } from './sceneManager.js';
 import { Camera } from './camera.ts';
 import { Camera3D } from './camera3d.ts';
@@ -531,7 +531,7 @@ export class M2D {
      */
     this.nav = new Nav(this, { navAreas: this.options.navAreas, navAgents: this.options.navAgents });
 
-    /** @type {Set<import('./entity.js').Entity>} */
+    /** @type {Set<import('./entity.ts').Entity>} */
     this.entities = new Set();
     this.player = null;
     /** @type {Registry} */
@@ -546,7 +546,7 @@ export class M2D {
      * registered with `registerConstraint`, and behind them the engine's own
      * (`core/builtins.js`), so a scene may name `Hover` without the game
      * having to know. The game's registration wins for a shared name.
-     * @type {Map<string, typeof import('./constraint.js').Constraint>}
+     * @type {Map<string, typeof import('./constraint.ts').Constraint>}
      */
     this.constraintTypes = new Registry(BUILTIN_CONSTRAINTS);
     /**
@@ -1236,7 +1236,7 @@ export class M2D {
    * constraint's callbacks are not in `params` and stay the actor's job.
    *
    * @param {string} type - The name scenes use, conventionally the class name.
-   * @param {typeof import('./constraint.js').Constraint} ConstraintClass
+   * @param {typeof import('./constraint.ts').Constraint} ConstraintClass
    */
   registerConstraint(type, ConstraintClass, { origin = 'game' } = {}) {
     this.constraintTypes.set(type, ConstraintClass, origin);
@@ -1251,8 +1251,8 @@ export class M2D {
    * fails here rather than when some level eventually places one.
    *
    * @param {object} manifest - A parsed manifest document.
-   * @returns {import('./assets.js').AssetDatabase}
-   * @throws {import('./assets.js').AssetManifestError}
+   * @returns {import('./assets.ts').AssetDatabase}
+   * @throws {import('./assets.ts').AssetManifestError}
    */
   loadAssets(manifest) {
     return this.assets.load(manifest, { actors: this.actors });
@@ -1372,7 +1372,7 @@ export class M2D {
    *   The sheet itself, not its name; `spawn` takes the name
    * @param {object} [spec.options] - Passed to the actor; plain data
    * @param {object} [spec.physics] - Prefab physics keys
-   * @returns {import('./entity.js').Entity|null}
+   * @returns {import('./entity.ts').Entity|null}
    */
   /**
    * The collider a prefab's `shape` asks for, in two dimensions.
@@ -1562,7 +1562,7 @@ export class M2D {
    * started (a sound loop, an input registration). What a `remove` rule
    * and `Health.whenDead` do. Removing one that has gone already does
    * nothing.
-   * @param {import('./entity.js').Entity} entity
+   * @param {import('./entity.ts').Entity} entity
    */
   removeEntity(entity) {
     if (!this.entities.delete(entity)) return;

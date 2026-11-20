@@ -1,6 +1,16 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
+import type { PhysicsBody } from '../core/physics/index.ts';
 import { s } from '../core/schema.ts';
 import { Angle } from '../core/math.ts';
+
+/** One chain step, overriding the base values for that swing. */
+export interface ComboStep {
+  damage?: number;
+  knockback?: number;
+  arc?: number;
+  [key: string]: unknown;
+}
 
 /**
  * Knockback, in px·mass/s. Carried over from the mass-independent velocity
@@ -22,38 +32,22 @@ const KNOCKBACK_IMPULSE = { x: 8335, y: -4997 };
  * direction and is `arc` radians wide: π (the default) is the half circle
  * the side view always used, 2π hits everything in range.
  *
- * @param {Object} options
- * @param {number} [options.damage=10]
- * @param {number} [options.range=40] - Reach from the entity's centre, px
- * @param {number} [options.cooldown=30] - Between swings, in 60 Hz frames
- * @param {number} [options.windup=0] - Telegraph before the swing, in 60 Hz
- *   frames. `startAttack` commits the direction and starts the windup; the
- *   swing itself — the hit check, the animation, `onStart` — happens when it
- *   runs out, so the telegraph is dodgeable and a mid-windup snapshot
- *   resumes it. `isWindingUp` and `windupTime` replicate, so a client can
- *   draw the telegraph
- * @param {number} [options.arc=Math.PI] - Width of the swing, radians
- * @param {number} [options.knockback] - Impulse along the swing; defaults
- *   to the side view's fling. 0 disables it
- * @param {Array} [options.combo] - Chain steps. Each is `{ damage,
- *   knockback, arc }`, overriding the base values for that step. A swing
- *   started within `comboWindow` seconds of the last one landing advances
- *   to the next step; otherwise the chain restarts. The cooldown gates
- *   every swing; the window is what makes mashing into a rhythm
- * @param {number} [options.comboWindow=0.8] - Seconds after a swing ends
- *   in which the next one chains
- * @param {string[]} [options.targets] - Collision layers the swing hits.
- *   Unset, it hits anything with `Health` that is not a player's avatar —
- *   a swing at the monsters that never lands on another player. An enemy
- *   swinging at the players names their layer
- * @param {Function} [options.onStart] - Called on every swing with the step index
- * @param {Function} [options.onHit] - `(entity, step)` for every target a
- *   swing lands on, after damage and knockback; a launcher pops the
- *   target's `elevation` here
+ * `cooldown` and `windup` arrive in 60 Hz frames. The windup telegraphs
+ * before the swing: `startAttack` commits the direction and starts it; the
+ * swing itself — the hit check, the animation, `onStart` — happens when it
+ * runs out, so the telegraph is dodgeable and a mid-windup snapshot
+ * resumes it (`isWindingUp`/`windupTime` replicate for a drawn telegraph).
+ * `knockback` is the impulse along the swing, defaulting to the side
+ * view's fling, 0 disabling it. `combo` chains steps: a swing started
+ * within `comboWindow` seconds of the last one landing advances the chain,
+ * otherwise it restarts; the cooldown still gates every swing. `targets`
+ * names the collision layers the swing hits — unset, anything with
+ * `Health` that is not a player's avatar. `onStart(step)` runs on every
+ * swing; `onHit(entity, step)` for every target one lands on.
  */
 export class Attack extends Constraint {
-  static description = 'A melee or ranged attack on a key, with damage, reach and knockback';
-  static params = {
+  static override description = 'A melee or ranged attack on a key, with damage, reach and knockback';
+  static override params = {
     damage: s.number({ initial: 10, min: 0 }),
     range: s.number({ initial: 40, positive: true, unit: 'px' }),
     cooldown: s.number({ initial: 30, min: 0, unit: 'frames at 60fps' }),
@@ -70,9 +64,49 @@ export class Attack extends Constraint {
    * same one still in progress and run `onStart` for it (its look, its
    * sound) without running the simulation. See `replicaUpdated`.
    */
-  static replicated = ['swings', 'step', 'angle', 'direction', 'sideways', 'isAttacking', 'attackTime', 'isWindingUp', 'windupTime'];
+  static override replicated = ['swings', 'step', 'angle', 'direction', 'sideways', 'isAttacking', 'attackTime', 'isWindingUp', 'windupTime'];
 
-  constructor(entity, options = {}) {
+  damage: number;
+  range: number;
+  cooldown: number;
+  windup: number;
+  arc: number;
+  knockback: number | undefined;
+  combo: ComboStep[] | null;
+  targets: string[] | null;
+  comboWindow: number;
+  onStart: ((step: number) => void) | undefined;
+  onHit: ((entity: Entity, step: number) => void) | undefined;
+  step: number;
+  sinceSwing: number;
+  swings: number;
+  isAttacking: boolean;
+  isWindingUp: boolean;
+  windupTime: number;
+  currentCooldown: number;
+  direction: number;
+  angle: number;
+  hits: Set<Entity>;
+  attackDuration: number;
+  attackTime: number;
+  attackAnimEndTime: number;
+  hasCheckedHits: boolean;
+  /** Whether the current swing was started with the side-view contract (±1). */
+  sideways = false;
+
+  constructor(entity: Entity, options: {
+    damage?: number;
+    range?: number;
+    cooldown?: number;
+    windup?: number;
+    arc?: number;
+    knockback?: number;
+    combo?: ComboStep[] | null;
+    targets?: string[] | null;
+    comboWindow?: number;
+    onStart?: (step: number) => void;
+    onHit?: (entity: Entity, step: number) => void;
+  } = {}) {
     super(entity);
     this.damage = options.damage || 10;
     this.range = options.range || 40;
@@ -112,14 +146,14 @@ export class Attack extends Constraint {
    * The frame-counted times arrive in frames (from a scene retuning this
    * constraint) but are kept in seconds, as the constructor keeps them.
    */
-  configure(params) {
+  override configure(params: Record<string, unknown>): void {
     const { cooldown, windup, ...rest } = params;
     super.configure(rest);
-    if (cooldown !== undefined) this.cooldown = cooldown / 60;
-    if (windup !== undefined) this.windup = windup / 60;
+    if (cooldown !== undefined) this.cooldown = (cooldown as number) / 60;
+    if (windup !== undefined) this.windup = (windup as number) / 60;
   }
 
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     if (this.currentCooldown > 0) {
       this.currentCooldown -= dt;
     }
@@ -154,18 +188,23 @@ export class Attack extends Constraint {
     }
   }
 
-  checkHits() {
+  checkHits(): void {
     // A one-shot shape query: the reach is a question, not an object. It
     // used to be a sensor body parked in the world and teleported onto the
     // attacker every frame, which also meant every enemy in range collected
     // collision callbacks from an invisible circle.
     const position = this.entity.position;
     const game = this.entity.game;
-    const mask = this.targets ? game.collisionLayers.mask(this.targets) : null;
-    const hits = game.physics.overlaps(
+    const mask = this.targets ? game.collisionLayers!.mask(this.targets) : null;
+    // The union's overlaps signatures disagree on the shape until phase 10;
+    // the receiver is cast, never the method — detached, it loses `this`.
+    const physics = game.physics as unknown as {
+      overlaps(shape: { x: number; y: number; radius: number }, keep: (body: PhysicsBody) => boolean): PhysicsBody[];
+    };
+    const hits = physics.overlaps(
       { x: position.x, y: position.y, radius: this.range },
       (body) => (mask === null
-        ? Boolean(body.entity?.getConstraint?.('health')) && !game.players.isAvatar(body.entity)
+        ? Boolean(body.entity?.getConstraint?.('health')) && !game.players!.isAvatar(body.entity!)
         : (body.collisionFilter.category & mask) !== 0)
     );
 
@@ -214,10 +253,10 @@ export class Attack extends Constraint {
 
   /**
    * Swing — or, with a `windup`, commit the direction and telegraph first.
-   * @param {number} direction - `1` or `-1` for a side-view swing to the
-   *   right or left, or any other number as an angle in radians
+   * `direction` is `1` or `-1` for a side-view swing to the right or left,
+   * or any other number as an angle in radians.
    */
-  startAttack(direction) {
+  startAttack(direction: number): void {
     if (this.currentCooldown > 0 || this.isWindingUp) return;
 
     // ±1 exactly is the side-view contract; anything else is an angle.
@@ -233,13 +272,13 @@ export class Attack extends Constraint {
   }
 
   /** Drop a telegraph without swinging: a stun, a death, a change of mind. */
-  cancelWindup() {
+  cancelWindup(): void {
     this.isWindingUp = false;
     this.windupTime = 0;
   }
 
   /** The swing itself: the windup's end, or `startAttack` with none. */
-  #swing() {
+  #swing(): void {
     // Advance the chain when this swing follows the last closely enough.
     if (this.combo) {
       this.step = this.sinceSwing <= this.comboWindow ? (this.step + 1) % this.combo.length : 0;
@@ -258,7 +297,7 @@ export class Attack extends Constraint {
   }
 
   /** On a client: a new swing arrived from the server. */
-  replicaUpdated(changed) {
+  replicaUpdated(changed: Set<string>): void {
     if (!changed.has('swings')) return;
     this.entity.setAnimation(this.direction > 0 ? 'attackRight' : 'attackLeft');
     this.onStart?.(Math.max(0, this.step));
@@ -270,7 +309,7 @@ export class Attack extends Constraint {
    * hooks `onStart` (the kit's `AttackSwing`, `m2d-kit/effects`).
    * The range ring is a diagnostic and only shows in debug mode.
    */
-  draw() {
+  override draw(): void {
     if (!this.entity.game.renderer.isDebugEnabled()) return;
     const pos = this.entity.renderPosition;
     // World coordinates, rasterized at display resolution on the overlay.

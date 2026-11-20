@@ -1,4 +1,6 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
+import type { PhysicsBody } from '../core/physics/index.ts';
 import { s } from '../core/schema.ts';
 
 /**
@@ -13,20 +15,22 @@ import { s } from '../core/schema.ts';
  * player's avatar collects, and the removal replicates like any other.
  */
 export class Collectable extends Constraint {
-  static description = "Collected on an avatar's touch: the entity is gone, a counter counts it, picked is raised";
-  static params = {
+  static override description = "Collected on an avatar's touch: the entity is gone, a counter counts it, picked is raised";
+  static override params = {
     counter: s.ref('counter', { label: 'Counter', description: 'A plain counter in world.counters to add 1 to when taken' })
   };
 
-  constructor(entity, options = {}) {
+  counter: string | null;
+
+  constructor(entity: Entity, options: { counter?: string | null } = {}) {
     super(entity);
     this.counter = options.counter ?? null;
   }
 
-  onCollisionStart(other) {
+  override onCollisionStart(other: PhysicsBody): void {
     const entity = this.entity;
     const game = entity.game;
-    if (!game.players.isAvatar(other.entity) || !game.entities.has(entity)) return;
+    if (!other.entity || !game.players!.isAvatar(other.entity) || !game.entities.has(entity)) return;
     const { x, y } = entity.position;
     game.removeEntity(entity);
     if (this.counter) entity.scene?.counters?.add(this.counter, 1);

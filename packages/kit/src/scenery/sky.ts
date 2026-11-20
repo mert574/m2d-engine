@@ -1,9 +1,9 @@
 import { s } from 'm2d-engine/schema';
 import type { M2D } from 'm2d-engine';
 import { Scenery, BACK } from './scenery.ts';
-import type { ActorBody, ActorSprite, VisibleArea } from '../engineTypes.ts';
+import type { ActorBody, ActorSprite, VisibleArea, VisibleArea2D } from '../engineTypes.ts';
 
-const colour = (options: object = {}): object => s.string({ editor: 'color', ...options });
+const colour = (options: Parameters<typeof s.string>[0] = {}) => s.string({ editor: 'color', ...options });
 
 export interface SkyOptions {
   top?: string;
@@ -46,12 +46,14 @@ export class Sky extends Scenery {
   }
 
   override paint(area: VisibleArea): void {
+    // 2D-only scenery (`dimensions = 2`): the area is the flat camera's.
+    const view = area as VisibleArea2D;
     const stops = [{ offset: 0, color: this.top }];
     if (this.middle) stops.push({ offset: this.horizon, color: this.middle });
     stops.push({ offset: 1, color: this.bottom });
     this.game.renderer.drawRect({
-      x: area.left, y: area.top, width: area.right - area.left, height: area.bottom - area.top,
-      fillStyle: { type: 'linear', x0: area.left, y0: area.top, x1: area.left, y1: area.bottom, stops }
+      x: view.left, y: view.top, width: view.right - view.left, height: view.bottom - view.top,
+      fillStyle: { type: 'linear', x0: view.left, y0: view.top, x1: view.left, y1: view.bottom, stops }
     });
   }
 }

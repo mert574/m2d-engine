@@ -1,15 +1,23 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
+import type { PhysicsBody } from '../core/physics/index.ts';
 import { s } from '../core/schema.ts';
 
 export class ContactDamage extends Constraint {
-  static description = 'Deal damage to whatever this touches';
-  static params = {
+  static override description = 'Deal damage to whatever this touches';
+  static override params = {
     damage: s.number({ initial: 33, min: 0 }),
     knockbackStrength: s.number({ initial: 720, min: 0, unit: 'px/s' }),
     stunDuration: s.number({ initial: 0.5, min: 0, unit: 's' })
   };
 
-  constructor(entity, options = {}) {
+  damage: number;
+  knockbackStrength: number;
+  stunDuration: number;
+  stunTime: number;
+  collidingEntities: Set<Entity>;
+
+  constructor(entity: Entity, options: { damage?: number; knockbackStrength?: number; stunDuration?: number } = {}) {
     super(entity);
     this.damage = options.damage ?? 33;
     this.knockbackStrength = options.knockbackStrength ?? 720; // px/s
@@ -18,7 +26,7 @@ export class ContactDamage extends Constraint {
     this.collidingEntities = new Set();
   }
 
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     if (this.stunTime > 0) {
       this.stunTime -= dt;
     }
@@ -33,11 +41,11 @@ export class ContactDamage extends Constraint {
     }
   }
 
-  isStunned() {
+  isStunned(): boolean {
     return this.stunTime > 0;
   }
 
-  applyDamage(otherEntity) {
+  applyDamage(otherEntity: Entity): void {
     const health = otherEntity.getConstraint('health');
     if (!health || health.isInvulnerable()) return;
 
@@ -67,7 +75,7 @@ export class ContactDamage extends Constraint {
     }
   }
 
-  onCollisionStart(other) {
+  override onCollisionStart(other: PhysicsBody): void {
     const otherEntity = other.entity;
     if (!otherEntity) return;
 
@@ -79,7 +87,7 @@ export class ContactDamage extends Constraint {
     this.applyDamage(otherEntity);
   }
 
-  onCollisionEnd(other) {
+  override onCollisionEnd(other: PhysicsBody): void {
     const otherEntity = other.entity;
     if (otherEntity) {
       this.collidingEntities.delete(otherEntity);

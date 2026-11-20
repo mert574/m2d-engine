@@ -1,4 +1,5 @@
-import { Constraint, KEY_BINDINGS } from '../core/constraint.js';
+import { Constraint, KEY_BINDINGS } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
 import { s } from '../core/schema.ts';
 
 /**
@@ -19,7 +20,7 @@ const DEFAULT_KEYS = Object.freeze({
 const DIAGONAL = 1 / Math.SQRT2;
 
 /** Stand-in frame of reference for an entity that is not on anything. */
-const ZERO_VELOCITY = { x: 0, y: 0 };
+const ZERO_VELOCITY: { x: number; y: number } = { x: 0, y: 0 };
 
 /**
  * How squarely a contact normal must oppose an input axis for that axis to
@@ -30,8 +31,8 @@ const ZERO_VELOCITY = { x: 0, y: 0 };
 const BLOCKED_DOT = 0.85;
 
 export class KeyboardControl extends Constraint {
-  static description = 'Keyboard movement for a platformer or top-down body: walk, jump';
-  static params = {
+  static override description = 'Keyboard movement for a platformer or top-down body: walk, jump';
+  static override params = {
     acceleration: s.number({ initial: 600, positive: true, unit: 'px/s²' }),
     deceleration: s.number({ positive: true, unit: 'px/s²', description: 'Defaults to acceleration' }),
     maxSpeed: s.number({ initial: 300, positive: true, unit: 'px/s' }),
@@ -41,13 +42,40 @@ export class KeyboardControl extends Constraint {
     keys: KEY_BINDINGS
   };
 
-  constructor(entity, options = {}) {
+  keys: Record<string, string>;
+  acceleration: number;
+  deceleration: number;
+  decelerationSet: boolean;
+  maxSpeed: number;
+  continuous: boolean;
+  verticalMovement: boolean;
+  inputSpace: 'world' | 'screen';
+  onMove: ((dx: number, dy: number) => void) | undefined;
+  onDirectionChange: ((direction: 1 | -1) => void) | undefined;
+  onJump: (() => void) | undefined;
+  onAttack: (() => void) | undefined;
+
+  constructor(entity: Entity, options: {
+    keys?: Record<string, string>;
+    acceleration?: number;
+    /** The pre-acceleration tuning; kept as the escape it always was. */
+    moveForce?: number;
+    deceleration?: number;
+    maxSpeed?: number;
+    continuous?: boolean;
+    verticalMovement?: boolean;
+    inputSpace?: 'world' | 'screen';
+    onMove?: (dx: number, dy: number) => void;
+    onDirectionChange?: (direction: 1 | -1) => void;
+    onJump?: () => void;
+    onAttack?: () => void;
+  } = {}) {
     super(entity);
 
     this.keys = { ...DEFAULT_KEYS, ...options.keys };
 
     // Movement configuration
-    this.acceleration = options.acceleration || options.moveForce * 60000 || 600; // px/s per second
+    this.acceleration = options.acceleration || (options.moveForce ?? 0) * 60000 || 600; // px/s per second
     // Braking when no key is held, applied only on the ground. Character
     // bodies have no solver friction (their controller does the moving), so
     // the control has to stop them itself; in the air velocity persists,
@@ -74,15 +102,15 @@ export class KeyboardControl extends Constraint {
    * `keys` merges rather than replaces, and `deceleration` follows
    * `acceleration` unless it was set explicitly.
    */
-  configure(params) {
+  override configure(params: Record<string, unknown>): void {
     const { keys, ...rest } = params;
     super.configure(rest);
-    if (keys) this.keys = { ...this.keys, ...keys };
+    if (keys) this.keys = { ...this.keys, ...(keys as Record<string, string>) };
     if (params.deceleration !== undefined) this.decelerationSet = true;
     else if (params.acceleration !== undefined && !this.decelerationSet) this.deceleration = this.acceleration;
   }
 
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     if (this.entity.dead) return;
 
     // The snapshot taken for this tick, not the live keyboard: every tick
@@ -90,8 +118,8 @@ export class KeyboardControl extends Constraint {
     // one tick. See InputManager.sample. Through the entity, so on a server
     // it is the owning player's snapshot.
     const input = this.entity.input;
-    let dx = input.axis(this.keys.left, this.keys.right);
-    let dy = this.verticalMovement ? input.axis(this.keys.up, this.keys.down) : 0;
+    let dx = input.axis(this.keys.left!, this.keys.right!);
+    let dy = this.verticalMovement ? input.axis(this.keys.up!, this.keys.down!) : 0;
 
     // Under a projection with screen-space input, walk at a steady pace on
     // screen: the ground direction is scaled so its projected speed is the
@@ -110,9 +138,13 @@ export class KeyboardControl extends Constraint {
     // letting it into the normalization taxes the free axis by √2 — hugging
     // a wall while moving along it would slow the slide for no reason.
     if (dx !== 0 && dy !== 0) {
-      const surfaces = this.entity.game.physics.surfacesWith(
-        this.entity.body, (other) => !other.isSensor);
-      const blocked = (nx, ny) =>
+      // The union's methods disagree on their body parameter until phase 10;
+      // the receiver is cast (not the method — a detached method loses `this`).
+      const physics = this.entity.game.physics as unknown as {
+        surfacesWith(body: unknown, keep: (other: { isSensor: boolean }) => boolean): { normal: { x: number; y: number } }[];
+      };
+      const surfaces = physics.surfacesWith(this.entity.body, (other) => !other.isSensor);
+      const blocked = (nx: number, ny: number) =>
         surfaces.some(({ normal }) => normal.x * nx + normal.y * ny > BLOCKED_DOT);
       if (blocked(Math.sign(dx), 0)) dx = 0;
       if (blocked(0, Math.sign(dy))) dy = 0;
@@ -159,7 +191,7 @@ export class KeyboardControl extends Constraint {
       // friction, and braking it here would fight the friction carrying it.
       const velocity = relative();
       const brake = this.deceleration * dt;
-      const slow = (v) => (Math.abs(v) <= brake ? 0 : v - Math.sign(v) * brake);
+      const slow = (v: number) => (Math.abs(v) <= brake ? 0 : v - Math.sign(v) * brake);
       if (this.verticalMovement) {
         if (velocity.x !== 0 || velocity.y !== 0) {
           this.entity.body.setVelocity({ x: frame.x + slow(velocity.x), y: frame.y + slow(velocity.y) });
@@ -174,10 +206,10 @@ export class KeyboardControl extends Constraint {
     if (this.onMove) {
       this.onMove(dx, dy)
     }
-    if (input.isDown(this.keys.jump)) {
+    if (input.isDown(this.keys.jump!)) {
       this.onJump?.();
     }
-    if (input.isDown(this.keys.attack)) {
+    if (input.isDown(this.keys.attack!)) {
       this.onAttack?.();
     }
 

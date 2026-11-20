@@ -40,7 +40,7 @@ describe('the workspace aliases', () => {
   }
 
   it('leave anything that is not an entry alone', () => {
-    expect(resolveAlias('m2d-engine/core/entity.js')).toBeNull();
+    expect(resolveAlias('m2d-engine/core/entity.ts')).toBeNull();
     expect(resolveAlias('m2d-kit-other')).toBeNull();
   });
 });

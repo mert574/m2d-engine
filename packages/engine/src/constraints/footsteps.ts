@@ -1,4 +1,5 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
 import { s } from '../core/schema.ts';
 
 /**
@@ -15,25 +16,32 @@ import { s } from '../core/schema.ts';
  * from the body's velocity, so the same walk always produces the same
  * steps. The sound is not played there but raised as a `step` world event,
  * so a knight the server walks is heard by the clients watching it rather
- * than by a server with no speakers.
- *
- * @param {Object} options
- * @param {string[]} options.sounds - Sound keys loaded with the engine's `sounds` option
- * @param {number} [options.stride=34] - World units between steps
- * @param {number} [options.minSpeed=30] - Below this, no steps
- * @param {boolean} [options.landing=true] - Play a step when `elevation` returns to 0
- * @param {Function} [options.onStep] - Called with the step index, bound to the entity
+ * than by a server with no speakers. `sounds` are sound keys loaded with
+ * the engine's `sounds` option; `stride` world units between steps;
+ * `minSpeed` the floor below which there are no steps; `landing` plays a
+ * step when the ground returns; `onStep` is called with the step index,
+ * bound to the entity.
  */
 export class Footsteps extends Constraint {
-  static description = 'Footstep sounds paced by distance travelled';
-  static params = {
+  static override description = 'Footstep sounds paced by distance travelled';
+  static override params = {
     sounds: s.array(s.string({ nonEmpty: true }), { label: 'Sound keys' }),
     stride: s.number({ initial: 34, positive: true, unit: 'px' }),
     minSpeed: s.number({ initial: 30, min: 0, unit: 'px/s' }),
     landing: s.boolean({ initial: true })
   };
 
-  constructor(entity, options = {}) {
+  sounds: string[];
+  stride: number;
+  minSpeed: number;
+  landing: boolean;
+  onStep: ((index: number) => void) | undefined;
+  travelled: number;
+  lastStep: number;
+  index: number;
+  wasAirborne: boolean;
+
+  constructor(entity: Entity, options: { sounds?: string[]; stride?: number; minSpeed?: number; landing?: boolean; onStep?: (index: number) => void } = {}) {
     super(entity);
     this.sounds = options.sounds ?? [];
     this.stride = options.stride ?? 34;
@@ -47,10 +55,10 @@ export class Footsteps extends Constraint {
   }
 
   /** Take the next step now: the simulation's half of it. */
-  step() {
+  step(): void {
     const entity = this.entity;
     if (this.sounds.length) {
-      const { x, y, z } = entity.position;
+      const { x, y, z } = entity.position as { x: number; y: number; z?: number };
       entity.game.events?.emit('step', {
         id: entity.netId,
         sound: this.sounds[this.index % this.sounds.length],
@@ -64,17 +72,18 @@ export class Footsteps extends Constraint {
   }
 
   /** The sound, wherever the step was taken. */
-  onWorldEvent(name, data) {
-    if (name === 'step' && data.sound) this.entity.game.soundManager.playSound(data.sound);
+  override onWorldEvent(name: string, data: Record<string, unknown>): void {
+    if (name === 'step' && data.sound) this.entity.game.soundManager!.playSound(data.sound as string);
   }
 
-  get #grounded() {
-    const entity = this.entity;
+  get #grounded(): boolean {
+    // An actor with a faked third axis says so with its own `isAirborne`.
+    const entity = this.entity as Entity & { isAirborne?: boolean };
     if ('isAirborne' in entity) return !entity.isAirborne;
     return typeof entity.isOnGround === 'function' ? entity.isOnGround() : true;
   }
 
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     if (this.entity.dead) return;
     const grounded = this.#grounded;
     if (this.landing && grounded && this.wasAirborne) this.step();
@@ -82,7 +91,7 @@ export class Footsteps extends Constraint {
     if (!grounded) return;
 
     // Ground speed: the plane the entity walks on, x and z when y is up.
-    const velocity = this.entity.velocity;
+    const velocity = this.entity.velocity as { x: number; y: number; z?: number };
     const speed = this.entity.game.physics?.dimensions === 3 ? Math.hypot(velocity.x, velocity.z ?? 0) : Math.hypot(velocity.x, velocity.y);
     if (speed < this.minSpeed) return;
     this.travelled += speed * dt;

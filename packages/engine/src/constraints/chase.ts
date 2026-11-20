@@ -1,7 +1,18 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
 import { s } from '../core/schema.ts';
 import { Vec2 } from '../core/math.ts';
 import { groundCircle } from '../core/ui/worldOverlay.ts';
+
+/** A point either dimension's ground hands around. */
+interface Point3ish { x: number; y: number; z?: number }
+
+/** The members of `game.nav` the hunt asks; core/nav is JavaScript until phase 6. */
+interface NavRoutes {
+  has(agent?: string): boolean;
+  findPath(from: Point3ish, to: Point3ish, options: { agent?: string }): { points: Point3ish[] } | null;
+  routeBlocked(points: Point3ish[]): boolean;
+}
 
 /**
  * Enemy movement: chase the nearest player while one is within range,
@@ -24,26 +35,12 @@ import { groundCircle } from '../core/ui/worldOverlay.ts';
  * In debug view it draws its own working state — detection radius, the
  * current wander target, the route and the pursuit line — through the
  * world overlay.
- *
- * @param {object} options
- * @param {number} [options.speed] - Pursuit speed, px/s.
- * @param {number} [options.idleSpeed] - Wander speed, px/s.
- * @param {number} [options.detectionRange] - Pursuit radius, px.
- * @param {number} [options.wanderRadius] - How far a wander target may land
- *   from the current position, px.
- * @param {number} [options.wanderInterval] - Seconds between wander targets.
- * @param {string} [options.agent] - The nav agent profile to route as; the
- *   project's only one when unset.
- * @param {number} [options.repath] - Seconds between route refreshes while
- *   the quarry moves.
- * @param {number} [options.separation] - Keep this far from fellow chasers,
- *   px; 0 (the default) steers alone.
  */
 export class Chase extends Constraint {
-  static description = 'Chase the nearest player while one is in range, routed over the navmesh when the scene has one, else wander or stand';
+  static override description = 'Chase the nearest player while one is in range, routed over the navmesh when the scene has one, else wander or stand';
   /** Its debug drawing handles 3D itself, so the 3D frame runs it too. */
   static draws3D = true;
-  static params = {
+  static override params = {
     speed: s.number({ initial: 60, positive: true, unit: 'px/s', label: 'Pursuit speed' }),
     idleSpeed: s.number({ positive: true, unit: 'px/s', label: 'Wander speed', description: 'Defaults to 60% of speed' }),
     detectionRange: s.number({ initial: 400, positive: true, unit: 'px' }),
@@ -54,7 +51,34 @@ export class Chase extends Constraint {
     separation: s.number({ initial: 0, min: 0, unit: 'px', description: 'Keep this far from fellow chasers; 0 steers alone' })
   };
 
-  constructor(entity, options = {}) {
+  speed: number;
+  idleSpeed: number;
+  idleSpeedSet: boolean;
+  detectionRange: number;
+  wanderRadius: number;
+  wanderInterval: number;
+  agent: string | undefined;
+  repath: number;
+  separation: number;
+  wanderTime: number;
+  target: Point3ish;
+  /** The route's corners while the hunt goes around a wall. */
+  path: Point3ish[] | null;
+  /** How far along `path` the hunt is. */
+  waypoint: number;
+  /** Seconds since the route was asked for. */
+  repathTime: number;
+
+  constructor(entity: Entity, options: {
+    speed?: number;
+    idleSpeed?: number;
+    detectionRange?: number;
+    wanderRadius?: number;
+    wanderInterval?: number;
+    agent?: string;
+    repath?: number;
+    separation?: number;
+  } = {}) {
     super(entity);
     this.speed = options.speed ?? 60;
     this.idleSpeed = options.idleSpeed ?? this.speed * 0.6;
@@ -68,11 +92,8 @@ export class Chase extends Constraint {
 
     this.wanderTime = 0;
     this.target = this.#newWanderTarget();
-    /** The route's corners while the hunt goes around a wall. @type {{x: number, y: number}[]|null} */
     this.path = null;
-    /** How far along `path` the hunt is. */
     this.waypoint = 0;
-    /** Seconds since the route was asked for. */
     this.repathTime = 0;
   }
 
@@ -80,42 +101,42 @@ export class Chase extends Constraint {
    * `idleSpeed` follows `speed` unless it was set explicitly, so a scene
    * that retunes `speed` alone does not leave a stale `idleSpeed` behind.
    */
-  configure(params) {
+  override configure(params: Record<string, unknown>): void {
     super.configure(params);
     if (params.idleSpeed !== undefined) this.idleSpeedSet = true;
     else if (params.speed !== undefined && !this.idleSpeedSet) this.idleSpeed = this.speed * 0.6;
   }
 
   /** Whether this game's ground plane is (x, z): a 3D scene. */
-  get #solid() {
-    return (this.entity.game.options.dimensions ?? 2) === 3;
+  get #solid(): boolean {
+    return ((this.entity.game.options as { dimensions?: number }).dimensions ?? 2) === 3;
   }
 
   /** A point's ground coordinates: (x, y) flat, (x, z) in 3D. */
-  #ground(point) {
+  #ground(point: Point3ish): { x: number; y: number } {
     return { x: point.x, y: this.#solid ? (point.z ?? 0) : point.y };
   }
 
-  #groundDistance(a, b) {
+  #groundDistance(a: Point3ish, b: Point3ish): number {
     const ga = this.#ground(a);
     const gb = this.#ground(b);
     return Math.hypot(gb.x - ga.x, gb.y - ga.y);
   }
 
   /** Walk the ground at `speed` along the unit ground direction. */
-  #setGroundVelocity(dir, speed) {
+  #setGroundVelocity(dir: { x: number; y: number }, speed: number): void {
     const body = this.entity.body;
-    body.setVelocity(this.#solid
+    body.setVelocity((this.#solid
       ? { x: dir.x * speed, y: body.velocity.y, z: dir.y * speed }
-      : { x: dir.x * speed, y: dir.y * speed });
+      : { x: dir.x * speed, y: dir.y * speed }) as { x: number; y: number });
   }
 
-  #newWanderTarget() {
+  #newWanderTarget(): Point3ish {
     const r = this.wanderRadius;
-    const position = this.entity.position;
+    const position = this.entity.position as Point3ish;
     // Seeded: a wander target is simulation state, and a restart with the
     // same seed has to pick the same one.
-    const rng = this.entity.game.rng;
+    const rng = this.entity.game.rng!;
     const dx = rng.range(-r, r);
     const dy = rng.range(-r, r);
     return this.#solid
@@ -130,10 +151,10 @@ export class Chase extends Constraint {
    * closes in, and giving up at the range line would pace the detour's
    * mouth forever.
    */
-  #quarry() {
+  #quarry(): Entity | null {
     const { entity } = this;
     const reach = this.path ? this.detectionRange * 2 : this.detectionRange;
-    const quarry = entity.game.players.nearestAvatar(entity.position, this.#solid ? Infinity : reach);
+    const quarry = entity.game.players!.nearestAvatar(entity.position, this.#solid ? Infinity : reach) as Entity | null;
     // Strictly inside the range, on the ground plane — nearestAvatar's own
     // (x, y) cut cannot judge that in 3D.
     return quarry && this.#groundDistance(entity.position, quarry.position) < reach ? quarry : null;
@@ -146,9 +167,9 @@ export class Chase extends Constraint {
    * does not ask every tick; an unreachable quarry clears it and the
    * straight seek stands, which is what a wall-bumping mob always did.
    */
-  #huntTarget(quarry, dt) {
+  #huntTarget(quarry: Entity, dt: number): Point3ish {
     const { entity } = this;
-    const nav = entity.game.nav;
+    const nav = entity.game.nav as NavRoutes | null | undefined;
     if (!nav?.has(this.agent)) return quarry.position;
 
     this.repathTime += dt;
@@ -171,10 +192,10 @@ export class Chase extends Constraint {
     if (!this.path) return quarry.position;
     const arrive = this.#arrive();
     while (this.waypoint < this.path.length - 1
-      && this.#groundDistance(entity.position, this.path[this.waypoint]) <= arrive) {
+      && this.#groundDistance(entity.position, this.path[this.waypoint]!) <= arrive) {
       this.waypoint++;
     }
-    return this.path[Math.min(this.waypoint, this.path.length - 1)];
+    return this.path[Math.min(this.waypoint, this.path.length - 1)]!;
   }
 
   /**
@@ -182,8 +203,8 @@ export class Chase extends Constraint {
    * step — a step being 8 px flat and a quarter metre in 3D, where 8 of
    * the world's units would swallow whole corners.
    */
-  #arrive() {
-    const size = this.entity.body.size;
+  #arrive(): number {
+    const size = this.entity.body.size as { x: number; y: number; z?: number };
     const half = Math.max(size.x, this.#solid ? (size.z ?? size.x) : size.y) / 2;
     return Math.max(this.#solid ? 0.25 : 8, half);
   }
@@ -194,7 +215,7 @@ export class Chase extends Constraint {
    * chasers are entities carrying a Chase, read in entity order, so the
    * push is the same on every run.
    */
-  #separationPush() {
+  #separationPush(): { x: number; y: number } {
     const { entity } = this;
     if (!this.separation) return { x: 0, y: 0 };
     const push = { x: 0, y: 0 };
@@ -215,7 +236,7 @@ export class Chase extends Constraint {
     return push;
   }
 
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     const { entity } = this;
     if (entity.getConstraint('contactDamage')?.isStunned()) return;
 
@@ -246,7 +267,7 @@ export class Chase extends Constraint {
     }
   }
 
-  draw() {
+  override draw(): void {
     const { entity } = this;
     if (!entity.game.renderer.isDebugEnabled()) return;
 
@@ -258,8 +279,8 @@ export class Chase extends Constraint {
     const overlay = entity.game.worldOverlay;
     const solid = this.#solid;
     // On the floor, a hair up against z-fighting; body centres are grounded.
-    const place = (p) => (solid ? { x: p.x, y: 0.06, z: p.z ?? 0 } : { x: p.x, y: p.y });
-    const pos = place(entity.renderPosition);
+    const place = (p: Point3ish) => (solid ? { x: p.x, y: 0.06, z: p.z ?? 0 } : { x: p.x, y: p.y });
+    const pos: Point3ish = place(entity.renderPosition);
 
     if (solid) {
       overlay.drawPath({

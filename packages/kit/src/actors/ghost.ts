@@ -40,7 +40,7 @@ export class Ghost extends Entity {
   }
 
   /** The hit sound, wherever the hit was simulated. */
-  override onWorldEvent(name: string, data: object): void {
+  override onWorldEvent(name: string, data: Record<string, unknown>): void {
     super.onWorldEvent(name, data);
     if (name === 'damage') this.game.soundManager?.playSound('damage');
   }
@@ -66,7 +66,7 @@ export class Bee extends Ghost {
 
   constructor(body: ActorBody, sprite: ActorSprite, game: M2D) {
     super(body, sprite, game);
-    const contact = this.getConstraint('contactDamage') as ContactDamage;
+    const contact = this.getConstraint('contactDamage')!;
     contact.knockbackStrength = 720;
   }
 }

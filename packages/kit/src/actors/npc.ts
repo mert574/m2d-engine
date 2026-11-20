@@ -81,7 +81,7 @@ export class Npc extends Entity {
   }
 
   get playerNear(): boolean {
-    return (this.getConstraint('prompt') as ProximityPrompt).isNear;
+    return (this.getConstraint('prompt')!).isNear;
   }
 
   override update(deltaTime: number): void {

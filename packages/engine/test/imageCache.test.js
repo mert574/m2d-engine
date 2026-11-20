@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from '../src/testing/environment.js';

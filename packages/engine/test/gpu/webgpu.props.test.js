@@ -5,7 +5,7 @@ import { initPhysics } from '../../src/core/physics/index.ts';
 import { Camera3D } from '../../src/core/camera3d.ts';
 import { plane, box } from '../../src/core/renderers/geometry/primitives.ts';
 import { M2D } from '../../src/core/m2d.js';
-import { Entity } from '../../src/core/entity.js';
+import { Entity } from '../../src/core/entity.ts';
 import { SceneLoader, SCENE_VERSION } from '../../src/core/sceneLoader.js';
 import { createCanvasElement } from '../../src/testing/environment.js';
 

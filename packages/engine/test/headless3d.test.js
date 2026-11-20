@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 import { initPhysics } from '../src/core/physics/index.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { Scene } from '../src/core/scene.js';
@@ -198,7 +198,7 @@ describe('a 3D level, headless', () => {
   });
 
   it('loses its player the way a 2D level does: a pit, and a rule that ends the game', async () => {
-    const { Trigger } = await import('../src/actors/trigger.js');
+    const { Trigger } = await import('../src/actors/trigger.ts');
     const game = makeGame();
     game.registerActor('Trigger', Trigger);
     game.sceneManager.addScene('yard', { fetch: async () => ({

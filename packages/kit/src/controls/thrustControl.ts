@@ -150,7 +150,7 @@ export class ThrustControl extends Constraint {
     this.steer = input.axis(this.keys.left, this.keys.right);
     body.setAngularVelocity(this.steer * this.turn);
 
-    const angle = body.angle;
+    const angle = (body as { angle: number }).angle;
     const nose = { x: Math.cos(angle), y: Math.sin(angle) };
     const forward = input.isDown(this.keys.thrust) ? 1 : 0;
     const back = input.isDown(this.keys.reverse) ? 1 : 0;

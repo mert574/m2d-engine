@@ -20,19 +20,19 @@
  * is told from a drawing bug.
  */
 
-/**
- * Whether `entity` draws this frame, under `game.camera`.
- * @param {import('./m2d.js').M2D} game
- * @param {import('./entity.js').Entity} entity
- * @returns {boolean}
- */
-export function entityInView(game, entity) {
+import type { M2D } from './m2d.js';
+import type { Entity } from './entity.ts';
+
+/** Whether `entity` draws this frame, under `game.camera`. */
+export function entityInView(game: M2D, entity: Entity): boolean {
   // On unless a game turned it off, so a stand-in game in a test culls the
   // way a real one does rather than quietly drawing everything.
   if (game.cullEntities === false) return true;
   const bounds = entity.drawBounds;
   if (!bounds) return true;
-  const camera = game.camera;
+  // 2D only: a 3D camera has no isVisible, and the optional call below is
+  // exactly the old behaviour (everything draws).
+  const camera = game.camera as { isVisible?: (x: number, y: number, w: number, h: number) => boolean } | null;
   if (!camera?.isVisible) return true;
   return camera.isVisible(bounds.x, bounds.y, bounds.width, bounds.height);
 }
@@ -42,15 +42,12 @@ export function entityInView(game, entity) {
  * wider than the body that carries it, so it is tested at its own radius
  * rather than with the entity: a lamp just off screen still lights what is
  * on it.
- * @param {import('./m2d.js').M2D} game
- * @param {import('./entity.js').Entity} entity
- * @returns {boolean}
  */
-export function lightInView(game, entity) {
+export function lightInView(game: M2D, entity: Entity): boolean {
   if (game.cullEntities === false) return true;
-  const camera = game.camera;
+  const camera = game.camera as { isVisible?: (x: number, y: number, w: number, h: number) => boolean } | null;
   if (!camera?.isVisible) return true;
-  const light = entity.light;
+  const light = entity.light!;
   const offset = light.offset ?? {};
   const { x, y } = entity.renderPosition;
   const radius = light.range ?? Math.max(entity.size.x, entity.size.y) * 2;

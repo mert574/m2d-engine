@@ -107,10 +107,11 @@ export class AmbientSound extends Entity {
   /** 1 at its place, falling to 0 at `radius` from the listener; 1 throughout with no radius. */
   #reach(): number {
     if (!this.radius) return 1;
-    const camera = this.game.camera;
-    const ear = camera.position ?? camera;
+    // A 3D camera stands at `position`; the 2D camera is its own point.
+    const camera = this.game.camera as { position?: { x: number; y: number; z?: number }; x?: number; y?: number };
+    const ear = (camera.position ?? camera) as { x: number; y: number; z?: number };
     // The 2D camera stands on the render plane, which a projection is not the ground of.
-    const at = this.game.physics.dimensions === 3 ? this.body.renderPosition : this.renderAnchor;
+    const at = (this.game.physics.dimensions === 3 ? this.body.renderPosition : this.renderAnchor) as { x: number; y: number; z?: number };
     const distance = Math.hypot(at.x - ear.x, at.y - ear.y, (at.z ?? 0) - (ear.z ?? 0));
     const t = Math.max(0, 1 - distance / this.radius);
     return t * t;

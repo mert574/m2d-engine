@@ -20,7 +20,7 @@ export type ActorBody = ConstructorParameters<typeof Entity>[0];
  * of whatever a scene attached, so `getConstraint('attack')` cannot be
  * typed by the engine. An actor that attached the constraint itself knows
  * which class is in the slot and says so where it reads it
- * (`this.getConstraint('attack') as Attack`). It is the one narrowing the
+ * (`this.getConstraint('attack')!`). It is the one narrowing the
  * kit makes by hand, and it is checked the moment the slot is used: the
  * class it names has to have the member the next line reads.
  */
@@ -34,10 +34,10 @@ export interface Vec2 {
   y: number;
 }
 
-/** The visible world as `Camera.getVisibleArea` reports it. */
-export interface VisibleArea {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
+/** The 2D camera's visible rectangle, for scenery that only paints flat levels. */
+export type VisibleArea2D = ReturnType<import('m2d-engine').Camera['getVisibleArea']>;
+
+/** The visible world as either camera's `getVisibleArea` reports it, taken from the cameras themselves. */
+export type VisibleArea =
+  | ReturnType<import('m2d-engine').Camera['getVisibleArea']>
+  | ReturnType<import('m2d-engine').Camera3D['getVisibleArea']>;

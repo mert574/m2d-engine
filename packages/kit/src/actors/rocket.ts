@@ -26,9 +26,9 @@ export class Rocket extends Projectile {
       damage: options.damage ?? 25,
       direction: options.direction,
       maxLifetime: options.maxLifetime ?? 6,
-      owner: options.owner,
+      owner: options.owner as import('m2d-engine').Entity | null | undefined,
       targetNames: ['Player'],
-      ...options
+      ...(options as Omit<typeof options, 'owner'>)
     });
   }
 

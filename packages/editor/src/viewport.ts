@@ -225,10 +225,6 @@ interface PickVolume {
  */
 function placeholderActor(): unknown {
   return class Placeholder extends Entity {
-    declare sprite: unknown;
-    declare size: { x: number; y: number };
-    declare game: { renderer: { drawRect(options: Record<string, unknown>): void } };
-
     override draw(deltaTime: number): void {
       if (this.sprite) {
         super.draw(deltaTime);

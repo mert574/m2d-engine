@@ -1,5 +1,10 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
+import type { Path } from '../core/path.ts';
 import { s } from '../core/schema.ts';
+
+/** A velocity either dimension's body takes. */
+interface Velocity3ish { x: number; y: number; z?: number }
 
 /**
  * How close to a path point counts as arrived: 1 px flat, 2 cm in a 3D
@@ -28,20 +33,15 @@ const ARRIVE_DISTANCE_3D = 0.02;
  * the body was placed, around a closed path, back and forth along an open
  * one, pausing at each control point unless `stopAtPoints` is false.
  *
- * @param {object} options
- * @param {{x: number, y: number}[]} options.points - Patrol points, visited
- *   in order and then from the top. Fewer than two means stay put.
- * @param {string} [options.path] - A path in the scene's `paths`; wins over `points`.
- * @param {boolean} [options.stopAtPoints] - With `path`: pause at every control point (default), or only at an open path's ends.
- * @param {number} [options.speed] - Cruise speed, px/s.
- * @param {number} [options.waitTime] - Pause at each point, in ms (the unit
- *   scene JSON has always used).
- * @param {number} [options.acceleration] - Ramp rate, px/s²; defaults to
- *   reaching cruise speed in half a second.
+ * `points` are patrol points, visited in order and then from the top
+ * (fewer than two means stay put); `path` names a path in the scene's
+ * `paths` and wins over `points`; `waitTime` is the pause at each point in
+ * ms (the unit scene JSON has always used); `acceleration` the ramp rate
+ * in px/s², defaulting to reaching cruise speed in half a second.
  */
 export class PathFollow extends Constraint {
-  static description = 'Patrol a path of points, pausing at each';
-  static params = {
+  static override description = 'Patrol a path of points, pausing at each';
+  static override params = {
     points: s.array(s.object({ x: s.number({ required: true }), y: s.number({ required: true }) }),
       { label: 'Path points' }),
     path: s.ref('path', { label: 'Path', description: "One of the scene's paths, followed along its line; wins over the points" }),
@@ -52,7 +52,31 @@ export class PathFollow extends Constraint {
     face: s.boolean({ initial: false, description: "Turn the entity to face where it is going: `entity.heading` follows the direction of travel (screen angle in 2D, yaw about +y in 3D) and keeps its last value through a pause. A 3D model steers by it; a 2D actor reads it when drawing" })
   };
 
-  constructor(entity, options = {}) {
+  points: { x: number; y: number }[];
+  path: string | null;
+  stopAtPoints: boolean;
+  speed: number;
+  waitTime: number;
+  acceleration: number;
+  face: boolean;
+  accelerationSet: boolean;
+  currentSpeed: number;
+  currentPoint: number;
+  waitLeft: number;
+  route: Path | null;
+  distance: number;
+  direction: number;
+  goal: number;
+
+  constructor(entity: Entity, options: {
+    points?: { x: number; y: number }[];
+    path?: string | null;
+    stopAtPoints?: boolean;
+    speed?: number;
+    waitTime?: number;
+    acceleration?: number;
+    face?: boolean;
+  } = {}) {
     super(entity);
     this.points = options.points || [];
     this.path = options.path ?? null;
@@ -78,7 +102,7 @@ export class PathFollow extends Constraint {
     this.goal = 0;
 
     if (!this.path && this.points.length > 0) {
-      entity.body.setPosition({ x: this.points[0].x, y: this.points[0].y });
+      entity.body.setPosition({ x: this.points[0]!.x, y: this.points[0]!.y });
     }
   }
 
@@ -86,29 +110,29 @@ export class PathFollow extends Constraint {
    * `acceleration` follows `speed` unless it was set explicitly, so a scene
    * that retunes `speed` alone does not leave a stale `acceleration` behind.
    */
-  configure(params) {
+  override configure(params: Record<string, unknown>): void {
     super.configure(params);
-    if (params.waitTime !== undefined) this.waitTime = params.waitTime / 1000;
+    if (params.waitTime !== undefined) this.waitTime = (params.waitTime as number) / 1000;
     if (params.path !== undefined || params.stopAtPoints !== undefined) this.route = null;
     if (params.acceleration !== undefined) this.accelerationSet = true;
     else if (params.speed !== undefined && !this.accelerationSet) this.acceleration = this.speed * 2;
   }
 
   /** The arrive radius for this game's units. */
-  get #arrive() {
-    return (this.entity.game.options.dimensions ?? 2) === 3 ? ARRIVE_DISTANCE_3D : ARRIVE_DISTANCE;
+  get #arrive(): number {
+    return ((this.entity.game.options as { dimensions?: number }).dimensions ?? 2) === 3 ? ARRIVE_DISTANCE_3D : ARRIVE_DISTANCE;
   }
 
   /** With `face`: point `entity.heading` along the velocity; a halt keeps the last heading. */
-  #setHeading(velocity) {
+  #setHeading(velocity: Velocity3ish): void {
     if (!this.face) return;
     const flat = velocity.z === undefined;
-    const speed = flat ? Math.hypot(velocity.x, velocity.y) : Math.hypot(velocity.x, velocity.y, velocity.z);
+    const speed = flat ? Math.hypot(velocity.x, velocity.y) : Math.hypot(velocity.x, velocity.y, velocity.z!);
     if (speed < 1e-3) return;
     // 2D heading is the screen angle (atan2(y, x)); 3D is yaw about +y,
     // where forward is { sin(heading), 0, cos(heading) } — the convention
     // `entity.heading` already steers a model's yaw with.
-    this.entity.heading = flat ? Math.atan2(velocity.y, velocity.x) : Math.atan2(velocity.x, velocity.z);
+    this.entity.heading = flat ? Math.atan2(velocity.y, velocity.x) : Math.atan2(velocity.x, velocity.z!);
   }
 
   /** Hold position, keeping riders steady rather than sliding out. */
@@ -117,7 +141,7 @@ export class PathFollow extends Constraint {
     this.entity.body.setVelocity({ x: 0, y: 0 });
   }
 
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     if (this.path) {
       this.#followPath(dt);
       return;
@@ -133,7 +157,7 @@ export class PathFollow extends Constraint {
       return;
     }
 
-    const target = this.points[this.currentPoint];
+    const target = this.points[this.currentPoint]!;
     const position = this.entity.body.position;
     const dx = target.x - position.x;
     const dy = target.y - position.y;
@@ -159,9 +183,9 @@ export class PathFollow extends Constraint {
     this.#setHeading(velocity);
   }
 
-  #followPath(dt) {
+  #followPath(dt: number): void {
     if (!this.route) {
-      const route = this.entity.scene?.pathFor(this.entity, this.path);
+      const route = this.entity.scene?.pathFor(this.entity, this.path) as Path | null | undefined;
       if (!route?.length) return;
       this.route = route;
       this.distance = route.nearest(this.entity.body.position);
@@ -200,20 +224,21 @@ export class PathFollow extends Constraint {
     }
     const target = route.pointAt(this.distance);
     const position = this.entity.body.position;
-    const velocity = { x: (target.x - position.x) / dt, y: (target.y - position.y) / dt };
-    if (route.hasZ) velocity.z = (target.z - (position.z ?? 0)) / dt;
-    this.entity.body.setVelocity(velocity);
+    const velocity: Velocity3ish = { x: (target.x - position.x) / dt, y: (target.y - position.y) / dt };
+    const flat = position as { z?: number };
+    if (route.hasZ) velocity.z = (target.z! - (flat.z ?? 0)) / dt;
+    this.entity.body.setVelocity(velocity as { x: number; y: number });
     this.#setHeading(velocity);
   }
 
   /** The arc length of the next place to pause, in the direction of travel; Infinity round a closed path that never pauses. */
-  #nextGoal() {
-    const route = this.route;
+  #nextGoal(): number {
+    const route = this.route!;
     const d = this.distance;
     const ahead = this.#arrive / 2;
     if (route.closed) {
       if (!this.stopAtPoints) return Infinity;
-      return route.stops.find((stop) => stop > d + ahead) ?? route.stops[0] + route.length;
+      return route.stops.find((stop) => stop > d + ahead) ?? route.stops[0]! + route.length;
     }
     const stops = this.stopAtPoints ? route.stops : [0, route.length];
     return this.direction > 0

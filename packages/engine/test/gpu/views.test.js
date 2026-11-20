@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { M2D } from '../../src/core/m2d.js';
-import { Entity } from '../../src/core/entity.js';
+import { Entity } from '../../src/core/entity.ts';
 import { initPhysics } from '../../src/core/physics/index.ts';
 import { WebGPURenderer } from '../../src/core/renderers/index.ts';
 import { initWebGPU } from '../../src/core/renderers/webgpu/device.ts';

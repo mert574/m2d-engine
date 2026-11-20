@@ -168,7 +168,7 @@ function recordFields(map, prefix, fields) {
  * carries what has changed since the match started rather than the
  * position and fields of every wall in the level.
  *
- * @param {import('../core/entity.js').Entity} entity
+ * @param {import('../core/entity.ts').Entity} entity
  */
 export function baselineOf(entity) {
   const f = new Map();
@@ -203,7 +203,7 @@ export class StateFrame {
     this.cache = new Map();
   }
 
-  /** This tick's state for an entity. @param {import('../core/entity.js').Entity} entity */
+  /** This tick's state for an entity. @param {import('../core/entity.ts').Entity} entity */
   of(entity) {
     let state = this.cache.get(entity.netId);
     if (!state) this.cache.set(entity.netId, state = baselineOf(entity));

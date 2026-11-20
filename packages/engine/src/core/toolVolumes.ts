@@ -1,7 +1,20 @@
 import { parseColor } from './renderers/geometry/color.ts';
 import { geometryFor } from './renderers/geometry/primitives.ts';
 import { toLinear } from './presentation3d.ts';
-import { entityInView } from './viewCull.js';
+import { entityInView } from './viewCull.ts';
+import type { M2D } from './m2d.js';
+import type { Entity } from './entity.ts';
+import type { Frame3D, Material3D } from './renderers/frame3d.ts';
+import type { Vector3 } from './math.ts';
+import type { Camera3D } from './camera3d.ts';
+
+/** An entity's tool look; see `Entity`'s `static tool`. */
+interface ToolLook { color: string; label: string }
+/** The members of a 3D scene this module draws through. */
+interface ToolScene {
+  game: M2D;
+  meshMaterial(options: { opacity: number; emissiveColor: string; emissive: number }): Material3D;
+}
 
 /**
  * Tool entities: the ones a level needs but a player never sees — a
@@ -25,21 +38,21 @@ const OPACITY_3D = 0.28;
 const LABEL_REACH_3D = 40;
 
 /** Whether tool entities are drawn now: in the editor, or in play with `r_showtools` on. */
-export function toolsShown(game) {
+export function toolsShown(game: M2D): boolean {
   return Boolean(game.editMode || game.showTools);
 }
 
 /** An entity's tool look, `{ color, label }`, or null for an entity that is not a tool. */
-export function toolOf(entity) {
-  const tool = entity.constructor?.tool;
+export function toolOf(entity: Entity): ToolLook | null {
+  const tool = (entity.constructor as typeof Entity).tool;
   if (!tool) return null;
   return { color: tool.color, label: entity.toolLabel ?? tool.label };
 }
 
 /** What a box says: its kind, and the id of the object it was placed as. */
-const labelOf = (entity, tool) => (entity.sceneId ? `${tool.label} · ${entity.sceneId}` : tool.label);
+const labelOf = (entity: Entity, tool: ToolLook) => (entity.sceneId ? `${tool.label} · ${entity.sceneId}` : tool.label);
 
-const rgba = (color, alpha) => {
+const rgba = (color: string, alpha: number) => {
   const [r, g, b] = parseColor(color).map((c) => Math.round(c * 255));
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
@@ -49,33 +62,35 @@ const rgba = (color, alpha) => {
  * ground, turned with it and seen through the scene's projection (a
  * diamond in an isometric level), labelled at its topmost corner.
  */
-export function drawToolVolume2D(entity, tool = toolOf(entity)) {
+export function drawToolVolume2D(entity: Entity, tool: ToolLook | null = toolOf(entity)): void {
   if (!tool) return;
   const game = entity.game;
   const body = entity.body;
   const { x, y } = body.renderPosition;
   const hw = body.size.x / 2;
   const hh = body.size.y / 2;
-  const angle = body.renderAngle ?? body.angle ?? 0;
+  // The 2D overlay path: only a 2D body reaches it, and it has these.
+  const flat = body as { renderAngle?: number; angle?: number };
+  const angle = flat.renderAngle ?? flat.angle ?? 0;
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
-  const ground = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([dx, dy]) => ({ x: x + dx * cos - dy * sin, y: y + dx * sin + dy * cos }));
+  const ground = ([[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]] as [number, number][]).map(([dx, dy]) => ({ x: x + dx * cos - dy * sin, y: y + dx * sin + dy * cos }));
   const projection = game.projection;
   const points = projection ? ground.map((p) => projection.toScreen(p.x, p.y)) : ground;
   game.worldOverlay.drawPath({ points, closed: true, fillStyle: rgba(tool.color, FILL_ALPHA), strokeStyle: rgba(tool.color, EDGE_ALPHA), lineWidth: 1.5 });
   // The label's anchor is a world point: the overlay projects it itself.
   let top = 0;
-  for (let i = 1; i < points.length; i++) if (points[i].y < points[top].y || (points[i].y === points[top].y && points[i].x < points[top].x)) top = i;
+  for (let i = 1; i < points.length; i++) if (points[i]!.y < points[top]!.y || (points[i]!.y === points[top]!.y && points[i]!.x < points[top]!.x)) top = i;
   game.worldOverlay.drawText({
     text: labelOf(entity, tool),
-    x: ground[top].x, y: ground[top].y, offsetX: 4, offsetY: 12,
+    x: ground[top]!.x, y: ground[top]!.y, offsetX: 4, offsetY: 12,
     fillStyle: rgba(tool.color, 1), fontSize: '11px', fontFamily: 'system-ui', fontWeight: '600',
     textAlign: 'left', textBaseline: 'alphabetic'
   });
 }
 
 /** Every tool entity's box, when they are shown. The 2D scene's draw pass calls it after the world. */
-export function drawToolVolumes2D(game) {
+export function drawToolVolumes2D(game: M2D): void {
   const shown = toolsShown(game);
   for (const entity of game.entities) {
     if (entity.dead || !(shown || entity.toolInPlay)) continue;
@@ -87,7 +102,7 @@ export function drawToolVolumes2D(game) {
 }
 
 /** A tool colour's see-through, faintly glowing surface; the scene caches the material by what it says. */
-function toolSurface(scene, color) {
+function toolSurface(scene: ToolScene, color: string) {
   const [r, g, b] = parseColor(color);
   return {
     color: [toLinear(r), toLinear(g), toLinear(b)],
@@ -96,10 +111,11 @@ function toolSurface(scene, color) {
 }
 
 /** Every tool entity's shape into the 3D frame, translucent and casting no shadow, when they are shown. */
-export function addToolVolumes3D(scene, frame) {
+export function addToolVolumes3D(scene: ToolScene, frame: Frame3D): void {
   const game = scene.game;
   const shown = toolsShown(game);
-  const eye = game.camera.position;
+  // 3D only: the camera here is a Camera3D.
+  const eye = (game.camera as Camera3D).position;
   for (const entity of game.entities) {
     if (entity.dead || !(shown || entity.toolInPlay)) continue;
     const tool = toolOf(entity);
@@ -107,8 +123,8 @@ export function addToolVolumes3D(scene, frame) {
     const body = entity.body;
     const { geometry, scale } = geometryFor(body.shape, body.size);
     const { color, material } = toolSurface(scene, tool.color);
-    const at = body.renderPosition;
-    frame.add(geometry, { position: at, rotation: body.renderRotation, scale, color, material, castShadow: false });
+    const at = body.renderPosition as Vector3;
+    frame.add(geometry, { position: at as Vector3, rotation: (body as { renderRotation?: Vector3 }).renderRotation as never, scale, color, material, castShadow: false });
     // Labelled above its top, near enough to read: a level's far side is not a wall of names.
     if (Math.hypot(at.x - eye.x, at.y - eye.y, at.z - eye.z) > LABEL_REACH_3D) continue;
     game.worldOverlay.drawText({

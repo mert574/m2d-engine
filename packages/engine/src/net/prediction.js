@@ -124,7 +124,7 @@ export class Predictor {
 
   /**
    * Take up (or drop) an avatar. Called when the server names one.
-   * @param {import('../core/entity.js').Entity|null} entity
+   * @param {import('../core/entity.ts').Entity|null} entity
    */
   follow(entity) {
     if (this.entity === entity) return;

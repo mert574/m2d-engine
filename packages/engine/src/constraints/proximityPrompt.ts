@@ -1,29 +1,30 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
 import { s } from '../core/schema.ts';
 
 /**
  * A prompt that appears over an entity while the player is close, and a
  * yes/no the game can read: `isNear`. The text goes through the world
- * overlay so it stays sharp at any render resolution.
- *
- * @param {Object} options
- * @param {number} [options.radius=110] - Distance from the player, px
- * @param {string|(() => string)} [options.text] - The prompt; a function is
- *   called each frame so it can follow state
- * @param {number} [options.offsetY] - Above the entity's drawn top; defaults
- *   to a little over the frame
- * @param {string} [options.color]
+ * overlay so it stays sharp at any render resolution. `radius` is the
+ * distance from the player in px; `text` the prompt, as a string or a
+ * function called each frame so it can follow state; `offsetY` sits it
+ * above the entity's drawn top.
  */
 export class ProximityPrompt extends Constraint {
-  static description = 'A prompt over the entity while the player is near, and an action on the key';
-  static params = {
+  static override description = 'A prompt over the entity while the player is near, and an action on the key';
+  static override params = {
     radius: s.number({ initial: 110, positive: true, unit: 'px' }),
     text: s.string({ initial: 'E' }),
     offsetY: s.number({ unit: 'px' }),
     color: s.string({ initial: 'rgba(240, 236, 220, 0.95)', editor: 'color' })
   };
 
-  constructor(entity, options = {}) {
+  radius: number;
+  text: string | (() => string);
+  offsetY: number | undefined;
+  color: string;
+
+  constructor(entity: Entity, options: { radius?: number; text?: string | (() => string); offsetY?: number; color?: string } = {}) {
     super(entity);
     this.radius = options.radius ?? 110;
     this.text = options.text ?? 'E';
@@ -31,7 +32,7 @@ export class ProximityPrompt extends Constraint {
     this.color = options.color ?? 'rgba(240, 236, 220, 0.95)';
   }
 
-  get isNear() {
+  get isNear(): boolean {
     const player = this.entity.game.player;
     if (!player || player.dead) return false;
     const dx = player.position.x - this.entity.position.x;
@@ -39,7 +40,7 @@ export class ProximityPrompt extends Constraint {
     return Math.hypot(dx, dy) < this.radius;
   }
 
-  draw() {
+  override draw(): void {
     if (!this.isNear) return;
     const entity = this.entity;
     const pos = entity.renderPosition;

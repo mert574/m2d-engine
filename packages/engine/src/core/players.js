@@ -36,7 +36,7 @@ export class Player {
     this.game = game;
     this.id = id;
     this.local = local;
-    /** The entity the game treats as this player's body. @type {import('./entity.js').Entity|null} */
+    /** The entity the game treats as this player's body. @type {import('./entity.ts').Entity|null} */
     this.avatar = null;
     /** Any per-player state the game keeps: inventory, gold, score. */
     this.state = {};
@@ -236,7 +236,7 @@ export class Players {
    * `game.player` reads this instead, so an enemy on a server, where
    * `game.player` is null and every knight belongs to someone, still has
    * someone to hunt.
-   * @returns {import('./entity.js').Entity[]}
+   * @returns {import('./entity.ts').Entity[]}
    */
   get avatars() {
     const game = this.game;

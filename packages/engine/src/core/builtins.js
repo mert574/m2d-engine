@@ -12,27 +12,27 @@
  * game too. Nothing here is instantiated until a scene names it.
  */
 
-import { Prop } from '../actors/prop.js';
-import { Trigger } from '../actors/trigger.js';
-import { SpawnPoint } from '../actors/spawnPoint.js';
-import { NavVolume } from '../actors/navVolume.js';
-import { Abilities } from '../constraints/abilities.js';
-import { Attack } from '../constraints/attack.js';
-import { Chase } from '../constraints/chase.js';
-import { Collectable } from '../constraints/collectable.js';
-import { ContactDamage } from '../constraints/contactDamage.js';
-import { DamageFlash } from '../constraints/damageFlash.js';
-import { Debug } from '../constraints/debug.js';
-import { Footsteps } from '../constraints/footsteps.js';
-import { Grabbable } from '../constraints/grabbable.js';
-import { Health } from '../constraints/health.js';
-import { Hover } from '../constraints/hover.js';
-import { Interactive } from '../constraints/interactive.js';
-import { KeyboardControl } from '../constraints/keyboardControl.js';
-import { NavObstacle } from '../constraints/navObstacle.js';
-import { PathFollow } from '../constraints/pathFollow.js';
-import { PointerMove } from '../constraints/pointerMove.js';
-import { ProximityPrompt } from '../constraints/proximityPrompt.js';
+import { Prop } from '../actors/prop.ts';
+import { Trigger } from '../actors/trigger.ts';
+import { SpawnPoint } from '../actors/spawnPoint.ts';
+import { NavVolume } from '../actors/navVolume.ts';
+import { Abilities } from '../constraints/abilities.ts';
+import { Attack } from '../constraints/attack.ts';
+import { Chase } from '../constraints/chase.ts';
+import { Collectable } from '../constraints/collectable.ts';
+import { ContactDamage } from '../constraints/contactDamage.ts';
+import { DamageFlash } from '../constraints/damageFlash.ts';
+import { Debug } from '../constraints/debug.ts';
+import { Footsteps } from '../constraints/footsteps.ts';
+import { Grabbable } from '../constraints/grabbable.ts';
+import { Health } from '../constraints/health.ts';
+import { Hover } from '../constraints/hover.ts';
+import { Interactive } from '../constraints/interactive.ts';
+import { KeyboardControl } from '../constraints/keyboardControl.ts';
+import { NavObstacle } from '../constraints/navObstacle.ts';
+import { PathFollow } from '../constraints/pathFollow.ts';
+import { PointerMove } from '../constraints/pointerMove.ts';
+import { ProximityPrompt } from '../constraints/proximityPrompt.ts';
 
 /** The engine's actors, by the name a scene uses. */
 export const BUILTIN_ACTORS = new Map(Object.entries({
@@ -51,14 +51,14 @@ export const BUILTIN_CONSTRAINTS = new Map(Object.entries({
  * two maps to the same keys and each path to exporting its class.
  */
 export const BUILTIN_MODULES = new Map(Object.entries({
-  Prop: 'actors/prop.js', Trigger: 'actors/trigger.js', SpawnPoint: 'actors/spawnPoint.js', NavVolume: 'actors/navVolume.js',
-  Abilities: 'constraints/abilities.js', Attack: 'constraints/attack.js',
-  Chase: 'constraints/chase.js', Collectable: 'constraints/collectable.js', ContactDamage: 'constraints/contactDamage.js', DamageFlash: 'constraints/damageFlash.js',
-  Debug: 'constraints/debug.js', Footsteps: 'constraints/footsteps.js',
-  Grabbable: 'constraints/grabbable.js', Health: 'constraints/health.js', Hover: 'constraints/hover.js',
-  Interactive: 'constraints/interactive.js', KeyboardControl: 'constraints/keyboardControl.js', NavObstacle: 'constraints/navObstacle.js',
-  PathFollow: 'constraints/pathFollow.js', PointerMove: 'constraints/pointerMove.js',
-  ProximityPrompt: 'constraints/proximityPrompt.js'
+  Prop: 'actors/prop.ts', Trigger: 'actors/trigger.ts', SpawnPoint: 'actors/spawnPoint.ts', NavVolume: 'actors/navVolume.ts',
+  Abilities: 'constraints/abilities.ts', Attack: 'constraints/attack.ts',
+  Chase: 'constraints/chase.ts', Collectable: 'constraints/collectable.ts', ContactDamage: 'constraints/contactDamage.ts', DamageFlash: 'constraints/damageFlash.ts',
+  Debug: 'constraints/debug.ts', Footsteps: 'constraints/footsteps.ts',
+  Grabbable: 'constraints/grabbable.ts', Health: 'constraints/health.ts', Hover: 'constraints/hover.ts',
+  Interactive: 'constraints/interactive.ts', KeyboardControl: 'constraints/keyboardControl.ts', NavObstacle: 'constraints/navObstacle.ts',
+  PathFollow: 'constraints/pathFollow.ts', PointerMove: 'constraints/pointerMove.ts',
+  ProximityPrompt: 'constraints/proximityPrompt.ts'
 }));
 
 /**

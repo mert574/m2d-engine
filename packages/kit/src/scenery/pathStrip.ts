@@ -136,7 +136,7 @@ export class PathStrip extends Scenery {
     const line = this.line;
     if (!line) return null;
     if (this.builtFrom !== line) {
-      this.built = stripGeometry(line, this.width, this.height, this.body.position, this.body.rotation);
+      this.built = stripGeometry(line, this.width, this.height, this.body.position, (this.body as { rotation?: unknown }).rotation as Parameters<typeof stripGeometry>[4]);
       this.builtFrom = line;
     }
     return this.built;
@@ -147,7 +147,10 @@ export class PathStrip extends Scenery {
     if (!ground) return;
     // Drawn on the render plane: through the level's projection, as everything placed on the ground is.
     const projection = this.game.projection;
-    const line = projection ? ground.map((p) => projection.toScreen(p.x, p.y)) : ground;
+    // 2D path: the line's points carry y here (z is the 3D strip's).
+    const line: { x: number; y: number }[] = projection
+      ? ground.map((p) => projection.toScreen(p.x, p.y!))
+      : (ground as { x: number; y: number }[]);
     const renderer = this.game.renderer;
     if (!this.sprite?.width) {
       renderer.drawPath({ points: line, closed: false, strokeStyle: this.color, lineWidth: this.width });
@@ -155,8 +158,8 @@ export class PathStrip extends Scenery {
     }
     const tile = this.repeat ?? this.width;
     for (let i = 1; i < line.length; i++) {
-      const a = line[i - 1];
-      const b = line[i];
+      const a = line[i - 1]!;
+      const b = line[i]!;
       const length = Math.hypot(b.x - a.x, b.y - a.y);
       if (length <= 0) continue;
       const rotation = Math.atan2(b.y - a.y, b.x - a.x);

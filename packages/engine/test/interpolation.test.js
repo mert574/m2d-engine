@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Track, ReplicaView } from '../src/net/interpolation.js';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 
 /**
  * What a replica draws between the server's states.

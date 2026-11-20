@@ -45,8 +45,8 @@ export class GravityDial extends Entity {
     const counters = this.scene?.counters;
     if (!this.counter || !counters?.has(this.counter)) return;
     const value = counters.get(this.counter);
-    const gravity = this.game.physics.gravity;
+    const gravity = this.game.physics.gravity as { x: number; y: number; z?: number };
     if (gravity[this.axis] === value) return;
-    this.game.physics.setGravity({ ...gravity, [this.axis]: value });
+    this.game.physics.setGravity({ ...gravity, [this.axis]: value } as { x: number; y: number });
   }
 }

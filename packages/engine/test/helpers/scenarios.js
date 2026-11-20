@@ -5,11 +5,11 @@
  */
 
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
-import { Entity } from '../../src/core/entity.js';
-import { Trigger } from '../../src/actors/trigger.js';
-import { PointerMove } from '../../src/constraints/pointerMove.js';
-import { Abilities } from '../../src/constraints/abilities.js';
-import { Footsteps } from '../../src/constraints/footsteps.js';
+import { Entity } from '../../src/core/entity.ts';
+import { Trigger } from '../../src/actors/trigger.ts';
+import { PointerMove } from '../../src/constraints/pointerMove.ts';
+import { Abilities } from '../../src/constraints/abilities.ts';
+import { Footsteps } from '../../src/constraints/footsteps.ts';
 import { InputSchema, InputGate } from '../../src/net/input.js';
 import { Rng } from '../../src/core/rng.ts';
 import { InputSnapshot } from '../../src/core/input/snapshot.js';

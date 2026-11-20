@@ -2,7 +2,7 @@ import { s } from 'm2d-engine/schema';
 import { parseColor } from 'm2d-engine/renderers';
 import type { M2D } from 'm2d-engine';
 import { Scenery, BACK, hash, mod } from './scenery.ts';
-import type { ActorBody, ActorSprite, VisibleArea } from '../engineTypes.ts';
+import type { ActorBody, ActorSprite, VisibleArea, VisibleArea2D } from '../engineTypes.ts';
 
 /** The three layers a scatter can be. */
 export type ScatterKind = 'stars' | 'clouds' | 'motes';
@@ -63,10 +63,12 @@ export class Scatter extends Scenery {
   }
 
   override paint(area: VisibleArea, time: number): void {
+    // 2D-only scenery (`dimensions = 2`): the area is the flat camera's.
+    const view = area as VisibleArea2D;
     const layer = this.layer;
     const renderer = this.game.renderer;
-    const width = area.right - area.left;
-    const height = area.bottom - area.top;
+    const width = view.right - view.left;
+    const height = view.bottom - view.top;
     const seed = layer.seed ?? 1;
     const parallax = layer.parallax ?? (layer.kind === 'clouds' ? 0.2 : 0.05);
     const band = layer.band ?? { top: 0, bottom: 1 };
@@ -80,8 +82,8 @@ export class Scatter extends Scenery {
       const u = hash(seed, i, 1);
       const v = hash(seed, i, 2);
       const k = hash(seed, i, 3);
-      const x = area.left + mod(u * width + drift * (0.5 + k) - area.left * parallax, width);
-      const y = area.top + (top + v * span) * height;
+      const x = view.left + mod(u * width + drift * (0.5 + k) - view.left * parallax, width);
+      const y = view.top + (top + v * span) * height;
       if (layer.kind === 'stars') {
         const twinkle = (layer.twinkle ?? 0.4) * (0.5 + 0.5 * Math.sin(time * (1 + k * 3) + k * 40));
         renderer.drawArc({ x, y, radius: size * (0.3 + 0.7 * k * k), fillStyle: colour, globalAlpha: opacity * (1 - twinkle) });

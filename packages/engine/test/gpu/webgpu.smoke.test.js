@@ -308,7 +308,7 @@ describe('a 3D game through the engine loop', () => {
   }
 
   it('picks the webgpu renderer and a 3D camera, and draws the scene file\'s meshes', async () => {
-    const { Entity } = await import('../../src/core/entity.js');
+    const { Entity } = await import('../../src/core/entity.ts');
     const { game } = game3D();
     expect(game.renderer).toBeInstanceOf(WebGPURenderer);
     expect(game.camera).toBeInstanceOf(Camera3D);
@@ -347,8 +347,8 @@ describe('a 3D game through the engine loop', () => {
   });
 
   it('draws a click\'s route on the overlay in debug view: the 3D frame runs a draws3D constraint', async () => {
-    const { Entity } = await import('../../src/core/entity.js');
-    const { PointerMove } = await import('../../src/constraints/pointerMove.js');
+    const { Entity } = await import('../../src/core/entity.ts');
+    const { PointerMove } = await import('../../src/constraints/pointerMove.ts');
     const { game } = game3D();
     game.registerActor('Ground', class extends Entity { name = 'Ground'; });
     game.registerActor('Crate', class extends Entity { name = 'Crate'; });
@@ -383,7 +383,7 @@ describe('a 3D game through the engine loop', () => {
   });
 
   it('collects an entity\'s particle field into the frame, placed at its body', async () => {
-    const { Entity } = await import('../../src/core/entity.js');
+    const { Entity } = await import('../../src/core/entity.ts');
     const { game } = game3D();
     game.registerActor('Ground', class extends Entity { name = 'Ground'; });
     game.registerActor('Crate', class extends Entity { name = 'Crate'; });
@@ -411,7 +411,7 @@ describe('a 3D game through the engine loop', () => {
   });
 
   it('draws an entity\'s own geometry at its body, scale 1, instead of its collider\'s shape', async () => {
-    const { Entity } = await import('../../src/core/entity.js');
+    const { Entity } = await import('../../src/core/entity.ts');
     const { box } = await import('../../src/core/renderers/geometry/primitives.ts');
     const { game } = game3D();
     game.registerActor('Ground', class extends Entity { name = 'Ground'; });
@@ -432,7 +432,7 @@ describe('a 3D game through the engine loop', () => {
   });
 
   it('draws a tool entity as a translucent box of its colour only when tools are shown', async () => {
-    const { Entity } = await import('../../src/core/entity.js');
+    const { Entity } = await import('../../src/core/entity.ts');
     const { game } = game3D();
     game.registerActor('Ground', class extends Entity { name = 'Ground'; });
     game.registerActor('Crate', class extends Entity { name = 'Crate'; });

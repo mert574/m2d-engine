@@ -69,7 +69,7 @@ export class Player extends Entity {
         }
       },
       onAttack: () => {
-        const attack = this.getConstraint('attack') as Attack | undefined;
+        const attack = this.getConstraint('attack');
         if (attack) {
           attack.startAttack(this.facingDirection);
         }

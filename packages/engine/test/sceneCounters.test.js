@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 import { InputSnapshot } from '../src/core/input/snapshot.js';
 import { InputActions } from '../src/core/input/actions.js';
 import { RecordingRenderer } from '../src/testing/recordingRenderer.js';

@@ -58,7 +58,7 @@ export class TopDownPlayer extends Entity {
         this.facingDirection = direction;
       },
       onAttack: () => {
-        const attack = this.getConstraint('attack') as Attack | undefined;
+        const attack = this.getConstraint('attack');
         if (attack) {
           attack.startAttack(this.facingDirection);
         }

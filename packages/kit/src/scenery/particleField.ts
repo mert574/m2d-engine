@@ -2,7 +2,7 @@ import { s } from 'm2d-engine/schema';
 import { parseColor, type BaseRenderer } from 'm2d-engine/renderers';
 import { PARTICLE_KINDS, type M2D } from 'm2d-engine';
 import { Scenery, BACK, FRONT, hash, mod } from './scenery.ts';
-import type { ActorBody, ActorSprite, VisibleArea } from '../engineTypes.ts';
+import type { ActorBody, ActorSprite, VisibleArea, VisibleArea2D } from '../engineTypes.ts';
 
 /** The 2D kinds this module draws itself; the 3D ones are the renderer's. */
 export type FieldKind2D = 'fireflies' | 'leaves' | 'rain' | 'sparks';
@@ -146,6 +146,8 @@ export class ParticleField extends Scenery {
   }
 
   override paint(area: VisibleArea, time: number): void {
+    // 2D-only scenery (`dimensions = 2`): the area is the flat camera's.
+    const view = area as VisibleArea2D;
     const field = this.field;
     const draw = field && DRAWERS[field.kind];
     if (!field || !draw) return;
@@ -155,9 +157,10 @@ export class ParticleField extends Scenery {
 
   /** The box a 2D field fills: the view, or its own box around the entity. */
   #box(area: VisibleArea, field: Field2D): FieldBox {
+    const view = area as VisibleArea2D;
     if (field.follow !== false) {
       const margin = 40;
-      return { left: area.left - margin, top: area.top - margin, width: area.right - area.left + margin * 2, height: area.bottom - area.top + margin * 2 };
+      return { left: view.left - margin, top: view.top - margin, width: view.right - view.left + margin * 2, height: view.bottom - view.top + margin * 2 };
     }
     const at = this.renderPosition;
     return { left: at.x - field.extent.x, top: at.y - field.extent.y, width: field.extent.x * 2, height: field.extent.y * 2 };

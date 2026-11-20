@@ -27,10 +27,10 @@ import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
 import { UIMenuItem } from './ui/menuItem.js';
 import { UIBackdrop } from './ui/backdrop.js';
-import { SpawnPoint } from '../actors/spawnPoint.js';
-import { drawToolVolumes2D, addToolVolumes3D } from './toolVolumes.js';
+import { SpawnPoint } from '../actors/spawnPoint.ts';
+import { drawToolVolumes2D, addToolVolumes3D } from './toolVolumes.ts';
 import { drawNavMesh2D, addNavMesh3D } from './nav/navOverlay.js';
-import { entityInView, lightInView } from './viewCull.js';
+import { entityInView, lightInView } from './viewCull.ts';
 import { SceneValidationError } from './sceneLoader.js';
 import { SceneEffects } from './ui/sceneEffects.js';
 
@@ -73,7 +73,7 @@ export class Scene {
      * patrol walks to — without searching by name or position, and is what
      * an editor's selection resolves against. Entities spawned during play
      * are not in it: they come from `game.spawn` and have no scene object.
-     * @type {Map<string, import('./entity.js').Entity>}
+     * @type {Map<string, import('./entity.ts').Entity>}
      */
     this.entitiesById = new Map();
     /** How many of each prefab `spawnPrefab` has named, for the next id. @type {Map<string, number>} */
@@ -883,7 +883,7 @@ export class Scene {
    * @param {object} where - `{ x, y, z, width, height, depth, angle, properties, id }`.
    *   A height left out matches the width; both left out are a placed
    *   object's default size, as in a scene file
-   * @returns {import('./entity.js').Entity|null} The entity, or null for an unknown prefab
+   * @returns {import('./entity.ts').Entity|null} The entity, or null for an unknown prefab
    */
   spawnPrefab(prefab, where = {}) {
     if (!this.config.prefabs?.[prefab]) {
@@ -903,7 +903,7 @@ export class Scene {
    * The spawn point a player should come in at: the first, in scene order,
    * with no avatar inside its reach; when every one is taken, the one with
    * the fewest. Null when the level places none.
-   * @param {import('./entity.js').Entity|null} [ignore] - An avatar that does not count: the one being placed
+   * @param {import('./entity.ts').Entity|null} [ignore] - An avatar that does not count: the one being placed
    * @returns {SpawnPoint|null}
    */
   freeSpawnPoint(ignore = null) {
@@ -925,7 +925,7 @@ export class Scene {
    * Put an avatar at the first free spawn point, at rest: where a level's
    * player starts, and where a game sends a fallen one back. Returns the
    * point, or null when the level places none (and leaves it where it is).
-   * @param {import('./entity.js').Entity} avatar
+   * @param {import('./entity.ts').Entity} avatar
    * @returns {SpawnPoint|null}
    */
   placeAtSpawnPoint(avatar) {
@@ -1030,7 +1030,7 @@ export class Scene {
    * @param {string|null} id - The scene id the object had, or null for a new one
    * @param {object|null} object - The loaded object to build, or null
    * @param {{after?: string|null}} [options]
-   * @returns {import('./entity.js').Entity|null}
+   * @returns {import('./entity.ts').Entity|null}
    */
   replaceObject(id, object, { after = null } = {}) {
     if (!this.game.editMode) throw new Error('Scene.replaceObject is an edit-mode operation');
@@ -1080,7 +1080,7 @@ export class Scene {
    * retunes names no type, and until the entity exists nothing says which
    * class fills that slot.
    *
-   * @param {import('./entity.js').Entity} entity
+   * @param {import('./entity.ts').Entity} entity
    * @param {Object} [fromPrefab]
    * @param {Object} [fromObject]
    * @param {string} where - For error messages.
@@ -1134,7 +1134,7 @@ export class Scene {
    *
    * @param {object} spec - As `game.createEntity`, but `sprite` names one
    *   of this scene's sheets and `animation` is the one to start in.
-   * @returns {import('./entity.js').Entity|null}
+   * @returns {import('./entity.ts').Entity|null}
    */
   createPrefabInstance({ sprite, animation, ...spec }) {
     const entity = this.game.createEntity({

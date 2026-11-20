@@ -23,7 +23,7 @@ import type {
   ActiveCollisionTypes, ActiveEvents, CoefficientCombineRule, Collider,
   KinematicCharacterController, RigidBody, RigidBodyType
 } from '@dimforge/rapier2d-compat';
-import type { Entity } from '../entity.js';
+import type { Entity } from '../entity.ts';
 import type { PhysicsWorldBase } from './worldBase.ts';
 
 /**
@@ -238,6 +238,12 @@ export class RapierBodyMaterial {
   /** Set for a `character` body; see the backend's controller setup. */
   controller: MaterialController | null;
   entity: Entity | null;
+  /**
+   * The drawn frame when it is not the collider, set by `createEntity` for
+   * a prefab with a `footprint`: the body is the feet and the sprite
+   * stands above it. See `Entity`'s constructor, which reads it.
+   */
+  frame?: { width: number; height: number; offsetX?: number; offsetY?: number; headroom?: number } | null;
 
   /**
    * @param world - The owning PhysicsWorld.

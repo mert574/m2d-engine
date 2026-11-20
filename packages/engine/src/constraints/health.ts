@@ -1,4 +1,5 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
 import { s } from '../core/schema.ts';
 
 /**
@@ -14,17 +15,33 @@ import { s } from '../core/schema.ts';
  * alone and online, without the game writing it twice.
  */
 export class Health extends Constraint {
-  static description = 'Hit points, invulnerability after a hit, a bar; raises damage and death events';
-  static params = {
+  static override description = 'Hit points, invulnerability after a hit, a bar; raises damage and death events';
+  static override params = {
     maxHealth: s.number({ initial: 100, positive: true }),
     invulnerableDuration: s.number({ initial: 1, min: 0, unit: 's' }),
     showBar: s.boolean({ initial: true }),
     whenDead: s.enumOf(['keep', 'remove'], { initial: 'keep', label: 'When dead', description: 'remove takes the entity out of the world at zero health, so a mob needs no code; keep leaves it for the actor (a player that respawns, a door that breaks open)' })
   };
 
-  static replicated = ['currentHealth', 'maxHealth'];
+  static override replicated = ['currentHealth', 'maxHealth'];
 
-  constructor(entity, options = {}) {
+  maxHealth: number;
+  currentHealth: number;
+  invulnerableTime: number;
+  invulnerableDuration: number;
+  onDeath: (() => void) | null;
+  whenDead: 'keep' | 'remove';
+  onDamage: ((amount: number) => void) | null;
+  showBar: boolean;
+
+  constructor(entity: Entity, options: {
+    maxHealth?: number;
+    invulnerableDuration?: number;
+    onDeath?: (() => void) | null;
+    whenDead?: 'keep' | 'remove';
+    onDamage?: ((amount: number) => void) | null;
+    showBar?: boolean;
+  } = {}) {
     super(entity);
     this.maxHealth = options.maxHealth || 100;
     this.currentHealth = this.maxHealth;
@@ -39,17 +56,17 @@ export class Health extends Constraint {
     this.showBar = options.showBar ?? true;
   }
 
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     if (this.invulnerableTime > 0) {
       this.invulnerableTime -= dt;
     }
   }
 
-  isInvulnerable() {
+  isInvulnerable(): boolean {
     return this.invulnerableTime > 0;
   }
 
-  takeDamage(amount) {
+  takeDamage(amount: number): void {
     if (this.isInvulnerable()) return;
 
     const taken = Math.min(amount, this.currentHealth);
@@ -73,14 +90,14 @@ export class Health extends Constraint {
     }
   }
 
-  heal(amount) {
+  heal(amount: number): void {
     const before = this.currentHealth;
     this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
     if (this.currentHealth > before) this.#raise('heal', { amount: this.currentHealth - before });
   }
 
   /** Tell presentation, here and on every client that can see this entity. */
-  #raise(name, data) {
+  #raise(name: string, data: Record<string, unknown>): void {
     const entity = this.entity;
     const events = entity.game?.events;
     if (!events) return;
@@ -88,7 +105,7 @@ export class Health extends Constraint {
     events.emit(name, { ...data, id: entity.netId, at: { x: Math.round(x), y: Math.round(y) } });
   }
 
-  draw() {
+  override draw(): void {
     if (this.entity.dead || !this.showBar) return;
     // A full bar is noise over every entity on screen; the bar appears when
     // it carries information, which is the moment health is missing.
@@ -130,11 +147,11 @@ export class Health extends Constraint {
     });
   }
 
-  get healthPercentage() {
+  get healthPercentage(): number {
     return this.currentHealth / this.maxHealth;
   }
 
-  get isAlive() {
+  get isAlive(): boolean {
     return this.currentHealth > 0;
   }
 } 

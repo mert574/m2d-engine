@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { fakeSocket } from './helpers/net.js';
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 import { initPhysics } from '../src/core/physics/index.ts';
 import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.js';
 import { Replicator, applyState } from '../src/net/replication.js';

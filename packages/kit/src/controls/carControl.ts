@@ -293,7 +293,7 @@ export class CarControl extends Constraint {
    */
   applyBoost(speed: number): void {
     const body = this.entity.body;
-    const angle = body.angle;
+    const angle = (body as { angle: number }).angle;
     const fx = Math.cos(angle);
     const fy = Math.sin(angle);
     const velocity = body.velocity;
@@ -344,7 +344,7 @@ export class CarControl extends Constraint {
     if (boosting) this.boostLeft = Math.max(0, this.boostLeft - dt);
 
     // The car's own axes this tick.
-    const angle = body.angle;
+    const angle = (body as { angle: number }).angle;
     const fx = Math.cos(angle);
     const fy = Math.sin(angle);
     const velocity = body.velocity;

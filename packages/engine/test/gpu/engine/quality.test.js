@@ -8,7 +8,7 @@ import { SettingsMenu } from '../../../src/core/ui/settingsMenu.js';
 import { UIOptionRow } from '../../../src/core/ui/optionRow.js';
 import { Scene } from '../../../src/core/scene.js';
 import { SceneLoader, SCENE_VERSION } from '../../../src/core/sceneLoader.js';
-import { Entity } from '../../../src/core/entity.js';
+import { Entity } from '../../../src/core/entity.ts';
 import { parseGLB } from '../../../src/core/gltf.ts';
 import { initPhysics } from '../../../src/core/physics/index.ts';
 import { installWindowStub, displayCanvas, stubDocumentListeners } from '../../../src/testing/environment.js';

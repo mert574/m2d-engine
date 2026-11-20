@@ -3,13 +3,13 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 // A spy on the console is undone however the test ends, so a failure cannot mute the rest of the file.
 afterEach(() => vi.restoreAllMocks());
 
-import { Entity } from '../src/core/entity.js';
-import { Projectile } from '../src/core/projectile.js';
+import { Entity } from '../src/core/entity.ts';
+import { Projectile } from '../src/core/projectile.ts';
 import { SpriteSheet } from '../src/core/spriteSheet.ts';
-import { Health } from '../src/constraints/health.js';
-import { Debug } from '../src/constraints/debug.js';
-import { Trigger } from '../src/actors/trigger.js';
-import { drawToolVolumes2D } from '../src/core/toolVolumes.js';
+import { Health } from '../src/constraints/health.ts';
+import { Debug } from '../src/constraints/debug.ts';
+import { Trigger } from '../src/actors/trigger.ts';
+import { drawToolVolumes2D } from '../src/core/toolVolumes.ts';
 import { UIRectangle } from '../src/core/ui/Rectangle.js';
 import { PerformanceStats } from '../src/core/ui/performanceStats.js';
 import { makeTestGame, makeBody, expectBalancedStacks } from '../src/testing/testGame.js';

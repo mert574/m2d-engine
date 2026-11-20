@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { makeTestGame, makeBody } from '../src/testing/testGame.js';
-import { Entity } from '../src/core/entity.js';
-import { Grabbable } from '../src/constraints/grabbable.js';
-import { Interactive } from '../src/constraints/interactive.js';
+import { Entity } from '../src/core/entity.ts';
+import { Grabbable } from '../src/constraints/grabbable.ts';
+import { Interactive } from '../src/constraints/interactive.ts';
 import {
   advanceInputClock, click, drag, pointerDown, pointerMove, pointerUp, resetInputClock
 } from '../src/testing/input.js';

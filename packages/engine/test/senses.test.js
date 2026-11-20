@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { makeTestGame, makeBody } from '../src/testing/testGame.js';
-import { canSee, lineOfSight } from '../src/core/senses.js';
+import { canSee, lineOfSight } from '../src/core/senses.ts';
 import { CollisionLayers } from '../src/core/collisionLayers.ts';
 import { initPhysics, createPhysicsWorld } from '../src/core/physics/index.ts';
 import { Time } from '../src/core/time.ts';

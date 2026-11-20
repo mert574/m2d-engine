@@ -5,7 +5,7 @@ import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { M2D } from '../src/core/m2d.js';
 import { Scene } from '../src/core/scene.js';
 import { Camera } from '../src/core/camera.ts';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 import { SpriteSheet } from '../src/core/spriteSheet.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import * as mat from '../src/core/renderers/geometry/matrix.ts';

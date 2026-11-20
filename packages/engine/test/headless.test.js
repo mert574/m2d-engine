@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { inspect } from 'node:util';
 import { M2D } from '../src/core/m2d.js';
-import { Entity } from '../src/core/entity.js';
+import { Entity } from '../src/core/entity.ts';
 import { InputSnapshot } from '../src/core/input/snapshot.js';
 import {
   SCENE, OTHER, ARENA_ACTORS, fingerprint, CAPTURE_AT, prepareCoverage

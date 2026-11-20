@@ -221,15 +221,15 @@ export class Behavior extends Constraint {
   }
 
   #chase() {
-    return this.entity.getConstraint('chase') as any;
+    return this.entity.getConstraint('chase');
   }
 
   #path() {
-    return this.entity.getConstraint('path') as any;
+    return this.entity.getConstraint('path');
   }
 
   #attack() {
-    return this.entity.getConstraint('attack') as any;
+    return this.entity.getConstraint('attack');
   }
 
   /** The strike's trigger distance: its own, or the attack slot's reach. */

@@ -132,7 +132,12 @@ export class Turret extends Entity {
     const start = this.position;
     // Only scenery blocks sight — never another dynamic actor, and never
     // the turret itself.
-    const blockers = this.game.physics.raycast(start, targetPos, (body: { bodyType: string; entity?: { name?: string } }) =>
+    // The union's raycast signatures disagree on the body until the engine's
+    // phase 10; the receiver is cast, never the method — detached, it loses `this`.
+    const physics = this.game.physics as unknown as {
+      raycast(from: Point, to: Point, keep: (body: { bodyType: string; entity?: { name?: string } | null }) => boolean): unknown[];
+    };
+    const blockers = physics.raycast(start, targetPos, (body) =>
       body.bodyType !== 'dynamic' &&
       body !== this.body &&
       body.entity?.name === 'Platform'
@@ -167,12 +172,15 @@ export class Turret extends Entity {
     this.game.spawn({
       type: 'Rocket', x: spawnPos.x, y: spawnPos.y, width: 24, height: 8,
       physics: { friction: 0, frictionAir: 0, restitution: 0, density: 0.001 },
-      collisionMask: this.rocketMask,
       options: {
         speed: this.rocketSpeed,
         damage: this.rocketDamage,
         direction: { ...this.aimDirection },
-        maxLifetime: 6
+        maxLifetime: 6,
+        // In options: `spawn`'s spec has no collisionMask of its own, and a
+        // top-level one was silently dropped — the rocket flew with the
+        // default mask and could strike the turret's own layer.
+        collisionMask: this.rocketMask
       }
     });
   }

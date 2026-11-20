@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { InputSnapshot } from '../src/core/input/inputManager.js';
 
 import { makeTestGame, makeBody } from '../src/testing/testGame.js';
-import { Entity } from '../src/core/entity.js';
-import { Interactive } from '../src/constraints/interactive.js';
+import { Entity } from '../src/core/entity.ts';
+import { Interactive } from '../src/constraints/interactive.ts';
 import { Container } from '../src/core/ui/container.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
 import { UIScreen } from '../src/core/ui/screen.js';

@@ -1,15 +1,15 @@
-import { Entity } from '../../src/core/entity.js';
-import { Projectile } from '../../src/core/projectile.js';
-import { Health } from '../../src/constraints/health.js';
-import { Attack } from '../../src/constraints/attack.js';
-import { KeyboardControl } from '../../src/constraints/keyboardControl.js';
-import { Chase } from '../../src/constraints/chase.js';
-import { ContactDamage } from '../../src/constraints/contactDamage.js';
-import { DamageFlash } from '../../src/constraints/damageFlash.js';
-import { Hover } from '../../src/constraints/hover.js';
-import { Collectable } from '../../src/constraints/collectable.js';
-import { PathFollow } from '../../src/constraints/pathFollow.js';
-import { ProximityPrompt } from '../../src/constraints/proximityPrompt.js';
+import { Entity } from '../../src/core/entity.ts';
+import { Projectile } from '../../src/core/projectile.ts';
+import { Health } from '../../src/constraints/health.ts';
+import { Attack } from '../../src/constraints/attack.ts';
+import { KeyboardControl } from '../../src/constraints/keyboardControl.ts';
+import { Chase } from '../../src/constraints/chase.ts';
+import { ContactDamage } from '../../src/constraints/contactDamage.ts';
+import { DamageFlash } from '../../src/constraints/damageFlash.ts';
+import { Hover } from '../../src/constraints/hover.ts';
+import { Collectable } from '../../src/constraints/collectable.ts';
+import { PathFollow } from '../../src/constraints/pathFollow.ts';
+import { ProximityPrompt } from '../../src/constraints/proximityPrompt.ts';
 import { Vec2 } from '../../src/core/math.ts';
 import { s } from '../../src/core/schema.ts';
 

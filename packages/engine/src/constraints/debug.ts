@@ -1,9 +1,26 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
 import { s } from '../core/schema.ts';
 
+/** The readout's tunables, defaulted in the constructor. */
+interface DebugOptions {
+  showBounds: boolean;
+  showCenter: boolean;
+  showVelocity: boolean;
+  showHealth: boolean;
+  boundsColor: string;
+  boundsFillColor: string;
+  centerColor: string;
+  textColor: string;
+  healthyColor: string;
+  lowHealthColor: string;
+  lowHealthThreshold: number;
+  font: { size: string; family: string };
+}
+
 export class Debug extends Constraint {
-  static description = 'Draw the body, its velocity and its contacts, for debugging';
-  static params = {
+  static override description = 'Draw the body, its velocity and its contacts, for debugging';
+  static override params = {
     showBounds: s.boolean({ initial: true }),
     showCenter: s.boolean({ initial: true }),
     showVelocity: s.boolean({ initial: true }),
@@ -19,7 +36,9 @@ export class Debug extends Constraint {
     fontFamily: s.string({ initial: 'monospace', editor: 'font' })
   };
 
-  constructor(entity, options = {}) {
+  options: DebugOptions;
+
+  constructor(entity: Entity, options: Partial<Record<keyof typeof Debug.params, unknown>> & { fontSize?: string; fontFamily?: string } & Partial<DebugOptions> = {}) {
     super(entity);
     this.options = {
       showBounds: options.showBounds ?? true,
@@ -40,7 +59,7 @@ export class Debug extends Constraint {
     };
   }
 
-  draw() {
+  override draw(): void {
     if (!this.entity.game.renderer.isDebugEnabled()) return;
 
     const bounds = this.entity.renderBounds;
@@ -79,7 +98,7 @@ export class Debug extends Constraint {
     // equally legible at any resolution. The offset stacks upward, starting
     // clear of entity-specific debug info.
     let offsetY = -50;
-    const label = (text, fillStyle) => {
+    const label = (text: string, fillStyle: string) => {
       overlay.drawText({
         x: bounds.min.x,
         y: bounds.min.y,
@@ -112,9 +131,9 @@ export class Debug extends Constraint {
     }
   }
 
-  setOption(key, value) {
+  setOption(key: string, value: unknown): void {
     if (key in this.options) {
-      this.options[key] = value;
+      (this.options as unknown as Record<string, unknown>)[key] = value;
     }
   }
 } 

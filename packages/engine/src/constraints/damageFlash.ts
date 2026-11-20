@@ -1,4 +1,5 @@
-import { Constraint } from '../core/constraint.js';
+import { Constraint } from '../core/constraint.ts';
+import type { Entity } from '../core/entity.ts';
 import { s } from '../core/schema.ts';
 
 /**
@@ -11,42 +12,43 @@ import { s } from '../core/schema.ts';
  *
  * This is the plainest possible hit read; a game that wants a burst, a
  * ring or a shake draws it with a constraint of its own (see the demos'
- * `HitBurst` in `m2d-kit/effects`).
- *
- * @param {object} options
- * @param {number} [options.duration] - Flash length in seconds.
- * @param {string} [options.color] - Overlay fill.
+ * `HitBurst` in `m2d-kit/effects`). `duration` is the flash length in
+ * seconds; `color` the overlay fill.
  */
 export class DamageFlash extends Constraint {
-  static description = 'Tint the entity for a moment after it is hit';
-  static params = {
+  static override description = 'Tint the entity for a moment after it is hit';
+  static override params = {
     duration: s.number({ initial: 0.167, min: 0, unit: 's' }),
     color: s.string({ initial: 'rgba(255, 0, 0, 0.5)', editor: 'color' })
   };
 
-  constructor(entity, options = {}) {
+  duration: number;
+  color: string;
+  timeLeft: number;
+
+  constructor(entity: Entity, options: { duration?: number; color?: string } = {}) {
     super(entity);
     this.duration = options.duration ?? 0.167; // ~10 frames at 60fps
     this.color = options.color ?? 'rgba(255, 0, 0, 0.5)';
     this.timeLeft = 0;
   }
 
-  flash() {
+  flash(): void {
     this.timeLeft = this.duration;
   }
 
   /** A hit, wherever it was simulated. See core/events.js. */
-  onWorldEvent(name) {
+  override onWorldEvent(name: string): void {
     if (name === 'damage') this.flash();
   }
 
   // Presentation: the flash is drawn, never consulted by the simulation, so
   // it counts the frame's game-time delta rather than the tick.
-  update(deltaTime) {
+  override update(deltaTime: number): void {
     if (this.timeLeft > 0) this.timeLeft -= deltaTime;
   }
 
-  draw() {
+  override draw(): void {
     if (this.timeLeft <= 0) return;
     const { entity } = this;
     const pos = entity.renderPosition;

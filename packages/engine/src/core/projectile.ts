@@ -1,20 +1,56 @@
-import { Entity } from './entity.js';
+import { Entity } from './entity.ts';
 import { Vec2 } from './math.ts';
+import type { Vector2 } from './math.ts';
+import type { M2D } from './m2d.js';
+import type { PhysicsBody } from './physics/index.ts';
+import type { SpriteSheet } from './spriteSheet.ts';
+
+/** What a projectile subclass's constructor takes beside the entity's three. */
+export interface ProjectileOptions {
+  /** The project's layer name for this projectile's category. */
+  layer?: string;
+  /** Layer names it collides with; `collisionMask` is the raw-bit escape. */
+  collidesWith?: string[];
+  collisionMask?: number;
+  isSensor?: boolean;
+  /** px/s. */
+  speed?: number;
+  damage?: number;
+  direction?: Vector2;
+  /** Seconds before it removes itself. */
+  maxLifetime?: number;
+  /** Whose shot it is; never hurt and never collided with. */
+  owner?: Entity | null;
+  destroyOnWallHit?: boolean;
+  destroyOnEntityHit?: boolean;
+  /** What it hurts: entity names, or unset, the players' avatars. */
+  targetNames?: string[] | null;
+}
 
 /**
  * Base class for projectiles (rockets, bullets, arrows, etc.)
  * Handles common projectile behavior: movement, lifetime, collision, and destruction.
  */
 export class Projectile extends Entity {
-  name = 'Projectile';
+  override name = 'Projectile';
+  speed: number;
+  damage: number;
+  direction: Vector2;
+  lifetime: number;
+  maxLifetime: number;
+  owner: Entity | null;
+  destroyOnWallHit: boolean;
+  destroyOnEntityHit: boolean;
+  targetNames: string[] | null;
+  rotation: number;
 
-  constructor(body, sprite, game, options = {}) {
+  constructor(body: PhysicsBody, sprite: SpriteSheet | null, game: M2D, options: ProjectileOptions = {}) {
     // Collision filtering before super(): `layer` and `collidesWith` are
     // the project's layer names; `collisionMask` is the raw-bit escape for
     // code that computed one (the kit's turret excludes its own layer).
     body.setCollisionFilter({
-      ...(options.layer !== undefined && { category: game.collisionLayers.bit(options.layer) }),
-      mask: options.collisionMask ?? game.collisionLayers.mask(options.collidesWith)
+      ...(options.layer !== undefined && { category: game.collisionLayers!.bit(options.layer) }),
+      mask: options.collisionMask ?? game.collisionLayers!.mask(options.collidesWith)
     });
     body.isSensor = options.isSensor ?? false;
     // Projectiles are the fast movers; CCD stops them tunneling through thin
@@ -33,12 +69,7 @@ export class Projectile extends Entity {
     this.owner = options.owner ?? null;
     this.destroyOnWallHit = options.destroyOnWallHit ?? true;
     this.destroyOnEntityHit = options.destroyOnEntityHit ?? true;
-    /**
-     * What it hurts: entity names, or, when none are given, the players'
-     * avatars (`game.players.isAvatar`), which is what a turret's shot means
-     * alone and on a server alike.
-     * @type {string[]|null}
-     */
+    // What it hurts; see `ProjectileOptions.targetNames`.
     this.targetNames = options.targetNames ?? null;
 
     // Calculate rotation from direction
@@ -53,7 +84,7 @@ export class Projectile extends Entity {
     this.body.setVelocity(velocity);
   }
 
-  fixedUpdate(dt) {
+  override fixedUpdate(dt: number): void {
     if (this.dead) return;
     super.fixedUpdate(dt);
 
@@ -67,7 +98,7 @@ export class Projectile extends Entity {
     this.applyVelocity();
   }
 
-  onCollisionStart(other) {
+  override onCollisionStart(other: PhysicsBody): void {
     super.onCollisionStart(other);
 
     // Skip collision with owner
@@ -90,7 +121,7 @@ export class Projectile extends Entity {
   }
 
   /** Whether `entity` is something this projectile hurts. */
-  isTarget(entity) {
+  isTarget(entity: Entity): boolean {
     return this.targetNames ? this.targetNames.includes(entity.name) : this.game.players.isAvatar(entity);
   }
 
@@ -98,7 +129,7 @@ export class Projectile extends Entity {
    * Called when projectile hits a target entity.
    * Override to customize hit behavior.
    */
-  onHitTarget(entity) {
+  onHitTarget(entity: Entity): void {
     const health = entity.getConstraint('health');
     if (health) {
       health.takeDamage(this.damage);
@@ -109,11 +140,11 @@ export class Projectile extends Entity {
    * Called when projectile hits a wall.
    * Override to add effects like explosions.
    */
-  onHitWall(wall) {
+  onHitWall(wall: PhysicsBody): void {
     // Override in subclass for custom behavior
   }
 
-  draw() {
+  override draw(): void {
     if (this.dead) return;
 
     // Default draw: simple colored rectangle
@@ -125,7 +156,7 @@ export class Projectile extends Entity {
     renderer.popTransform();
   }
 
-  setAnimation() {
+  override setAnimation(): void {
     // No-op by default, projectiles typically draw themselves
   }
 }

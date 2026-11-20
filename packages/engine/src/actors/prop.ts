@@ -1,4 +1,7 @@
-import { Entity } from '../core/entity.js';
+import { Entity } from '../core/entity.ts';
+import type { M2D } from '../core/m2d.js';
+import type { PhysicsBody } from '../core/physics/index.ts';
+import type { SpriteSheet } from '../core/spriteSheet.ts';
 import { s } from '../core/schema.ts';
 
 /**
@@ -9,22 +12,24 @@ import { s } from '../core/schema.ts';
  * the actor an editor gives a model or an image dropped into a scene.
  */
 export class Prop extends Entity {
-  static description = 'Scenery: a placed thing that stands there, drawing its sprite or mesh';
-  static properties = {
+  static override description = 'Scenery: a placed thing that stands there, drawing its sprite or mesh';
+  static override properties = {
     color: s.string({ editor: 'color', initial: '#8b95a3', description: 'Fill of a 2D prop with no sprite' }),
     radius: s.number({ min: 0, unit: 'px', initial: 4, description: 'Corner rounding of that fill' })
   };
 
-  name = 'Prop';
+  override name = 'Prop';
+  color: string;
+  radius: number;
 
-  constructor(body, sprite, game, options = {}) {
+  constructor(body: PhysicsBody, sprite: SpriteSheet | null, game: M2D, options: { color?: string; radius?: number } = {}) {
     super(body, sprite, game);
     this.color = options.color ?? '#8b95a3';
     this.radius = options.radius ?? 4;
     if (sprite) this.setAnimation('default');
   }
 
-  draw(deltaTime) {
+  override draw(deltaTime: number): void {
     if (this.sprite?.width) {
       super.draw(deltaTime);
       return;
