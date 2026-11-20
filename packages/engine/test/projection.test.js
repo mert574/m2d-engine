@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { makeTestGame, makeBody } from '../src/testing/testGame.js';
-import { Projection } from '../src/core/projection.js';
+import { Projection } from '../src/core/projection.ts';
 import { Entity } from '../src/core/entity.js';
-import { SpriteSheet } from '../src/core/spriteSheet.js';
+import { SpriteSheet } from '../src/core/spriteSheet.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { LayerManager } from '../src/core/layerManager.js';
+import { LayerManager } from '../src/core/layerManager.ts';
 import { KeyboardControl } from '../src/constraints/keyboardControl.js';
 import { PointerMove } from '../src/constraints/pointerMove.js';
 import { InputSnapshot } from '../src/core/input/inputManager.js';

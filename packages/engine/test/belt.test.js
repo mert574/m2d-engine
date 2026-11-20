@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { makeTestGame } from '../src/testing/testGame.js';
-import { Projection } from '../src/core/projection.js';
-import { Camera } from '../src/core/camera.js';
-import { LayerManager } from '../src/core/layerManager.js';
-import { SpriteSheet } from '../src/core/spriteSheet.js';
+import { Projection } from '../src/core/projection.ts';
+import { Camera } from '../src/core/camera.ts';
+import { LayerManager } from '../src/core/layerManager.ts';
+import { SpriteSheet } from '../src/core/spriteSheet.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 
 /**

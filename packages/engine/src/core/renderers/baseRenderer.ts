@@ -59,7 +59,7 @@
 
 
 import { identityViewport, type Viewport } from '../viewport.ts';
-import type { SpriteSheet } from '../spriteSheet.js';
+import type { SpriteSheet } from '../spriteSheet.ts';
 import type { Geometry } from './geometry/primitives.ts';
 
 /**

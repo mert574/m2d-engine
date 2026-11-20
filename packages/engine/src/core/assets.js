@@ -18,7 +18,7 @@
  */
 
 import { validate } from './schema.ts';
-import { MANIFEST_SCHEMA, MANIFEST_VERSION } from './assetSchema.js';
+import { MANIFEST_SCHEMA, MANIFEST_VERSION } from './assetSchema.ts';
 
 /** An error carrying the path of the manifest field that caused it. */
 export class AssetManifestError extends Error {

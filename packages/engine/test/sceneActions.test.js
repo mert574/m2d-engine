@@ -4,7 +4,7 @@ import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentList
 import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
 import { M2D } from '../src/core/m2d.js';
 import { Scene } from '../src/core/scene.js';
-import { SpriteSheet } from '../src/core/spriteSheet.js';
+import { SpriteSheet } from '../src/core/spriteSheet.ts';
 import { SettingsMenu } from '../src/core/ui/settingsMenu.js';
 
 /**

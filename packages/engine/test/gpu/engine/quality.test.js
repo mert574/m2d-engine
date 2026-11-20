@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { Quality, qualityVariants, variantFolder, variantUrl } from '../../../src/core/quality.js';
-import { projectIssues } from '../../../src/core/projectSchema.js';
+import { Quality, qualityVariants, variantFolder, variantUrl } from '../../../src/core/quality.ts';
+import { projectIssues } from '../../../src/core/projectSchema.ts';
 import { projectOptions } from '../../../src/core/project.js';
 import { M2D } from '../../../src/core/m2d.js';
 import { SettingsMenu } from '../../../src/core/ui/settingsMenu.js';
@@ -9,7 +9,7 @@ import { UIOptionRow } from '../../../src/core/ui/optionRow.js';
 import { Scene } from '../../../src/core/scene.js';
 import { SceneLoader, SCENE_VERSION } from '../../../src/core/sceneLoader.js';
 import { Entity } from '../../../src/core/entity.js';
-import { parseGLB } from '../../../src/core/gltf.js';
+import { parseGLB } from '../../../src/core/gltf.ts';
 import { initPhysics } from '../../../src/core/physics/index.ts';
 import { installWindowStub, displayCanvas, stubDocumentListeners } from '../../../src/testing/environment.js';
 

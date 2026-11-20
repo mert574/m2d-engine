@@ -16,17 +16,45 @@
  * world it is sent) but its plain counters stay at their `initial`: the
  * rules that count run on the server, and counters are not replicated.
  */
+
+/** One counter as `world.counters` declares it. */
+export interface CounterSpec {
+  initial?: number;
+  min?: number;
+  max?: number;
+  prefab?: string;
+  count?: string;
+}
+
+/** The entities a tally counts over. `scene.js` is still JavaScript; this names what this module reads. */
+interface CountedEntity {
+  prefab?: string;
+  dead?: unknown;
+}
+
+/** The scene a tally reads, as this module touches it. */
+interface CountersScene {
+  game: { entities: Iterable<CountedEntity> };
+  config: SceneLayers;
+}
+
+/** The slice of a scene's config `placedCount` walks. */
+interface SceneLayers {
+  layers?: Array<{ objects?: Array<{ prefab?: string }> }>;
+}
+
 export class SceneCounters {
-  /**
-   * @param {import('./scene.js').Scene} scene
-   * @param {Record<string, {initial?: number, min?: number, max?: number, prefab?: string, count?: string}>} [declared]
-   */
-  constructor(scene, declared = {}) {
+  scene: CountersScene;
+  declared: Record<string, CounterSpec>;
+  /** Plain counters' values. */
+  values: Map<string, number>;
+  /** How many objects of each tallied prefab the scene placed. */
+  placed: Map<string, number>;
+
+  constructor(scene: CountersScene, declared: Record<string, CounterSpec> = {}) {
     this.scene = scene;
     this.declared = declared;
-    /** Plain counters' values. @type {Map<string, number>} */
     this.values = new Map();
-    /** How many objects of each tallied prefab the scene placed. @type {Map<string, number>} */
     this.placed = new Map();
     for (const [name, counter] of Object.entries(declared)) {
       if (counter.prefab === undefined) this.set(name, counter.initial ?? 0);
@@ -35,12 +63,12 @@ export class SceneCounters {
   }
 
   /** Whether a counter of this name is declared. */
-  has(name) {
+  has(name: string): boolean {
     return name in this.declared;
   }
 
   /** A counter's value now; 0 for one that is not declared. */
-  get(name) {
+  get(name: string): number {
     const counter = this.declared[name];
     if (!counter) return 0;
     if (counter.prefab === undefined) return this.values.get(name) ?? 0;
@@ -56,7 +84,7 @@ export class SceneCounters {
    * the end of its travel, without every rule that moves it saying so. A
    * tally is the world's to say and is left alone.
    */
-  set(name, value) {
+  set(name: string, value: number): void {
     const counter = this.declared[name];
     if (!counter || counter.prefab !== undefined) return;
     let held = value;
@@ -65,16 +93,16 @@ export class SceneCounters {
     this.values.set(name, held);
   }
 
-  add(name, amount) {
+  add(name: string, amount: number): void {
     this.set(name, this.get(name) + amount);
   }
 
   /** Every counter's value, by name: what a HUD template reads. */
-  snapshot() {
+  snapshot(): Record<string, number> {
     return Object.fromEntries(Object.keys(this.declared).map((name) => [name, this.get(name)]));
   }
 
-  #remaining(prefab) {
+  #remaining(prefab: string): number {
     let left = 0;
     for (const entity of this.scene.game.entities) {
       if (entity.prefab === prefab && !entity.dead) left++;
@@ -84,7 +112,7 @@ export class SceneCounters {
 }
 
 /** How many objects of a prefab a loaded scene places. */
-function placedCount(config, prefab) {
+function placedCount(config: SceneLayers, prefab: string): number {
   let count = 0;
   for (const layer of config.layers ?? []) {
     for (const object of layer.objects ?? []) if (object.prefab === prefab) count++;
@@ -97,7 +125,7 @@ function placedCount(config, prefab) {
  * when it has none. A name with no counter shows as written, so a typo
  * is visible on screen rather than silently zero.
  */
-export function fillTemplate(text, counters) {
+export function fillTemplate<T>(text: T, counters: Pick<SceneCounters, 'has' | 'get'> | null | undefined): T | string {
   if (typeof text !== 'string' || !text.includes('{')) return text;
-  return text.replace(/\{([A-Za-z0-9_.-]+)\}/g, (hole, name) => (counters?.has(name) ? String(counters.get(name)) : hole));
+  return text.replace(/\{([A-Za-z0-9_.-]+)\}/g, (hole, name: string) => (counters?.has(name) ? String(counters.get(name)) : hole));
 }

@@ -6,8 +6,8 @@ import { UIAbilityBar } from './ui/abilityBar.js';
 import { UIDialogue } from './ui/dialogue.js';
 import { UIImage } from './ui/Image.js';
 import { UIRectangle } from './ui/Rectangle.js';
-import { boundEntity, readBinding } from './binding.js';
-import { fillTemplate } from './counters.js';
+import { boundEntity, readBinding } from './binding.ts';
+import { fillTemplate } from './counters.ts';
 import { keyLabel } from './input/actions.js';
 
 /**

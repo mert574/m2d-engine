@@ -6,9 +6,71 @@
  * mode moves them. See `viewport.js`.
  */
 import * as mat from './renderers/geometry/matrix.ts';
+import type { Mat2D } from './renderers/geometry/matrix.ts';
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** What `follow` takes: an entity with a render anchor, or a bare `{ body }`. */
+export interface CameraTarget {
+  renderAnchor?: Point | null;
+  body?: {
+    position: Point;
+    renderPosition?: Point | null;
+    angle?: number;
+    renderAngle?: number;
+  } | null;
+}
+
+export interface CameraBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+export interface CameraOptions {
+  zoom?: number;
+  rotation?: number;
+  mode?: 'follow' | 'scroll' | 'rooms';
+  scrollVelocity?: Point;
+  roomSize?: { width: number; height: number } | null;
+  followAxes?: { x: boolean; y: boolean };
+  followRotation?: boolean;
+  rotationOffset?: number;
+  rotationLerp?: number;
+  rotationMaxRate?: number;
+  rotationDeadband?: number;
+  lerp?: number;
+  bounds?: CameraBounds | null;
+  padding?: Point;
+}
 
 export class Camera {
-  constructor(width, height, options = {}) {
+  width: number;
+  height: number;
+  x!: number;
+  y!: number;
+  zoom!: number;
+  rotation!: number;
+  target!: CameraTarget | null;
+  mode!: 'follow' | 'scroll' | 'rooms';
+  scrollVelocity!: Point;
+  roomSize!: { width: number; height: number } | null;
+  followAxes!: { x: boolean; y: boolean };
+  followRotation!: boolean;
+  rotationOffset!: number;
+  rotationLerp!: number;
+  rotationMaxRate!: number;
+  rotationDeadband!: number;
+  lerp!: number;
+  bounds!: CameraBounds | null;
+  padding!: Point;
+  scene: unknown;
+
+  constructor(width: number, height: number, options: CameraOptions = {}) {
     this.width = width;
     this.height = height;
     this.resetConfig(options);
@@ -22,7 +84,7 @@ export class Camera {
    * camera it wants in `onEnter`. `width` and `height` belong to the
    * viewport and are left alone.
    */
-  resetConfig(options = {}) {
+  resetConfig(options: CameraOptions = {}): void {
     this.x = 0;
     this.y = 0;
 
@@ -47,7 +109,6 @@ export class Camera {
      *   auto-scroller. The target, if any, is ignored.
      * - `'rooms'`: snap to the room of `roomSize` the target is in, easing
      *   between rooms; a single-screen game with room transitions.
-     * @type {'follow'|'scroll'|'rooms'}
      */
     this.mode = options.mode ?? 'follow';
     /** Render-plane units per second in `'scroll'` mode. */
@@ -85,11 +146,11 @@ export class Camera {
     this.padding = options.padding || { x: 100, y: 100 };
   }
 
-  init(scene) {
+  init(scene: unknown): void {
     this.scene = scene;
   }
 
-  follow(target) {
+  follow(target: CameraTarget | null): void {
     this.target = target;
   }
 
@@ -110,11 +171,11 @@ export class Camera {
    * frame, so at 144 Hz it closed 2.4× more gap per second than at 60 Hz
    * and the camera felt stiffer on a faster display.
    *
-   * @param {number} [deltaTime=1/60] - Wall seconds this frame. The camera
+   * @param deltaTime - Wall seconds this frame. The camera
    *   is presentation and should not slow down in slow motion; its target
    *   already moves slower.
    */
-  update(deltaTime = 1 / Camera.REFERENCE_FPS) {
+  update(deltaTime: number = 1 / Camera.REFERENCE_FPS): void {
     if (this.mode === 'scroll') {
       this.x += this.scrollVelocity.x * deltaTime;
       this.y += this.scrollVelocity.y * deltaTime;
@@ -134,7 +195,7 @@ export class Camera {
     // stair-stepping that interpolation exists to remove.
     // An entity's render anchor is its feet on the render plane, through
     // the scene's projection; a bare `{ body }` target gives its position.
-    const target = this.target.renderAnchor ?? this.target.body.renderPosition ?? this.target.body.position;
+    const target = this.target.renderAnchor ?? this.target.body!.renderPosition ?? this.target.body!.position;
     let targetX = target.x;
     let targetY = target.y;
 
@@ -174,7 +235,7 @@ export class Camera {
    * swing from wherever the camera last was. The engine snaps when a scene
    * shows, so entering a level never opens on the view easing across it.
    */
-  snap() {
+  snap(): void {
     if (!this.target || this.mode === 'scroll') return;
     if (this.followRotation) {
       const angle = this.target.body?.renderAngle ?? this.target.body?.angle;
@@ -191,7 +252,7 @@ export class Camera {
    * follow; a game that moves the camera by hand (a room snap, a zoom) can
    * call it itself so the edit cannot reveal the void past the map.
    */
-  clampToBounds() {
+  clampToBounds(): void {
     if (!this.bounds) return;
     const { width, height } = this.viewExtents();
     this.x = Camera.#clampAxis(this.x, this.bounds.left, this.bounds.right, width);
@@ -203,7 +264,7 @@ export class Camera {
    * divided by the zoom and, when the camera is rotated, grown to the box
    * that contains the turned rectangle.
    */
-  viewExtents() {
+  viewExtents(): { width: number; height: number } {
     const w = this.width / this.zoom;
     const h = this.height / this.zoom;
     if (!this.rotation) return { width: w, height: h };
@@ -217,7 +278,7 @@ export class Camera {
    * backends apply exactly this, so what `worldToScreen` computes is where
    * a point is drawn.
    */
-  get matrix() {
+  get matrix(): Mat2D {
     return mat.viewMatrix(this);
   }
 
@@ -225,10 +286,10 @@ export class Camera {
    * The fraction of the remaining distance to cover this frame so that a
    * per-frame fraction of `lerp` at `REFERENCE_FPS` is matched over any
    * frame length: `1 - (1 - lerp)^(dt · fps)`.
-   * @param {number} lerp - Per-frame fraction at the reference rate, 0..1.
-   * @param {number} deltaTime - Seconds this frame.
+   * @param lerp - Per-frame fraction at the reference rate, 0..1.
+   * @param deltaTime - Seconds this frame.
    */
-  static smoothing(lerp, deltaTime) {
+  static smoothing(lerp: number, deltaTime: number): number {
     if (lerp >= 1) return 1;
     if (lerp <= 0 || deltaTime <= 0) return 0;
     return 1 - Math.pow(1 - lerp, deltaTime * Camera.REFERENCE_FPS);
@@ -243,7 +304,7 @@ export class Camera {
    * the span is the graceful version: the whole board stays in the middle and
    * only the surrounding void grows.
    */
-  static #clampAxis(value, min, max, viewSize) {
+  static #clampAxis(value: number, min: number, max: number, viewSize: number): number {
     const lo = min + viewSize / 2;
     const hi = max - viewSize / 2;
     if (lo > hi) return (min + max) / 2;
@@ -256,7 +317,7 @@ export class Camera {
    * test is against the view's bounding box, so it can say yes to a corner
    * that is just off screen, never no to something on it.
    */
-  isVisible(x, y, width, height) {
+  isVisible(x: number, y: number, width: number, height: number): boolean {
     const area = this.getVisibleArea();
     return (
       x + width >= area.left - this.padding.x &&
@@ -267,7 +328,7 @@ export class Camera {
   }
 
   /** World position to view coordinates, (0, 0) at the view's top-left. */
-  worldToScreen(worldX, worldY) {
+  worldToScreen(worldX: number, worldY: number): Point {
     if (this.zoom === 1 && !this.rotation) {
       return {
         x: worldX - this.x + this.width / 2,
@@ -279,7 +340,7 @@ export class Camera {
   }
 
   /** View coordinates to world position. */
-  screenToWorld(screenX, screenY) {
+  screenToWorld(screenX: number, screenY: number): Point {
     if (this.zoom === 1 && !this.rotation) {
       return {
         x: screenX + this.x - this.width / 2,
@@ -297,7 +358,7 @@ export class Camera {
    * the bounding box of the turned view, so it contains everything on
    * screen plus the corners that are not.
    */
-  getVisibleArea() {
+  getVisibleArea(): CameraBounds {
     const { width, height } = this.viewExtents();
     return {
       left: this.x - width / 2,
@@ -307,8 +368,8 @@ export class Camera {
     };
   }
 
-  resize(width, height) {
+  resize(width: number, height: number): void {
     this.width = width;
     this.height = height;
   }
-} 
+}

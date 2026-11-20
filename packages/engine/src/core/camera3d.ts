@@ -1,5 +1,31 @@
 import * as mat4 from './renderers/geometry/mat4.ts';
-import { Vec3 } from './math.ts';
+import { Vec3, type Vector3 } from './math.ts';
+
+/** An entity (anything with `renderPosition` or `position`), or a point. */
+export type Camera3DTarget = Vector3 | {
+  renderPosition?: Vector3 | null;
+  body?: { renderPosition?: Vector3 | null } | null;
+  position?: Vector3 | null;
+};
+
+export interface Camera3DOptions {
+  mode?: 'orbit' | 'free';
+  fov?: number;
+  near?: number;
+  far?: number;
+  position?: Vector3;
+  lookAt?: Vector3;
+  target?: Camera3DTarget | null;
+  targetOffset?: Vector3;
+  yaw?: number;
+  pitch?: number;
+  distance?: number;
+  minDistance?: number;
+  maxDistance?: number;
+  minPitch?: number;
+  maxPitch?: number;
+  lerp?: number;
+}
 
 /**
  * The camera of a three-dimensional game: an eye, a point it looks at and
@@ -22,7 +48,32 @@ import { Vec3 } from './math.ts';
  * Presentation only: nothing here is read by the simulation.
  */
 export class Camera3D {
-  constructor(width, height, options = {}) {
+  width: number;
+  height: number;
+  view: mat4.Mat4;
+  projection: mat4.Mat4;
+  viewProjection: mat4.Mat4;
+  inverseViewProjection: mat4.Mat4;
+  mode!: 'orbit' | 'free';
+  fov!: number;
+  near!: number;
+  far!: number;
+  up!: Vector3;
+  position!: Vector3;
+  lookAt!: Vector3;
+  target!: Camera3DTarget | null;
+  targetOffset!: Vector3;
+  yaw!: number;
+  pitch!: number;
+  distance!: number;
+  minDistance!: number;
+  maxDistance!: number;
+  minPitch!: number;
+  maxPitch!: number;
+  lerp!: number;
+  scene: unknown;
+
+  constructor(width: number, height: number, options: Camera3DOptions = {}) {
     this.width = width;
     this.height = height;
     this.view = mat4.create();
@@ -40,8 +91,7 @@ export class Camera3D {
    * calls this when a scene unloads so one scene's framing never leaks
    * into the next.
    */
-  resetConfig(options = {}) {
-    /** @type {'orbit'|'free'} */
+  resetConfig(options: Camera3DOptions = {}): void {
     this.mode = options.mode ?? 'orbit';
     /** Vertical field of view, radians. */
     this.fov = options.fov ?? Math.PI / 3;
@@ -70,22 +120,22 @@ export class Camera3D {
     this.#rebuild();
   }
 
-  init(scene) {
+  init(scene: unknown): void {
     this.scene = scene;
   }
 
-  follow(target) {
+  follow(target: Camera3DTarget | null): void {
     this.target = target;
   }
 
   /** Turn an orbit camera by a drag, in radians. */
-  orbit(deltaYaw, deltaPitch) {
+  orbit(deltaYaw: number, deltaPitch: number): void {
     this.yaw += deltaYaw;
     this.pitch = Math.min(this.maxPitch, Math.max(this.minPitch, this.pitch + deltaPitch));
   }
 
   /** Move an orbit camera in or out by a factor; 1.1 is a notch out. */
-  zoom(factor) {
+  zoom(factor: number): void {
     this.distance = Math.min(this.maxDistance, Math.max(this.minDistance, this.distance * factor));
   }
 
@@ -93,18 +143,18 @@ export class Camera3D {
    * The direction the camera faces, flattened to the ground and normalised:
    * what "forward" means to a character steered relative to the view.
    */
-  get forward() {
+  get forward(): Vector3 {
     const d = Vec3.subtract(this.lookAt, this.position);
     return Vec3.normalize({ x: d.x, y: 0, z: d.z });
   }
 
   /** Forward turned a quarter to the right. */
-  get right() {
+  get right(): Vector3 {
     const f = this.forward;
     return { x: -f.z, y: 0, z: f.x };
   }
 
-  update(deltaTime = 1 / Camera3D.REFERENCE_FPS) {
+  update(deltaTime: number = 1 / Camera3D.REFERENCE_FPS): void {
     if (this.mode === 'orbit') {
       const t = this.#targetPoint();
       if (t) {
@@ -122,20 +172,20 @@ export class Camera3D {
     this.#rebuild();
   }
 
-  #targetPoint() {
-    const t = this.target;
+  #targetPoint(): Vector3 | null {
+    const t = this.target as (Partial<Vector3> & Exclude<Camera3DTarget, Vector3>) | null;
     if (!t) return null;
-    const p = t.renderPosition ?? t.body?.renderPosition ?? t.position ?? t;
+    const p = t.renderPosition ?? t.body?.renderPosition ?? t.position ?? (t as Vector3);
     return Vec3.add(p, this.targetOffset);
   }
 
-  resize(width, height) {
+  resize(width: number, height: number): void {
     this.width = width;
     this.height = height;
     this.#rebuild();
   }
 
-  #rebuild() {
+  #rebuild(): void {
     mat4.perspective(this.fov, this.width / this.height, this.near, this.far, this.projection);
     mat4.lookAt(this.position, this.lookAt, this.up, this.view);
     mat4.multiply(this.projection, this.view, this.viewProjection);
@@ -144,11 +194,10 @@ export class Camera3D {
 
   /**
    * The ray through a view point, in world space.
-   * @param {number} x - View x, 0..width
-   * @param {number} y - View y, 0..height, down
-   * @returns {{origin: {x,y,z}, direction: {x,y,z}}}
+   * @param x - View x, 0..width
+   * @param y - View y, 0..height, down
    */
-  screenToRay(x, y) {
+  screenToRay(x: number, y: number): { origin: Vector3; direction: Vector3 } {
     const nx = (x / this.width) * 2 - 1;
     const ny = 1 - (y / this.height) * 2;
     const near = mat4.transformPoint(this.inverseViewProjection, { x: nx, y: ny, z: 0 });
@@ -161,7 +210,7 @@ export class Camera3D {
    * plane through the look-at point when the ray never reaches the ground.
    * The 2D camera's `screenToWorld`, for a world with a floor.
    */
-  screenToWorld(x, y, groundY = 0) {
+  screenToWorld(x: number, y: number, groundY = 0): Vector3 {
     const { origin, direction } = this.screenToRay(x, y);
     let t = direction.y !== 0 ? (groundY - origin.y) / direction.y : -1;
     if (t < 0) t = Vec3.distance(origin, this.lookAt);
@@ -172,13 +221,13 @@ export class Camera3D {
    * A world point on the view, in view units; `z` is clip depth, so a point
    * behind the camera has `z` outside 0..1.
    */
-  worldToScreen(x, y, z = 0) {
+  worldToScreen(x: number, y: number, z = 0): Vector3 {
     const p = mat4.transformPoint(this.viewProjection, { x, y, z });
     return { x: (p.x + 1) / 2 * this.width, y: (1 - p.y) / 2 * this.height, z: p.z };
   }
 
   /** The 2D camera's view rectangle has no 3D answer; the ground under the look-at point stands in. */
-  getVisibleArea() {
+  getVisibleArea(): { x: number; y: number; width: number; height: number } {
     const r = this.distance * 2;
     return { x: this.lookAt.x - r, y: this.lookAt.z - r, width: r * 2, height: r * 2 };
   }

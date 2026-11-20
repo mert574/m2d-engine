@@ -11,7 +11,7 @@ import { PointerMove } from '../../src/constraints/pointerMove.js';
 import { Abilities } from '../../src/constraints/abilities.js';
 import { Footsteps } from '../../src/constraints/footsteps.js';
 import { InputSchema, InputGate } from '../../src/net/input.js';
-import { Rng } from '../../src/core/rng.js';
+import { Rng } from '../../src/core/rng.ts';
 import { InputSnapshot } from '../../src/core/input/snapshot.js';
 import { Bee, Coin, Ghost, MovingPlatform, Npc, ObliquePlayer, Platform, Player, TopDownPlayer, Turret } from './cast.js';
 

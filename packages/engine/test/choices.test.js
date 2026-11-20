@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Choices } from '../src/core/choices.js';
+import { Choices } from '../src/core/choices.ts';
 import { M2D } from '../src/core/m2d.js';
 import { initPhysics } from '../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';

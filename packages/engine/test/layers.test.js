@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
-import { CollisionLayers } from '../src/core/collisionLayers.js';
+import { CollisionLayers } from '../src/core/collisionLayers.ts';
 import { Health } from '../src/constraints/health.js';
 import { Attack } from '../src/constraints/attack.js';
 import { initPhysics } from '../src/core/physics/index.ts';

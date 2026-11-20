@@ -1,3 +1,27 @@
+import type { BaseRenderer, SpriteOptions, TextureSource } from './renderers/baseRenderer.ts';
+
+export interface SpriteFrame {
+  tileX: number;
+  tileY: number;
+}
+
+export interface SpriteAnimation {
+  frames: SpriteFrame[];
+  /** Frames per second; 0 holds the first frame. */
+  fps: number;
+  /** Repeat, or hold the last frame. */
+  loop: boolean;
+}
+
+/** Extra `draw` options: `drawSprite`'s, plus which animation frame to draw. */
+export type SpriteDrawOptions = Partial<Omit<SpriteOptions, 'image' | 'x' | 'y'>> & {
+  /**
+   * Which of the animation's frames to draw (default 0; legacy single-frame
+   * animations add `currentFrame` to the column instead).
+   */
+  frame?: number;
+};
+
 /**
  * One image divided into equal frames, with named animations over them.
  *
@@ -12,12 +36,25 @@
  * them is at a different point in its cycle.
  */
 export class SpriteSheet {
-  constructor(image, tileW, tileH, game, width = tileW, height = tileH) {
+  tileW: number;
+  tileH: number;
+  width: number;
+  height: number;
+  animations: Map<string, SpriteAnimation>;
+  currentFrame: number;
+  image: TextureSource;
+  loaded: boolean;
+  game: { renderer: BaseRenderer } | null | undefined;
+
+  constructor(
+    image: TextureSource, tileW: number, tileH: number,
+    game: { renderer: BaseRenderer } | null | undefined,
+    width: number = tileW, height: number = tileH
+  ) {
     this.tileW = tileW;
     this.tileH = tileH;
     this.width = width;
     this.height = height;
-    /** @type {Map<string, {frames: {tileX: number, tileY: number}[], fps: number, loop: boolean}>} */
     this.animations = new Map();
     this.currentFrame = 0;
     this.image = image;
@@ -26,7 +63,7 @@ export class SpriteSheet {
   }
 
   /** Add a frame to an animation, creating it at rate 0 if it is new. */
-  define(name, tileX, tileY) {
+  define(name: string, tileX: number, tileY: number): void {
     const animation = this.animations.get(name);
     if (animation) animation.frames.push({ tileX, tileY });
     else this.animations.set(name, { frames: [{ tileX, tileY }], fps: 0, loop: true });
@@ -34,23 +71,24 @@ export class SpriteSheet {
 
   /**
    * Set an animation's frames and rate.
-   * @param {string} name
-   * @param {Array<[number, number]|{tileX: number, tileY: number}>} frames
-   * @param {Object} [options]
-   * @param {number} [options.fps=0] - Frames per second; 0 holds the first frame
-   * @param {boolean} [options.loop=true] - Repeat, or hold the last frame
+   * @param options.fps - Frames per second; 0 holds the first frame
+   * @param options.loop - Repeat, or hold the last frame
    */
-  defineAnimation(name, frames, { fps = 0, loop = true } = {}) {
-    const list = frames.map(f => Array.isArray(f) ? { tileX: f[0], tileY: f[1] } : f);
+  defineAnimation(
+    name: string,
+    frames: ReadonlyArray<readonly [number, number] | SpriteFrame>,
+    { fps = 0, loop = true }: { fps?: number; loop?: boolean } = {}
+  ): void {
+    const list = frames.map(f => Array.isArray(f) ? { tileX: f[0], tileY: f[1] } : f as SpriteFrame);
     this.animations.set(name, { frames: list, fps, loop });
   }
 
-  has(name) {
+  has(name: string): boolean {
     return this.animations.has(name);
   }
 
   /** How many frames an animation has; 0 for an unknown one. */
-  frameCount(name) {
+  frameCount(name: string): number {
     return this.animations.get(name)?.frames.length ?? 0;
   }
 
@@ -58,7 +96,7 @@ export class SpriteSheet {
    * The frame an animation shows `time` seconds in: looping, or held on
    * the last frame. A rate of 0 shows the first frame.
    */
-  frameAt(name, time) {
+  frameAt(name: string, time: number): number {
     const animation = this.animations.get(name);
     if (!animation || animation.frames.length <= 1 || !animation.fps) return 0;
     const index = Math.floor(time * animation.fps);
@@ -68,14 +106,12 @@ export class SpriteSheet {
 
   /**
    * Draw one frame of an animation centred on `x, y`.
-   * @param {string|null} anim - Animation name; null draws column `currentFrame` of row 0
-   * @param {number} x
-   * @param {number} y
-   * @param {Object} [options] - `drawSprite` options, plus `frame`: which of
+   * @param anim - Animation name; null draws column `currentFrame` of row 0
+   * @param options - `drawSprite` options, plus `frame`: which of
    *   the animation's frames to draw (default 0; legacy single-frame
    *   animations add `currentFrame` to the column instead)
    */
-  draw(anim, x, y, options = {}) {
+  draw(anim: string | null, x: number, y: number, options: SpriteDrawOptions = {}): void {
     if (!this.loaded) return;
 
     if (!this.game) {
@@ -108,10 +144,10 @@ export class SpriteSheet {
     let tileX;
     let tileY;
     if (frames.length === 1) {
-      tileX = frames[0].tileX + this.currentFrame;
-      tileY = frames[0].tileY;
+      tileX = frames[0]!.tileX + this.currentFrame;
+      tileY = frames[0]!.tileY;
     } else {
-      const f = frames[Math.min(frames.length - 1, Math.max(0, frame ?? 0))];
+      const f = frames[Math.min(frames.length - 1, Math.max(0, frame ?? 0))]!;
       tileX = f.tileX;
       tileY = f.tileY;
     }

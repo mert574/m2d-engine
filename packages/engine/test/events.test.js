@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { WorldEvents } from '../src/core/events.js';
+import { WorldEvents } from '../src/core/events.ts';
 import { Entity } from '../src/core/entity.js';
 import { Health } from '../src/constraints/health.js';
 import { DamageFlash } from '../src/constraints/damageFlash.js';

@@ -1,4 +1,34 @@
+/** An audio element with the clip's own gain under the global volume. */
+type Clip = HTMLAudioElement & { baseVolume?: number };
+
+/** A URL, or `{ src, volume }` to give the clip its own gain. */
+export type ClipSpec = string | { src: string; volume?: number };
+
+/** The handle `loop()` returns: one live voice the game steers each frame. */
+export interface LoopHandle {
+  playing: boolean;
+  setRate(rate: number): void;
+  setVolume(volume: number): void;
+  stop(): void;
+  /** Re-read mute and sound volume; the manager calls it on changes. */
+  refresh(): void;
+}
+
 export class SoundManager {
+  sounds: Map<string, Clip>;
+  music: Map<string, Clip>;
+  currentMusic: Clip | null;
+  isMuted: boolean;
+  soundVolume: number;
+  musicVolume: number;
+  pendingMusic: string | null;
+  isInitialized: boolean;
+  /** Continuous sounds started with `loop()`, for mute and teardown. */
+  loops: Set<LoopHandle>;
+  onFirstGesture: () => void;
+  /** Loops asked for before the first gesture, started on unlock. */
+  pendingLoops?: Array<() => void>;
+
   constructor() {
     this.sounds = new Map();
     this.music = new Map();
@@ -8,7 +38,6 @@ export class SoundManager {
     this.musicVolume = 0.3;
     this.pendingMusic = null;
     this.isInitialized = false;
-    /** Continuous sounds started with `loop()`, for mute and teardown. */
     this.loops = new Set();
 
     // Browsers refuse to start audio before a user gesture, so the first
@@ -23,7 +52,7 @@ export class SoundManager {
   }
 
   /** Stop everything this manager is playing and release its listeners. */
-  destroy() {
+  destroy(): void {
     if (typeof document !== 'undefined') {
       document.removeEventListener('click', this.onFirstGesture);
       document.removeEventListener('keydown', this.onFirstGesture);
@@ -38,7 +67,7 @@ export class SoundManager {
     this.pendingMusic = null;
   }
 
-  initialize() {
+  initialize(): void {
     if (this.isInitialized) return;
     this.isInitialized = true;
 
@@ -55,23 +84,23 @@ export class SoundManager {
    * clip its own gain under the global sound volume: footsteps at 0.7,
    * a hit at 1.
    */
-  loadSound(key, file) {
+  loadSound(key: string, file: ClipSpec): void {
     const { src, volume } = SoundManager.#clip(file);
-    const audio = new Audio(src);
+    const audio: Clip = new Audio(src);
     audio.baseVolume = volume;
     this.sounds.set(key, audio);
   }
 
   /** Register a looping track; `file` as for `loadSound`. */
-  loadMusic(key, file) {
+  loadMusic(key: string, file: ClipSpec): void {
     const { src, volume } = SoundManager.#clip(file);
-    const audio = new Audio(src);
+    const audio: Clip = new Audio(src);
     audio.loop = true;
     audio.baseVolume = volume;
     this.music.set(key, audio);
   }
 
-  static #clip(file) {
+  static #clip(file: ClipSpec): { src: string; volume: number } {
     if (file && typeof file === 'object') {
       return { src: file.src, volume: Math.max(0, Math.min(1, file.volume ?? 1)) };
     }
@@ -79,17 +108,17 @@ export class SoundManager {
   }
 
   /** A track's own gain times the music volume. */
-  #musicGain(audio) {
+  #musicGain(audio: Clip): number {
     return this.musicVolume * (audio.baseVolume ?? 1);
   }
 
-  playSound(key) {
+  playSound(key: string): void {
     if (this.isMuted) return;
 
     const sound = this.sounds.get(key);
     if (!sound) return;
 
-    const clone = sound.cloneNode();
+    const clone = sound.cloneNode() as Clip;
     clone.volume = this.soundVolume * (sound.baseVolume ?? 1);
     // A few cents of random detune: the same sample twice in a row reads as
     // two events instead of a sampler being hit.
@@ -106,23 +135,20 @@ export class SoundManager {
    * the car slides. Unlike `playSound`, the element is not cloned, so the
    * loop is one voice that the game steers each frame.
    *
-   * @param {string} key - A sound loaded with `loadSound`
-   * @param {object} [options]
-   * @param {number} [options.volume=1] - 0..1, scaled by the sound volume
-   * @param {number} [options.rate=1] - Playback rate; pitch follows it
-   * @returns {{setRate: (rate: number) => void, setVolume: (volume: number) => void,
-   *   stop: () => void, playing: boolean}|null} A handle, or null when the
-   *   sound is unknown
+   * @param key - A sound loaded with `loadSound`
+   * @param options.volume - 0..1, scaled by the sound volume (default 1)
+   * @param options.rate - Playback rate; pitch follows it (default 1)
+   * @returns A handle, or null when the sound is unknown
    */
-  loop(key, options = {}) {
+  loop(key: string, options: { volume?: number; rate?: number } = {}): LoopHandle | null {
     const sound = this.sounds.get(key);
     if (!sound) return null;
-    const audio = sound.cloneNode();
+    const audio = sound.cloneNode() as Clip;
     audio.loop = true;
     audio.preservesPitch = false;
     let volume = (options.volume ?? 1) * (sound.baseVolume ?? 1);
     const manager = this;
-    const handle = {
+    const handle: LoopHandle = {
       playing: true,
       setRate(rate) {
         audio.playbackRate = Math.max(0.25, Math.min(4, rate));
@@ -137,7 +163,6 @@ export class SoundManager {
         audio.pause();
         manager.loops.delete(handle);
       },
-      /** Re-read mute and sound volume; the manager calls it on changes. */
       refresh() {
         audio.volume = manager.isMuted ? 0 : volume * manager.soundVolume;
       }
@@ -156,7 +181,7 @@ export class SoundManager {
     return handle;
   }
 
-  playMusic(key) {
+  playMusic(key: string): void {
     if (!this.isInitialized) {
       this.pendingMusic = key;
       return;
@@ -179,7 +204,7 @@ export class SoundManager {
     });
   }
 
-  stopMusic() {
+  stopMusic(): void {
     if (this.currentMusic) {
       this.currentMusic.pause();
       this.currentMusic.currentTime = 0;
@@ -187,7 +212,7 @@ export class SoundManager {
     }
   }
 
-  toggleMute() {
+  toggleMute(): void {
     this.isMuted = !this.isMuted;
     if (this.isMuted) {
       this.stopMusic();
@@ -195,15 +220,15 @@ export class SoundManager {
     for (const loop of this.loops) loop.refresh();
   }
 
-  setMusicVolume(volume) {
+  setMusicVolume(volume: number): void {
     this.musicVolume = Math.max(0, Math.min(1, volume));
     if (this.currentMusic && !this.isMuted) {
       this.currentMusic.volume = this.#musicGain(this.currentMusic);
     }
   }
 
-  setSoundVolume(volume) {
+  setSoundVolume(volume: number): void {
     this.soundVolume = Math.max(0, Math.min(1, volume));
     for (const loop of this.loops) loop.refresh();
   }
-} 
+}

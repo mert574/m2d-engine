@@ -16,7 +16,7 @@
  * used on its own and for games driving physics directly.
  */
 
-import type { Time } from '../time.js';
+import type { Time } from '../time.ts';
 import type { PhysicsBody } from './index.ts';
 
 /** Called with the two bodies involved, in no particular order. */

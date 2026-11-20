@@ -6,7 +6,7 @@ import { Health } from '../src/constraints/health.js';
 import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from '../src/testing/environment.js';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { blendLook, cycleLook, advanceCycle } from '../src/core/look.js';
+import { blendLook, cycleLook, advanceCycle } from '../src/core/look.ts';
 import { Coin } from './helpers/cast.js';
 
 /**

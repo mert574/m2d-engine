@@ -4,7 +4,7 @@ import { Entity } from '../../src/core/entity.js';
 import { initPhysics } from '../../src/core/physics/index.ts';
 import { WebGPURenderer } from '../../src/core/renderers/index.js';
 import { initWebGPU } from '../../src/core/renderers/webgpu/device.js';
-import { Camera3D } from '../../src/core/camera3d.js';
+import { Camera3D } from '../../src/core/camera3d.ts';
 import { box, plane } from '../../src/core/renderers/geometry/primitives.ts';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
 import { createCanvasElement, readWebGLPixels } from '../../src/testing/environment.js';

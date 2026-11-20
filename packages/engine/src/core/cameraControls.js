@@ -1,4 +1,4 @@
-import { Camera } from './camera.js';
+import { Camera } from './camera.ts';
 
 /**
  * The camera controls a scene asks for in `world.camera`: the mouse wheel

@@ -8,64 +8,74 @@
  * change with the new stage and the old; `objective` is the current text
  * for a HUD. Anything richer — who says what, what unlocks — lives in the
  * game and hangs off `onStage`.
- *
- * @param {Array<{id: string, objective?: string}>} stages
- * @param {Object} [hooks]
- * @param {(stage, previous) => void} [hooks.onStage]
  */
+
+export interface QuestStage {
+  id: string;
+  objective?: string;
+}
+
+export interface QuestHooks {
+  onStage?: (stage: QuestStage, previous: QuestStage) => void;
+}
+
 export class Quest {
-  constructor(stages, hooks = {}) {
+  stages: QuestStage[];
+  index: number;
+  hooks: QuestHooks;
+
+  constructor(stages: QuestStage[], hooks: QuestHooks = {}) {
     if (!stages?.length) throw new Error('A quest needs at least one stage');
     this.stages = stages;
     this.index = 0;
     this.hooks = hooks;
   }
 
-  get stage() {
-    return this.stages[this.index];
+  get stage(): QuestStage {
+    return this.stages[this.index]!;
   }
 
-  get id() {
+  get id(): string {
     return this.stage.id;
   }
 
-  get objective() {
+  get objective(): string {
     return this.stage.objective ?? '';
   }
 
-  get done() {
+  get done(): boolean {
     return this.index === this.stages.length - 1;
   }
 
   /** Whether a named stage is behind us. */
-  passed(id) {
+  passed(id: string): boolean {
     const at = this.stages.findIndex(s => s.id === id);
     return at !== -1 && at < this.index;
   }
 
-  is(id) {
+  is(id: string): boolean {
     return this.id === id;
   }
 
-  advance() {
+  advance(): boolean {
     if (this.done) return false;
     this.#goTo(this.index + 1);
     return true;
   }
 
   /** Mark a stage done: move past it if it is the current one. */
-  complete(id) {
+  complete(id: string): boolean {
     if (this.id !== id) return false;
     return this.advance();
   }
 
-  goTo(id) {
+  goTo(id: string): void {
     const at = this.stages.findIndex(s => s.id === id);
     if (at === -1) throw new Error(`Quest has no stage '${id}'`);
     this.#goTo(at);
   }
 
-  #goTo(index) {
+  #goTo(index: number): void {
     const previous = this.stage;
     this.index = index;
     this.hooks.onStage?.(this.stage, previous);

@@ -1,24 +1,24 @@
 import { createPhysicsWorld } from './physics/index.ts';
 import { Registry, BUILTIN_ACTORS, BUILTIN_CONSTRAINTS } from './builtins.js';
 
-import { CollisionLayers } from './collisionLayers.js';
+import { CollisionLayers } from './collisionLayers.ts';
 import { Nav } from './nav/nav.js';
-import { Time } from './time.js';
-import { Rng } from './rng.js';
+import { Time } from './time.ts';
+import { Rng } from './rng.ts';
 import { InputManager } from './input/index.js';
 import { InputActions } from './input/actions.js';
-import { Choices } from './choices.js';
-import { LayerManager } from './layerManager.js';
+import { Choices } from './choices.ts';
+import { LayerManager } from './layerManager.ts';
 import { AssetDatabase } from './assets.js';
 import { SceneManager } from './sceneManager.js';
-import { Camera } from './camera.js';
-import { Camera3D } from './camera3d.js';
-import { meshFor, lightFor } from './presentation3d.js';
-import { SoundManager } from './soundManager.js';
-import { ImageCache } from './imageCache.js';
+import { Camera } from './camera.ts';
+import { Camera3D } from './camera3d.ts';
+import { meshFor, lightFor } from './presentation3d.ts';
+import { SoundManager } from './soundManager.ts';
+import { ImageCache } from './imageCache.ts';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D } from './renderers/index.js';
 import { computeViewport, sameViewport, viewToUI } from './viewport.ts';
-import { showUnsupported } from './unsupported.js';
+import { showUnsupported } from './unsupported.ts';
 import { WorldOverlay } from './ui/worldOverlay.ts';
 import { Theme, createTheme } from './ui/theme.js';
 import { loadUIFonts } from './ui/fonts.js';
@@ -29,11 +29,11 @@ import { CommandRegistry, registerBuiltins } from './console/commands.js';
 import { DevConsole } from './console/devConsole.js';
 import { PerformanceStats } from './ui/performanceStats.js';
 import { presentationGuard, createHeadlessInput, SilentSound } from './headless.js';
-import { WorldEvents } from './events.js';
+import { WorldEvents } from './events.ts';
 import { baselineOf } from '../net/replication.js';
 import { Players } from './players.js';
 import { takeSnapshot, restoreSnapshot } from './snapshot.js';
-import { Quality } from './quality.js';
+import { Quality } from './quality.ts';
 
 /** Restart and menu keys on the game-over screen, by physical key code. */
 const KEY_RESTART = 'KeyR';
@@ -1368,7 +1368,7 @@ export class M2D {
    * @param {number} spec.width - Drawn size, and the collider's unless a
    *   `physics.footprint` makes the body the feet
    * @param {number} spec.height
-   * @param {import('./spriteSheet.js').SpriteSheet} [spec.spritesheet] -
+   * @param {import('./spriteSheet.ts').SpriteSheet} [spec.spritesheet] -
    *   The sheet itself, not its name; `spawn` takes the name
    * @param {object} [spec.options] - Passed to the actor; plain data
    * @param {object} [spec.physics] - Prefab physics keys

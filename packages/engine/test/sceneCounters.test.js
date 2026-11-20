@@ -7,7 +7,7 @@ import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
 import { displayCanvas, installWindowStub, stubDocumentListeners } from '../src/testing/environment.js';
 import { keyDown } from '../src/testing/input.js';
 import { SCENE_VERSION, SceneLoader } from '../src/core/sceneLoader.js';
-import { fillTemplate } from '../src/core/counters.js';
+import { fillTemplate } from '../src/core/counters.ts';
 import { Coin } from './helpers/cast.js';
 
 /**

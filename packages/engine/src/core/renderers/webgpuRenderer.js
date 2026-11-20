@@ -8,8 +8,8 @@ import {
   MAX_SPOT_SHADOWS, MAX_POINT_SHADOWS, POINT_SHADOW_NEAR, MAX_CULL_PASSES, MAX_VIEWS, CLUSTER_COUNT, CLUSTER_CAPACITY
 } from './webgpu/shaders/index.js';
 import { TextureCache3D } from './webgpu/textures.js';
-import { initBasis, bestTranscodeTarget, transcodeKTX2 } from './webgpu/basis.js';
-import { setKTX2Decoder } from '../gltf.js';
+import { initBasis, bestTranscodeTarget, transcodeKTX2 } from './webgpu/basis.ts';
+import { setKTX2Decoder } from '../gltf.ts';
 import { Environment } from './webgpu/environment.js';
 import { PostPipelines, PostPass } from './webgpu/post.js';
 import { Frame3D, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from './frame3d.ts';

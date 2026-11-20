@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 afterEach(() => vi.restoreAllMocks());
 import { defineIntents, IntentQueue, reject, int, slot, num, bool, str, oneOf, list, entity } from '../src/net/intents.js';
 import { ViolationMeter, InputSchema, InputGate } from '../src/net/input.js';
-import { Rng } from '../src/core/rng.js';
+import { Rng } from '../src/core/rng.ts';
 
 /**
  * The intent channel, attacked. A client may send any `{ seq, name, args }`

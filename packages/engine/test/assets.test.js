@@ -3,7 +3,7 @@ import { M2D } from '../src/core/m2d.js';
 import { initPhysics } from '../src/core/physics/index.ts';
 import { Entity } from '../src/core/entity.js';
 import { AssetDatabase, AssetManifestError } from '../src/core/assets.js';
-import { MANIFEST_VERSION } from '../src/core/assetSchema.js';
+import { MANIFEST_VERSION } from '../src/core/assetSchema.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { Hover } from '../src/constraints/hover.js';
 

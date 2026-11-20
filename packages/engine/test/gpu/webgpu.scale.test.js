@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { WebGPURenderer } from '../../src/core/renderers/webgpuRenderer.js';
 import { initWebGPU } from '../../src/core/renderers/webgpu/device.js';
-import { Camera3D } from '../../src/core/camera3d.js';
+import { Camera3D } from '../../src/core/camera3d.ts';
 import { box, plane, sphere } from '../../src/core/renderers/geometry/primitives.ts';
 import { StaticBatch } from '../../src/core/renderers/frame3d.ts';
 import { createCanvasElement } from '../../src/testing/environment.js';

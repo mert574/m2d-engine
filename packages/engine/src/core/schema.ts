@@ -173,50 +173,93 @@ export interface SchemaDescriptor extends SchemaOptions {
 /** A field of an object descriptor, with its key: what `fieldsOf` lists. */
 export type SchemaField = SchemaDescriptor & { key: string };
 
-function descriptor(kind: SchemaKind, options: Omit<SchemaDescriptor, 'kind'>): SchemaDescriptor {
-  return Object.freeze({ kind, ...options });
+function descriptor<K extends SchemaKind, O extends object>(kind: K, options: O): Readonly<{ kind: K } & O> {
+  return Object.freeze({ kind, ...options }) as Readonly<{ kind: K } & O>;
 }
+
+/**
+ * The document type a descriptor validates, computed from the descriptor
+ * itself: `Infer<typeof LEVEL_SCHEMA>` is the levels a loader returns.
+ *
+ * Presence follows `validate`: a field is present when it is
+ * `required: true` or has a `default`; everything else may be absent
+ * (`validate` drops an undefined result). A conditionally required field
+ * (`required` as a predicate) is optional, because the type cannot know the
+ * shape it is required in. `dynamic` and `any` infer `unknown` — the caller
+ * says what they hold, as `validate`'s own return type does.
+ */
+export type Infer<D extends SchemaDescriptor> =
+  D extends { kind: 'number' | 'integer' } ? number :
+  D extends { kind: 'string' | 'ref' } ? string :
+  D extends { kind: 'boolean' } ? boolean :
+  D extends { kind: 'enum'; values: readonly (infer V)[] } ? V :
+  D extends { kind: 'object'; fields: infer F extends Readonly<Record<string, SchemaDescriptor>> } ? InferFields<F> :
+  D extends { kind: 'record'; value: infer V extends SchemaDescriptor } ? Record<string, Infer<V>> :
+  D extends { kind: 'array'; item: infer I extends SchemaDescriptor } ? Infer<I>[] :
+  D extends { kind: 'tuple'; items: infer I extends readonly SchemaDescriptor[] } ? { -readonly [K in keyof I]: Infer<I[K] & SchemaDescriptor> } :
+  D extends { kind: 'union'; branches: infer B extends readonly SchemaDescriptor[] } ? Infer<B[number]> :
+  D extends { kind: 'tagged'; variants: infer V extends Readonly<Record<string, SchemaDescriptor>> } ? { [K in keyof V]: Infer<V[K]> }[keyof V] :
+  unknown;
+
+/** A field `validate` always leaves present: required, or defaulted. */
+type PresentKey<D> = D extends { required: true } ? true : D extends { default: unknown } ? true : false;
+
+type InferFields<F extends Readonly<Record<string, SchemaDescriptor>>> = Simplify<
+  { -readonly [K in keyof F as PresentKey<F[K]> extends true ? K : never]: Infer<F[K]> } &
+  { -readonly [K in keyof F as PresentKey<F[K]> extends true ? never : K]?: Infer<F[K]> }
+>;
+
+/** Flattens an intersection so the inferred type reads as one object. */
+type Simplify<T> = { [K in keyof T]: T[K] } & {};
 
 export const s = {
   /** A finite number. `positive: true` additionally requires > 0. */
-  number: (options: SchemaOptions = {}) => descriptor('number', options),
+  number: <const O extends SchemaOptions = {}>(options?: O) => descriptor('number', options ?? ({} as O)),
   /** A safe integer. */
-  integer: (options: SchemaOptions = {}) => descriptor('integer', options),
-  string: (options: SchemaOptions = {}) => descriptor('string', options),
-  boolean: (options: SchemaOptions = {}) => descriptor('boolean', options),
+  integer: <const O extends SchemaOptions = {}>(options?: O) => descriptor('integer', options ?? ({} as O)),
+  string: <const O extends SchemaOptions = {}>(options?: O) => descriptor('string', options ?? ({} as O)),
+  boolean: <const O extends SchemaOptions = {}>(options?: O) => descriptor('boolean', options ?? ({} as O)),
   /** One of a fixed set of values. An editor draws this as a dropdown. */
-  enumOf: (values: readonly unknown[], options: SchemaOptions = {}) => descriptor('enum', { values, ...options }),
+  enumOf: <const V extends readonly unknown[], const O extends SchemaOptions = {}>(values: V, options?: O) =>
+    descriptor('enum', { values, ...(options ?? ({} as O)) } as { values: V } & O),
   /**
    * An object with a known set of fields. Unknown keys are an error.
    * `refine(value, ctx)` runs after the fields validate, for the rules that
    * span more than one field or reach outside the object.
    */
-  object: (fields: Readonly<Record<string, SchemaDescriptor>>, options: SchemaOptions = {}) => descriptor('object', { fields, ...options }),
+  object: <const F extends Readonly<Record<string, SchemaDescriptor>>, const O extends SchemaOptions = {}>(fields: F, options?: O) =>
+    descriptor('object', { fields, ...(options ?? ({} as O)) } as { fields: F } & O),
   /** An object used as a map: arbitrary keys, one descriptor for the values. */
-  record: (value: SchemaDescriptor, options: SchemaOptions = {}) => descriptor('record', { value, ...options }),
+  record: <const V extends SchemaDescriptor, const O extends SchemaOptions = {}>(value: V, options?: O) =>
+    descriptor('record', { value, ...(options ?? ({} as O)) } as { value: V } & O),
   /** An array, every element the same descriptor. `minLength` is honoured. */
-  array: (item: SchemaDescriptor, options: SchemaOptions = {}) => descriptor('array', { item, ...options }),
+  array: <const I extends SchemaDescriptor, const O extends SchemaOptions = {}>(item: I, options?: O) =>
+    descriptor('array', { item, ...(options ?? ({} as O)) } as { item: I } & O),
   /** A fixed-length array, one descriptor per position. */
-  tuple: (items: readonly SchemaDescriptor[], options: SchemaOptions = {}) => descriptor('tuple', { items, ...options }),
+  tuple: <const I extends readonly SchemaDescriptor[], const O extends SchemaOptions = {}>(items: I, options?: O) =>
+    descriptor('tuple', { items, ...(options ?? ({} as O)) } as { items: I } & O),
   /**
    * One of several shapes. Each branch carries a `match(value)` predicate
    * choosing it; the chosen branch is then validated strictly, so a typo
    * inside a matched branch still reports as an unknown field rather than
    * collapsing into "none of these shapes fit".
    */
-  union: (branches: readonly SchemaDescriptor[], options: SchemaOptions = {}) => descriptor('union', { branches, ...options }),
+  union: <const B extends readonly SchemaDescriptor[], const O extends SchemaOptions = {}>(branches: B, options?: O) =>
+    descriptor('union', { branches, ...(options ?? ({} as O)) } as { branches: B } & O),
   /**
    * An object whose shape is chosen by the value of one of its own fields —
    * a UI element's `type`. `variants` maps tag value to object descriptor.
    */
-  tagged: (tag: string, variants: Readonly<Record<string, SchemaDescriptor>>, options: SchemaOptions = {}) => descriptor('tagged', { tag, variants, ...options }),
+  tagged: <const V extends Readonly<Record<string, SchemaDescriptor>>, const O extends SchemaOptions = {}>(tag: string, variants: V, options?: O) =>
+    descriptor('tagged', { tag, variants, ...(options ?? ({} as O)) } as { tag: string; variants: V } & O),
   /**
    * A name that must refer to something declared elsewhere: a spritesheet,
    * a prefab, a registered actor, a registered scene. `scope` names the
    * namespace, resolved against `refs` at validation time — and it is also
    * what tells an editor which picker to show.
    */
-  ref: (scope: string, options: SchemaOptions = {}) => descriptor('ref', { scope, ...options }),
+  ref: <const O extends SchemaOptions = {}>(scope: string, options?: O) =>
+    descriptor('ref', { scope, ...(options ?? ({} as O)) } as { scope: string } & O),
   /**
    * A shape chosen at validation time rather than written here: the params
    * of a constraint depend on which constraint it is, and the set of
@@ -226,9 +269,10 @@ export const s = {
    * the value unchecked — which is the honest answer when the registry
    * cannot say, as in a loader with no game attached.
    */
-  dynamic: (select: (value: unknown, ctx: SelectContext) => SchemaDescriptor | null, options: SchemaOptions = {}) => descriptor('dynamic', { select, ...options }),
+  dynamic: <const O extends SchemaOptions = {}>(select: (value: unknown, ctx: SelectContext) => SchemaDescriptor | null, options?: O) =>
+    descriptor('dynamic', { select, ...(options ?? ({} as O)) } as { select: (value: unknown, ctx: SelectContext) => SchemaDescriptor | null } & O),
   /** Anything at all. For a field the engine passes through untouched. */
-  any: (options: SchemaOptions = {}) => descriptor('any', options)
+  any: <const O extends SchemaOptions = {}>(options?: O) => descriptor('any', options ?? ({} as O))
 };
 
 /** Resolve `message`, which may be a string or a function of the value. */

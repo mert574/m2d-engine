@@ -61,10 +61,27 @@
 const STEP_EPSILON = 1e-9;
 
 /** Validate a seconds argument where NaN or a negative would silently misfire. */
-function checkSeconds(name, seconds) {
+function checkSeconds(name: string, seconds: number): void {
   if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) {
     throw new Error(`M2D time: ${name} needs a non-negative number of seconds, got ${seconds}`);
   }
+}
+
+/** What `tick` takes besides the delta. */
+export interface TickOptions {
+  /**
+   * Hold game time still: no ticks, no game-time timers. The unscaled
+   * clock, the frame counter and unscaled timers run regardless.
+   */
+  paused?: boolean;
+  /**
+   * Run once per tick with the fixed dt, after `elapsed` and `steps` have
+   * advanced and the game-time timers due at that tick have fired.
+   * Returning `false` ends the frame's ticks there and drops the rest of
+   * the accumulator, which is how the engine stops ticking a scene that is
+   * being left.
+   */
+  step?: (dt: number) => boolean | void;
 }
 
 /**
@@ -72,37 +89,41 @@ function checkSeconds(name, seconds) {
  * constructed directly.
  */
 export class Timer {
-  /**
-   * @param {Time} time
-   * @param {number} at - Clock reading the timer fires at.
-   * @param {number} interval - Seconds between repeats; 0 for a one-shot.
-   * @param {() => void} callback
-   * @param {boolean} unscaled - Count the wall clock instead of game time.
-   */
-  constructor(time, at, interval, callback, unscaled) {
+  time: Time;
+  /** Clock reading the timer fires at. */
+  at: number;
+  /** Seconds between repeats; 0 for a one-shot. */
+  interval: number;
+  callback: () => void;
+  /** Count the wall clock instead of game time. */
+  unscaled: boolean;
+  /** False once cancelled or, for a one-shot, once fired. */
+  active: boolean;
+  /** How many times the callback has run. */
+  fired: number;
+
+  constructor(time: Time, at: number, interval: number, callback: () => void, unscaled: boolean) {
     this.time = time;
     this.at = at;
     this.interval = interval;
     this.callback = callback;
     this.unscaled = unscaled;
-    /** False once cancelled or, for a one-shot, once fired. */
     this.active = true;
-    /** How many times the callback has run. */
     this.fired = 0;
   }
 
   /** The clock this timer is measured against. */
-  get clock() {
+  get clock(): number {
     return this.unscaled ? this.time.unscaledElapsed : this.time.elapsed;
   }
 
   /** Seconds until the next firing on its clock; 0 once inactive. */
-  get remaining() {
+  get remaining(): number {
     return this.active ? Math.max(0, this.at - this.clock) : 0;
   }
 
   /** Stop the timer. Idempotent. A cancelled timer never fires again. */
-  cancel() {
+  cancel(): void {
     if (!this.active) return;
     this.active = false;
     this.time.timers.delete(this);
@@ -110,69 +131,79 @@ export class Timer {
 }
 
 export class Time {
+  /** Seconds per simulation tick. Every `fixedUpdate` and every physics step sees exactly this. */
+  fixedTimestep: number;
   /**
-   * @param {object} [options]
-   * @param {number} [options.scale=1] - Multiplier on game time.
-   * @param {number} [options.fixedTimestep=1/60] - Seconds per simulation
-   *   tick. Every `fixedUpdate` and every physics step sees exactly this.
-   * @param {number} [options.maxSubSteps=6] - Most ticks one frame may run.
-   *   Bounds catch-up work after a stall so a slow frame cannot cascade
-   *   into slower ones; the backlog past it is dropped.
-   * @param {number} [options.maxDelta=0.1] - Longest frame `tick` will
-   *   account for, in seconds. A tab left in the background returns with a
-   *   multi-second delta; clamping it is what keeps that from becoming one
-   *   enormous catch-up.
+   * Most ticks one frame may run. Bounds catch-up work after a stall so a
+   * slow frame cannot cascade into slower ones; the backlog past it is
+   * dropped.
    */
-  constructor(options = {}) {
+  maxSubSteps: number;
+  /**
+   * Longest frame `tick` will account for, in seconds. A tab left in the
+   * background returns with a multi-second delta; clamping it is what keeps
+   * that from becoming one enormous catch-up.
+   */
+  maxDelta: number;
+  /** Seconds of game time this frame: scaled, and 0 while paused. */
+  delta: number;
+  /** Seconds of wall time this frame, after the `maxDelta` clamp. */
+  unscaledDelta: number;
+  /**
+   * Simulation time since start or the last `reset`, in seconds. Advances
+   * by `fixedTimestep` per tick, so it is always `steps × fixedTimestep`.
+   */
+  elapsed: number;
+  /** Wall time since start or the last `reset`, in seconds. */
+  unscaledElapsed: number;
+  /** Frames ticked. */
+  frame: number;
+  /**
+   * Simulation ticks run. The simulation's own clock: the number netcode,
+   * replays and snapshots key on.
+   */
+  steps: number;
+  /** Game time paid in but not yet spent on a whole tick. */
+  accumulator: number;
+  /** Whether the last `tick` was a paused one. */
+  paused: boolean;
+  /** True while a tick runs: its game-time timers and its step callback. */
+  inStep: boolean;
+  timers: Set<Timer>;
+
+  constructor(options: { scale?: number; fixedTimestep?: number; maxSubSteps?: number; maxDelta?: number } = {}) {
     this.fixedTimestep = options.fixedTimestep ?? 1 / 60;
     this.maxSubSteps = options.maxSubSteps ?? 6;
     this.maxDelta = options.maxDelta ?? 0.1;
     this.#scale = 1;
     this.scale = options.scale ?? 1;
 
-    /** Seconds of game time this frame: scaled, and 0 while paused. */
     this.delta = 0;
-    /** Seconds of wall time this frame, after the `maxDelta` clamp. */
     this.unscaledDelta = 0;
-    /**
-     * Simulation time since start or the last `reset`, in seconds. Advances
-     * by `fixedTimestep` per tick, so it is always `steps × fixedTimestep`.
-     */
     this.elapsed = 0;
-    /** Wall time since start or the last `reset`, in seconds. */
     this.unscaledElapsed = 0;
-    /** Frames ticked. */
     this.frame = 0;
-    /**
-     * Simulation ticks run. The simulation's own clock: the number netcode,
-     * replays and snapshots key on.
-     */
     this.steps = 0;
-    /** Game time paid in but not yet spent on a whole tick. */
     this.accumulator = 0;
-    /** Whether the last `tick` was a paused one. */
     this.paused = false;
-    /** True while a tick runs: its game-time timers and its step callback. */
     this.inStep = false;
 
-    /** @type {Set<Timer>} */
     this.timers = new Set();
   }
 
-  #scale;
+  #scale: number;
 
   /**
    * Multiplier on game time. 1 is real time, 0.5 slow motion, 0 freezes
    * game time without pausing. Slow motion means fewer ticks per second;
    * each tick's dt never changes. The physics world reads this through its
    * own `timeScale`, so there is one knob.
-   * @type {number}
    */
-  get scale() {
+  get scale(): number {
     return this.#scale;
   }
 
-  set scale(value) {
+  set scale(value: number) {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
       throw new Error(`M2D time: scale needs a non-negative number, got ${value}`);
     }
@@ -180,7 +211,7 @@ export class Time {
   }
 
   /** `fixedTimestep` under the name game code reads inside a tick. */
-  get fixedDelta() {
+  get fixedDelta(): number {
     return this.fixedTimestep;
   }
 
@@ -189,7 +220,7 @@ export class Time {
    * [0, 1]. Bodies blend by this to draw smoothly on displays faster than
    * the tick rate.
    */
-  get interpolation() {
+  get interpolation(): number {
     return Math.min(1, this.accumulator / this.fixedTimestep);
   }
 
@@ -197,20 +228,10 @@ export class Time {
    * Advance one frame: both clocks, the ticks the frame paid for and the
    * timers that came due.
    *
-   * @param {number} rawDelta - Wall seconds since the previous tick. Clamped
-   *   to `maxDelta`.
-   * @param {object} [options]
-   * @param {boolean} [options.paused=false] - Hold game time still: no
-   *   ticks, no game-time timers. The unscaled clock, the frame counter and
-   *   unscaled timers run regardless.
-   * @param {(dt: number) => boolean|void} [options.step] - Run once per
-   *   tick with the fixed dt, after `elapsed` and `steps` have advanced and
-   *   the game-time timers due at that tick have fired. Returning `false`
-   *   ends the frame's ticks there and drops the rest of the accumulator,
-   *   which is how the engine stops ticking a scene that is being left.
-   * @returns {number} Ticks run this frame.
+   * `rawDelta` is wall seconds since the previous tick, clamped to
+   * `maxDelta`. Returns the ticks run this frame.
    */
-  tick(rawDelta, { paused = false, step } = {}) {
+  tick(rawDelta: number, { paused = false, step }: TickOptions = {}): number {
     const unscaled = Math.min(Math.max(0, rawDelta || 0), this.maxDelta);
     this.paused = paused;
     this.unscaledDelta = unscaled;
@@ -229,15 +250,14 @@ export class Time {
   /**
    * Run exactly one tick regardless of the accumulator: a debugger's step
    * button, or a loop that drives ticks itself (a replay, a lockstep peer).
-   * @param {(dt: number) => boolean|void} [step]
-   * @returns {boolean|void} What the step callback returned.
+   * Returns what the step callback returned.
    */
-  stepOnce(step) {
+  stepOnce(step?: (dt: number) => boolean | void): boolean | void {
     return this.#step(step);
   }
 
   /** Spend the accumulator in whole ticks, up to the budget. */
-  #runSteps(step) {
+  #runSteps(step?: (dt: number) => boolean | void): number {
     const dt = this.fixedTimestep;
     let ticks = 0;
     while (this.accumulator + STEP_EPSILON >= dt && ticks < this.maxSubSteps) {
@@ -254,7 +274,7 @@ export class Time {
     return ticks;
   }
 
-  #step(step) {
+  #step(step?: (dt: number) => boolean | void): boolean | void {
     this.elapsed += this.fixedTimestep;
     this.steps += 1;
     this.inStep = true;
@@ -271,34 +291,23 @@ export class Time {
 
   /**
    * Run a callback once after `seconds` of game time, on the first tick at
-   * or past the deadline.
-   *
-   * @param {number} seconds
-   * @param {() => void} callback
-   * @param {object} [options]
-   * @param {boolean} [options.unscaled=false] - Count wall time instead, so
-   *   the timer runs through a pause, ignores the time scale and fires per
-   *   frame rather than per tick.
-   * @returns {Timer}
+   * or past the deadline. `unscaled` counts wall time instead, so the
+   * timer runs through a pause, ignores the time scale and fires per frame
+   * rather than per tick.
    */
-  after(seconds, callback, { unscaled = false } = {}) {
+  after(seconds: number, callback: () => void, { unscaled = false }: { unscaled?: boolean } = {}): Timer {
     checkSeconds('after', seconds);
     return this.#schedule(seconds, 0, callback, unscaled);
   }
 
   /**
-   * Run a callback every `seconds` of game time until cancelled.
+   * Run a callback every `seconds` of game time until cancelled. `seconds`
+   * must be greater than 0.
    *
    * An interval shorter than a tick fires once per tick and realigns to the
    * clock, so a stalled frame produces one call per tick, not a burst.
-   *
-   * @param {number} seconds - Must be greater than 0.
-   * @param {() => void} callback
-   * @param {object} [options]
-   * @param {boolean} [options.unscaled=false] - Count wall time instead.
-   * @returns {Timer}
    */
-  every(seconds, callback, { unscaled = false } = {}) {
+  every(seconds: number, callback: () => void, { unscaled = false }: { unscaled?: boolean } = {}): Timer {
     checkSeconds('every', seconds);
     if (seconds === 0) throw new Error('M2D time: every() needs an interval greater than 0');
     return this.#schedule(seconds, seconds, callback, unscaled);
@@ -315,15 +324,10 @@ export class Time {
    * whole frame has finished, after however many more ticks that frame
    * ran. Use it for presentation and scene flow (a banner, a switch). Code
    * that changes the simulation belongs in an `after` callback.
-   *
-   * @param {number} seconds
-   * @param {object} [options]
-   * @param {boolean} [options.unscaled=false]
-   * @returns {Promise<boolean> & {timer: Timer}}
    */
-  wait(seconds, options = {}) {
-    let timer;
-    const promise = new Promise((resolve) => {
+  wait(seconds: number, options: { unscaled?: boolean } = {}): Promise<boolean> & { timer: Timer } {
+    let timer!: Timer;
+    const promise = new Promise<boolean>((resolve) => {
       timer = this.after(seconds, () => resolve(true), options);
       const cancel = timer.cancel.bind(timer);
       timer.cancel = () => {
@@ -332,17 +336,16 @@ export class Time {
         if (wasActive) resolve(false);
       };
     });
-    promise.timer = timer;
-    return promise;
+    return Object.assign(promise, { timer });
   }
 
   /** Cancel every timer. The clocks are untouched. */
-  clear() {
+  clear(): void {
     for (const timer of [...this.timers]) timer.cancel();
   }
 
   /** Number of timers waiting to fire. */
-  get activeCount() {
+  get activeCount(): number {
     return this.timers.size;
   }
 
@@ -351,7 +354,7 @@ export class Time {
    * timer. The time scale and the step settings survive. The engine calls
    * this from `game.reset()`.
    */
-  reset() {
+  reset(): void {
     this.clear();
     this.delta = 0;
     this.unscaledDelta = 0;
@@ -363,7 +366,7 @@ export class Time {
     this.paused = false;
   }
 
-  #schedule(seconds, interval, callback, unscaled) {
+  #schedule(seconds: number, interval: number, callback: () => void, unscaled: boolean): Timer {
     if (typeof callback !== 'function') {
       throw new Error('M2D time: a timer needs a callback function');
     }
@@ -379,9 +382,9 @@ export class Time {
    * deadline is measured from a clock that has already moved on, and
    * running them now would let a zero-delay timer re-arm itself forever.
    */
-  #fireDue(unscaled) {
+  #fireDue(unscaled: boolean): void {
     if (this.timers.size === 0) return;
-    const due = [];
+    const due: Timer[] = [];
     for (const timer of this.timers) {
       if (timer.unscaled === unscaled && timer.at <= timer.clock + STEP_EPSILON) due.push(timer);
     }

@@ -8,52 +8,64 @@
  * server replicates. A choice is the game's; a setting (the renderer, the
  * volume) is the engine's and lives in a cvar.
  */
+/** What a choice may hold. */
+export type ChoiceValue = string | number | boolean;
+
+/** A choice as the project declares it. */
+export interface ChoiceSpec {
+  values: ChoiceValue[];
+  initial: ChoiceValue;
+}
+
 export class Choices {
-  /**
-   * @param {Record<string, { values: Array<string|number|boolean>, initial: string|number|boolean }>} [declared]
-   * @param {object} [options]
-   * @param {string|null} [options.storageKey] - Where the player's choices are kept; null keeps none
-   * @param {(name: string, value: string|number|boolean) => void} [options.onChange]
-   */
-  constructor(declared = {}, { storageKey = null, onChange = null } = {}) {
+  declared: Record<string, ChoiceSpec>;
+  /** Where the player's choices are kept; null keeps none. */
+  storageKey: string | null;
+  onChange: ((name: string, value: ChoiceValue) => void) | null;
+  current: Map<string, ChoiceValue>;
+
+  constructor(
+    declared: Record<string, ChoiceSpec> = {},
+    { storageKey = null, onChange = null }: { storageKey?: string | null; onChange?: ((name: string, value: ChoiceValue) => void) | null } = {}
+  ) {
     this.declared = structuredClone(declared);
     for (const choice of Object.values(this.declared)) Object.freeze(choice.values);
     this.storageKey = storageKey;
     this.onChange = onChange;
-    /** @type {Map<string, string|number|boolean>} */
     this.current = new Map(Object.entries(declared).map(([name, choice]) => [name, choice.initial]));
     for (const [name, value] of Object.entries(this.#stored())) {
-      if (this.has(name) && this.values(name).includes(value)) this.current.set(name, value);
+      // `includes` is the proof the stored value is one the project offers.
+      if (this.has(name) && (this.values(name) as unknown[]).includes(value)) this.current.set(name, value as ChoiceValue);
     }
   }
 
   /** Every choice's name, in declaration order. */
-  get names() {
+  get names(): string[] {
     return [...this.current.keys()];
   }
 
-  has(name) {
+  has(name: string): boolean {
     return this.current.has(name);
   }
 
   /** What a choice may be set to; empty for one not declared. */
-  values(name) {
+  values(name: string): ChoiceValue[] {
     return this.declared[name]?.values ?? [];
   }
 
-  get(name) {
+  get(name: string): ChoiceValue {
     this.#known(name);
-    return this.current.get(name);
+    return this.current.get(name)!;
   }
 
   /** What a choice starts at. */
-  initial(name) {
+  initial(name: string): ChoiceValue {
     this.#known(name);
-    return this.declared[name].initial;
+    return this.declared[name]!.initial;
   }
 
   /** Record a choice, and keep it. Refused for a value the project did not offer. */
-  set(name, value) {
+  set(name: string, value: ChoiceValue): void {
     this.#known(name);
     const allowed = this.values(name);
     if (!allowed.includes(value)) throw new Error(`M2D choices: '${name}' cannot be ${JSON.stringify(value)} (offered: ${allowed.map((v) => JSON.stringify(v)).join(', ')})`);
@@ -63,30 +75,30 @@ export class Choices {
   }
 
   /** Every choice as it stands, as a plain record: what the local player's state starts with. */
-  get all() {
+  get all(): Record<string, ChoiceValue> {
     return Object.fromEntries(this.current);
   }
 
   /** Every choice at its initial: what a player who joins from elsewhere starts with. */
-  get initials() {
+  get initials(): Record<string, ChoiceValue> {
     return Object.fromEntries(Object.entries(this.declared).map(([name, choice]) => [name, choice.initial]));
   }
 
-  #known(name) {
+  #known(name: string): void {
     if (!this.has(name)) throw new Error(`M2D choices: no choice named '${name}' (declared: ${this.names.join(', ') || 'none'})`);
   }
 
-  #stored() {
+  #stored(): Record<string, unknown> {
     if (!this.storageKey || typeof localStorage === 'undefined') return {};
     try {
-      const value = JSON.parse(localStorage.getItem(this.storageKey) ?? '{}');
-      return value && typeof value === 'object' ? value : {};
+      const value: unknown = JSON.parse(localStorage.getItem(this.storageKey) ?? '{}');
+      return value && typeof value === 'object' ? value as Record<string, unknown> : {};
     } catch {
       return {};
     }
   }
 
-  #store() {
+  #store(): void {
     if (!this.storageKey || typeof localStorage === 'undefined') return;
     // Every choice, the ones that match today's initial included: a player
     // who picked the default meant it, and the default may change. Another

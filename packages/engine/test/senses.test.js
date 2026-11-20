@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { canSee, lineOfSight } from '../src/core/senses.js';
-import { CollisionLayers } from '../src/core/collisionLayers.js';
+import { CollisionLayers } from '../src/core/collisionLayers.ts';
 import { initPhysics, createPhysicsWorld } from '../src/core/physics/index.ts';
-import { Time } from '../src/core/time.js';
+import { Time } from '../src/core/time.ts';
 
 /**
  * Sight: the pure query NPC senses stand on. A viewer sees what is in

@@ -1,22 +1,22 @@
-import { SpriteSheet } from './spriteSheet.js';
+import { SpriteSheet } from './spriteSheet.ts';
 import { validate } from './schema.ts';
 import { constraintParamsSchema, actorPropertyFields, DEFAULT_OBJECT_SIZE } from './sceneSchema.js';
-import { Projection } from './projection.js';
+import { Projection } from './projection.ts';
 import { geometryFor } from './renderers/geometry/primitives.ts';
-import { placeLight, instanceEmissive, toLinear } from './presentation3d.js';
+import { placeLight, instanceEmissive, toLinear } from './presentation3d.ts';
 import { parseColor } from './renderers/geometry/color.ts';
-import { SceneRules } from './rules.js';
+import { SceneRules } from './rules.ts';
 import { SceneHud, sceneButton } from './hud.js';
-import { SceneCounters } from './counters.js';
+import { SceneCounters } from './counters.ts';
 import { CameraControls, CONTROL_KEYS } from './cameraControls.js';
-import { bindingRatio } from './binding.js';
+import { bindingRatio } from './binding.ts';
 import { SceneProps } from './sceneProps.js';
-import { Path } from './path.js';
-import { withParticleDefaults } from './particles.js';
-import { cycleLook, advanceCycle } from './look.js';
-import { lodFor } from './gltf.js';
-import { loadHDR } from './hdr.js';
-import { Animator3D } from './animator3d.js';
+import { Path } from './path.ts';
+import { withParticleDefaults } from './particles.ts';
+import { cycleLook, advanceCycle } from './look.ts';
+import { lodFor } from './gltf.ts';
+import { loadHDR } from './hdr.ts';
+import { Animator3D } from './animator3d.ts';
 import { Quat } from './math.ts';
 import * as mat4 from './renderers/geometry/mat4.ts';
 import { presentationGuard } from './headless.js';
@@ -55,7 +55,7 @@ export class Scene {
     this.config = config;
     this.sprites = new Map();
     this.spriteSheets = new Map();
-    /** Models from `assets.models`, by key, once loaded. @type {Map<string, import('./gltf.js').Model>} */
+    /** Models from `assets.models`, by key, once loaded. @type {Map<string, import('./gltf.ts').Model>} */
     this.models = new Map();
     /** HDR panoramas from `assets.environments`, by key; hand one to `frame.environment`. @type {Map<string, {image: object, intensity: number}>} */
     this.environments = new Map();

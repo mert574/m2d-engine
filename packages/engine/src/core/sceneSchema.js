@@ -23,8 +23,8 @@
 
 import { s } from './schema.ts';
 import { ANCHOR_ORIGINS } from './ui/uiElement.js';
-import { PROJECTION_TYPES } from './projection.js';
-import { choiceValue } from './projectSchema.js';
+import { PROJECTION_TYPES } from './projection.ts';
+import { choiceValue } from './projectSchema.ts';
 
 /**
  * The scene format version this engine reads and writes. A scene declares

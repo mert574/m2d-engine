@@ -20,7 +20,7 @@
  * same. See `assets.js` for the database and `sceneSchema.js` for `uses`.
  */
 
-import { s } from './schema.ts';
+import { s, type SchemaOptions, type RefineContext } from './schema.ts';
 
 /** The only asset manifest version this engine understands. */
 export const MANIFEST_VERSION = 1;
@@ -35,12 +35,12 @@ export const ASSET_TYPES = ['spritesheet', 'prefab', 'model', 'environment'];
  */
 const UID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 
-const uid = (options = {}) => s.string({
+const uid = (options: SchemaOptions = {}) => s.string({
   pattern: UID_PATTERN,
   nonEmpty: true,
   editor: 'asset',
   ...options,
-  message: value => (typeof value === 'string' && value
+  message: (value: unknown) => (typeof value === 'string' && value
     ? `'${value}' is not a valid uid: letters, digits, '-', '_' and '.', starting with a letter or digit`
     : 'missing or non-string uid')
 });
@@ -120,7 +120,7 @@ const ASSET = s.tagged('type', {
     data: PREFAB_DATA
   })
 }, {
-  message: value => `unknown asset type ${JSON.stringify(value)} (known: ${ASSET_TYPES.join(', ')})`
+  message: (value: unknown) => `unknown asset type ${JSON.stringify(value)} (known: ${ASSET_TYPES.join(', ')})`
 });
 
 export const MANIFEST_SCHEMA = s.object({
@@ -133,7 +133,7 @@ export const MANIFEST_SCHEMA = s.object({
   basePath: s.string({ label: 'Base path' }),
   assets: s.record(ASSET, { required: true })
 }, {
-  refine(manifest, { fail }) {
+  refine(manifest: { assets: Record<string, { type: string; data: { spritesheet?: string | null } }> }, { fail }: RefineContext) {
     for (const [id, asset] of Object.entries(manifest.assets)) {
       if (!UID_PATTERN.test(id)) {
         fail(`assets.${id}`, `'${id}' is not a valid uid: letters, digits, '-', '_' and '.', ` +
@@ -145,9 +145,9 @@ export const MANIFEST_SCHEMA = s.object({
       if (sheet && !(sheet in manifest.assets)) {
         fail(`assets.${id}.data.spritesheet`, `no asset with uid '${sheet}'`);
       }
-      if (sheet && manifest.assets[sheet].type !== 'spritesheet') {
+      if (sheet && manifest.assets[sheet]!.type !== 'spritesheet') {
         fail(`assets.${id}.data.spritesheet`,
-          `asset '${sheet}' is a ${manifest.assets[sheet].type}, not a spritesheet`);
+          `asset '${sheet}' is a ${manifest.assets[sheet]!.type}, not a spritesheet`);
       }
     }
   }

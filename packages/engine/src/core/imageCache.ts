@@ -20,23 +20,21 @@
  * - Headless there are no images at all and nothing reaches this.
  */
 export class ImageCache {
+  images: Map<string, Promise<HTMLImageElement>>;
+  /** How many images this cache has actually decoded; a hit does not raise it. */
+  decodes: number;
+
   constructor() {
-    /** @type {Map<string, Promise<HTMLImageElement>>} */
     this.images = new Map();
-    /** How many images this cache has actually decoded; a hit does not raise it. */
     this.decodes = 0;
   }
 
-  /**
-   * The decoded image at `url`, decoding it the first time it is asked for.
-   * @param {string} url
-   * @returns {Promise<HTMLImageElement>}
-   */
-  load(url) {
+  /** The decoded image at `url`, decoding it the first time it is asked for. */
+  load(url: string): Promise<HTMLImageElement> {
     const cached = this.images.get(url);
     if (cached) return cached;
     this.decodes++;
-    const pending = new Promise((resolve, reject) => {
+    const pending = new Promise<HTMLImageElement>((resolve, reject) => {
       const image = new window.Image();
       image.onload = () => resolve(image);
       image.onerror = (error) => reject(error);
@@ -51,11 +49,11 @@ export class ImageCache {
   }
 
   /** How many images are held. */
-  get size() {
+  get size(): number {
     return this.images.size;
   }
 
-  clear() {
+  clear(): void {
     this.images.clear();
   }
 }

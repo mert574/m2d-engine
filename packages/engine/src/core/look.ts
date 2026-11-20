@@ -11,14 +11,26 @@ import { parseColor } from './renderers/geometry/color.ts';
 
 const COLOUR = /^(#|rgb|hsl)/i;
 
-export function blendLook(a, b, t) {
+/** A value a look block holds: scene data, blended recursively. */
+export type LookValue = unknown;
+
+/** A look block as a scene writes it: keys to scene data. */
+export type LookBlock = Record<string, LookValue>;
+
+/** One state of a cycle: the blocks it lays over the level's resting look. */
+export interface CycleState {
+  lighting?: LookBlock;
+  post?: LookBlock;
+}
+
+export function blendLook(a: LookValue, b: LookValue, t: number): LookValue {
   if (a === b || t <= 0 || b === undefined) return a;
   if (t >= 1 || a === undefined) return b;
   if (typeof a === 'number' && typeof b === 'number') return a + (b - a) * t;
   if (typeof a === 'string' && typeof b === 'string' && COLOUR.test(a) && COLOUR.test(b)) {
     const [r1, g1, b1, a1 = 1] = parseColor(a);
     const [r2, g2, b2, a2 = 1] = parseColor(b);
-    const mix = (x, y) => Math.round((x + (y - x) * t) * 255);
+    const mix = (x: number, y: number) => Math.round((x + (y - x) * t) * 255);
     const alpha = a1 + (a2 - a1) * t;
     return alpha >= 0.999 ? `rgb(${mix(r1, r2)}, ${mix(g1, g2)}, ${mix(b1, b2)})` : `rgba(${mix(r1, r2)}, ${mix(g1, g2)}, ${mix(b1, b2)}, ${Math.round(alpha * 1000) / 1000})`;
   }
@@ -27,8 +39,10 @@ export function blendLook(a, b, t) {
     return Array.from({ length: n }, (_, i) => blendLook(a[i], b[i], t));
   }
   if (a && b && typeof a === 'object' && typeof b === 'object') {
-    const out = {};
-    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) out[key] = blendLook(a[key], b[key], t);
+    const out: LookBlock = {};
+    const left = a as LookBlock;
+    const right = b as LookBlock;
+    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) out[key] = blendLook(left[key], right[key], t);
     return out;
   }
   return t < 0.5 ? a : b;
@@ -39,19 +53,24 @@ export function blendLook(a, b, t) {
  * the last back to the first. Each state's `lighting` and `post` lie over
  * the level's resting ones, so a state names only what moves.
  */
-export function cycleLook(cycle, phase, resting = {}) {
+export function cycleLook(
+  cycle: { states?: CycleState[] } | null | undefined,
+  phase: number,
+  resting: CycleState = {}
+): { lighting: LookBlock | undefined; post: LookBlock | undefined } {
   const states = cycle?.states ?? [];
   if (!states.length) return { lighting: resting.lighting, post: resting.post };
   const n = states.length;
   const wrapped = ((phase % n) + n) % n;
   const i = Math.floor(wrapped);
   const t = wrapped - i;
-  const from = states[i];
-  const to = states[(i + 1) % n];
-  const blend = (key) => {
+  const from = states[i]!;
+  const to = states[(i + 1) % n]!;
+  // Both operands are objects (the spreads), so the blend is one too.
+  const blend = (key: 'lighting' | 'post'): LookBlock => {
     const a = { ...resting[key], ...from[key] };
     const b = { ...resting[key], ...to[key] };
-    return blendLook(a, b, t);
+    return blendLook(a, b, t) as LookBlock;
   };
   return { lighting: blend('lighting'), post: blend('post') };
 }
@@ -61,7 +80,10 @@ export function cycleLook(cycle, phase, resting = {}) {
  * seconds per revolution when one is set, else easing toward `target` at
  * `ease` per second (an exponential approach, frame-rate independent).
  */
-export function advanceCycle(state, dt) {
+export function advanceCycle(
+  state: { count: number; phase: number; period: number; target: number; ease?: number },
+  dt: number
+): number {
   const n = state.count;
   if (n < 2) return state.phase;
   if (state.period > 0) return (((state.phase + (dt * n) / state.period) % n) + n) % n;

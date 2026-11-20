@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { WebGPURenderer } from '../../src/core/renderers/webgpuRenderer.js';
 import { initWebGPU } from '../../src/core/renderers/webgpu/device.js';
 import { initPhysics } from '../../src/core/physics/index.ts';
-import { Camera3D } from '../../src/core/camera3d.js';
+import { Camera3D } from '../../src/core/camera3d.ts';
 import { plane, box } from '../../src/core/renderers/geometry/primitives.ts';
 import { M2D } from '../../src/core/m2d.js';
 import { Entity } from '../../src/core/entity.js';

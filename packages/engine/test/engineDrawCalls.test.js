@@ -5,7 +5,7 @@ afterEach(() => vi.restoreAllMocks());
 
 import { Entity } from '../src/core/entity.js';
 import { Projectile } from '../src/core/projectile.js';
-import { SpriteSheet } from '../src/core/spriteSheet.js';
+import { SpriteSheet } from '../src/core/spriteSheet.ts';
 import { Health } from '../src/constraints/health.js';
 import { Debug } from '../src/constraints/debug.js';
 import { Trigger } from '../src/actors/trigger.js';

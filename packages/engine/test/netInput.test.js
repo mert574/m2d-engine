@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { InputSchema, InputGate } from '../src/net/input.js';
 import { snapHeading } from '../src/core/input/snapshot.js';
 import { InputSnapshot } from '../src/core/input/snapshot.js';
-import { Rng } from '../src/core/rng.js';
+import { Rng } from '../src/core/rng.ts';
 
 /**
  * The server's input gate, attacked. Every message here is something a

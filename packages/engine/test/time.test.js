@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Time } from '../src/core/time.js';
+import { Time } from '../src/core/time.ts';
 import { createPhysicsWorld } from '../src/core/physics/index.ts';
 
 /**

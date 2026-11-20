@@ -3,7 +3,7 @@ import { M2D } from '../../src/core/m2d.js';
 import { initPhysics } from '../../src/core/physics/index.ts';
 import { createRenderer, WebGPURenderer, WebGLRenderer } from '../../src/core/renderers/index.js';
 import { initWebGPU, webgpuSupported } from '../../src/core/renderers/webgpu/device.js';
-import { Camera3D } from '../../src/core/camera3d.js';
+import { Camera3D } from '../../src/core/camera3d.ts';
 import { box, plane, sphere, geometryFor } from '../../src/core/renderers/geometry/primitives.ts';
 import { StaticBatch } from '../../src/core/renderers/frame3d.ts';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
@@ -1367,7 +1367,7 @@ describe('a textured model', () => {
   beforeAll(() => initWebGPU());
 
   it('draws a glTF box with its texture, lit and shadowed like everything else', async () => {
-    const { parseGLB } = await import('../../src/core/gltf.js');
+    const { parseGLB } = await import('../../src/core/gltf.ts');
     const response = await fetch(new URL('../fixtures/models/BoxTextured.glb', import.meta.url));
     const model = await parseGLB(await response.arrayBuffer(), { name: 'BoxTextured' });
     expect(model.parts).toHaveLength(1);
@@ -1412,7 +1412,7 @@ describe('an HDR environment', () => {
 
   /** The 16x8 fixture: strong red over the left half, strong blue over the right. */
   async function panorama() {
-    const { parseHDR } = await import('../../src/core/hdr.js');
+    const { parseHDR } = await import('../../src/core/hdr.ts');
     const response = await fetch(new URL('../fixtures/textures/split.hdr', import.meta.url));
     return parseHDR(new Uint8Array(await response.arrayBuffer()), 'split.hdr');
   }
@@ -1520,7 +1520,7 @@ describe('KTX2 textures', () => {
   beforeAll(() => initWebGPU());
 
   it('transcodes a KTX2 file to the device\'s format, every mip present', async () => {
-    const { initBasis, bestTranscodeTarget, transcodeKTX2 } = await import('../../src/core/renderers/webgpu/basis.js');
+    const { initBasis, bestTranscodeTarget, transcodeKTX2 } = await import('../../src/core/renderers/webgpu/basis.ts');
     const { webgpuDevice } = await import('../../src/core/renderers/webgpu/device.js');
     const response = await fetch(new URL('../fixtures/textures/blue.ktx2', import.meta.url));
     const bytes = new Uint8Array(await response.arrayBuffer());
@@ -1536,7 +1536,7 @@ describe('KTX2 textures', () => {
   });
 
   it('uploads every mip, including the ones smaller than a block, with no validation error', async () => {
-    const { initBasis, bestTranscodeTarget, transcodeKTX2 } = await import('../../src/core/renderers/webgpu/basis.js');
+    const { initBasis, bestTranscodeTarget, transcodeKTX2 } = await import('../../src/core/renderers/webgpu/basis.ts');
     const { webgpuDevice } = await import('../../src/core/renderers/webgpu/device.js');
     const { TextureCache3D } = await import('../../src/core/renderers/webgpu/textures.js');
     const device = webgpuDevice();
@@ -1570,7 +1570,7 @@ describe('KTX2 textures', () => {
     renderer.init(canvas, { width: W, height: H });
     cleanup.push(() => renderer.destroy());
 
-    const { parseGLB } = await import('../../src/core/gltf.js');
+    const { parseGLB } = await import('../../src/core/gltf.ts');
     const response = await fetch(new URL('../fixtures/models/BoxTexturedKtx2.glb', import.meta.url));
     const model = await parseGLB(await response.arrayBuffer(), { name: 'BoxTexturedKtx2' });
     const texture = model.parts[0].material.baseColorTexture;
@@ -1603,7 +1603,7 @@ describe('vertex colours', () => {
   beforeAll(() => initWebGPU());
 
   it('shade across a face: the corner box is red toward +x and green toward +y', async () => {
-    const { parseGLB } = await import('../../src/core/gltf.js');
+    const { parseGLB } = await import('../../src/core/gltf.ts');
     const response = await fetch(new URL('../fixtures/models/VertexBox.glb', import.meta.url));
     const model = await parseGLB(await response.arrayBuffer(), { name: 'VertexBox' });
 
@@ -1646,7 +1646,7 @@ describe('a morphing model', () => {
   beforeAll(() => initWebGPU());
 
   it('changes shape with its weights, shadow included', async () => {
-    const { parseGLB } = await import('../../src/core/gltf.js');
+    const { parseGLB } = await import('../../src/core/gltf.ts');
     const response = await fetch(new URL('../fixtures/models/MorphBox.glb', import.meta.url));
     const model = await parseGLB(await response.arrayBuffer(), { name: 'MorphBox' });
 
@@ -1700,8 +1700,8 @@ describe('a skinned model', () => {
   beforeAll(() => initWebGPU());
 
   it('is skinned on the GPU: the pose changes as the clip plays', async () => {
-    const { parseGLB } = await import('../../src/core/gltf.js');
-    const { Animator3D } = await import('../../src/core/animator3d.js');
+    const { parseGLB } = await import('../../src/core/gltf.ts');
+    const { Animator3D } = await import('../../src/core/animator3d.ts');
     const response = await fetch(new URL('../fixtures/models/RiggedSimple.glb', import.meta.url));
     const model = await parseGLB(await response.arrayBuffer(), { name: 'RiggedSimple' });
     const animator = new Animator3D(model);
@@ -1739,8 +1739,8 @@ describe('a skinned model', () => {
   });
 
   it('a bent limb smears under motion blur, with the body standing still', async () => {
-    const { parseGLB } = await import('../../src/core/gltf.js');
-    const { Animator3D } = await import('../../src/core/animator3d.js');
+    const { parseGLB } = await import('../../src/core/gltf.ts');
+    const { Animator3D } = await import('../../src/core/animator3d.ts');
     const response = await fetch(new URL('../fixtures/models/RiggedSimple.glb', import.meta.url));
     const model = await parseGLB(await response.arrayBuffer(), { name: 'RiggedSimple' });
 

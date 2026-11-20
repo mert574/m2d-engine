@@ -1,3 +1,7 @@
+import type { WorldEvents } from './events.ts';
+import type { SceneCounters } from './counters.ts';
+import type { Timer } from './time.ts';
+
 /**
  * A level's rules — `world.rules` — run by the scene each tick.
  *
@@ -29,56 +33,133 @@
  * screen is (a client too), and may only change what is shown and heard
  * (the schema holds it to `PRESENTATION_ACTIONS`).
  */
+
+/** A rule's `when`, as the scene schema validated it. */
+export interface RuleWhen {
+  event: string;
+  prefab?: string;
+  object?: string;
+  objects?: string[];
+  counter?: string;
+  atLeast?: number;
+  atMost?: number;
+  action?: string;
+  name?: string;
+}
+
+/** A rule's action, as the scene schema validated it; each `do` reads its own keys. */
+export interface RuleAction {
+  do: string;
+  [key: string]: unknown;
+}
+
+/** One rule of `world.rules`. */
+export interface Rule {
+  id?: string;
+  when?: RuleWhen;
+  then?: RuleAction[];
+  once?: boolean;
+  after?: string[];
+  before?: string[];
+}
+
+type FiredRule = Rule & { fired: boolean };
+
+/**
+ * The world the rules read and act on. The entity model, the scene and
+ * the game are still JavaScript; these name only what this module touches.
+ */
+interface RuleEntity {
+  prefab?: string;
+  dead?: unknown;
+  _contacts: Iterable<{ entity?: RuleEntity | null }>;
+  onUnseal?: () => void;
+  getConstraint?: (slot: string) => unknown;
+  [field: string]: unknown;
+}
+
+interface RulesGame {
+  player?: RuleEntity | null;
+  entities: Set<RuleEntity> & Iterable<RuleEntity>;
+  events?: WorldEvents | null;
+  actions?: { pressed(action: string, snapshot: unknown): boolean } | null;
+  input?: { snapshot: unknown } | null;
+  time: { after(seconds: number, run: () => void): Timer };
+  soundManager?: { playSound(key: unknown): void } | null;
+  sceneManager: { switchTo(scene: unknown): Promise<unknown> | unknown };
+  gameOver(): void;
+  headless?: unknown;
+  camera?: { bounds?: Record<string, number> | null } | null;
+  removeEntity(entity: RuleEntity): void;
+  players?: { local?: { on(name: string | undefined, handler: () => void): () => void } | null } | null;
+  trackState?: (key: string, hooks: { save: () => unknown; load: (state: never) => void }) => void;
+}
+
+interface RulesScene {
+  game: RulesGame;
+  entitiesById: Map<string, RuleEntity>;
+  config: { layers?: Array<{ objects?: Array<{ prefab?: string }> }> };
+  counters?: SceneCounters | null;
+  hud?: {
+    notice(text: unknown, seconds: unknown, element: unknown): void;
+    setText(element: unknown, text: unknown): void;
+    say(speaker: unknown, lines: unknown, element: unknown): void;
+  } | null;
+  cycle?: { phase: number; target: number; ease?: number } | null;
+}
+
 export class SceneRules {
-  /**
-   * @param {import('./scene.js').Scene} scene
-   * @param {Array<object>} rules - `world.rules`, validated
-   * @param {Object} [options]
-   * @param {boolean} [options.simulate=true] - Poll the rules each tick.
-   *   False on a client, whose world the server simulates: only its notify
-   *   rules run there
-   */
-  constructor(scene, rules = [], { simulate = true } = {}) {
+  scene: RulesScene;
+  game: RulesGame;
+  /** Poll the rules each tick. False on a client, whose world the server simulates: only its notify rules run there. */
+  simulate: boolean;
+  rules: FiredRule[];
+  /** The rules with an id, for after and before. */
+  byId: Map<string, FiredRule>;
+  started: boolean;
+  /** World events already looked at, as `game.events.raised` counts them. */
+  seenEvents: number;
+  /** The names `emit` rules hear this tick. */
+  emitted: Set<string>;
+
+  constructor(scene: RulesScene, rules: Rule[] = [], { simulate = true }: { simulate?: boolean } = {}) {
     this.scene = scene;
     this.game = scene.game;
     this.simulate = simulate;
     this.rules = rules.map((rule) => ({ ...rule, fired: false }));
-    /** The rules with an id, for after and before. */
-    this.byId = new Map(this.rules.filter((rule) => rule.id).map((rule) => [rule.id, rule]));
+    this.byId = new Map(this.rules.filter((rule) => rule.id).map((rule) => [rule.id!, rule]));
     this.started = false;
-    /** World events already looked at, as `game.events.raised` counts them. */
     this.seenEvents = this.game.events?.raised ?? 0;
-    /** The names `emit` rules hear this tick. @type {Set<string>} */
     this.emitted = new Set();
-    /** The notify listeners, dropped by `unlisten`. */
     this.#off = [];
     // What the rules have done is simulation state: the fired flags and the
     // event cursor rewind with a snapshot, or a restored run would fire a
     // once-rule twice and skip the events the abandoned timeline had heard.
     this.game.trackState?.('rules', {
       save: () => ({ seenEvents: this.seenEvents, started: this.started, fired: this.rules.map((rule) => rule.fired) }),
-      load: ({ seenEvents, started, fired }) => {
+      load: ({ seenEvents, started, fired }: { seenEvents: number; started: boolean; fired: boolean[] }) => {
         this.seenEvents = seenEvents;
         this.started = started;
-        fired.forEach((value, i) => { this.rules[i].fired = value; });
+        fired.forEach((value, i) => { this.rules[i]!.fired = value; });
       }
     });
   }
 
-  #off;
+  /** The notify listeners, dropped by `unlisten`. */
+  #off: Array<() => void>;
 
   /** The entity for an object id, or the player for `'player'`. */
-  #entity(id) {
+  #entity(id?: string): RuleEntity | null {
     if (id === 'player' || id === undefined) return this.game.player ?? null;
     return this.scene.entitiesById.get(id) ?? null;
   }
 
-  #gone(entity) {
-    return !entity || entity.dead || !this.game.entities.has(entity);
+  #gone(entity: RuleEntity | null): boolean {
+    return !entity || Boolean(entity.dead) || !this.game.entities.has(entity);
   }
 
   /** Whether a rule's event holds at this tick. */
-  #holds(when) {
+  #holds(when: RuleWhen): boolean {
     switch (when.event) {
       case 'start':
         return !this.started;
@@ -91,7 +172,7 @@ export class SceneRules {
       }
       case 'enter': {
         const target = this.#entity(when.object);
-        const player = this.game.player;
+        const player = this.game.player ?? null;
         if (!target || !player || this.#gone(target) || this.#gone(player)) return false;
         for (const body of target._contacts) if (body.entity === player) return true;
         for (const body of player._contacts) if (body.entity === target) return true;
@@ -101,41 +182,41 @@ export class SceneRules {
         if (when.objects) return when.objects.every((id) => this.#gone(this.#entity(id)));
         return this.#gone(this.#entity(when.object));
       case 'count': {
-        const value = this.scene.counters?.get(when.counter) ?? 0;
+        const value = this.scene.counters?.get(when.counter ?? '') ?? 0;
         if (typeof when.atLeast === 'number' && value < when.atLeast) return false;
         if (typeof when.atMost === 'number' && value > when.atMost) return false;
         return typeof when.atLeast === 'number' || typeof when.atMost === 'number';
       }
       case 'action':
-        return this.game.actions?.pressed(when.action, this.game.input?.snapshot) ?? false;
+        return this.game.actions?.pressed(when.action ?? '', this.game.input?.snapshot) ?? false;
       case 'emit':
-        return this.emitted.has(when.name);
+        return this.emitted.has(when.name ?? '');
       default:
         return false;
     }
   }
 
   /** Whether a rule's place in its chain lets it fire now. */
-  #ready(rule) {
-    const fired = (id) => this.byId.get(id)?.fired === true;
+  #ready(rule: FiredRule): boolean {
+    const fired = (id: string) => this.byId.get(id)?.fired === true;
     return (rule.after ?? []).every(fired) && !(rule.before ?? []).some(fired);
   }
 
   /** One tick: fire every rule whose event holds, in order, so a chain can run through in one tick. */
-  fixedUpdate() {
+  fixedUpdate(): void {
     if (!this.simulate) return;
     this.#hearEmitted();
     for (const rule of this.rules) {
       if (rule.when?.event === 'notify') continue;
       if (rule.fired && rule.once !== false) continue;
-      if (!this.#ready(rule) || !this.#holds(rule.when)) continue;
+      if (!this.#ready(rule) || !this.#holds(rule.when!)) continue;
       this.#fire(rule);
     }
     this.started = true;
   }
 
   /** The world events raised since the last tick looked. */
-  #hearEmitted() {
+  #hearEmitted(): void {
     this.emitted.clear();
     const events = this.game.events;
     if (!events) return;
@@ -143,7 +224,7 @@ export class SceneRules {
     this.seenEvents = events.raised;
   }
 
-  #fire(rule) {
+  #fire(rule: FiredRule): void {
     rule.fired = true;
     for (const action of rule.then ?? []) this.#run(action);
   }
@@ -152,7 +233,7 @@ export class SceneRules {
    * Hear what the simulation tells the local player, for the notify
    * rules. Presentation: the scene calls it when it shows, with a display.
    */
-  listen() {
+  listen(): void {
     const player = this.game.players?.local;
     if (!player) return;
     for (const rule of this.rules) {
@@ -165,14 +246,15 @@ export class SceneRules {
     }
   }
 
-  unlisten() {
+  unlisten(): void {
     for (const off of this.#off) off();
     this.#off = [];
   }
 
-  #run(action) {
+  #run(action: RuleAction): void {
     const game = this.game;
-    const after = (seconds, run) => (seconds ? game.time.after(seconds, run) : run());
+    const after = (seconds: unknown, run: () => void): Timer | void =>
+      (seconds ? game.time.after(seconds as number, run) : run());
     switch (action.do) {
       case 'notice':
         this.scene.hud?.notice(action.text, action.seconds, action.element);
@@ -187,7 +269,7 @@ export class SceneRules {
         game.soundManager?.playSound(action.key);
         break;
       case 'unseal': {
-        const entity = this.#entity(action.object);
+        const entity = this.#entity(action.object as string | undefined);
         if (!entity) break;
         // The two words the demos' gates use for "closed": a Trigger's `active`, a gate's `sealed`.
         if ('sealed' in entity) entity.sealed = false;
@@ -196,20 +278,20 @@ export class SceneRules {
         break;
       }
       case 'remove': {
-        const entity = this.#entity(action.object);
+        const entity = this.#entity(action.object as string | undefined);
         if (entity && !this.#gone(entity)) game.removeEntity(entity);
         break;
       }
       case 'set': {
-        const entity = this.#entity(action.object);
+        const entity = this.#entity(action.object as string | undefined);
         if (entity && typeof action.property === 'string') entity[action.property] = action.value;
         break;
       }
       case 'count': {
         const counters = this.scene.counters;
         if (!counters) break;
-        if (typeof action.set === 'number') counters.set(action.counter, action.set);
-        else counters.add(action.counter, action.add ?? 1);
+        if (typeof action.set === 'number') counters.set(action.counter as string, action.set);
+        else counters.add(action.counter as string, (action.add as number | undefined) ?? 1);
         break;
       }
       case 'switch':
@@ -221,9 +303,9 @@ export class SceneRules {
       case 'camera': {
         // Presentation: a headless game and a server have no view to bound.
         if (game.headless || !game.camera) break;
-        const edges = ['left', 'top', 'right', 'bottom'].filter((key) => typeof action[key] === 'number');
+        const edges = (['left', 'top', 'right', 'bottom'] as const).filter((key) => typeof action[key] === 'number');
         if (!edges.length) break;
-        game.camera.bounds = { ...(game.camera.bounds ?? {}), ...Object.fromEntries(edges.map((key) => [key, action[key]])) };
+        game.camera.bounds = { ...(game.camera.bounds ?? {}), ...Object.fromEntries(edges.map((key) => [key, action[key] as number])) };
         break;
       }
       case 'cycle': {

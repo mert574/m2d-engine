@@ -35,7 +35,7 @@ function rounded<T>(value: T): T {
 export function lookAt(data: unknown, phase: number): Look {
   const world = worldOf(data);
   const resting = { lighting: world.lighting as Record<string, unknown> | undefined, post: world.post as Record<string, unknown> | undefined };
-  return statesOf(data).length ? rounded(cycleLook(world.cycle, phase, resting)) : resting;
+  return statesOf(data).length ? rounded(cycleLook(world.cycle as Parameters<typeof cycleLook>[0], phase, resting)) : resting;
 }
 
 /** The colours a strip of the cycle shows, by name, where the look sets them: one sample per step. */

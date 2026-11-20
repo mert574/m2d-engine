@@ -60,16 +60,33 @@
 /** Events held for a drain that never comes; the queue cannot grow without bound. */
 const MAX_QUEUED = 256;
 
+/** An event's payload: plain data, since it crosses a wire. */
+export type WorldEventData = Record<string, unknown>;
+
+/**
+ * What `WorldEvents` reads off the game. `m2d.js` is still JavaScript;
+ * this names only the members this module touches.
+ */
+interface EventsGame {
+  replica?: unknown;
+  entityById?: (id: number) => { onWorldEvent?: (name: string, data: WorldEventData) => void } | null | undefined;
+  trackState?: (key: string, hooks: { save: () => unknown; load: (state: never) => void }) => void;
+}
+
 export class WorldEvents {
-  /** @param {import('./m2d.js').M2D} game */
-  constructor(game) {
+  game: EventsGame;
+  queue: Array<[string, WorldEventData]>;
+  listeners: Map<string, Set<(data: WorldEventData) => void>>;
+  /** How many events have been raised, ever: what `since` counts from. */
+  raised: number;
+  /** The last few events with their numbers, for `since` and `sinceData`. */
+  recent: Array<[number, string, WorldEventData]>;
+
+  constructor(game: EventsGame) {
     this.game = game;
-    /** @type {Array<[string, object]>} */
     this.queue = [];
     this.listeners = new Map();
-    /** How many events have been raised, ever: what `since` counts from. */
     this.raised = 0;
-    /** The last few events with their numbers, for `since` and `sinceData`. @type {Array<[number, string, object]>} */
     this.recent = [];
   }
 
@@ -78,10 +95,9 @@ export class WorldEvents {
    * first: what a level's `emit` rules read each tick. Simulation code,
    * unlike `on`: it hears an event in the tick it was raised in (or the
    * next, when raised after the rules ran), not after the frame.
-   * @param {number} after - A `raised` count read earlier
-   * @returns {string[]}
+   * `after` is a `raised` count read earlier.
    */
-  since(after) {
+  since(after: number): string[] {
     return this.recent.filter(([n]) => n > after).map(([, name]) => name);
   }
 
@@ -90,10 +106,9 @@ export class WorldEvents {
    * the world reads — an NPC turning toward a footstep's `at`. Simulation
    * code; treat the data as read-only, since every reader gets the same
    * object.
-   * @param {number} after - A `raised` count read earlier
-   * @returns {{name: string, data: object}[]}
+   * `after` is a `raised` count read earlier.
    */
-  sinceData(after) {
+  sinceData(after: number): { name: string; data: WorldEventData }[] {
     return this.recent.filter(([n]) => n > after).map(([, name, data]) => ({ name, data }));
   }
 
@@ -101,11 +116,10 @@ export class WorldEvents {
    * Raise an event. Simulation code: a constraint's `fixedUpdate`, a
    * collision handler, a scene's tick.
    *
-   * @param {string} name
-   * @param {object} [data] - Plain data. `id` names the entity it is about;
-   *   `at` is where on the ground it happened
+   * `data` is plain data: `id` names the entity it is about, `at` is where
+   * on the ground it happened.
    */
-  emit(name, data = {}) {
+  emit(name: string, data: WorldEventData = {}): void {
     // A client shows the server's events and raises none of its own: one
     // raised here would be a second, local truth about the same world.
     if (this.game.replica) return;
@@ -119,23 +133,22 @@ export class WorldEvents {
   /**
    * Listen for events that are not one entity's. Presentation code.
    * Returns a function that stops listening.
-   * @param {string} name
-   * @param {(data: object) => void} handler
    */
-  on(name, handler) {
+  on(name: string, handler: (data: WorldEventData) => void): () => void {
     let set = this.listeners.get(name);
     if (!set) this.listeners.set(name, set = new Set());
-    set.add(handler);
-    return () => set.delete(handler);
+    const listeners = set;
+    listeners.add(handler);
+    return () => listeners.delete(handler);
   }
 
   /** Take the events raised since the last take. */
-  take() {
+  take(): Array<[string, WorldEventData]> {
     return this.queue.splice(0);
   }
 
   /** How many are waiting. */
-  get pending() {
+  get pending(): number {
     return this.queue.length;
   }
 
@@ -143,9 +156,8 @@ export class WorldEvents {
    * Deliver events: to the entity each is about, then to any listener for
    * its name. The frame loop calls this with its own `take()` on a game
    * playing alone, and `applyState` calls it with what the server sent.
-   * @param {Array<[string, object]>} events
    */
-  dispatch(events) {
+  dispatch(events: Array<[string, WorldEventData]>): void {
     for (const [name, data] of events) {
       const id = data?.id;
       if (typeof id === 'number') this.game.entityById?.(id)?.onWorldEvent?.(name, data);
@@ -154,7 +166,7 @@ export class WorldEvents {
   }
 
   /** Drop every listener and anything queued. A scene load calls this. */
-  clear() {
+  clear(): void {
     this.queue.length = 0;
     this.recent.length = 0;
     this.listeners.clear();
@@ -165,10 +177,10 @@ export class WorldEvents {
     // tracked state just before it clears the events. The queue stays:
     // it is delivery, and what was already handed out cannot be unsaid.
     this.game.trackState?.('events', {
-      save: () => ({ raised: this.raised, recent: this.recent.map((entry) => [...entry]) }),
-      load: ({ raised, recent }) => {
+      save: () => ({ raised: this.raised, recent: this.recent.map((entry) => [...entry] as typeof entry) }),
+      load: ({ raised, recent }: { raised: number; recent: Array<[number, string, WorldEventData]> }) => {
         this.raised = raised;
-        this.recent = recent.map((entry) => [...entry]);
+        this.recent = recent.map((entry) => [...entry] as typeof entry);
       }
     });
   }

@@ -1,5 +1,5 @@
 import { createCanvasElement } from '../../src/testing/environment.js';
-import { SpriteSheet } from '../../src/core/spriteSheet.js';
+import { SpriteSheet } from '../../src/core/spriteSheet.ts';
 
 export const TILE = 16;
 

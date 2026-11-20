@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseHDR, toHalf } from '../src/core/hdr.js';
+import { parseHDR, toHalf } from '../src/core/hdr.ts';
 
 /**
  * Radiance `.hdr` decoding.

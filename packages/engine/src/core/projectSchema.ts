@@ -5,16 +5,16 @@
  * a tool can import it without the engine. See project.js.
  */
 
-import { s, validate } from './schema.ts';
-import { qualityIssues } from './quality.js';
+import { s, validate, type SchemaOptions, type RefineContext } from './schema.ts';
+import { qualityIssues, type QualityDeclaration } from './quality.ts';
 
 /** The file that makes a folder a project. */
 export const PROJECT_FILE = 'm2d.project.json';
 
-const colour = (options = {}) => s.string({ editor: 'color', ...options });
+const colour = (options: SchemaOptions = {}) => s.string({ editor: 'color', ...options });
 
 /** One quality axis: its levels by name, each the number the asset compiler caps at, and the one shown first. */
-const qualityAxis = (label, unit, description) => s.object({
+const qualityAxis = (label: string, unit: string, description: string) => s.object({
   levels: s.record(s.integer({ positive: true, unit }), { required: true, description: 'Level name to its cap, highest first: the settings menu lists them in this order' }),
   default: s.string({ required: true, nonEmpty: true, description: 'The level a player starts on, and the one built at each model\'s own url' })
 }, { label, description });
@@ -28,14 +28,14 @@ const qualityAxis = (label, unit, description) => s.object({
  * A choice's value: a name, a number or a flag, as the game likes. Each
  * branch says what it matches, or the first would claim every value.
  */
-export const choiceValue = (options = {}) => s.union([
-  s.string({ match: (value) => typeof value === 'string' }),
-  s.number({ match: (value) => typeof value === 'number' }),
-  s.boolean({ match: (value) => typeof value === 'boolean' })
+export const choiceValue = (options: SchemaOptions = {}) => s.union([
+  s.string({ match: (value: unknown): boolean => typeof value === 'string' }),
+  s.number({ match: (value: unknown): boolean => typeof value === 'number' }),
+  s.boolean({ match: (value: unknown): boolean => typeof value === 'boolean' })
 ], { message: 'must be a string, a number or a boolean', ...options });
 
 /** A choice starts on one of its own values. */
-function refineChoice(choice, { path, fail }) {
+function refineChoice(choice: { initial?: unknown; values?: unknown }, { path, fail }: RefineContext) {
   if (choice.initial !== undefined && Array.isArray(choice.values) && !choice.values.includes(choice.initial)) {
     fail(`${path}.initial`, `${JSON.stringify(choice.initial)} is not among the values offered`);
   }
@@ -94,10 +94,10 @@ export const PROJECT_SCHEMA = s.object({
     description: 'Agent profiles by name: the editor bakes one navmesh per profile into each scene that navigates, and findPath names the profile it asks for'
   }),
   settings: s.union([
-    s.boolean({ match: (value) => typeof value === 'boolean' }),
+    s.boolean({ match: (value: unknown): boolean => typeof value === 'boolean' }),
     s.object({
       pauseWhenOpen: s.boolean({ initial: false, label: 'Pause while open', description: 'Hold the game still while the menu is up: what a race or a timed level wants' })
-    }, { match: (value) => typeof value === 'object' && value !== null })
+    }, { match: (value: unknown): boolean => typeof value === 'object' && value !== null })
   ], { initial: true, label: 'Settings', description: 'Mount the settings menu (O), with a Controls section for the actions. An object mounts it and tunes it', message: 'must be true, false or { pauseWhenOpen }' }),
   quality: s.object({
     textures: qualityAxis('Textures', 'px', 'The largest texture side a model keeps'),
@@ -116,20 +116,22 @@ export const PROJECT_SCHEMA = s.object({
 export const DISPLAY_KEYS = ['width', 'height', 'aspectMode', 'textureFilter', 'worldFilter', 'pointerLock', 'performanceStats', 'clearColor'];
 
 /**
- * Check a project declaration, throwing on the first problem with its path.
- * @param {object} project - `m2d.project.json`, parsed
- * @returns {object} The declaration, validated
+ * Check a project declaration — `m2d.project.json`, parsed — throwing on
+ * the first problem with its path. Returns the declaration, validated.
  */
-export function checkProject(project) {
+export function checkProject<T>(project: T): T {
   const issues = projectIssues(project);
-  if (issues.length) throw new Error(`M2D project: ${issues[0].path || '(file)'}: ${issues[0].message}`);
+  const first = issues[0];
+  if (first) throw new Error(`M2D project: ${first.path || '(file)'}: ${first.message}`);
   return project;
 }
 
 /** Every problem with a project declaration, each with its path. */
-export function projectIssues(project) {
-  const issues = [];
-  class Issue extends Error {}
+export function projectIssues(project: unknown): Array<{ path: string; message: string }> {
+  const issues: Array<{ path: string; message: string }> = [];
+  class Issue extends Error {
+    declare path: string;
+  }
   validate(PROJECT_SCHEMA, project, {
     fail: (path, message) => { throw Object.assign(new Issue(message), { path }); },
     collect: (error) => {
@@ -138,11 +140,11 @@ export function projectIssues(project) {
       return true;
     }
   });
-  if (!issues.length) issues.push(...qualityIssues(project?.quality));
+  if (!issues.length) issues.push(...qualityIssues((project as { quality?: QualityDeclaration } | null | undefined)?.quality));
   return issues;
 }
 
 /** A scene file's name: its file name without the folder and `.json`. */
-export function sceneNameOf(path) {
-  return path.split('/').pop().replace(/\.json$/i, '');
+export function sceneNameOf(path: string): string {
+  return path.split('/').pop()!.replace(/\.json$/i, '');
 }

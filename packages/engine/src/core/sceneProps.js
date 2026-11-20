@@ -26,8 +26,8 @@
 
 import { StaticBatch } from './renderers/frame3d.ts';
 import { geometryFor } from './renderers/geometry/primitives.ts';
-import { meshFor, lightFor, placeLight, instanceEmissive } from './presentation3d.js';
-import { loadModel } from './modelLoader.js';
+import { meshFor, lightFor, placeLight, instanceEmissive } from './presentation3d.ts';
+import { loadModel } from './modelLoader.ts';
 import { Quat } from './math.ts';
 import * as mat4 from './renderers/geometry/mat4.ts';
 

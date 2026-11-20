@@ -3,18 +3,18 @@ import { createPhysicsWorld } from '../core/physics/index.ts';
 import { RecordingRenderer } from './recordingRenderer.js';
 import { UIRenderer } from '../core/renderers/uiRenderer.ts';
 import { WorldOverlay } from '../core/ui/worldOverlay.ts';
-import { WorldEvents } from '../core/events.js';
-import { Camera } from '../core/camera.js';
+import { WorldEvents } from '../core/events.ts';
+import { Camera } from '../core/camera.ts';
 import { InputManager } from '../core/input/index.js';
 import { viewToUI } from '../core/viewport.ts';
 import { createTheme } from '../core/ui/theme.js';
 import { ScreenStack } from '../core/ui/screenStack.js';
 import { MotionManager } from '../core/ui/motion.js';
 import { CVarRegistry } from '../core/console/cvars.js';
-import { CollisionLayers } from '../core/collisionLayers.js';
+import { CollisionLayers } from '../core/collisionLayers.ts';
 import { CommandRegistry } from '../core/console/commands.js';
-import { Time } from '../core/time.js';
-import { Rng } from '../core/rng.js';
+import { Time } from '../core/time.ts';
+import { Rng } from '../core/rng.ts';
 
 /**
  * A minimal stand-in for the M2D instance that entities, constraints and UI

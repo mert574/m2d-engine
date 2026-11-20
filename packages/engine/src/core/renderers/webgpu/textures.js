@@ -10,7 +10,7 @@
  * fullscreen blit from each level into the next.
  */
 
-import { toHalf } from '../../hdr.js';
+import { toHalf } from '../../hdr.ts';
 
 const BLIT_SHADER = /* wgsl */ `
 struct Out { @builtin(position) position: vec4f, @location(0) uv: vec2f };

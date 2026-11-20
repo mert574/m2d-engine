@@ -13,18 +13,24 @@
  * The wasm (~500 KB) is fetched and compiled once, lazily, on the first
  * KTX2 image seen, so a scene without models pays nothing.
  */
-/** transcoder_texture_format values (basis_universal). */
-const TRANSCODE_FORMAT = { etc2: 1, bc7: 6, astc: 10, rgba8: 13 };
+import type { BasisModule } from './basis/basis_transcoder.js';
 
-/** @type {Promise<object>|null} */
-let pending = null;
+export type { BasisModule } from './basis/basis_transcoder.js';
+
+/** transcoder_texture_format values (basis_universal). */
+const TRANSCODE_FORMAT = { etc2: 1, bc7: 6, astc: 10, rgba8: 13 } as const;
+
+/** The block formats a KTX2 file can be transcoded to. */
+export type TranscodeTarget = keyof typeof TRANSCODE_FORMAT;
+
+let pending: Promise<BasisModule> | null = null;
 
 /**
  * Compile and initialize the transcoder wasm, once per page. The vendored
  * script is imported here, not at the top, so nothing loads it until a
  * KTX2 texture actually appears.
  */
-export function initBasis() {
+export function initBasis(): Promise<BasisModule> {
   pending ??= import('./basis/basis_transcoder.js').then(({ default: BASIS }) => BASIS({
     locateFile: (file) => new URL(`./basis/${file}`, import.meta.url).href
   })).then((module) => {
@@ -34,16 +40,23 @@ export function initBasis() {
   return pending;
 }
 
-/**
- * The best transcode target the device supports, by quality.
- * @param {GPUDevice} device
- * @returns {'astc'|'bc7'|'etc2'|'rgba8'}
- */
-export function bestTranscodeTarget(device) {
+/** The best transcode target the device supports, by quality. */
+export function bestTranscodeTarget(device: GPUDevice): TranscodeTarget {
   if (device.features.has('texture-compression-astc')) return 'astc';
   if (device.features.has('texture-compression-bc')) return 'bc7';
   if (device.features.has('texture-compression-etc2')) return 'etc2';
   return 'rgba8';
+}
+
+/** What `TextureCache3D.get` uploads for a transcoded KTX2 file. */
+export interface TranscodedTexture {
+  compressed: true;
+  /** The base format name; the sRGB-or-not choice stays with the material slot. */
+  base: TranscodeTarget;
+  width: number;
+  height: number;
+  /** One byte array per mip level the file carries. */
+  mips: Uint8Array[];
 }
 
 /**
@@ -53,13 +66,13 @@ export function bestTranscodeTarget(device) {
  * format name (the sRGB-or-not choice stays with the material slot, as
  * it is for image textures), the dimensions, and one byte array per mip.
  *
- * @param {object} basis - The module from `initBasis()`
- * @param {Uint8Array} bytes - A .ktx2 file
- * @param {'astc'|'bc7'|'etc2'|'rgba8'} target
- * @param {string} [name] - For error messages
- * @returns {{compressed: true, base: string, width: number, height: number, mips: Uint8Array[]}}
+ * @param basis - The module from `initBasis()`
+ * @param bytes - A .ktx2 file
+ * @param name - For error messages
  */
-export function transcodeKTX2(basis, bytes, target, name = 'texture') {
+export function transcodeKTX2(
+  basis: BasisModule, bytes: Uint8Array, target: TranscodeTarget, name = 'texture'
+): TranscodedTexture {
   const file = new basis.KTX2File(bytes);
   try {
     if (!file.isValid()) throw new Error(`M2D: ${name} is not a valid KTX2 file`);
@@ -68,7 +81,7 @@ export function transcodeKTX2(basis, bytes, target, name = 'texture') {
     const levels = file.getLevels();
     const format = TRANSCODE_FORMAT[target];
     if (!file.startTranscoding()) throw new Error(`M2D: ${name}: KTX2 transcoding failed to start`);
-    const mips = [];
+    const mips: Uint8Array[] = [];
     for (let level = 0; level < levels; level++) {
       const size = file.getImageTranscodedSizeInBytes(level, 0, 0, format);
       const data = new Uint8Array(size);

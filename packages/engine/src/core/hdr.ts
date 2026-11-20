@@ -22,14 +22,19 @@
 /** The renderer's HDR ceiling; see `clampHDR` in the shaders. */
 const MAX_RADIANCE = 16384;
 
+/** A decoded image: RGBA half floats, top row first. */
+export interface HDRImage {
+  width: number;
+  height: number;
+  data: Uint16Array;
+}
+
 /**
  * Float32 to IEEE half, as the bits of a Uint16. Subnormals round to
  * zero, which for radiance is the difference between nothing and
  * nothing.
- * @param {number} value
- * @returns {number}
  */
-export function toHalf(value) {
+export function toHalf(value: number): number {
   if (!Number.isFinite(value)) return value > 0 ? 0x7bff : (value < 0 ? 0xfbff : 0);
   const sign = value < 0 ? 0x8000 : 0;
   const v = Math.min(Math.abs(value), 65504);
@@ -44,14 +49,13 @@ export function toHalf(value) {
 
 /**
  * Decode a Radiance `.hdr`.
- * @param {ArrayBuffer|Uint8Array} buffer
- * @param {string} [name='environment'] - For error messages
- * @returns {{width: number, height: number, data: Uint16Array}} RGBA half floats, top row first
+ * @param name - For error messages
+ * @returns RGBA half floats, top row first
  */
-export function parseHDR(buffer, name = 'environment') {
+export function parseHDR(buffer: ArrayBuffer | Uint8Array, name = 'environment'): HDRImage {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   let at = 0;
-  const line = () => {
+  const line = (): string => {
     const start = at;
     while (at < bytes.length && bytes[at] !== 0x0a) at++;
     const text = String.fromCharCode(...bytes.subarray(start, at));
@@ -61,7 +65,7 @@ export function parseHDR(buffer, name = 'environment') {
 
   const magic = line();
   if (!magic.startsWith('#?')) throw new Error(`M2D: ${name} is not a Radiance .hdr`);
-  let format = null;
+  let format: string | null = null;
   let exposure = 1;
   for (;;) {
     if (at >= bytes.length) throw new Error(`M2D: ${name} ended inside its header`);
@@ -91,16 +95,16 @@ export function parseHDR(buffer, name = 'environment') {
     readScanline(bytes, scanline, width, name, () => at, (next) => { at = next; });
     const row = y * width * 4;
     for (let x = 0; x < width; x++) {
-      const e = scanline[width * 3 + x];
+      const e = scanline[width * 3 + x]!;
       // RGBE: zero exponent is a black pixel, not a tiny one. The half
       // mantissa is Radiance's own `colr_color`: a byte names a bucket
       // and the value is its centre, not its floor, which would read
       // every pixel about 0.4% dark.
       const f = e ? Math.pow(2, e - 136) * scale : 0;
       const o = row + x * 4;
-      data[o] = toHalf(Math.min((scanline[x] + 0.5) * f, MAX_RADIANCE));
-      data[o + 1] = toHalf(Math.min((scanline[width + x] + 0.5) * f, MAX_RADIANCE));
-      data[o + 2] = toHalf(Math.min((scanline[width * 2 + x] + 0.5) * f, MAX_RADIANCE));
+      data[o] = toHalf(Math.min((scanline[x]! + 0.5) * f, MAX_RADIANCE));
+      data[o + 1] = toHalf(Math.min((scanline[width + x]! + 0.5) * f, MAX_RADIANCE));
+      data[o + 2] = toHalf(Math.min((scanline[width * 2 + x]! + 0.5) * f, MAX_RADIANCE));
       data[o + 3] = toHalf(1);
     }
   }
@@ -112,28 +116,31 @@ export function parseHDR(buffer, name = 'environment') {
  * exponents. New-style RLE says so in its first four bytes; anything
  * else is read flat, interleaved, and transposed into the same planes.
  */
-function readScanline(bytes, out, width, name, get, set) {
+function readScanline(
+  bytes: Uint8Array, out: Uint8Array, width: number, name: string,
+  get: () => number, set: (next: number) => void
+): void {
   let at = get();
   const adaptive = width >= 8 && width < 32768
     && bytes[at] === 2 && bytes[at + 1] === 2
-    && ((bytes[at + 2] << 8) | bytes[at + 3]) === width;
+    && ((bytes[at + 2]! << 8) | bytes[at + 3]!) === width;
   if (!adaptive) {
     // Flat RGBE, four bytes a pixel, possibly with old-style runs.
     let x = 0;
     let shift = 0;
     while (x < width) {
       if (at + 4 > bytes.length) throw new Error(`M2D: ${name} ended inside a scanline`);
-      const r = bytes[at], g = bytes[at + 1], b = bytes[at + 2], e = bytes[at + 3];
+      const r = bytes[at]!, g = bytes[at + 1]!, b = bytes[at + 2]!, e = bytes[at + 3]!;
       at += 4;
       if (r === 1 && g === 1 && b === 1) {
         // An old-style run repeats the pixel before it, e << shift times.
         const count = e << shift;
         if (x === 0) throw new Error(`M2D: ${name} opens a scanline with a run`);
         for (let i = 0; i < count && x < width; i++, x++) {
-          out[x] = out[x - 1];
-          out[width + x] = out[width + x - 1];
-          out[width * 2 + x] = out[width * 2 + x - 1];
-          out[width * 3 + x] = out[width * 3 + x - 1];
+          out[x] = out[x - 1]!;
+          out[width + x] = out[width + x - 1]!;
+          out[width * 2 + x] = out[width * 2 + x - 1]!;
+          out[width * 3 + x] = out[width * 3 + x - 1]!;
         }
         shift += 8;
         continue;
@@ -152,12 +159,12 @@ function readScanline(bytes, out, width, name, get, set) {
     let x = 0;
     while (x < width) {
       if (at >= bytes.length) throw new Error(`M2D: ${name} ended inside a scanline`);
-      let count = bytes[at++];
+      let count = bytes[at++]!;
       if (count > 128) {
         // A run: one value repeated.
         count -= 128;
         if (at >= bytes.length) throw new Error(`M2D: ${name} ended inside a run`);
-        const value = bytes[at++];
+        const value = bytes[at++]!;
         if (x + count > width) throw new Error(`M2D: ${name} has a run past the end of a scanline`);
         for (let i = 0; i < count; i++) out[base + x++] = value;
       } else {
@@ -165,19 +172,15 @@ function readScanline(bytes, out, width, name, get, set) {
         if (x + count > width || at + count > bytes.length) {
           throw new Error(`M2D: ${name} has a literal past the end of a scanline`);
         }
-        for (let i = 0; i < count; i++) out[base + x++] = bytes[at++];
+        for (let i = 0; i < count; i++) out[base + x++] = bytes[at++]!;
       }
     }
   }
   set(at);
 }
 
-/**
- * Fetch and decode a `.hdr` by URL.
- * @param {string} url
- * @returns {Promise<{width: number, height: number, data: Uint16Array}>}
- */
-export async function loadHDR(url) {
+/** Fetch and decode a `.hdr` by URL. */
+export async function loadHDR(url: string): Promise<HDRImage> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`M2D: could not fetch environment ${url} (${response.status})`);
   return parseHDR(await response.arrayBuffer(), url);

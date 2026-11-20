@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Scene } from '../src/core/scene.js';
-import { SpriteSheet } from '../src/core/spriteSheet.js';
-import { LayerManager } from '../src/core/layerManager.js';
+import { SpriteSheet } from '../src/core/spriteSheet.ts';
+import { LayerManager } from '../src/core/layerManager.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { M2D } from '../src/core/m2d.js';
 

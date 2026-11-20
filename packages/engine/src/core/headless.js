@@ -19,7 +19,7 @@
  */
 
 import { InputSnapshot } from './input/snapshot.js';
-import { SoundManager } from './soundManager.js';
+import { SoundManager } from './soundManager.ts';
 
 const DOCS = 'docs/contributing/determinism.md';
 

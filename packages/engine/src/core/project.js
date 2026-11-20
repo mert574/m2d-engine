@@ -29,12 +29,12 @@
  */
 
 import { M2D } from './m2d.js';
-import { showUnsupported } from './unsupported.js';
-import { DISPLAY_KEYS, checkProject, sceneNameOf } from './projectSchema.js';
+import { showUnsupported } from './unsupported.ts';
+import { DISPLAY_KEYS, checkProject, sceneNameOf } from './projectSchema.ts';
 import { initPhysics } from './physics/index.ts';
 import { SettingsMenu } from './ui/settingsMenu.js';
 
-export { PROJECT_FILE, PROJECT_SCHEMA, checkProject, projectIssues, sceneNameOf } from './projectSchema.js';
+export { PROJECT_FILE, PROJECT_SCHEMA, checkProject, projectIssues, sceneNameOf } from './projectSchema.ts';
 
 /** M2D options a project declares: its display, actions, opening scene and boot music. */
 export function projectOptions(project, { basePath = '' } = {}) {

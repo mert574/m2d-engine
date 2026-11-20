@@ -3,7 +3,7 @@ import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentList
 import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
 import { holdKeys, releaseKeys } from '../src/testing/input.js';
 import { M2D } from '../src/core/m2d.js';
-import { Camera } from '../src/core/camera.js';
+import { Camera } from '../src/core/camera.ts';
 import {
   SCENE, OTHER, ARENA_ACTORS, fingerprint, CAPTURE_AT, prepareCoverage, scriptedInput, gatedInput
 } from './helpers/scenarios.js';

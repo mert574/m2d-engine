@@ -17,7 +17,12 @@
  * same generator costs nothing and keeps one rule.
  */
 export class Rng {
-  /** @param {number} [seed=1] */
+  /** The seed the current sequence started from. */
+  seed!: number;
+  state!: number;
+  /** Draws since the last reseed. With `seed`, enough to resume a sequence. */
+  draws!: number;
+
   constructor(seed = 1) {
     this.reseed(seed);
   }
@@ -25,21 +30,19 @@ export class Rng {
   /**
    * Restart the sequence from a seed. The engine does this on every scene
    * load and `reset()`, so a restarted level plays the same.
-   * @param {number} seed - Any finite number; only its low 32 bits matter.
+   * `seed` is any finite number; only its low 32 bits matter.
    */
-  reseed(seed) {
+  reseed(seed: number): void {
     if (typeof seed !== 'number' || !Number.isFinite(seed)) {
       throw new Error(`M2D rng: seed needs a finite number, got ${seed}`);
     }
-    /** The seed the current sequence started from. */
     this.seed = seed;
     this.state = seed >>> 0;
-    /** Draws since the last reseed. With `seed`, enough to resume a sequence. */
     this.draws = 0;
   }
 
   /** A float in [0, 1), like `Math.random()`. */
-  next() {
+  next(): number {
     this.draws += 1;
     this.state = (this.state + 0x6d2b79f5) >>> 0;
     let t = this.state;
@@ -48,53 +51,32 @@ export class Rng {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
-  /**
-   * A float in [min, max).
-   * @param {number} min
-   * @param {number} max
-   */
-  range(min, max) {
+  /** A float in [min, max). */
+  range(min: number, max: number): number {
     return min + this.next() * (max - min);
   }
 
-  /**
-   * An integer in [min, max], both inclusive.
-   * @param {number} min
-   * @param {number} max
-   */
-  int(min, max) {
+  /** An integer in [min, max], both inclusive. */
+  int(min: number, max: number): number {
     return min + Math.floor(this.next() * (max - min + 1));
   }
 
-  /**
-   * True with probability `p`.
-   * @param {number} p - 0 never, 1 always.
-   */
-  chance(p) {
+  /** True with probability `p`: 0 never, 1 always. */
+  chance(p: number): boolean {
     return this.next() < p;
   }
 
-  /**
-   * One element of an array, or `undefined` for an empty one.
-   * @template T
-   * @param {T[]} items
-   * @returns {T}
-   */
-  pick(items) {
+  /** One element of an array, or `undefined` for an empty one. */
+  pick<T>(items: readonly T[]): T | undefined {
     if (items.length === 0) return undefined;
     return items[Math.floor(this.next() * items.length)];
   }
 
-  /**
-   * Shuffle an array in place (Fisher–Yates) and return it.
-   * @template T
-   * @param {T[]} items
-   * @returns {T[]}
-   */
-  shuffle(items) {
+  /** Shuffle an array in place (Fisher–Yates) and return it. */
+  shuffle<T>(items: T[]): T[] {
     for (let i = items.length - 1; i > 0; i--) {
       const j = Math.floor(this.next() * (i + 1));
-      [items[i], items[j]] = [items[j], items[i]];
+      [items[i], items[j]] = [items[j]!, items[i]!];
     }
     return items;
   }
@@ -103,9 +85,8 @@ export class Rng {
    * A derived generator that does not disturb this one's sequence, for a
    * subsystem (a particle layer, a procedural backdrop) that wants its own
    * stream. Deterministic: the same parent state gives the same child.
-   * @returns {Rng}
    */
-  fork() {
+  fork(): Rng {
     return new Rng(Math.floor(this.next() * 4294967296));
   }
 }
@@ -113,10 +94,8 @@ export class Rng {
 /**
  * A bare generator function, the shape older code and the examples' shared
  * backdrops take: `const next = makeRng(seed); next() // [0, 1)`.
- * @param {number} seed
- * @returns {() => number}
  */
-export function makeRng(seed) {
+export function makeRng(seed: number): () => number {
   const rng = new Rng(seed);
   return () => rng.next();
 }
