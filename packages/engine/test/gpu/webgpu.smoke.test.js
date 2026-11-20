@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { M2D } from '../../src/core/m2d.js';
 import { initPhysics } from '../../src/core/physics/index.ts';
-import { createRenderer, WebGPURenderer, WebGLRenderer } from '../../src/core/renderers/index.js';
-import { initWebGPU, webgpuSupported } from '../../src/core/renderers/webgpu/device.js';
+import { createRenderer, WebGPURenderer, WebGLRenderer } from '../../src/core/renderers/index.ts';
+import { initWebGPU, webgpuSupported } from '../../src/core/renderers/webgpu/device.ts';
 import { Camera3D } from '../../src/core/camera3d.ts';
 import { box, plane, sphere, geometryFor } from '../../src/core/renderers/geometry/primitives.ts';
 import { StaticBatch } from '../../src/core/renderers/frame3d.ts';
@@ -1335,7 +1335,7 @@ describe('one frame, many geometry sizes', () => {
   });
 
   it('re-bakes the environment after a frame is lost, instead of keeping black flags', async () => {
-    const { Environment } = await import('../../src/core/renderers/webgpu/environment.js');
+    const { Environment } = await import('../../src/core/renderers/webgpu/environment.ts');
     const W = 64, H = 48;
     const canvas = canvasInDocument(W, H);
     const renderer = quiet(new WebGPURenderer());
@@ -1521,7 +1521,7 @@ describe('KTX2 textures', () => {
 
   it('transcodes a KTX2 file to the device\'s format, every mip present', async () => {
     const { initBasis, bestTranscodeTarget, transcodeKTX2 } = await import('../../src/core/renderers/webgpu/basis.ts');
-    const { webgpuDevice } = await import('../../src/core/renderers/webgpu/device.js');
+    const { webgpuDevice } = await import('../../src/core/renderers/webgpu/device.ts');
     const response = await fetch(new URL('../fixtures/textures/blue.ktx2', import.meta.url));
     const bytes = new Uint8Array(await response.arrayBuffer());
     const target = bestTranscodeTarget(webgpuDevice());
@@ -1537,8 +1537,8 @@ describe('KTX2 textures', () => {
 
   it('uploads every mip, including the ones smaller than a block, with no validation error', async () => {
     const { initBasis, bestTranscodeTarget, transcodeKTX2 } = await import('../../src/core/renderers/webgpu/basis.ts');
-    const { webgpuDevice } = await import('../../src/core/renderers/webgpu/device.js');
-    const { TextureCache3D } = await import('../../src/core/renderers/webgpu/textures.js');
+    const { webgpuDevice } = await import('../../src/core/renderers/webgpu/device.ts');
+    const { TextureCache3D } = await import('../../src/core/renderers/webgpu/textures.ts');
     const device = webgpuDevice();
     const response = await fetch(new URL('../fixtures/textures/blue.ktx2', import.meta.url));
     const image = transcodeKTX2(await initBasis(), new Uint8Array(await response.arrayBuffer()), bestTranscodeTarget(device));

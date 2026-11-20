@@ -11,6 +11,16 @@
  */
 
 import { toHalf } from '../../hdr.ts';
+import type { DecodedImage } from '../../gltf.ts';
+import type { TranscodedTexture, TranscodeTarget } from './basis.ts';
+
+/** What `copyExternalImageToTexture` accepts, with the size the cache reads. */
+type ExternalImage = GPUCopyExternalImageSource & { width: number; height: number };
+
+/** The decoded images are `unknown` to the model types; the cache is where their runtime shape is read. */
+function asUploadable(image: DecodedImage): TranscodedTexture | ExternalImage {
+  return image as TranscodedTexture | ExternalImage;
+}
 
 const BLIT_SHADER = /* wgsl */ `
 struct Out { @builtin(position) position: vec4f, @location(0) uv: vec2f };
@@ -27,7 +37,8 @@ struct Out { @builtin(position) position: vec4f, @location(0) uv: vec2f };
 `;
 
 /** GPU formats per transcode target; block formats are 4x4, 16 bytes. */
-const COMPRESSED_FORMATS = {
+interface CompressedFormat { linear: GPUTextureFormat; srgb: GPUTextureFormat; block: number; blockBytes: number }
+const COMPRESSED_FORMATS: Record<TranscodeTarget, CompressedFormat> = {
   bc7: { linear: 'bc7-rgba-unorm', srgb: 'bc7-rgba-unorm-srgb', block: 4, blockBytes: 16 },
   astc: { linear: 'astc-4x4-unorm', srgb: 'astc-4x4-unorm-srgb', block: 4, blockBytes: 16 },
   etc2: { linear: 'etc2-rgba8unorm', srgb: 'etc2-rgba8unorm-srgb', block: 4, blockBytes: 16 },
@@ -35,20 +46,28 @@ const COMPRESSED_FORMATS = {
 };
 
 export class TextureCache3D {
-  /** @param {GPUDevice} device */
-  constructor(device) {
+  device: GPUDevice;
+  textures = new WeakMap<WeakKey, GPUTexture>();
+  /**
+   * Bytes of GPU memory the uploaded images hold, so a streaming
+   * budget has a number to weigh. Mip chains included: a full chain
+   * is a third again the base level.
+   */
+  bytes = 0;
+  /** Bytes per uploaded image, for `release`. */
+  sizes = new WeakMap<WeakKey, number>();
+  blitPipelines = new Map<GPUTextureFormat, GPURenderPipeline>();
+  blitSampler: GPUSampler;
+  blitModule: GPUShaderModule;
+  white: GPUTexture;
+  whiteSRGB: GPUTexture;
+  black: GPUTexture;
+  flatNormal: GPUTexture;
+  blackHDR: GPUTexture;
+  sampler: GPUSampler;
+
+  constructor(device: GPUDevice) {
     this.device = device;
-    /** @type {WeakMap<object, GPUTexture>} */
-    this.textures = new WeakMap();
-    /**
-     * Bytes of GPU memory the uploaded images hold, so a streaming
-     * budget has a number to weigh. Mip chains included: a full chain
-     * is a third again the base level.
-     */
-    this.bytes = 0;
-    /** @type {WeakMap<object, number>} Bytes per uploaded image, for `release`. */
-    this.sizes = new WeakMap();
-    this.blitPipelines = new Map();
     this.blitSampler = device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
     this.blitModule = device.createShaderModule({ code: BLIT_SHADER, label: 'mip blit' });
     /** 1x1 white, for a material slot with no texture. */
@@ -83,9 +102,8 @@ export class TextureCache3D {
    * An HDR panorama from `hdr.js` as a filterable float texture, with a
    * mip chain so the cube bake can read a blurrier level for its
    * smaller mips. Cached on the decoded image, like every other texture.
-   * @param {{width: number, height: number, data: Uint16Array}} image
    */
-  equirect(image) {
+  equirect(image: { width: number; height: number; data: Uint16Array }): GPUTexture {
     let texture = this.textures.get(image);
     if (texture) return texture;
     const { width, height } = image;
@@ -108,7 +126,7 @@ export class TextureCache3D {
     return texture;
   }
 
-  #solid(rgba, format, label) {
+  #solid(rgba: number[], format: GPUTextureFormat, label: string): GPUTexture {
     const texture = this.device.createTexture({
       label, size: { width: 1, height: 1 }, format,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
@@ -121,22 +139,23 @@ export class TextureCache3D {
    * The texture for a decoded image: an `ImageBitmap` (or any
    * `copyExternalImageToTexture` source), or a transcoded KTX2 record
    * from `basis.js` (`compressed: true`, pre-mipped, uploaded as is).
-   * @param {object} image
-   * @param {{srgb?: boolean}} [options] - sRGB-encoded colour data, or linear
+   * `srgb`: sRGB-encoded colour data, or linear.
    */
-  get(image, { srgb = false } = {}) {
-    let texture = this.textures.get(image);
+  get(image: DecodedImage, { srgb = false }: { srgb?: boolean } = {}): GPUTexture {
+    const source = asUploadable(image);
+    let texture = this.textures.get(source);
     if (texture) return texture;
-    if (image.compressed) {
-      if (!image.mips) {
+    if ('compressed' in source && source.compressed) {
+      if (!source.mips) {
         throw new Error('M2D: this texture\'s data was let go once it was on the GPU, and its texture has since been released; load the model again to draw it');
       }
-      texture = this.#uploadCompressed(image, srgb);
-      this.textures.set(image, texture);
+      texture = this.#uploadCompressed(source as TranscodedTexture & { mips: Uint8Array[] }, srgb);
+      this.textures.set(source, texture);
       return texture;
     }
-    const width = image.width;
-    const height = image.height;
+    const external = source as ExternalImage;
+    const width = external.width;
+    const height = external.height;
     const mipLevelCount = 1 + Math.floor(Math.log2(Math.max(width, height)));
     const format = srgb ? 'rgba8unorm-srgb' : 'rgba8unorm';
     texture = this.device.createTexture({
@@ -146,15 +165,15 @@ export class TextureCache3D {
       mipLevelCount,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
     });
-    this.device.queue.copyExternalImageToTexture({ source: image }, { texture }, { width, height });
+    this.device.queue.copyExternalImageToTexture({ source: external }, { texture }, { width, height });
     if (mipLevelCount > 1) this.#generateMips(texture, format, mipLevelCount);
-    this.textures.set(image, texture);
-    this.#count(image, width * height * 4 * (mipLevelCount > 1 ? 4 / 3 : 1));
+    this.textures.set(source, texture);
+    this.#count(source, width * height * 4 * (mipLevelCount > 1 ? 4 / 3 : 1));
     return texture;
   }
 
   /** Record what an upload costs, for `bytes` and `release`. */
-  #count(image, bytes) {
+  #count(image: WeakKey, bytes: number) {
     const size = Math.round(bytes);
     this.sizes.set(image, size);
     this.bytes += size;
@@ -166,15 +185,16 @@ export class TextureCache3D {
    * image again; a transcoded KTX2 record's payload went at its upload,
    * so `get` refuses it and its model has to be loaded again — which is
    * what streaming, the one caller, does with what is far away.
-   * @returns {boolean} Whether there was anything to release
+   * Returns whether there was anything to release.
    */
-  release(image) {
-    const texture = this.textures.get(image);
+  release(image: DecodedImage): boolean {
+    const source = asUploadable(image);
+    const texture = this.textures.get(source);
     if (!texture) return false;
     texture.destroy();
-    this.textures.delete(image);
-    this.bytes -= this.sizes.get(image) ?? 0;
-    this.sizes.delete(image);
+    this.textures.delete(source);
+    this.bytes -= this.sizes.get(source) ?? 0;
+    this.sizes.delete(source);
     return true;
   }
 
@@ -197,8 +217,8 @@ export class TextureCache3D {
    * model whose textures are released is dropped by its scene, and
    * coming back it is loaded afresh.
    */
-  #uploadCompressed(image, srgb) {
-    const base = COMPRESSED_FORMATS[image.base];
+  #uploadCompressed(image: TranscodedTexture & { mips: Uint8Array[] }, srgb: boolean): GPUTexture {
+    const base = COMPRESSED_FORMATS[image.base] as CompressedFormat | undefined;
     if (!base) throw new Error(`M2D: unknown compressed texture format '${image.base}'`);
     const format = srgb ? base.srgb : base.linear;
     const texture = this.device.createTexture({
@@ -214,17 +234,17 @@ export class TextureCache3D {
       const blocksHigh = Math.ceil(Math.max(1, image.height >> level) / block);
       this.device.queue.writeTexture(
         { texture, mipLevel: level },
-        image.mips[level],
+        image.mips[level]!,
         { bytesPerRow: blocksWide * base.blockBytes, rowsPerImage: blocksHigh },
         { width: blocksWide * block, height: blocksHigh * block }
       );
     }
     this.#count(image, image.mips.reduce((total, level) => total + level.byteLength, 0));
-    image.mips = null;
+    (image as TranscodedTexture).mips = null;
     return texture;
   }
 
-  #generateMips(texture, format, levels) {
+  #generateMips(texture: GPUTexture, format: GPUTextureFormat, levels: number) {
     let pipeline = this.blitPipelines.get(format);
     if (!pipeline) {
       pipeline = this.device.createRenderPipeline({

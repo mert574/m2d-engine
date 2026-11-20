@@ -1,5 +1,5 @@
-import { MAX_CULL_PASSES } from './constants.js';
-import { COMMON } from './chunks/frame.js';
+import { MAX_CULL_PASSES } from './constants.ts';
+import { COMMON } from './chunks/frame.ts';
 
 /**
  * Frustum culling on the GPU, for every pass at once. One invocation per

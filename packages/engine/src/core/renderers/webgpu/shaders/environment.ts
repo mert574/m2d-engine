@@ -1,4 +1,4 @@
-import { COMMON } from './chunks/frame.js';
+import { COMMON } from './chunks/frame.ts';
 
 // === Environment bakes ===
 

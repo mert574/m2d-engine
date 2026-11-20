@@ -1,5 +1,5 @@
-import { COMMON } from '../chunks/frame.js';
-import { POST_COMMON, EXPOSURE } from './chunks.js';
+import { COMMON } from '../chunks/frame.ts';
+import { POST_COMMON, EXPOSURE } from './chunks.ts';
 
 /**
  * The last pass: the frame plus its bloom, exposed, tonemapped with

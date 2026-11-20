@@ -1,5 +1,5 @@
-import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_CAPACITY } from './constants.js';
-import { COMMON } from './chunks/frame.js';
+import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_CAPACITY } from './constants.ts';
+import { COMMON } from './chunks/frame.ts';
 
 /**
  * Light clustering. One invocation per cluster: build the cluster's

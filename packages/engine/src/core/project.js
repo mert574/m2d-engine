@@ -105,7 +105,7 @@ export async function bootProject(canvas, { project, definition, hooks = null, s
   const game = definition.GAME ?? {};
   const dimensions = (options.dimensions ?? game.dimensions) === 3 ? 3 : 2;
   if (dimensions === 3) {
-    const { initWebGPU, webgpuSupported } = await import('./renderers/index.js');
+    const { initWebGPU, webgpuSupported } = await import('./renderers/index.ts');
     const device = (webgpuSupported()
       ? initWebGPU()
       : Promise.reject(new Error(`M2D project '${project.name}' is 3D and needs WebGPU: Chrome or Edge with a GPU`))

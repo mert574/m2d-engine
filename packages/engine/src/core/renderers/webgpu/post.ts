@@ -4,7 +4,7 @@ import {
   DOF_COMBINE_SHADER, MOTION_BLUR_SHADER,
   LUMINANCE_SHADER, ADAPT_SHADER, BLOOM_PREFILTER_SHADER, BLOOM_DOWNSAMPLE_SHADER, BLOOM_UPSAMPLE_SHADER,
   COMPOSITE_SHADER
-} from './shaders/index.js';
+} from './shaders/index.ts';
 
 /**
  * The frame after the meshes.
@@ -33,6 +33,32 @@ import {
 const HDR_FORMAT = 'rgba16float';
 const BLOOM_LEVELS = 8;
 
+/** The intermediate targets a view's stack owns; (re)made by `resize`. */
+type TargetName =
+  | 'direct' | 'indirect' | 'normalDepth' | 'velocity' | 'aoRaw' | 'ao' | 'lit'
+  | 'historyA' | 'historyB' | 'dofHalf' | 'dofTiles' | 'dofTilesDilated'
+  | 'dofFar' | 'dofNear' | 'dof' | 'motion';
+
+/** A grading LUT strip as `copyExternalImageToTexture` takes it. */
+export type LutImage = GPUCopyExternalImageSource & { width: number; height: number };
+
+/** Which stages run; a missing flag is the stage off. */
+export interface PostEffects {
+  ao?: boolean;
+  taa?: boolean;
+  dof?: boolean;
+  motionBlur?: boolean;
+  autoExposure?: boolean;
+  bloom?: boolean;
+}
+
+interface DrawOptions {
+  loadOp?: GPULoadOp;
+  rect?: readonly number[] | null;
+  blendConstant?: number | null;
+  timestampWrites?: GPURenderPassTimestampWrites | undefined;
+}
+
 /**
  * What every post stack shares: the pipelines, their layouts, the
  * samplers, and the constant textures. One per renderer; each *view* of
@@ -42,12 +68,25 @@ const BLOOM_LEVELS = 8;
  * one camera's sequence of frames and cannot be shared between two.
  */
 export class PostPipelines {
-  /**
-   * @param {GPUDevice} device
-   * @param {GPUBindGroupLayout} sceneLayout - Group 0: the frame uniform and storage arrays
-   * @param {GPUTextureFormat} canvasFormat
-   */
-  constructor(device, sceneLayout, canvasFormat) {
+  device: GPUDevice;
+  sampler: GPUSampler;
+  nearestSampler: GPUSampler;
+  layouts: GPUBindGroupLayout[];
+  pipelines: {
+    ao: GPURenderPipeline; aoBlur: GPURenderPipeline; resolve: GPURenderPipeline; taa: GPURenderPipeline;
+    dofDown: GPURenderPipeline; dofTile: GPURenderPipeline; dofDilate: GPURenderPipeline; dofFar: GPURenderPipeline;
+    dofNear: GPURenderPipeline; dofCombine: GPURenderPipeline; motionBlur: GPURenderPipeline; luminance: GPURenderPipeline;
+    adapt: GPURenderPipeline; prefilter: GPURenderPipeline; downsample: GPURenderPipeline; upsample: GPURenderPipeline;
+    composite: GPURenderPipeline;
+  };
+  makeOne: (label: string, data: number[]) => GPUTexture;
+  black: GPUTexture;
+  blackView: GPUTextureView;
+  identityLut: GPUTexture;
+  identityLutView: GPUTextureView;
+
+  /** `sceneLayout` — group 0: the frame uniform and storage arrays. */
+  constructor(device: GPUDevice, sceneLayout: GPUBindGroupLayout, canvasFormat: GPUTextureFormat) {
     this.device = device;
     this.sampler = device.createSampler({
       label: 'post', minFilter: 'linear', magFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge'
@@ -62,13 +101,13 @@ export class PostPipelines {
       entries: [
         { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
-        ...Array.from({ length: count - 1 }, (_, i) => ({
+        ...Array.from({ length: count - 1 }, (_, i): GPUBindGroupLayoutEntry => ({
           binding: 2 + i, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' }
         }))
       ]
     }));
-    const layout = (count) => this.layouts[count - 1];
-    const pipeline = (code, label, count, format, blend) => {
+    const layout = (count: number) => this.layouts[count - 1]!;
+    const pipeline = (code: string, label: string, count: number, format: GPUTextureFormat, blend?: GPUBlendState) => {
       const module = device.createShaderModule({ code, label });
       return device.createRenderPipeline({
         label,
@@ -81,7 +120,7 @@ export class PostPipelines {
     // The bloom upsample blends by the scatter constant — out = scatter *
     // tent(lower) + (1 - scatter) * own — so the chain is a weighted mean
     // of its levels, not their sum; see BLOOM_UPSAMPLE_SHADER.
-    const scatterBlend = {
+    const scatterBlend: GPUBlendState = {
       color: { srcFactor: 'constant', dstFactor: 'one-minus-constant', operation: 'add' },
       alpha: { srcFactor: 'constant', dstFactor: 'one-minus-constant', operation: 'add' }
     };
@@ -105,7 +144,7 @@ export class PostPipelines {
       composite: pipeline(COMPOSITE_SHADER, 'composite', 4, canvasFormat)
     };
 
-    const one = (label, data) => {
+    const one = (label: string, data: number[]) => {
       const texture = device.createTexture({
         label, size: { width: 1, height: 1 }, format: HDR_FORMAT,
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
@@ -151,13 +190,34 @@ export class PostPipelines {
  * adapted exposure, which persist across frames and belong to one camera.
  */
 export class PostPass {
-  /** @param {PostPipelines} shared */
-  constructor(shared) {
+  shared: PostPipelines;
+  device: GPUDevice;
+  /** Made by `resize`; the stack is drawn only after the first resize. */
+  textures: Record<TargetName, GPUTexture>;
+  views: Record<TargetName, GPUTextureView>;
+  levels: { texture: GPUTexture; view: GPUTextureView }[];
+  groups: Map<string, GPUBindGroup>;
+  viewIds: WeakMap<GPUTextureView, number>;
+  nextViewId: number;
+  frameIndex: number;
+  historyValid: boolean;
+  width: number;
+  height: number;
+  exposure: GPUTexture[];
+  exposureViews: GPUTextureView[];
+  exposureIndex: number;
+  lum: GPUTexture;
+  lumView: GPUTextureView;
+  lutTexture: GPUTexture | null;
+  lutView: GPUTextureView | null;
+  lutImage: LutImage | null;
+
+  constructor(shared: PostPipelines) {
     this.shared = shared;
     this.device = shared.device;
 
-    this.textures = {};
-    this.views = {};
+    this.textures = {} as Record<TargetName, GPUTexture>;
+    this.views = {} as Record<TargetName, GPUTextureView>;
     this.levels = [];
     this.groups = new Map();
     this.viewIds = new WeakMap();
@@ -179,7 +239,7 @@ export class PostPass {
   }
 
   /** A grading LUT image (256x16 strip), uploaded once per image. */
-  #lut(image) {
+  #lut(image: LutImage | null): GPUTextureView {
     if (!image) return this.shared.identityLutView;
     if (image !== this.lutImage) {
       this.lutTexture?.destroy();
@@ -191,17 +251,17 @@ export class PostPass {
       this.lutImage = image;
       this.lutView = this.lutTexture.createView();
     }
-    return this.lutView;
+    return this.lutView!;
   }
 
   /** (Re)create every target for a world-surface size. Resets the history. */
-  resize(width, height) {
+  resize(width: number, height: number): void {
     this.width = width;
     this.height = height;
     for (const texture of Object.values(this.textures)) texture.destroy();
     for (const level of this.levels) level.texture.destroy();
     this.groups.clear();
-    const make = (label, w, h, format = HDR_FORMAT) => this.device.createTexture({
+    const make = (label: string, w: number, h: number, format: GPUTextureFormat = HDR_FORMAT) => this.device.createTexture({
       label, size: { width: w, height: h }, format,
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     });
@@ -227,7 +287,9 @@ export class PostPass {
       dof: make('dof', width, height),
       motion: make('motion', width, height)
     };
-    this.views = Object.fromEntries(Object.entries(this.textures).map(([k, t]) => [k, t.createView()]));
+    this.views = Object.fromEntries(
+      Object.entries(this.textures).map(([k, t]) => [k, t.createView()])
+    ) as Record<TargetName, GPUTextureView>;
     this.levels = [];
     let w = hw;
     let h = hh;
@@ -241,37 +303,37 @@ export class PostPass {
   }
 
   /** The resolve targets the main pass writes, in attachment order. */
-  get attachments() {
+  get attachments(): GPUTextureView[] {
     const v = this.views;
     return [v.direct, v.indirect, v.normalDepth, v.velocity];
   }
 
-  #id(view) {
+  #id(view: GPUTextureView): number {
     let id = this.viewIds.get(view);
     if (!id) this.viewIds.set(view, id = this.nextViewId++);
     return id;
   }
 
   /** A bind group over `views` with a sampler, cached by the views' identities. */
-  #group(views, sampler = this.shared.sampler) {
+  #group(views: GPUTextureView[], sampler: GPUSampler = this.shared.sampler): GPUBindGroup {
     const key = views.map((v) => this.#id(v)).join(',') + (sampler === this.shared.sampler ? '' : 'n');
     let group = this.groups.get(key);
     if (group) return group;
-    const entries = [{ binding: 0, resource: views[0] }, { binding: 1, resource: sampler }];
-    for (let i = 1; i < views.length; i++) entries.push({ binding: 1 + i, resource: views[i] });
-    group = this.device.createBindGroup({ layout: this.shared.layouts[views.length - 1], entries });
+    const entries: GPUBindGroupEntry[] = [{ binding: 0, resource: views[0]! }, { binding: 1, resource: sampler }];
+    for (let i = 1; i < views.length; i++) entries.push({ binding: 1 + i, resource: views[i]! });
+    group = this.device.createBindGroup({ layout: this.shared.layouts[views.length - 1]!, entries });
     this.groups.set(key, group);
     return group;
   }
 
-  #draw(encoder, pipeline, target, sceneBindGroup, group, { loadOp = 'clear', rect = null, blendConstant = null, timestampWrites = undefined } = {}) {
+  #draw(encoder: GPUCommandEncoder, pipeline: GPURenderPipeline, target: GPUTextureView, sceneBindGroup: GPUBindGroup, group: GPUBindGroup, { loadOp = 'clear', rect = null, blendConstant = null, timestampWrites = undefined }: DrawOptions = {}) {
     const pass = encoder.beginRenderPass({
       colorAttachments: [{ view: target, loadOp, storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 1 } }],
       ...(timestampWrites && { timestampWrites })
     });
     // The content rectangle: the rest of the canvas stays the clear's black,
     // which is the letterbox.
-    if (rect) pass.setViewport(rect[0], rect[1], rect[2], rect[3], 0, 1);
+    if (rect) pass.setViewport(rect[0]!, rect[1]!, rect[2]!, rect[3]!, 0, 1);
     if (blendConstant != null) pass.setBlendConstant({ r: blendConstant, g: blendConstant, b: blendConstant, a: blendConstant });
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, sceneBindGroup);
@@ -288,14 +350,24 @@ export class PostPass {
    * @param {number} [options.bloomScatter] - How far bloom spreads: each upsample's blend toward the wider level
    * @param {'linear'|'nearest'} [options.filter] - How the world is upscaled to the canvas
    * @param {number[]|null} [options.rect] - The content rectangle in canvas pixels
-   * @param {GPURenderPassTimestampWrites} [options.timestampWrites] - Stamps for the last pass, the composite
-   * @returns {number} Draw calls issued
+   * `timestampWrites` stamps the last pass, the composite. Returns the
+   * draw calls issued.
    */
-  run(encoder, sceneBindGroup, target, { effects, lut = null, bloomScatter = 0.75, filter = 'linear', rect = null, timestampWrites = undefined }) {
+  run(encoder: GPUCommandEncoder, sceneBindGroup: GPUBindGroup, target: GPUTextureView, { effects, lut = null, bloomScatter = 0.75, filter = 'linear', rect = null, timestampWrites = undefined }: {
+    effects: PostEffects;
+    lut?: LutImage | null;
+    /** How far bloom spreads: each upsample's blend toward the wider level. */
+    bloomScatter?: number;
+    /** How the world is upscaled to the canvas. */
+    filter?: 'linear' | 'nearest';
+    /** The content rectangle in canvas pixels. */
+    rect?: readonly number[] | null;
+    timestampWrites?: GPURenderPassTimestampWrites;
+  }): number {
     const p = this.shared.pipelines;
     const v = this.views;
     let draws = 0;
-    const draw = (pipeline, out, views, options) => {
+    const draw = (pipeline: GPURenderPipeline, out: GPUTextureView, views: GPUTextureView[], options?: DrawOptions) => {
       this.#draw(encoder, pipeline, out, sceneBindGroup, this.#group(views), options);
       draws++;
     };
@@ -329,25 +401,25 @@ export class PostPass {
       current = v.motion;
     }
 
-    let exposureView = this.exposureViews[this.exposureIndex];
+    let exposureView = this.exposureViews[this.exposureIndex]!;
     if (effects.autoExposure) {
       const next = 1 - this.exposureIndex;
       draw(p.luminance, this.lumView, [current]);
-      draw(p.adapt, this.exposureViews[next], [this.lumView, exposureView]);
+      draw(p.adapt, this.exposureViews[next]!, [this.lumView, exposureView]);
       this.exposureIndex = next;
-      exposureView = this.exposureViews[next];
+      exposureView = this.exposureViews[next]!;
     }
 
     const levels = this.levels;
     let bloomView = this.shared.blackView;
     if (effects.bloom && levels.length) {
       const scatter = Math.min(0.95, Math.max(0.05, bloomScatter));
-      draw(p.prefilter, levels[0].view, [current, exposureView]);
-      for (let i = 1; i < levels.length; i++) draw(p.downsample, levels[i].view, [levels[i - 1].view]);
+      draw(p.prefilter, levels[0]!.view, [current, exposureView]);
+      for (let i = 1; i < levels.length; i++) draw(p.downsample, levels[i]!.view, [levels[i - 1]!.view]);
       for (let i = levels.length - 1; i > 0; i--) {
-        draw(p.upsample, levels[i - 1].view, [levels[i].view], { loadOp: 'load', blendConstant: scatter });
+        draw(p.upsample, levels[i - 1]!.view, [levels[i]!.view], { loadOp: 'load', blendConstant: scatter });
       }
-      bloomView = levels[0].view;
+      bloomView = levels[0]!.view;
     }
 
     const sampler = filter === 'nearest' ? this.shared.nearestSampler : this.shared.sampler;
@@ -363,7 +435,7 @@ export class PostPass {
     for (const level of this.levels) level.texture.destroy();
     for (const texture of [this.lum, ...this.exposure]) texture.destroy();
     this.lutTexture?.destroy();
-    this.textures = {};
+    this.textures = {} as Record<TargetName, GPUTexture>;
     this.levels = [];
     this.groups.clear();
   }

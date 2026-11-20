@@ -1,5 +1,5 @@
-import { COMMON } from '../chunks/frame.js';
-import { POST_COMMON } from './chunks.js';
+import { COMMON } from '../chunks/frame.ts';
+import { POST_COMMON } from './chunks.ts';
 
 /** The frame's average log luminance, as one texel, from a coarse grid of taps. */
 export const LUMINANCE_SHADER = /* wgsl */ `

@@ -1,5 +1,5 @@
-import { COMMON } from '../chunks/frame.js';
-import { POST_COMMON } from './chunks.js';
+import { COMMON } from '../chunks/frame.ts';
+import { POST_COMMON } from './chunks.ts';
 
 const DOF_COC = /* wgsl */ `
 // The circle of confusion of a point at depth, in pixels, from a thin

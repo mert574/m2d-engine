@@ -12,12 +12,9 @@
  * the renderer contract.
  */
 
-/** @type {GPUDevice|null} */
-let device = null;
-/** @type {GPUAdapter|null} */
-let adapter = null;
-/** @type {Promise<GPUDevice>|null} */
-let pending = null;
+let device: GPUDevice | null = null;
+let adapter: GPUAdapter | null = null;
+let pending: Promise<GPUDevice> | null = null;
 
 /** Whether this browser exposes WebGPU at all. */
 export function webgpuSupported() {
@@ -27,11 +24,8 @@ export function webgpuSupported() {
 /**
  * Acquire the device. Resolves at once when it already exists; concurrent
  * callers share one request.
- * @param {object} [options]
- * @param {GPUPowerPreference} [options.powerPreference='high-performance']
- * @returns {Promise<GPUDevice>}
  */
-export function initWebGPU({ powerPreference = 'high-performance' } = {}) {
+export function initWebGPU({ powerPreference = 'high-performance' }: { powerPreference?: GPUPowerPreference } = {}): Promise<GPUDevice> {
   if (device) return Promise.resolve(device);
   if (pending) return pending;
   pending = (async () => {
@@ -42,46 +36,45 @@ export function initWebGPU({ powerPreference = 'high-performance' } = {}) {
     if (!adapter) {
       throw new Error('M2D: no WebGPU adapter. The GPU may be blocklisted, or the browser is running without hardware acceleration');
     }
+    const gpu = adapter;
     // Indirect draws that start at an instance offset, which the 3D
     // renderer's GPU culling relies on, and GPU timestamps for its
     // statistics; the renderer checks `device.features` for both. The
     // compressed-texture families decide what KTX2 textures transcode
     // to (basis.js picks the best one present).
-    const requiredFeatures = [
+    const requiredFeatures = ([
       'timestamp-query', 'indirect-first-instance',
       'texture-compression-bc', 'texture-compression-etc2', 'texture-compression-astc'
-    ].filter((f) => adapter.features.has(f));
+    ] as GPUFeatureName[]).filter((f) => gpu.features.has(f));
     // The buffer limits the adapter offers rather than the spec's
     // defaults: a resident scene of tens of thousands of props lays one
     // record per drawn primitive into the instance buffer, which passes
     // the default 128 MB storage binding long before the GPU runs out.
     // The renderer reads `device.limits` and never grows a buffer past it.
     const requiredLimits = {
-      maxBufferSize: adapter.limits.maxBufferSize,
-      maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize
+      maxBufferSize: gpu.limits.maxBufferSize,
+      maxStorageBufferBindingSize: gpu.limits.maxStorageBufferBindingSize
     };
-    device = await adapter.requestDevice({ requiredFeatures, requiredLimits });
+    const acquired = await gpu.requestDevice({ requiredFeatures, requiredLimits });
+    device = acquired;
     // Validation errors are asynchronous; without this they vanish silently.
-    device.addEventListener('uncapturederror', (event) => {
-      console.error(`M2D: WebGPU error: ${event.error.message}`);
+    acquired.addEventListener('uncapturederror', (event) => {
+      console.error(`M2D: WebGPU error: ${(event as GPUUncapturedErrorEvent).error.message}`);
     });
-    device.lost.then((info) => {
+    acquired.lost.then((info) => {
       // A lost device never comes back; the next initWebGPU() asks for a new one.
       if (info.reason !== 'destroyed') console.warn(`M2D: WebGPU device lost (${info.message})`);
       device = null;
       pending = null;
     });
-    return device;
+    return acquired;
   })();
   pending.catch(() => { pending = null; });
   return pending;
 }
 
-/**
- * The acquired device, for a renderer's synchronous `init`.
- * @returns {GPUDevice}
- */
-export function webgpuDevice() {
+/** The acquired device, for a renderer's synchronous `init`. */
+export function webgpuDevice(): GPUDevice {
   if (!device) {
     throw new Error('M2D: WebGPU is not initialized — await initWebGPU() before constructing M2D');
   }

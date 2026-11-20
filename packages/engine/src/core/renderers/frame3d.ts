@@ -1,6 +1,7 @@
 import * as mat4 from './geometry/mat4.ts';
 import { boundingSphere, type Geometry } from './geometry/primitives.ts';
 import type { Quaternion, Vector3 } from '../math.ts';
+import type { Material } from '../gltf.ts';
 
 /**
  * A mesh the 3D renderer draws: a primitive's geometry, or one glTF
@@ -10,15 +11,23 @@ export interface Geometry3D extends Geometry {
   /** Whether the mesh has joints, and so reads the frame's skin matrices. */
   skinned?: boolean;
   /** Morph targets, when the mesh has them. */
-  morphs?: unknown;
+  morphs?: { count: number; vertices: number; deltas: Float32Array } | null;
+  /** A glTF mesh's extras; a primitive has none and the shader reads zeros/white. */
+  tangents?: Float32Array | null;
+  colors?: Uint8Array | null;
+  joints?: Uint16Array | null;
+  weights?: Float32Array | null;
 }
 
 /**
- * A glTF material (`gltf.js`). The frame only reads how it blends; the
- * renderer reads the rest, and `gltf.js` is what defines it.
+ * A glTF material (`gltf.ts`), or a hand-built one naming only what it
+ * sets. The frame only reads how it blends; the renderer reads the rest.
  */
-export interface Material3D {
-  alphaMode?: string;
+export interface Material3D extends Partial<Material> {
+  /** Metres per texture tile for world-planar mapping; 0 keeps the mesh's own uvs. A scene sets it. */
+  worldScale?: number;
+  /** 'own' keeps planar mapping in the instance's own frame. A scene sets it. */
+  planarFrame?: string;
 }
 
 /** Three linear colour channels, 0..1. */
@@ -118,6 +127,8 @@ export interface Group {
 /** A particle field over the scene; see PARTICLE_SHADER. */
 export interface ParticleField {
   kind: string;
+  /** Centre the field on the camera (motes); false pins it at `center`. */
+  follow?: boolean;
   count?: number;
   center?: readonly number[];
   extent?: readonly number[];
@@ -444,6 +455,17 @@ function checkLight(light: Light3D, p: Vector3 | undefined): void {
  * the GPU does not know which kind it is drawing.
  */
 export class StaticBatch {
+  /**
+   * Derived values the renderer keeps on the batch, each with the version
+   * it was computed at, so static records are walked once, not per frame.
+   */
+  bounds?: { min: number[]; max: number[] };
+  boundsVersion?: number;
+  centroid?: number[];
+  centroidVersion?: number;
+  minRadius?: number;
+  minRadiusVersion?: number;
+
   geometry: Geometry3D;
   material: Material3D | null;
   lod: readonly number[];

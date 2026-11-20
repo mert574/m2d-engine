@@ -1,19 +1,143 @@
 import { BaseRenderer } from './baseRenderer.ts';
 import { WebGLRenderer } from './webglRenderer.ts';
 import { identityViewport } from '../viewport.ts';
-import { webgpuDevice } from './webgpu/device.js';
+import { webgpuDevice } from './webgpu/device.ts';
 import {
   SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER, CULL_SHADER, PARTICLE_SHADER, MAX_PARTICLE_FIELDS,
   LIGHT_CLUSTER_SHADER, FRAME_UNIFORM_FLOATS, FRAME_OFFSETS, MATERIAL_UNIFORM_FLOATS, MAX_CASCADES,
   MAX_SPOT_SHADOWS, MAX_POINT_SHADOWS, POINT_SHADOW_NEAR, MAX_CULL_PASSES, MAX_VIEWS, CLUSTER_COUNT, CLUSTER_CAPACITY
-} from './webgpu/shaders/index.js';
-import { TextureCache3D } from './webgpu/textures.js';
+} from './webgpu/shaders/index.ts';
+import { TextureCache3D } from './webgpu/textures.ts';
 import { initBasis, bestTranscodeTarget, transcodeKTX2 } from './webgpu/basis.ts';
 import { setKTX2Decoder } from '../gltf.ts';
-import { Environment } from './webgpu/environment.js';
-import { PostPipelines, PostPass } from './webgpu/post.js';
+import { Environment } from './webgpu/environment.ts';
+import { PostPipelines, PostPass } from './webgpu/post.ts';
 import { Frame3D, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from './frame3d.ts';
+import type { Camera3DLike, FrameCamera, Geometry3D, Group, Light3D, Material3D, StaticBatch } from './frame3d.ts';
+
+/** The camera members this renderer reads; `FrameCamera` and `Camera3D` both satisfy it. */
+interface RenderCamera {
+  viewProjection?: Float32Array | null;
+  inverseViewProjection?: Float32Array | null;
+  view?: Float32Array | null;
+  position?: { x: number; y: number; z: number };
+  fov?: number;
+  aspect?: number;
+  near?: number;
+  far?: number;
+}
+import type { Filter, RendererInitOptions, RendererStats } from './baseRenderer.ts';
+import type { Viewport } from '../viewport.ts';
+import type { Model } from '../gltf.ts';
+
+/** A typed-array upload into a fresh GPU buffer; see `#geometry`. */
+type UploadFn = <A extends Float32Array | Uint8Array | Uint16Array | Uint32Array>(array: A, usage: GPUBufferUsageFlags, label: string) => GPUBuffer;
+import type { DecodedImage } from '../gltf.ts';
+import type { LutImage } from './webgpu/post.ts';
 import * as mat4 from './geometry/mat4.ts';
+
+/** A geometry's GPU copy, uploaded on first sight and cached by identity. */
+interface GpuGeometry {
+  positions: GPUBuffer;
+  normals: GPUBuffer;
+  uvs: GPUBuffer;
+  tangents: GPUBuffer;
+  colors: GPUBuffer | null;
+  morphGroup: GPUBindGroup | null;
+  vertices: number;
+  skinned: boolean;
+  joints: GPUBuffer | null;
+  weights: GPUBuffer | null;
+  index: GPUBuffer;
+  count: number;
+  format: GPUIndexFormat;
+}
+
+/** One live view of the world; `views[0]` is the game's canvas. */
+export interface View3D {
+  canvas: HTMLCanvasElement;
+  context: GPUCanvasContext;
+  /** The view's own camera; null means `frame.camera`. */
+  camera: RenderCamera | null;
+  post: PostPass;
+  colorTextures: GPUTexture[];
+  colorViews: GPUTextureView[];
+  depthTexture: GPUTexture | null;
+  clusterCountBuffer: GPUBuffer;
+  clusterIndexBuffer: GPUBuffer;
+  sceneBindGroup: GPUBindGroup | null;
+  clusterBindGroup: GPUBindGroup | null;
+  previousViewProjection: Float32Array;
+  previousValid: boolean;
+  currentTexture: GPUTexture | null;
+  worldWidth: number;
+  worldHeight: number;
+  /** The content rectangle the composite writes; null fills the canvas. */
+  rect: number[] | null;
+}
+
+/** One group of the frame's layout: a geometry and material over a range of instances. */
+interface LayoutGroup {
+  gpu: GpuGeometry;
+  near: number;
+  bounds: Bounds;
+  material: GPUBindGroup;
+  doubleSided: boolean;
+  transparent: boolean;
+  centroid: number[] | null;
+  start: number;
+  count: number;
+}
+
+interface Bounds { min: number[]; max: number[] }
+
+/** What `#assemble` lays out for the frame's passes. */
+interface Layout {
+  groups: LayoutGroup[];
+  total: number;
+  copies: { buffer: GPUBuffer; offset: number; count: number }[];
+  passCount: number;
+}
+
+/** What a pass may see of the scene; `NO_LIMITS` for a camera's own pass. */
+interface PassLimits {
+  reach?: number;
+  sphere?: { x: number; y: number; z: number; r: number } | null;
+}
+
+/** One shadow map to draw: its target layer, its light matrix, and its limits. */
+interface ShadowPass3D extends PassLimits {
+  view: GPUTextureView;
+  matrix: Float32Array;
+}
+
+/** What `#planShadows` returns for a frame. */
+interface ShadowPlan {
+  cascades: { matrix: Float32Array; split: number; radius: number }[];
+  spots: { matrix: Float32Array; index: number }[];
+  points?: { index: number; range: number }[];
+  passes: ShadowPass3D[];
+}
+
+/** A staging slot the statistics read back through. */
+interface StagingSlot {
+  buffer: GPUBuffer | null;
+  size: number;
+  pending: boolean;
+  layout?: { passCount: number; viewCount: number; indexCounts: number[]; argsBytes: number };
+}
+
+/** A recorded pass: the bundle and what it was recorded over. */
+interface BundleEntry {
+  bundle: GPURenderBundle;
+  binds: GPUBindGroup[];
+  skipped: number;
+  draws: number;
+  changes: number;
+}
+
+/** What a pass draws with: encodes both render passes and bundle encoders. */
+type PassEncoder = GPURenderPassEncoder | GPURenderBundleEncoder;
 
 /**
  * The 3D renderer, on WebGPU.
@@ -73,10 +197,10 @@ import * as mat4 from './geometry/mat4.ts';
  */
 
 const SAMPLES = 4;
-const HDR_FORMAT = 'rgba16float';
+const HDR_FORMAT: GPUTextureFormat = 'rgba16float';
 /** What a render bundle for each kind of pass must be recorded against: its attachments' formats. */
-const SHADOW_BUNDLE = Object.freeze({ colorFormats: [], depthStencilFormat: 'depth32float', sampleCount: 1 });
-const MAIN_BUNDLE = Object.freeze({ colorFormats: [HDR_FORMAT, HDR_FORMAT, HDR_FORMAT, 'rg16float'], depthStencilFormat: 'depth24plus', sampleCount: SAMPLES });
+const SHADOW_BUNDLE: GPURenderBundleEncoderDescriptor = Object.freeze<GPURenderBundleEncoderDescriptor>({ colorFormats: [], depthStencilFormat: 'depth32float', sampleCount: 1 });
+const MAIN_BUNDLE: GPURenderBundleEncoderDescriptor = Object.freeze<GPURenderBundleEncoderDescriptor>({ colorFormats: [HDR_FORMAT, HDR_FORMAT, HDR_FORMAT, 'rg16float'], depthStencilFormat: 'depth24plus', sampleCount: SAMPLES });
 
 /**
  * What the `r_shadows` setting buys: cascade count and size for the sun,
@@ -99,7 +223,119 @@ export const SHADOW_QUALITY = Object.freeze({
 /** Where the cascade splits fall between linear and logarithmic spacing. */
 const CASCADE_LAMBDA = 0.6;
 
+/** The 3D renderer's statistics, over the base set. */
+export interface Stats3D extends RendererStats {
+  instances: number;
+  drawn: number;
+  casters: number;
+  triangles: number;
+  gpuMs: number;
+}
+
 export class WebGPURenderer extends BaseRenderer {
+  /** Set by the base constructor and widened by this one's `Object.assign`. */
+  declare stats: Stats3D;
+  canvas: HTMLCanvasElement | null;
+  device: GPUDevice | null;
+  context: GPUCanvasContext | null;
+  format: GPUTextureFormat | null;
+  overlayCanvas: HTMLCanvasElement | null;
+  uiBackend: WebGLRenderer | null;
+  frameUniform: GPUBuffer | null;
+  frameData: Float32Array;
+  sceneBindGroupLayout: GPUBindGroupLayout | null;
+  lightingBindGroup: GPUBindGroup | null;
+  environment: Environment | null;
+  postPipelines: PostPipelines | null;
+  views: View3D[];
+  lightBuffer: GPUBuffer | null;
+  lightData: Float32Array;
+  materialBindGroupLayout: GPUBindGroupLayout | null;
+  textures: TextureCache3D | null;
+  materialCache: WeakMap<Material3D, GPUBindGroup>;
+  defaultMaterial: GPUBindGroup | null;
+  skyPipeline: GPURenderPipeline | null;
+  shadowPipeline: GPURenderPipeline | null;
+  meshPipelines: GPURenderPipeline[][] | null;
+  transparentPipelines: GPURenderPipeline[][] | null = null;
+  transparentBackPipelines: GPURenderPipeline[] | null = null;
+  shadowSkinnedPipeline: GPURenderPipeline | null = null;
+  meshSkinnedPipeline: GPURenderPipeline | null;
+  jointBuffer: GPUBuffer | null;
+  jointCapacity: number;
+  jointData: Float32Array;
+  sunShadowTexture: GPUTexture | null;
+  spotShadowTexture: GPUTexture | null;
+  pointShadowTexture: GPUTexture | null;
+  pointShadowFaces: GPUTextureView[];
+  pointShadowCache: ({ key: string; hashes: Int32Array; strength: number } | null | undefined)[];
+  bundles: Map<string, BundleEntry>;
+  bundleSignature: unknown[];
+  sunShadowLayers: GPUTextureView[];
+  spotShadowLayers: GPUTextureView[];
+  shadowPassUniforms: GPUBuffer[];
+  shadowPassGroups: GPUBindGroup[];
+  shadowPassLayout: GPUBindGroupLayout | null;
+  lightingBindGroupLayout: GPUBindGroupLayout | null;
+  shadowSampler: GPUSampler | null;
+  shadowQuality: keyof typeof SHADOW_QUALITY;
+  effects: { taa: boolean; ao: boolean; dof: boolean; motionBlur: boolean; autoExposure: boolean; bloom: boolean; film: boolean };
+  jitteredViewProjection: Float32Array;
+  frameCounter: number;
+  lastFrameTime: number;
+  frameDt: number;
+  frameNow: number;
+  startTime: number;
+  cascadeScratch: { eye: { x: number; y: number; z: number }; view: Float32Array; projection: Float32Array; lightBasis: Float32Array };
+  instanceBuffer: GPUBuffer | null;
+  instanceCapacity: number;
+  instanceData: Float32Array;
+  batchCache: WeakMap<StaticBatch, { buffer: GPUBuffer; version: number; capacity: number }>;
+  cullPipeline: GPUComputePipeline | null;
+  cullSceneLayout: GPUBindGroupLayout | null;
+  cullSceneBindGroup: GPUBindGroup | null;
+  cullBindGroupLayout: GPUBindGroupLayout | null;
+  cullBindGroup: GPUBindGroup | null;
+  cullParams: GPUBuffer | null;
+  cullData: Float32Array;
+  clusterPipeline: GPUComputePipeline | null;
+  clusterSceneLayout: GPUBindGroupLayout | null;
+  clusterSceneBindGroup: GPUBindGroup | null;
+  clusterBindGroupLayout: GPUBindGroupLayout | null;
+  groupStartsBuffer: GPUBuffer | null;
+  groupLodBuffer: GPUBuffer | null;
+  groupStartsCapacity: number;
+  argsBuffer: GPUBuffer | null;
+  argsCapacity: number;
+  argsTemplate: Uint32Array = new Uint32Array(0);
+  remapBuffer: GPUBuffer | null;
+  remapCapacity: number;
+  staging: StagingSlot[];
+  querySet: GPUQuerySet | null;
+  timeBuffer: GPUBuffer | null;
+  hasTimestamps: boolean;
+  geometryCache: WeakMap<Geometry3D, GpuGeometry>;
+  materialUniforms: WeakMap<Material3D, GPUBuffer>;
+  morphBuffers: WeakMap<Geometry3D, GPUBuffer[]>;
+  currentTexture: GPUTexture | null;
+  morphBindGroupLayout: GPUBindGroupLayout | null = null;
+  emptyMorphGroup: GPUBindGroup | null = null;
+  particleLayout: GPUBindGroupLayout | null = null;
+  particleUniform: GPUBuffer | null = null;
+  particleData: Float32Array = new Float32Array(0);
+  particleBindGroup: GPUBindGroup | null = null;
+  particlePipeline: GPURenderPipeline | null = null;
+  /** The block format KTX2 textures transcode to on this GPU; `modelLoader` hands it to its workers. */
+  transcodeTarget: ReturnType<typeof bestTranscodeTarget> | null = null;
+  environmentImage: DecodedImage | null = null;
+  environmentTexture: GPUTexture | null = null;
+  morphBuffer: GPUBuffer | null = null;
+  morphCapacity = 0;
+  morphData: Float32Array = new Float32Array(0);
+  whiteColorBuffer: GPUBuffer | null = null;
+  whiteColorCapacity = 0;
+  statsPending: Promise<void> | undefined;
+
   constructor() {
     super();
     /** Tells the engine this renderer draws a 3D world. */
@@ -250,7 +486,7 @@ export class WebGPURenderer extends BaseRenderer {
 
   // === Lifecycle ===
 
-  init(element, options = {}) {
+  override init(element: HTMLCanvasElement, options: RendererInitOptions = {}): boolean {
     this.canvas = element;
     this.device = webgpuDevice();
     this.format = navigator.gpu.getPreferredCanvasFormat();
@@ -272,23 +508,23 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** A canvas configured onto this renderer's device and format. */
-  #configureCanvas(element) {
-    const context = element.getContext('webgpu');
+  #configureCanvas(element: HTMLCanvasElement): GPUCanvasContext {
+    const context = element.getContext('webgpu') as GPUCanvasContext | null;
     if (!context) throw new Error('WebGPURenderer: the canvas has no WebGPU context (is another context already on it?)');
     // COPY_SRC is for `readPixels`; it costs nothing when unused.
     context.configure({
-      device: this.device, format: this.format, alphaMode: 'opaque',
+      device: this.device!, format: this.format!, alphaMode: 'opaque',
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
     });
     return context;
   }
 
   /** A view record over a configured canvas; `camera: null` means `frame.camera`. */
-  #makeView(canvas, context, camera) {
-    const device = this.device;
-    const view = {
+  #makeView(canvas: HTMLCanvasElement, context: GPUCanvasContext, camera: RenderCamera | null): View3D {
+    const device = this.device!;
+    const view: View3D = {
       canvas, context, camera,
-      post: new PostPass(this.postPipelines),
+      post: new PostPass(this.postPipelines!),
       colorTextures: [], colorViews: [], depthTexture: null,
       // One u32 per cluster, and CLUSTER_CAPACITY light indices per
       // cluster. Per view: the grid is the camera's frustum, diced.
@@ -318,11 +554,10 @@ export class WebGPURenderer extends BaseRenderer {
    * (`camera.resize`) when the canvas changes; after changing the canvas's
    * backing size, call `resizeView`.
    *
-   * @param {HTMLCanvasElement} canvas
-   * @param {object} camera - A `Camera3D`
-   * @returns {object} The view handle, for `resizeView` and `removeView`
+   * `camera` is a `Camera3D`; the returned view handle is for
+   * `resizeView` and `removeView`.
    */
-  createView(canvas, camera) {
+  createView(canvas: HTMLCanvasElement, camera: Camera3DLike | RenderCamera): View3D {
     if (this.views.length >= MAX_VIEWS) {
       throw new Error(`WebGPURenderer: at most ${MAX_VIEWS} views (the cull tests every view in one dispatch)`);
     }
@@ -333,12 +568,12 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** Size a view's targets to its canvas's backing store. The primary view follows `setViewport` instead. */
-  resizeView(view) {
+  resizeView(view: View3D): void {
     this.#resizeView(view, Math.max(1, view.canvas.width), Math.max(1, view.canvas.height));
   }
 
   /** Drop a view made by `createView` and everything it holds. */
-  removeView(view) {
+  removeView(view: View3D): void {
     const index = this.views.indexOf(view);
     if (index <= 0) return;
     this.views.splice(index, 1);
@@ -350,7 +585,7 @@ export class WebGPURenderer extends BaseRenderer {
     view.context.unconfigure();
   }
 
-  #createOverlay(element, options, viewport) {
+  #createOverlay(element: HTMLCanvasElement, options: RendererInitOptions, viewport: Viewport) {
     const overlay = document.createElement('canvas');
     overlay.className = 'm2d-ui-overlay';
     overlay.setAttribute('aria-hidden', 'true');
@@ -372,8 +607,8 @@ export class WebGPURenderer extends BaseRenderer {
    * that hit it position the canvas's parent, as they would for any overlay.
    */
   #placeOverlay() {
-    const canvas = this.canvas;
-    const style = this.overlayCanvas.style;
+    const canvas = this.canvas!;
+    const style = this.overlayCanvas!.style;
     style.left = `${canvas.offsetLeft}px`;
     style.top = `${canvas.offsetTop}px`;
     style.width = canvas.style.width || `${canvas.clientWidth}px`;
@@ -381,7 +616,7 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   #createResources() {
-    const device = this.device;
+    const device = this.device!;
     this.frameUniform = device.createBuffer({
       label: 'frame',
       size: FRAME_UNIFORM_FLOATS * 4,
@@ -482,7 +717,7 @@ export class WebGPURenderer extends BaseRenderer {
     const emptyDeltas = device.createBuffer({ label: 'no morphs', size: 16, usage: GPUBufferUsage.STORAGE });
     const emptyInfo = device.createBuffer({ label: 'no morph info', size: 16, usage: GPUBufferUsage.UNIFORM });
     this.emptyMorphGroup = device.createBindGroup({
-      layout: this.morphBindGroupLayout,
+      layout: this.morphBindGroupLayout!,
       entries: [
         { binding: 0, resource: { buffer: emptyDeltas } },
         { binding: 1, resource: { buffer: emptyInfo } }
@@ -510,12 +745,12 @@ export class WebGPURenderer extends BaseRenderer {
       const buffer = device.createBuffer({ label: `shadow pass ${i}`, size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
       this.shadowPassUniforms.push(buffer);
       this.shadowPassGroups.push(device.createBindGroup({
-        layout: this.shadowPassLayout, entries: [{ binding: 0, resource: { buffer } }]
+        layout: this.shadowPassLayout!, entries: [{ binding: 0, resource: { buffer } }]
       }));
     }
     this.shadowSampler = device.createSampler({ compare: 'less', magFilter: 'linear', minFilter: 'linear' });
     this.environment = new Environment(device, this.sceneBindGroupLayout);
-    this.postPipelines = new PostPipelines(device, this.sceneBindGroupLayout, this.format);
+    this.postPipelines = new PostPipelines(device, this.sceneBindGroupLayout, this.format!);
     this.materialBindGroupLayout = device.createBindGroupLayout({
       label: 'material',
       entries: [
@@ -537,14 +772,14 @@ export class WebGPURenderer extends BaseRenderer {
     /** The block format KTX2 textures transcode to on this GPU; `modelLoader` hands it to its workers. */
     this.transcodeTarget = bestTranscodeTarget(device);
     setKTX2Decoder(async (bytes) =>
-      transcodeKTX2(await initBasis(), bytes, this.transcodeTarget));
+      transcodeKTX2(await initBasis(), bytes, this.transcodeTarget!));
 
     this.#createShadowMaps();
 
     // Positions, normals, texture coordinates, tangents; a skinned mesh
     // adds joints and weights. The shadow pass reads no tangents, so its
     // skin buffers sit one slot earlier.
-    const vertexBuffers = [
+    const vertexBuffers: GPUVertexBufferLayout[] = [
       { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] },
       { arrayStride: 12, attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x3' }] },
       { arrayStride: 8, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x2' }] },
@@ -553,7 +788,7 @@ export class WebGPURenderer extends BaseRenderer {
       // white buffer, so there is no colourless pipeline variant.
       { arrayStride: 4, attributes: [{ shaderLocation: 6, offset: 0, format: 'unorm8x4' }] }
     ];
-    const skinBuffers = (first) => [
+    const skinBuffers = (first: number): GPUVertexBufferLayout[] => [
       { arrayStride: 8, attributes: [{ shaderLocation: first, offset: 0, format: 'uint16x4' }] },
       { arrayStride: 16, attributes: [{ shaderLocation: first + 1, offset: 0, format: 'float32x4' }] }
     ];
@@ -573,7 +808,7 @@ export class WebGPURenderer extends BaseRenderer {
       depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' }
     });
 
-    const shadowPipeline = (code, label, buffers) => {
+    const shadowPipeline = (code: string, label: string, buffers: GPUVertexBufferLayout[]) => {
       const module = device.createShaderModule({ code, label });
       return device.createRenderPipeline({
         label,
@@ -593,7 +828,7 @@ export class WebGPURenderer extends BaseRenderer {
     const meshLayout = device.createPipelineLayout({
       bindGroupLayouts: [this.sceneBindGroupLayout, lightingBindGroupLayout, this.materialBindGroupLayout, this.morphBindGroupLayout]
     });
-    const meshPipeline = (code, label, buffers, cullMode, transparent = false) => {
+    const meshPipeline = (code: string, label: string, buffers: GPUVertexBufferLayout[], cullMode: GPUCullMode, transparent = false) => {
       const module = device.createShaderModule({ code, label });
       return device.createRenderPipeline({
         label,
@@ -613,7 +848,7 @@ export class WebGPURenderer extends BaseRenderer {
       });
     };
     // Indexed by skinned (0/1) then double-sided (0/1).
-    const meshSet = (transparent) => [
+    const meshSet = (transparent: boolean) => [
       [meshPipeline(MESH_SHADER, `mesh${transparent ? ' blend' : ''}`, vertexBuffers, 'back', transparent),
         meshPipeline(MESH_SHADER, `mesh two-sided${transparent ? ' blend' : ''}`, vertexBuffers, 'none', transparent)],
       [meshPipeline(MESH_SKINNED_SHADER, `mesh skinned${transparent ? ' blend' : ''}`, [...vertexBuffers, ...skinBuffers(4)], 'back', transparent),
@@ -640,7 +875,7 @@ export class WebGPURenderer extends BaseRenderer {
       label: 'particles', size: 16 + MAX_PARTICLE_FIELDS * 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
     this.particleData = new Float32Array(4 + MAX_PARTICLE_FIELDS * 16);
-    this.particleBindGroup = device.createBindGroup({ layout: this.particleLayout, entries: [{ binding: 0, resource: { buffer: this.particleUniform } }] });
+    this.particleBindGroup = device.createBindGroup({ layout: this.particleLayout!, entries: [{ binding: 0, resource: { buffer: this.particleUniform! } }] });
     const particles = device.createShaderModule({ code: PARTICLE_SHADER, label: 'particles' });
     this.particlePipeline = device.createRenderPipeline({
       label: 'particles',
@@ -660,12 +895,12 @@ export class WebGPURenderer extends BaseRenderer {
    * reads them. Rebuilt when the quality changes.
    */
   #createShadowMaps() {
-    const device = this.device;
+    const device = this.device!;
     const q = SHADOW_QUALITY[this.shadowQuality];
     this.sunShadowTexture?.destroy();
     this.spotShadowTexture?.destroy();
     this.pointShadowTexture?.destroy();
-    const array = (size, layers, label) => device.createTexture({
+    const array = (size: number, layers: number, label: string) => device.createTexture({
       label, size: { width: size, height: size, depthOrArrayLayers: layers }, format: 'depth32float',
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
     });
@@ -681,21 +916,21 @@ export class WebGPURenderer extends BaseRenderer {
       // says otherwise, and the cube view has to agree with the binding.
       textureBindingViewDimension: 'cube-array'
     });
-    const layers = (texture, count) => Array.from({ length: count }, (_, i) =>
+    const layers = (texture: GPUTexture, count: number) => Array.from({ length: count }, (_, i) =>
       texture.createView({ dimension: '2d', baseArrayLayer: i, arrayLayerCount: 1 }));
     this.sunShadowLayers = layers(this.sunShadowTexture, MAX_CASCADES);
     this.spotShadowLayers = layers(this.spotShadowTexture, MAX_SPOT_SHADOWS);
     this.pointShadowFaces = layers(this.pointShadowTexture, MAX_POINT_SHADOWS * 6);
     this.pointShadowCache = [];
     this.lightingBindGroup = device.createBindGroup({
-      layout: this.lightingBindGroupLayout,
+      layout: this.lightingBindGroupLayout!,
       entries: [
         { binding: 0, resource: this.sunShadowTexture.createView({ dimension: '2d-array' }) },
-        { binding: 1, resource: this.shadowSampler },
-        { binding: 2, resource: this.environment.irradianceView },
-        { binding: 3, resource: this.environment.prefilteredView },
-        { binding: 4, resource: this.environment.lutView },
-        { binding: 5, resource: this.environment.sampler },
+        { binding: 1, resource: this.shadowSampler! },
+        { binding: 2, resource: this.environment!.irradianceView },
+        { binding: 3, resource: this.environment!.prefilteredView },
+        { binding: 4, resource: this.environment!.lutView },
+        { binding: 5, resource: this.environment!.sampler },
         { binding: 6, resource: this.spotShadowTexture.createView({ dimension: '2d-array' }) },
         { binding: 7, resource: this.pointShadowTexture.createView({ dimension: 'cube-array' }) }
       ]
@@ -706,21 +941,21 @@ export class WebGPURenderer extends BaseRenderer {
    * Shadow quality: `off`, `low`, `medium` or `high`; see `SHADOW_QUALITY`.
    * The `r_shadows` cvar sets it.
    */
-  setShadowQuality(quality) {
+  setShadowQuality(quality: keyof typeof SHADOW_QUALITY): void {
     if (!(quality in SHADOW_QUALITY) || quality === this.shadowQuality) return;
     this.shadowQuality = quality;
     if (this.device) this.#createShadowMaps();
   }
 
-  setViewport(viewport) {
+  override setViewport(viewport: Viewport): void {
     this.viewport = viewport;
     if (!this.device) return;
     const { backingWidth, backingHeight, worldWidth, worldHeight } = viewport;
-    this.canvas.width = backingWidth;
-    this.canvas.height = backingHeight;
+    this.canvas!.width = backingWidth;
+    this.canvas!.height = backingHeight;
     // The world renders at the resolution setting and is presented into the
     // content rectangle, as the 2D backends do; see viewport.js.
-    const primary = this.views[0];
+    const primary = this.views[0]!;
     this.#resizeView(primary, worldWidth, worldHeight);
     primary.rect = [viewport.contentX, viewport.contentY, viewport.contentWidth, viewport.contentHeight];
     if (this.overlayCanvas) this.#placeOverlay();
@@ -728,17 +963,17 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** (Re)create one view's render targets and post stack for a world size. */
-  #resizeView(view, width, height) {
+  #resizeView(view: View3D, width: number, height: number) {
     for (const t of view.colorTextures) t.destroy();
     view.depthTexture?.destroy();
     const size = { width, height };
-    view.colorTextures = MAIN_TARGETS.map(({ label, format }) => this.device.createTexture({
+    view.colorTextures = MAIN_TARGETS.map(({ label, format }) => this.device!.createTexture({
       label: `${label} (msaa)`, size, sampleCount: SAMPLES, format,
       usage: GPUTextureUsage.RENDER_ATTACHMENT
     }));
     view.colorViews = view.colorTextures.map((t) => t.createView());
     view.post.resize(width, height);
-    view.depthTexture = this.device.createTexture({
+    view.depthTexture = this.device!.createTexture({
       label: 'depth (msaa)', size, sampleCount: SAMPLES, format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
@@ -746,17 +981,17 @@ export class WebGPURenderer extends BaseRenderer {
     view.worldHeight = height;
   }
 
-  setWorldFilter(filter) {
+  override setWorldFilter(filter: Filter): void {
     super.setWorldFilter(filter);
     this.uiBackend?.setWorldFilter(filter);
   }
 
-  setTextureFilter(filter) {
+  override setTextureFilter(filter: Filter): void {
     super.setTextureFilter(filter);
     this.uiBackend?.setTextureFilter(filter);
   }
 
-  destroy() {
+  override destroy() {
     this.uiBackend?.destroy();
     this.overlayCanvas?.remove?.();
     for (const view of this.views) {
@@ -787,7 +1022,7 @@ export class WebGPURenderer extends BaseRenderer {
     this.jointBuffer = null;
     this.jointCapacity = 0;
     for (const buffer of [this.cullParams, this.groupStartsBuffer, this.groupLodBuffer, this.argsBuffer, this.remapBuffer, this.timeBuffer, this.particleUniform]) buffer?.destroy();
-    for (const slot of this.staging) slot.buffer.destroy();
+    for (const slot of this.staging) slot.buffer?.destroy();
     this.staging = [];
     this.querySet?.destroy();
     this.querySet = this.timeBuffer = null;
@@ -824,12 +1059,12 @@ export class WebGPURenderer extends BaseRenderer {
    * its own sky, so there is nothing to clear here; it is where the HUD's
    * overlay is wiped to transparent for the UI pass that follows.
    */
-  clear() {
+  override clear() {
     this.uiBackend?.clear();
   }
 
   /** A fresh frame to fill; see `Frame3D`. */
-  createFrame() {
+  createFrame(): Frame3D {
     return new Frame3D();
   }
 
@@ -852,13 +1087,12 @@ export class WebGPURenderer extends BaseRenderer {
    * cull picks (the primary camera's), and the light fade distances baked
    * into the frame by `Frame3D.addLight`.
    *
-   * @param {Frame3D} frame
    */
-  render(frame) {
+  render(frame: Frame3D): void {
     super.beginFrame();
-    const device = this.device;
+    const device = this.device!;
     const views = this.views;
-    const primary = views[0];
+    const primary = views[0]!;
     // One wall-clock step for the whole frame, read by every view's
     // uniform write and by the shadow fade, so N views see one dt.
     const now = (typeof performance !== 'undefined' ? performance.now() : 0) - this.startTime;
@@ -895,43 +1129,43 @@ export class WebGPURenderer extends BaseRenderer {
     // Resident batches into this frame's instance buffer, GPU to GPU. The
     // per-frame records were written to the queue above, so they land first.
     for (const copy of layout.copies) {
-      encoder.copyBufferToBuffer(copy.buffer, 0, this.instanceBuffer, copy.offset * INSTANCE_BYTES, copy.count * INSTANCE_BYTES);
+      encoder.copyBufferToBuffer(copy.buffer, 0, this.instanceBuffer!, copy.offset * INSTANCE_BYTES, copy.count * INSTANCE_BYTES);
     }
-    if (this.environment.update(encoder, frame, primary.sceneBindGroup)) this.stats.stateChanges++;
+    if (this.environment!.update(encoder, frame, primary.sceneBindGroup!)) this.stats.stateChanges++;
 
     const stamps = this.hasTimestamps;
     const cull = encoder.beginComputePass({
       label: 'cull',
-      ...(stamps && { timestampWrites: { querySet: this.querySet, beginningOfPassWriteIndex: 0 } })
+      ...(stamps && { timestampWrites: { querySet: this.querySet!, beginningOfPassWriteIndex: 0 } })
     });
-    cull.setPipeline(this.cullPipeline);
+    cull.setPipeline(this.cullPipeline!);
     cull.setBindGroup(0, this.cullSceneBindGroup);
     cull.setBindGroup(1, this.cullBindGroup);
     cull.dispatchWorkgroups(Math.ceil(layout.total / 64));
     // Lights into clusters, in the same pass: it reads the frame uniform
     // and the light buffer, which the cull does not touch. Every cluster
     // writes its own count, so there is nothing to clear first.
-    cull.setPipeline(this.clusterPipeline);
+    cull.setPipeline(this.clusterPipeline!);
     cull.setBindGroup(0, this.clusterSceneBindGroup);
     cull.setBindGroup(1, primary.clusterBindGroup);
     cull.dispatchWorkgroups(Math.ceil(CLUSTER_COUNT / 64));
     cull.end();
 
     for (let i = 0; i < shadows.passes.length; i++) {
-      const { view, matrix, reach, sphere } = shadows.passes[i];
-      device.queue.writeBuffer(this.shadowPassUniforms[i], 0, matrix);
+      const { view, matrix, reach, sphere } = shadows.passes[i]!;
+      device.queue.writeBuffer(this.shadowPassUniforms[i]!, 0, matrix);
       const pass = encoder.beginRenderPass({
         label: 'shadow',
         colorAttachments: [],
         depthStencilAttachment: { view, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store' }
       });
-      this.#drawGroupsBundled(pass, layout, 'shadow', views.length + i, SHADOW_BUNDLE, [primary.sceneBindGroup, this.shadowPassGroups[i]], { reach, sphere });
+      this.#drawGroupsBundled(pass, layout, 'shadow', views.length + i, SHADOW_BUNDLE, [primary.sceneBindGroup!, this.shadowPassGroups[i]!], { reach, sphere });
       pass.end();
     }
 
     this.#renderView(encoder, frame, primary, frame.camera, 0, layout, {
       rect: primary.rect,
-      timestampWrites: stamps ? { querySet: this.querySet, endOfPassWriteIndex: 1 } : undefined
+      timestampWrites: stamps ? { querySet: this.querySet!, endOfPassWriteIndex: 1 } : undefined
     });
     this.currentTexture = primary.currentTexture;
 
@@ -942,17 +1176,17 @@ export class WebGPURenderer extends BaseRenderer {
     // a submit of its own — the queue runs writes and submits in order,
     // so every pass in a view's submit sees that view's camera.
     for (let i = 1; i < views.length; i++) {
-      const view = views[i];
-      const camera = view.camera ?? frame.camera;
-      this.#writeFrameUniform(frame, shadows, view, camera);
+      const view = views[i]!;
+      const camera = view.camera! ?? frame.camera;
+      this.#writeFrameUniform(frame, shadows, view!, camera);
       const viewEncoder = device.createCommandEncoder({ label: 'view' });
       const cluster = viewEncoder.beginComputePass({ label: 'view clusters' });
-      cluster.setPipeline(this.clusterPipeline);
+      cluster.setPipeline(this.clusterPipeline!);
       cluster.setBindGroup(0, this.clusterSceneBindGroup);
-      cluster.setBindGroup(1, view.clusterBindGroup);
+      cluster.setBindGroup(1, view.clusterBindGroup!);
       cluster.dispatchWorkgroups(Math.ceil(CLUSTER_COUNT / 64));
       cluster.end();
-      this.#renderView(viewEncoder, frame, view, camera, i, layout, { rect: view.rect });
+      this.#renderView(viewEncoder, frame, view!, camera, i, layout, { rect: view.rect! });
       device.queue.submit([viewEncoder.finish()]);
     }
 
@@ -983,7 +1217,7 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** One view's main pass and post stack, into its canvas. */
-  #renderView(encoder, frame, view, camera, passIndex, layout, { rect = null, timestampWrites = undefined } = {}) {
+  #renderView(encoder: GPUCommandEncoder, frame: Frame3D, view: View3D, camera: RenderCamera, passIndex: number, layout: Layout, { rect = null, timestampWrites = undefined }: { rect?: number[] | null; timestampWrites?: GPURenderPassTimestampWrites | undefined } = {}) {
     const resolves = view.post.attachments;
     const pass = encoder.beginRenderPass({
       label: 'main',
@@ -995,19 +1229,19 @@ export class WebGPURenderer extends BaseRenderer {
         storeOp: 'discard'
       })),
       depthStencilAttachment: {
-        view: view.depthTexture.createView(),
+        view: view.depthTexture!.createView(),
         depthClearValue: 1,
         depthLoadOp: 'clear',
         depthStoreOp: 'discard'
       }
     });
     pass.setBindGroup(0, view.sceneBindGroup);
-    pass.setPipeline(this.skyPipeline);
+    pass.setPipeline(this.skyPipeline!);
     pass.draw(3);
     this.stats.drawCalls++;
 
     this.stats.stateChanges += 2;
-    this.#drawGroupsBundled(pass, layout, 'main', passIndex, MAIN_BUNDLE, [view.sceneBindGroup, this.lightingBindGroup]);
+    this.#drawGroupsBundled(pass, layout, 'main', passIndex, MAIN_BUNDLE, [view.sceneBindGroup!, this.lightingBindGroup!]);
     // A bundle leaves the pass with no state; the blended groups and the
     // particles, drawn directly since their order changes every frame,
     // need the frame's groups again.
@@ -1021,7 +1255,7 @@ export class WebGPURenderer extends BaseRenderer {
     // Particles over everything, blended, tested against the opaque depth.
     const particleCount = this.#writeParticles(frame, camera);
     if (particleCount) {
-      pass.setPipeline(this.particlePipeline);
+      pass.setPipeline(this.particlePipeline!);
       pass.setBindGroup(1, this.particleBindGroup);
       pass.draw(6, particleCount);
       this.stats.drawCalls++;
@@ -1031,7 +1265,7 @@ export class WebGPURenderer extends BaseRenderer {
     view.currentTexture = view.context.getCurrentTexture();
     const e = this.effects;
     const post = frame.post ?? {};
-    this.stats.drawCalls += view.post.run(encoder, view.sceneBindGroup, view.currentTexture.createView(), {
+    this.stats.drawCalls += view.post.run(encoder, view.sceneBindGroup!, view.currentTexture.createView(), {
       effects: {
         ao: e.ao && (post.ao?.intensity ?? 0) > 0,
         taa: e.taa,
@@ -1040,7 +1274,7 @@ export class WebGPURenderer extends BaseRenderer {
         autoExposure: e.autoExposure && !!post.autoExposure?.enabled,
         bloom: e.bloom && (frame.bloom?.intensity ?? 0) > 0
       },
-      lut: post.grade?.lut ?? null,
+      lut: (post.grade?.lut ?? null) as LutImage | null,
       bloomScatter: frame.bloom?.scatter ?? 0.75,
       filter: this.worldFilter,
       rect,
@@ -1054,9 +1288,8 @@ export class WebGPURenderer extends BaseRenderer {
    * after — and prepare what the cull and the draws need: group starts,
    * indirect argument templates and the remap list's size. Per-frame
    * records are written here; batches are copied in `render`.
-   * @returns {{groups: object[], total: number, copies: object[], passCount: number}}
    */
-  #assemble(frame, passCount) {
+  #assemble(frame: Frame3D, passCount: number): Layout {
     const entries = [...frame.entries()];
     const tanY = Math.tan((frame.camera?.fov ?? Math.PI / 3) / 2);
     let total = 0;
@@ -1069,8 +1302,8 @@ export class WebGPURenderer extends BaseRenderer {
     this.#ensureGroupBuffers(entries.length, Math.max(1, entries.length * passCount));
 
     const data = this.instanceData;
-    const groups = [];
-    const copies = [];
+    const groups: LayoutGroup[] = [];
+    const copies: Layout['copies'] = [];
     const starts = new Uint32Array(entries.length + 1);
     const lodRanges = new Float32Array(Math.max(1, entries.length) * 2);
     let first = 0;
@@ -1082,7 +1315,7 @@ export class WebGPURenderer extends BaseRenderer {
         first++;
       }
       if (first > start) {
-        this.device.queue.writeBuffer(this.instanceBuffer, start * INSTANCE_BYTES, data, start * INSTANCE_FLOATS, (first - start) * INSTANCE_FLOATS);
+        this.device!.queue.writeBuffer(this.instanceBuffer!, start * INSTANCE_BYTES, data, start * INSTANCE_FLOATS, (first - start) * INSTANCE_FLOATS);
       }
       for (const batch of entry.batches) {
         copies.push({ buffer: this.#batchBuffer(batch), offset: first, count: batch.count });
@@ -1106,12 +1339,12 @@ export class WebGPURenderer extends BaseRenderer {
         start,
         count: first - start
       });
-      lodRanges[g * 2] = entry.lod[0];
-      lodRanges[g * 2 + 1] = Number.isFinite(entry.lod[1]) ? entry.lod[1] : 3.4e38;
+      lodRanges[g * 2] = entry.lod[0]!;
+      lodRanges[g * 2 + 1] = Number.isFinite(entry.lod[1]) ? entry.lod[1]! : 3.4e38;
     });
     starts[entries.length] = total;
-    this.device.queue.writeBuffer(this.groupStartsBuffer, 0, starts);
-    this.device.queue.writeBuffer(this.groupLodBuffer, 0, lodRanges);
+    this.device!.queue.writeBuffer(this.groupStartsBuffer!, 0, starts);
+    this.device!.queue.writeBuffer(this.groupLodBuffer!, 0, lodRanges);
 
     // Indirect arguments: index count and where in the remap list the
     // pass's slots for this group begin; the cull fills the instance counts.
@@ -1120,19 +1353,19 @@ export class WebGPURenderer extends BaseRenderer {
     for (let p = 0; p < passCount; p++) {
       for (let g = 0; g < groups.length; g++) {
         const o = (p * groups.length + g) * 5;
-        args[o] = groups[g].gpu.count;
+        args[o] = groups[g]!.gpu.count;
         args[o + 1] = 0;
         args[o + 2] = 0;
         args[o + 3] = 0;
-        args[o + 4] = p * total + groups[g].start;
+        args[o + 4] = p * total + groups[g]!.start;
       }
     }
-    if (count) this.device.queue.writeBuffer(this.argsBuffer, 0, args, 0, count * 5);
+    if (count) this.device!.queue.writeBuffer(this.argsBuffer!, 0, args, 0, count * 5);
     return { groups, total, copies, passCount };
   }
 
   /** The cull's planes: each view's frustum first, each shadow map's after them. */
-  #writeCullParams(frame, shadows, layout) {
+  #writeCullParams(frame: Frame3D, shadows: ShadowPlan, layout: Layout) {
     if (layout.passCount > MAX_CULL_PASSES) {
       throw new Error(`WebGPURenderer: ${layout.passCount} cull passes (views + shadow maps) exceed the compiled bound of ${MAX_CULL_PASSES}`);
     }
@@ -1150,23 +1383,23 @@ export class WebGPURenderer extends BaseRenderer {
       const o = 4 + (views.length + i) * 24;
       mat4.frustumPlanes(pass.matrix, data.subarray(o, o + 24));
     });
-    this.device.queue.writeBuffer(this.cullParams, 0, data);
+    this.device!.queue.writeBuffer(this.cullParams!, 0, data);
   }
 
   /** A resident batch's GPU copy, uploaded on first sight and again when it has grown. */
-  #batchBuffer(batch) {
+  #batchBuffer(batch: StaticBatch): GPUBuffer {
     let gpu = this.batchCache.get(batch);
     if (gpu && gpu.version === batch.version) return gpu.buffer;
     const records = batch.records;
     if (!gpu || gpu.capacity < records.length) {
       gpu?.buffer.destroy();
-      const buffer = this.device.createBuffer({
+      const buffer = this.device!.createBuffer({
         label: 'static batch', size: Math.max(records.byteLength, 4), usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
       });
       gpu = { buffer, version: -1, capacity: records.length };
       this.batchCache.set(batch, gpu);
     }
-    this.device.queue.writeBuffer(gpu.buffer, 0, records);
+    this.device!.queue.writeBuffer(gpu.buffer, 0, records);
     gpu.version = batch.version;
     return gpu.buffer;
   }
@@ -1175,7 +1408,7 @@ export class WebGPURenderer extends BaseRenderer {
    * Queue the frame's indirect arguments (and timestamps) into a free
    * staging buffer, to be read once the GPU is done with them.
    */
-  #stageStats(encoder, layout) {
+  #stageStats(encoder: GPUCommandEncoder, layout: Layout): StagingSlot | null {
     const argsBytes = layout.passCount * layout.groups.length * ARGS_BYTES;
     const size = Math.max(4, argsBytes) + 16;
     let slot = this.staging.find((s) => !s.pending && s.size >= size);
@@ -1186,13 +1419,13 @@ export class WebGPURenderer extends BaseRenderer {
     }
     if (slot.size < size) {
       slot.buffer?.destroy();
-      slot.buffer = this.device.createBuffer({ label: 'stats staging', size, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+      slot.buffer = this.device!.createBuffer({ label: 'stats staging', size, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
       slot.size = size;
     }
-    if (argsBytes) encoder.copyBufferToBuffer(this.argsBuffer, 0, slot.buffer, 0, argsBytes);
+    if (argsBytes) encoder.copyBufferToBuffer(this.argsBuffer!, 0, slot.buffer!, 0, argsBytes);
     if (this.hasTimestamps) {
-      encoder.resolveQuerySet(this.querySet, 0, 2, this.timeBuffer, 0);
-      encoder.copyBufferToBuffer(this.timeBuffer, 0, slot.buffer, Math.max(4, argsBytes), 16);
+      encoder.resolveQuerySet(this.querySet!, 0, 2, this.timeBuffer!, 0);
+      encoder.copyBufferToBuffer(this.timeBuffer!, 0, slot.buffer!, Math.max(4, argsBytes), 16);
     }
     slot.pending = true;
     slot.layout = {
@@ -1203,9 +1436,9 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** Read a staged frame's statistics when the GPU has finished with them. */
-  #readStats(slot) {
-    const { passCount, viewCount, indexCounts, argsBytes } = slot.layout;
-    const buffer = slot.buffer;
+  #readStats(slot: StagingSlot) {
+    const { passCount, viewCount, indexCounts, argsBytes } = slot.layout!;
+    const buffer = slot.buffer!;
     const promise = buffer.mapAsync(GPUMapMode.READ).then(() => {
       // The renderer may have been destroyed while the map was pending.
       if (!this.device || buffer !== slot.buffer) return;
@@ -1217,7 +1450,7 @@ export class WebGPURenderer extends BaseRenderer {
           const count = view.getUint32((p * groups + g) * ARGS_BYTES + 4, true);
           // The readout reports the primary view; the other views' passes
           // are neither its draws nor shadow casters.
-          if (p === 0) { drawn += count; triangles += count * indexCounts[g] / 3; }
+          if (p === 0) { drawn += count; triangles += count * indexCounts[g]! / 3; }
           else if (p >= viewCount) casters += count;
         }
       }
@@ -1243,11 +1476,11 @@ export class WebGPURenderer extends BaseRenderer {
 
   /** Every skinned instance's joint matrices, back to back, as the instances' offsets expect. */
   /** Room for `count` morph weights; grows like the joint buffer. */
-  #ensureMorphBuffer(count) {
+  #ensureMorphBuffer(count: number) {
     if (this.morphBuffer && this.morphCapacity >= count) return;
     const capacity = Math.max(count, 16, (this.morphCapacity ?? 0) * 2);
     this.morphBuffer?.destroy();
-    this.morphBuffer = this.device.createBuffer({
+    this.morphBuffer = this.device!.createBuffer({
       label: 'morph weights', size: capacity * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
     });
     this.morphCapacity = capacity;
@@ -1255,7 +1488,7 @@ export class WebGPURenderer extends BaseRenderer {
     if (this.instanceBuffer) this.#sceneBindGroup();
   }
 
-  #uploadMorphs(frame) {
+  #uploadMorphs(frame: Frame3D) {
     const count = frame.morphCount ?? 0;
     if (!count) return;
     this.#ensureMorphBuffer(count);
@@ -1264,10 +1497,10 @@ export class WebGPURenderer extends BaseRenderer {
       this.morphData.set(weights, offset);
       offset += weights.length;
     }
-    this.device.queue.writeBuffer(this.morphBuffer, 0, this.morphData, 0, count);
+    this.device!.queue.writeBuffer(this.morphBuffer!, 0, this.morphData, 0, count);
   }
 
-  #uploadJoints(frame) {
+  #uploadJoints(frame: Frame3D) {
     const count = frame.jointCount ?? 0;
     if (!count) return;
     this.#ensureJointBuffer(count);
@@ -1276,15 +1509,15 @@ export class WebGPURenderer extends BaseRenderer {
       this.jointData.set(skin, offset);
       offset += skin.length;
     }
-    this.device.queue.writeBuffer(this.jointBuffer, 0, this.jointData, 0, count * 16);
+    this.device!.queue.writeBuffer(this.jointBuffer!, 0, this.jointData, 0, count * 16);
   }
 
   /** A joint buffer for at least `count` matrices; the scene bind group is rebuilt when it grows. */
-  #ensureJointBuffer(count) {
+  #ensureJointBuffer(count: number) {
     if (this.jointBuffer && this.jointCapacity >= count) return;
     const capacity = Math.max(count, 64, this.jointCapacity * 2);
     this.jointBuffer?.destroy();
-    this.jointBuffer = this.device.createBuffer({
+    this.jointBuffer = this.device!.createBuffer({
       label: 'joints', size: capacity * 64, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
     });
     this.jointCapacity = capacity;
@@ -1297,30 +1530,30 @@ export class WebGPURenderer extends BaseRenderer {
    * Uploading is the texture cache's business and happens once per
    * image; this only rebuilds the bind group when the image changes,
    * since every pass in the frame reads through it.
-   * @param {object|null} image - From `hdr.js`, or null for the procedural sky
+   * `image` is from `hdr.js`, or null for the procedural sky.
    */
-  #useEnvironment(image) {
+  #useEnvironment(image: DecodedImage | null) {
     if (image === this.environmentImage) return;
     this.environmentImage = image;
-    this.environmentTexture = image ? this.textures.equirect(image) : null;
+    this.environmentTexture = image ? this.textures!.equirect(image as { width: number; height: number; data: Uint16Array }) : null;
     this.#sceneBindGroup();
   }
 
   /** Rebuild the bind groups that hold shared buffers, for every view. */
   #sceneBindGroup() {
     for (const view of this.views) this.#viewBindGroups(view);
-    this.cullSceneBindGroup = this.device.createBindGroup({
-      layout: this.cullSceneLayout,
+    this.cullSceneBindGroup = this.device!.createBindGroup({
+      layout: this.cullSceneLayout!,
       entries: [
-        { binding: 0, resource: { buffer: this.frameUniform } },
-        { binding: 1, resource: { buffer: this.instanceBuffer } }
+        { binding: 0, resource: { buffer: this.frameUniform! } },
+        { binding: 1, resource: { buffer: this.instanceBuffer! } }
       ]
     });
-    this.clusterSceneBindGroup ??= this.device.createBindGroup({
-      layout: this.clusterSceneLayout,
+    this.clusterSceneBindGroup ??= this.device!.createBindGroup({
+      layout: this.clusterSceneLayout!,
       entries: [
-        { binding: 0, resource: { buffer: this.frameUniform } },
-        { binding: 2, resource: { buffer: this.lightBuffer } }
+        { binding: 0, resource: { buffer: this.frameUniform! } },
+        { binding: 2, resource: { buffer: this.lightBuffer! } }
       ]
     });
   }
@@ -1329,24 +1562,24 @@ export class WebGPURenderer extends BaseRenderer {
    * One view's bind groups: the scene group (shared buffers plus the
    * view's own cluster grid) and the cluster pass's write-side group.
    */
-  #viewBindGroups(view) {
-    view.sceneBindGroup = this.device.createBindGroup({
-      layout: this.sceneBindGroupLayout,
+  #viewBindGroups(view: View3D) {
+    view.sceneBindGroup = this.device!.createBindGroup({
+      layout: this.sceneBindGroupLayout!,
       entries: [
-        { binding: 0, resource: { buffer: this.frameUniform } },
-        { binding: 1, resource: { buffer: this.instanceBuffer } },
-        { binding: 2, resource: { buffer: this.lightBuffer } },
-        { binding: 3, resource: { buffer: this.jointBuffer } },
-        { binding: 4, resource: { buffer: this.remapBuffer } },
+        { binding: 0, resource: { buffer: this.frameUniform! } },
+        { binding: 1, resource: { buffer: this.instanceBuffer! } },
+        { binding: 2, resource: { buffer: this.lightBuffer! } },
+        { binding: 3, resource: { buffer: this.jointBuffer! } },
+        { binding: 4, resource: { buffer: this.remapBuffer! } },
         { binding: 5, resource: { buffer: view.clusterCountBuffer } },
         { binding: 6, resource: { buffer: view.clusterIndexBuffer } },
-        { binding: 7, resource: (this.environmentTexture ?? this.textures.blackHDR).createView() },
-        { binding: 8, resource: this.textures.sampler },
-        { binding: 9, resource: { buffer: this.morphBuffer } }
+        { binding: 7, resource: (this.environmentTexture ?? this.textures!.blackHDR).createView() },
+        { binding: 8, resource: this.textures!.sampler },
+        { binding: 9, resource: { buffer: this.morphBuffer! } }
       ]
     });
-    view.clusterBindGroup ??= this.device.createBindGroup({
-      layout: this.clusterBindGroupLayout,
+    view.clusterBindGroup ??= this.device!.createBindGroup({
+      layout: this.clusterBindGroupLayout!,
       entries: [
         { binding: 0, resource: { buffer: view.clusterCountBuffer } },
         { binding: 1, resource: { buffer: view.clusterIndexBuffer } }
@@ -1355,24 +1588,24 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   #cullBindGroup() {
-    this.cullBindGroup = this.device.createBindGroup({
-      layout: this.cullBindGroupLayout,
+    this.cullBindGroup = this.device!.createBindGroup({
+      layout: this.cullBindGroupLayout!,
       entries: [
-        { binding: 0, resource: { buffer: this.cullParams } },
-        { binding: 1, resource: { buffer: this.groupStartsBuffer } },
-        { binding: 2, resource: { buffer: this.argsBuffer } },
-        { binding: 3, resource: { buffer: this.remapBuffer } },
-        { binding: 4, resource: { buffer: this.groupLodBuffer } }
+        { binding: 0, resource: { buffer: this.cullParams! } },
+        { binding: 1, resource: { buffer: this.groupStartsBuffer! } },
+        { binding: 2, resource: { buffer: this.argsBuffer! } },
+        { binding: 3, resource: { buffer: this.remapBuffer! } },
+        { binding: 4, resource: { buffer: this.groupLodBuffer! } }
       ]
     });
   }
 
   /** Room in the remap list for `count` slots (instances times passes). */
-  #ensureRemapBuffer(count) {
+  #ensureRemapBuffer(count: number) {
     if (this.remapBuffer && this.remapCapacity >= count) return;
     const capacity = Math.max(count, 256, this.remapCapacity * 2);
     this.remapBuffer?.destroy();
-    this.remapBuffer = this.device.createBuffer({
+    this.remapBuffer = this.device!.createBuffer({
       label: 'remap', size: capacity * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
     });
     this.remapCapacity = capacity;
@@ -1381,16 +1614,16 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** Room for `groups` group starts and `args` indirect records. */
-  #ensureGroupBuffers(groups, args) {
+  #ensureGroupBuffers(groups: number, args: number) {
     let changed = false;
     if (!this.groupStartsBuffer || this.groupStartsCapacity < groups + 1) {
       const capacity = Math.max(groups + 1, 16, this.groupStartsCapacity * 2);
       this.groupStartsBuffer?.destroy();
-      this.groupStartsBuffer = this.device.createBuffer({
+      this.groupStartsBuffer = this.device!.createBuffer({
         label: 'group starts', size: capacity * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
       });
       this.groupLodBuffer?.destroy();
-      this.groupLodBuffer = this.device.createBuffer({
+      this.groupLodBuffer = this.device!.createBuffer({
         label: 'group lod ranges', size: capacity * 8, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
       });
       this.groupStartsCapacity = capacity;
@@ -1399,7 +1632,7 @@ export class WebGPURenderer extends BaseRenderer {
     if (!this.argsBuffer || this.argsCapacity < args) {
       const capacity = Math.max(args, 16, this.argsCapacity * 2);
       this.argsBuffer?.destroy();
-      this.argsBuffer = this.device.createBuffer({
+      this.argsBuffer = this.device!.createBuffer({
         label: 'indirect args', size: capacity * ARGS_BYTES,
         usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
       });
@@ -1411,12 +1644,12 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** The frame's lights into the light buffer; the count rides in the frame uniform. */
-  #uploadLights(frame) {
+  #uploadLights(frame: Frame3D) {
     const lights = frame.lights ?? [];
     const count = Math.min(lights.length, MAX_LIGHTS);
     if (!count) return;
-    for (let i = 0; i < count; i++) this.lightData.set(lights[i], i * LIGHT_FLOATS);
-    this.device.queue.writeBuffer(this.lightBuffer, 0, this.lightData, 0, count * LIGHT_FLOATS);
+    for (let i = 0; i < count; i++) this.lightData.set(lights[i]!, i * LIGHT_FLOATS);
+    this.device!.queue.writeBuffer(this.lightBuffer!, 0, this.lightData, 0, count * LIGHT_FLOATS);
   }
 
   /**
@@ -1437,19 +1670,19 @@ export class WebGPURenderer extends BaseRenderer {
    * two surfaces blending in an arbitrary order. The fix is a GPU sort
    * of the remap list, which waits for a scene that needs it.
    *
-   * @returns {number[]} Indices into `layout.groups`
+   * Returns indices into `layout.groups`.
    */
-  #transparentOrder(layout, camera) {
+  #transparentOrder(layout: Layout, camera: RenderCamera | null): number[] {
     const order = [];
     for (let g = 0; g < layout.groups.length; g++) {
-      if (layout.groups[g].transparent) order.push(g);
+      if (layout.groups[g]!.transparent) order.push(g);
     }
     if (order.length < 2) return order;
     const eye = camera?.position ?? ZERO;
     const depth = new Map();
     for (const g of order) {
-      const c = layout.groups[g].centroid;
-      const dx = c[0] - eye.x, dy = c[1] - eye.y, dz = c[2] - eye.z;
+      const c = layout.groups[g]!.centroid!;
+      const dx = c[0]! - eye.x, dy = c[1]! - eye.y, dz = c[2]! - eye.z;
       depth.set(g, dx * dx + dy * dy + dz * dz);
     }
     order.sort((a, b) => depth.get(b) - depth.get(a));
@@ -1471,11 +1704,11 @@ export class WebGPURenderer extends BaseRenderer {
    * buffers, and each group's geometry, material and pipeline choice.
    * While two frames' signatures match, a recorded bundle replays them.
    */
-  #layoutSignature(layout) {
-    const out = [this.argsBuffer, this.whiteColorBuffer, this.emptyMorphGroup, layout.groups.length];
+  #layoutSignature(layout: Layout): unknown[] {
+    const out: unknown[] = [this.argsBuffer, this.whiteColorBuffer, this.emptyMorphGroup, layout.groups.length];
     // Each group's nearest draw distance depends on it, and so does what a pass skips.
     for (const group of layout.groups) out.push(group.near);
-    for (const group of layout.groups) out.push(group.gpu, group.gpu.morphGroup, group.material, group.transparent, group.doubleSided);
+    for (const group of layout.groups) out.push(group.gpu!, group.gpu.morphGroup, group.material, group.transparent, group.doubleSided);
     return out;
   }
 
@@ -1488,15 +1721,15 @@ export class WebGPURenderer extends BaseRenderer {
    * the instance counts on the GPU, and the bundle reads them from the
    * indirect buffer like the direct draws did.
    */
-  #drawGroupsBundled(pass, layout, which, passIndex, formats, binds, limits = NO_LIMITS) {
+  #drawGroupsBundled(pass: GPURenderPassEncoder, layout: Layout, which: 'main' | 'shadow', passIndex: number, formats: GPURenderBundleEncoderDescriptor, binds: GPUBindGroup[], limits: PassLimits = NO_LIMITS) {
     const key = `${which}:${passIndex}`;
     // Which groups this pass can skip, as a hash: a pass that skips a
     // different set records again.
     let skipped = 0;
-    for (let g = 0; g < layout.groups.length; g++) if (outOfReach(layout.groups[g], limits)) skipped = Math.imul(skipped ^ (g + 1), 2654435761) | 0;
+    for (let g = 0; g < layout.groups.length; g++) if (outOfReach(layout.groups[g]!, limits)) skipped = Math.imul(skipped ^ (g + 1), 2654435761) | 0;
     let entry = this.bundles.get(key);
     if (!entry || entry.skipped !== skipped || entry.binds.some((b, i) => b !== binds[i])) {
-      const encoder = this.device.createRenderBundleEncoder({ label: key, ...formats });
+      const encoder = this.device!.createRenderBundleEncoder({ label: key, ...formats });
       binds.forEach((group, i) => encoder.setBindGroup(i, group));
       const draws = this.stats.drawCalls, changes = this.stats.stateChanges;
       this.#drawGroups(encoder, layout, which, passIndex, null, limits);
@@ -1511,13 +1744,13 @@ export class WebGPURenderer extends BaseRenderer {
     this.stats.stateChanges += entry.changes;
   }
 
-  #drawGroups(pass, layout, which, passIndex, order = null, limits = NO_LIMITS) {
+  #drawGroups(pass: PassEncoder, layout: Layout, which: 'main' | 'shadow' | 'transparent', passIndex: number, order: number[] | null = null, limits: PassLimits = NO_LIMITS) {
     const { groups } = layout;
-    let boundMaterial = null;
-    let boundPipeline = null;
+    let boundMaterial: GPUBindGroup | null = null;
+    let boundPipeline: GPURenderPipeline | null = null;
     const indices = order ?? groups.keys();
     for (const g of indices) {
-      const group = groups[g];
+      const group = groups[g]!;
       // The opaque pass skips blended groups; the transparent pass is
       // given exactly its own, so it never has to check.
       if (which === 'main' && group.transparent) continue;
@@ -1530,10 +1763,10 @@ export class WebGPURenderer extends BaseRenderer {
       // group is drawn twice, back faces then front faces (see
       // `transparentBackPipelines`).
       const pipelines = which === 'shadow'
-        ? [gpu.skinned ? this.shadowSkinnedPipeline : this.shadowPipeline]
+        ? [gpu.skinned ? this.shadowSkinnedPipeline! : this.shadowPipeline!]
         : which === 'transparent' && group.doubleSided
-          ? [this.transparentBackPipelines[gpu.skinned ? 1 : 0], this.transparentPipelines[gpu.skinned ? 1 : 0][0]]
-          : [(which === 'transparent' ? this.transparentPipelines : this.meshPipelines)[gpu.skinned ? 1 : 0][group.doubleSided ? 1 : 0]];
+          ? [this.transparentBackPipelines![gpu.skinned ? 1 : 0]!, this.transparentPipelines![gpu.skinned ? 1 : 0]![0]!]
+          : [(which === 'transparent' ? this.transparentPipelines : this.meshPipelines)![gpu.skinned ? 1 : 0]![group.doubleSided ? 1 : 0]!];
       for (const pipeline of pipelines) {
         if (pipeline !== boundPipeline) {
           pass.setPipeline(pipeline);
@@ -1549,11 +1782,11 @@ export class WebGPURenderer extends BaseRenderer {
         const mesh = which !== 'shadow';
         if (mesh) {
           pass.setVertexBuffer(3, gpu.tangents);
-          pass.setVertexBuffer(4, gpu.colors ?? this.whiteColorBuffer);
+          pass.setVertexBuffer(4, gpu.colors ?? this.whiteColorBuffer!);
         }
         if (gpu.skinned) {
-          pass.setVertexBuffer(mesh ? 5 : 3, gpu.joints);
-          pass.setVertexBuffer(mesh ? 6 : 4, gpu.weights);
+          pass.setVertexBuffer(mesh ? 5 : 3, gpu.joints!);
+          pass.setVertexBuffer(mesh ? 6 : 4, gpu.weights!);
         }
         if (group.material !== boundMaterial) {
           pass.setBindGroup(2, group.material);
@@ -1562,7 +1795,7 @@ export class WebGPURenderer extends BaseRenderer {
         }
         pass.setBindGroup(3, gpu.morphGroup ?? this.emptyMorphGroup);
         pass.setIndexBuffer(gpu.index, gpu.format);
-        pass.drawIndexedIndirect(this.argsBuffer, (passIndex * groups.length + g) * ARGS_BYTES);
+        pass.drawIndexedIndirect(this.argsBuffer!, (passIndex * groups.length + g) * ARGS_BYTES);
         this.stats.drawCalls++;
       }
     }
@@ -1578,10 +1811,9 @@ export class WebGPURenderer extends BaseRenderer {
    * Streaming calls it for a model that has gone far away; a scene calls
    * it for every model it owns when it unloads, which is what used to
    * leak a level's worth of GPU memory on every scene change.
-   * @param {object} model - A `gltf.js` model
-   * @returns {number} Bytes of texture memory released
+   * `model` is a `gltf.js` model; returns bytes of texture memory released.
    */
-  unloadModel(model) {
+  unloadModel(model: Model | null | undefined): number {
     if (!model || !this.device) return 0;
     const before = this.textures?.bytes ?? 0;
     const seen = new Set();
@@ -1603,7 +1835,7 @@ export class WebGPURenderer extends BaseRenderer {
         this.materialUniforms.delete(material);
         this.materialCache.delete(material);
         for (const slot of ['baseColorTexture', 'metallicRoughnessTexture', 'normalTexture',
-          'occlusionTexture', 'emissiveTexture']) {
+          'occlusionTexture', 'emissiveTexture'] as const) {
           // `gltf.js` puts the decoded image straight on the slot; it is
           // what `TextureCache3D` is keyed by.
           const image = material[slot];
@@ -1615,21 +1847,21 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** Bytes of GPU texture memory the loaded models currently hold. */
-  get textureBytes() {
+  get textureBytes(): number {
     return this.textures?.bytes ?? 0;
   }
 
   /** The bind group for a glTF material, or the default for none, made on first sight. */
-  #material(material) {
-    if (!material) return this.defaultMaterial;
+  #material(material: Material3D | null): GPUBindGroup {
+    if (!material) return this.defaultMaterial!;
     let group = this.materialCache.get(material);
     if (!group) this.materialCache.set(material, group = this.#materialBindGroup(material));
     return group;
   }
 
-  #materialBindGroup(material) {
-    const device = this.device;
-    const textures = this.textures;
+  #materialBindGroup(material: Material3D | null): GPUBindGroup {
+    const device = this.device!;
+    const textures = this.textures!;
     const data = new Float32Array(MATERIAL_UNIFORM_FLOATS);
     const base = material?.baseColor ?? [1, 1, 1, 1];
     data.set(base, 0);
@@ -1638,7 +1870,7 @@ export class WebGPURenderer extends BaseRenderer {
     data[6] = material?.normalScale ?? 1;
     data[7] = material?.alphaCutoff ?? 0.5;
     const emissive = material?.emissive ?? [0, 0, 0];
-    data[8] = emissive[0]; data[9] = emissive[1]; data[10] = emissive[2];
+    data[8] = emissive[0]!; data[9] = emissive[1]!; data[10] = emissive[2]!;
     data[11] = material?.occlusionTexture ? (material.occlusionStrength ?? 1) : 0;
     const uv = material?.uvTransform;
     data[12] = uv?.scale[0] ?? 1; data[13] = uv?.scale[1] ?? 1; data[14] = uv?.offset[0] ?? 0; data[15] = uv?.offset[1] ?? 0;
@@ -1661,10 +1893,10 @@ export class WebGPURenderer extends BaseRenderer {
     });
     device.queue.writeBuffer(uniform, 0, data);
     if (material) this.materialUniforms.set(material, uniform);
-    const texture = (image, fallback, srgb) => (image ? textures.get(image, { srgb }) : fallback).createView();
+    const texture = (image: DecodedImage, fallback: GPUTexture, srgb: boolean) => (image ? textures.get(image, { srgb }) : fallback).createView();
     return device.createBindGroup({
       label: `material ${material?.name ?? 'default'}`,
-      layout: this.materialBindGroupLayout,
+      layout: this.materialBindGroupLayout!,
       entries: [
         { binding: 0, resource: { buffer: uniform } },
         { binding: 1, resource: textures.sampler },
@@ -1683,7 +1915,7 @@ export class WebGPURenderer extends BaseRenderer {
    * particles to draw. A field with `follow` (motes, by default) is
    * centred on the camera, so the air around the viewer is always full.
    */
-  #writeParticles(frame, camera) {
+  #writeParticles(frame: Frame3D, camera: RenderCamera | null): number {
     const fields = (frame.particles ?? []).slice(0, MAX_PARTICLE_FIELDS);
     if (!fields.length) return 0;
     const data = this.particleData;
@@ -1701,18 +1933,18 @@ export class WebGPURenderer extends BaseRenderer {
       total += count;
     });
     new Uint32Array(data.buffer, 0, 4)[0] = fields.length;
-    this.device.queue.writeBuffer(this.particleUniform, 0, data);
+    this.device!.queue.writeBuffer(this.particleUniform!, 0, data);
     return total;
   }
 
   /** An instance buffer for at least `count` instances, grown geometrically so frames settle on one. */
-  #ensureInstanceBuffer(count) {
+  #ensureInstanceBuffer(count: number) {
     if (this.instanceBuffer && this.instanceCapacity >= count) return;
     // Doubling must not step past the binding limit when `count` itself fits under it.
-    const limit = Math.floor(this.device.limits.maxStorageBufferBindingSize / (INSTANCE_FLOATS * 4));
+    const limit = Math.floor(this.device!.limits.maxStorageBufferBindingSize / (INSTANCE_FLOATS * 4));
     const capacity = Math.max(count, Math.min(Math.max(256, this.instanceCapacity * 2), limit));
     this.instanceBuffer?.destroy();
-    this.instanceBuffer = this.device.createBuffer({
+    this.instanceBuffer = this.device!.createBuffer({
       label: 'instances',
       size: capacity * INSTANCE_FLOATS * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
@@ -1734,11 +1966,11 @@ export class WebGPURenderer extends BaseRenderer {
    * whole submit — the frame is simply discarded, which on a level with
    * a wide spread of geometry sizes reads as the screen going black.
    */
-  #ensureWhiteColors(vertices) {
+  #ensureWhiteColors(vertices: number) {
     if (this.whiteColorBuffer && this.whiteColorCapacity >= vertices) return;
     const capacity = Math.max(vertices, 4096, (this.whiteColorCapacity ?? 0) * 2);
     this.whiteColorBuffer?.destroy();
-    this.whiteColorBuffer = this.device.createBuffer({
+    this.whiteColorBuffer = this.device!.createBuffer({
       label: 'white vertex colors', size: capacity * 4, usage: GPUBufferUsage.VERTEX, mappedAtCreation: true
     });
     new Uint8Array(this.whiteColorBuffer.getMappedRange()).fill(255);
@@ -1747,15 +1979,15 @@ export class WebGPURenderer extends BaseRenderer {
   }
 
   /** A geometry's morph deltas and their shape, bound as group 3. */
-  #morphGroup(morphs, upload, geometry) {
+  #morphGroup(morphs: { count: number; vertices: number; deltas: Float32Array }, upload: UploadFn, geometry: Geometry3D | null): GPUBindGroup {
     const deltas = upload(morphs.deltas, GPUBufferUsage.STORAGE, 'morph deltas');
-    const info = this.device.createBuffer({
+    const info = this.device!.createBuffer({
       label: 'morph info', size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
-    this.device.queue.writeBuffer(info, 0, new Uint32Array([morphs.count, morphs.vertices, 0, 0]));
+    this.device!.queue.writeBuffer(info, 0, new Uint32Array([morphs.count, morphs.vertices, 0, 0]));
     if (geometry) this.morphBuffers.set(geometry, [deltas, info]);
-    return this.device.createBindGroup({
-      layout: this.morphBindGroupLayout,
+    return this.device!.createBindGroup({
+      layout: this.morphBindGroupLayout!,
       entries: [
         { binding: 0, resource: { buffer: deltas } },
         { binding: 1, resource: { buffer: info } }
@@ -1763,14 +1995,15 @@ export class WebGPURenderer extends BaseRenderer {
     });
   }
 
-  #geometry(geometry) {
+  #geometry(geometry: Geometry3D): GpuGeometry {
     let gpu = this.geometryCache.get(geometry);
     if (gpu) return gpu;
-    const upload = (array, usage, label) => {
-      const buffer = this.device.createBuffer({
+    const upload: UploadFn = (array, usage, label) => {
+      const buffer = this.device!.createBuffer({
         label, size: Math.ceil(array.byteLength / 4) * 4, usage, mappedAtCreation: true
       });
-      new array.constructor(buffer.getMappedRange(), 0, array.length).set(array);
+      const Ctor = array.constructor as new (b: ArrayBuffer, offset: number, length: number) => typeof array;
+      new Ctor(buffer.getMappedRange(), 0, array.length).set(array as never);
       buffer.unmap();
       return buffer;
     };
@@ -1785,8 +2018,8 @@ export class WebGPURenderer extends BaseRenderer {
       morphGroup: geometry.morphs ? this.#morphGroup(geometry.morphs, upload, geometry) : null,
       vertices: geometry.positions.length / 3,
       skinned: !!geometry.skinned,
-      joints: geometry.skinned ? upload(geometry.joints, GPUBufferUsage.VERTEX, 'joints') : null,
-      weights: geometry.skinned ? upload(geometry.weights, GPUBufferUsage.VERTEX, 'weights') : null,
+      joints: geometry.skinned ? upload(geometry.joints!, GPUBufferUsage.VERTEX, 'joints') : null,
+      weights: geometry.skinned ? upload(geometry.weights!, GPUBufferUsage.VERTEX, 'weights') : null,
       index: upload(geometry.indices, GPUBufferUsage.INDEX, 'indices'),
       count: geometry.indices.length,
       format: geometry.indices instanceof Uint32Array ? 'uint32' : 'uint16'
@@ -1800,7 +2033,7 @@ export class WebGPURenderer extends BaseRenderer {
    * frame, between submits: the buffer is one, and the queue's ordering of
    * writes and submits is what gives each view's passes its own contents.
    */
-  #writeFrameUniform(frame, shadows, view, camera) {
+  #writeFrameUniform(frame: Frame3D, shadows: ShadowPlan, view: View3D, camera: RenderCamera) {
     const data = this.frameData;
     const vp = camera.viewProjection ?? IDENTITY;
     // The sub-pixel jitter for temporal anti-aliasing: a Halton (2, 3)
@@ -1815,29 +2048,29 @@ export class WebGPURenderer extends BaseRenderer {
     // Translate in clip space: x' = x + jx * w, which is row 0, column 3.
     const jittered = this.jitteredViewProjection;
     jittered.set(vp);
-    jittered[12] += jx * vp[15]; jittered[13] += jy * vp[15];
-    jittered[0] += jx * vp[3]; jittered[1] += jy * vp[3];
-    jittered[4] += jx * vp[7]; jittered[5] += jy * vp[7];
-    jittered[8] += jx * vp[11]; jittered[9] += jy * vp[11];
+    jittered[12]! += jx * vp[15]!; jittered[13]! += jy * vp[15]!;
+    jittered[0]! += jx * vp[3]!; jittered[1]! += jy * vp[3]!;
+    jittered[4]! += jx * vp[7]!; jittered[5]! += jy * vp[7]!;
+    jittered[8]! += jx * vp[11]!; jittered[9]! += jy * vp[11]!;
     data.set(jittered, 0);
     data.set(camera.view ?? IDENTITY, 16);
     if (camera.inverseViewProjection) data.set(camera.inverseViewProjection, 32);
     else mat4.invert(camera.viewProjection ?? IDENTITY, data.subarray(32, 48));
-    for (let i = 0; i < shadows.cascades.length; i++) data.set(shadows.cascades[i].matrix, 48 + i * 16);
-    for (let i = 0; i < shadows.spots.length; i++) data.set(shadows.spots[i].matrix, 112 + i * 16);
+    for (let i = 0; i < shadows.cascades.length; i++) data.set(shadows.cascades[i]!.matrix, 48 + i * 16);
+    for (let i = 0; i < shadows.spots.length; i++) data.set(shadows.spots[i]!.matrix, 112 + i * 16);
     const o = 176;
     const eye = camera.position ?? ZERO;
     data[o] = eye.x; data[o + 1] = eye.y; data[o + 2] = eye.z; data[o + 3] = 0;
     const sun = frame.sun;
     const dir = normalized(sun.direction);
-    data[o + 4] = dir[0]; data[o + 5] = dir[1]; data[o + 6] = dir[2]; data[o + 7] = sun.intensity ?? 1;
+    data[o + 4] = dir[0]!; data[o + 5] = dir[1]!; data[o + 6] = dir[2]!; data[o + 7] = sun.intensity ?? 1;
     const sc = sun.color ?? WHITE;
-    data[o + 8] = sc[0]; data[o + 9] = sc[1]; data[o + 10] = sc[2]; data[o + 11] = 0;
+    data[o + 8] = sc[0]!; data[o + 9] = sc[1]!; data[o + 10] = sc[2]!; data[o + 11] = 0;
     const ambient = frame.ambient;
-    data[o + 12] = ambient.sky[0]; data[o + 13] = ambient.sky[1]; data[o + 14] = ambient.sky[2]; data[o + 15] = ambient.intensity ?? 1;
-    data[o + 16] = ambient.ground[0]; data[o + 17] = ambient.ground[1]; data[o + 18] = ambient.ground[2]; data[o + 19] = 0;
+    data[o + 12] = ambient.sky[0]!; data[o + 13] = ambient.sky[1]!; data[o + 14] = ambient.sky[2]!; data[o + 15] = ambient.intensity ?? 1;
+    data[o + 16] = ambient.ground[0]!; data[o + 17] = ambient.ground[1]!; data[o + 18] = ambient.ground[2]!; data[o + 19] = 0;
     const fog = frame.fog;
-    data[o + 20] = fog.color[0]; data[o + 21] = fog.color[1]; data[o + 22] = fog.color[2]; data[o + 23] = fog.density ?? 0;
+    data[o + 20] = fog.color[0]!; data[o + 21] = fog.color[1]!; data[o + 22] = fog.color[2]!; data[o + 23] = fog.density ?? 0;
     data[o + 24] = frame.exposure ?? 1;
     data[o + 25] = this.environmentTexture ? 1 : 0;
     data[o + 26] = frame.environment?.intensity ?? 1;
@@ -1848,7 +2081,7 @@ export class WebGPURenderer extends BaseRenderer {
     // texture by this share, and with the passes skipped that texture is
     // the black stand-in — a share of black would dim the frame.
     data[o + 30] = this.effects.bloom ? (frame.bloom?.intensity ?? 0) : 0;
-    data[o + 31] = this.environment.prefilteredMips - 1;
+    data[o + 31] = this.environment!.prefilteredMips - 1;
     const q = SHADOW_QUALITY[this.shadowQuality];
     for (let i = 0; i < 4; i++) {
       data[o + 32 + i] = shadows.cascades[i]?.split ?? 0;
@@ -1885,9 +2118,9 @@ export class WebGPURenderer extends BaseRenderer {
     data[p + 25] = this.effects.taa ? -0.5 : 0;
     const wind = frame.wind ?? {};
     const [wx, wz] = wind.direction ?? [1, 0];
-    const wl = Math.hypot(wx, wz) || 1;
-    data[p + 28] = (wx / wl) * (wind.strength ?? 0);
-    data[p + 29] = (wz / wl) * (wind.strength ?? 0);
+    const wl = Math.hypot(wx!, wz!) || 1;
+    data[p + 28] = (wx! / wl) * (wind.strength ?? 0);
+    data[p + 29] = (wz! / wl) * (wind.strength ?? 0);
     data[p + 30] = wind.gust ?? 0.5;
     data[p + 8] = post.motionBlur?.strength ?? 0;
     data[p + 9] = this.effects.film ? (post.vignette ?? 0) : 0;
@@ -1911,7 +2144,7 @@ export class WebGPURenderer extends BaseRenderer {
     const j = FRAME_OFFSETS.jitter;
     data[j] = jx; data[j + 1] = jy; data[j + 2] = view.worldWidth; data[j + 3] = view.worldHeight;
     data.set(view.previousValid ? view.previousViewProjection : vp, FRAME_OFFSETS.previousViewProjection);
-    this.device.queue.writeBuffer(this.frameUniform, 0, data);
+    this.device!.queue.writeBuffer(this.frameUniform!, 0, data);
   }
 
   /**
@@ -1920,14 +2153,14 @@ export class WebGPURenderer extends BaseRenderer {
    * nearest shadowed spot lights. Returns the matrices and the passes to
    * draw; the cull pass decides each pass's casters against its planes.
    */
-  #planShadows(frame) {
+  #planShadows(frame: Frame3D): ShadowPlan {
     const none = { cascades: [], spots: [], passes: [] };
     const q = SHADOW_QUALITY[this.shadowQuality];
     const camera = frame.camera;
     if (frame.shadow.enabled === false || !camera.view || (!q.cascades && !q.spots)) return none;
 
-    const cascades = [];
-    const passes = [];
+    const cascades: ShadowPlan['cascades'] = [];
+    const passes: ShadowPass3D[] = [];
     if (q.cascades) {
       const near = camera.near;
       const far = Math.min(camera.far, frame.shadow.distance);
@@ -1935,11 +2168,11 @@ export class WebGPURenderer extends BaseRenderer {
       const inverseView = mat4.invert(camera.view, this.cascadeScratch.lightBasis);
       const tanY = Math.tan(camera.fov / 2);
       const tanX = tanY * camera.aspect;
-      const up = Math.abs(dir[1]) > 0.99 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+      const up = Math.abs(dir[1]!) > 0.99 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
       // A light-space basis at the origin, so cascade centres can be snapped
       // to the map's texel grid in it; what the map sees then only ever
       // moves by whole texels, and shadow edges do not swim.
-      const basis = mat4.lookAt(ZERO, { x: dir[0], y: dir[1], z: dir[2] }, up);
+      const basis = mat4.lookAt(ZERO, { x: dir[0]!, y: dir[1]!, z: dir[2]! }, up);
       let start = near;
       for (let i = 0; i < q.cascades; i++) {
         const t = (i + 1) / q.cascades;
@@ -1965,13 +2198,13 @@ export class WebGPURenderer extends BaseRenderer {
         // by its own radius: the nearest cascade is a metre or two across,
         // and a tree twenty metres up-sun still casts into it.
         const back = Math.max(radius * 2, far);
-        const eye = { x: snapped.x - dir[0] * back, y: snapped.y - dir[1] * back, z: snapped.z - dir[2] * back };
+        const eye = { x: snapped.x - dir[0]! * back, y: snapped.y - dir[1]! * back, z: snapped.z - dir[2]! * back };
         const view = mat4.lookAt(eye, snapped, up);
         const projection = mat4.orthographic(-radius, radius, -radius, radius, 0.01, back + radius * 2);
         const matrix = mat4.multiply(projection, view);
         cascades.push({ matrix, split: end, radius });
         // A caster reaches a cascade from up to the shadow distance beyond it, toward the sun.
-        passes.push({ view: this.sunShadowLayers[i], matrix, reach: far * 2 });
+        passes.push({ view: this.sunShadowLayers[i]!, matrix, reach: far * 2 });
         start = end;
       }
     }
@@ -1984,15 +2217,15 @@ export class WebGPURenderer extends BaseRenderer {
     // so in a yard of overlapping lamps the maps went to arbitrary ones
     // and stayed there. This never ties, and grows as a lamp is walked
     // toward, which is when its shadows fill the view.
-    const eye = camera.position;
-    const distance = (light) => Math.hypot(light.position.x - eye.x, light.position.y - eye.y, light.position.z - eye.z);
-    const importance = (light, d) => (light.intensity ?? 10) / Math.max(d * d, 1);
+    const eye = camera.position!;
+    const distance = (light: Light3D) => Math.hypot(light.position.x - eye.x, light.position.y - eye.y, light.position.z - eye.z);
+    const importance = (light: Light3D, d: number) => (light.intensity ?? 10) / Math.max(d * d, 1);
     // A light whose range ends more than the shadow distance away is out
     // of the running altogether.
-    const tooFar = (light, d) => d - (light.range ?? 10) > frame.shadow.distance;
-    const spots = [];
+    const tooFar = (light: Light3D, d: number) => d - (light.range ?? 10) > frame.shadow.distance;
+    const spots: ShadowPlan['spots'] = [];
     if (q.spots) {
-      const candidates = [];
+      const candidates: { light: Light3D; index: number; w: number }[] = [];
       frame.lightInfo.forEach((light, index) => {
         if (light.type !== 'spot' || light.shadow === false) return;
         const d = distance(light);
@@ -2003,16 +2236,16 @@ export class WebGPURenderer extends BaseRenderer {
       for (const { light, index } of candidates.slice(0, q.spots)) {
         const p = light.position;
         const dir = normalized([light.direction?.x ?? 0, light.direction?.y ?? -1, light.direction?.z ?? 0]);
-        const up = Math.abs(dir[1]) > 0.99 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+        const up = Math.abs(dir[1]!) > 0.99 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
         const range = light.range ?? 10;
-        const view = mat4.lookAt(p, { x: p.x + dir[0], y: p.y + dir[1], z: p.z + dir[2] }, up);
+        const view = mat4.lookAt(p, { x: p.x + dir[0]!, y: p.y + dir[1]!, z: p.z + dir[2]! }, up);
         const fov = Math.min(Math.PI * 0.95, 2 * (light.outerCone ?? 0.6) + 0.1);
         const projection = mat4.perspective(fov, 1, 0.05, range);
         const matrix = mat4.multiply(projection, view);
         const layer = spots.length;
         spots.push({ matrix, index });
-        frame.lights[index][14] = layer + 1;
-        passes.push({ view: this.spotShadowLayers[layer], matrix, reach: distanceFrom(camera, p) + range, sphere: { x: p.x, y: p.y, z: p.z, r: range } });
+        frame.lights[index]![14] = layer + 1;
+        passes.push({ view: this.spotShadowLayers[layer]!, matrix, reach: distanceFrom(camera, p) + range, sphere: { x: p.x, y: p.y, z: p.z, r: range } });
       }
     }
 
@@ -2029,9 +2262,9 @@ export class WebGPURenderer extends BaseRenderer {
     // have changed: the light moved, a casting instance within range
     // moved, or something skinned is in range. A yard of static lamps
     // over static crates costs its six passes once, not per frame.
-    const points = [];
+    const points: { index: number; range: number }[] = [];
     if (q.points) {
-      const candidates = [];
+      const candidates: { light: Light3D; index: number; w: number; key: string }[] = [];
       frame.lightInfo.forEach((light, index) => {
         if ((light.type ?? 'point') !== 'point' || light.shadow === false) return;
         const d = distance(light);
@@ -2044,7 +2277,7 @@ export class WebGPURenderer extends BaseRenderer {
       // a challenger evicts only when it is clearly stronger — half again
       // the weakest incumbent — so an orbiting camera does not trade
       // cubes between near-equal lamps every few frames.
-      const slots = new Array(q.points).fill(null);
+      const slots: ({ light: Light3D; index: number; w: number; key: string } | null)[] = new Array(q.points).fill(null);
       const taken = new Set();
       this.pointShadowCache.forEach((cached, slot) => {
         if (slot >= q.points || !cached) return;
@@ -2057,9 +2290,9 @@ export class WebGPURenderer extends BaseRenderer {
         if (free >= 0) { slots[free] = challenger; taken.add(challenger); continue; }
         let worst = -1;
         for (let i = 0; i < slots.length; i++) {
-          if (worst < 0 || slots[i].w < slots[worst].w) worst = i;
+          if (worst < 0 || slots[i]!.w < slots[worst]!.w) worst = i;
         }
-        if (challenger.w > slots[worst].w * 1.5) {
+        if (challenger.w > slots[worst]!.w * 1.5) {
           slots[worst] = challenger;
           taken.add(challenger);
         }
@@ -2089,13 +2322,13 @@ export class WebGPURenderer extends BaseRenderer {
           const stale = !cached || cached.hashes[i] !== casters.hashes[i] || (casters.dirty & (1 << i));
           if (!stale) return;
           projection ??= mat4.perspective(Math.PI / 2, 1, POINT_SHADOW_NEAR, range);
-          passes.push({ view: this.pointShadowFaces[cube * 6 + i], matrix: mat4.multiply(projection, cubeFaceView(face, p)), reach: distanceFrom(camera, p) + range, sphere: { x: p.x, y: p.y, z: p.z, r: range } });
+          passes.push({ view: this.pointShadowFaces[cube * 6 + i]!, matrix: mat4.multiply(projection, cubeFaceView(face, p)), reach: distanceFrom(camera, p) + range, sphere: { x: p.x, y: p.y, z: p.z, r: range } });
         });
         this.pointShadowCache[cube] = { key, hashes: casters.hashes, strength };
         points.push({ index, range });
         // The integer names the cube; the fraction carries the strength
         // (times a half, so a full-strength cube still truncates to it).
-        frame.lights[index][15] = cube + 1 + strength * 0.5;
+        frame.lights[index]![15] = cube + 1 + strength * 0.5;
       });
     }
     return { cascades, spots, points, passes };
@@ -2106,32 +2339,31 @@ export class WebGPURenderer extends BaseRenderer {
    * canvas format (BGRA is swizzled). For tests and tooling: it stalls on
    * the GPU and must be called in the same task as `render`, before the
    * canvas texture is presented.
-   * @param {object} [view] - A view from `createView`; the primary by default
-   * @returns {Promise<{width: number, height: number, data: Uint8ClampedArray}>}
+   * `view` is a view from `createView`; the primary by default.
    */
-  async readPixels(view = null) {
+  async readPixels(view: View3D | null = null): Promise<{ width: number; height: number; data: Uint8ClampedArray }> {
     const texture = view ? view.currentTexture : this.currentTexture;
     if (!texture) throw new Error('WebGPURenderer.readPixels: nothing has been rendered this task');
     const { width, height } = texture;
     const bytesPerRow = Math.ceil(width * 4 / 256) * 256;
-    const buffer = this.device.createBuffer({
+    const buffer = this.device!.createBuffer({
       label: 'readback', size: bytesPerRow * height,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
     });
-    const encoder = this.device.createCommandEncoder({ label: 'readback' });
+    const encoder = this.device!.createCommandEncoder({ label: 'readback' });
     encoder.copyTextureToBuffer({ texture }, { buffer, bytesPerRow }, { width, height });
-    this.device.queue.submit([encoder.finish()]);
+    this.device!.queue.submit([encoder.finish()]);
     await buffer.mapAsync(GPUMapMode.READ);
     const rows = new Uint8Array(buffer.getMappedRange());
     const data = new Uint8ClampedArray(width * height * 4);
-    const bgra = this.format.startsWith('bgra');
+    const bgra = this.format!.startsWith('bgra');
     for (let y = 0; y < height; y++) {
       const row = rows.subarray(y * bytesPerRow, y * bytesPerRow + width * 4);
       const out = y * width * 4;
       if (!bgra) { data.set(row, out); continue; }
       for (let x = 0; x < width * 4; x += 4) {
-        data[out + x] = row[x + 2]; data[out + x + 1] = row[x + 1];
-        data[out + x + 2] = row[x]; data[out + x + 3] = row[x + 3];
+        data[out + x] = row[x + 2]!; data[out + x + 1] = row[x + 1]!;
+        data[out + x + 2] = row[x]!; data[out + x + 3] = row[x + 3]!;
       }
     }
     buffer.unmap();
@@ -2142,17 +2374,17 @@ export class WebGPURenderer extends BaseRenderer {
   // The 2D world pass is not how this renderer is driven; the engine calls
   // `render` instead. These exist so an engine path written for 2D does
   // not explode on the way to the one that is not.
-  beginFrame() { super.beginFrame(); }
-  endFrame() {}
-  applyCamera() {}
+  override beginFrame() { super.beginFrame(); }
+  override endFrame() {}
+  override applyCamera() {}
 
-  setCursor(style) {
+  override setCursor(style: string): void {
     if (this.canvas) this.canvas.style.cursor = style;
   }
 }
 
 /** The main pass's colour targets, in attachment order; `PostPass.attachments` resolves them. */
-const MAIN_TARGETS = Object.freeze([
+const MAIN_TARGETS: readonly { label: string; format: GPUTextureFormat }[] = Object.freeze([
   { label: 'direct', format: HDR_FORMAT },
   { label: 'indirect', format: HDR_FORMAT },
   { label: 'normal depth', format: HDR_FORMAT },
@@ -2187,26 +2419,26 @@ const CUBE_FACES = Object.freeze([
 ]);
 
 /** The world-to-view matrix for a cube face at `eye`, from its basis. */
-function cubeFaceView({ f, r, u }, eye) {
-  const dot = (a) => a[0] * eye.x + a[1] * eye.y + a[2] * eye.z;
+function cubeFaceView({ f, r, u }: { f: number[]; r: number[]; u: number[] }, eye: { x: number; y: number; z: number }) {
+  const dot = (a: number[]) => a[0]! * eye.x + a[1]! * eye.y + a[2]! * eye.z;
   return new Float32Array([
-    r[0], u[0], -f[0], 0,
-    r[1], u[1], -f[1], 0,
-    r[2], u[2], -f[2], 0,
+    r[0]!, u[0]!, -f[0]!, 0,
+    r[1]!, u[1]!, -f[1]!, 0,
+    r[2]!, u[2]!, -f[2]!, 0,
     -dot(r), -dot(u), dot(f), 1
   ]);
 }
 
 /** What identifies a light for the shadow-cube cache: where it is and how far it reaches. */
-const lightKey = (light) => {
+const lightKey = (light: Light3D) => {
   const p = light.position;
   return `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)},${(light.range ?? 10).toFixed(2)}`;
 };
 
 /** Stable small ids for static batches, so the cache hash can name them. */
-const batchIds = new WeakMap();
+const batchIds = new WeakMap<StaticBatch, number>();
 let nextBatchId = 1;
-const batchId = (batch) => {
+const batchId = (batch: StaticBatch) => {
   let id = batchIds.get(batch);
   if (!id) batchIds.set(batch, id = nextBatchId++);
   return id;
@@ -2216,13 +2448,13 @@ const batchId = (batch) => {
  * The faces of a light's cube a caster sphere could show in, by testing
  * it against each face's four diagonal frustum planes (all six faces
  * share the light as their apex). Conservative: touching counts.
- * @param {number} x,y,z - Sphere centre relative to the light
- * @param {number} slack - Sphere radius times sqrt(2), the plane distance scale
- * @returns {number} A six-bit mask, bit i for `CUBE_FACES[i]`
+ * `x, y, z` is the sphere centre relative to the light; `slack` the
+ * sphere radius times sqrt(2), the plane distance scale. Returns a
+ * six-bit mask, bit i for `CUBE_FACES[i]`.
  */
-function facesTouched(x, y, z, slack) {
+function facesTouched(x: number, y: number, z: number, slack: number): number {
   let mask = 0;
-  const towards = (a, u, v) => a - u > -slack && a + u > -slack && a - v > -slack && a + v > -slack;
+  const towards = (a: number, u: number, v: number) => a - u > -slack && a + u > -slack && a - v > -slack && a + v > -slack;
   if (towards(x, y, z)) mask |= 1;
   if (towards(-x, y, z)) mask |= 2;
   if (towards(y, x, z)) mask |= 4;
@@ -2242,29 +2474,29 @@ function facesTouched(x, y, z, slack) {
  * Resident batches fold into every face by identity and version — they
  * are the scenery, and a different scene must not reuse a stale cube.
  *
- * @returns {{hashes: Int32Array, dirty: number}} Six hashes and a dirty-face mask
+ * Returns six hashes and a dirty-face mask.
  */
-function castersNear(frame, position, range) {
+function castersNear(frame: Frame3D, position: { x: number; y: number; z: number }, range: number): { hashes: Int32Array; dirty: number } {
   const hashes = new Int32Array(6);
   let dirty = 0;
-  const mix = (face, value) => { hashes[face] = Math.imul(hashes[face] ^ value, 2654435761) | 0; };
+  const mix = (face: number, value: number) => { hashes[face] = Math.imul(hashes[face]! ^ value, 2654435761) | 0; };
   for (const entry of frame.entries()) {
     if (entry.material?.alphaMode === 'blend') continue;
     for (const record of entry.instances) {
-      if (record[55] < 0.5) continue;
-      const dx = record[56] - position.x;
-      const dy = record[57] - position.y;
-      const dz = record[58] - position.z;
+      if (record[55]! < 0.5) continue;
+      const dx = record[56]! - position.x;
+      const dy = record[57]! - position.y;
+      const dz = record[58]! - position.z;
       const radius = record[59];
-      const reach = radius + range;
+      const reach = radius! + range;
       if (dx * dx + dy * dy + dz * dz > reach * reach) continue;
-      const mask = facesTouched(dx, dy, dz, radius * Math.SQRT2);
-      if (record[53] > 0.5) dirty |= mask;
+      const mask = facesTouched(dx, dy, dz, radius! * Math.SQRT2);
+      if (record[53]! > 0.5) dirty |= mask;
       const bits = new Uint32Array(record.buffer, record.byteOffset, 60);
       for (let face = 0; face < 6; face++) {
         if (!(mask & (1 << face))) continue;
-        for (let i = 0; i < 16; i++) mix(face, bits[i]);
-        for (let i = 56; i < 60; i++) mix(face, bits[i]);
+        for (let i = 0; i < 16; i++) mix(face, bits[i]!);
+        for (let i = 56; i < 60; i++) mix(face, bits[i]!);
       }
     }
     for (const batch of entry.batches) {
@@ -2278,20 +2510,20 @@ function castersNear(frame, position, range) {
 }
 
 /** A pass that may see every group: the camera's own. */
-const NO_LIMITS = Object.freeze({ reach: Infinity, sphere: null });
+const NO_LIMITS: PassLimits = Object.freeze({ reach: Infinity, sphere: null });
 
 /**
  * Whether a pass can see nothing of a group: its level of detail starts
  * further from the camera than the pass's `reach`, or, for a light's
  * pass, its instances all stand outside the light's `sphere`.
  */
-function outOfReach(group, { reach = Infinity, sphere = null }) {
+function outOfReach(group: LayoutGroup, { reach = Infinity, sphere = null }: PassLimits): boolean {
   if (group.near > reach) return true;
   if (!sphere) return false;
   const { min, max } = group.bounds;
-  const dx = Math.max(min[0] - sphere.x, 0, sphere.x - max[0]);
-  const dy = Math.max(min[1] - sphere.y, 0, sphere.y - max[1]);
-  const dz = Math.max(min[2] - sphere.z, 0, sphere.z - max[2]);
+  const dx = Math.max(min[0]! - sphere.x, 0, sphere.x - max[0]!);
+  const dy = Math.max(min[1]! - sphere.y, 0, sphere.y - max[1]!);
+  const dz = Math.max(min[2]! - sphere.z, 0, sphere.z - max[2]!);
   return dx * dx + dy * dy + dz * dz > sphere.r * sphere.r;
 }
 
@@ -2299,11 +2531,11 @@ function outOfReach(group, { reach = Infinity, sphere = null }) {
  * The box every instance's bounding sphere in a group lies within. A
  * batch's is kept on the batch with its version, as its smallest radius is.
  */
-function groupBounds(entry) {
+function groupBounds(entry: Group): Bounds {
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-  const grow = (data, o) => {
+  const grow = (data: Float32Array, o: number) => {
     const r = data[o + 59];
-    for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], data[o + 56 + k] - r); max[k] = Math.max(max[k], data[o + 56 + k] + r); }
+    for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k]!, data[o + 56 + k]! - r!); max[k] = Math.max(max[k]!, data[o + 56 + k]! + r!); }
   };
   for (const record of entry.instances) grow(record, 0);
   for (const batch of entry.batches) {
@@ -2311,18 +2543,18 @@ function groupBounds(entry) {
       const b = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
       for (let i = 0; i < batch.count; i++) {
         const o = i * INSTANCE_FLOATS, r = batch.data[o + 59];
-        for (let k = 0; k < 3; k++) { b.min[k] = Math.min(b.min[k], batch.data[o + 56 + k] - r); b.max[k] = Math.max(b.max[k], batch.data[o + 56 + k] + r); }
+        for (let k = 0; k < 3; k++) { b.min[k] = Math.min(b.min[k]!, batch.data[o + 56 + k]! - r!); b.max[k] = Math.max(b.max[k]!, batch.data[o + 56 + k]! + r!); }
       }
       batch.bounds = b;
       batch.boundsVersion = batch.version;
     }
-    for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], batch.bounds.min[k]); max[k] = Math.max(max[k], batch.bounds.max[k]); }
+    for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k]!, batch.bounds!.min[k]!); max[k] = Math.max(max[k]!, batch.bounds!.max[k]!); }
   }
   return { min, max };
 }
 
 /** How far a point is from the camera's position. */
-function distanceFrom(camera, p) {
+function distanceFrom(camera: RenderCamera | null, p: { x: number; y: number; z: number }): number {
   const c = camera?.position ?? ZERO;
   return Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
 }
@@ -2335,21 +2567,21 @@ function distanceFrom(camera, p) {
  * records only change when its version does; a frame's own instances are
  * read each frame.
  */
-function nearestDraw(entry, tanY) {
+function nearestDraw(entry: Group, tanY: number): number {
   const top = entry.lod?.[1];
-  if (!Number.isFinite(top) || top <= 0) return 0;
+  if (!Number.isFinite(top) || top! <= 0) return 0;
   let radius = Infinity;
-  for (const record of entry.instances) radius = Math.min(radius, record[59]);
+  for (const record of entry.instances) radius = Math.min(radius, record[59]!);
   for (const batch of entry.batches) {
     if (batch.minRadiusVersion !== batch.version) {
       let r = Infinity;
-      for (let i = 0; i < batch.count; i++) r = Math.min(r, batch.data[i * INSTANCE_FLOATS + 59]);
+      for (let i = 0; i < batch.count; i++) r = Math.min(r, batch.data[i * INSTANCE_FLOATS + 59]!);
       batch.minRadius = r;
       batch.minRadiusVersion = batch.version;
     }
-    radius = Math.min(radius, batch.minRadius);
+    radius = Math.min(radius, batch.minRadius!);
   }
-  return Number.isFinite(radius) ? radius / (top * tanY) : 0;
+  return Number.isFinite(radius) ? radius / (top! * tanY) : 0;
 }
 
 /**
@@ -2357,7 +2589,7 @@ function nearestDraw(entry, tanY) {
  * scaled what it covers with (see the mesh pass's output), and adds its
  * reflection whole.
  */
-const ALPHA_BLEND = Object.freeze({
+const ALPHA_BLEND: GPUBlendState = Object.freeze<GPUBlendState>({
   color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
   alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
 });
@@ -2370,24 +2602,23 @@ const ALPHA_BLEND = Object.freeze({
  * read the background through it, which is what makes the blend in the
  * resolve come out right.
  */
-const TRANSPARENT_TARGETS = Object.freeze([
+const TRANSPARENT_TARGETS: GPUColorTargetState[] = [
   { format: HDR_FORMAT, blend: ALPHA_BLEND },
   { format: HDR_FORMAT, blend: ALPHA_BLEND },
   { format: HDR_FORMAT, writeMask: 0 },
   { format: 'rg16float', writeMask: 0 }
-]);
+];
 
 /**
  * The mean of a group's instance bounding-sphere centres, for the
  * back-to-front order of the transparent pass. A static batch's centre
  * is computed once and kept on the batch, since its records never move.
- * @param {{instances: Float32Array[], batches: object[]}} entry
- * @returns {number[]} `[x, y, z]`
+ * Returns `[x, y, z]`.
  */
-function groupCentroid(entry) {
+function groupCentroid(entry: Group): number[] {
   let x = 0, y = 0, z = 0, n = 0;
   for (const record of entry.instances) {
-    x += record[56]; y += record[57]; z += record[58];
+    x += record[56]!; y += record[57]!; z += record[58]!;
     n++;
   }
   for (const batch of entry.batches) {
@@ -2395,15 +2626,15 @@ function groupCentroid(entry) {
       let bx = 0, by = 0, bz = 0;
       for (let i = 0; i < batch.count; i++) {
         const o = i * INSTANCE_FLOATS;
-        bx += batch.data[o + 56]; by += batch.data[o + 57]; bz += batch.data[o + 58];
+        bx += batch.data[o + 56]!; by += batch.data[o + 57]!; bz += batch.data[o + 58]!;
       }
       const c = Math.max(1, batch.count);
       batch.centroid = [bx / c, by / c, bz / c];
       batch.centroidVersion = batch.version;
     }
-    x += batch.centroid[0] * batch.count;
-    y += batch.centroid[1] * batch.count;
-    z += batch.centroid[2] * batch.count;
+    x += batch.centroid![0]! * batch.count;
+    y += batch.centroid![1]! * batch.count;
+    z += batch.centroid![2]! * batch.count;
     n += batch.count;
   }
   if (!n) return [0, 0, 0];
@@ -2411,7 +2642,7 @@ function groupCentroid(entry) {
 }
 
 /** The i-th point of the Halton sequence in `base`, in [0, 1). */
-function halton(i, base) {
+function halton(i: number, base: number): number {
   let f = 1;
   let r = 0;
   while (i > 0) {
@@ -2427,9 +2658,9 @@ const INSTANCE_BYTES = INSTANCE_FLOATS * 4;
 /** One `drawIndexedIndirect` record: five 32-bit values. */
 const ARGS_BYTES = 20;
 const ZERO = { x: 0, y: 0, z: 0 };
-const WHITE = [1, 1, 1];
+const WHITE = [1, 1, 1] as const;
 
-function normalized([x, y, z]) {
-  const len = Math.hypot(x, y, z) || 1;
-  return [x / len, y / len, z / len];
+function normalized([x, y, z]: readonly number[] | number[]): number[] {
+  const len = Math.hypot(x!, y!, z!) || 1;
+  return [x! / len, y! / len, z! / len];
 }

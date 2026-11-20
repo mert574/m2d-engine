@@ -1,5 +1,5 @@
-import { COMMON } from '../chunks/frame.js';
-import { POST_COMMON, EXPOSURE, BLOOM_KNEE } from './chunks.js';
+import { COMMON } from '../chunks/frame.ts';
+import { POST_COMMON, EXPOSURE, BLOOM_KNEE } from './chunks.ts';
 
 /**
  * Bloom's first step: keep what is brighter than the threshold, softly, at

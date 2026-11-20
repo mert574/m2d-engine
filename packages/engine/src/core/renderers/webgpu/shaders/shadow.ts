@@ -1,8 +1,8 @@
-import { COMMON } from './chunks/frame.js';
-import { MATERIAL } from './chunks/material.js';
-import { MORPH } from './chunks/morph.js';
+import { COMMON } from './chunks/frame.ts';
+import { MATERIAL } from './chunks/material.ts';
+import { MORPH } from './chunks/morph.ts';
 
-const shadowShader = (skinned) => /* wgsl */ `
+const shadowShader = (skinned: boolean) => /* wgsl */ `
 ${COMMON}
 ${MATERIAL}
 ${MORPH}

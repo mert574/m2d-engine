@@ -1,4 +1,4 @@
-import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_CAPACITY } from '../constants.js';
+import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_CAPACITY } from '../constants.ts';
 
 export const COMMON = /* wgsl */ `
 struct Frame {

@@ -1,5 +1,5 @@
-import { MAX_PARTICLE_FIELDS } from './constants.js';
-import { COMMON } from './chunks/frame.js';
+import { MAX_PARTICLE_FIELDS } from './constants.ts';
+import { COMMON } from './chunks/frame.ts';
 
 /**
  * Particle fields: dust and pollen in the air, smoke from a chimney.

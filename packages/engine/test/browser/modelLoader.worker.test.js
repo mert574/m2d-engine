@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { WebGPURenderer } from '../../src/core/renderers/webgpuRenderer.js';
-import { initWebGPU } from '../../src/core/renderers/webgpu/device.js';
+import { WebGPURenderer } from '../../src/core/renderers/webgpuRenderer.ts';
+import { initWebGPU } from '../../src/core/renderers/webgpu/device.ts';
 import { initBasis, transcodeKTX2 } from '../../src/core/renderers/webgpu/basis.ts';
 import { parseGLB, setKTX2Decoder } from '../../src/core/gltf.ts';
 import { loadModel, workersAvailable, destroyModelLoader } from '../../src/core/modelLoader.ts';

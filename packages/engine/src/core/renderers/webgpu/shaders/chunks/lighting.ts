@@ -1,4 +1,4 @@
-import { POINT_SHADOW_NEAR } from '../constants.js';
+import { POINT_SHADOW_NEAR } from '../constants.ts';
 
 /**
  * Group 1 of the mesh pipelines (the shadow maps, the environment and

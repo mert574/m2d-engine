@@ -1,5 +1,5 @@
-import { COMMON } from '../chunks/frame.js';
-import { POST_COMMON } from './chunks.js';
+import { COMMON } from '../chunks/frame.ts';
+import { POST_COMMON } from './chunks.ts';
 
 /**
  * Temporal anti-aliasing. The main pass is jittered by a sub-pixel offset

@@ -55,8 +55,12 @@ export interface TranscodedTexture {
   base: TranscodeTarget;
   width: number;
   height: number;
-  /** One byte array per mip level the file carries. */
-  mips: Uint8Array[];
+  /**
+   * One byte array per mip level the file carries — until the texture
+   * cache uploads them, which lets the payload go (`mips` becomes null):
+   * the GPU holds the texture from then on.
+   */
+  mips: Uint8Array[] | null;
 }
 
 /**

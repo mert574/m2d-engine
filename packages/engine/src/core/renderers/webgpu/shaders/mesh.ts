@@ -1,11 +1,11 @@
-import { CLUSTER_CAPACITY } from './constants.js';
-import { BRDF } from './chunks/brdf.js';
-import { LIGHTING } from './chunks/lighting.js';
-import { COMMON } from './chunks/frame.js';
-import { MATERIAL } from './chunks/material.js';
-import { MORPH } from './chunks/morph.js';
+import { CLUSTER_CAPACITY } from './constants.ts';
+import { BRDF } from './chunks/brdf.ts';
+import { LIGHTING } from './chunks/lighting.ts';
+import { COMMON } from './chunks/frame.ts';
+import { MATERIAL } from './chunks/material.ts';
+import { MORPH } from './chunks/morph.ts';
 
-const meshVertex = (skinned) => /* wgsl */ `
+const meshVertex = (skinned: boolean) => /* wgsl */ `
 ${MORPH}
 struct VertexOut {
   @builtin(position) position: vec4f,
@@ -76,7 +76,7 @@ fn vs(
 }
 `;
 
-const meshShader = (skinned) => /* wgsl */ `
+const meshShader = (skinned: boolean) => /* wgsl */ `
 ${COMMON}
 ${meshVertex(skinned)}
 

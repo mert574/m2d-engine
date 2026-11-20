@@ -1,5 +1,5 @@
-import { COMMON } from '../chunks/frame.js';
-import { POST_COMMON } from './chunks.js';
+import { COMMON } from '../chunks/frame.ts';
+import { POST_COMMON } from './chunks.ts';
 
 /**
  * Ambient occlusion from the depth and normal buffer, at half resolution:

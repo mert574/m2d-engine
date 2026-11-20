@@ -7,7 +7,7 @@ import {
   WebGLRenderer,
   WebGPURenderer,
   UIRenderer
-} from '../src/core/renderers/index.js';
+} from '../src/core/renderers/index.ts';
 
 describe('renderer registry', () => {
   it('resolves the built-in backends by name', () => {

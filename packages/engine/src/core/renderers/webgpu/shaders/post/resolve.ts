@@ -1,5 +1,5 @@
-import { COMMON } from '../chunks/frame.js';
-import { POST_COMMON } from './chunks.js';
+import { COMMON } from '../chunks/frame.ts';
+import { POST_COMMON } from './chunks.ts';
 
 /** Direct plus occluded indirect light, then fog by depth: the lit frame. */
 export const RESOLVE_SHADER = /* wgsl */ `

@@ -1,5 +1,5 @@
-import { COMMON } from '../chunks/frame.js';
-import { POST_COMMON } from './chunks.js';
+import { COMMON } from '../chunks/frame.ts';
+import { POST_COMMON } from './chunks.ts';
 
 /** Per-object motion blur: taps along the pixel's velocity, clamped to a sane length. */
 export const MOTION_BLUR_SHADER = /* wgsl */ `

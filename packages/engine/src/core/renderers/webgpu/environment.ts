@@ -1,4 +1,5 @@
-import { SKY_BAKE_SHADER, PREFILTER_SHADER, IRRADIANCE_SHADER, BRDF_LUT_SHADER } from './shaders/index.js';
+import { SKY_BAKE_SHADER, PREFILTER_SHADER, IRRADIANCE_SHADER, BRDF_LUT_SHADER } from './shaders/index.ts';
+import type { Frame3D } from '../frame3d.ts';
 
 /**
  * The lighting environment: the sky as a cubemap, prefiltered for
@@ -17,9 +18,9 @@ import { SKY_BAKE_SHADER, PREFILTER_SHADER, IRRADIANCE_SHADER, BRDF_LUT_SHADER }
  */
 
 /** A stable id per panorama object, so the bake key can name it. */
-const environmentIds = new WeakMap();
+const environmentIds = new WeakMap<WeakKey, number>();
 let nextEnvironmentId = 1;
-function environmentId(image) {
+function environmentId(image: WeakKey | null | undefined): number | 'none' {
   if (!image) return 'none';
   let id = environmentIds.get(image);
   if (!id) environmentIds.set(image, id = nextEnvironmentId++);
@@ -34,11 +35,32 @@ const LUT_SIZE = 128;
 const FORMAT = 'rgba16float';
 
 export class Environment {
-  /**
-   * @param {GPUDevice} device
-   * @param {GPUBindGroupLayout} sceneLayout - Group 0: the frame uniform and storage arrays
-   */
-  constructor(device, sceneLayout) {
+  device: GPUDevice;
+  /** The settings of the last bake, so `update` re-bakes only on change. */
+  key: string | null;
+  prefilteredMips: number;
+  bakeLayout: GPUBindGroupLayout;
+  skyPipeline: GPURenderPipeline;
+  prefilterPipeline: GPURenderPipeline;
+  irradiancePipeline: GPURenderPipeline;
+  lutPipeline: GPURenderPipeline;
+  sampler: GPUSampler;
+  sky: GPUTexture;
+  skyView: GPUTextureView;
+  prefiltered: GPUTexture;
+  prefilteredView: GPUTextureView;
+  irradiance: GPUTexture;
+  irradianceView: GPUTextureView;
+  lut: GPUTexture;
+  lutView: GPUTextureView;
+  dummy: GPUTexture;
+  dummyView: GPUTextureView;
+  bakeUniforms: GPUBuffer[];
+  skyMips: number;
+  lutPending: boolean;
+
+  /** `sceneLayout` — group 0: the frame uniform and storage arrays. */
+  constructor(device: GPUDevice, sceneLayout: GPUBindGroupLayout) {
     this.device = device;
     this.key = null;
     this.prefilteredMips = PREFILTER_MIPS;
@@ -52,7 +74,7 @@ export class Environment {
       ]
     });
     const layout = device.createPipelineLayout({ bindGroupLayouts: [sceneLayout, this.bakeLayout] });
-    const pipeline = (code, label) => {
+    const pipeline = (code: string, label: string) => {
       const module = device.createShaderModule({ code, label });
       return device.createRenderPipeline({
         label, layout,
@@ -71,7 +93,7 @@ export class Environment {
       addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge', addressModeW: 'clamp-to-edge'
     });
 
-    const cube = (size, mips, label) => device.createTexture({
+    const cube = (size: number, mips: number, label: string) => device.createTexture({
       label, size: { width: size, height: size, depthOrArrayLayers: 6 }, format: FORMAT, mipLevelCount: mips,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
     });
@@ -100,7 +122,7 @@ export class Environment {
   }
 
   /** A `{ params }` uniform and bind group for one bake draw. */
-  #bake(params, sourceView) {
+  #bake(params: number[], sourceView: GPUTextureView): GPUBindGroup {
     const buffer = this.device.createBuffer({
       label: 'bake', size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
@@ -117,7 +139,7 @@ export class Environment {
     return group;
   }
 
-  #draw(encoder, pipeline, view, sceneBindGroup, bakeGroup) {
+  #draw(encoder: GPUCommandEncoder, pipeline: GPURenderPipeline, view: GPUTextureView, sceneBindGroup: GPUBindGroup, bakeGroup: GPUBindGroup) {
     const pass = encoder.beginRenderPass({
       colorAttachments: [{ view, loadOp: 'clear', storeOp: 'store' }]
     });
@@ -130,10 +152,9 @@ export class Environment {
 
   /**
    * Re-bake if the frame's sky settings changed. Encodes into `encoder`,
-   * ahead of the frame's own passes.
-   * @returns {boolean} Whether a bake happened
+   * ahead of the frame's own passes. Returns whether a bake happened.
    */
-  update(encoder, frame, sceneBindGroup) {
+  update(encoder: GPUCommandEncoder, frame: Frame3D, sceneBindGroup: GPUBindGroup): boolean {
     const sun = frame.sun;
     const key = [
       ...sun.direction, ...(sun.color ?? [1, 1, 1]), sun.intensity ?? 1,

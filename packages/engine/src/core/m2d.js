@@ -16,7 +16,7 @@ import { Camera3D } from './camera3d.ts';
 import { meshFor, lightFor } from './presentation3d.ts';
 import { SoundManager } from './soundManager.ts';
 import { ImageCache } from './imageCache.ts';
-import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D } from './renderers/index.js';
+import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D } from './renderers/index.ts';
 import { computeViewport, sameViewport, viewToUI } from './viewport.ts';
 import { showUnsupported } from './unsupported.ts';
 import { WorldOverlay } from './ui/worldOverlay.ts';
