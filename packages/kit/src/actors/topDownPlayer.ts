@@ -6,7 +6,7 @@ import type { ActorBody, ActorSprite } from '../engineTypes.ts';
 export class TopDownPlayer extends Entity {
   static override description = 'The top-down player, moved by the keyboard in the plane';
   override name = 'Player';
-  static override replicated = ['facingDirection'];
+  static override replicated: string[] = ['facingDirection'] satisfies (keyof TopDownPlayer)[];
   /**
    * What a client may run for itself, a round trip before the server
    * confirms it: the keys that move this player, and nothing else. The

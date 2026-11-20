@@ -66,7 +66,7 @@ export class ObliquePlayer extends TopDownPlayer {
     spriteSize: s.number({ positive: true, unit: 'px', label: 'Sprite size', description: 'Drawn frame size when the object size is the ground body' })
   };
 
-  static override replicated = ['heading', 'lift'];
+  static override replicated: string[] = ['heading', 'lift'] satisfies (keyof ObliquePlayer)[];
   /** The heading follows the keys, so a client that moves early turns early. */
   static override predictedFields = ['heading'];
 

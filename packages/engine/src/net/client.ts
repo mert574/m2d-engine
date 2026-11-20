@@ -34,10 +34,54 @@
  * readout and the `net` command.
  */
 
-import { applyState } from './replication.js';
-import { ReplicaView } from './interpolation.js';
-import { Predictor } from './prediction.js';
+import { applyState } from './replication.ts';
+import type { StateMessage } from './replication.ts';
+import { ReplicaView } from './interpolation.ts';
+import { Predictor } from './prediction.ts';
 import { InputSnapshot } from '../core/input/snapshot.ts';
+import type { InputSchema } from './input.ts';
+import type { M2D } from '../core/m2d.js';
+import type { Entity } from '../core/entity.ts';
+
+/** What a client needs of a socket: a browser WebSocket or a Node one. */
+export interface ClientSocket {
+  readonly readyState: number;
+  send(text: string): void;
+  close(code?: number, reason?: string): void;
+  onmessage: ((event: { data: unknown }) => void) | null;
+  onclose: ((event: { code: number; reason: string }) => void) | null;
+  onerror: ((event: unknown) => void) | null;
+}
+
+/** The welcome a server sends once per scene. */
+interface Welcome {
+  t: 'welcome';
+  you: string;
+  tickRate: number;
+  sendEvery?: number;
+  scene: string;
+  /** A hash of the scene the server built; see `M2D.markSceneBuilt`. */
+  signature: number;
+  full: StateMessage;
+}
+
+/** Anything the server sends, by its `t`. */
+type ServerMessage =
+  | Welcome
+  | ({ t: 'state' } & StateMessage)
+  | { t: 'pong'; m?: unknown }
+  | { t: 'bye'; reason?: unknown };
+
+/** An intent's answer, as `send` resolves it. */
+export type IntentAnswer = { ok: true } | { ok: false; reason?: string };
+
+/** The live numbers for the readout, the `net` command and the log. */
+export interface NetStats {
+  bytesIn: number; bytesOut: number; messagesIn: number; messagesOut: number;
+  /** Bytes per second, averaged over the last second. */
+  inRate: number; outRate: number;
+  corrections: number; hidden: number;
+}
 
 /** Ticks of input sent ahead of the server's estimated clock. */
 const DEFAULT_LEAD = 2;
@@ -63,82 +107,104 @@ const now = () => performance.now();
 export class NetClient {
   /**
    * Open a connection and resolve once the scene is loaded and in sync.
-   *
-   * @param {import('../core/m2d.js').M2D} game
-   * @param {object} options
-   * @param {string} options.url - `ws://` or `wss://`
-   * @param {string} options.ticket - From the game's lobby
-   * @param {import('./input.js').InputSchema} options.schema - The game's input alphabet
-   * @param {typeof WebSocket} [options.WebSocket] - Defaults to the global
-   * @param {number} [options.lead=2]
-   * @param {boolean} [options.predict=true] - Run the local avatar's declared
-   *   movement on the tick its input is sent, and correct it against the server
-   * @returns {Promise<NetClient>}
+   * `url` is `ws://` or `wss://`; `ticket` comes from the game's lobby;
+   * `schema` is the game's input alphabet; `WebSocket` defaults to the
+   * global; `predict` runs the local avatar's declared movement on the tick
+   * its input is sent, correcting it against the server.
    */
-  static async connect(game, { url, ticket, schema, WebSocket = globalThis.WebSocket, lead, predict } = {}) {
+  static async connect(game: M2D, { url, ticket, schema, WebSocket = globalThis.WebSocket, lead, predict }: {
+    url: string;
+    ticket: string;
+    schema: InputSchema;
+    WebSocket?: new (url: string) => unknown;
+    lead?: number;
+    predict?: boolean;
+  }): Promise<NetClient> {
     if (typeof WebSocket !== 'function') throw new Error('M2D net: no WebSocket implementation available');
     const separator = url.includes('?') ? '&' : '?';
-    const socket = new WebSocket(`${url}${separator}ticket=${encodeURIComponent(ticket)}`);
+    const socket = new WebSocket(`${url}${separator}ticket=${encodeURIComponent(ticket)}`) as ClientSocket;
     const client = new NetClient(game, socket, { schema, lead, predict });
     client.log(1, `connecting to ${url}`);
     await client.ready;
     return client;
   }
 
+  game: M2D;
+  /** Anything with `send`, `close`, `onmessage` and `onclose`. */
+  socket: ClientSocket;
+  schema: InputSchema;
+  lead: number;
+  /** The server's id for this player. */
+  you: string | null;
+  tickRate: number;
+  /** The server's ticks between state messages, from the welcome. */
+  sendEvery = 2;
+  /** The server tick of the newest message, and when it arrived. */
+  serverTick: number;
+  serverTickAt: number;
+  /** Smoothed round trip, in ms. */
+  rtt: number;
   /**
-   * @param {import('../core/m2d.js').M2D} game
-   * @param {WebSocket} socket - Anything with `send`, `close`, `onmessage` and `onclose`
+   * How the server's gate is finding this client's input. `margin` is how
+   * many ticks early the earliest message arrived, which is what the lead
+   * is steered by; `late` counts input that arrived for a tick already
+   * simulated, and `missed` ticks the server had no input for at all.
+   * See `#steerLead`.
    */
-  constructor(game, socket, { schema, lead = DEFAULT_LEAD, predict = true } = {}) {
+  gate: { missed: number; late: number; early: number; margin: number | null };
+  calm: number;
+  /** What has crossed the wire, and how the two clocks are getting on. */
+  stats: NetStats;
+  /** Drawing between the server's states. */
+  view: ReplicaView | null;
+  /** Running the local avatar early. */
+  predictor: Predictor | null;
+  predicts: boolean;
+  lastSent: number;
+  lastPing: number;
+  /**
+   * Presses from ticks that sent nothing (the clock estimate did not move
+   * on), held for the next message so a tap in one of them still arrives.
+   */
+  carried: { keys: Set<string>; buttons: number };
+  open: boolean;
+  /** Why the connection ended: `{ code, reason }`, once it has. */
+  closed: { code: number; reason: string } | null;
+  /** The server's last word before it closes, from its `bye`. */
+  byeReason: string | undefined;
+  /** The server's id for this client's avatar, from `av`. */
+  avatarId: number | null | undefined;
+  /** Resolves once the scene is loaded and in sync. */
+  ready: Promise<NetClient>;
+
+  constructor(game: M2D, socket: ClientSocket, { schema, lead = DEFAULT_LEAD, predict = true }: { schema?: InputSchema; lead?: number; predict?: boolean } = {}) {
     if (!schema?.encode) throw new Error('M2D net: a NetClient needs the game\'s InputSchema');
     this.game = game;
     this.socket = socket;
     this.schema = schema;
     this.lead = lead;
-    /** The server's id for this player. */
     this.you = null;
     this.tickRate = 60;
-    /** The server tick of the newest message, and when it arrived. */
     this.serverTick = 0;
     this.serverTickAt = 0;
-    /** Smoothed round trip, in ms. */
     this.rtt = 100;
-    /**
-     * How the server's gate is finding this client's input. `margin` is how
-     * many ticks early the earliest message arrived, which is what the lead
-     * is steered by; `late` counts input that arrived for a tick already
-     * simulated, and `missed` ticks the server had no input for at all.
-     * See `#steerLead`.
-     */
     this.gate = { missed: 0, late: 0, early: 0, margin: null };
     this.calm = 0;
-    /**
-     * Live numbers for the readout, the `net` command and the log: what has
-     * crossed the wire, and how the two clocks are getting on.
-     */
     this.stats = {
       bytesIn: 0, bytesOut: 0, messagesIn: 0, messagesOut: 0,
-      /** Bytes per second, averaged over the last second. */
       inRate: 0, outRate: 0,
       corrections: 0, hidden: 0
     };
     this.#rateAt = 0;
     this.#rateIn = 0;
     this.#rateOut = 0;
-    /** Drawing between the server's states. @type {ReplicaView|null} */
     this.view = null;
-    /** Running the local avatar early. @type {Predictor|null} */
     this.predictor = null;
     this.predicts = predict;
     this.lastSent = 0;
     this.lastPing = 0;
-    /**
-     * Presses from ticks that sent nothing (the clock estimate did not move
-     * on), held for the next message so a tap in one of them still arrives.
-     */
     this.carried = { keys: new Set(), buttons: 0 };
     this.open = true;
-    /** Why the connection ended: `{ code, reason }`, once it has. */
     this.closed = null;
     this.#seq = 0;
     this.#pending = new Map();
@@ -146,33 +212,33 @@ export class NetClient {
     this.#synced = false;
     this.#listeners = new Map();
     this.#settled = false;
-    this.ready = new Promise((resolve, reject) => { this.#settle = { resolve, reject }; });
+    this.ready = new Promise<NetClient>((resolve, reject) => { this.#settle = { resolve, reject }; });
 
     socket.onmessage = (event) => this.#receive(event.data);
     socket.onclose = (event) => this.#ended(event.code, event.reason || this.byeReason || '');
     socket.onerror = () => {};
   }
 
-  #seq;
-  #pending;
-  #queue;
-  #synced;
-  #listeners;
-  #settle;
-  #settled;
-  #rateAt;
-  #rateIn;
-  #rateOut;
+  #seq: number;
+  #pending: Map<number, (answer: IntentAnswer) => void>;
+  #queue: StateMessage[];
+  #synced: boolean;
+  #listeners: Map<string, Set<(data: unknown) => void>>;
+  #settle!: { resolve: (client: NetClient) => void; reject: (error: Error) => void };
+  #settled: boolean;
+  #rateAt: number;
+  #rateIn: number;
+  #rateOut: number;
 
   /** `close` with `{ code, reason }` when the connection ends. Returns a function that stops listening. */
-  on(name, handler) {
+  on(name: 'close', handler: (data: unknown) => void): () => void {
     let set = this.#listeners.get(name);
     if (!set) this.#listeners.set(name, set = new Set());
     set.add(handler);
     return () => set.delete(handler);
   }
 
-  #emit(name, data) {
+  #emit(name: string, data: unknown): void {
     for (const handler of [...(this.#listeners.get(name) ?? [])]) handler(data);
   }
 
@@ -180,23 +246,23 @@ export class NetClient {
    * How much of what happens reaches the developer console. Read from the
    * `net_log` cvar, so it can be turned up while connected.
    */
-  get logLevel() {
-    return this.game.netLogLevel ?? 1;
+  get logLevel(): number {
+    return (this.game as { netLogLevel?: number }).netLogLevel ?? 1;
   }
 
   /** A line in the console, if the level asks for it. */
-  log(level, message) {
+  log(level: number, message: string): void {
     if (this.logLevel < level) return;
     if (level >= 2) console.debug(`[net] ${message}`);
     else console.info(`[net] ${message}`);
   }
 
   /** Tell the server the player's choices (`{ name: value }`); nothing is sent before the welcome. */
-  choose(choices) {
+  choose(choices: Record<string, unknown>): void {
     if (this.#synced && Object.keys(choices).length) this.#send('choose', choices);
   }
 
-  #send(type, payload) {
+  #send(type: string, payload: unknown): boolean {
     if (!this.open || this.socket.readyState !== 1) return false;
     const text = JSON.stringify({ t: type, m: payload });
     this.socket.send(text);
@@ -206,14 +272,15 @@ export class NetClient {
     return true;
   }
 
-  #receive(data) {
-    const size = typeof data === 'string' ? data.length : (data?.byteLength ?? 0);
+  #receive(data: unknown): void {
+    const size = typeof data === 'string' ? data.length : ((data as { byteLength?: number } | null)?.byteLength ?? 0);
     this.stats.bytesIn += size;
     this.stats.messagesIn++;
     this.#rateIn += size;
-    let message;
+    let message: ServerMessage | null;
     try {
-      message = JSON.parse(data);
+      // A frame that is not a string fails the parse as it always did.
+      message = JSON.parse(data as string) as ServerMessage | null;
     } catch {
       console.warn('[net] a frame from the server was not JSON and was dropped');
       return;
@@ -226,7 +293,7 @@ export class NetClient {
         if (this.#settled) this.log(1, `the match moved to scene '${message.scene}'; rebuilding it`);
         this.#synced = false;
         this.#queue.length = 0;
-        this.#welcome(message).catch((error) => {
+        this.#welcome(message).catch((error: Error) => {
           if (!this.#settled) this.#settle.reject(error);
           this.close(4100, error.message);
         });
@@ -244,7 +311,7 @@ export class NetClient {
     }
   }
 
-  async #welcome(message) {
+  async #welcome(message: Welcome): Promise<void> {
     const game = this.game;
     this.you = message.you;
     this.tickRate = message.tickRate;
@@ -252,11 +319,11 @@ export class NetClient {
       throw new Error(`M2D net: the server ticks at ${message.tickRate} Hz and this game at ${1 / game.time.fixedTimestep} Hz`);
     }
     game.replica = true;
-    game.net = this;
+    (game as { net: unknown }).net = this;
     this.sendEvery = message.sendEvery ?? 2;
     this.view = new ReplicaView(game, { tickRate: this.tickRate, sendEvery: this.sendEvery, now });
     this.predictor = this.predicts ? new Predictor(game, { tickRate: this.tickRate }) : null;
-    await game.sceneManager.switchTo(message.scene);
+    await game.sceneManager!.switchTo(message.scene);
     if (game.sceneSignature !== message.signature) {
       throw new Error('M2D net: this client built a different scene from the server\'s; are both running the same game module?');
     }
@@ -265,9 +332,9 @@ export class NetClient {
     this.#synced = true;
     // The player's choices go to the server, which decides whether they may
     // have them; its next state message is what the player's state becomes.
-    this.choose(this.game.choices.all);
+    this.choose((this.game.choices as { all: Record<string, unknown> }).all);
     this.log(1, `joined as '${this.you}' · scene '${message.scene}' · ${this.tickRate} Hz · state every ${this.sendEvery} tick${this.sendEvery === 1 ? '' : 's'}`
-      + ` · ${this.predictor ? 'predicting' : 'not predicting'} · drawing ${this.view.delay} ticks behind`);
+      + ` · ${this.predictor ? 'predicting' : 'not predicting'} · drawing ${this.view!.delay} ticks behind`);
     if (this.predicts && !this.predictor?.entity) {
       this.log(1, 'nothing to predict yet: waiting for the server to name an avatar');
     }
@@ -277,8 +344,8 @@ export class NetClient {
     }
   }
 
-  #apply(message) {
-    applyState(this.game, message, { view: this.view, predictor: this.predictor });
+  #apply(message: StateMessage): void {
+    applyState(this.game, message, { view: this.view ?? undefined, predictor: this.predictor ?? undefined });
     if (message.g) this.#steerLead(message.g);
     if (this.logLevel >= 2 && (message.spawn || message.remove || message.hide)) {
       const parts = [];
@@ -304,11 +371,12 @@ export class NetClient {
   }
 
   /** Point `game.player` at this client's avatar, once the server has made it. */
-  #follow() {
+  #follow(): void {
     const game = this.game;
-    const avatar = this.avatarId == null ? null : game.entityById(this.avatarId);
-    if (game.players.local.avatar === avatar && game.player === avatar) return;
-    game.players.local.avatar = avatar;
+    const avatar = (this.avatarId == null ? null : game.entityById(this.avatarId)) as Entity | null;
+    const local = game.players!.local;
+    if (local.avatar === avatar && game.player === avatar) return;
+    local.avatar = avatar;
     game.player = avatar;
     const before = this.predictor?.entity ?? null;
     this.predictor?.follow(avatar);
@@ -323,9 +391,9 @@ export class NetClient {
     // drawn from them.
     if (this.view) {
       this.view.predicted.clear();
-      if (this.predictor?.entity) this.view.predicted.add(this.predictor.entity.netId);
+      if (this.predictor?.entity) this.view.predicted.add(this.predictor.entity.netId!);
     }
-    if (avatar && !game.headless) game.camera.follow(avatar);
+    if (avatar && !game.headless) (game.camera as { follow(target: Entity): void }).follow(avatar);
   }
 
   /**
@@ -337,7 +405,7 @@ export class NetClient {
    * did nothing. A long calm stretch trims it back a tick at a time, so a
    * connection that improves stops paying for a jitter it no longer has.
    */
-  #steerLead([missed, late, early, margin]) {
+  #steerLead([missed, late, early, margin]: [number, number, number, number | null]): void {
     this.gate = {
       missed: this.gate.missed + missed, late: this.gate.late + late, early: this.gate.early + early,
       margin: margin ?? this.gate.margin
@@ -387,7 +455,7 @@ export class NetClient {
    * is a coarse unit — so `lead` carries the rest and is steered by the
    * margin the server actually measures. See `#steerLead`.
    */
-  get targetTick() {
+  get targetTick(): number {
     const elapsed = (now() - this.serverTickAt) + this.rtt;
     return this.serverTick + Math.ceil((elapsed / 1000) * this.tickRate) + this.lead;
   }
@@ -396,24 +464,23 @@ export class NetClient {
    * Turn prediction on or off on a live connection, for seeing the
    * difference. Turning it off hands the avatar back to the server's
    * states; turning it on starts predicting from wherever it is now.
-   * @param {boolean} on
    */
-  setPredicting(on) {
+  setPredicting(on: boolean): void {
     if (on === this.predicts) return;
     this.predicts = on;
     if (!on) {
       const entity = this.predictor?.entity;
       if (entity) {
-        entity.body.renderOverride = null;
-        this.view?.predicted.delete(entity.netId);
+        (entity.body as { renderOverride?: unknown }).renderOverride = null;
+        this.view?.predicted.delete(entity.netId!);
       }
       this.predictor = null;
       this.log(1, 'prediction off: the local avatar now moves when the server says it did');
       return;
     }
     this.predictor = new Predictor(this.game, { tickRate: this.tickRate });
-    this.predictor.follow(this.game.players.local.avatar);
-    if (this.predictor.entity) this.view?.predicted.add(this.predictor.entity.netId);
+    this.predictor.follow(this.game.players!.local.avatar as Entity | null);
+    if (this.predictor.entity) this.view?.predicted.add(this.predictor.entity.netId!);
     this.log(1, `prediction on${this.predictor.entity ? '' : ' (nothing to predict yet)'}`);
   }
 
@@ -421,7 +488,7 @@ export class NetClient {
    * Advance the view's clock and write every entity's drawn transform. The
    * frame loop calls it once a frame, before anything is drawn.
    */
-  beforeDraw(deltaTime = 0) {
+  beforeDraw(deltaTime = 0): void {
     this.view?.update();
     // After the view, which clears the override on everything it does not
     // interpolate: the predicted avatar writes its own.
@@ -430,7 +497,7 @@ export class NetClient {
   }
 
   /** Once a second: the rates, and a line about them if the level asks. */
-  #reportRates() {
+  #reportRates(): void {
     const time = now();
     if (this.#rateAt === 0) {
       this.#rateAt = time;
@@ -453,7 +520,7 @@ export class NetClient {
   }
 
   /** One client tick: send this tick's input. The engine calls it. */
-  tick(snapshot) {
+  tick(snapshot: InputSnapshot): void {
     if (!this.#synced || !this.open) return;
     for (const code of snapshot.pressed) this.carried.keys.add(code);
     this.carried.buttons |= snapshot.pointer.pressedButtons ?? 0;
@@ -480,30 +547,30 @@ export class NetClient {
   }
 
   /** The snapshot with every carried press counted as held, once. */
-  #withCarried(snapshot) {
+  #withCarried(snapshot: InputSnapshot): InputSnapshot {
     const { keys, buttons } = this.carried;
     if (keys.size === 0 && buttons === 0) return snapshot;
     this.carried = { keys: new Set(), buttons: 0 };
     const json = snapshot.toJSON();
-    json.down = [...new Set([...json.down, ...keys])];
-    json.pointer.buttons |= buttons;
+    json.down = [...new Set([...json.down!, ...keys])];
+    json.pointer!.buttons! |= buttons;
     return InputSnapshot.from(json);
   }
 
   /** `game.players.local.send` while connected. */
-  sendIntent(name, args = {}) {
+  sendIntent(name: string, args: Record<string, unknown> = {}): Promise<IntentAnswer> {
     const seq = ++this.#seq;
     if (!this.#send('do', { seq, name, args })) return Promise.resolve({ ok: false, reason: 'offline' });
     return new Promise((resolve) => { this.#pending.set(seq, resolve); });
   }
 
-  close(code = 1000, reason = '') {
+  close(code = 1000, reason = ''): void {
     if (!this.open) return;
     this.open = false;
     try { this.socket.close(code, reason); } catch { /* already closing */ }
   }
 
-  #ended(code, reason) {
+  #ended(code: number, reason: string): void {
     this.open = false;
     this.closed = { code, reason };
     const clean = code === 1000;

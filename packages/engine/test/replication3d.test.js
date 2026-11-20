@@ -3,9 +3,9 @@ import { fakeSocket } from './helpers/net.js';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.ts';
 import { initPhysics } from '../src/core/physics/index.ts';
-import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.js';
-import { Replicator, applyState } from '../src/net/replication.js';
-import { NetClient } from '../src/net/client.js';
+import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.ts';
+import { Replicator, applyState } from '../src/net/replication.ts';
+import { NetClient } from '../src/net/client.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { Quat } from '../src/core/math.ts';
 

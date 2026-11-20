@@ -30,7 +30,7 @@ import { DevConsole } from './console/devConsole.js';
 import { PerformanceStats } from './ui/performanceStats.js';
 import { presentationGuard, createHeadlessInput, SilentSound } from './headless.ts';
 import { WorldEvents } from './events.ts';
-import { baselineOf } from '../net/replication.js';
+import { baselineOf } from '../net/replication.ts';
 import { Players } from './players.js';
 import { takeSnapshot, restoreSnapshot } from './snapshot.js';
 import { Quality } from './quality.ts';
@@ -586,7 +586,7 @@ export class M2D {
      * connection; entities, scene simulation hooks and physics do not run.
      */
     this.replica = false;
-    /** The connection, while this game is a client. @type {import('../net/client.js').NetClient|null} */
+    /** The connection, while this game is a client. @type {import('../net/client.ts').NetClient|null} */
     this.net = null;
     /**
      * How much the net layer logs: the `net_log` cvar's home, kept on the
@@ -1261,7 +1261,7 @@ export class M2D {
   /**
    * Install the game's intents, declared with `defineIntents`. Every player
    * gets a queue; the local one sends through `game.players.local.send`.
-   * @param {import('../net/intents.js').IntentSet|null} intentSet
+   * @param {import('../net/intents.ts').IntentSet|null} intentSet
    */
   registerIntents(intentSet) {
     this.players.useIntents(intentSet);
@@ -1525,7 +1525,7 @@ export class M2D {
    * @param {number} spec.y
    * @param {number} spec.width
    * @param {number} spec.height
-   * @param {string} [spec.sprite] - A sprite sheet key of the current scene
+   * @param {string|null} [spec.sprite] - A sprite sheet key of the current scene
    * @param {string} [spec.animation] - The animation to start in
    * @param {object} [spec.options] - Passed to the actor; plain data
    * @param {object} [spec.physics] - Prefab physics keys

@@ -48,8 +48,25 @@
  * behind it.
  */
 
+import type { M2D } from '../core/m2d.js';
+import type { Entity } from '../core/entity.ts';
+
+/** One server transform of an entity, at a tick. */
+interface Sample { t: number; x: number; y: number; angle: number; vx: number; vy: number; e: number }
+
+/** Where to draw: a sampled transform and elevation. */
+export interface DrawnTransform { x: number; y: number; angle: number; e: number }
+
+/** The 2D body members a replica's view reads and writes. */
+interface ViewBody {
+  position: { x: number; y: number };
+  velocity: { x: number; y: number };
+  angle: number;
+  renderOverride: { x: number; y: number; angle: number } | null;
+}
+
 /** Wrap a turn to (-π, π], so crossing the seam reads as continuing to turn. */
-function shortestTurn(angle) {
+function shortestTurn(angle: number): number {
   const turn = (angle + Math.PI) % (Math.PI * 2);
   return (turn < 0 ? turn + Math.PI * 2 : turn) - Math.PI;
 }
@@ -63,13 +80,16 @@ const EASE = 0.08;
 
 /** One entity's recent server transforms, oldest first. */
 export class Track {
+  samples: Sample[];
+  /** Set by the view that made the track; turns ticks into seconds. */
+  declare tickRate: number;
+
   constructor() {
-    /** @type {{t: number, x: number, y: number, angle: number, vx: number, vy: number, e: number}[]} */
     this.samples = [];
   }
 
   /** Record where the server says this entity was at `tick`. */
-  record(tick, sample) {
+  record(tick: number, sample: Omit<Sample, 't'>): void {
     const samples = this.samples;
     const last = samples[samples.length - 1];
     // Out of order or a repeat: the transport is ordered, so this only
@@ -78,33 +98,30 @@ export class Track {
       if (tick === last.t) samples[samples.length - 1] = { t: tick, ...sample };
       else samples.length = 0;
     }
-    if (samples.length === 0 || samples[samples.length - 1].t !== tick) {
+    if (samples.length === 0 || samples[samples.length - 1]!.t !== tick) {
       samples.push({ t: tick, ...sample });
     }
   }
 
   /** Forget samples no render clock at `tick` could still need. */
-  prune(tick) {
+  prune(tick: number): void {
     const samples = this.samples;
     // Keep the newest two whatever happens: they are what a stalled clock
     // interpolates between, and the only thing to extrapolate from.
-    while (samples.length > 2 && samples[1].t <= tick - KEEP_TICKS) samples.shift();
+    while (samples.length > 2 && samples[1]!.t <= tick - KEEP_TICKS) samples.shift();
     // The oldest sample is only needed while the clock is still behind the
     // next one.
-    while (samples.length > 2 && samples[1].t <= tick) samples.shift();
+    while (samples.length > 2 && samples[1]!.t <= tick) samples.shift();
   }
 
   /**
-   * Where to draw this entity at a fractional server tick.
-   * @param {number} tick
-   * @param {number} extrapolateTicks - Furthest past the newest sample to
-   *   guess along the last velocity, in ticks.
-   * @returns {{x: number, y: number, angle: number, e: number}|null}
+   * Where to draw this entity at a fractional server tick. `extrapolateTicks`
+   * is the furthest past the newest sample to guess along the last velocity.
    */
-  at(tick, extrapolateTicks) {
+  at(tick: number, extrapolateTicks: number): DrawnTransform | null {
     const samples = this.samples;
     if (samples.length === 0) return null;
-    const newest = samples[samples.length - 1];
+    const newest = samples[samples.length - 1]!;
     if (samples.length === 1 || tick >= newest.t) {
       const over = Math.min(tick - newest.t, extrapolateTicks);
       if (over <= 0) return { x: newest.x, y: newest.y, angle: newest.angle, e: newest.e };
@@ -113,15 +130,15 @@ export class Track {
       const seconds = over / this.tickRate;
       return { x: newest.x + newest.vx * seconds, y: newest.y + newest.vy * seconds, angle: newest.angle, e: newest.e };
     }
-    const oldest = samples[0];
+    const oldest = samples[0]!;
     if (tick <= oldest.t) return { x: oldest.x, y: oldest.y, angle: oldest.angle, e: oldest.e };
 
     // The pair bracketing `tick`. A handful of samples, walked from the
     // newest end, which is where the clock almost always sits.
     let after = samples.length - 1;
-    while (after > 0 && samples[after - 1].t > tick) after--;
-    const b = samples[after];
-    const a = samples[after - 1];
+    while (after > 0 && samples[after - 1]!.t > tick) after--;
+    const b = samples[after]!;
+    const a = samples[after - 1]!;
     const span = b.t - a.t;
     const alpha = span > 0 ? (tick - a.t) / span : 1;
     return {
@@ -135,57 +152,60 @@ export class Track {
 
 /**
  * The replica's view of the server's world: every entity's recent states,
- * and the clock that decides which moment of them is drawn.
- *
- * @param {import('../core/m2d.js').M2D} game
- * @param {object} [options]
- * @param {number} [options.tickRate=60]
- * @param {number} [options.sendEvery=2] - The server's ticks between states
- * @param {() => number} [options.now] - Wall clock, ms
+ * and the clock that decides which moment of them is drawn. `sendEvery` is
+ * the server's ticks between states; `now` the wall clock, ms.
  */
 export class ReplicaView {
-  constructor(game, { tickRate = 60, sendEvery = 2, now } = {}) {
+  game: M2D;
+  tickRate: number;
+  sendEvery: number;
+  now: () => number;
+  /** netId -> Track */
+  tracks: Map<number, Track>;
+  /** The newest server tick seen, and the wall time it arrived. */
+  serverTick: number;
+  serverTickAt: number;
+  /** The fractional server tick being drawn; null until the first state. */
+  renderTick: number | null;
+  lastFrameAt: number;
+  /** Entities the client simulates itself, by netId: never interpolated. */
+  predicted: Set<number>;
+  /**
+   * Ticks of delay on top of the usual, from the `net_interp` cvar. More
+   * delay rides out a worse connection and shows everyone else further in
+   * the past; it is the one trade a player might want to make themselves.
+   */
+  extraDelay: number;
+
+  constructor(game: M2D, { tickRate = 60, sendEvery = 2, now }: { tickRate?: number; sendEvery?: number; now?: () => number } = {}) {
     this.game = game;
     this.tickRate = tickRate;
     this.sendEvery = sendEvery;
     this.now = now ?? (() => performance.now());
-    /** netId -> Track */
     this.tracks = new Map();
-    /** The newest server tick seen, and the wall time it arrived. */
     this.serverTick = 0;
     this.serverTickAt = 0;
-    /** The fractional server tick being drawn; null until the first state. */
     this.renderTick = null;
     this.lastFrameAt = 0;
-    /** Entities the client simulates itself, by netId: never interpolated. */
     this.predicted = new Set();
-    /**
-     * Ticks of delay on top of the usual, from the `net_interp` cvar. More
-     * delay rides out a worse connection and shows everyone else further in
-     * the past; it is the one trade a player might want to make themselves.
-     */
     this.extraDelay = 0;
   }
 
   /** Ticks behind the newest state that the view draws. */
-  get delay() {
+  get delay(): number {
     return this.sendEvery * 2 + 1 + this.extraDelay;
   }
 
   /** Note a state message's tick. Called before its records are recorded. */
-  observe(tick) {
+  observe(tick: number): void {
     if (tick > this.serverTick) {
       this.serverTick = tick;
       this.serverTickAt = this.now();
     }
   }
 
-  /**
-   * Record one entity's transform at a tick.
-   * @param {import('../core/entity.ts').Entity} entity
-   * @param {number} tick
-   */
-  record(entity, tick) {
+  /** Record one entity's transform at a tick. */
+  record(entity: Entity, tick: number): void {
     const id = entity.netId;
     if (typeof id !== 'number') return;
     let track = this.tracks.get(id);
@@ -193,19 +213,21 @@ export class ReplicaView {
       this.tracks.set(id, track = new Track());
       track.tickRate = this.tickRate;
     }
-    const { x, y } = entity.body.position;
-    const v = entity.body.velocity;
-    track.record(tick, { x, y, angle: entity.body.angle, vx: v.x, vy: v.y, e: entity.elevation ?? 0 });
+    // 2D only: a 3D replica is never recorded (see applyState).
+    const body = entity.body as unknown as ViewBody;
+    const { x, y } = body.position;
+    const v = body.velocity;
+    track.record(tick, { x, y, angle: body.angle, vx: v.x, vy: v.y, e: entity.elevation ?? 0 });
   }
 
   /** Forget an entity's history. */
-  forget(netId) {
+  forget(netId: number): void {
     this.tracks.delete(netId);
     this.predicted.delete(netId);
   }
 
   /** Start over: a scene change rebuilds every entity. */
-  clear() {
+  clear(): void {
     this.tracks.clear();
     this.predicted.clear();
     this.renderTick = null;
@@ -214,7 +236,7 @@ export class ReplicaView {
   }
 
   /** Where the clock should be, from the newest message and the time since. */
-  #targetTick() {
+  #targetTick(): number {
     const elapsed = (this.now() - this.serverTickAt) / 1000;
     return this.serverTick + elapsed * this.tickRate - this.delay;
   }
@@ -223,7 +245,7 @@ export class ReplicaView {
    * Advance the render clock and write every entity's drawn transform.
    * The frame loop calls this once, before drawing.
    */
-  update() {
+  update(): void {
     if (this.serverTickAt === 0) return;
     const now = this.now();
     const target = this.#targetTick();
@@ -241,22 +263,23 @@ export class ReplicaView {
   }
 
   /** Write the current render tick's transform onto every entity. */
-  apply() {
+  apply(): void {
     const tick = this.renderTick;
     if (tick === null) return;
     const extrapolate = this.sendEvery;
     for (const entity of this.game.entities) {
-      const id = entity.netId;
+      const id = entity.netId!;
       const track = this.tracks.get(id);
+      const body = entity.body as unknown as ViewBody;
       if (!track || this.predicted.has(id)) {
-        entity.body.renderOverride = null;
+        body.renderOverride = null;
         entity.renderElevationOverride = null;
         continue;
       }
       track.prune(tick);
       const at = track.at(tick, extrapolate);
       if (!at) continue;
-      entity.body.renderOverride = at;
+      body.renderOverride = at;
       entity.renderElevationOverride = at.e;
     }
   }

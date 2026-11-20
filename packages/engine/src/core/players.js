@@ -24,7 +24,7 @@
  */
 
 import { InputSnapshot } from './input/snapshot.ts';
-import { IntentQueue } from '../net/intents.js';
+import { IntentQueue } from '../net/intents.ts';
 
 export class Player {
   /**
@@ -187,7 +187,7 @@ export class Players {
     this.game = game;
     /** @type {Map<string, Player>} */
     this.map = new Map();
-    /** @type {import('../net/intents.js').IntentSet|null} */
+    /** @type {import('../net/intents.ts').IntentSet|null} */
     this.intentSet = null;
     /** The player at the keyboard. */
     this.local = this.add('local', { local: true });
@@ -198,7 +198,7 @@ export class Players {
    * @param {string} id - Unique, stable for the connection's life.
    * @param {object} [options]
    * @param {boolean} [options.local=false]
-   * @param {import('../net/input.js').ViolationMeter} [options.meter] - Shared with the player's input gate.
+   * @param {import('../net/input.ts').ViolationMeter} [options.meter] - Shared with the player's input gate.
    */
   add(id, { local = false, meter } = {}) {
     if (typeof id !== 'string' || id === '') throw new Error('M2D players: a player id must be a non-empty string');

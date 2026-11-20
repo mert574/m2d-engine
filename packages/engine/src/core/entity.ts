@@ -73,7 +73,7 @@ export class Entity {
    * its own; the lists of every class in the chain are joined. Values must
    * be plain data. See net/replication.js.
    */
-  static replicated = ['elevation', 'visible', 'dead'];
+  static replicated: string[] = ['elevation', 'visible', 'dead'] satisfies (keyof Entity)[];
 
   /**
    * What a scene may set in a placed object's `properties`, which reach

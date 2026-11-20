@@ -64,7 +64,7 @@ export class Attack extends Constraint {
    * same one still in progress and run `onStart` for it (its look, its
    * sound) without running the simulation. See `replicaUpdated`.
    */
-  static override replicated = ['swings', 'step', 'angle', 'direction', 'sideways', 'isAttacking', 'attackTime', 'isWindingUp', 'windupTime'];
+  static override replicated: string[] = ['swings', 'step', 'angle', 'direction', 'sideways', 'isAttacking', 'attackTime', 'isWindingUp', 'windupTime'] satisfies (keyof Attack)[];
 
   damage: number;
   range: number;

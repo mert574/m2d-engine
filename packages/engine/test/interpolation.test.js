@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Track, ReplicaView } from '../src/net/interpolation.js';
+import { Track, ReplicaView } from '../src/net/interpolation.ts';
 import { Entity } from '../src/core/entity.ts';
 
 /**

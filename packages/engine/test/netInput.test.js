@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { InputSchema, InputGate } from '../src/net/input.js';
+import { InputSchema, InputGate } from '../src/net/input.ts';
 import { snapHeading } from '../src/core/input/snapshot.ts';
 import { InputSnapshot } from '../src/core/input/snapshot.ts';
 import { Rng } from '../src/core/rng.ts';

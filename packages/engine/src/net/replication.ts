@@ -56,36 +56,158 @@
  * `Predictor`'s tolerance. Coarser positions would mean correcting the
  * player's own avatar for differences that are not real.
  */
+import type { M2D } from '../core/m2d.js';
+import type { Entity } from '../core/entity.ts';
+import type { Constraint } from '../core/constraint.ts';
+import type { ReplicaView } from './interpolation.ts';
+import type { Predictor } from './prediction.ts';
+
+/**
+ * The events the server raises for one player (`player.notify(name, data)`)
+ * and a client's `player.on(name, ...)` receives, by name. Empty here; a
+ * game declares its own by augmenting the interface, so a payload that
+ * does not match its name is a compile error at both ends:
+ *
+ * ```ts
+ * declare module 'm2d-engine/net' {
+ *   interface PlayerEventMap { trade: { ware: string; price: number } }
+ * }
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface PlayerEventMap {}
+
+/** A player event as it crosses the wire: a declared name with its payload, or any other. */
+export type PlayerEvent =
+  | { [K in keyof PlayerEventMap]: [K, PlayerEventMap[K]] }[keyof PlayerEventMap]
+  | [string, Record<string, unknown>];
+
+/** A world event as it crosses the wire: `[name, data]`, data usually carrying `at`. */
+export type WorldEvent = [string, Record<string, unknown> & { at?: { x: number; y: number } }];
+
+/** An entity's transform as it crosses the wire; see `transform`. */
+export interface Transform {
+  /** `[x, y]` in 2D; `[x, y, z, qx, qy, qz, qw, vx, vy, vz]` in 3D. */
+  p: number[];
+  a?: number;
+  v?: number[];
+}
+
+/** One entity's change record. */
+export interface UpdateRecord {
+  id: number;
+  p?: number[];
+  a?: number;
+  v?: number[];
+  /** The entity's own replicated fields that changed. */
+  f?: Record<string, unknown>;
+  /** Each constraint's replicated fields that changed, by the constraint's key. */
+  c?: Record<string, Record<string, unknown>>;
+}
+
+/** An entity a client does not have: a scene object to build, or `game.spawn`'s recipe. */
+export type SpawnRecord =
+  | { id: number; object: { prefab: string; [key: string]: unknown }; owner: string | null }
+  | {
+    id: number; type: string; x: number; y: number; w: number; h: number;
+    z?: number; d?: number; mesh?: unknown; light?: unknown;
+    sprite: string | null; anim: string | null;
+    options: Record<string, unknown>; physics: Record<string, unknown>; owner: string | null;
+    object?: undefined;
+  };
+
+/** One server message; every array is left out when empty. */
+export interface StateMessage {
+  tick: number;
+  spawn?: SpawnRecord[];
+  update?: UpdateRecord[];
+  remove?: number[];
+  hide?: number[];
+  /** The receiving player's `state`. */
+  me?: Record<string, unknown>;
+  /** The receiving player's avatar's id, or null. */
+  av?: number | null;
+  ev?: PlayerEvent[];
+  we?: WorldEvent[];
+  res?: { seq: number; ok: boolean; reason?: string }[];
+  /**
+   * The server's input gate, for this client alone: `[missed, late, early,
+   * margin]` since the last message. See `NetClient`'s lead steering.
+   */
+  g?: [number, number, number, number | null];
+}
+
+/** What a `Replicator` remembers having sent of one entity. */
+export interface SentState {
+  p: string;
+  a: string | undefined;
+  v: string | undefined;
+  f: Map<string, string>;
+}
+
+/** An entity's replicated state, computed once per tick; see `baselineOf`. */
+export interface Baseline extends SentState {
+  t: Transform;
+}
+
+/** The receiving player's members a stream reads; `Player` is core/players.js until phase 9. */
+export interface StreamPlayer {
+  avatar: Entity | null;
+  state?: Record<string, unknown>;
+  drainEvents(): PlayerEvent[];
+  intents?: { drainResults(): { seq: number; ok: boolean; reason?: string }[] } | null;
+}
+
+/** A body either dimension's backend hands a replica; the 3D members are read in 3D only. */
+interface ReplicaBody {
+  position: { x: number; y: number; z?: number };
+  velocity: { x: number; y: number; z?: number };
+  rotation?: { x: number; y: number; z: number; w: number };
+  angle?: number;
+  bodyType?: string;
+  setPosition(p: { x: number; y: number; z?: number }): void;
+  setRotation?(q: { x: number; y: number; z: number; w: number }): void;
+  setVelocity(v: { x: number; y: number; z?: number }): void;
+  setAngle?(a: number): void;
+  syncInterpolation(): void;
+}
+
 const POSITION = 10;
 const ANGLE = 1000;
 const SPEED = 1;
 /** Below this, in px/s, a velocity is sent as a standstill. */
 const STILL = 1;
 
-const round = (value, scale) => Math.round(value * scale) / scale || 0;
+/** `game.spawn`'s recipe, as the entity it made keeps it. */
+interface SpawnInfo {
+  object?: { prefab: string; [key: string]: unknown };
+  type: string; x: number; y: number; width: number; height: number;
+  z?: number; depth?: number; mesh?: unknown; light?: unknown;
+  sprite?: string | null; animation?: string | null;
+  options?: Record<string, unknown>; physics?: Record<string, unknown>;
+}
+
+const round = (value: number, scale: number) => Math.round(value * scale) / scale || 0;
 
 /** One cache of joined lists per static name, keyed by constructor. */
-const staticCaches = new Map();
+const staticCaches = new Map<string, WeakMap<object, string[]>>();
 
 /**
  * Every entry of a `static <name>` array along a class chain, base first,
  * without repeats. How `replicated`, `predictedConstraints` and
  * `predictedFields` are all declared: a subclass adds to what its bases
- * said rather than restating it.
- *
- * @param {object} object - An instance; its class chain is walked
- * @param {string} name - The static array's name
- * @returns {string[]}
+ * said rather than restating it. `object` is an instance; its class chain
+ * is walked.
  */
-export function staticList(object, name) {
+export function staticList(object: object, name: string): string[] {
   let cache = staticCaches.get(name);
   if (!cache) staticCaches.set(name, cache = new WeakMap());
   const ctor = object.constructor;
   const cached = cache.get(ctor);
   if (cached) return cached;
-  const chain = [];
-  for (let c = ctor; c && c !== Object; c = Object.getPrototypeOf(c)) {
-    if (Object.prototype.hasOwnProperty.call(c, name)) chain.unshift(c[name]);
+  const chain: string[][] = [];
+  for (let c: unknown = ctor; c && c !== Object; c = Object.getPrototypeOf(c)) {
+    if (Object.prototype.hasOwnProperty.call(c, name)) chain.unshift((c as Record<string, string[]>)[name]!);
   }
   const list = [...new Set(chain.flat())];
   cache.set(ctor, list);
@@ -93,38 +215,43 @@ export function staticList(object, name) {
 }
 
 /** Every `static replicated` field along a class chain, base first, without repeats. */
-export function replicatedFields(object) {
+export function replicatedFields(object: object): string[] {
   return staticList(object, 'replicated');
 }
 
 /** The replicated fields of an entity or constraint, as plain data. `replicaState()` overrides. */
-function readFields(object) {
+/** What replicates: an entity or a constraint, read by field name. */
+type Replicated = (Entity | Constraint) & { replicaState?(): Record<string, unknown> };
+
+function readFields(object: Replicated): Record<string, unknown> {
   if (typeof object.replicaState === 'function') return object.replicaState();
-  const out = {};
+  const out: Record<string, unknown> = {};
+  const fields = object as unknown as Record<string, unknown>;
   for (const field of replicatedFields(object)) {
-    if (object[field] !== undefined) out[field] = object[field];
+    if (fields[field] !== undefined) out[field] = fields[field];
   }
   return out;
 }
 
 /** A 3D transform retains its packed quaternion and metre precision. */
-function transform3D(entity) {
-  const body = entity.body;
+function transform3D(entity: Entity): number[] {
+  const body = entity.body as unknown as ReplicaBody;
   const p = body.position;
   const v = body.velocity;
-  const q = body.rotation;
+  const q = body.rotation!;
   return [
-    round(p.x, 10000), round(p.y, 10000), round(p.z, 10000),
+    round(p.x, 10000), round(p.y, 10000), round(p.z!, 10000),
     round(q.x, 10000), round(q.y, 10000), round(q.z, 10000), round(q.w, 10000),
-    round(v.x, 1000), round(v.y, 1000), round(v.z, 1000)
+    round(v.x, 1000), round(v.y, 1000), round(v.z!, 1000)
   ];
 }
 
 /** Put a packed 3D transform onto a replica's body. */
-function applyTransform3D(body, p) {
-  const [x, y, z, qx, qy, qz, qw, vx, vy, vz] = p;
+function applyTransform3D(body: ReplicaBody, p: number[]): void {
+  // The packed shape is fixed: ten numbers, see `transform3D`.
+  const [x, y, z, qx, qy, qz, qw, vx, vy, vz] = p as [number, number, number, number, number, number, number, number, number, number];
   body.setPosition({ x, y, z });
-  body.setRotation({ x: qx, y: qy, z: qz, w: qw });
+  body.setRotation!({ x: qx, y: qy, z: qz, w: qw });
   body.setVelocity({ x: vx, y: vy, z: vz });
 }
 
@@ -137,20 +264,21 @@ function applyTransform3D(body, p) {
  * never rotate and most of what moves does so without the client needing
  * its velocity at all, so each part carries itself now.
  */
-function transform(entity) {
+function transform(entity: Entity): Transform {
   if (entity.game.physics.dimensions === 3) return { p: transform3D(entity) };
-  const { x, y } = entity.body.position;
-  const v = entity.body.velocity;
+  const body = entity.body as unknown as ReplicaBody;
+  const { x, y } = body.position;
+  const v = body.velocity;
   const still = Math.abs(v.x) < STILL && Math.abs(v.y) < STILL;
   return {
     p: [round(x, POSITION), round(y, POSITION)],
-    a: round(entity.body.angle, ANGLE),
+    a: round(body.angle!, ANGLE),
     v: still ? [0, 0] : [round(v.x, SPEED), round(v.y, SPEED)]
   };
 }
 
 /** Write a field set's JSON into a `sent` map under a prefix. */
-function recordFields(map, prefix, fields) {
+function recordFields(map: Map<string, string>, prefix: string, fields: Record<string, unknown>): void {
   for (const [field, value] of Object.entries(fields)) {
     const json = JSON.stringify(value);
     if (json !== undefined) map.set(prefix + field, json);
@@ -167,11 +295,9 @@ function recordFields(map, prefix, fields) {
  * constructors. Seeding a client's stream with it means a join only
  * carries what has changed since the match started rather than the
  * position and fields of every wall in the level.
- *
- * @param {import('../core/entity.ts').Entity} entity
  */
-export function baselineOf(entity) {
-  const f = new Map();
+export function baselineOf(entity: Entity): Baseline {
+  const f = new Map<string, string>();
   recordFields(f, '', readFields(entity));
   for (const [key, constraint] of entity.constraints) recordFields(f, `${key}.`, readFields(constraint));
   const t = transform(entity);
@@ -198,38 +324,49 @@ export function baselineOf(entity) {
  * for that client is turned back into a value.
  */
 export class StateFrame {
+  cache: Map<number, Baseline>;
+
   constructor() {
-    /** @type {Map<number, {t: number[], p: string, f: Map<string, string>}>} */
     this.cache = new Map();
   }
 
-  /** This tick's state for an entity. @param {import('../core/entity.ts').Entity} entity */
-  of(entity) {
-    let state = this.cache.get(entity.netId);
-    if (!state) this.cache.set(entity.netId, state = baselineOf(entity));
+  /** This tick's state for an entity. */
+  of(entity: Entity): Baseline {
+    let state = this.cache.get(entity.netId!);
+    if (!state) this.cache.set(entity.netId!, state = baselineOf(entity));
     return state;
   }
 }
 
 /** Per client: what it has, and what it was last told about each entity. */
 export class Replicator {
+  game: M2D;
+  /** Decides the shape of a packed transform; see `transform`. */
+  dimensions: number;
+  /** Who receives this stream. */
+  player: StreamPlayer;
+  sent: Map<number, SentState>;
+  /** Network ids the client has an entity for. */
+  known: Set<number>;
+  /** Network ids the client is currently being told about. See `#relevant`. */
+  shown: Set<number>;
+  interest: { radius: number } | null;
+  radius: number;
+  dropRadius: number;
+  lastState: string | undefined;
+  lastAvatar: number | null | undefined;
+  warned: Set<string>;
+
   /**
-   * @param {import('../core/m2d.js').M2D} game
-   * @param {import('../core/players.js').Player} player - Who receives this stream
-   * @param {object} [options]
-   * @param {{radius: number}|null} [options.interest] - Only entities within
-   *   `radius` of the player's avatar are sent. Null sends the whole world
+   * `interest` sends only entities within `radius` of the player's avatar;
+   * null sends the whole world.
    */
-  constructor(game, player, { interest = null } = {}) {
+  constructor(game: M2D, player: StreamPlayer, { interest = null }: { interest?: { radius: number } | null } = {}) {
     this.game = game;
-    /** Decides the shape of a packed transform; see `transform`. */
     this.dimensions = game.physics.dimensions;
     this.player = player;
-    /** @type {Map<number, {p: string, f: Map<string, string>}>} */
     this.sent = new Map();
-    /** Network ids the client has an entity for. */
     this.known = new Set();
-    /** Network ids the client is currently being told about. See `#relevant`. */
     this.shown = new Set();
     this.interest = interest;
     this.radius = interest?.radius ?? Infinity;
@@ -246,12 +383,12 @@ export class Replicator {
    * made that is gone since, everything spawned since, and every entity's
    * current state.
    */
-  full() {
+  full(): StateMessage {
     this.sent.clear();
-    this.known = new Set(this.game.sceneNetIds);
+    this.known = new Set(this.game.sceneNetIds as Iterable<number>);
     // The client builds the scene itself, so it already holds everything
     // the build produced; only what has changed since needs sending.
-    for (const [id, state] of this.game.sceneBaseline ?? []) {
+    for (const [id, state] of (this.game.sceneBaseline ?? []) as Iterable<[number, Baseline]>) {
       if (this.known.has(id)) this.sent.set(id, { p: state.p, a: state.a, v: state.v, f: new Map(state.f) });
     }
     // Everything the scene built is on screen for the client until told
@@ -263,20 +400,19 @@ export class Replicator {
   }
 
   /**
-   * What changed since the last call.
-   * @param {Array<[string, object]>} [worldEvents] - What the simulation
-   *   said happened since the last message, for the clients it concerns
-   * @param {StateFrame} [frame] - This tick's state, shared with the other
-   *   clients' streams. One is made here when there is nothing to share
+   * What changed since the last call. `worldEvents` is what the simulation
+   * said happened since the last message, for the clients it concerns;
+   * `frame` this tick's state, shared with the other clients' streams (one
+   * is made here when there is nothing to share).
    */
-  delta(worldEvents, frame = new StateFrame()) {
+  delta(worldEvents?: WorldEvent[], frame: StateFrame = new StateFrame()): StateMessage {
     const game = this.game;
-    const message = { tick: game.time.steps };
-    const spawn = [];
-    const update = [];
-    const remove = [];
-    const hide = [];
-    const live = new Set();
+    const message: StateMessage = { tick: game.time.steps };
+    const spawn: SpawnRecord[] = [];
+    const update: UpdateRecord[] = [];
+    const remove: number[] = [];
+    const hide: number[] = [];
+    const live = new Set<number>();
     const from = this.interest ? this.player.avatar?.position ?? null : null;
 
     for (const entity of game.entities) {
@@ -294,7 +430,8 @@ export class Replicator {
       }
       this.shown.add(id);
       if (!this.known.has(id)) {
-        const info = entity.spawnInfo;
+        // `game.spawn`'s recipe, kept on the entity it made.
+        const info = (entity as Entity & { spawnInfo?: SpawnInfo }).spawnInfo;
         if (!info) {
           // Made with `new` rather than `game.spawn`: no recipe a client could follow.
           if (!this.warned.has(entity.name)) {
@@ -308,7 +445,8 @@ export class Replicator {
         spawn.push(info.object ? { id, object: info.object, owner: entity.playerId ?? null } : {
           id, type: info.type, x: info.x, y: info.y, w: info.width, h: info.height,
           ...(this.dimensions === 3 && {
-            z: info.z, d: info.depth, ...(info.mesh && { mesh: info.mesh }), ...(info.light && { light: info.light })
+            // A truthy mesh or light rides along, as `x && {...}` always spread it.
+            z: info.z, d: info.depth, ...(info.mesh ? { mesh: info.mesh } : {}), ...(info.light ? { light: info.light } : {})
           }),
           sprite: info.sprite ?? null, anim: info.animation ?? null,
           options: info.options ?? {}, physics: info.physics ?? {}, owner: entity.playerId ?? null
@@ -360,10 +498,10 @@ export class Replicator {
    * avatar — `dropRadius` to stop being, so something walking the boundary
    * does not flicker either.
    */
-  #relevant(entity, from, id) {
+  #relevant(entity: Entity, from: { x: number; y: number } | null, id: number): boolean {
     if (!this.interest || !from) return true;
     if (entity === this.player.avatar) return true;
-    if (entity.constructor.alwaysRelevant) return true;
+    if ((entity.constructor as { alwaysRelevant?: boolean }).alwaysRelevant) return true;
     const type = entity.body?.bodyType;
     if (type === 'static' || type === 'kinematic') return true;
     const dx = entity.position.x - from.x;
@@ -375,9 +513,8 @@ export class Replicator {
   /**
    * The world events this client should hear: the ones that happened where
    * it can see, and the ones that happened nowhere in particular.
-   * @param {Array<[string, object]>} [events]
    */
-  worldEvents(events) {
+  worldEvents(events?: WorldEvent[]): WorldEvent[] {
     if (!events?.length) return [];
     if (!this.interest) return events;
     const from = this.player.avatar?.position;
@@ -392,11 +529,11 @@ export class Replicator {
     });
   }
 
-  #changes(entity, id, frame, force = false) {
+  #changes(entity: Entity, id: number, frame: StateFrame, force = false): UpdateRecord | null {
     let sent = this.sent.get(id);
     if (!sent) this.sent.set(id, sent = { p: '', a: '', v: '', f: new Map() });
     const state = frame.of(entity);
-    const record = { id };
+    const record: UpdateRecord = { id };
     let changed = false;
 
     // The receiving player's own avatar carries its position every message,
@@ -443,8 +580,8 @@ export class Replicator {
  * signature check made the same — so it has the prefab's constraints, art
  * and light, under the server's network id and scene id.
  */
-function spawnSceneObject(game, spawn) {
-  const scene = game.sceneManager.getCurrentScene();
+function spawnSceneObject(game: M2D, spawn: Extract<SpawnRecord, { object: object }>): void {
+  const scene = game.sceneManager!.getCurrentScene();
   if (!scene?.config?.prefabs?.[spawn.object.prefab]) return;
   game.pendingNetId = spawn.id;
   let entity;
@@ -456,17 +593,17 @@ function spawnSceneObject(game, spawn) {
   if (entity) entity.playerId = spawn.owner ?? null;
 }
 
-function isPlainObject(value) {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (value === null || typeof value !== 'object') return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
 
 /** A field record without the fields the client predicts for itself. */
-function withoutPredicted(entity, fields) {
+function withoutPredicted(entity: Entity, fields: Record<string, unknown>): Record<string, unknown> {
   const mine = staticList(entity, 'predictedFields');
   if (mine.length === 0) return fields;
-  const out = {};
+  const out: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(fields)) {
     if (!mine.includes(field)) out[field] = value;
   }
@@ -478,10 +615,11 @@ function withoutPredicted(entity, fields) {
  * updated in place, so anything else holding it sees the change.
  * @returns {Set<string>} The fields written.
  */
-function assignFields(target, fields) {
-  const changed = new Set();
+function assignFields(target: object, fields: Record<string, unknown>): Set<string> {
+  const changed = new Set<string>();
+  const bag = target as Record<string, unknown>;
   for (const [field, value] of Object.entries(fields)) {
-    const current = target[field];
+    const current = bag[field];
     if (Array.isArray(current) && Array.isArray(value)) {
       current.length = 0;
       current.push(...value);
@@ -489,7 +627,7 @@ function assignFields(target, fields) {
       for (const key of Object.keys(current)) if (!(key in value)) delete current[key];
       Object.assign(current, value);
     } else {
-      target[field] = value;
+      bag[field] = value;
     }
     changed.add(field);
   }
@@ -497,13 +635,11 @@ function assignFields(target, fields) {
 }
 
 /**
- * Apply a server message to a replica.
- * @param {import('../core/m2d.js').M2D} game
- * @param {object} message
- * @param {import('./interpolation.js').ReplicaView} [view] - Records each
- *   entity's state at this tick, for drawing between messages.
+ * Apply a server message to a replica. `context.view` records each
+ * entity's state at this tick, for drawing between messages;
+ * `context.predictor` reconciles the entities the client runs itself.
  */
-export function applyState(game, message, context = {}) {
+export function applyState(game: M2D, message: StateMessage, context: { view?: ReplicaView; predictor?: Predictor } = {}): void {
   const { view, predictor } = context;
   view?.observe(message.tick);
   for (const spawn of message.spawn ?? []) {
@@ -515,7 +651,7 @@ export function applyState(game, message, context = {}) {
     game.spawn({
       type: spawn.type, x: spawn.x, y: spawn.y, width: spawn.w, height: spawn.h,
       ...(spawn.z !== undefined && { z: spawn.z }), ...(spawn.d !== undefined && { depth: spawn.d }),
-      ...(spawn.mesh && { mesh: spawn.mesh }), ...(spawn.light && { light: spawn.light }),
+      ...(spawn.mesh ? { mesh: spawn.mesh } : {}), ...(spawn.light ? { light: spawn.light } : {}),
       sprite: spawn.sprite, animation: spawn.anim ?? undefined, options: spawn.options,
       physics: spawn.physics, playerId: spawn.owner, netId: spawn.id
     });
@@ -526,15 +662,15 @@ export function applyState(game, message, context = {}) {
     // The client runs this one itself: the server's state for it is an
     // answer to compare against, not a position to take. See net/prediction.js.
     const mine = game.physics.dimensions !== 3 && (predictor?.handles(record.id) ?? false);
-    if (mine) predictor.reconcile(message.tick, record);
+    if (mine) predictor!.reconcile(message.tick, record);
     if (!mine && (record.p || record.v || record.a !== undefined)) {
-      const body = entity.body;
+      const body = entity.body as unknown as ReplicaBody;
       if (game.physics.dimensions === 3) {
         if (record.p) applyTransform3D(body, record.p);
       } else {
-        if (record.p) body.setPosition({ x: record.p[0], y: record.p[1] });
-        if (record.a !== undefined) body.setAngle(record.a);
-        if (record.v) body.setVelocity({ x: record.v[0], y: record.v[1] });
+        if (record.p) body.setPosition({ x: record.p[0]!, y: record.p[1]! });
+        if (record.a !== undefined) body.setAngle!(record.a);
+        if (record.v) body.setVelocity({ x: record.v[0]!, y: record.v[1]! });
       }
       // The solver never runs here, so there is nothing to interpolate
       // between: keep the baseline on the state just applied. What is drawn
@@ -547,13 +683,13 @@ export function applyState(game, message, context = {}) {
       // second. See net/prediction.js.
       const fields = mine ? withoutPredicted(entity, record.f) : record.f;
       const changed = assignFields(entity, fields);
-      entity.replicaUpdated?.(changed);
+      (entity as Entity & { replicaUpdated?(changed: Set<string>): void }).replicaUpdated?.(changed);
     }
     for (const [key, fields] of Object.entries(record.c ?? {})) {
       const constraint = entity.getConstraint(key);
       if (!constraint) continue;
       const changed = assignFields(constraint, fields);
-      constraint.replicaUpdated?.(changed);
+      (constraint as Constraint & { replicaUpdated?(changed: Set<string>): void }).replicaUpdated?.(changed);
     }
     // After the fields, so the sample carries this tick's elevation. A
     // predicted entity is drawn from its own simulation, not from samples.
@@ -568,7 +704,7 @@ export function applyState(game, message, context = {}) {
   }
   // Before the removals: a death event's entity is removed in the same
   // message, and an effect drawn for it wants to find it.
-  if (message.we) game.events.dispatch(message.we);
+  if (message.we) game.events!.dispatch(message.we);
   for (const id of message.remove ?? []) {
     view?.forget(id);
     const entity = game.entityById(id);
@@ -576,10 +712,11 @@ export function applyState(game, message, context = {}) {
     game.removeEntity(entity);
     if (game.player === entity) game.player = null;
   }
-  const local = game.players.local;
+  const local = game.players!.local;
   if (message.me) {
-    for (const key of Object.keys(local.state)) delete local.state[key];
-    Object.assign(local.state, message.me);
+    const state = local.state as Record<string, unknown>;
+    for (const key of Object.keys(state)) delete state[key];
+    Object.assign(state, message.me);
   }
   if (message.ev) local.dispatch(message.ev);
 }

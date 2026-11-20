@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { initPhysics } from '../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { M2D } from '../src/core/m2d.js';
-import { Replicator, applyState, baselineOf } from '../src/net/replication.js';
+import { Replicator, applyState, baselineOf } from '../src/net/replication.ts';
 import { Ghost, ObliquePlayer, Platform } from './helpers/cast.js';
 
 /**

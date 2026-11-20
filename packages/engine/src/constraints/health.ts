@@ -23,7 +23,7 @@ export class Health extends Constraint {
     whenDead: s.enumOf(['keep', 'remove'], { initial: 'keep', label: 'When dead', description: 'remove takes the entity out of the world at zero health, so a mob needs no code; keep leaves it for the actor (a player that respawns, a door that breaks open)' })
   };
 
-  static override replicated = ['currentHealth', 'maxHealth'];
+  static override replicated: string[] = ['currentHealth', 'maxHealth'] satisfies (keyof Health)[];
 
   maxHealth: number;
   currentHealth: number;

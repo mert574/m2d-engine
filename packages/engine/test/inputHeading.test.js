@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { InputSnapshot, headingOf } from '../src/core/input/inputManager.ts';
 import { snapHeading } from '../src/core/input/snapshot.ts';
-import { InputSchema, InputGate } from '../src/net/input.js';
+import { InputSchema, InputGate } from '../src/net/input.ts';
 
 /**
  * The tick's heading: which way the view faced when the tick was sampled,

@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
 // A spy on the console is undone however the test ends, so a failure cannot mute the rest of the file.
 afterEach(() => vi.restoreAllMocks());
-import { defineIntents, IntentQueue, reject, int, slot, num, bool, str, oneOf, list, entity } from '../src/net/intents.js';
-import { ViolationMeter, InputSchema, InputGate } from '../src/net/input.js';
+import { defineIntents, IntentQueue, reject, int, slot, num, bool, str, oneOf, list, entity } from '../src/net/intents.ts';
+import { ViolationMeter, InputSchema, InputGate } from '../src/net/input.ts';
 import { Rng } from '../src/core/rng.ts';
 
 /**

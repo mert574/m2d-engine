@@ -91,7 +91,7 @@ export class Behavior extends Constraint {
     tell: s.boolean({ initial: true, description: 'The tell over its head: ! on alarm, ? giving up — the state ladder made visible in plain play' })
   };
 
-  static override replicated = ['state', 'stateTime', 'lastSeen', 'facing', 'sinceSeen'];
+  static override replicated: string[] = ['state', 'stateTime', 'lastSeen', 'facing', 'sinceSeen'] satisfies (keyof Behavior)[];
 
   /** Its debug drawing handles 3D itself, so the 3D frame runs it too. */
   static draws3D = true;

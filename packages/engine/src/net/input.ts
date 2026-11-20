@@ -71,10 +71,34 @@ const MAX_BUTTONS = 5;
 const MESSAGE_FIELDS = ['tick', 'held'];
 const POINTER_FIELDS = ['buttons', 'x', 'y'];
 
-const VIOLATIONS = new Set(['shape', 'tick', 'held', 'pointer', 'heading', 'conflict']);
+/** Why the gate refused or dropped a message. */
+export type GateOutcome = 'shape' | 'tick' | 'held' | 'pointer' | 'heading' | 'conflict' | 'duplicate' | 'late' | 'early';
+/** The outcomes `decode` itself can give. */
+type DecodeReason = 'shape' | 'tick' | 'held' | 'pointer' | 'heading';
+
+const VIOLATIONS = new Set<GateOutcome>(['shape', 'tick', 'held', 'pointer', 'heading', 'conflict']);
+
+/** A message that passed `decode`: what the simulation may trust. */
+export interface DecodedInput {
+  tick: number;
+  held: number;
+  pointer: { x: number; y: number; buttons: number } | null;
+  heading?: number;
+}
+
+/** What a client sends for a tick; see `encode`. */
+export interface InputMessage {
+  tick: number;
+  held: number;
+  pointer?: { x: number; y: number; buttons: number };
+  heading?: number;
+}
+
+/** The decoder's answer: never a throw. */
+export type DecodeResult = { ok: true; value: DecodedInput } | { ok: false; reason: DecodeReason; detail: string };
 
 /** Exactly these own keys, in any order, on a plain object. */
-function hasExactFields(value, fields) {
+function hasExactFields(value: unknown, fields: readonly string[]): value is Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
   const proto = Object.getPrototypeOf(value);
   if (proto !== Object.prototype && proto !== null) return false;
@@ -88,38 +112,40 @@ function hasExactFields(value, fields) {
   return true;
 }
 
-const reject = (reason, detail) => ({ ok: false, reason, detail });
+const reject = (reason: DecodeReason, detail: string): DecodeResult => ({ ok: false, reason, detail });
 
 /**
- * Counts a connection's violations over a sliding window of ticks.
- *
- * @param {object} [options]
- * @param {number} [options.max=20] - Violations tolerated within the window.
- * @param {number} [options.window=60] - In ticks.
+ * Counts a connection's violations over a sliding window of ticks: `max`
+ * are tolerated within `window` ticks.
  */
 export class ViolationMeter {
-  constructor({ max = 20, window = 60 } = {}) {
-    for (const [name, value] of [['max', max], ['window', window]]) {
+  max: number;
+  window: number;
+  /** Violations recorded in total. */
+  total: number;
+  /** True once the limit was passed. Stays true. */
+  exceeded: boolean;
+
+  constructor({ max = 20, window = 60 }: { max?: number; window?: number } = {}) {
+    for (const [name, value] of [['max', max], ['window', window]] as [string, number][]) {
       if (!Number.isInteger(value) || value < 1) throw new Error(`M2D net: ViolationMeter ${name} must be a whole number from 1 up`);
     }
     this.max = max;
     this.window = window;
-    /** Violations recorded in total. */
     this.total = 0;
-    /** True once the limit was passed. Stays true. */
     this.exceeded = false;
     this.#ticks = [];
   }
 
-  #ticks;
+  #ticks: number[];
 
-  /** Record one violation at `tick`. @param {number} tick */
-  record(tick) {
+  /** Record one violation at `tick`. */
+  record(tick: number): void {
     this.total++;
     const ticks = this.#ticks;
     ticks.push(tick);
     const oldest = tick - this.window;
-    while (ticks.length && ticks[0] <= oldest) ticks.shift();
+    while (ticks.length && ticks[0]! <= oldest) ticks.shift();
     if (ticks.length > this.max) {
       this.exceeded = true;
       // Only the newest few matter once the limit is passed; keep the list bounded.
@@ -128,20 +154,31 @@ export class ViolationMeter {
   }
 }
 
+/** A world rectangle. */
+interface Bounds { left: number; top: number; right: number; bottom: number }
+
 /**
- * A game's input alphabet.
- *
- * @param {object} options
- * @param {string[]} options.keys - Physical key codes the game reads, at
- *   most 32. Their order defines the bits of `held`.
- * @param {false|{bounds: {left: number, top: number, right: number, bottom: number}, buttons?: number}} [options.pointer=false]
- *   - The world rectangle a pointer may point into and how many buttons
- *   it has (1 to 5, default 3). False for a game with no pointer.
- * @param {boolean} [options.heading=false] - Whether the view's heading
- *   rides along: a 3D game whose characters steer relative to the view.
+ * A game's input alphabet. `keys` are the physical key codes the game
+ * reads, at most 32, their order defining the bits of `held`. `pointer`
+ * is the world rectangle a pointer may point into and how many buttons it
+ * has (1 to 5, default 3), or false for a game with no pointer. `heading`
+ * says whether the view's heading rides along: a 3D game whose
+ * characters steer relative to the view.
  */
 export class InputSchema {
-  constructor({ keys, pointer = false, heading = false } = {}) {
+  readonly heading: boolean;
+  readonly keys: readonly string[];
+  /** Every bit a valid `held` may set. */
+  readonly mask: number;
+  readonly pointer: Readonly<{ bounds: Readonly<Bounds>; buttons: number; buttonMask: number }> | null;
+  /** The fields a message has, exactly. */
+  readonly fields: readonly string[];
+
+  constructor({ keys, pointer = false, heading = false }: {
+    keys?: string[];
+    pointer?: false | { bounds: Bounds; buttons?: number };
+    heading?: boolean;
+  } = {}) {
     this.heading = heading === true;
     if (!Array.isArray(keys) || keys.length === 0) {
       throw new Error('M2D net: an InputSchema needs a non-empty keys array');
@@ -153,13 +190,12 @@ export class InputSchema {
       throw new Error('M2D net: InputSchema keys must be distinct, non-empty key codes');
     }
     this.keys = Object.freeze([...keys]);
-    /** Every bit a valid `held` may set. */
     this.mask = keys.length === MAX_KEYS ? 0xffffffff : (2 ** keys.length) - 1;
 
     this.pointer = null;
     if (pointer) {
       const { bounds, buttons = 3 } = pointer;
-      const finite = bounds && ['left', 'top', 'right', 'bottom'].every((side) => Number.isFinite(bounds[side]));
+      const finite = bounds && (['left', 'top', 'right', 'bottom'] as const).every((side) => Number.isFinite(bounds[side]));
       if (!finite || bounds.left > bounds.right || bounds.top > bounds.bottom) {
         throw new Error('M2D net: an InputSchema pointer needs finite bounds with left <= right and top <= bottom');
       }
@@ -172,18 +208,12 @@ export class InputSchema {
         buttonMask: (2 ** buttons) - 1
       });
     }
-    /** The fields a message has, exactly. */
     this.fields = Object.freeze([...MESSAGE_FIELDS, ...(this.pointer ? ['pointer'] : []), ...(this.heading ? ['heading'] : [])]);
     Object.freeze(this);
   }
 
-  /**
-   * Check a message against the schema. Never throws.
-   * @param {unknown} message
-   * @returns {{ok: true, value: {tick: number, held: number, pointer: {x: number, y: number, buttons: number}|null}}
-   *   | {ok: false, reason: string, detail: string}}
-   */
-  decode(message) {
+  /** Check a message against the schema. Never throws. */
+  decode(message: unknown): DecodeResult {
     try {
       return this.#decode(message);
     } catch {
@@ -192,7 +222,7 @@ export class InputSchema {
     }
   }
 
-  #decode(message) {
+  #decode(message: unknown): DecodeResult {
     const fields = this.fields;
     if (!hasExactFields(message, fields)) {
       return reject('shape', `expected a plain object with exactly ${fields.join(', ')}`);
@@ -212,7 +242,7 @@ export class InputSchema {
       if (!hasExactFields(raw, POINTER_FIELDS)) {
         return reject('pointer', 'pointer must be a plain object with exactly x, y and buttons');
       }
-      const { x, y, buttons } = raw;
+      const { x, y, buttons } = raw as Record<'x' | 'y' | 'buttons', unknown>;
       const { bounds, buttonMask } = this.pointer;
       if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) {
         return reject('pointer', 'pointer x and y must be finite numbers');
@@ -226,7 +256,7 @@ export class InputSchema {
       // -0 and 0 are the same position; keep the simulation from ever seeing a signed zero it did not make.
       pointer = { x: x + 0, y: y + 0, buttons };
     }
-    const value = { tick, held: held >>> 0, pointer };
+    const value: DecodedInput = { tick, held: held >>> 0, pointer };
     if (this.heading) {
       const { heading } = message;
       if (typeof heading !== 'number' || !Number.isFinite(heading) || Math.abs(heading) > Math.PI) {
@@ -248,13 +278,11 @@ export class InputSchema {
    * it was already let go: a tap shorter than a tick would otherwise never
    * be seen held, and the server, which derives edges from held state,
    * would never see it at all.
-   * @param {number} tick
-   * @param {InputSnapshot} snapshot
    */
-  encode(tick, snapshot) {
+  encode(tick: number, snapshot: InputSnapshot): InputMessage {
     let held = 0;
     this.keys.forEach((code, bit) => { if (snapshot.isDown(code) || snapshot.justPressed(code)) held |= 1 << bit; });
-    const message = { tick, held: held >>> 0 };
+    const message: InputMessage = { tick, held: held >>> 0 };
     if (this.pointer) {
       const { bounds, buttonMask } = this.pointer;
       const world = snapshot.pointer.world;
@@ -268,31 +296,51 @@ export class InputSchema {
     return message;
   }
 
-  /** The key codes a held mask stands for. @param {number} held */
-  codes(held) {
-    const codes = [];
+  /** The key codes a held mask stands for. */
+  codes(held: number): string[] {
+    const codes: string[] = [];
     this.keys.forEach((code, bit) => { if (held & (1 << bit)) codes.push(code); });
     return codes;
   }
 }
 
-/**
- * One connection's input, tick by tick.
- *
- * @param {InputSchema} schema
- * @param {object} [options]
- * @param {number} [options.maxAhead=30] - Furthest a message may be filed
- *   past the last tick taken, in ticks. Bounds the buffer.
- * @param {ViolationMeter} [options.meter] - Where violations are recorded.
- *   A new one by default; a connection passes the meter its intent queue
- *   shares.
- * @param {number} [options.maxViolations=20] - For the default meter.
- * @param {number} [options.violationWindow=60] - For the default meter, in ticks.
- * @param {number} [options.startTick=0] - The tick already simulated when
- *   the connection joins; the first `take` is for `startTick + 1`.
- */
+/** What an `InputGate` takes beside its schema. */
+export interface InputGateOptions {
+  /** Furthest a message may be filed past the last tick taken, in ticks. Bounds the buffer. */
+  maxAhead?: number;
+  /** Where violations are recorded; a connection passes the meter its intent queue shares. */
+  meter?: ViolationMeter;
+  /** For the default meter. */
+  maxViolations?: number;
+  /** For the default meter, in ticks. */
+  violationWindow?: number;
+  /** The tick already simulated when the connection joins; the first `take` is for `startTick + 1`. */
+  startTick?: number;
+}
+
+/** One connection's input, tick by tick. */
 export class InputGate {
-  constructor(schema, options = {}) {
+  schema: InputSchema;
+  maxAhead: number;
+  meter: ViolationMeter;
+  /** The last tick handed to the simulation. */
+  taken: number;
+  /** Filed messages by tick, never more than `maxAhead` of them. */
+  pending: Map<number, DecodedInput>;
+  /** Refusals and drops by outcome. */
+  counts: Record<GateOutcome, number>;
+  /** Ticks taken with no message for them. */
+  missed: number;
+  /**
+   * The smallest number of ticks by which a message has beaten the tick
+   * it is for, since `readMargin`. 0 means one arrived just in time and a
+   * negative number means too late to be used. This is what tells a
+   * client whether it is sending far enough ahead — a measurement, where
+   * a round-trip estimate is a guess. Null when nothing has arrived.
+   */
+  margin: number | null;
+
+  constructor(schema: InputSchema, options: InputGateOptions = {}) {
     if (!(schema instanceof InputSchema)) throw new Error('M2D net: an InputGate needs an InputSchema');
     this.schema = schema;
     this.maxAhead = options.maxAhead ?? 30;
@@ -301,44 +349,28 @@ export class InputGate {
     const startTick = options.startTick ?? 0;
     if (!Number.isSafeInteger(startTick) || startTick < 0) throw new Error('M2D net: InputGate startTick must be a whole number from 0 up');
 
-    /** The last tick handed to the simulation. */
     this.taken = startTick;
-    /** Filed messages by tick, never more than `maxAhead` of them. */
     this.pending = new Map();
-    /** Refusals and drops by outcome. */
     this.counts = { shape: 0, tick: 0, held: 0, pointer: 0, heading: 0, conflict: 0, duplicate: 0, late: 0, early: 0 };
-    /** Ticks taken with no message for them. */
     this.missed = 0;
-    /**
-     * The smallest number of ticks by which a message has beaten the tick
-     * it is for, since `readMargin`. 0 means one arrived just in time and a
-     * negative number means too late to be used. This is what tells a
-     * client whether it is sending far enough ahead — a measurement, where
-     * a round-trip estimate is a guess. Null when nothing has arrived.
-     * @type {number|null}
-     */
     this.margin = null;
 
     this.#held = 0;
     this.#pointer = schema.pointer ? { x: 0, y: 0, buttons: 0 } : null;
   }
 
-  #held;
-  #pointer;
+  #held: number;
+  #pointer: { x: number; y: number; buttons: number } | null;
   /** The heading of the last message, held while none arrives. */
   #heading = 0;
 
   /** True once the meter's limit was passed. Stays true. */
-  get exceeded() {
+  get exceeded(): boolean {
     return this.meter.exceeded;
   }
 
-  /**
-   * File a message. Never throws.
-   * @param {unknown} message
-   * @returns {{accepted: boolean, reason: string|null, detail?: string}}
-   */
-  submit(message) {
+  /** File a message. Never throws. */
+  submit(message: unknown): { accepted: boolean; reason: GateOutcome | null; detail?: string } {
     const decoded = this.schema.decode(message);
     if (!decoded.ok) return this.#refuse(decoded.reason, decoded.detail);
     const input = decoded.value;
@@ -362,23 +394,22 @@ export class InputGate {
     return { accepted: true, reason: null };
   }
 
-  #observe(margin) {
+  #observe(margin: number): void {
     if (this.margin === null || margin < this.margin) this.margin = margin;
   }
 
   /** Take the margin since the last read, and start measuring again. */
-  readMargin() {
+  readMargin(): number | null {
     const margin = this.margin;
     this.margin = null;
     return margin;
   }
 
   /**
-   * The snapshot for the next tick. Ticks are taken in order, each once.
-   * @param {number} tick - Must be `taken + 1`.
-   * @returns {InputSnapshot}
+   * The snapshot for the next tick. Ticks are taken in order, each once;
+   * `tick` must be `taken + 1`.
    */
-  take(tick) {
+  take(tick: number): InputSnapshot {
     if (tick !== this.taken + 1) {
       throw new Error(`M2D net: InputGate.take expected tick ${this.taken + 1}, got ${tick}`);
     }
@@ -403,8 +434,9 @@ export class InputGate {
           ui: { x: 0, y: 0 },
           world: { x: pointer.x, y: pointer.y },
           isDown: pointer.buttons !== 0,
-          pressed: (pointer.buttons & ~prevPointer.buttons) !== 0,
-          pressedButtons: pointer.buttons & ~prevPointer.buttons,
+          // A schema with a pointer starts the gate with one, so a previous one exists.
+          pressed: (pointer.buttons & ~prevPointer!.buttons) !== 0,
+          pressedButtons: pointer.buttons & ~prevPointer!.buttons,
           buttons: pointer.buttons,
           type: 'mouse'
         }
@@ -418,15 +450,15 @@ export class InputGate {
     });
   }
 
-  #refuse(reason, detail) {
+  #refuse(reason: GateOutcome, detail: string): { accepted: false; reason: GateOutcome; detail: string } {
     this.counts[reason]++;
     if (VIOLATIONS.has(reason)) this.meter.record(this.taken);
     return { accepted: false, reason, detail };
   }
 }
 
-function sameInput(a, b) {
+function sameInput(a: DecodedInput, b: DecodedInput): boolean {
   if (a.held !== b.held || a.heading !== b.heading) return false;
   if (!a.pointer) return !b.pointer;
-  return a.pointer.x === b.pointer.x && a.pointer.y === b.pointer.y && a.pointer.buttons === b.pointer.buttons;
+  return a.pointer.x === b.pointer!.x && a.pointer.y === b.pointer!.y && a.pointer.buttons === b.pointer!.buttons;
 }

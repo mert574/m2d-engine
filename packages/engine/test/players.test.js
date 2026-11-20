@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { M2D } from '../src/core/m2d.js';
-import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.js';
-import { defineIntents, reject, slot, entity } from '../src/net/intents.js';
+import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.ts';
+import { defineIntents, reject, slot, entity } from '../src/net/intents.ts';
 import { InputSnapshot } from '../src/core/input/snapshot.ts';
 import { ARENA_ACTORS } from './helpers/scenarios.js';
 
