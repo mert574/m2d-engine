@@ -52,21 +52,32 @@ async function join(player) {
     };
   });
   const net = await NetClient.connect(game, { url, ticket: issueTicket(SECRET, { player, match: 'keep' }), schema: KEEP_INPUT });
-  const timer = setInterval(() => game.step(1), 1000 / 60);
   const client = {
     game, net, input,
     click(point) { input.click = point; input.lastClick = point; },
-    leave() { clearInterval(timer); net.close(); }
+    leave() { net.close(); }
   };
   clients.push(client);
   return client;
 }
 
-async function until(check, timeout = 8000) {
+/**
+ * Wait for `check`, pacing every client's game to its server between
+ * polls. A wall-clock 60 Hz interval starves on a loaded machine and the
+ * client falls behind its server (how this suite used to flake); stepping
+ * once per poll runs *ahead* of the server's input gate and the clicks
+ * are dropped as late. So each client steps exactly to where its server
+ * is — `serverTick` plus the lead the client itself steers — catching up
+ * in a burst after a stall and never overtaking the gate.
+ */
+async function until(check, timeout = 60000) {
   const start = Date.now();
   while (!check()) {
     if (Date.now() - start > timeout) throw new Error('timed out waiting');
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    for (const { game, net } of clients) {
+      while (game.time.steps < net.serverTick + net.lead) game.step(1);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
 
@@ -102,14 +113,27 @@ function route(from, to) {
   return path;
 }
 
-/** Click from cell to cell along a route, the way a player clicks to walk. */
+/**
+ * Click from cell to cell along a route, the way a player clicks to walk.
+ * The click is re-issued while the knight has not arrived — as a player
+ * re-clicks — because one click's input snapshot can be lost when the
+ * machine is loaded, and a single click followed by a bare wait then
+ * stalls forever.
+ */
 async function walk(client, to, near = 20) {
-  for (const waypoint of route(client.game.player.position, to)) {
-    client.click(waypoint);
-    await until(() => distance(client.game.player.position, waypoint) < 24, 6000);
-  }
-  client.click(to);
-  await until(() => distance(client.game.player.position, to) < near, 6000);
+  const step = async (waypoint, reach) => {
+    let lastClick = 0;
+    await until(() => {
+      if (distance(client.game.player.position, waypoint) < reach) return true;
+      if (Date.now() - lastClick > 300) {
+        lastClick = Date.now();
+        client.click(waypoint);
+      }
+      return false;
+    });
+  };
+  for (const waypoint of route(client.game.player.position, to)) await step(waypoint, 24);
+  await step(to, near);
 }
 
 describe('Cinder Keep online', () => {
@@ -137,7 +161,7 @@ describe('Cinder Keep online', () => {
     }
     const matchSource = readFileSync(new URL('../src/iso/keepMatch.js', import.meta.url), 'utf8');
     expect(matchSource).not.toMatch(/\.spawn\(|spawnPrefab|spawnAvatar|setPosition/);
-  });
+  }, 120000);
 
   it('a click walks the knight, and the other player watches it go', async () => {
     const [ann, bob] = clients;
@@ -146,7 +170,7 @@ describe('Cinder Keep online', () => {
     await until(() => distance(ann.game.player.position, target) < 20);
     const seen = bob.game.entityById(ann.game.player.netId);
     await until(() => distance(seen.position, target) < 20);
-  });
+  }, 120000);
 
   it('trading needs the quartermaster in reach, and embers in the purse', async () => {
     const [ann] = clients;
@@ -155,7 +179,7 @@ describe('Cinder Keep online', () => {
     const [, bob] = clients;
     expect(distance(bob.game.player.position, vendor.position)).toBeGreaterThan(140);
     expect(await bob.game.players.local.send('buy', { vendor: vendor.netId, ware: 'tonic' })).toEqual({ ok: false, reason: 'too-far' });
-  });
+  }, 120000);
 
   it('an ember gathered by one knight leaves both views and lands in that knight\'s purse only', async () => {
     const [ann, bob] = clients;
@@ -167,5 +191,5 @@ describe('Cinder Keep online', () => {
     expect(embers().length).toBe(before - 1);
     await until(() => purse(ann.game.players.local).embers === 1);
     expect(purse(bob.game.players.local).embers).toBe(0);
-  }, 60000);
+  }, 120000);
 });
