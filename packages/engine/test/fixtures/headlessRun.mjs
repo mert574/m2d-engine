@@ -1,7 +1,7 @@
 // Run by test/headless.test.js in a fresh `node` process: no test runner,
 // no stubs, nothing installed on globalThis. Prints what the simulation
 // captured, so the test can compare it with an in-process run.
-import { initPhysics } from '../../src/core/physics/index.js';
+import { initPhysics } from '../../src/core/physics/index.ts';
 import { M2D } from '../../src/core/m2d.js';
 import { CAPTURE_AT, prepareCoverage } from '../helpers/scenarios.js';
 

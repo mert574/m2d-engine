@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeViewport, identityViewport, mapPointer, viewToUI, viewToClient, sameResolution, MAX_PIXEL_RATIO } from '../src/core/viewport.js';
+import { computeViewport, identityViewport, mapPointer, viewToUI, viewToClient, sameResolution, MAX_PIXEL_RATIO } from '../src/core/viewport.ts';
 
 /**
  * Viewport sizing: the contract that keeps the three resolutions independent.

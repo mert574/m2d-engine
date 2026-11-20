@@ -1,5 +1,5 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
+import { M2D } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
 
 /** Builds a short WAV from a list of sine-wave notes and returns it as a data URL. */
 function synthesize(notes, noteSeconds = 0.12) {

@@ -89,7 +89,7 @@ reordering), shared by tree, inspector and overlay. **F** frames it.
 **E2.4, gizmos.** An SVG overlay (`overlay.ts`) over the canvas, the
 same in 2D and 3D because the viewport hands over geometry in client
 pixels (`viewToClient`, the inverse of `mapPointer`, now in the engine's
-`viewport.js`). Per-axis and free moves (the ground plane in 3D; in a
+`viewport.ts`). Per-axis and free moves (the ground plane in 3D; in a
 projected 2D game solved against the projected ground axes, exact for
 any affine projection), 2D rotation, snap to 8 px / 0.25 m / 15° (Ctrl
 inverts). A drag starts from the *document's* placement, not the body's —
@@ -134,7 +134,7 @@ A screenshot of the lone object settled it.
 
 The owner's asks after E2, and what landed:
 
-- **Every problem, not the first.** `validate` (`core/schema.js`) gained
+- **Every problem, not the first.** `validate` (`core/schema.ts`) gained
   an opt-in `collect` mode — each child of an object, record, array or
   tuple, and each refine, is checked on its own — and
   `SceneLoader.check()` returns `{ loaded, issues }` with it. The editor

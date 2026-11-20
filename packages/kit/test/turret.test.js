@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { makeTestGame, makeBody, expectBalancedStacks } from 'm2d-engine/test/helpers/testGame.js';
+import { makeTestGame, makeBody, expectBalancedStacks } from 'm2d-engine/testing';
 import { Rocket } from '../src/actors/rocket.ts';
 import { Turret } from '../src/actors/turret.ts';
 

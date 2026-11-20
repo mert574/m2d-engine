@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { writeScene, writeManifest, WriteError } from '../src/writer.ts';
-import { SceneLoader, SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
-import { MANIFEST_VERSION } from 'm2d-engine/core/assetSchema.js';
+import { SceneLoader, SCENE_VERSION, MANIFEST_VERSION } from 'm2d-engine/schema';
 
 /**
  * The canonical writer. The contract under test, in order: the text is

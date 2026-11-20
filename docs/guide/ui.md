@@ -13,8 +13,7 @@ Everything from scene JSON: text, a background, three buttons anchored to the bo
 A game's screens are scene data, which the editor and an agent can change; a widget the file cannot describe is registered with `game.registerUIComponent(name, make)` and placed as a `component` element, the way the demo's progress bar is. Code can still add elements to any scene, in its `onEnter` hook. Every component takes one options object, and `add` returns the element so it can be captured.
 
 ```javascript
-import { UIButton } from 'm2d-engine/core/ui/button.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
+import { UIButton, UIText } from 'm2d-engine/ui';
 
 game.sceneManager.addScene('level1', {
   fetch: async () => (await import('./scenes/level1.json')).default,
@@ -49,7 +48,7 @@ The default pivot is `center`, so most components sit centred on their position.
 Elements form a tree. A child anchors against its parent's **content box** rather than the screen, so moving a panel moves everything in it, and a child anchored to the panel's right edge stays on the panel's right edge at any display size.
 
 ```javascript
-import { UIPanel } from 'm2d-engine/core/ui/panel.js';
+import { UIPanel } from 'm2d-engine/ui';
 
 const card = ui.add(new UIPanel({
   anchor: 'center', width: 320, height: 180, padding: 20, elevation: 'medium'
@@ -65,7 +64,7 @@ Later children draw on top of earlier ones and are hit-tested first. `opacity` c
 A `Stack` lays its children out in a row or a column, so a menu says what it means instead of carrying hand-tuned offsets:
 
 ```javascript
-import { Stack } from 'm2d-engine/core/ui/layout/stack.js';
+import { Stack } from 'm2d-engine/ui';
 
 const column = ui.add(new Stack({
   anchor: 'center', pivot: 'center',
@@ -97,7 +96,7 @@ Any string beginning with `$` is a dotted path into the theme, resolved wherever
 Restyling a whole game (every button, panel, dialog and the debug readout) is one option:
 
 ```javascript
-import { createTheme } from 'm2d-engine/core/ui/theme.js';
+import { createTheme } from 'm2d-engine/ui';
 
 const game = new M2D(canvas, {
   theme: { color: { accent: { default: '#ff6600', hover: '#ff8833' } } }
@@ -127,7 +126,7 @@ A menu is not a scene. `sceneManager.switchTo` *unloads* the current scene, enti
 Screens are pushed onto `game.ui` over whatever is already running:
 
 ```javascript
-import { UIScreen } from 'm2d-engine/core/ui/screen.js';
+import { UIScreen } from 'm2d-engine/ui';
 
 class PauseScreen extends UIScreen {
   constructor() {
@@ -193,7 +192,7 @@ A screen on its way out keeps drawing, beneath the live ones, until its exit fin
 `UIBackdrop` is the layered background a menu sits on: a graded wash, an optional drifting still, slow motes, scanlines and a vignette. A flat fill behind the type is the single thing that made the old demo menus read as a web page rather than a game.
 
 ```javascript
-import { UIBackdrop } from 'm2d-engine/core/ui/backdrop.js';
+import { UIBackdrop } from 'm2d-engine/ui';
 
 screen.add(new UIBackdrop({
   gradient: { from: '#06121c', to: '#123a52', angle: 115 },
@@ -267,7 +266,7 @@ In 3D the world has no screen blur yet and the `scrim` carries the separation al
 Extend `UIElement` and draw with `this.paint`, which takes the same calls as the renderer but resolves theme tokens, folds in inherited opacity and supplies the UI font. Handle input by implementing `on*` methods.
 
 ```javascript
-import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
+import { UIElement } from 'm2d-engine/ui';
 
 export class HealthBar extends UIElement {
   constructor(options = {}) {

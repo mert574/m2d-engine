@@ -283,7 +283,7 @@ const tracks = new WeakMap();
  * scene's life, so the director, the road and the car all measure against
  * one piece of geometry.
  *
- * @param {import('m2d-engine/core/scene.js').Scene} scene
+ * @param {import('m2d-engine').Scene} scene
  * @param {string} [name='road'] - Which of the scene's paths is the road
  * @returns {Track}
  */

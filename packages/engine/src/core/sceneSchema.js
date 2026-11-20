@@ -21,7 +21,7 @@
  * See `schema.js` for the descriptor vocabulary.
  */
 
-import { s } from './schema.js';
+import { s } from './schema.ts';
 import { ANCHOR_ORIGINS } from './ui/uiElement.js';
 import { PROJECTION_TYPES } from './projection.js';
 import { choiceValue } from './projectSchema.js';

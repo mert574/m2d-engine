@@ -4,7 +4,7 @@ import { Grid } from '../src/core/ui/layout/grid.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
 import { UIText } from '../src/core/ui/text.js';
 import { Container } from '../src/core/ui/container.js';
-import { makeTestGame } from './helpers/testGame.js';
+import { makeTestGame } from '../src/testing/testGame.js';
 
 /**
  * Layout containers. UI space in the recording game is 800x600, so every

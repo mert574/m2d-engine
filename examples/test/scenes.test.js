@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
-import { SceneLoader, SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
+import { SceneLoader, SCENE_VERSION } from 'm2d-engine/schema';
 import { basename } from 'node:path';
 import { sceneFiles, projectGames } from './helpers.js';
 

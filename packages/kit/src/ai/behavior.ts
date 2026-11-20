@@ -1,9 +1,6 @@
-import { Constraint } from 'm2d-engine/core/constraint.js';
-import { s } from 'm2d-engine/core/schema.js';
-import { canSee } from 'm2d-engine/core/senses.js';
-import { Angle } from 'm2d-engine/core/math.js';
-import { groundCircle } from 'm2d-engine/core/ui/worldOverlay.js';
-import type { Entity } from 'm2d-engine/core/entity.js';
+import { Constraint, canSee, Angle, type Entity } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
+import { groundCircle } from 'm2d-engine/ui';
 
 /** A point, on whichever plane the game runs. */
 interface Point {

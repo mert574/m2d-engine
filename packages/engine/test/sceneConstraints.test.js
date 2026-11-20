@@ -6,7 +6,7 @@ import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { Constraint } from '../src/core/constraint.js';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { s } from '../src/core/schema.js';
+import { s } from '../src/core/schema.ts';
 import { Chase } from '../src/constraints/chase.js';
 import { Hover } from '../src/constraints/hover.js';
 import { KeyboardControl } from '../src/constraints/keyboardControl.js';

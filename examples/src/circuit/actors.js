@@ -7,8 +7,8 @@
  * across the asphalt — and the player's rear axle writes skid marks into
  * the shared mark buffer while drifting.
  */
-import { Entity } from 'm2d-engine/core/entity.js';
-import { s } from 'm2d-engine/core/schema.js';
+import { Entity } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
 import { makeRng, range } from 'm2d-kit/random';
 import { trackFor } from './track.js';
 import { CarControl } from 'm2d-kit/controls';

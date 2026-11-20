@@ -4,9 +4,9 @@ import { createComponentsPanel } from '../src/componentsPanel.ts';
 import { createTree } from '../src/tree.ts';
 import { showMenu, closeMenu, menuIsOpen } from '../src/menu.ts';
 import { sceneOutline, type OutlineNode } from 'm2d-editor-core';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { Registry, BUILTIN_ACTORS } from 'm2d-engine/core/builtins.js';
-import { Prop } from 'm2d-engine/actors/prop.js';
+import { Health } from 'm2d-engine/constraints';
+import { Registry, BUILTIN_ACTORS } from 'm2d-engine';
+import { Prop } from 'm2d-engine/actors';
 
 /**
  * The component library and the tree's new behaviours: the catalog merges
@@ -33,7 +33,7 @@ describe('the catalog', () => {
     expect(actors.slice(2).every((entry) => !entry.registered)).toBe(true);
     const chase = catalog.find((entry) => entry.name === 'Chase')!;
     expect(chase.registered).toBe(false);
-    expect(registrationSnippet(chase)).toBe("import { Chase } from 'm2d-engine/constraints/chase.js';\ngame.registerConstraint('Chase', Chase);");
+    expect(registrationSnippet(chase)).toBe("import { Chase } from 'm2d-engine/constraints';\ngame.registerConstraint('Chase', Chase);");
     const health = catalog.find((entry) => entry.name === 'Health')!;
     expect(health.registered).toBe(true);
     expect(health.fields.map((field) => field.key)).toEqual(['maxHealth', 'invulnerableDuration', 'showBar', 'whenDead']);

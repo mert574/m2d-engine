@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { createPhysicsWorld, initPhysics } from '../src/core/physics/index.js';
+import { createPhysicsWorld, initPhysics } from '../src/core/physics/index.ts';
 
 /**
  * Characterization tests for the physics boundary (src/core/physics/).
@@ -1273,7 +1273,7 @@ describe('headless environment', () => {
   // and poisons the module for the rest of the worker, which is why every
   // suite installs its stub through installWindowStub.
   it('steps with the shared window stub installed', async () => {
-    const { installWindowStub } = await import('./helpers/environment.js');
+    const { installWindowStub } = await import('../src/testing/environment.js');
     const previous = globalThis.window;
     installWindowStub();
     try {

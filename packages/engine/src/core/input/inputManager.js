@@ -43,7 +43,7 @@
  * their per-event deltas; scrolls add `scroll`.
  */
 
-import { mapPointer, uiToView } from '../viewport.js';
+import { mapPointer, uiToView } from '../viewport.ts';
 import { PointerSource } from './pointerSource.js';
 import { Keyboard } from './keyboard.js';
 import { GamepadSource } from './gamepad.js';

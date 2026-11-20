@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sceneOutline, inspectNode, type OutlineNode } from 'm2d-editor-core';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
+import { SCENE_VERSION } from 'm2d-engine/schema';
 import { createTree } from '../src/tree.ts';
 import { createInspector } from '../src/inspector.ts';
 import { namedClasses } from '../src/viewport.ts';

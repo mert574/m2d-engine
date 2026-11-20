@@ -1,7 +1,6 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { s } from 'm2d-engine/core/schema.js';
+import { M2D, Entity } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { s } from 'm2d-engine/schema';
 
 const FRAME = 32;
 

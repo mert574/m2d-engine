@@ -1,5 +1,5 @@
 import { Constraint } from '../core/constraint.js';
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 
 export class Debug extends Constraint {
   static description = 'Draw the body, its velocity and its contacts, for debugging';

@@ -1,5 +1,5 @@
 import { Entity } from '../core/entity.js';
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 
 export class Trigger extends Entity {
   static description = 'An invisible sensor that fires when something enters it';

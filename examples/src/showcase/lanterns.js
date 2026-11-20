@@ -17,7 +17,7 @@ import { makeRng, range } from 'm2d-kit/random';
 export class Lanterns {
   /**
    * @param {Object} options - Lantern options
-   * @param {import('m2d-engine/core/renderers/baseRenderer.js').BaseRenderer} options.renderer - Backend
+   * @param {import('m2d-engine/renderers').BaseRenderer} options.renderer - Backend
    * @param {Object} options.sheet - Lantern SpriteSheet
    * @param {{width: number, height: number}} options.bounds - World bounds
    * @param {number} options.shoreY - World Y of the water/bank boundary

@@ -1,5 +1,5 @@
 import { Constraint } from '../core/constraint.js';
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 
 /**
  * A prompt that appears over an entity while the player is close, and a

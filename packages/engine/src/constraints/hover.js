@@ -1,5 +1,5 @@
 import { Constraint } from '../core/constraint.js';
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 
 /**
  * A purely visual idle motion: bob on a sine wave, spin at a constant rate,

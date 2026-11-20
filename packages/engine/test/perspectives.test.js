@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
-import { RecordingRenderer } from './helpers/recordingRenderer.js';
-import { makeTestGame, makeBody } from './helpers/testGame.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from '../src/testing/environment.js';
+import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
+import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { M2D } from '../src/core/m2d.js';
 import { Scene } from '../src/core/scene.js';
 import { Camera } from '../src/core/camera.js';
 import { Entity } from '../src/core/entity.js';
 import { SpriteSheet } from '../src/core/spriteSheet.js';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
-import * as mat from '../src/core/renderers/geometry/matrix.js';
+import * as mat from '../src/core/renderers/geometry/matrix.ts';
 
 /**
  * The infrastructure every perspective beyond side view and top-down

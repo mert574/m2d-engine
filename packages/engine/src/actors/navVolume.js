@@ -1,5 +1,5 @@
 import { Entity } from '../core/entity.js';
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 
 /**
  * A nav area painted over the ground it covers: `blocked` keeps the bake

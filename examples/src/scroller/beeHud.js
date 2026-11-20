@@ -1,4 +1,4 @@
-import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
+import { UIElement } from 'm2d-engine/ui';
 
 /**
  * The bee's own readout: hearts, pollen, score and the live combo, and
@@ -12,7 +12,7 @@ import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
  */
 export class BeeStatus extends UIElement {
   /**
-   * @param {import('m2d-engine/core/scene.js').Scene} scene
+   * @param {import('m2d-engine').Scene} scene
    * @param {object} options - The HUD element's placement and properties
    */
   constructor(scene, options = {}) {

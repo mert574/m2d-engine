@@ -1,6 +1,6 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
+import { M2D } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { UIElement } from 'm2d-engine/ui';
 
 /** A custom element: a bar that fills over time. Clicking it resets it. */
 class ProgressBar extends UIElement {

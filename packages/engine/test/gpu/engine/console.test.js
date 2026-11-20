@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { CVarRegistry } from '../../../src/core/console/cvars.js';
 import { CommandRegistry, tokenize, registerBuiltins } from '../../../src/core/console/commands.js';
 import { positionText } from '../../../src/core/ui/performanceStats.js';
-import { initPhysics, createPhysicsWorld } from '../../../src/core/physics/index.js';
+import { initPhysics, createPhysicsWorld } from '../../../src/core/physics/index.ts';
 import { M2D } from '../../../src/core/m2d.js';
-import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from '../../helpers/environment.js';
-import { keyDown, keyUp } from '../../helpers/input.js';
+import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from '../../../src/testing/environment.js';
+import { keyDown, keyUp } from '../../../src/testing/input.js';
 import { SettingsMenu } from '../../../src/core/ui/settingsMenu.js';
 
 /**

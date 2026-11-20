@@ -12,7 +12,7 @@ import { Trigger } from '../src/actors/trigger.js';
 import { drawToolVolumes2D } from '../src/core/toolVolumes.js';
 import { UIRectangle } from '../src/core/ui/Rectangle.js';
 import { PerformanceStats } from '../src/core/ui/performanceStats.js';
-import { makeTestGame, makeBody, expectBalancedStacks } from './helpers/testGame.js';
+import { makeTestGame, makeBody, expectBalancedStacks } from '../src/testing/testGame.js';
 
 /**
  * Verifies that engine and actor code emits the correct *abstract* draw calls.

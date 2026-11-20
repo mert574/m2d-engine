@@ -13,7 +13,7 @@
 
 import { build as viteBuild, preview as vitePreview, type Alias, type PreviewServer } from 'vite';
 import { cp, mkdir, readdir, stat } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Project } from './project.ts';
@@ -23,20 +23,23 @@ const ENGINE = fileURLToPath(new URL('../../engine', import.meta.url));
 const KIT = fileURLToPath(new URL('../../kit', import.meta.url));
 
 /**
- * `m2d-engine` and `m2d-kit`, and their entries, as this workspace's, for
- * the editor's server and for builds: one engine and one kit, wherever the
- * project is — a fresh one from a template has nothing installed. The kit
- * is TypeScript, and Vite compiles it from source, so an entry
- * `m2d-kit/<name>` is its `src/<name>.ts` rather than the `dist/<name>.js`
- * its exports map points a published consumer at.
+ * `m2d-engine` and `m2d-kit`, and their entries, as this workspace's
+ * source, for the editor's server and for builds: one engine and one kit,
+ * wherever the project is — a fresh one from a template has nothing
+ * installed. Each entry goes where its `m2d-source` export condition
+ * points (the TypeScript it is compiled from), so the aliases are read
+ * from the packages' own exports maps and cannot drift from them.
  */
 export function engineAlias(): Alias[] {
-  return [
-    { find: /^m2d-engine$/, replacement: join(ENGINE, 'src', 'core', 'm2d.js') },
-    { find: /^m2d-engine\//, replacement: join(ENGINE, 'src') + '/' },
-    { find: /^m2d-kit$/, replacement: join(KIT, 'src', 'index.ts') },
-    { find: /^m2d-kit\/(\w+)$/, replacement: join(KIT, 'src') + '/$1.ts' }
-  ];
+  return [ENGINE, KIT].flatMap((dir) => {
+    const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {
+      name: string; exports: Record<string, { 'm2d-source': string }>;
+    };
+    return Object.entries(pkg.exports).map(([entry, target]) => ({
+      find: new RegExp(`^${pkg.name}${entry === '.' ? '' : entry.slice(1)}$`),
+      replacement: join(dir, target['m2d-source'])
+    }));
+  });
 }
 
 export interface BuildResult {

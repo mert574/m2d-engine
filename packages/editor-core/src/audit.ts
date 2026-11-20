@@ -8,8 +8,9 @@
  * strings, not refs — collected from the keys the format gives them.
  */
 
-import { SceneLoader } from 'm2d-engine/core/sceneLoader.js';
+import { SceneLoader } from 'm2d-engine/schema';
 import { isPlainObject } from './descriptors.ts';
+import type { M2D } from 'm2d-engine';
 
 export interface SceneInput {
   /** Project-relative file path: how the editor and MCP address it. */
@@ -52,7 +53,7 @@ export interface Audit {
  * reference kept as a string (it may name a scene the game's page builds
  * in code), so it is collected by hand.
  */
-export function references(scenes: SceneInput[], game: unknown = null): Reference[] {
+export function references(scenes: SceneInput[], game: M2D | null = null): Reference[] {
   return checked(scenes, game).refs;
 }
 
@@ -61,7 +62,7 @@ export function references(scenes: SceneInput[], game: unknown = null): Referenc
  * document where the check produced one — `uses` expanded into the sheets
  * and models it binds, which the raw document only names by uid.
  */
-function checked(scenes: SceneInput[], game: unknown): { refs: Reference[]; loaded: Map<string, Record<string, unknown>> } {
+function checked(scenes: SceneInput[], game: M2D | null): { refs: Reference[]; loaded: Map<string, Record<string, unknown>> } {
   const refs: Reference[] = [];
   const loaded = new Map<string, Record<string, unknown>>();
   for (const scene of scenes) {
@@ -103,12 +104,12 @@ export function fileUses(scene: SceneInput): FileUse[] {
 }
 
 /** Where `name` of `scope` (prefab, spritesheet, model, environment, path, scene, …) is used, across every scene. */
-export function usesOf(scenes: SceneInput[], scope: string, name: string, game: unknown = null): Reference[] {
+export function usesOf(scenes: SceneInput[], scope: string, name: string, game: M2D | null = null): Reference[] {
   return references(scenes, game).filter((ref) => ref.scope === scope && ref.name === name);
 }
 
 /** The project audited whole. `files` are the scene-facing urls of every asset file. */
-export function auditProject(scenes: SceneInput[], files: string[], game: unknown = null): Audit {
+export function auditProject(scenes: SceneInput[], files: string[], game: M2D | null = null): Audit {
   const { refs, loaded } = checked(scenes, game);
   const used = scenes.flatMap((scene) => fileUses({ ...scene, data: loaded.get(scene.path) ?? scene.data }));
   const have = new Set(files);

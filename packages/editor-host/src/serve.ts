@@ -154,20 +154,16 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
   // agent's edit against the classes the game really registers, and can
   // run a scene. The modules are loaded once and dropped when their code
   // changes; each run gets a fresh game.
-  type Engine = { M2D: new (canvas: null, options: object) => HeadlessGame };
-  type HeadlessGame = {
-    registerActor(name: string, actor: unknown): void;
-    sceneManager: { addScene(name: string, config: object): void; switchTo(name: string): Promise<unknown>; getCurrentScene(): { entitiesById: Map<string, { position: { x: number; y: number; z?: number }; dead?: boolean; body?: { bodyType?: string; angle?: number; rotation?: { x: number; y: number; z: number; w: number } } }> } };
-    step(ticks: number): number;
-    entities: Set<{ sceneId?: string }>;
-  };
-  let modules: Promise<{ engine: Engine; physics: { initPhysics(o?: object): Promise<void> }; definition: { register?: (game: unknown) => void; GAME?: Record<string, unknown> } } | null> | null = null;
+  type Engine = typeof import('m2d-engine');
+  type Physics = typeof import('m2d-engine/physics');
+  type HeadlessGame = import('m2d-engine').M2D;
+  let modules: Promise<{ engine: Engine; physics: Physics; definition: { register?: (game: unknown) => void; GAME?: Record<string, unknown> } } | null> | null = null;
   const loadModules = () => {
     if (!definition || !server) return Promise.resolve(null);
     const vite = server;
     modules ??= (async () => ({
-      engine: await vite.ssrLoadModule('m2d-engine/core/m2d.js') as unknown as Engine,
-      physics: await vite.ssrLoadModule('m2d-engine/core/physics/index.js') as unknown as { initPhysics(o?: object): Promise<void> },
+      engine: await vite.ssrLoadModule('m2d-engine') as unknown as Engine,
+      physics: await vite.ssrLoadModule('m2d-engine/physics') as unknown as Physics,
       definition: await vite.ssrLoadModule(definition) as { register?: (game: unknown) => void; GAME?: Record<string, unknown> }
     }))().catch((error: unknown) => {
       console.warn(`m2d-editor: the game's code did not load in the host (${(error as Error).message}); MCP checks are structural only`);
@@ -189,9 +185,8 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
     // button's onClick, a rule's switch) check as registered, and a level
     // that instances another composes from its real document.
     try {
-      const manager = (made as unknown as { sceneManager?: { addScene(name: string, scene: object): void } }).sceneManager;
       for (const scene of await companion.project.scenes()) {
-        if (scene.name) manager?.addScene(scene.name, { fetch: async () => structuredClone((await companion.session.document(scene.path)).data) });
+        if (scene.name) made.sceneManager.addScene(scene.name, { fetch: async () => structuredClone((await companion.session.document(scene.path)).data) });
       }
     } catch { /* names are a convenience; validation still runs without them */ }
     return made;
@@ -244,9 +239,8 @@ function hostPlugin(companion: Companion, config: ProjectConfig, appRoot: string
       makeGame: async () => (await makeGame()) as unknown as import('./nav.ts').BakeGame | null,
       navModules: async () => {
         if (!server) throw new Error('the editor is not serving');
-        const geometry = await server.ssrLoadModule('m2d-engine/core/nav/navGeometry.js');
-        const bake = await server.ssrLoadModule('m2d-engine/core/nav/navBake.js');
-        return { navGeometryOf: geometry.navGeometryOf, bakeNavMesh: bake.bakeNavMesh };
+        const nav = await server.ssrLoadModule('m2d-engine/nav');
+        return { navGeometryOf: nav.navGeometryOf, bakeNavMesh: nav.bakeNavMesh };
       }
     },
     file, bakeOptions, origin

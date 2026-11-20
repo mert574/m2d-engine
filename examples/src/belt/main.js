@@ -16,8 +16,7 @@
  * The page boots the project (m2d.project.json); the main menu is a scene
  * too (`scenes/mainMenu.json`): an arcade marquee.
  */
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { bootProject } from 'm2d-engine/core/project.js';
+import { M2D, bootProject } from 'm2d-engine';
 import { audioOption } from 'm2d-kit/audio';
 import project from './m2d.project.json';
 import * as definition from './game.js';

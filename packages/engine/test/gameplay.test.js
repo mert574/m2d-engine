@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { makeTestGame, makeBody } from './helpers/testGame.js';
+import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { Entity } from '../src/core/entity.js';
 import { SpriteSheet } from '../src/core/spriteSheet.js';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { SoundManager } from '../src/core/soundManager.js';
 import { Quest } from '../src/core/quest.js';
-import { Angle, DIRECTIONS_8 } from '../src/core/math.js';
+import { Angle, DIRECTIONS_8 } from '../src/core/math.ts';
 import { Attack } from '../src/constraints/attack.js';
 import { Health } from '../src/constraints/health.js';
 import { Abilities } from '../src/constraints/abilities.js';

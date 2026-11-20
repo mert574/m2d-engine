@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { makeTestGame, makeBody } from './helpers/testGame.js';
+import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { Entity } from '../src/core/entity.js';
 import { Grabbable } from '../src/constraints/grabbable.js';
 import { Interactive } from '../src/constraints/interactive.js';
 import {
   advanceInputClock, click, drag, pointerDown, pointerMove, pointerUp, resetInputClock
-} from './helpers/input.js';
+} from '../src/testing/input.js';
 
 /**
  * `Grabbable`: the hand a physics sandbox gives the pointer.

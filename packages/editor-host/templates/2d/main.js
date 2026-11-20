@@ -1,4 +1,4 @@
-import { bootProject } from 'm2d-engine/core/project.js';
+import { bootProject } from 'm2d-engine';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 

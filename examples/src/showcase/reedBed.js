@@ -27,7 +27,7 @@ const DEPTH_TINTS = [
 export class ReedBed {
   /**
    * @param {Object} options - Bed options
-   * @param {import('m2d-engine/core/renderers/baseRenderer.js').BaseRenderer} options.renderer - Backend
+   * @param {import('m2d-engine/renderers').BaseRenderer} options.renderer - Backend
    * @param {Object} options.sheet - Reed SpriteSheet
    * @param {{width: number, height: number}} options.bounds - World bounds
    * @param {number} options.waterline - World Y the reeds stand on

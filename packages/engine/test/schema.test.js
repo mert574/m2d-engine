@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { s, validate, fieldsOf, refScopesOf } from '../src/core/schema.js';
+import { s, validate, fieldsOf, refScopesOf } from '../src/core/schema.ts';
 import { LEVEL_SCHEMA, UI_SCHEMA } from '../src/core/sceneSchema.js';
 
 /**

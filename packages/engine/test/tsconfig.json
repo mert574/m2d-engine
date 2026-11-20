@@ -1,0 +1,10 @@
+{
+  // The engine's TypeScript tests: the source's settings plus Node's types,
+  // which the source itself never sees (it runs in a browser too). The
+  // JavaScript tests are parsed, not checked, until phase 11 converts them.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "../src/**/*"]
+}

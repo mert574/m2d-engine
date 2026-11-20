@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { inspectNode } from 'm2d-editor-core';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
-import { LEVEL_SCHEMA, UI_SCHEMA } from 'm2d-engine/core/sceneSchema.js';
-import { PROJECT_SCHEMA } from 'm2d-engine/core/projectSchema.js';
+import { SCENE_VERSION, LEVEL_SCHEMA, UI_SCHEMA, PROJECT_SCHEMA } from 'm2d-engine/schema';
 import { createInspector } from '../src/inspector.ts';
 
 /**

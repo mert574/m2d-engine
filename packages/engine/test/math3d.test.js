@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Vec3, Quat } from '../src/core/math.js';
+import { Vec3, Quat } from '../src/core/math.ts';
 
 /**
  * The three-dimensional half of the math module.

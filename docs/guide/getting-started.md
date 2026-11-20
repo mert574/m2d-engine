@@ -63,7 +63,7 @@ One option in the demo exists because it runs inside a documentation page. `perf
 A game you ship is a project: a folder with an `m2d.project.json`, a `game.js` that registers its actors and constraints, and its scenes, which the [editor](./editor) opens. `npm run editor new my-game --template 2d` makes one. Its page boots it in one call, and the scene it opens on, the display and the input actions come from the project file.
 
 ```js
-import { bootProject } from 'm2d-engine/core/project.js';
+import { bootProject } from 'm2d-engine';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 

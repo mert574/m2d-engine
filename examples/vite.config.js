@@ -3,7 +3,8 @@ import { resolve } from 'path';
 import { execSync } from 'child_process';
 import { cpSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { ensureDevCert } from './scripts/devCert.mjs';
-import { qualityVariants } from 'm2d-engine/core/quality.js';
+import { workspaceResolve } from '../scripts/workspaceResolve.ts';
+import { qualityVariants } from 'm2d-engine/quality';
 
 /**
  * The folders an example's models are built into at quality levels other
@@ -118,17 +119,12 @@ export default defineConfig(({ command }) => ({
       }
     }
   },
-  // The kit is TypeScript and ships compiled (`dist`), which is what its
-  // exports map points at. In this repo the examples are built from its
-  // source instead, so a change to the kit shows up without a build step
-  // and no stale `dist` can be served. The editor host aliases the same
-  // way (packages/editor-host/src/build.ts).
-  resolve: {
-    alias: [
-      { find: /^m2d-kit$/, replacement: resolve(import.meta.dirname, '../packages/kit/src/index.ts') },
-      { find: /^m2d-kit\/(\w+)$/, replacement: resolve(import.meta.dirname, '../packages/kit/src') + '/$1.ts' }
-    ]
-  },
+  // The engine and the kit ship compiled (`dist`), which is what their
+  // exports maps point at. In this repo the examples are built from their
+  // source instead, so a change shows up without a build step and no stale
+  // `dist` can be served. The editor host resolves the same way
+  // (packages/editor-host/src/build.ts).
+  ...workspaceResolve,
   server: devServer(),
   // The engine's model-loader worker imports shared modules, which only an
   // ES-format worker bundle can hold.

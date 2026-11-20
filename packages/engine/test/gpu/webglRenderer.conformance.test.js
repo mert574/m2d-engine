@@ -1,6 +1,6 @@
-import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.js';
+import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.ts';
 import { describeRendererConformance } from '../conformance/rendererConformance.js';
-import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js';
+import { createCanvasElement, readWebGLPixels } from '../../src/testing/environment.js';
 
 /** Runs the backend contract against the WebGL2 renderer. */
 describeRendererConformance({

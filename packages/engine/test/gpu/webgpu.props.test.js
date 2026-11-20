@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { WebGPURenderer } from '../../src/core/renderers/webgpuRenderer.js';
 import { initWebGPU } from '../../src/core/renderers/webgpu/device.js';
-import { initPhysics } from '../../src/core/physics/index.js';
+import { initPhysics } from '../../src/core/physics/index.ts';
 import { Camera3D } from '../../src/core/camera3d.js';
-import { plane, box } from '../../src/core/renderers/geometry/primitives.js';
+import { plane, box } from '../../src/core/renderers/geometry/primitives.ts';
 import { M2D } from '../../src/core/m2d.js';
 import { Entity } from '../../src/core/entity.js';
 import { SceneLoader, SCENE_VERSION } from '../../src/core/sceneLoader.js';
-import { createCanvasElement } from '../helpers/environment.js';
+import { createCanvasElement } from '../../src/testing/environment.js';
 
 const luma = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 

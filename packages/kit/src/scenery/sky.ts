@@ -1,5 +1,5 @@
-import { s } from 'm2d-engine/core/schema.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { s } from 'm2d-engine/schema';
+import type { M2D } from 'm2d-engine';
 import { Scenery, BACK } from './scenery.ts';
 import type { ActorBody, ActorSprite, VisibleArea } from '../engineTypes.ts';
 

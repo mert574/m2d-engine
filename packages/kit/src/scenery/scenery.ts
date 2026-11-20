@@ -1,5 +1,4 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { Entity, type M2D } from 'm2d-engine';
 import type { ActorBody, ActorSprite, VisibleArea } from '../engineTypes.ts';
 
 /** Where scenery draws when its object gives no `zIndex`: under every layer (the background is at -1), or over every entity. */

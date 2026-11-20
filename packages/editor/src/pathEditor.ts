@@ -14,7 +14,7 @@
  * gizmo; only the point handles take the pointer.
  */
 
-import { Path } from 'm2d-engine/core/path.js';
+import { Path } from 'm2d-engine';
 import { isPlainObject, paths, structure, type Op, type PathSegment, type PathPoint, type PointList } from 'm2d-editor-core';
 import type { Viewport, Point } from './viewport.ts';
 

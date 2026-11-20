@@ -1,6 +1,6 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
-import { s } from 'm2d-engine/core/schema.js';
+import { Entity } from 'm2d-engine';
+import { KeyboardControl } from 'm2d-engine/constraints';
+import { s } from 'm2d-engine/schema';
 import { progress } from './meadowScenery.js';
 
 /**

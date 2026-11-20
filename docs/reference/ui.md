@@ -478,7 +478,7 @@ The engine ships [Exo](https://fonts.google.com/specimen/Exo) as a variable font
 
 ## WorldOverlay
 
-`game.worldOverlay` from `worldOverlay.js`. See [The world overlay](../guide/display#the-world-overlay).
+`game.worldOverlay` from `worldOverlay.ts`. See [The world overlay](../guide/display#the-world-overlay).
 
 | Method | Meaning |
 | --- | --- |

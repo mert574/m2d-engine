@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { SceneLoader } from 'm2d-engine/core/sceneLoader.js';
-import { AssetDatabase } from 'm2d-engine/core/assets.js';
+import { SceneLoader } from 'm2d-engine/schema';
+import { AssetDatabase } from 'm2d-engine';
 import { writeScene, writeManifest } from 'm2d-editor-core';
 import { sceneFiles, manifestFiles, shippedGames } from './helpers.js';
 

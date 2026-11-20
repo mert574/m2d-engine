@@ -1,6 +1,6 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Interactive } from 'm2d-engine/constraints/interactive.js';
-import { s } from 'm2d-engine/core/schema.js';
+import { Entity } from 'm2d-engine';
+import { Interactive } from 'm2d-engine/constraints';
+import { s } from 'm2d-engine/schema';
 import { makeRng } from 'm2d-kit/random';
 
 /**

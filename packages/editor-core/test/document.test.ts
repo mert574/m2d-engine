@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SceneDocument, CommandStack, validateScene, type Command } from '../src/index.ts';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
+import { SCENE_VERSION } from 'm2d-engine/schema';
 
 /**
  * The document, the command stack and validation: the shape every edit

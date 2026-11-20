@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { makeTestGame, makeBody } from 'm2d-engine/test/helpers/testGame.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Camera } from 'm2d-engine/core/camera.js';
+import { makeTestGame, makeBody } from 'm2d-engine/testing';
+import { Entity, Camera } from 'm2d-engine';
 import { ThrustControl } from '../src/controls/thrustControl.ts';
 
 describe('ThrustControl', () => {

@@ -9,10 +9,10 @@
  * WebGPU device per thumbnail, made and destroyed in turn.
  */
 
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { initWebGPU, webgpuSupported } from 'm2d-engine/core/renderers/index.js';
-import { Prop } from 'm2d-engine/actors/prop.js';
+import { M2D } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { initWebGPU, webgpuSupported } from 'm2d-engine/renderers';
+import { Prop } from 'm2d-engine/actors';
 import { SCENE_VERSION } from 'm2d-editor-core';
 import { get, post } from './host.ts';
 import type { AssetFileEntry } from './assetsPanel.ts';

@@ -1,4 +1,4 @@
-import { parseColor } from './renderers/geometry/color.js';
+import { parseColor } from './renderers/geometry/color.ts';
 
 /**
  * Blending two "look" blocks — `world.lighting`, `world.post`, as a scene

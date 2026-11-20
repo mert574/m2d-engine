@@ -1,5 +1,5 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
+import { Entity } from 'm2d-engine';
+import { KeyboardControl } from 'm2d-engine/constraints';
 
 export class Hero extends Entity {
   name = 'Hero';

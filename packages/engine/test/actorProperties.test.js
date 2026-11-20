@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
-import { initPhysics } from '../src/core/physics/index.js';
+import { initPhysics } from '../src/core/physics/index.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { actorPropertiesSchema } from '../src/core/sceneSchema.js';
-import { fieldsOf } from '../src/core/schema.js';
-import { s } from '../src/core/schema.js';
+import { fieldsOf } from '../src/core/schema.ts';
+import { s } from '../src/core/schema.ts';
 
 /**
  * An actor declaring what a scene may set, the way a constraint declares

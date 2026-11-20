@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { M2D } from '../../src/core/m2d.js';
-import { initPhysics } from '../../src/core/physics/index.js';
+import { initPhysics } from '../../src/core/physics/index.ts';
 import { createRenderer, WebGPURenderer, WebGLRenderer } from '../../src/core/renderers/index.js';
 import { initWebGPU, webgpuSupported } from '../../src/core/renderers/webgpu/device.js';
 import { Camera3D } from '../../src/core/camera3d.js';
-import { box, plane, sphere, geometryFor } from '../../src/core/renderers/geometry/primitives.js';
-import { StaticBatch } from '../../src/core/renderers/frame3d.js';
+import { box, plane, sphere, geometryFor } from '../../src/core/renderers/geometry/primitives.ts';
+import { StaticBatch } from '../../src/core/renderers/frame3d.ts';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
-import { createCanvasElement } from '../helpers/environment.js';
+import { createCanvasElement } from '../../src/testing/environment.js';
 
 /**
  * The 3D renderer: WebGPU works, a shaded scene draws through the
@@ -412,7 +412,7 @@ describe('a 3D game through the engine loop', () => {
 
   it('draws an entity\'s own geometry at its body, scale 1, instead of its collider\'s shape', async () => {
     const { Entity } = await import('../../src/core/entity.js');
-    const { box } = await import('../../src/core/renderers/geometry/primitives.js');
+    const { box } = await import('../../src/core/renderers/geometry/primitives.ts');
     const { game } = game3D();
     game.registerActor('Ground', class extends Entity { name = 'Ground'; });
     game.registerActor('Crate', class extends Entity { name = 'Crate'; });
@@ -659,7 +659,7 @@ describe('lighting', () => {
   });
 
   it('lights past the old 256 cap still shade, now that a fragment reads its cluster', async () => {
-    const { MAX_LIGHTS } = await import('../../src/core/renderers/frame3d.js');
+    const { MAX_LIGHTS } = await import('../../src/core/renderers/frame3d.ts');
     expect(MAX_LIGHTS).toBeGreaterThan(256);
     const W = 96, H = 72;
     const renderer = make(W, H);
@@ -852,7 +852,7 @@ describe('the display settings', () => {
   beforeAll(() => initWebGPU());
 
   it('renders the world at the resolution setting and letterboxes it into the content rectangle', async () => {
-    const { computeViewport } = await import('../../src/core/viewport.js');
+    const { computeViewport } = await import('../../src/core/viewport.ts');
     // A 96x96 display showing a 16:9 design at half resolution: bars above
     // and below, and a world surface a quarter the size of the content.
     const viewport = computeViewport({

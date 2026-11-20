@@ -19,7 +19,7 @@ const COLORS = ['#ffe082', '#ff8a65', '#80deea', '#c5e1a5', '#f48fb1', '#ffffff'
 export class LabelStorm {
   /**
    * @param {Object} options - Storm options
-   * @param {import('m2d-engine/core/renderers/baseRenderer.js').BaseRenderer} options.renderer - Backend
+   * @param {import('m2d-engine/renderers').BaseRenderer} options.renderer - Backend
    * @param {{width: number, height: number}} options.bounds - World bounds
    * @param {number} [options.seed=909] - RNG seed
    */

@@ -14,7 +14,7 @@
  * What is still code here is the car's engine note and road roar, which
  * are synthesised rather than sampled (evSound.js).
  */
-import { bootProject } from 'm2d-engine/core/project.js';
+import { bootProject } from 'm2d-engine';
 import { audioOption } from 'm2d-kit/audio';
 import { evMotorLoop, roadNoiseLoop } from './evSound.js';
 import project from './m2d.project.json';

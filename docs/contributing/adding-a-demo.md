@@ -31,7 +31,7 @@ Each example lives in `examples/src/<name>/` and is an editor project, written t
 The `basePath` engine option must point at the example's folder for sprite URLs in scene JSON to resolve. Pass it to `bootProject` derived from Vite instead of hardcoding each environment: `import.meta.env.BASE_URL + '<name>/'` is `/<name>/` on the dev server and `/m2d-engine/examples/<name>/` in the published build, because `BASE_URL` comes from the `base` option in `examples/vite.config.js`.
 
 ```js
-import { bootProject } from 'm2d-engine/core/project.js';
+import { bootProject } from 'm2d-engine';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 import * as hooks from './hooks.js';

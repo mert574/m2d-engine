@@ -1,6 +1,6 @@
 import { Constraint } from '../core/constraint.js';
-import { s } from '../core/schema.js';
-import { Angle } from '../core/math.js';
+import { s } from '../core/schema.ts';
+import { Angle } from '../core/math.ts';
 
 /**
  * Knockback, in px·mass/s. Carried over from the mass-independent velocity

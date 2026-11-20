@@ -1,8 +1,6 @@
-import { Constraint } from 'm2d-engine/core/constraint.js';
-import { s } from 'm2d-engine/core/schema.js';
-import type { Entity } from 'm2d-engine/core/entity.js';
-import type { Attack } from 'm2d-engine/constraints/attack.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { Constraint, type Entity, type M2D } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
+import type { Attack } from 'm2d-engine/constraints';
 
 /**
  * Combat visuals, kept out of the engine on purpose.

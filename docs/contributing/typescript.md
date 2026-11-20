@@ -1,9 +1,11 @@
 # TypeScript
 
-The engine is plain JavaScript with JSDoc. Every other package is
-TypeScript, and the kit is the one that publishes: it ships compiled
-JavaScript with its declarations. Both languages are checked by one
-toolchain.
+The repository is moving to TypeScript throughout, one phase at a time
+(`knowledge-base/projects/types`). The editor packages and the kit are
+TypeScript already; the engine is being converted file by file, with its
+unconverted modules still JavaScript with JSDoc. The engine and the kit
+publish compiled JavaScript with declarations. One toolchain checks both
+languages.
 
 ## The shared config
 
@@ -24,44 +26,62 @@ Settings worth knowing, and why:
 
 | Setting | Why |
 | --- | --- |
-| `module`/`moduleResolution: nodenext` | Relative imports carry their `.js` extension, which is what the engine's source already writes. One emitted file then runs in Node and in a browser with no bundler, which is the same no-build rule the engine package follows |
+| `module`/`moduleResolution: nodenext` | Relative imports carry their extension. One emitted file then runs in Node and in a browser with no bundler |
 | `target`/`lib: ES2025`, no DOM in the base | Everything the language has shipped, as long as the infrastructure runs it — ES2025 is the floor of Node 24 and of every browser that ships WebGPU. The base stays runtime-neutral: a package that touches the DOM asks for it, so a package meant to run headless cannot reach a browser API by accident |
-| `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch` | A new package is cheaper to write strictly than to tighten later |
+| `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch` | Never relaxed, not even for a file mid-conversion: a `.ts` file is fully strict from its first commit |
 | `verbatimModuleSyntax` | A type-only import says `import type`, so what is erased at runtime is visible in the source |
-| `allowJs`, `checkJs: false` | JavaScript is parsed but not checked, which is the state the engine is in today |
-| `noEmit` | The default. A package that publishes turns it off and sets its `outDir` and `declaration`; `packages/kit/tsconfig.build.json` is the worked example |
+| `customConditions: ["m2d-source"]` | The workspace's packages resolve to their source; see [Inside the repo](#inside-the-repo-the-source) |
+| `allowJs`, `checkJs: false` | A JavaScript module not yet converted is parsed but not checked. It leaves the base when the conversion is done |
+| `noEmit` | The default. A package that publishes turns it off in its `tsconfig.build.json` |
 
-Decorators are usable in TypeScript packages — tsc has compiled the
-standard (stage 3) semantics since 5.0 — but they are not part of any
-shipped ECMAScript edition yet, so they exist only where tsc has run,
-never in plain `.js`.
+Source that runs without a build — under Node's type stripping, or Vite —
+keeps to **erasable syntax**: no enums, namespaces, parameter properties
+or decorators.
+
+## No `any`
+
+Explicit `any` is the one debt allowed while the conversion runs, and it is
+counted: `scripts/typesRatchet.ts` holds each workspace's count of explicit
+`any` (oxlint's `typescript/no-explicit-any`) and of JavaScript files
+against `types-baseline.json`. A count above the baseline fails `npm test`.
+A count below it fails too, until the gain is locked in:
+
+```bash
+node scripts/typesRatchet.ts --update
+```
+
+Nothing that silences the compiler is allowed at all: `@ts-ignore`,
+`@ts-expect-error` and `@ts-nocheck` are lint errors. Where a type is hard,
+write it; where the dependency is still JavaScript, `unknown` and a
+narrowing check say more than `any`.
 
 ## Commands
 
 ```bash
-npm run typecheck      # every workspace that has one, from the root
+npm run typecheck      # every workspace, then the root scripts
+npm run lint           # oxlint: the banned comments
+npm run types:ratchet  # the counts against the baseline
 ```
 
-`npm test` runs it first, so a type error fails the suite before any test
-does.
-
-A single package:
+`npm test` runs all three first, so a type error fails the suite before
+any test does. A single package:
 
 ```bash
 npm run typecheck --workspace packages/<name>
 ```
 
-## Publishing a TypeScript package
+## Publishing a package
 
-The kit is the pattern. Its `tsconfig.json` is for checking — it keeps the
-`.ts` extensions the source writes (`allowImportingTsExtensions`) and
-emits nothing — and `tsconfig.build.json` extends it for the tarball:
+The engine and the kit follow one pattern. `tsconfig.json` is for
+checking — it keeps the `.ts` extensions the source writes
+(`allowImportingTsExtensions`) and emits nothing — and
+`tsconfig.build.json` extends it for the tarball:
 
 ```json
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noEmit": false, "outDir": "dist", "rootDir": "src",
+    "noEmit": false, "composite": true, "outDir": "dist", "rootDir": "src",
     "declaration": true, "declarationMap": true, "sourceMap": true,
     "allowImportingTsExtensions": false, "rewriteRelativeImportExtensions": true
   },
@@ -70,82 +90,114 @@ emits nothing — and `tsconfig.build.json` extends it for the tarball:
 ```
 
 `rewriteRelativeImportExtensions` turns the source's `./sky.ts` into
-`./sky.js` on the way out, so the emitted files load in plain Node with no
-loader. The package's `exports` point each entry at its `dist` file and
-its declaration, `files` ships `dist` and `src` (the source maps point
-back at the source), and `prepare` builds on install so a fresh checkout
-of the monorepo has a `dist` for anything that loads the package outside a
-bundler — a headless run, the server. Inside the repo the examples, the
-docs demos and the editor host alias the package to its source instead, so
-a change needs no build step and no stale `dist` can be served.
+`./sky.js` on the way out — in the JavaScript modules that import a
+converted one as well — so the emitted files load in plain Node with no
+loader. `prepare` builds on install, so a fresh checkout has a `dist`.
 
-A test asserts what ships: every entry loads in plain Node, and a
-declaration exists beside it (`packages/kit/test/entries.test.js`).
+The public API is the entries in `exports`, each a name rather than a
+path, and nothing else:
+
+```json
+"./physics": {
+  "m2d-source": "./src/physics.ts",
+  "types": "./dist/physics.d.ts",
+  "default": "./dist/physics.js"
+}
+```
+
+Each entry is an `index`-style module of explicit named exports
+(`packages/engine/src/physics.ts`). A module no entry exports is internal
+and free to change. A test asserts what ships: every entry loads in plain
+Node from `dist` and has a declaration beside it
+(`packages/engine/test/entries.test.ts`, `packages/kit/test/entries.test.js`).
+
+## Inside the repo: the source
+
+Every entry also names its source under the `m2d-source` condition, and
+everything in the repo asks for it, so a change needs no build step and no
+stale `dist` is ever served:
+
+| Who | How it asks |
+| --- | --- |
+| TypeScript | `customConditions` in `tsconfig.base.json` |
+| Vite, Vitest, VitePress, the editor's Vite | `scripts/workspaceResolve.ts`, spread into each config |
+| The editor host's server and builds | `engineAlias()`, read from the packages' exports maps |
+| Plain Node under `npm run` (the server's match workers, the example scripts) | `node-options=--conditions=m2d-source` in the root `.npmrc` |
+
+A script run as `node <file>` outside npm passes `--conditions=m2d-source`
+itself, or it gets `dist`.
+
+Vitest's `setupFiles` takes a path, not a package entry, so a package that
+wants the engine's physics setup points it at a one-line local file that
+imports `m2d-engine/testing/setup` (`packages/kit/test/setup.ts`).
 
 ## Importing the engine from a TypeScript package
 
-The engine is unchecked JavaScript, so parts of its surface collapse to
-`any`. There are two ways to live with that, and which fits depends on
-how much precision the consumer needs.
+A consumer checks against the engine's **declarations**, never its source:
+compiling the engine's `.ts` under the consumer's config would hold it to
+the consumer's `lib` (the kit has no DOM; the engine needs it) and report
+the engine's errors as the consumer's. Each TypeScript package references
+the engine's build:
 
-The editor packages each declare the engine surface they use —
-`packages/editor-core/src/engine.d.ts`, `packages/editor/src/ambient.d.ts`
-— precisely. Those two files are a debt, not a pattern to copy: they are a
-second description of the engine that nothing checks against the first,
-and deleting them is part of the Types item in the [roadmap](./roadmap).
+```json
+"references": [{ "path": "../engine/tsconfig.build.json" }]
+```
 
-The kit instead takes what the engine's own source says, and nothing more:
-its classes extend the engine's, so inference carries the members, and
-where the engine says nothing (an actor's `body` and `sprite`), the kit
-derives the type from the engine's own constructor rather than writing a
-second description of it that could drift:
+and checks with `tsc -b`, which builds the engine's declarations when they
+are stale and substitutes them for its source. A `tsconfig.build.json`
+that extends a referencing config restates the reference: `references` is
+never inherited through `extends`.
+
+While part of the engine is JavaScript, its declarations come from its
+JSDoc, and an untyped parameter declares as `any`. That is the engine's
+debt, paid as each module converts. When a consumer proves a JSDoc type
+wrong, fix the JSDoc, true to the code rather than to the intention — the
+kit's conversion found four such gaps, and phase 0 of this one found more
+(`SceneLoader` taking `null`, `static params` taking `null`, the `M2D`
+registries typed as possibly undefined). No package describes the engine
+to itself: where the engine says too little, derive the type from what it
+does say rather than writing a second description that drifts:
 
 ```ts
 export type ActorBody = ConstructorParameters<typeof Entity>[0];
 ```
 
-The rule of thumb: declare the surface when being wrong is expensive and
-the surface is small; derive it when the engine is the only authority and
-the day it says more should tighten you automatically.
-
-One rule that is easy to get wrong: a package consumed **from source** by
-another package is compiled under *that* package's `tsconfig`, so
-ambient declarations listed only in its own `include` are invisible.
-Pull them in with a triple-slash reference from the files that need
-them, which travels with the source wherever it is compiled:
-
-```ts
-/// <reference path="./engine.d.ts" />
-import { SceneLoader } from 'm2d-engine/core/sceneLoader.js';
-```
-
 ## Running TypeScript without a build
 
-Node 24 runs `.ts` directly by stripping types, which is why the
-generator scripts in `examples/scripts/` can `import { writeScene } from
-'m2d-editor-core'` with no build step. Two conditions come with it:
-source that runs this way keeps to **erasable syntax** — no enums,
-namespaces, parameter properties or decorators — and relative imports
-carry a `.ts` extension (`allowImportingTsExtensions`), because stripping
-runs the file the import names and never rewrites it. A package that
-starts publishing compiles with `rewriteRelativeImportExtensions`.
+Node 24 runs `.ts` directly by stripping types, which is why the scripts
+in `scripts/` and `examples/scripts/` run with no build step. Relative
+imports carry a `.ts` extension (`allowImportingTsExtensions`), because
+stripping runs the file the import names and never rewrites it. Node
+refuses to strip a file under `node_modules`, which is one more reason a
+published package ships `dist`; inside the repo the workspace links
+resolve to `packages/`, so it never applies.
 
-## The engine
+## The engine's conversion
 
-`packages/engine/tsconfig.json` has `checkJs: false`, and the engine's
-typecheck only proves the config chain resolves.
+A module converts by becoming `.ts` under the strict config, with its
+JSDoc types turned into TypeScript and its prose kept. The JavaScript
+modules that import it change their import to `.ts`. Two rules make the
+conversion behave exactly as the JavaScript did:
 
-Turning it on is one flag and about 5,900 errors (measured, Nov 2026),
-most of them in the renderers and in `m2d.js` — so checking the engine is
-a project of its own, not the tail of another one. It stays the Types item
-in the [roadmap](./roadmap). What makes it tractable is that the flag is
-per file as well: `// @ts-check` at the top of a module checks that module
-alone, so the engine can be taken file by file, starting with what other
-packages lean on hardest.
+- **A field a base constructor sets is `declare`d in the subclass.** With
+  `target: ES2025`, `hp: number;` in a subclass defines the field as
+  `undefined` after `super()` returns, wiping what the base set. Write
+  `declare hp: number;`.
+- **A narrowing helper must keep the old behaviour for every value**, not
+  only the expected ones; where a JavaScript property read coerced its key,
+  the TypeScript does too (`variants[String(tag)]`).
+- **An in-range index asserts rather than branches.** `noUncheckedIndexedAccess`
+  types every element read as possibly undefined, including a typed array's
+  and a tuple's under a variable index. In the numeric kernels — a flat
+  `[x, y, x, y]` coordinate array, a sixteen-float matrix, a packed particle
+  buffer — the loop bounds already prove the index, so the read says so
+  (`positions[2 * i]!`) instead of inventing a fallback that would change
+  what a malformed input does. Where a shape is fixed and small, a tuple
+  type (`Mat2D`, `Rgba`) removes the question instead; prefer that.
+- **A resource that exists exactly while the renderer is ready** (`gl`, the
+  batch, the passes) is read through `!` after the `#ready` check that
+  guards every entry point, rather than re-checking each one.
 
-Until then, a JSDoc type in the engine is documentation that nothing
-verifies. Fix one when a consumer proves it wrong — the kit's conversion
-turned up four such gaps, from a `PhysicsBody` type the JSDoc named but
-never declared to draw options documented in prose and missing from every
-method's own list — and keep them true to the code rather than to the
-intention.
+The vendored Basis transcoder stays JavaScript, shipped as is, with a
+declaration of the calls the engine makes
+(`src/core/renderers/webgpu/basis/basis_transcoder.d.ts`).

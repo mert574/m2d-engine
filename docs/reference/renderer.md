@@ -1,6 +1,6 @@
 # Renderer API
 
-All drawing goes through a renderer backend. `game.renderer` draws in world space with the camera applied (the render plane; a scene's projection is applied by callers to positions, not by the renderer). `game.uiRenderer` draws in screen space. It forwards the draw primitives, the transform and clip stack, `measureText`, `hitTest`, `setCursor` and `clear` with `isScreenSpace` set. Lights, post effects, statistics and the debug flag are on `game.renderer` only. The contract is defined by `BaseRenderer` in `packages/engine/src/core/renderers/baseRenderer.js`.
+All drawing goes through a renderer backend. `game.renderer` draws in world space with the camera applied (the render plane; a scene's projection is applied by callers to positions, not by the renderer). `game.uiRenderer` draws in screen space. It forwards the draw primitives, the transform and clip stack, `measureText`, `hitTest`, `setCursor` and `clear` with `isScreenSpace` set. Lights, post effects, statistics and the debug flag are on `game.renderer` only. The contract is defined by `BaseRenderer` in `packages/engine/src/core/renderers/baseRenderer.ts`.
 
 ## Choosing a backend
 
@@ -15,7 +15,7 @@ A browser without WebGL2 (or WebGPU, for a 3D game) gets no game: the constructo
 A renderer draws in two dimensions or three, and must match the game's `dimensions`: the 2D backend has no mesh and the 3D one has no sprite. A mismatch throws at construction with the option that fixes it.
 
 ```javascript
-import { registerRenderer } from 'm2d-engine/core/renderers/index.js';
+import { registerRenderer } from 'm2d-engine/renderers';
 registerRenderer('mine', MyRenderer);    // then renderer: 'mine'
 ```
 
@@ -62,7 +62,7 @@ Draws one frame of a sprite sheet, centred on `x`, `y`.
 
 ### drawAnimation
 
-`{ sprite, x, y, animation, frame, transform }` draws a named animation frame from a `SpriteSheet`. `transform` holds extra `drawSprite` options.
+`{ sprite, x, y, animation, frame, transform }` draws a named animation frame from a `SpriteSheet`. `transform` holds extra `drawSprite` options. `frame` resolves as `SpriteSheet.draw` resolves it: a single-frame animation adds the index to its column, and a multi-frame one picks that frame, clamped to the list.
 
 ### drawImage
 
@@ -124,7 +124,7 @@ The WebGL backend approximates a curve with line segments and picks how many fro
 | `textAlign` | `'left'` | `left`, `center` or `right` |
 | `textBaseline` | `'top'` | `top`, `middle`, `alphabetic` or `bottom` |
 
-`measureText(text, { fontSize, fontFamily, fontWeight, fontStyle, letterSpacing })` returns `{ width, height }`. Metrics must reflect the style that would be rendered; measuring and drawing build the font shorthand through the same `geometry/font.js` helper so they cannot drift apart.
+`measureText(text, { fontSize, fontFamily, fontWeight, fontStyle, letterSpacing })` returns `{ width, height }`. Metrics must reflect the style that would be rendered; measuring and drawing build the font shorthand through the same `geometry/font.ts` helper so they cannot drift apart.
 
 ### drawParticles
 
@@ -137,7 +137,7 @@ Draws many copies of one frame from a packed buffer.
 | `count` | Particles to draw. Defaults to the whole buffer |
 | `blend`, `globalAlpha` | Applied to every particle |
 
-`size` is the drawn height. Colour components are 0 to 1, straight alpha, white for untinted. Import `PARTICLE_STRIDE` from `m2d-engine/core/renderers/baseRenderer.js`.
+`size` is the drawn height. Colour components are 0 to 1, straight alpha, white for untinted. Import `PARTICLE_STRIDE` from `m2d-engine/renderers`.
 
 ## Lights and post effects
 
@@ -215,8 +215,8 @@ A game with `dimensions: 3` draws through the WebGPU renderer, which is a differ
 WebGPU hands out its device asynchronously, so a 3D game acquires it before constructing the engine, the way it compiles physics:
 
 ```javascript
-import { initWebGPU } from 'm2d-engine/core/renderers/index.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
+import { initWebGPU } from 'm2d-engine/renderers';
+import { initPhysics } from 'm2d-engine/physics';
 
 await Promise.all([initWebGPU(), initPhysics({ dimensions: 3 })]);
 const game = new M2D(canvas, { dimensions: 3 });
@@ -253,7 +253,7 @@ game.sceneManager.addScene('yard', {
 | `setCamera(camera)` | Take the matrices, eye, frustum and shadow centre from a `Camera3D`. The engine does this before the scene's hook |
 | `add(geometry, instance)` | Draw a geometry once. `instance` is a `model` matrix or a `position`, unit-quaternion `rotation` and `scale`; a glTF `material` with textures, or none for a plain surface; and multipliers over it: linear `color`, `metallic`, `roughness`, `emissive`, `checker`. `castShadow: false` keeps it out of the shadow map |
 
-Geometry for the primitive shapes comes from `m2d-engine/core/renderers/geometry/primitives.js`: `box()`, `sphere()`, `cylinder()` and `plane()` are unit-sized and scaled per instance, `capsule(radius, height)` is built to its proportions, and `geometryFor(shape, size)` returns the right one for a body. Models come from `m2d-engine/core/gltf.js`: `loadGLB(url)` and `parseGLB(buffer)` read a `.glb` into parts, each a geometry, a material and a node matrix. Geometry, images and materials are uploaded to the GPU once each and drawn instanced, grouped by geometry and material: a frame of a hundred crates is one draw call.
+Geometry for the primitive shapes comes from `m2d-engine/renderers`: `box()`, `sphere()`, `cylinder()` and `plane()` are unit-sized and scaled per instance, `capsule(radius, height)` is built to its proportions, and `geometryFor(shape, size)` returns the right one for a body. Models come from `m2d-engine/core/gltf.js`: `loadGLB(url)` and `parseGLB(buffer)` read a `.glb` into parts, each a geometry, a material and a node matrix. Geometry, images and materials are uploaded to the GPU once each and drawn instanced, grouped by geometry and material: a frame of a hundred crates is one draw call.
 
 `add` culls nothing: every instance it is given goes into the frame, and the GPU decides what is drawn. See **Culling and scale** below.
 
@@ -315,7 +315,7 @@ The display settings apply as they do in 2D: the world renders at the `r_resolut
 
 ### Animation
 
-A model with a skin or a clip animates. The scene gives its entity an `Animator3D` (`m2d-engine/core/animator3d.js`) on first draw, playing the prefab's `mesh.animation` clip or the model's first; the animator advances on the frame's delta, never on the simulation tick, and nothing in the simulation reads a pose.
+A model with a skin or a clip animates. The scene gives its entity an `Animator3D` (`m2d-engine`) on first draw, playing the prefab's `mesh.animation` clip or the model's first; the animator advances on the frame's delta, never on the simulation tick, and nothing in the simulation reads a pose.
 
 | Member | Meaning |
 | --- | --- |
@@ -338,7 +338,7 @@ Subclass `BaseRenderer`, implement every method that throws `Method not implemen
 
 ## Ground shadows
 
-`drawGroundShadow(renderer, x, y, width, { spread, fade, ratio, color })` in `core/renderers/shadows.js` draws the soft ellipse a thing stands in, and `shadowForLift(lift, maxLift)` gives the `spread` and `fade` for a sprite at a given `elevation`. The demos' top-down, isometric and belt views all use it.
+`drawGroundShadow(renderer, x, y, width, { spread, fade, ratio, color })` in `core/renderers/shadows.ts` draws the soft ellipse a thing stands in, and `shadowForLift(lift, maxLift)` gives the `spread` and `fade` for a sprite at a given `elevation`. The demos' top-down, isometric and belt views all use it.
 
 ## Texture filtering
 

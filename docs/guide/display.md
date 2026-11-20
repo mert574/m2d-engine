@@ -121,7 +121,7 @@ In a 3D game the overlay draws only text: a `drawText` with a `z` is placed thro
 A mounted menu consumes the hotkey on `keydown` whatever is on screen (it listens in the debug layer, ahead of every screen, so it opens from a main menu as well as mid-game) and Escape while it is open.
 
 ```javascript
-import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+import { SettingsMenu } from 'm2d-engine/ui';
 
 new SettingsMenu(game);
 new SettingsMenu(game, { hotkey: 'KeyP', resolutions: ['native', 0.5], pauseWhenOpen: true });
@@ -178,7 +178,7 @@ models/ph/tree.glb               textures low, models medium (the defaults)
 models/ph/high-high/tree.glb     every other combination
 ```
 
-`m2d-engine/core/quality.js` holds the naming as functions (`qualityVariants`, `variantUrl`), so a build script writes the files where the engine looks. The editor host's model compiler builds them with `compileVariants`, which caps each kind's own texture size and triangle budget at a level's numbers and shares the work between files: the source is read once, each budget's levels of detail are built once and each texture is encoded once.
+`m2d-engine/quality` holds the naming as functions (`qualityVariants`, `variantUrl`), so a build script writes the files where the engine looks. The editor host's model compiler builds them with `compileVariants`, which caps each kind's own texture size and triangle budget at a level's numbers and shares the work between files: the source is read once, each budget's levels of detail are built once and each texture is encoded once.
 
 The levels appear as the `r_textures` and `r_models` cvars and as Texture quality and Model quality rows under Rendering. A row shows the level's name, capitalised, and its footer gives what each level caps at. The choice persists. Changing it fetches every resident model marked `quality` again at the new levels and swaps each in as it lands. The old one draws until then, and stays when a fetch fails.
 

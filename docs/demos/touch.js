@@ -1,8 +1,7 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
-import { UIKeyButton } from 'm2d-engine/core/ui/keyButton.js';
+import { M2D, Entity } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { KeyboardControl } from 'm2d-engine/constraints';
+import { UIKeyButton } from 'm2d-engine/ui';
 
 class Ball extends Entity {
   name = 'Player';

@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { NetClient } from 'm2d-engine/net/client.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { M2D } from 'm2d-engine';
+import { NetClient } from 'm2d-engine/net';
 import { createServer, issueTicket } from '../src/index.js';
 import { INPUT, GAME_OPTIONS, registerArena } from './fixtures/arenaGame.js';
 

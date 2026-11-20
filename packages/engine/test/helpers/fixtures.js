@@ -1,4 +1,5 @@
-import { createCanvasElement } from './environment.js';
+import { createCanvasElement } from '../../src/testing/environment.js';
+import { SpriteSheet } from '../../src/core/spriteSheet.js';
 
 export const TILE = 16;
 
@@ -80,15 +81,15 @@ export function makeQuadrantImage(size = 32) {
 }
 
 /**
- * A SpriteSheet-shaped object for drawAnimation tests, matching the real
- * SpriteSheet's public surface (image, tileW, tileH, animations Map).
+ * A real SpriteSheet for drawAnimation tests. The engine's own class rather
+ * than a look-alike: a stand-in with its own idea of what an animation holds
+ * is what let `drawAnimation` read a field the class never had (Nov 2026).
+ * `game` is null because drawing through the renderer contract never asks
+ * for it; `SpriteSheet.draw` is what needs a game.
  */
 export function makeAnimatedSprite() {
-  const image = makeTileSheet();
-  const animations = new Map([
-    ['idle', { tileX: 0, tileY: 0 }],   // red, frame 1 -> green
-    ['walk', { tileX: 0, tileY: 1 }]    // blue, frame 1 -> yellow
-  ]);
-
-  return { image, tileW: TILE, tileH: TILE, animations };
+  const sheet = new SpriteSheet(makeTileSheet(), TILE, TILE, null);
+  sheet.define('idle', 0, 0);   // red, frame 1 -> green
+  sheet.define('walk', 0, 1);   // blue, frame 1 -> yellow
+  return sheet;
 }

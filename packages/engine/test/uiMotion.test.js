@@ -4,7 +4,7 @@ import { UIScreen } from '../src/core/ui/screen.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
 import { UIBackdrop } from '../src/core/ui/backdrop.js';
 import { Container } from '../src/core/ui/container.js';
-import { makeTestGame } from './helpers/testGame.js';
+import { makeTestGame } from '../src/testing/testGame.js';
 
 /**
  * Tweens, screen transitions and the backdrop layers.

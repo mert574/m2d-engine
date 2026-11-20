@@ -1,10 +1,7 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { ContactDamage } from 'm2d-engine/constraints/contactDamage.js';
+import { Entity, Vec2, type M2D } from 'm2d-engine';
+import { Health, ContactDamage } from 'm2d-engine/constraints';
 import { Rocket } from './rocket.ts';
-import { Vec2 } from 'm2d-engine/core/math.js';
-import { s } from 'm2d-engine/core/schema.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { s } from 'm2d-engine/schema';
 import type { ActorBody, ActorSprite, Vec2 as Point } from '../engineTypes.ts';
 
 export interface TurretOptions {

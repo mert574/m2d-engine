@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
-import { initPhysics } from '../src/core/physics/index.js';
+import { initPhysics } from '../src/core/physics/index.ts';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { Path } from '../src/core/path.js';
 import { MovingPlatform } from './helpers/cast.js';

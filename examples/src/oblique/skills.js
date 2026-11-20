@@ -1,4 +1,4 @@
-import { Abilities } from 'm2d-engine/constraints/abilities.js';
+import { Abilities } from 'm2d-engine/constraints';
 
 /**
  * The walker's three abilities, on the number keys, built on the engine's

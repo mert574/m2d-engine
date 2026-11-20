@@ -1,6 +1,6 @@
 # Built-in constraints
 
-Constraints from `m2d-engine/constraints/`. Attach one with `entity.addConstraint(name, new Constraint(entity, options))`.
+Constraints from `m2d-engine/constraints`. Attach one with `entity.addConstraint(name, new Constraint(entity, options))`.
 
 `KeyboardControl` and `Interactive` bind their handlers to the entity, so `this` is the entity inside them. Other constraints call handlers as methods of the constraint, so `this` is the constraint. Use arrow functions there.
 

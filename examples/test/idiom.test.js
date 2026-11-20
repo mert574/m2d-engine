@@ -158,7 +158,7 @@ function hintFor(names) {
   return names.map((name) => {
     const rule = FORBIDDEN.find((each) => `hooks: ${each.name}` === name);
     if (rule) return `Use ${rule.instead} instead of a hook.`;
-    if (name === 'boot') return 'main.js should be bootProject (m2d-engine/core/project.js).';
+    if (name === 'boot') return 'main.js should be bootProject (from m2d-engine).';
     if (name === 'layout-json') return 'Layout belongs in the scene file.';
     if (name === 'project-file') return 'Every example is an editor project with an m2d.project.json.';
     if (name === 'hooks: budget') return `A hooks module stays under ${HOOK_BUDGET} lines of code.`;

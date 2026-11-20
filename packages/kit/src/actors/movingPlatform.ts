@@ -1,7 +1,6 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { PathFollow } from 'm2d-engine/constraints/pathFollow.js';
-import { s } from 'm2d-engine/core/schema.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { Entity, type M2D } from 'm2d-engine';
+import { PathFollow } from 'm2d-engine/constraints';
+import { s } from 'm2d-engine/schema';
 import type { ActorBody, ActorSprite } from '../engineTypes.ts';
 
 export interface MovingPlatformOptions {

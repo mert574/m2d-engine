@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
-import { RecordingRenderer } from 'm2d-engine/test/helpers/recordingRenderer.js';
-import { displayCanvas, installWindowStub, stubDocumentListeners } from 'm2d-engine/test/helpers/environment.js';
+import { M2D } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { SCENE_VERSION } from 'm2d-engine/schema';
+import {
+  RecordingRenderer,
+  displayCanvas,
+  installWindowStub,
+  stubDocumentListeners
+} from 'm2d-engine/testing';
 import { registerKitScenery, stripGeometry } from '../src/scenery.ts';
 
 /** A strip laid along one of the scene's paths, drawn in 2D and built as a mesh in 3D. */

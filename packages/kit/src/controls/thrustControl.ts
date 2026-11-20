@@ -1,6 +1,5 @@
-import { Constraint, KEY_BINDINGS } from 'm2d-engine/core/constraint.js';
-import { s } from 'm2d-engine/core/schema.js';
-import type { Entity } from 'm2d-engine/core/entity.js';
+import { Constraint, KEY_BINDINGS, type Entity } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
 
 /** The actions a ship binds a key to. */
 type Action = 'thrust' | 'reverse' | 'left' | 'right' | 'fire' | 'boost';

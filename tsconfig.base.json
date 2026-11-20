@@ -26,6 +26,7 @@
     "moduleResolution": "nodenext",
     "moduleDetection": "force",
     "resolveJsonModule": true,
+    "customConditions": ["m2d-source"],
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
 

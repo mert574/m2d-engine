@@ -1,8 +1,7 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { s } from 'm2d-engine/core/schema.js';
-import { PathFollow } from 'm2d-engine/constraints/pathFollow.js';
+import { M2D, Entity } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { s } from 'm2d-engine/schema';
+import { PathFollow } from 'm2d-engine/constraints';
 
 /** Patrols the world on a kinematic body. */
 class Mover extends Entity {

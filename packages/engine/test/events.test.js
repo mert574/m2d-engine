@@ -3,7 +3,7 @@ import { WorldEvents } from '../src/core/events.js';
 import { Entity } from '../src/core/entity.js';
 import { Health } from '../src/constraints/health.js';
 import { DamageFlash } from '../src/constraints/damageFlash.js';
-import { makeTestGame, makeBody } from './helpers/testGame.js';
+import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 
 /**
  * World events: what the simulation says happened, and the presentation

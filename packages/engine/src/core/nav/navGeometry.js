@@ -11,7 +11,7 @@
  * (x, y) laid onto nav (x, z).
  */
 
-import { Quat } from '../math.js';
+import { Quat } from '../math.ts';
 
 /** How tall a 2D collider stands in nav space, relative to the agent. */
 const WALL_RISE = 4;

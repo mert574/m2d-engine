@@ -5,7 +5,7 @@
  * resolution leaves them untouched; only an aspect-ratio change in `'expand'`
  * mode moves them. See `viewport.js`.
  */
-import * as mat from './renderers/geometry/matrix.js';
+import * as mat from './renderers/geometry/matrix.ts';
 
 export class Camera {
   constructor(width, height, options = {}) {

@@ -49,7 +49,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { compileVariants } from 'm2d-editor-host/pipeline/compile.mjs';
-import { qualityVariants, variantUrl } from 'm2d-engine/core/quality.js';
+import { qualityVariants, variantUrl } from 'm2d-engine/quality';
 import { SOURCE_DIR, ASSETS, PIECES } from './fetchPolyHaven.mjs';
 
 /** Where the compiled lot models go; ignored by git, rebuilt by `buildModels.mjs`. */

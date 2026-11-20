@@ -103,7 +103,7 @@
 | `game.theme` | The [`Theme`](./ui#theme-tokens) every UI element resolves against |
 | `game.paused` | Freezes simulation while `true`. See [Pausing](../guide/time#pausing) |
 | `game.isGameOver` | Set by `gameOver()` |
-| `game.viewport` | The computed sizes. See the `Viewport` typedef in `core/viewport.js` |
+| `game.viewport` | The computed sizes. See the `Viewport` typedef in `core/viewport.ts` |
 | `game.worldFilter` | The current upscaling filter |
 | `game.layers` | Background tile layers |
 | `game.actors` | `Map` of registered actor names to classes |

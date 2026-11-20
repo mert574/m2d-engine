@@ -47,7 +47,7 @@ An animation with several `frames` and an `fps` plays itself: `Entity.update` ad
 "die": { "frames": [[20, 0], [21, 0], [22, 0]], "fps": 8, "loop": false }
 ```
 
-A sheet with eight facings names them `run_down`, `run_down_right` and so on (the names are `DIRECTIONS_8` in `core/math.js`), and `setDirectionalAnimation('run', angle)` picks the one for an angle, falling back to the nearest cardinal and then to plain `run`. The `ObliquePlayer` and `Npc` actors do this every frame.
+A sheet with eight facings names them `run_down`, `run_down_right` and so on (the names are `DIRECTIONS_8` in `core/math.ts`), and `setDirectionalAnimation('run', angle)` picks the one for an angle, falling back to the nearest cardinal and then to plain `run`. The `ObliquePlayer` and `Npc` actors do this every frame.
 
 A character's frame is usually its drawn size rather than a tile to repeat, so those actors set `spriteFit`, which stretches one frame to the entity's size instead of tiling it.
 

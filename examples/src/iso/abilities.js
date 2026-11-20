@@ -1,4 +1,4 @@
-import { Abilities } from 'm2d-engine/constraints/abilities.js';
+import { Abilities } from 'm2d-engine/constraints';
 
 /**
  * The knight's three abilities, on the engine's `Abilities` constraint.

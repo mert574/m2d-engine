@@ -1,16 +1,13 @@
 import { Coin, Ghost, ObliquePlayer, Platform } from 'm2d-kit/actors';
-import { Trigger } from 'm2d-engine/actors/trigger.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { s } from 'm2d-engine/core/schema.js';
-import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
-import { PointerMove } from 'm2d-engine/constraints/pointerMove.js';
-import { Angle } from 'm2d-engine/core/math.js';
+import { Trigger } from 'm2d-engine/actors';
+import { Entity, Angle } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
+import { Footsteps, PointerMove, ProximityPrompt } from 'm2d-engine/constraints';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 import { makeRng, range } from 'm2d-kit/random';
 import { Behavior } from 'm2d-kit/ai';
-import { drawGroundShadow } from 'm2d-engine/core/renderers/shadows.js';
+import { drawGroundShadow } from 'm2d-engine/renderers';
 import { knightAbilities, tickAbilities, tickFlashes, drawUnder, drawOver } from './abilities.js';
-import { ProximityPrompt } from 'm2d-engine/constraints/proximityPrompt.js';
 import { creditEmber, newStock } from './keepIntents.js';
 
 /**

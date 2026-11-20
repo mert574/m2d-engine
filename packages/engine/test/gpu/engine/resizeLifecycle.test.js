@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { createCanvasElement, installWindowStub, displayCanvas, setDisplaySize, stubDocumentListeners } from '../../helpers/environment.js';
+import { createCanvasElement, installWindowStub, displayCanvas, setDisplaySize, stubDocumentListeners } from '../../../src/testing/environment.js';
 import { M2D } from '../../../src/core/m2d.js';
 import { UIElement } from '../../../src/core/ui/uiElement.js';
-import { pointerAtClient } from '../../helpers/input.js';
+import { pointerAtClient } from '../../../src/testing/input.js';
 
 /**
  * Fullscreen and resize lifecycle.

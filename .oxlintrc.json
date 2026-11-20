@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // The TypeScript conversion's two rules (knowledge-base/projects/types):
+  // no explicit `any`, and no comment that silences the compiler. Nothing
+  // else is linted yet; adding a category is its own decision.
+  //
+  // `no-explicit-any` is a warning while the migration runs: the count is
+  // held by `scripts/typesRatchet.mjs` against `types-baseline.json`, which
+  // may only go down, and the rule becomes an error when it reaches zero.
+  "categories": { "correctness": "off" },
+  "plugins": ["typescript"],
+  "rules": {
+    "typescript/no-explicit-any": "warn",
+    "typescript/ban-ts-comment": ["error", {
+      "ts-expect-error": true,
+      "ts-ignore": true,
+      "ts-nocheck": true,
+      "ts-check": false
+    }]
+  },
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "site/**", "packages/engine/src/core/renderers/webgpu/basis/**"]
+}

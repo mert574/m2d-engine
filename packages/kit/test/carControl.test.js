@@ -1,8 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { makeTestGame, makeBody } from 'm2d-engine/test/helpers/testGame.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { holdKeys, releaseKeys } from 'm2d-engine/test/helpers/input.js';
+import { makeTestGame, makeBody, holdKeys, releaseKeys } from 'm2d-engine/testing';
+import { Entity } from 'm2d-engine';
 import { CarControl } from '../src/controls/carControl.ts';
 
 /**

@@ -11,7 +11,7 @@ Crates built from the Health, DamageFlash and Interactive constraints plus a cus
 An actor extends `Entity`. The scene constructs it with four arguments.
 
 ```javascript
-import { Entity } from 'm2d-engine/core/entity.js';
+import { Entity } from 'm2d-engine';
 
 export class Crate extends Entity {
   name = 'Crate';
@@ -33,7 +33,7 @@ export class Crate extends Entity {
 Declare what `options` may hold in `static properties`, the way a constraint declares `static params`, and a misspelled property in a scene fails on load instead of doing nothing — and an editor can draw the fields. See [Declaring properties](../reference/actors#declaring-properties).
 
 ```javascript
-import { s } from 'm2d-engine/core/schema.js';
+import { s } from 'm2d-engine/schema';
 
 export class Crate extends Entity {
   static properties = { contents: s.string({ initial: 'nothing' }) };
@@ -178,7 +178,7 @@ Once `dead` is set, by `Health` or by `destroy()`, the base `update` and `draw` 
 `Projectile` extends `Entity` with constant-velocity movement, a lifetime and hit handling. It sets the body's collision category to `projectile`, enables continuous collision detection and removes friction.
 
 ```javascript
-import { Projectile } from 'm2d-engine/core/projectile.js';
+import { Projectile } from 'm2d-engine';
 
 export class Arrow extends Projectile {
   name = 'Arrow';
@@ -211,8 +211,7 @@ Override `onHitTarget(entity)` to change what a hit does and `onHitWall(wall)` t
 A constraint is a behaviour attached to an entity. The engine ships constraints for health, melee attacks, contact damage, movement (keyboard, grid gliding, thrust and car handling), pointer interaction and click-to-move, chasing, path following, hovering, wall slipping, footsteps, abilities, proximity prompts, damage flashes and debug drawing. The [built-in constraints reference](../reference/constraints) lists their options.
 
 ```javascript
-import { Health } from 'm2d-engine/constraints/health.js';
-import { Chase } from 'm2d-engine/constraints/chase.js';
+import { Health, Chase } from 'm2d-engine/constraints';
 
 this.addConstraint('health', new Health(this, { maxHealth: 60, onDeath: () => this.remove() }));
 this.addConstraint('chase', new Chase(this, { speed: 80, detectionRange: 300 }));
@@ -262,7 +261,7 @@ An entry whose slot is already filled **retunes** what is there rather than repl
 Extend `Constraint` and override the methods you need. The entity calls them in the same situations as its own.
 
 ```javascript
-import { Constraint } from 'm2d-engine/core/constraint.js';
+import { Constraint } from 'm2d-engine';
 
 export class Blink extends Constraint {
   constructor(entity, options = {}) {

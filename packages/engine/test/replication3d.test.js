@@ -2,12 +2,12 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { fakeSocket } from './helpers/net.js';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
-import { initPhysics } from '../src/core/physics/index.js';
+import { initPhysics } from '../src/core/physics/index.ts';
 import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.js';
 import { Replicator, applyState } from '../src/net/replication.js';
 import { NetClient } from '../src/net/client.js';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { Quat } from '../src/core/math.js';
+import { Quat } from '../src/core/math.ts';
 
 /**
  * Replication of a three-dimensional game: a headless 3D server and a

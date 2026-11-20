@@ -25,12 +25,13 @@ import type { Shot, ShotOptions } from './shots.ts';
 import { stage, look, project as projectFile } from 'm2d-editor-core';
 import { settle } from './playtest.ts';
 import { runAudit, findUses } from './search.ts';
+import type { M2D } from 'm2d-engine';
 
 export const SERVER_NAME = 'm2d-editor';
 export const SERVER_VERSION = '0.2.0';
 
 /** A game-like object with the project's real classes, for checks that need them. */
-export type GameProvider = () => Promise<unknown | null>;
+export type GameProvider = () => Promise<M2D | null>;
 
 export interface ServerOptions {
   /**

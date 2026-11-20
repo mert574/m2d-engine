@@ -60,7 +60,7 @@ const HALO_RADIUS = 100;
 export class Lighthouse {
   /**
    * @param {Object} options - Lighthouse options
-   * @param {import('m2d-engine/core/renderers/baseRenderer.js').BaseRenderer} options.renderer - Backend
+   * @param {import('m2d-engine/renderers').BaseRenderer} options.renderer - Backend
    * @param {Object} options.sheet - Lighthouse SpriteSheet
    * @param {number} options.x - World X of the tower's centre
    * @param {number} options.baseY - World Y the tower stands on

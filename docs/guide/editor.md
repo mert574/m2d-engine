@@ -55,7 +55,7 @@ A project is a folder with an `m2d.project.json`.
 The definition holds the cast: actors, constraints, intents and the asset manifest. It never draws, so a headless game, a server and the editor's checks can load it. The hooks module holds what shows the game: the camera, lights, HUD and music. The game's page (`main.js`) boots the project with `bootProject`, and the editor's play mode builds the same game. Without a definition the editor draws placeholder actors. Without a hooks module, play runs the bare scene.
 
 ```js
-import { bootProject } from 'm2d-engine/core/project.js';
+import { bootProject } from 'm2d-engine';
 import project from './m2d.project.json';
 import * as definition from './game.js';
 

@@ -1,10 +1,10 @@
 import { Coin, Ghost, Platform, Rocket, TopDownPlayer, Turret } from 'm2d-kit/actors';
-import { Trigger } from 'm2d-engine/actors/trigger.js';
+import { Trigger } from 'm2d-engine/actors';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 import { Sonar } from './sonar.js';
 import { makeRng, range } from 'm2d-kit/random';
 import { tileTexture } from 'm2d-kit/textures';
-import { s } from 'm2d-engine/core/schema.js';
+import { s } from 'm2d-engine/schema';
 
 /**
  * The facility's cast, drawn instead of tiled.

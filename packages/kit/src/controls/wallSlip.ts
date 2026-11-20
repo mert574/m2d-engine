@@ -1,5 +1,4 @@
-import { Constraint } from 'm2d-engine/core/constraint.js';
-import type { Entity } from 'm2d-engine/core/entity.js';
+import { Constraint, type Entity } from 'm2d-engine';
 
 /**
  * Zeroes the body's surface friction while airborne, restoring it on the

@@ -1,4 +1,4 @@
-import { Chase } from 'm2d-engine/constraints/chase.js';
+import { Chase } from 'm2d-engine/constraints';
 import { registerEffects } from 'm2d-kit/effects';
 import { registerKitScenery } from 'm2d-kit/scenery';
 import {

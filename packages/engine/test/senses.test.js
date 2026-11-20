@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { makeTestGame, makeBody } from './helpers/testGame.js';
+import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { canSee, lineOfSight } from '../src/core/senses.js';
 import { CollisionLayers } from '../src/core/collisionLayers.js';
-import { initPhysics, createPhysicsWorld } from '../src/core/physics/index.js';
+import { initPhysics, createPhysicsWorld } from '../src/core/physics/index.ts';
 import { Time } from '../src/core/time.js';
 
 /**

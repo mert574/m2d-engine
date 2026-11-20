@@ -10,8 +10,8 @@ import { Scene } from '../../../src/core/scene.js';
 import { SceneLoader, SCENE_VERSION } from '../../../src/core/sceneLoader.js';
 import { Entity } from '../../../src/core/entity.js';
 import { parseGLB } from '../../../src/core/gltf.js';
-import { initPhysics } from '../../../src/core/physics/index.js';
-import { installWindowStub, displayCanvas, stubDocumentListeners } from '../../helpers/environment.js';
+import { initPhysics } from '../../../src/core/physics/index.ts';
+import { installWindowStub, displayCanvas, stubDocumentListeners } from '../../../src/testing/environment.js';
 
 /**
  * Texture and model quality: the levels a project builds its models at,

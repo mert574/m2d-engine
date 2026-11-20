@@ -546,11 +546,11 @@ A widget of the game's own, placed like any element: what a menu shows that the 
 
 ## Errors
 
-Validation throws `SceneValidationError` from `m2d-engine/core/sceneLoader.js`. The message has the form `Scene '<name>' at <path>: <problem>`, where the path names the exact field at fault. The error also carries `scene`, `path` and `detail` (the problem alone) properties.
+Validation throws `SceneValidationError` from `m2d-engine/schema`. The message has the form `Scene '<name>' at <path>: <problem>`, where the path names the exact field at fault. The error also carries `scene`, `path` and `detail` (the problem alone) properties.
 
 `new SceneLoader(game).check(data)` reports every problem instead of the first, as `{ loaded, issues }`: each object, field and list entry is checked on its own, so one bad object does not hide the next, and `loaded` is the normalized scene only when `issues` is empty. What has to hold before the schema applies (an object, the version, the type, `uses` resolving) still stops at its first problem. The editor's Problems panel and the MCP server's `validate_scene` use it.
 
-The format on this page is defined as data, in `m2d-engine/core/sceneSchema.js`, using the descriptor vocabulary in `m2d-engine/core/schema.js`. The loader validates against those descriptors, and tooling can read the same descriptors to discover the format rather than restate it.
+The format on this page is defined as data, in the engine's `src/core/sceneSchema.js`, using the descriptor vocabulary in `src/core/schema.ts` (both exported from `m2d-engine/schema`). The loader validates against those descriptors, and tooling can read the same descriptors to discover the format rather than restate it.
 
 The checks, in addition to key lists and types:
 
@@ -592,7 +592,7 @@ A scene declares the format version it was written for, and the loader accepts e
 Scene 'level1' at version: scene format 8 is newer than this engine understands (7); upgrade m2d-engine
 ```
 
-There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in `m2d-engine/core/sceneSchema.js` and rewriting the scenes, which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.
+There is no migration step. A format change that existing scenes would fail means bumping `SCENE_VERSION` in the engine's `src/core/sceneSchema.js` and rewriting the scenes, which is the right trade while scene files live beside the engine that reads them. An editor, which owns files the engine does not, will want upgrades on load; that belongs with the editor, built against what it actually needs.
 
 | Version | Change |
 | --- | --- |

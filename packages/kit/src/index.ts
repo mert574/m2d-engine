@@ -22,7 +22,7 @@ export type { SettingsRow } from './audio.ts';
 export type { PrefabTemplate, ScenePrefab } from './templates.ts';
 export type { ActorBody, ActorSprite } from './engineTypes.ts';
 
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import type { M2D } from 'm2d-engine';
 import { registerKitActors } from './actors.ts';
 import { registerKitControls } from './controls.ts';
 import { registerKitScenery } from './scenery.ts';

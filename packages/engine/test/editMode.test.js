@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { Constraint } from '../src/core/constraint.js';
-import { initPhysics } from '../src/core/physics/index.js';
+import { initPhysics } from '../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 
 /**

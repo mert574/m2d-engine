@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import { initPhysics, createPhysicsWorld } from '../src/core/physics/index.js';
-import { Quat } from '../src/core/math.js';
+import { initPhysics, createPhysicsWorld } from '../src/core/physics/index.ts';
+import { Quat } from '../src/core/math.ts';
 
 /**
  * The 3D physics backend, against the same contract the 2D one keeps.

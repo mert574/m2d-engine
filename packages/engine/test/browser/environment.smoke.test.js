@@ -4,7 +4,7 @@ import {
   readCanvas2DPixels,
   readWebGLPixels,
   hasDOM
-} from '../helpers/environment.js';
+} from '../../src/testing/environment.js';
 import { makeTileSheet, TILE, TILE_COLORS } from '../helpers/fixtures.js';
 import { snapshot, expectColorAt } from '../helpers/pixels.js';
 

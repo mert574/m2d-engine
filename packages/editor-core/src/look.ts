@@ -6,7 +6,7 @@
  * objects.)
  */
 
-import { cycleLook } from 'm2d-engine/core/look.js';
+import { cycleLook } from 'm2d-engine';
 import { isPlainObject, valueAt } from './descriptors.ts';
 import type { Op } from './edits.ts';
 

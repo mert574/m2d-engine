@@ -28,8 +28,8 @@ const project = (): SceneInput[] => [
 
 /** The engine's registries, enough for params and properties to resolve. */
 const game = async () => {
-  const { M2D } = await import('m2d-engine/core/m2d.js' as string) as { M2D: new (c: null, o: object) => unknown };
-  const { initPhysics } = await import('m2d-engine/core/physics/index.js' as string) as { initPhysics: () => Promise<void> };
+  const { M2D } = await import('m2d-engine');
+  const { initPhysics } = await import('m2d-engine/physics');
   await initPhysics();
   return new M2D(null, { headless: true, worldWidth: 100, worldHeight: 100, seed: 1 });
 };

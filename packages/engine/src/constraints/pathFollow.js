@@ -1,5 +1,5 @@
 import { Constraint } from '../core/constraint.js';
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 
 /**
  * How close to a path point counts as arrived: 1 px flat, 2 cm in a 3D
@@ -21,7 +21,7 @@ const ARRIVE_DISTANCE_3D = 0.02;
  *
  * The body is commanded by *velocity*, which the physics world integrates
  * once per step, so motion is identical however the frames fall; see the
- * kinematic notes in core/physics/index.js.
+ * kinematic notes in core/physics/index.ts.
  *
  * With `path` naming one of the scene's `paths`, the body travels along
  * that line by arc length instead: from the point on it nearest to where

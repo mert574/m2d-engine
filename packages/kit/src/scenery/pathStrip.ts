@@ -1,6 +1,5 @@
-import { s } from 'm2d-engine/core/schema.js';
-import { Quat } from 'm2d-engine/core/math.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { s } from 'm2d-engine/schema';
+import { Quat, type M2D, type Quaternion } from 'm2d-engine';
 import { Scenery } from './scenery.ts';
 import type { ActorBody, ActorSprite, Vec2 } from '../engineTypes.ts';
 
@@ -184,7 +183,7 @@ export function stripGeometry(
   width: number,
   height: number,
   origin: { x: number; y: number; z?: number },
-  rotation: unknown
+  rotation: Readonly<Quaternion> | null | undefined
 ): StripGeometry {
   const positions: number[] = [];
   const normals: number[] = [];

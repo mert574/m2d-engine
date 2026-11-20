@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
+import { initPhysics } from 'm2d-engine/physics';
 import { bootHeadless } from './helpers.js';
 import { RaceCar, CAR, IceStretch } from '../src/circuit/actors.js';
 import { trackFor } from '../src/circuit/track.js';

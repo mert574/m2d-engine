@@ -5,8 +5,8 @@ import { UIButton } from '../src/core/ui/button.js';
 import { UIPanel } from '../src/core/ui/panel.js';
 import { Stack } from '../src/core/ui/layout/stack.js';
 import { Grid } from '../src/core/ui/layout/grid.js';
-import { makeTestGame } from './helpers/testGame.js';
-import { click, pointerMove } from './helpers/input.js';
+import { makeTestGame } from '../src/testing/testGame.js';
+import { click, pointerMove } from '../src/testing/input.js';
 
 /**
  * Screens, the stack that holds them and the focus navigation inside them.

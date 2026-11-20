@@ -1,4 +1,4 @@
-import * as mat4 from './renderers/geometry/mat4.js';
+import * as mat4 from './renderers/geometry/mat4.ts';
 
 /** Where each channel kind lives in the per-node blend bookkeeping. */
 const CHANNEL_SLOT = { translation: 0, rotation: 1, scale: 2, weights: 3 };

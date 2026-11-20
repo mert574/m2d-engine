@@ -1,10 +1,10 @@
 /**
  * Deterministic randomness for presentation: backdrops, scenery actors and
  * menus that want their own fixed seed. The generator is the engine's
- * (mulberry32, `m2d-engine/core/rng.js`); simulation code draws from
+ * (mulberry32, `makeRng` in `m2d-engine`); simulation code draws from
  * `game.rng`, which the engine seeds and reseeds, and never from here.
  */
-export { makeRng } from 'm2d-engine/core/rng.js';
+export { makeRng } from 'm2d-engine';
 
 /** A generator `makeRng` made: a float in [0, 1) each call. */
 export type Rng = () => number;

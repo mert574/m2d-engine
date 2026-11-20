@@ -203,7 +203,7 @@ manifests.
 - Lives in `editor-core` (TS, per E0.1), not the engine: the engine
   never writes scenes. The engine's schema descriptors are its input;
   if descriptor introspection needs one more helper (e.g. declaration
-  order, default extraction), that lands in `core/schema.js` with tests.
+  order, default extraction), that lands in `core/schema.ts` with tests.
 
 **Done when:** every shipped scene and manifest round-trips under the
 tests above, the build scripts emit through the writer, and one

@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
-import { makeTestGame, makeBody } from './helpers/testGame.js';
+import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { Entity } from '../src/core/entity.js';
 import { PathFollow } from '../src/constraints/pathFollow.js';
 import { Hover } from '../src/constraints/hover.js';
 import { Health } from '../src/constraints/health.js';
 import { KeyboardControl } from '../src/constraints/keyboardControl.js';
-import { holdKeys } from './helpers/input.js';
+import { holdKeys } from '../src/testing/input.js';
 
 /**
  * The reusable entity behaviours (src/constraints/) that drive physics or

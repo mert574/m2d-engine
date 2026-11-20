@@ -1,5 +1,5 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { s } from 'm2d-engine/core/schema.js';
+import { Entity } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
 import { makeRng, range } from 'm2d-kit/random';
 import { seedRidges, ridgeProfile } from './dusk.js';
 

@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.js';
-import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js';
+import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.ts';
+import { createCanvasElement, readWebGLPixels } from '../../src/testing/environment.js';
 import { expectColorAt, snapshot } from '../helpers/pixels.js';
-import { identityViewport } from '../../src/core/viewport.js';
+import { identityViewport } from '../../src/core/viewport.ts';
 
 /**
  * Resizing across a WebGL context loss.

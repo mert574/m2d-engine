@@ -1,16 +1,86 @@
 {
   "name": "m2d-engine",
-  "version": "1.11.0",
-  "description": "A 2D browser game engine: Rapier physics, batched WebGL2 rendering, a deterministic fixed tick, JSON scenes and one input API",
+  "version": "2.0.0",
+  "description": "A browser game engine: 2D on Rapier and batched WebGL2, 3D on Rapier and WebGPU, a deterministic fixed tick, JSON scenes and one input API",
   "type": "module",
   "exports": {
-    ".": "./src/core/m2d.js",
-    "./*": "./src/*",
-    "./test/helpers/*": "./test/helpers/*"
+    ".": {
+      "m2d-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "m2d-source": "./src/schema.ts",
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
+    },
+    "./physics": {
+      "m2d-source": "./src/physics.ts",
+      "types": "./dist/physics.d.ts",
+      "default": "./dist/physics.js"
+    },
+    "./actors": {
+      "m2d-source": "./src/actors.ts",
+      "types": "./dist/actors.d.ts",
+      "default": "./dist/actors.js"
+    },
+    "./constraints": {
+      "m2d-source": "./src/constraints.ts",
+      "types": "./dist/constraints.d.ts",
+      "default": "./dist/constraints.js"
+    },
+    "./ui": {
+      "m2d-source": "./src/ui.ts",
+      "types": "./dist/ui.d.ts",
+      "default": "./dist/ui.js"
+    },
+    "./renderers": {
+      "m2d-source": "./src/renderers.ts",
+      "types": "./dist/renderers.d.ts",
+      "default": "./dist/renderers.js"
+    },
+    "./net": {
+      "m2d-source": "./src/net.ts",
+      "types": "./dist/net.d.ts",
+      "default": "./dist/net.js"
+    },
+    "./nav": {
+      "m2d-source": "./src/nav.ts",
+      "types": "./dist/nav.d.ts",
+      "default": "./dist/nav.js"
+    },
+    "./quality": {
+      "m2d-source": "./src/quality.ts",
+      "types": "./dist/quality.d.ts",
+      "default": "./dist/quality.js"
+    },
+    "./testing": {
+      "m2d-source": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
+    "./testing/setup": {
+      "m2d-source": "./src/testing/setup.js",
+      "types": "./dist/testing/setup.d.ts",
+      "default": "./dist/testing/setup.js"
+    }
   },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo",
+    "src"
+  ],
+  "sideEffects": [
+    "./src/testing/setup.js",
+    "./dist/testing/setup.js"
+  ],
   "scripts": {
+    "build": "rm -rf dist && tsc -b tsconfig.build.json && node scripts/copyAssets.ts",
+    "prepare": "npm run build",
+    "prepack": "npm run build",
     "test": "vitest run --project node --project gpu",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p test/tsconfig.json",
     "test:watch": "vitest --project node",
     "test:node": "vitest run --project node",
     "test:gpu": "vitest run --project gpu",
@@ -18,10 +88,25 @@
   },
   "author": "Mert Yildiz",
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "dependencies": {
     "@dimforge/rapier2d-compat": "^0.21.0",
     "@dimforge/rapier3d-compat": "^0.21.0",
     "recast-navigation": "^0.44.0"
+  },
+  "peerDependencies": {
+    "@napi-rs/canvas": "^1.1.0",
+    "vitest": "^5.0.5"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    },
+    "@napi-rs/canvas": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@napi-rs/canvas": "^1.1.0",

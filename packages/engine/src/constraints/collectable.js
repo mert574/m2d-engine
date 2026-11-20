@@ -1,5 +1,5 @@
 import { Constraint } from '../core/constraint.js';
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 
 /**
  * Collected on an avatar's touch: the entity leaves the world, `counter`

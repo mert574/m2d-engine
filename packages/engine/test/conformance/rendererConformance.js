@@ -6,7 +6,7 @@ import {
   expectTransparentAt,
   differsFrom
 } from '../helpers/pixels.js';
-import { PARTICLE_STRIDE } from '../../src/core/renderers/baseRenderer.js';
+import { PARTICLE_STRIDE } from '../../src/core/renderers/baseRenderer.ts';
 import {
   makeTileSheet,
   makeAsymmetricTile,

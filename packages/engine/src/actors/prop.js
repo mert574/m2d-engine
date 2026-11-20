@@ -1,5 +1,5 @@
 import { Entity } from '../core/entity.js';
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 
 /**
  * Scenery: a placed thing that only stands there. It draws its prefab's

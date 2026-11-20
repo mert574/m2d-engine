@@ -1,5 +1,5 @@
 import { makeRng, range } from 'm2d-kit/random';
-import { PARTICLE_STRIDE } from 'm2d-engine/core/renderers/baseRenderer.js';
+import { PARTICLE_STRIDE } from 'm2d-engine/renderers';
 
 /**
  * Rain over the harbour, submitted as one particle buffer.
@@ -20,7 +20,7 @@ const PARAM_STRIDE = 5;
 export class RainEmitter {
   /**
    * @param {Object} options - Emitter options
-   * @param {import('m2d-engine/core/renderers/baseRenderer.js').BaseRenderer} options.renderer - Backend
+   * @param {import('m2d-engine/renderers').BaseRenderer} options.renderer - Backend
    * @param {Object} options.sheet - Rain streak SpriteSheet
    * @param {{width: number, height: number}} options.bounds - World bounds
    * @param {number} options.waterline - World Y the rain falls to

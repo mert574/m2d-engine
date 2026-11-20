@@ -16,9 +16,9 @@ camera or a renderer:
 
 | Workspace | Contents |
 | --- | --- |
-| `packages/engine` | The engine, published to npm as `m2d-engine`. Source in `src/`, tests in `test/` |
+| `packages/engine` | The engine, published to npm as `m2d-engine`: compiled `dist/` behind named entries (`m2d-engine`, `/schema`, `/physics`, `/actors`, `/constraints`, `/ui`, `/renderers`, `/net`, `/nav`, `/quality`, `/testing`). Source in `src/`, being converted from JavaScript to TypeScript (`knowledge-base/projects/types`), tests in `test/` |
 | `packages/server` | The authoritative multiplayer host, published as `m2d-server` |
-| `packages/kit` | `m2d-kit`: the stock cast, scenery (sky, particles, ambient sound), prefab templates and helpers — too opinionated for the engine, too reusable for one game. Plain JavaScript like the engine (TypeScript at the project's final phase); no DOM at load |
+| `packages/kit` | `m2d-kit`: the stock cast, scenery (sky, particles, ambient sound), prefab templates and helpers — too opinionated for the engine, too reusable for one game. TypeScript, published as compiled JavaScript with declarations; no DOM at load |
 | `packages/editor-core` | The editor's headless core (document, writer, commands, validation). TypeScript, no DOM |
 | `packages/editor-host` | The editor's host: serves one game's project to the editor, holds the open documents and their history, and is the MCP server agents edit through |
 | `packages/editor` | The editor app: DOM panels around engine viewports |
@@ -61,6 +61,7 @@ that covers it in the same change, following
 | Architecture and the rules each module keeps | `docs/contributing/architecture.md` |
 | The determinism contract: what simulation code may read | `docs/contributing/determinism.md` |
 | Tests, conformance harness, Chromium setup | `docs/contributing/testing.md` |
+| TypeScript: the shared config, the package entries, the source condition, the `any` ratchet | `docs/contributing/typescript.md` |
 | Adding a demo, deployment | `docs/contributing/adding-a-demo.md`, `docs/contributing/deployment.md` |
 | Common issues | `docs/contributing/troubleshooting.md` |
 | Roadmap (big picture only) | `docs/contributing/roadmap.md` |
@@ -99,8 +100,9 @@ npm run docs:dev       # documentation site
 npm run editor examples/src/yard      # the editor on one game's folder (random port, printed; MCP at /mcp)
 npm run editor new my-game --template 3d   # a new project from a template (2d or 3d)
 npm run editor:mcp examples/src/yard  # the MCP endpoint over stdio, when no editor is running
-npm test               # typecheck, then node + gpu engine suites and every workspace's tests
+npm test               # typecheck, lint, the types ratchet, then node + gpu engine suites and every workspace's tests
 npm run typecheck      # every workspace that has a tsconfig
+npm run types:ratchet  # explicit `any` and JavaScript files against types-baseline.json (--update locks a gain in)
 npm run test:node      # fast engine suite, no GPU
 npm run test:gpu       # WebGL2 and WebGPU renderers in Node, on the GPU or Mesa's CPU drivers
 npm run test:browser   # browser tier in headless Chromium: input, edit mode, context loss; on demand
@@ -141,7 +143,7 @@ npx playwright install chromium   # once, for test:browser
 - Draw with `renderPosition` and `renderAngle`. Use `position` for logic.
 - Annotations about an entity go through `game.worldOverlay`.
 - The scene format is data: `sceneSchema.js` describes it with the
-  descriptors in `schema.js`, and `sceneLoader.js` only resolves
+  descriptors in `schema.ts`, and `sceneLoader.js` only resolves
   cross-references and raises errors. A new scene JSON field goes into
   `sceneSchema.js` and into `docs/reference/scene-format.md` — never into
   validation code written by hand, which tooling cannot read.

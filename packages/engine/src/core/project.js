@@ -31,7 +31,7 @@
 import { M2D } from './m2d.js';
 import { showUnsupported } from './unsupported.js';
 import { DISPLAY_KEYS, checkProject, sceneNameOf } from './projectSchema.js';
-import { initPhysics } from './physics/index.js';
+import { initPhysics } from './physics/index.ts';
 import { SettingsMenu } from './ui/settingsMenu.js';
 
 export { PROJECT_FILE, PROJECT_SCHEMA, checkProject, projectIssues, sceneNameOf } from './projectSchema.js';

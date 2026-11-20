@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.js';
-import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js';
+import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.ts';
+import { createCanvasElement, readWebGLPixels } from '../../src/testing/environment.js';
 
 /**
  * Curves are tessellated for the size they are *drawn*, not the size they

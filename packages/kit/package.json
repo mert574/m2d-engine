@@ -1,51 +1,60 @@
 {
   "name": "m2d-kit",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Ready-to-use pieces for games on m2d: the stock cast (players, platforms, mobs, pickups, a turret, an NPC), scenery (a sky, stars and clouds, particle fields, ambient sound), genre controllers, prefab templates, combat effects and helpers — compositions of the engine's capabilities, too opinionated for the engine and too reusable to live in one game. TypeScript, published as JavaScript with its declarations; imports nothing from the DOM at load, so a server can import a game that imports it.",
   "type": "module",
   "exports": {
     ".": {
+      "m2d-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
     "./actors": {
+      "m2d-source": "./src/actors.ts",
       "types": "./dist/actors.d.ts",
       "default": "./dist/actors.js"
     },
     "./controls": {
+      "m2d-source": "./src/controls.ts",
       "types": "./dist/controls.d.ts",
       "default": "./dist/controls.js"
     },
     "./ai": {
+      "m2d-source": "./src/ai.ts",
       "types": "./dist/ai.d.ts",
       "default": "./dist/ai.js"
     },
     "./scenery": {
+      "m2d-source": "./src/scenery.ts",
       "types": "./dist/scenery.d.ts",
       "default": "./dist/scenery.js"
     },
     "./effects": {
+      "m2d-source": "./src/effects.ts",
       "types": "./dist/effects.d.ts",
       "default": "./dist/effects.js"
     },
     "./random": {
+      "m2d-source": "./src/random.ts",
       "types": "./dist/random.d.ts",
       "default": "./dist/random.js"
     },
     "./textures": {
+      "m2d-source": "./src/textures.ts",
       "types": "./dist/textures.d.ts",
       "default": "./dist/textures.js"
     },
     "./audio": {
+      "m2d-source": "./src/audio.ts",
       "types": "./dist/audio.d.ts",
       "default": "./dist/audio.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -b tsconfig.build.json",
     "prepare": "npm run build",
     "prepack": "npm run build",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc -b tsconfig.json",
     "test": "vitest run"
   },
   "author": "Mert Yildiz",
@@ -54,11 +63,11 @@
     "node": ">=24"
   },
   "peerDependencies": {
-    "m2d-engine": "^1.11.0"
+    "m2d-engine": "^2.0.0"
   },
   "devDependencies": {
     "m2d-engine": "*",
-    "m2d-server": "^0.1.1",
+    "m2d-server": "^0.2.0",
     "vitest": "^5.0.5"
   },
   "repository": {

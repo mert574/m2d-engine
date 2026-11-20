@@ -1,6 +1,6 @@
 # Built-in actors
 
-Actors from `m2d-engine/actors/`, available to every scene by name. A game's own actors, and the kit's, are registered with `game.registerActor(name, Class)`.
+Actors from `m2d-engine/actors`, available to every scene by name. A game's own actors, and the kit's, are registered with `game.registerActor(name, Class)`.
 
 The engine's own actors are the capabilities every game places or its own code names: `Prop`, `Trigger` and `SpawnPoint` (which the server spawns avatars at). The game pieces — players, a platform, mobs, a pickup, a turret and its rocket, an NPC — are [the kit](./kit)'s (`m2d-kit/actors`), compositions of the engine's constraints, together with the prefab templates that build the same things with no class at all.
 
@@ -11,7 +11,7 @@ The platformer and top-down example scenes under `examples/src/*/scenes/` show t
 An actor says what a scene may set in `static properties`, as schema descriptors named after the fields they set — the actor-side twin of a constraint's [`static params`](../guide/entities#declaring-constraints-in-a-scene):
 
 ```js
-import { s } from 'm2d-engine/core/schema.js';
+import { s } from 'm2d-engine/schema';
 
 export class Lamp extends Entity {
   static properties = {
@@ -38,7 +38,7 @@ The rules, all of which match constraints:
 - **An actor nobody sees is a tool, and says so.** `static tool = { color, label }` marks a trigger, a spawn point, an invisible wall: the engine draws it as a semi-transparent box of that colour over its body, outlined and labelled with its kind and id in 2D (seen through the level's projection, so a diamond in an isometric level) and a translucent, faintly glowing shape in 3D. The editor always shows them; in play the `r_showtools` cvar does (`r_showtools 1`, or `toggle r_showtools`). An instance's `toolColor` and `toolLabel` win over the class's (a trigger adds its `triggers` tag to its label). The engine's are `Trigger` (orange) and `SpawnPoint` (green); the kit's `GravityDial` (purple) and `AmbientSound` (blue); the examples' invisible walls use Source's clip magenta. See `core/toolVolumes.js`.
 - **An asset is named, and arrives loaded.** A property declared `s.ref('spritesheet')` or `s.ref('image')` is checked against the scene's sheets or `assets.images`, and the actor receives the loaded `SpriteSheet` or image in `options` (null headless). Art an actor uses at run time, such as the flame a ship trails, is then scene data the editor shows.
 
-`actorPropertiesSchema(Class)` from `m2d-engine/core/sceneSchema.js` returns the merged schema, and `fieldsOf` on it yields the inspector's field list.
+`actorPropertiesSchema(Class)` from `m2d-engine/schema` returns the merged schema, and `fieldsOf` on it yields the inspector's field list.
 
 ## Prop
 

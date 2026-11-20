@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { WorldOverlay } from '../src/core/ui/worldOverlay.js';
+import { WorldOverlay } from '../src/core/ui/worldOverlay.ts';
 
 /**
  * The world overlay in three dimensions: lines, paths and arcs — what a

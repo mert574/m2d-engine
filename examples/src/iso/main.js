@@ -29,10 +29,9 @@
  *   the satchel and the shop. This file is the page around it: the
  *   project boot and the connection to a match.
  */
-import { bootProject } from 'm2d-engine/core/project.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
-import { UIScreen } from 'm2d-engine/core/ui/screen.js';
-import { NetClient } from 'm2d-engine/net/client.js';
+import { bootProject } from 'm2d-engine';
+import { UIText, UIScreen } from 'm2d-engine/ui';
+import { NetClient } from 'm2d-engine/net';
 import { audioOption } from 'm2d-kit/audio';
 import project from './m2d.project.json';
 import * as definition from './game.js';

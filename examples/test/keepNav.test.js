@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { NetClient } from 'm2d-engine/net/client.js';
+import { NetClient } from 'm2d-engine/net';
 import { createServer, issueTicket } from 'm2d-server';
 import { KEEP_INPUT, sceneHooks } from '../src/iso/game.js';
 import { scene as navMatchScene } from './fixtures/keepNavMatch.mjs';
 import { readFileSync } from 'node:fs';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { M2D } from 'm2d-engine';
 import { registerKeep, KEEP_GAME } from '../src/iso/game.js';
 
 /**

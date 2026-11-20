@@ -1,7 +1,6 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Interactive } from 'm2d-engine/constraints/interactive.js';
+import { M2D, Entity } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { Interactive } from 'm2d-engine/constraints';
 import { GravityDial } from 'm2d-kit/actors';
 
 /** How hard a grabbed body is pulled toward the pointer, per second. */

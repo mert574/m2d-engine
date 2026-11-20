@@ -1,10 +1,6 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Constraint } from 'm2d-engine/core/constraint.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { DamageFlash } from 'm2d-engine/constraints/damageFlash.js';
-import { Interactive } from 'm2d-engine/constraints/interactive.js';
+import { M2D, Entity, Constraint } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { Health, DamageFlash, Interactive } from 'm2d-engine/constraints';
 
 /** A constraint: rocks the entity's drawn angle without touching the body. */
 class Wobble extends Constraint {

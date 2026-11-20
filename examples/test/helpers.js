@@ -83,9 +83,9 @@ export function manifestFiles() {
  * registered; what every headless test of an example starts from.
  */
 export async function bootHeadless(folder, { seed } = {}) {
-  const { M2D } = await import('m2d-engine/core/m2d.js');
-  const { initPhysics } = await import('m2d-engine/core/physics/index.js');
-  const { projectOptions } = await import('m2d-engine/core/project.js');
+  const { M2D } = await import('m2d-engine');
+  const { initPhysics } = await import('m2d-engine/physics');
+  const { projectOptions } = await import('m2d-engine');
   const root = join(import.meta.dirname, '..', 'src', folder);
   const config = JSON.parse(readFileSync(join(root, 'm2d.project.json'), 'utf8'));
   const definition = await import(join(root, config.definition));

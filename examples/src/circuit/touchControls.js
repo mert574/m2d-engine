@@ -1,5 +1,4 @@
-import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
-import { UIKeyButton } from 'm2d-engine/core/ui/keyButton.js';
+import { UIElement, UIKeyButton } from 'm2d-engine/ui';
 
 /**
  * Night Circuit on a touchscreen: the left and right halves of the screen

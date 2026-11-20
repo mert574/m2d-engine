@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { initPhysics } from '../src/core/physics/index.js';
+import { initPhysics } from '../src/core/physics/index.ts';
 import { parseGLB, setKTX2Decoder, DEFAULT_MATERIAL, lodFor } from '../src/core/gltf.js';
-import { Frame3D, StaticBatch, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from '../src/core/renderers/frame3d.js';
+import { Frame3D, StaticBatch, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from '../src/core/renderers/frame3d.ts';
 import { Animator3D } from '../src/core/animator3d.js';
 import { Scene } from '../src/core/scene.js';
 import { lightFor, placeLight, meshFor } from '../src/core/presentation3d.js';
 import { transferablesOf, workersAvailable } from '../src/core/modelLoader.js';
 import { Camera3D } from '../src/core/camera3d.js';
-import { box, boundingSphere } from '../src/core/renderers/geometry/primitives.js';
+import { box, boundingSphere } from '../src/core/renderers/geometry/primitives.ts';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
 import { SceneLoader, SCENE_VERSION } from '../src/core/sceneLoader.js';

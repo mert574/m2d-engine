@@ -7,7 +7,7 @@
  * over the scene: it marks who has news, writes the objective and lifts
  * the seal; the NPC actors and the dialogue box only show what it says.
  */
-import { Quest } from 'm2d-engine/core/quest.js';
+import { Quest } from 'm2d-engine';
 
 const STAGES = [
   { id: 'start', objective: 'Speak to Maren, by the path north of here' },
@@ -49,7 +49,7 @@ const PEOPLE = {
 
 export class GroveQuest {
   /**
-   * @param {import('m2d-engine/core/m2d.js').M2D} game
+   * @param {import('m2d-engine').M2D} game
    * @param {Object} parts - `{ npcs, clearing, lanterns }` from the scene
    * @param {Object} hooks - `onObjective(text, lanternText)`, `onStage(id)`
    */

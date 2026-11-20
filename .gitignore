@@ -71,3 +71,6 @@ yarn-error.log*
 
 # Local gameplay captures (drag into the GitHub README editor to publish)
 /recordings/
+
+# TypeScript build state (`tsc -b`), beside each tsconfig
+*.tsbuildinfo

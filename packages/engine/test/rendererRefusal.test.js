@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { createCanvasElement, stubDocumentListeners } from './helpers/environment.js';
+import { createCanvasElement, stubDocumentListeners } from '../src/testing/environment.js';
 import { M2D } from '../src/core/m2d.js';
 
 /**

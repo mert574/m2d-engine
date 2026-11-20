@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { ViolationMeter } from 'm2d-engine/net/input.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { M2D } from 'm2d-engine';
+import { ViolationMeter } from 'm2d-engine/net';
 import { Wall, Torch, Ember, Stair, Creature, Knight, Quartermaster } from '../src/iso/keepActors.js';
 import { keepIntents, newPurse, newStock, purse, WARES, SATCHEL_SIZE } from '../src/iso/keepIntents.js';
 

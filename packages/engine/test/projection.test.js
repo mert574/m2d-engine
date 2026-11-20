@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { makeTestGame, makeBody } from './helpers/testGame.js';
+import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { Projection } from '../src/core/projection.js';
 import { Entity } from '../src/core/entity.js';
 import { SpriteSheet } from '../src/core/spriteSheet.js';

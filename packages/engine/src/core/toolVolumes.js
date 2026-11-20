@@ -1,5 +1,5 @@
-import { parseColor } from './renderers/geometry/color.js';
-import { geometryFor } from './renderers/geometry/primitives.js';
+import { parseColor } from './renderers/geometry/color.ts';
+import { geometryFor } from './renderers/geometry/primitives.ts';
 import { toLinear } from './presentation3d.js';
 import { entityInView } from './viewCull.js';
 

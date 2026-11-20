@@ -92,7 +92,7 @@ A belt scroller is a side view with a depth lane, and that is a projection too: 
 "world": { "gravity": { "x": 0, "y": 0 }, "projection": { "type": "belt", "ratio": 0.5 } }
 ```
 
-Movement, chasing and the depth sort all run on the flat ground plane, as in the top-down and isometric views; the jump is `elevation`, which rises freely on screen while the collider stays in the lane. The engine's `drawGroundShadow` and `shadowForLift` in `core/renderers/shadows.js` draw the shadow that shrinks as a sprite rises. A flat texture becomes the street with a tile layer's `stretch`, which fits it to each tile's projected box. The camera follows x only (`followAxes`) and each section locks it through `bounds` until the wave is beaten.
+Movement, chasing and the depth sort all run on the flat ground plane, as in the top-down and isometric views; the jump is `elevation`, which rises freely on screen while the collider stays in the lane. The engine's `drawGroundShadow` and `shadowForLift` in `core/renderers/shadows.ts` draw the shadow that shrinks as a sprite rises. A flat texture becomes the street with a tile layer's `stretch`, which fits it to each tile's projected box. The camera follows x only (`followAxes`) and each section locks it through `bounds` until the wave is beaten.
 
 The [Ash Row](../examples/#ash-row) example is this.
 

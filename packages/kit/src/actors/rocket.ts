@@ -1,5 +1,4 @@
-import { Projectile } from 'm2d-engine/core/projectile.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { Projectile, type M2D } from 'm2d-engine';
 import type { ActorBody, ActorSprite, Vec2 } from '../engineTypes.ts';
 
 export interface RocketOptions {

@@ -1,4 +1,3 @@
-/// <reference path="./engine.d.ts" />
 /**
  * The inspector's rows, generated from the schema.
  *
@@ -12,8 +11,7 @@
  * agent exactly what a person sees.
  */
 
-import type { SchemaDescriptor } from 'm2d-engine/core/schema.js';
-import { schemaForType } from 'm2d-engine/core/sceneSchema.js';
+import { type SchemaDescriptor, schemaForType } from 'm2d-engine/schema';
 import {
   descriptorAt, resolveDescriptor, isPlainObject,
   type PathSegment, type ResolveContext

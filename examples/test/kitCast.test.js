@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
-import { Prop } from 'm2d-engine/actors/prop.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { M2D } from 'm2d-engine';
+import { SCENE_VERSION } from 'm2d-engine/schema';
+import { Prop } from 'm2d-engine/actors';
 import { PREFAB_TEMPLATES, registerKitActors } from 'm2d-kit/actors';
 import { Player } from 'm2d-kit/actors';
 

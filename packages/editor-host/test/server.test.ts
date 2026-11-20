@@ -76,15 +76,16 @@ describe('the MCP server', () => {
 
   it('list_components names each entry\'s origin from the game\'s registries', async () => {
     const { createServer } = await import('../src/server.ts');
-    const { Registry, BUILTIN_ACTORS, BUILTIN_CONSTRAINTS } = await import('m2d-engine/core/builtins.js');
+    const { M2D } = await import('m2d-engine');
+    const { initPhysics } = await import('m2d-engine/physics');
+    await initPhysics();
+    const game = new M2D(null, { headless: true });
     class Block { static description = 'A wall of the room'; }
-    const actors = new Registry(BUILTIN_ACTORS);
+    const { actors, prefabTemplates } = game;
     actors.set('Block', Block);
     actors.set('Shared', Block, 'kit');
     class Mist { static description = 'Drawn by the 3D renderer'; static dimensions = 3; static tool = { color: '#38bdf8', label: 'mist' }; }
     actors.set('Mist', Mist, 'kit');
-    const constraintTypes = new Registry(BUILTIN_CONSTRAINTS);
-    const prefabTemplates = new Registry();
     // The shape a kit registers (m2d-kit/actors); inlined so the host's
     // tests do not compile the kit. The kit's own fragments are played in
     // examples/test/kitCast.test.js.
@@ -92,7 +93,7 @@ describe('the MCP server', () => {
       actor: 'Block', physics: { bodyType: 'dynamic', lockRotation: true },
       constraints: { health: { type: 'Health', params: { maxHealth: 60, whenDead: 'remove' } } }
     } }, 'kit');
-    const mcp = createServer(companion.session, { game: async () => ({ actors, constraintTypes, prefabTemplates }) });
+    const mcp = createServer(companion.session, { game: async () => game });
     const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
     const origins = new Client({ name: 'origins', version: '0' });
     await Promise.all([mcp.connect(serverSide), origins.connect(clientSide)]);

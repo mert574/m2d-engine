@@ -1,4 +1,4 @@
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 import { Interactive } from './interactive.js';
 
 /**

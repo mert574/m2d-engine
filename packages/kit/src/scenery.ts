@@ -19,7 +19,7 @@ export type { ScatterOptions, ScatterKind } from './scenery/scatter.ts';
 export type { ParticleFieldOptions } from './scenery/particleField.ts';
 export type { AmbientSoundOptions } from './scenery/ambientSound.ts';
 
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import type { M2D } from 'm2d-engine';
 import { Sky } from './scenery/sky.ts';
 import { Scatter } from './scenery/scatter.ts';
 import { ParticleField } from './scenery/particleField.ts';

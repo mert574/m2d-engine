@@ -1,0 +1,9 @@
+{
+  // The repository's own scripts: Node only, run with type stripping.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
+  "include": ["*.ts"]
+}

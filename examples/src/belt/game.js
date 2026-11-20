@@ -1,4 +1,4 @@
-import { Trigger } from 'm2d-engine/actors/trigger.js';
+import { Trigger } from 'm2d-engine/actors';
 import { registerEffects } from 'm2d-kit/effects';
 import { Clip } from 'm2d-kit/actors';
 import { Rogue, Thug, Lamp } from './rowActors.js';

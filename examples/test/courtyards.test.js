@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { DEFAULT_OBJECT_SIZE } from 'm2d-engine/core/sceneSchema.js';
+import { DEFAULT_OBJECT_SIZE } from 'm2d-engine/schema';
 import { TILE } from '../scripts/courtyards.mjs';
 
 /**

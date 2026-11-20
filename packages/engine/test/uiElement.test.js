@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UIElement, normalizePadding } from '../src/core/ui/uiElement.js';
 import { Container } from '../src/core/ui/container.js';
 import { UIPanel } from '../src/core/ui/panel.js';
-import { makeTestGame, expectBalancedStacks } from './helpers/testGame.js';
-import { click, pointerMove } from './helpers/input.js';
+import { makeTestGame, expectBalancedStacks } from '../src/testing/testGame.js';
+import { click, pointerMove } from '../src/testing/input.js';
 
 /**
  * The element tree: boxes, nesting, inherited visual state and hit testing.

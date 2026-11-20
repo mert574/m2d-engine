@@ -12,11 +12,9 @@
  */
 
 import { parentPort, workerData } from 'node:worker_threads';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { InputGate, ViolationMeter } from 'm2d-engine/net/input.js';
-import { IntentQueue } from 'm2d-engine/net/intents.js';
-import { Replicator, StateFrame } from 'm2d-engine/net/replication.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { M2D } from 'm2d-engine';
+import { InputGate, ViolationMeter, IntentQueue, Replicator, StateFrame } from 'm2d-engine/net';
 import { CLOSE, isRecord } from './protocol.js';
 
 const post = (message) => parentPort.postMessage(message);

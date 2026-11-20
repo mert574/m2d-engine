@@ -1,8 +1,5 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { Attack } from 'm2d-engine/constraints/attack.js';
-import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { Entity, type M2D } from 'm2d-engine';
+import { Health, Attack, KeyboardControl } from 'm2d-engine/constraints';
 import type { ActorBody, ActorSprite } from '../engineTypes.ts';
 
 
@@ -70,8 +67,8 @@ export class TopDownPlayer extends Entity {
   }
 
 
-  override draw(): void {
-    super.draw();
+  override draw(deltaTime: number): void {
+    super.draw(deltaTime);
 
     if (this.game.renderer.isDebugEnabled()) {
       // Draw facing direction, as a sharp overlay annotation rather than

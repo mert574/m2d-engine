@@ -1,6 +1,5 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Vec3 } from 'm2d-engine/core/math.js';
-import { s } from 'm2d-engine/core/schema.js';
+import { Entity, Vec3 } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
 
 /**
  * The yard's cast, apart from the boot script so the editor (and any

@@ -8,10 +8,9 @@
 // is a scripted autopilot. Prints the run's outcome as one JSON line.
 
 import { readFileSync } from 'node:fs';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { InputGate } from 'm2d-engine/net/input.js';
-import { InputSnapshot } from 'm2d-engine/core/input/snapshot.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { M2D, InputSnapshot } from 'm2d-engine';
+import { InputGate } from 'm2d-engine/net';
 import { BEELINE_INPUT, register } from './game.js';
 
 /** The lane as the editor and the page have it: the scene file, read as it is. */

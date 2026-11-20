@@ -30,14 +30,32 @@
  * added to `sceneSchema.js` and to `docs/reference/scene-format.md`.
  */
 
-import { validate } from './schema.js';
+import { validate } from './schema.ts';
 import { SCENE_VERSION, schemaForType } from './sceneSchema.js';
-import { Quat } from './math.js';
+import { Quat } from './math.ts';
 
 export { SCENE_VERSION };
 
+/**
+ * How a load or a check reads: the scenes an instance may expand from, and
+ * a listener for every reference the document makes.
+ * @typedef {object} LoadOptions
+ * @property {Record<string, unknown>} [scenes] - The raw documents of the
+ *   scenes this one may instance, by name (the scene manager fetches them;
+ *   see `composition`); without it an instance is checked but not expanded.
+ * @property {(scope: string, name: string, path: string) => void} [onRef] -
+ *   Called at every reference the schema walk meets (see `validate`).
+ * @property {string[]} [chain] - The scenes being composed above this one,
+ *   for the cycle check. Internal.
+ */
+
 /** An error carrying the scene and the field path that caused it. */
 export class SceneValidationError extends Error {
+  /**
+   * @param {string} scene
+   * @param {string} path
+   * @param {string} message
+   */
   constructor(scene, path, message) {
     super(`Scene '${scene}'${path ? ` at ${path}` : ''}: ${message}`);
     this.name = 'SceneValidationError';
@@ -60,7 +78,10 @@ function scope(names, describe) {
 }
 
 export class SceneLoader {
-  /** @param {import('./m2d.js').M2D} game */
+  /**
+   * @param {import('./m2d.js').M2D | null} game - Resolves actor,
+   *   constraint and scene references; null checks structure alone.
+   */
   constructor(game) {
     this.game = game;
   }
@@ -68,9 +89,10 @@ export class SceneLoader {
   /**
    * Validate and normalize raw scene data.
    *
-   * @param {Object} data - Parsed scene JSON
+   * @param {unknown} data - Parsed scene JSON
    * @param {string} [sceneName] - Registered name, for error messages
-   * @returns {Object} The same scene with defaults applied
+   * @param {LoadOptions} [options]
+   * @returns {Record<string, unknown>} The same scene with defaults applied
    * @throws {SceneValidationError} On anything the schema does not allow
    */
   load(data, sceneName = data?.name ?? 'unknown', options = {}) {
@@ -84,9 +106,10 @@ export class SceneLoader {
    * schema can even be chosen (an object, the version, the type, `uses`
    * resolving) still stops at its first problem.
    *
-   * @param {Object} data - Parsed scene JSON
+   * @param {unknown} data - Parsed scene JSON
    * @param {string} [sceneName]
-   * @returns {{loaded: Object|null, issues: SceneValidationError[]}}
+   * @param {LoadOptions} [options]
+   * @returns {{loaded: Record<string, unknown>|null, issues: SceneValidationError[]}}
    *   `loaded` is the normalized scene when there are no issues, else null.
    */
   check(data, sceneName = data?.name ?? 'unknown', options = {}) {
@@ -109,11 +132,7 @@ export class SceneLoader {
    * @param {object} data
    * @param {string} sceneName
    * @param {((error: unknown) => boolean)|null} collect
-   * @param {{scenes?: Record<string, object>, chain?: string[]}} [options] -
-   *   `scenes`: the raw documents of the scenes this one may instance, by
-   *   name (the scene manager fetches them; see `composition`); without it
-   *   an instance is checked but not expanded. `chain`: the scenes being
-   *   composed above this one, for the cycle check.
+   * @param {LoadOptions} [options]
    */
   #load(data, sceneName, collect, options = {}) {
     const fail = (path, message) => { throw new SceneValidationError(sceneName, path, message); };

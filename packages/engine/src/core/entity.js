@@ -1,4 +1,4 @@
-import { Angle, DIRECTIONS_8 as DIRECTIONS } from './math.js';
+import { Angle, DIRECTIONS_8 as DIRECTIONS } from './math.ts';
 
 export class Entity {
   name = 'Entity';

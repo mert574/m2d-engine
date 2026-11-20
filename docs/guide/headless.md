@@ -3,8 +3,8 @@
 A headless game is the simulation with nothing that shows it. It has the clock, the seeded generator, physics, entities and scenes. It has no canvas, renderer, camera, UI, world overlay or audio. It runs in plain Node, which is what an authoritative server runs and what a test that only cares about the simulation needs.
 
 ```javascript
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { M2D } from 'm2d-engine';
 import { readFileSync } from 'node:fs';
 import { register, GAME } from './game.js';
 
@@ -165,7 +165,7 @@ The simulation itself may also listen — a rule firing on `emit`, an NPC hearin
 Held input carries what a player does with the controls. It cannot carry a choice that exists only in the client's UI: which inventory slot to move an item to, which of a vendor's wares to buy, which dialogue answer to give. Those are intents: named, typed requests the game declares in the module both the browser and the server import. Settings, bindings, menus and hovering are local and are never sent.
 
 ```javascript
-import { defineIntents, reject, slot, oneOf, entity } from 'm2d-engine/net/intents.js';
+import { defineIntents, reject, slot, oneOf, entity } from 'm2d-engine/net';
 
 export const intents = defineIntents({
   moveItem: {
@@ -224,7 +224,7 @@ Cinder Keep's satchel and quartermaster are the worked example: `examples/src/is
 
 ## The input gate
 
-`m2d-engine/net/input.js` turns what clients send into snapshots. A client sends one message per tick:
+`InputSchema` and `InputGate` (`m2d-engine/net`) turn what clients send into snapshots. A client sends one message per tick:
 
 ```javascript
 { tick: 812, held: 0b1001, pointer: { x: 640.5, y: 212, buttons: 1 } }
@@ -235,7 +235,7 @@ Cinder Keep's satchel and quartermaster are the worked example: `examples/src/is
 `InputSchema` is the game's input alphabet:
 
 ```javascript
-import { InputSchema, InputGate } from 'm2d-engine/net/input.js';
+import { InputSchema, InputGate } from 'm2d-engine/net';
 
 export const INPUT = new InputSchema({
   keys: ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'],

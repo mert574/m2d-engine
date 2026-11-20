@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { sceneOutline, inspectNode, type InspectedRow } from '../src/index.ts';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
-import { s } from 'm2d-engine/core/schema.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Constraint } from 'm2d-engine/core/constraint.js';
+import { SCENE_VERSION, s } from 'm2d-engine/schema';
+import { Entity, Constraint } from 'm2d-engine';
 
 /**
  * The viewer's two halves, headless: the tree a scene panel draws and

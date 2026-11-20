@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
-import { RecordingRenderer } from './helpers/recordingRenderer.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from '../src/testing/environment.js';
+import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
 import { M2D } from '../src/core/m2d.js';
 
 /**

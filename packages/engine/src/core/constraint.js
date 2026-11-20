@@ -1,4 +1,4 @@
-import { s } from './schema.js';
+import { s } from './schema.ts';
 
 /**
  * A reusable behaviour attached to an entity.
@@ -42,7 +42,9 @@ export class Constraint {
    * assigns it to, and records its default as `initial` rather than
    * `default` — see `configure`.
    *
-   * @type {Object<string, object>}
+   * Null declares that the constraint takes any params, unchecked.
+   *
+   * @type {Record<string, import('./schema.ts').SchemaDescriptor> | null}
    */
   static params = {};
 

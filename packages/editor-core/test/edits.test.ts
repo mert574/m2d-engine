@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SceneDocument, applyOps, uniqueId, formatPath, parsePath, EditError, type Op } from '../src/index.ts';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
+import { SCENE_VERSION } from 'm2d-engine/schema';
 
 /**
  * Edits as data: every op applies, inverts to ops that restore the

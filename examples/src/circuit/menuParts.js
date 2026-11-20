@@ -1,4 +1,4 @@
-import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
+import { UIElement } from 'm2d-engine/ui';
 import { CARS, CAR_CHOICE, carById, chosenCar } from './cars.js';
 import { loadBest } from './replay.js';
 

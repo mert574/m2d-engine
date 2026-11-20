@@ -1,6 +1,6 @@
 import { Constraint } from '../core/constraint.js';
-import { s } from '../core/schema.js';
-import { groundCircle } from '../core/ui/worldOverlay.js';
+import { s } from '../core/schema.ts';
+import { groundCircle } from '../core/ui/worldOverlay.ts';
 
 /**
  * Click to move: a press on the world sets a destination on the ground, and

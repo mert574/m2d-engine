@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import * as mat from '../src/core/renderers/geometry/matrix.js';
-import { parseColor, parseColorPremultiplied } from '../src/core/renderers/geometry/color.js';
-import { strokePolyline } from '../src/core/renderers/geometry/polyline.js';
-import { arcPoints, roundRectPoints, triangulate, signedArea, fanIndices } from '../src/core/renderers/geometry/shapes.js';
-import { bakeGradient, GRADIENT_LUT_SIZE } from '../src/core/renderers/geometry/gradient.js';
+import * as mat from '../src/core/renderers/geometry/matrix.ts';
+import { parseColor, parseColorPremultiplied } from '../src/core/renderers/geometry/color.ts';
+import { strokePolyline } from '../src/core/renderers/geometry/polyline.ts';
+import { arcPoints, roundRectPoints, triangulate, signedArea, fanIndices } from '../src/core/renderers/geometry/shapes.ts';
+import { bakeGradient, GRADIENT_LUT_SIZE } from '../src/core/renderers/geometry/gradient.ts';
 
 /**
  * The GPU backends' API-neutral geometry layer. Pure functions, so these run

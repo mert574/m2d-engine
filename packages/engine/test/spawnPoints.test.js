@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
-import { s } from '../src/core/schema.js';
-import { initPhysics } from '../src/core/physics/index.js';
+import { s } from '../src/core/schema.ts';
+import { initPhysics } from '../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { RecordingRenderer } from './helpers/recordingRenderer.js';
-import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
+import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
+import { displayCanvas, installWindowStub, stubDocumentListeners } from '../src/testing/environment.js';
 
 /**
  * Spawn points and the avatars made at them: what the server does when a

@@ -1,5 +1,5 @@
-import * as mat4 from './renderers/geometry/mat4.js';
-import { Vec3 } from './math.js';
+import * as mat4 from './renderers/geometry/mat4.ts';
+import { Vec3 } from './math.ts';
 
 /**
  * The camera of a three-dimensional game: an eye, a point it looks at and

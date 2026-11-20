@@ -5,6 +5,7 @@ import { resolveStateStyle } from './theme.js';
  * Fraction of a box each named point sits at: [x, y], 0 = left/top,
  * 1 = right/bottom. Used for both anchors (where in the *parent* an element
  * is measured from) and pivots (which point of the *element* lands there).
+ * @type {Readonly<Record<string, readonly [number, number]>>}
  */
 export const ANCHOR_ORIGINS = Object.freeze({
   'top-left': [0, 0],

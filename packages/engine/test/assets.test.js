@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
-import { initPhysics } from '../src/core/physics/index.js';
+import { initPhysics } from '../src/core/physics/index.ts';
 import { Entity } from '../src/core/entity.js';
 import { AssetDatabase, AssetManifestError } from '../src/core/assets.js';
 import { MANIFEST_VERSION } from '../src/core/assetSchema.js';

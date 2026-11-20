@@ -1,12 +1,11 @@
 # Writing a renderer backend
 
-A backend is a class that extends `BaseRenderer` and implements every method that throws `Method not implemented`. The engine, the UI layer and the conformance suite work against that contract, so a new backend needs no changes elsewhere. `packages/engine/src/core/renderers/webglRenderer.js` is the reference backend.
+A backend is a class that extends `BaseRenderer` and implements every method that throws `Method not implemented`. The engine, the UI layer and the conformance suite work against that contract, so a new backend needs no changes elsewhere. `packages/engine/src/core/renderers/webglRenderer.ts` is the reference backend.
 
 ## Skeleton
 
 ```javascript
-import { BaseRenderer } from 'm2d-engine/core/renderers/baseRenderer.js';
-import { identityViewport } from 'm2d-engine/core/viewport.js';
+import { BaseRenderer, identityViewport } from 'm2d-engine/renderers';
 
 export class MyRenderer extends BaseRenderer {
   constructor() {
@@ -31,7 +30,7 @@ export class MyRenderer extends BaseRenderer {
 Register it, then select it by name or pass the class.
 
 ```javascript
-import { registerRenderer } from 'm2d-engine/core/renderers/index.js';
+import { registerRenderer } from 'm2d-engine/renderers';
 registerRenderer('mine', MyRenderer);
 new M2D(canvas, { renderer: 'mine' });
 ```
@@ -81,11 +80,11 @@ Two behaviours are pinned by tests because backends get them wrong. A partial `d
 
 ## Text
 
-`drawText` renders a string with the given font, alignment and baseline, with an optional outline drawn under the fill. `measureText(text, style)` returns `{ width, height }` for the same font. A GPU backend can rasterize text through a 2D canvas into a texture, as the WebGL2 backend does in `webgl/textLabels.js`.
+`drawText` renders a string with the given font, alignment and baseline, with an optional outline drawn under the fill. `measureText(text, style)` returns `{ width, height }` for the same font. A GPU backend can rasterize text through a 2D canvas into a texture, as the WebGL2 backend does in `webgl/textLabels.ts`.
 
 ## Lights and post effects
 
-`setAmbientLight`, `drawLight`, `drawShadowCaster` and `setPostEffects` are part of the contract like every draw call. The WebGL2 backend's `webgl/effectsPass.js` is the reference: lights accumulate into a light map multiplied over the world at `endFrame`, casters block the lights drawn with `shadows`, and the post pass runs between the world and screen passes.
+`setAmbientLight`, `drawLight`, `drawShadowCaster` and `setPostEffects` are part of the contract like every draw call. The WebGL2 backend's `webgl/effectsPass.ts` is the reference: lights accumulate into a light map multiplied over the world at `endFrame`, casters block the lights drawn with `shadows`, and the post pass runs between the world and screen passes.
 
 ## Cursor
 

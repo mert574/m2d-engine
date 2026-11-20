@@ -1,4 +1,4 @@
-import * as mat4 from './renderers/geometry/mat4.js';
+import * as mat4 from './renderers/geometry/mat4.ts';
 
 /**
  * A glTF 2.0 reader, for `.glb` files, into what the 3D renderer draws.

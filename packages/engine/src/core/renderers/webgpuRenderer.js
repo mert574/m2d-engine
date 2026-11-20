@@ -1,6 +1,6 @@
-import { BaseRenderer } from './baseRenderer.js';
-import { WebGLRenderer } from './webglRenderer.js';
-import { identityViewport } from '../viewport.js';
+import { BaseRenderer } from './baseRenderer.ts';
+import { WebGLRenderer } from './webglRenderer.ts';
+import { identityViewport } from '../viewport.ts';
 import { webgpuDevice } from './webgpu/device.js';
 import {
   SKY_SHADER, SHADOW_SHADER, SHADOW_SKINNED_SHADER, MESH_SHADER, MESH_SKINNED_SHADER, CULL_SHADER, PARTICLE_SHADER, MAX_PARTICLE_FIELDS,
@@ -12,8 +12,8 @@ import { initBasis, bestTranscodeTarget, transcodeKTX2 } from './webgpu/basis.js
 import { setKTX2Decoder } from '../gltf.js';
 import { Environment } from './webgpu/environment.js';
 import { PostPipelines, PostPass } from './webgpu/post.js';
-import { Frame3D, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from './frame3d.js';
-import * as mat4 from './geometry/mat4.js';
+import { Frame3D, INSTANCE_FLOATS, LIGHT_FLOATS, MAX_LIGHTS } from './frame3d.ts';
+import * as mat4 from './geometry/mat4.ts';
 
 /**
  * The 3D renderer, on WebGPU.

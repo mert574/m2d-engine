@@ -1,0 +1,22 @@
+{
+  // What `npm run build` publishes: `src/` compiled into `dist/` beside its
+  // declarations, with relative `.ts` imports rewritten to `.js` so the
+  // emitted files load in plain Node with no loader and no bundler. The
+  // JavaScript modules not yet converted are emitted as they are, with
+  // declarations inferred from their JSDoc. `scripts/build.mjs` copies what
+  // tsc does not: the fonts, the vendored transcoder and its wasm.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "composite": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "allowImportingTsExtensions": false,
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["src/**/*"]
+}

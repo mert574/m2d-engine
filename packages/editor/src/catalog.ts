@@ -11,7 +11,7 @@
  * register; one the game has not is shown with the two lines that would.
  */
 
-import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS, BUILTIN_MODULES } from 'm2d-engine/core/builtins.js';
+import { BUILTIN_ACTORS, BUILTIN_CONSTRAINTS } from 'm2d-engine';
 
 /** A field a class declares, as the catalog lists it. */
 export interface CatalogField {
@@ -114,10 +114,9 @@ export function buildCatalog(registries: { actors?: Map<string, unknown>; constr
     }
     for (const [name, klass] of engine) {
       if (seen.has(name)) continue;
-      const file = BUILTIN_MODULES.get(name) as string | undefined;
       entries.push({
         kind, name, description: describe(klass), fields: fieldsOf(klass, which), registered: false,
-        module: file ? `m2d-engine/${file}` : undefined, exportName: name
+        module: kind === 'actor' ? 'm2d-engine/actors' : 'm2d-engine/constraints', exportName: name
       });
     }
   };

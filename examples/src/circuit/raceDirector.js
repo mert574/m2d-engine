@@ -22,8 +22,8 @@
  * tick's input *is* the recording, and the player must still be able to
  * stop watching it. They go through `game.actions`, so rebinding holds.
  */
-import { Entity } from 'm2d-engine/core/entity.js';
-import { s } from 'm2d-engine/core/schema.js';
+import { Entity } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
 import { RaceCar, GhostCar, CAR } from './actors.js';
 import { Recorder, Player, saveBest, loadBest, raceSignature } from './replay.js';
 import { trackFor, WALL_THICKNESS } from './track.js';

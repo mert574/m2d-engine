@@ -7,7 +7,7 @@ Units are pixels and seconds in two dimensions, metres and seconds in three. The
 ## Initialization
 
 ```javascript
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
+import { initPhysics } from 'm2d-engine/physics';
 await initPhysics();
 ```
 
@@ -143,7 +143,7 @@ Returned objects such as `position` and `collisionFilter` are snapshots. Mutatin
 | `setNextAngle` | `setNextRotation` |
 | `angularVelocity` as a number | `angularVelocity` as a vector |
 
-`Vec3` and `Quat` in `m2d-engine/core/math.js` are the helpers for building these. `Quat.fromAxisAngle` is how game code says a rotation; Euler angles are deliberately not offered.
+`Vec3` and `Quat` from `m2d-engine` are the helpers for building these. `Quat.fromAxisAngle` is how game code says a rotation; Euler angles are deliberately not offered.
 
 **Positions and velocities are three-component.** `z` defaults to `0` wherever it is omitted, so 2D-shaped calls still mean something.
 

@@ -1,7 +1,7 @@
 import { Constraint } from '../core/constraint.js';
-import { s } from '../core/schema.js';
-import { Vec2 } from '../core/math.js';
-import { groundCircle } from '../core/ui/worldOverlay.js';
+import { s } from '../core/schema.ts';
+import { Vec2 } from '../core/math.ts';
+import { groundCircle } from '../core/ui/worldOverlay.ts';
 
 /**
  * Enemy movement: chase the nearest player while one is within range,

@@ -1,9 +1,5 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { ContactDamage } from 'm2d-engine/constraints/contactDamage.js';
-import { Chase } from 'm2d-engine/constraints/chase.js';
-import { DamageFlash } from 'm2d-engine/constraints/damageFlash.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { Entity, type M2D } from 'm2d-engine';
+import { Health, ContactDamage, Chase, DamageFlash } from 'm2d-engine/constraints';
 import type { ActorBody, ActorSprite } from '../engineTypes.ts';
 
 

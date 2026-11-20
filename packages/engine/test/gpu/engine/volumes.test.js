@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { M2D } from '../../../src/core/m2d.js';
 import { SettingsMenu } from '../../../src/core/ui/settingsMenu.js';
-import { displayCanvas, installWindowStub, stubDocumentListeners } from '../../helpers/environment.js';
-import { initPhysics } from '../../../src/core/physics/index.js';
+import { displayCanvas, installWindowStub, stubDocumentListeners } from '../../../src/testing/environment.js';
+import { initPhysics } from '../../../src/core/physics/index.ts';
 
 /**
  * Music and effects volumes: cvars over the sound manager's live values,

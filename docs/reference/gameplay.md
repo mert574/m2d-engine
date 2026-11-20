@@ -33,7 +33,7 @@ UI components; see [UI components](./ui#uidialogue). A level's `hud` builds each
 `core/senses.js`. Pure queries for simulation code that looks at the world — an NPC deciding whether it sees the player. Nothing here keeps state: a sensing interval or a remembered last-seen position is the caller's, as plain fields a snapshot carries.
 
 ```javascript
-import { canSee } from 'm2d-engine/core/senses.js';
+import { canSee } from 'm2d-engine';
 
 // In a constraint's fixedUpdate, every `senseInterval` seconds:
 if (canSee(this.entity, player, { range: 300, cone: Math.PI / 2, facing: this.facing })) {
@@ -48,4 +48,4 @@ What blocks sight is the `blockers` collision layers; unset, anything that is no
 
 ## Directions and arcs
 
-`Angle` in `core/math.js` gained `normalize(angle)`, `sector(angle, count)`, `direction8(angle)` (one of `DIRECTIONS_8`: `right`, `down_right`, `down`, `down_left`, `left`, `up_left`, `up`, `up_right`, clockwise on screen) and `inArc(angle, centre, arc)`.
+`Angle` in `core/math.ts` gained `normalize(angle)`, `sector(angle, count)`, `direction8(angle)` (one of `DIRECTIONS_8`: `right`, `down_right`, `down`, `down_left`, `left`, `up_left`, `up`, `up_right`, clockwise on screen) and `inArc(angle, centre, arc)`.

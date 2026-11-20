@@ -1,16 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { makeTestGame, makeBody } from 'm2d-engine/test/helpers/testGame.js';
+import { makeTestGame, makeBody } from 'm2d-engine/testing';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { Chase } from 'm2d-engine/constraints/chase.js';
-import { Attack } from 'm2d-engine/constraints/attack.js';
-import { navGeometryOf } from 'm2d-engine/core/nav/navGeometry.js';
-import { bakeNavMesh } from 'm2d-engine/core/nav/navBake.js';
+import { M2D, Entity } from 'm2d-engine';
+import { SCENE_VERSION } from 'm2d-engine/schema';
+import { Health, Chase, Attack } from 'm2d-engine/constraints';
+import { navGeometryOf, bakeNavMesh } from 'm2d-engine/nav';
 import { Behavior } from '../src/ai/behavior.ts';
 
 /**

@@ -1,6 +1,5 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { Entity } from 'm2d-engine/core/entity.js';
+import { M2D, Entity } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
 
 // Actors are entity classes. Each one owns a physics body and draws itself.
 class Ball extends Entity {

@@ -3,9 +3,8 @@ import { mkdtemp, mkdir, writeFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { M2D } from 'm2d-engine';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { navGeometryOf } from 'm2d-engine/core/nav/navGeometry.js';
-import { bakeNavMesh } from 'm2d-engine/core/nav/navBake.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { navGeometryOf, bakeNavMesh } from 'm2d-engine/nav';
 import { bakeNav, type BakeGame, type BakeDeps } from '../src/nav.ts';
 import { Companion } from '../src/index.ts';
 

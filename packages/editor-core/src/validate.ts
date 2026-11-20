@@ -1,4 +1,3 @@
-/// <reference path="./engine.d.ts" />
 /**
  * Validation, which is the engine's job and not this package's.
  *
@@ -14,7 +13,8 @@
  * those too; see `SceneLoader`.
  */
 
-import { SceneLoader } from 'm2d-engine/core/sceneLoader.js';
+import { SceneLoader } from 'm2d-engine/schema';
+import type { M2D } from 'm2d-engine';
 
 /** One problem with a document, at a field path the editor can focus. */
 export interface ValidationIssue {
@@ -42,7 +42,7 @@ export interface ValidationResult {
  * @param options - `scenes`: the raw documents of the scenes this one may
  *   instance, by name, so composition expands (see the loader)
  */
-export function validateScene(doc: unknown, game: unknown = null, options: { scenes?: Record<string, unknown> } = {}): ValidationResult {
+export function validateScene(doc: unknown, game: M2D | null = null, options: { scenes?: Record<string, unknown> } = {}): ValidationResult {
   try {
     const { loaded, issues } = new SceneLoader(game).check(doc, undefined, options);
     return {

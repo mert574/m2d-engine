@@ -1,10 +1,10 @@
 import { SpriteSheet } from './spriteSheet.js';
-import { validate } from './schema.js';
+import { validate } from './schema.ts';
 import { constraintParamsSchema, actorPropertyFields, DEFAULT_OBJECT_SIZE } from './sceneSchema.js';
 import { Projection } from './projection.js';
-import { geometryFor } from './renderers/geometry/primitives.js';
+import { geometryFor } from './renderers/geometry/primitives.ts';
 import { placeLight, instanceEmissive, toLinear } from './presentation3d.js';
-import { parseColor } from './renderers/geometry/color.js';
+import { parseColor } from './renderers/geometry/color.ts';
 import { SceneRules } from './rules.js';
 import { SceneHud, sceneButton } from './hud.js';
 import { SceneCounters } from './counters.js';
@@ -17,8 +17,8 @@ import { cycleLook, advanceCycle } from './look.js';
 import { lodFor } from './gltf.js';
 import { loadHDR } from './hdr.js';
 import { Animator3D } from './animator3d.js';
-import { Quat } from './math.js';
-import * as mat4 from './renderers/geometry/mat4.js';
+import { Quat } from './math.ts';
+import * as mat4 from './renderers/geometry/mat4.ts';
 import { presentationGuard } from './headless.js';
 import { Container } from './ui/container.js';
 import { FocusManager } from './ui/focus.js';
@@ -182,7 +182,7 @@ export class Scene {
 
   // --- Props and model streaming: the scene's public face of `SceneProps` ---
 
-  /** The level's prop batches, for the frame. @type {import('./renderers/frame3d.js').StaticBatch[]} */
+  /** The level's prop batches, for the frame. @type {import('./renderers/frame3d.ts').StaticBatch[]} */
   get batches() { return this.props.batches; }
   /** The props' static bodies, removed with the scene. */
   get propBodies() { return this.props.bodies; }

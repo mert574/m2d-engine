@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { makeTestGame } from './helpers/testGame.js';
+import { makeTestGame } from '../src/testing/testGame.js';
 import { Projection } from '../src/core/projection.js';
 import { Camera } from '../src/core/camera.js';
 import { LayerManager } from '../src/core/layerManager.js';

@@ -1,4 +1,4 @@
-import { Prop } from 'm2d-engine/actors/prop.js';
+import { Prop } from 'm2d-engine/actors';
 import { Player, registerKitActors } from 'm2d-kit/actors';
 import { registerKitScenery } from 'm2d-kit/scenery';
 

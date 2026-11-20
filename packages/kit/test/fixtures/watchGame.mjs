@@ -2,11 +2,9 @@
 // the watching client both import. Plain JavaScript over the kit's built
 // dist, because the match loads in Node with no bundler — exactly as a
 // shipped game's match module would.
-import { Entity } from 'm2d-engine/core/entity.js';
-import { InputSchema } from 'm2d-engine/net/input.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { Chase } from 'm2d-engine/constraints/chase.js';
-import { Attack } from 'm2d-engine/constraints/attack.js';
+import { Entity } from 'm2d-engine';
+import { InputSchema } from 'm2d-engine/net';
+import { Health, Chase, Attack } from 'm2d-engine/constraints';
 import { Behavior } from 'm2d-kit/ai';
 
 export const INPUT = new InputSchema({ keys: ['ArrowLeft', 'ArrowRight'] });

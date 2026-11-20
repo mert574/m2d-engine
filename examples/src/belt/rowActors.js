@@ -1,9 +1,8 @@
-import { s } from 'm2d-engine/core/schema.js';
-import { Entity } from 'm2d-engine/core/entity.js';
+import { s } from 'm2d-engine/schema';
+import { Entity } from 'm2d-engine';
 import { Ghost, ObliquePlayer } from 'm2d-kit/actors';
-import { Footsteps } from 'm2d-engine/constraints/footsteps.js';
-import { Attack } from 'm2d-engine/constraints/attack.js';
-import { drawGroundShadow, shadowForLift } from 'm2d-engine/core/renderers/shadows.js';
+import { Footsteps, Attack } from 'm2d-engine/constraints';
+import { drawGroundShadow, shadowForLift } from 'm2d-engine/renderers';
 import { AttackSwing, HitBurst } from 'm2d-kit/effects';
 import { Behavior } from 'm2d-kit/ai';
 

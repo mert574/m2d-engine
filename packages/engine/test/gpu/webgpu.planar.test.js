@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { WebGPURenderer } from '../../src/core/renderers/webgpuRenderer.js';
 import { initWebGPU } from '../../src/core/renderers/webgpu/device.js';
 import { Camera3D } from '../../src/core/camera3d.js';
-import { box } from '../../src/core/renderers/geometry/primitives.js';
-import { createCanvasElement } from '../helpers/environment.js';
+import { box } from '../../src/core/renderers/geometry/primitives.ts';
+import { createCanvasElement } from '../../src/testing/environment.js';
 
 // A `mesh.texture` is mapped planar, one tile per `size` metres. On a
 // floor or a wall that is mapped from the world, so neighbouring pieces

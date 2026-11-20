@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { Entity } from '../src/core/entity.js';
-import { s } from '../src/core/schema.js';
-import { RecordingRenderer } from './helpers/recordingRenderer.js';
-import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
-import { scroll, keyDown } from './helpers/input.js';
+import { s } from '../src/core/schema.ts';
+import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
+import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from '../src/testing/environment.js';
+import { scroll, keyDown } from '../src/testing/input.js';
 import { SCENE_VERSION, SceneLoader } from '../src/core/sceneLoader.js';
 import { PROJECT_SCHEMA, projectIssues, projectOptions, bootProject, sceneNameOf, combineSceneHooks } from '../src/core/project.js';
 

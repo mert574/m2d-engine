@@ -1,0 +1,34 @@
+{
+  "docs": {
+    "any": 0,
+    "js": 19
+  },
+  "examples": {
+    "any": 0,
+    "js": 141
+  },
+  "packages/editor": {
+    "any": 0,
+    "js": 2
+  },
+  "packages/editor-host": {
+    "any": 1,
+    "js": 11
+  },
+  "packages/engine": {
+    "any": 0,
+    "js": 264
+  },
+  "packages/kit": {
+    "any": 22,
+    "js": 17
+  },
+  "packages/server": {
+    "any": 0,
+    "js": 23
+  },
+  "scripts": {
+    "any": 0,
+    "js": 1
+  }
+}

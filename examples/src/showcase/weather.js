@@ -1,4 +1,4 @@
-import { advanceCycle, cycleLook } from 'm2d-engine/core/look.js';
+import { advanceCycle, cycleLook } from 'm2d-engine';
 
 /**
  * The harbour's weather and its hour.
@@ -92,7 +92,7 @@ const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const ramp = (v, from, to) => clamp01((v - from) / (to - from)) ** 2 * (3 - 2 * clamp01((v - from) / (to - from)));
 
 export class Weather {
-  /** @param {import('m2d-engine/core/m2d.js').M2D} game */
+  /** @param {import('m2d-engine').M2D} game */
   constructor(game) {
     this.game = game;
     /** Wall seconds: the weather and the hour both run on it. */

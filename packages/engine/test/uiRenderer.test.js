@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { UIRenderer } from '../src/core/renderers/uiRenderer.js';
-import { RecordingRenderer } from './helpers/recordingRenderer.js';
+import { UIRenderer } from '../src/core/renderers/uiRenderer.ts';
+import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
 import { UIButton } from '../src/core/ui/button.js';
 import { UIMenuItem } from '../src/core/ui/menuItem.js';
 import { UIText } from '../src/core/ui/text.js';
@@ -9,8 +9,8 @@ import { UIImage } from '../src/core/ui/Image.js';
 import { UIRectangle } from '../src/core/ui/Rectangle.js';
 import { PerformanceStats } from '../src/core/ui/performanceStats.js';
 import { Container } from '../src/core/ui/container.js';
-import { makeTestGame } from './helpers/testGame.js';
-import { click, pointerDown, pointerMove, pointerUp } from './helpers/input.js';
+import { makeTestGame } from '../src/testing/testGame.js';
+import { click, pointerDown, pointerMove, pointerUp } from '../src/testing/input.js';
 
 describe('UIRenderer', () => {
   let backend;

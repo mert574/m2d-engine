@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { NetClient } from 'm2d-engine/net/client.js';
+import { M2D } from 'm2d-engine';
+import { NetClient } from 'm2d-engine/net';
 import { createServer, issueTicket } from 'm2d-server';
 import { GAME_OPTIONS, INPUT, registerWatch } from './fixtures/watchGame.mjs';
 

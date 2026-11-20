@@ -1,4 +1,4 @@
-import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
+import { UIElement } from 'm2d-engine/ui';
 
 /**
  * Harbour chart: the world in miniature, with the lighthouse beam on it.

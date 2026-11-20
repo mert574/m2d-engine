@@ -39,7 +39,7 @@ import { Rocket } from './actors/rocket.ts';
 import { Npc } from './actors/npc.ts';
 import { GravityDial } from './actors/gravityDial.ts';
 import { Clip } from './actors/clip.ts';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import type { M2D } from 'm2d-engine';
 import type { PrefabTemplate } from './templates.ts';
 
 /**

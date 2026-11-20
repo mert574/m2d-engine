@@ -19,7 +19,7 @@ import { makeRng, range } from 'm2d-kit/random';
 export class Backdrop {
   /**
    * @param {Object} options - Backdrop options
-   * @param {import('m2d-engine/core/renderers/baseRenderer.js').BaseRenderer} options.renderer - Backend
+   * @param {import('m2d-engine/renderers').BaseRenderer} options.renderer - Backend
    * @param {{width: number, height: number}} options.bounds - World bounds
    * @param {number} options.horizonY - Sky/water boundary (the eye level)
    * @param {number} options.shoreY - Water/bank boundary

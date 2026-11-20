@@ -1,4 +1,4 @@
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import type { M2D } from 'm2d-engine';
 
 /**
  * One row of the settings menu, as `SettingsMenu.addOption` takes it. The

@@ -1,9 +1,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { M2D } from '../../src/core/m2d.js';
 import { Entity } from '../../src/core/entity.js';
-import { initPhysics } from '../../src/core/physics/index.js';
+import { initPhysics } from '../../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../../src/core/sceneLoader.js';
-import { readWebGLPixels } from '../helpers/environment.js';
+import { readWebGLPixels } from '../../src/testing/environment.js';
 
 /**
  * Edit mode at the DOM boundary: the half the node suite cannot answer

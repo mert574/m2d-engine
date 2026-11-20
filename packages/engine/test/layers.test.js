@@ -4,7 +4,7 @@ import { Entity } from '../src/core/entity.js';
 import { CollisionLayers } from '../src/core/collisionLayers.js';
 import { Health } from '../src/constraints/health.js';
 import { Attack } from '../src/constraints/attack.js';
-import { initPhysics } from '../src/core/physics/index.js';
+import { initPhysics } from '../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 
 /**

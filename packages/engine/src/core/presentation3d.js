@@ -1,4 +1,4 @@
-import { parseColor } from './renderers/geometry/color.js';
+import { parseColor } from './renderers/geometry/color.ts';
 
 /**
  * A prefab's `mesh` and `light` blocks as the 3D renderer wants them:

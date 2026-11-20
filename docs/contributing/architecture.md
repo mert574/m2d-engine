@@ -14,7 +14,7 @@ packages/engine/src/
 │   ├── constraint.js     Base constraint
 │   ├── projectile.js     Base projectile
 │   ├── scene.js          Builds a scene from validated JSON
-│   ├── schema.js         Declarative schema descriptors and their validator
+│   ├── schema.ts         Declarative schema descriptors and their validator
 │   ├── sceneSchema.js    The scene format, written as descriptors
 │   ├── assetSchema.js    The asset manifest format, as descriptors
 │   ├── assets.js         The asset database: assets by uid
@@ -30,12 +30,12 @@ packages/engine/src/
 │   ├── quest.js          A quest as a line of stages
 │   ├── projection.js     Ground plane to render plane (isometric)
 │   ├── camera.js
-│   ├── viewport.js       Display size to view, world surface and UI sizes
+│   ├── viewport.ts       Display size to view, world surface and UI sizes
 │   ├── spriteSheet.js
 │   ├── layerManager.js   Tile layers with zIndex, parallax and culling
 │   ├── soundManager.js
 │   ├── constants.js      Collision categories
-│   ├── math.js           Vec2 and Angle helpers
+│   ├── math.ts           Vec2 and Angle helpers
 │   ├── physics/          The simulation behind an engine-owned interface
 │   ├── renderers/        Backend contract, Canvas and WebGL2 backends, the WebGPU 3D renderer, geometry
 │   ├── console/          CVar and command registries, the drop-down console
@@ -47,7 +47,7 @@ packages/engine/src/
 
 ## Physics boundary
 
-Nothing outside `core/physics/` imports a physics library. `index.js` documents the contract and exports `initPhysics` and `createPhysicsWorld`, which take the dimension to build on. `rapierBackend.js` implements the contract over Rapier 2D and `rapier3dBackend.js` over Rapier 3D; they are separate worlds on separate WASM modules, and a game loads only the one it plays. `rapierShared.js` holds what a dimension does not change (the `frictionAir` conversion and the material half of a body handle) and imports no Rapier of its own, since a backend passes its module in. The tuning constants are per backend, because they are in the backend's unit: pixels with up along `-y` in 2D, metres with up along `+y` in 3D. Shared code that needs the axis asks `world.up`. `worldBase.js` holds the solver-independent fixed-step clock and interpolation alpha.
+Nothing outside `core/physics/` imports a physics library. `index.ts` documents the contract and exports `initPhysics` and `createPhysicsWorld`, which take the dimension to build on. `rapierBackend.ts` implements the contract over Rapier 2D and `rapier3dBackend.ts` over Rapier 3D; they are separate worlds on separate WASM modules, and a game loads only the one it plays. `rapierShared.ts` holds what a dimension does not change (the `frictionAir` conversion and the material half of a body handle) and imports no Rapier of its own, since a backend passes its module in. The tuning constants are per backend, because they are in the backend's unit: pixels with up along `-y` in 2D, metres with up along `+y` in 3D. Shared code that needs the axis asks `world.up`. `worldBase.ts` holds the solver-independent fixed-step clock and interpolation alpha.
 
 Rules the boundary keeps:
 
@@ -71,9 +71,9 @@ The contract describes rendering semantics. When a backend needs a workaround to
 
 Backends:
 
-- `webglRenderer.js` tessellates and transforms geometry on the CPU in `geometry/` and batches it in `webgl/batch.js` into as few draw calls as paint-state changes allow. Text is rasterized by the browser into cached label textures. Clips use stencil reference counting. Shadows render the silhouette offscreen and blur it. Lights and post effects live in `webgl/effectsPass.js`. The `geometry/` modules are API-neutral so another GPU backend would reuse them.
-- `webgpuRenderer.js` is the 3D renderer and a different kind: retained rather than immediate. The engine asks the scene for a frame and calls `render(frame)` once; entities do not draw themselves. It extends `BaseRenderer` for the viewport, statistics and debug plumbing, declares `dimensions = 3`, and the engine refuses to pair it with 2D physics or a 2D backend with 3D physics. `webgpu/device.js` acquires the one `GPUDevice` per page up front (`initWebGPU()`, awaited before `M2D` like `initPhysics`). The HUD draws through a WebGL2 backend on an overlay canvas the renderer owns, so the UI layer is unchanged in 3D. `frame3d.js` is the frame it draws: camera, sun, point and spot lights, environment settings, fog, bloom and instances grouped by geometry and material. Its WGSL is in `webgpu/shaders/`: one module per pass (`mesh.js`, `shadow.js`, `sky.js`, `cull.js`, `clusters.js`, `particles.js`, `environment.js`, and `post/` for the full-screen passes), the chunks they compose (`chunks/frame.js` is the frame uniform and the storage arrays every pass shares, `chunks/material.js`, `chunks/morph.js`, `chunks/brdf.js`, `chunks/lighting.js`), the sizes the JavaScript and the WGSL must agree on in `constants.js`, and `index.js` exporting what the renderer builds pipelines from. The WGSL stays in JavaScript template strings rather than `.wgsl` files because passes splice constants into their source and the engine runs unbundled under Node, where a `?raw` import does not resolve. `webgpu/environment.js` bakes the sky into the prefiltered and irradiance cubemaps the mesh pass lights with, `webgpu/post.js` is bloom and the tonemapping composite, and `geometry/mat4.js` and `geometry/primitives.js` are the 4x4 matrices and the primitive meshes behind it. `camera3d.js` is the 3D game's `game.camera`. Its contract grows with the 3D plan in `knowledge-base/projects/3d/3d-and-editor.md`.
-- `uiRenderer.js` wraps any backend and forwards calls with `isScreenSpace: true`. A new backend gets the UI layer for free.
+- `webglRenderer.ts` tessellates and transforms geometry on the CPU in `geometry/` and batches it in `webgl/batch.ts` into as few draw calls as paint-state changes allow. Text is rasterized by the browser into cached label textures. Clips use stencil reference counting. Shadows render the silhouette offscreen and blur it. Lights and post effects live in `webgl/effectsPass.ts`. The `geometry/` modules are API-neutral so another GPU backend would reuse them.
+- `webgpuRenderer.js` is the 3D renderer and a different kind: retained rather than immediate. The engine asks the scene for a frame and calls `render(frame)` once; entities do not draw themselves. It extends `BaseRenderer` for the viewport, statistics and debug plumbing, declares `dimensions = 3`, and the engine refuses to pair it with 2D physics or a 2D backend with 3D physics. `webgpu/device.js` acquires the one `GPUDevice` per page up front (`initWebGPU()`, awaited before `M2D` like `initPhysics`). The HUD draws through a WebGL2 backend on an overlay canvas the renderer owns, so the UI layer is unchanged in 3D. `frame3d.ts` is the frame it draws: camera, sun, point and spot lights, environment settings, fog, bloom and instances grouped by geometry and material. Its WGSL is in `webgpu/shaders/`: one module per pass (`mesh.js`, `shadow.js`, `sky.js`, `cull.js`, `clusters.js`, `particles.js`, `environment.js`, and `post/` for the full-screen passes), the chunks they compose (`chunks/frame.js` is the frame uniform and the storage arrays every pass shares, `chunks/material.js`, `chunks/morph.js`, `chunks/brdf.js`, `chunks/lighting.js`), the sizes the JavaScript and the WGSL must agree on in `constants.js`, and `index.js` exporting what the renderer builds pipelines from. The WGSL stays in JavaScript template strings rather than `.wgsl` files because passes splice constants into their source and the engine runs unbundled under Node, where a `?raw` import does not resolve. `webgpu/environment.js` bakes the sky into the prefiltered and irradiance cubemaps the mesh pass lights with, `webgpu/post.js` is bloom and the tonemapping composite, and `geometry/mat4.ts` and `geometry/primitives.ts` are the 4x4 matrices and the primitive meshes behind it. `camera3d.js` is the 3D game's `game.camera`. Its contract grows with the 3D plan in `knowledge-base/projects/3d/3d-and-editor.md`.
+- `uiRenderer.ts` wraps any backend and forwards calls with `isScreenSpace: true`. A new backend gets the UI layer for free.
 - `index.js` holds the registry and the default names by dimension. There is no fallback: a backend that fails to initialize throws from the constructor, after `M2D` has put a line of text in the canvas's place, so a visitor without WebGL2 reads why instead of seeing nothing.
 
 Every feature of the contract is mandatory, lights and post effects included: with one 2D backend there is nothing to degrade to, so games write to the contract and never ask what the backend can do. See [Testing](./testing).
@@ -101,7 +101,7 @@ Behaviours pinned by tests because they are easy to get wrong:
 
 ## Viewport
 
-`core/viewport.js` turns a display size into the three sizes the engine renders at. They are the view in world units, the world surface in pixels and UI space in UI units at display density. `computeViewport` is pure. `M2D` calls it on construction and on every coalesced display change.
+`core/viewport.ts` turns a display size into the three sizes the engine renders at. They are the view in world units, the world surface in pixels and UI space in UI units at display density. `computeViewport` is pure. `M2D` calls it on construction and on every coalesced display change.
 
 - The world is a real surface when it is resampled or when lighting and post effects need it as a texture. At native resolution WebGL draws straight to the default framebuffer so multisampling applies. The scene target carries a stencil buffer, without which clipping stops working.
 - UI draws straight onto the backing store at full resolution after the world is composited.
@@ -117,7 +117,7 @@ Behaviours pinned by tests because they are easy to get wrong:
 
 `SceneLoader.load` validates raw JSON and applies defaults before `Scene` builds anything. The normalized output has the same shape as the input, so there is one scene format to know.
 
-The format itself is data. `sceneSchema.js` describes every field (its type, default, range, allowed values and whether it names a spritesheet, prefab, actor or scene) using the descriptor vocabulary in `schema.js`; `sceneLoader.js` is only what cannot be data: choosing the schema for a scene's `type`, building the namespaces that references resolve against, and raising `SceneValidationError`. Adding a field means adding it to `sceneSchema.js` and to the [scene format reference](../reference/scene-format).
+The format itself is data. `sceneSchema.js` describes every field (its type, default, range, allowed values and whether it names a spritesheet, prefab, actor or scene) using the descriptor vocabulary in `schema.ts`; `sceneLoader.js` is only what cannot be data: choosing the schema for a scene's `type`, building the namespaces that references resolve against, and raising `SceneValidationError`. Adding a field means adding it to `sceneSchema.js` and to the [scene format reference](../reference/scene-format).
 
 Assets may also live outside any scene. `assets.js` holds a database keyed by **uid**, an identity that is neither a name nor a path, so renaming a texture or moving a file does not break the scenes that use it. A scene's `uses` block binds the uids it wants to short local names. The loader expands that block into the sprite sheets and prefabs the scene would otherwise have declared inline, so `Scene` and everything after it see one shape regardless of where an asset came from. See [Asset manifest](../reference/asset-manifest).
 
@@ -145,7 +145,7 @@ The client side is three pieces. `net/interpolation.js` holds each entity's rece
 
 `game.projection` (`core/projection.js`) maps the ground plane the simulation runs on to the render plane the camera and renderer work in. It is applied in exactly four places: `Entity.renderAnchor` (and so `renderPosition` and `depth`), `LayerManager` for tile centres and culling, `InputManager.toWorld` for the inverse on pointer positions, and `M2D.worldToUI`. Nothing in physics or the renderer knows it exists. A scene sets it from `world.projection`; `reset` clears it.
 
-The camera is a full world-to-view affine (`geometry/matrix.js` `viewMatrix`): translate, zoom and rotation about the view centre. The renderer applies that one matrix in `applyCamera`, and `Camera.worldToScreen` and `screenToWorld` use it and its inverse, so drawing, input and the world overlay cannot disagree. `camera.mode` picks how it moves: `follow`, `scroll` at `scrollVelocity` or `rooms` snapping to the room of `roomSize`. All of it is presentation on wall time, never read by the simulation (the [determinism contract](./determinism)). Camera configuration is scene state: `Scene.unload` and `game.reset` call `camera.resetConfig()`, and a scene's `onEnter` sets up the camera it wants.
+The camera is a full world-to-view affine (`geometry/matrix.ts` `viewMatrix`): translate, zoom and rotation about the view centre. The renderer applies that one matrix in `applyCamera`, and `Camera.worldToScreen` and `screenToWorld` use it and its inverse, so drawing, input and the world overlay cannot disagree. `camera.mode` picks how it moves: `follow`, `scroll` at `scrollVelocity` or `rooms` snapping to the room of `roomSize`. All of it is presentation on wall time, never read by the simulation (the [determinism contract](./determinism)). Camera configuration is scene state: `Scene.unload` and `game.reset` call `camera.resetConfig()`, and a scene's `onEnter` sets up the camera it wants.
 
 ## UI
 

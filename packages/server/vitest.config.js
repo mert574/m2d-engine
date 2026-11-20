@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
+import { workspaceResolve } from '../../scripts/workspaceResolve.ts';
 
 export default defineConfig({
+  ...workspaceResolve,
   test: {
     environment: 'node',
     include: ['test/**/*.test.js'],

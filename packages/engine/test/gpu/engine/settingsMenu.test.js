@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { SCENE_VERSION } from '../../../src/core/sceneLoader.js';
-import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from '../../helpers/environment.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from '../../../src/testing/environment.js';
 import { M2D } from '../../../src/core/m2d.js';
 import { SettingsMenu } from '../../../src/core/ui/settingsMenu.js';
 import { UIOptionRow } from '../../../src/core/ui/optionRow.js';
 import { UIScreen } from '../../../src/core/ui/screen.js';
-import { keyDown, keyUp } from '../../helpers/input.js';
+import { keyDown, keyUp } from '../../../src/testing/input.js';
 
 /**
  * The settings overlay every example mounts: resolution, fullscreen, aspect.

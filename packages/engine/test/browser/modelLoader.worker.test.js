@@ -4,7 +4,7 @@ import { initWebGPU } from '../../src/core/renderers/webgpu/device.js';
 import { initBasis, transcodeKTX2 } from '../../src/core/renderers/webgpu/basis.js';
 import { parseGLB, setKTX2Decoder } from '../../src/core/gltf.js';
 import { loadModel, workersAvailable, destroyModelLoader } from '../../src/core/modelLoader.js';
-import { createCanvasElement } from '../helpers/environment.js';
+import { createCanvasElement } from '../../src/testing/environment.js';
 
 // The model loader's worker path, which needs a browser's Web Worker. The
 // rest of the loader is checked in `gpu/webgpu.loader.test.js`.

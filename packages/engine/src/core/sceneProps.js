@@ -24,12 +24,12 @@
  * frame, and it is the only path that cannot drift from a load.
  */
 
-import { StaticBatch } from './renderers/frame3d.js';
-import { geometryFor } from './renderers/geometry/primitives.js';
+import { StaticBatch } from './renderers/frame3d.ts';
+import { geometryFor } from './renderers/geometry/primitives.ts';
 import { meshFor, lightFor, placeLight, instanceEmissive } from './presentation3d.js';
 import { loadModel } from './modelLoader.js';
-import { Quat } from './math.js';
-import * as mat4 from './renderers/geometry/mat4.js';
+import { Quat } from './math.ts';
+import * as mat4 from './renderers/geometry/mat4.ts';
 
 const ZERO = { x: 0, y: 0, z: 0 };
 const UP = { x: 0, y: 1, z: 0 };

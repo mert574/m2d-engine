@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InputSnapshot } from '../src/core/input/inputManager.js';
 
-import { makeTestGame, makeBody } from './helpers/testGame.js';
+import { makeTestGame, makeBody } from '../src/testing/testGame.js';
 import { Entity } from '../src/core/entity.js';
 import { Interactive } from '../src/constraints/interactive.js';
 import { Container } from '../src/core/ui/container.js';
@@ -11,7 +11,7 @@ import { UIRectangle } from '../src/core/ui/Rectangle.js';
 import {
   advanceInputClock, click, drag, holdKeys, keyDown, keyUp, pointerDown, pointerMove, releaseKeys,
   pointerUp, resetInputClock, scroll
-} from './helpers/input.js';
+} from '../src/testing/input.js';
 
 /**
  * The input system: gesture recognition, routing and world hit testing.

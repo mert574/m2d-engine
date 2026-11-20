@@ -20,7 +20,7 @@
  * same. See `assets.js` for the database and `sceneSchema.js` for `uses`.
  */
 
-import { s } from './schema.js';
+import { s } from './schema.ts';
 
 /** The only asset manifest version this engine understands. */
 export const MANIFEST_VERSION = 1;

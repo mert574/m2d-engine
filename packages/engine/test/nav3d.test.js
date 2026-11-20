@@ -3,7 +3,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { M2D } from '../src/core/m2d.js';
-import { initPhysics } from '../src/core/physics/index.js';
+import { initPhysics } from '../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { navGeometryOf } from '../src/core/nav/navGeometry.js';
 import { bakeNavMesh } from '../src/core/nav/navBake.js';

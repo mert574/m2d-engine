@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
-import { RecordingRenderer } from 'm2d-engine/test/helpers/recordingRenderer.js';
-import { displayCanvas, installWindowStub, stubDocumentListeners } from 'm2d-engine/test/helpers/environment.js';
+import { M2D, Entity } from 'm2d-engine';
+import { SCENE_VERSION } from 'm2d-engine/schema';
+import {
+  RecordingRenderer,
+  displayCanvas,
+  installWindowStub,
+  stubDocumentListeners
+} from 'm2d-engine/testing';
 import { CarControl } from '../src/controls/carControl.ts';
 import { ThrustControl } from '../src/controls/thrustControl.ts';
 import { GlideControl } from '../src/controls/glideControl.ts';

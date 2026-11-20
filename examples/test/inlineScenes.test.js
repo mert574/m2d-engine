@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { parse } from 'acorn';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
+import { SCENE_VERSION } from 'm2d-engine/schema';
 
 /**
  * Scenes written as object literals in source, rather than as JSON files.

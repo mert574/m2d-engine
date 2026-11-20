@@ -1,4 +1,4 @@
-import type { Entity } from 'm2d-engine/core/entity.js';
+import type { Entity } from 'm2d-engine';
 
 /**
  * The engine's side of the kit's types.

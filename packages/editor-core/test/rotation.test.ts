@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { rotation } from '../src/index.ts';
-import { Quat } from 'm2d-engine/core/math.js';
+import { Quat } from 'm2d-engine';
 
 /** The editor's quaternions must turn things exactly as the engine does. */
 const deg = Math.PI / 180;

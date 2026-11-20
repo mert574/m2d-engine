@@ -15,7 +15,7 @@ Goal: multiplayer through an authoritative server, with no networking code in th
 
 | Gap | Done when |
 | --- | --- |
-| The 3D physics world has no `snapshot`/`restore` (`rapier3dBackend.js` lists it as unported) | `game.snapshot()` works in a 3D game; this is what prediction rewinds to |
+| The 3D physics world has no `snapshot`/`restore` (`rapier3dBackend.ts` lists it as unported) | `game.snapshot()` works in a 3D game; this is what prediction rewinds to |
 | Prediction (`Predictor` refuses 3D) | The local hero predicts and reconciles. The yard's hero already steers from the tick's `input.heading`, which is what a replay feeds it |
 | Interpolation (a 3D replica draws the latest server transform) | Remote entities blend between states, with rotations slerped |
 | Interest measures x and y (`Replicator.#relevant`) | Interest and event culling measure ground or full distance in 3D, documented in metres |

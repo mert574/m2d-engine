@@ -44,4 +44,4 @@ export * as audit from './audit.ts';
 export type { SceneInput, Reference, Audit } from './audit.ts';
 export type { Rest, At, Variant } from './stage.ts';
 export type { PointList, PathPoint } from './paths.ts';
-export { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
+export { SCENE_VERSION } from 'm2d-engine/schema';

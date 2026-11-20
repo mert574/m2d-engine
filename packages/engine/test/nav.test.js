@@ -7,7 +7,7 @@ import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { navGeometryOf } from '../src/core/nav/navGeometry.js';
 import { bakeNavMesh } from '../src/core/nav/navBake.js';
 import { NavAreas } from '../src/core/nav/navAreas.js';
-import './helpers/setupPhysics.js';
+import '../src/testing/setup.js';
 
 /**
  * The navmesh, headless and end to end: baked in Node from a built level,

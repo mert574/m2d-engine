@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { M2D } from '../src/core/m2d.js';
 import { UIElement } from '../src/core/ui/uiElement.js';
 import { SCENE_VERSION, SceneLoader } from '../src/core/sceneLoader.js';
-import { RecordingRenderer } from './helpers/recordingRenderer.js';
-import { displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
+import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
+import { displayCanvas, installWindowStub, stubDocumentListeners } from '../src/testing/environment.js';
 
 /**
  * What a UI scene draws of the game's own: painted backdrop layers the

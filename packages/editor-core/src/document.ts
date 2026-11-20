@@ -13,6 +13,7 @@ import { writeScene } from './writer.ts';
 import { validateScene, type ValidationResult } from './validate.ts';
 import { CommandStack, type Command } from './commands.ts';
 import { EditCommand, type Edit } from './edits.ts';
+import type { M2D } from 'm2d-engine';
 
 export class SceneDocument {
   /** Where it came from, for saving; null for one made in memory. */
@@ -81,7 +82,7 @@ export class SceneDocument {
     return command;
   }
 
-  validate(game: unknown = null): ValidationResult {
+  validate(game: M2D | null = null): ValidationResult {
     return validateScene(this.data, game);
   }
 

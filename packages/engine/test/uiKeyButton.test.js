@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { Container } from '../src/core/ui/container.js';
 import { UIKeyButton } from '../src/core/ui/keyButton.js';
-import { makeTestGame } from './helpers/testGame.js';
-import { pointerDown, pointerUp } from './helpers/input.js';
+import { makeTestGame } from '../src/testing/testGame.js';
+import { pointerDown, pointerUp } from '../src/testing/input.js';
 
 /**
  * An on-screen key: a press puts its code down through the input seam, the

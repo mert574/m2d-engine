@@ -1,4 +1,4 @@
-import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
+import { UIElement } from 'm2d-engine/ui';
 import { lapTime } from './menuParts.js';
 import { TouchControls } from './touchControls.js';
 

@@ -45,23 +45,26 @@ Engine-level suites: `viewport.test.js` for sizing math and projection, `gpu/eng
 
 ### Recording renderer
 
-`helpers/recordingRenderer.js` is a `BaseRenderer` that records calls instead of drawing. It catches wrong option names, unbalanced push and pop pairs and debug drawing that ignores the flag. It inherits the shared logic in `BaseRenderer` so that code is exercised too.
+`RecordingRenderer` (`src/testing/recordingRenderer.js`) is a `BaseRenderer` that records calls instead of drawing. It catches wrong option names, unbalanced push and pop pairs and debug drawing that ignores the flag. It inherits the shared logic in `BaseRenderer` so that code is exercised too.
 
 ### Helpers
 
 | File | Provides |
 | --- | --- |
-| `helpers/testGame.js` | `makeTestGame` builds a game on a `RecordingRenderer`. `makeBody`, `expectBalancedStacks` |
-| `helpers/pixels.js` | `snapshot`, `expectColorAt`, `expectNotColorAt`, `expectTransparentAt` |
-| `helpers/fixtures.js` | Test images |
-| `helpers/input.js` | `pointerDown`, `click`, `drag`, `scroll`, `keyDown` and clock helpers over `game.input.push` |
-| `helpers/environment.js` | Canvas creation and pixel readback for Node and the browser |
-| `helpers/gpuEnvironment.js` | The `gpu` project's browser stand-ins. See [The gpu project](#the-gpu-project) |
-| `helpers/setupPhysics.js` | Awaits `initPhysics()` once per worker |
+| `src/testing/testGame.js` | `makeTestGame` builds a game on a `RecordingRenderer`. `makeBody`, `expectBalancedStacks` |
+| `src/testing/input.js` | `pointerDown`, `click`, `drag`, `scroll`, `keyDown` and clock helpers over `game.input.push` |
+| `src/testing/environment.js` | Canvas creation and pixel readback for Node and the browser |
+| `src/testing/setup.js` | Awaits `initPhysics()` once per worker |
+| `test/helpers/pixels.js` | `snapshot`, `expectColorAt`, `expectNotColorAt`, `expectTransparentAt` |
+| `test/helpers/fixtures.js` | Test images |
+| `test/helpers/gpuEnvironment.js` | The `gpu` project's browser stand-ins. See [The gpu project](#the-gpu-project) |
+| `test/helpers/cast.js`, `scenarios.js`, `net.js` | The engine's own test cast and scenes |
 
-## Test helpers shared with the kit
+## Test helpers for code on the engine
 
-`packages/engine/test/helpers/` is exported as `m2d-engine/test/helpers/*` so the kit's tests build on the same `makeTestGame`, `RecordingRenderer` and environment stubs instead of copying them. It is test support, not the engine's API: nothing under it is documented or stable for games. The engine's own suites drive the simulation with `test/helpers/cast.js`, a cast composed from the engine's capabilities, and never import the kit.
+The helpers in `src/testing/` are the `m2d-engine/testing` entry, so the kit's tests, the examples' and a game's build on the same `makeTestGame`, `RecordingRenderer`, input and environment helpers instead of copying them. It is public API and versioned with the rest of the package; loading it needs `vitest` and, outside a browser, `@napi-rs/canvas` (both optional peer dependencies). `m2d-engine/testing/setup` is the setup module that compiles physics once per worker; Vitest's `setupFiles` takes a path rather than a package entry, so a package points it at a one-line local file that imports it (`packages/kit/test/setup.js`).
+
+What stays in `test/helpers/` is the engine's own: its pixel assertions, the GPU environment, and `cast.js`, a cast composed from the engine's capabilities that drives its suites without ever importing the kit.
 
 ## Validating a new backend
 
@@ -69,9 +72,9 @@ One file. The WebGL2 backend's file is the template.
 
 ```js
 // test/gpu/webglRenderer.conformance.test.js
-import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.js';
+import { WebGLRenderer } from '../../src/core/renderers/webglRenderer.ts';
 import { describeRendererConformance } from '../conformance/rendererConformance.js';
-import { createCanvasElement, readWebGLPixels } from '../helpers/environment.js';
+import { createCanvasElement, readWebGLPixels } from '../../src/testing/environment.js';
 
 describeRendererConformance({
   name: 'WebGLRenderer',

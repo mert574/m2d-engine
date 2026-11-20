@@ -1,4 +1,4 @@
-import { createPhysicsWorld } from './physics/index.js';
+import { createPhysicsWorld } from './physics/index.ts';
 import { Registry, BUILTIN_ACTORS, BUILTIN_CONSTRAINTS } from './builtins.js';
 
 import { CollisionLayers } from './collisionLayers.js';
@@ -17,9 +17,9 @@ import { meshFor, lightFor } from './presentation3d.js';
 import { SoundManager } from './soundManager.js';
 import { ImageCache } from './imageCache.js';
 import { createRenderer, UIRenderer, DEFAULT_RENDERER, DEFAULT_RENDERER_3D } from './renderers/index.js';
-import { computeViewport, sameViewport, viewToUI } from './viewport.js';
+import { computeViewport, sameViewport, viewToUI } from './viewport.ts';
 import { showUnsupported } from './unsupported.js';
-import { WorldOverlay } from './ui/worldOverlay.js';
+import { WorldOverlay } from './ui/worldOverlay.ts';
 import { Theme, createTheme } from './ui/theme.js';
 import { loadUIFonts } from './ui/fonts.js';
 import { ScreenStack } from './ui/screenStack.js';
@@ -79,7 +79,7 @@ const defaultOptions = {
    * 'letterbox' keeps the designed view and adds bars, so nothing past the
    * edge of the designed view is ever revealed; 'expand' widens the view to
    * fill the display, showing more world. The UI fills the display either way.
-   * @type {import('./viewport.js').AspectMode}
+   * @type {import('./viewport.ts').AspectMode}
    */
   aspectMode: 'letterbox',
   /**
@@ -301,10 +301,18 @@ export class M2D {
     /** Set by a resize event, applied at the top of the next frame. */
     this.pendingResize = false;
 
+    /**
+     * The sizes everything renders at. A headless game's is a guard that
+     * throws on read, as every presentation field here is; see
+     * `#initHeadless`.
+     * @type {import('./viewport.ts').Viewport}
+     */
     this.viewport = this.#computeViewport();
+    /** @type {import('./renderers/baseRenderer.ts').BaseRenderer} */
     this.renderer = this.#initRenderer(canvas, this.#rendererOption());
     // A 3D renderer draws the HUD through a 2D backend of its own, on a
     // canvas laid over the world; see WebGPURenderer.
+    /** @type {UIRenderer} */
     this.uiRenderer = new UIRenderer(this.renderer.uiBackend ?? this.renderer);
 
     /**
@@ -343,6 +351,7 @@ export class M2D {
 
     // A 3D game looks through a different camera: an eye and a projection
     // rather than a window onto a plane. Same lifecycle, same call sites.
+    /** @type {Camera|Camera3D} */
     this.camera = this.renderer.dimensions === 3
       ? new Camera3D(this.viewport.viewWidth, this.viewport.viewHeight)
       : new Camera(this.viewport.viewWidth, this.viewport.viewHeight, {
@@ -366,6 +375,7 @@ export class M2D {
      * display resolution, so they stay sharp however coarse the world's
      * render resolution is. See ui/worldOverlay.js.
      */
+    /** @type {WorldOverlay} */
     this.worldOverlay = new WorldOverlay(this);
 
     if (this.options.autoResize) this.#watchDisplaySize();
@@ -498,10 +508,11 @@ export class M2D {
 
     /**
      * The simulation. Games and actors reach physics only through this; see
-     * core/physics/index.js for the contract it implements. It shares the
+     * core/physics/index.ts for the contract it implements. It shares the
      * engine clock: the step settings, the time scale and the accumulator
      * are `game.time`'s, and the loop steps it once per tick from
      * `fixedUpdate`.
+     * @type {import('./physics/index.ts').PhysicsWorld}
      */
     this.physics = createPhysicsWorld({
       clock: this.time,
@@ -520,10 +531,15 @@ export class M2D {
      */
     this.nav = new Nav(this, { navAreas: this.options.navAreas, navAgents: this.options.navAgents });
 
+    /** @type {Set<import('./entity.js').Entity>} */
     this.entities = new Set();
     this.player = null;
+    /** @type {Registry} */
     this.actors = new Registry(BUILTIN_ACTORS);
-    /** Ready-made prefab entries games and kits offer; see registerPrefabTemplate. */
+    /**
+     * Ready-made prefab entries games and kits offer; see registerPrefabTemplate.
+     * @type {Registry}
+     */
     this.prefabTemplates = new Registry();
     /**
      * Constraint classes a scene may attach by name: what the game
@@ -615,6 +631,7 @@ export class M2D {
      * @type {import('./projection.js').Projection|null}
      */
     this.projection = null;
+    /** @type {SceneManager} */
     this.sceneManager = new SceneManager(this);
 
     this.update = this.update.bind(this);
@@ -1064,7 +1081,7 @@ export class M2D {
    * Choose what happens when the display's aspect ratio differs from the
    * design aspect: 'letterbox' (bars, nothing extra revealed) or 'expand'
    * (the view widens and more world becomes visible).
-   * @param {import('./viewport.js').AspectMode} mode
+   * @param {import('./viewport.ts').AspectMode} mode
    */
   setAspectMode(mode) {
     this.aspectMode = mode;

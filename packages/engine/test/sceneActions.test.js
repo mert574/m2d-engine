@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
-import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from './helpers/environment.js';
-import { RecordingRenderer } from './helpers/recordingRenderer.js';
+import { createCanvasElement, installWindowStub, displayCanvas, stubDocumentListeners } from '../src/testing/environment.js';
+import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
 import { M2D } from '../src/core/m2d.js';
 import { Scene } from '../src/core/scene.js';
 import { SpriteSheet } from '../src/core/spriteSheet.js';

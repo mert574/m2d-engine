@@ -8,6 +8,7 @@
 import { audit, type Audit, type Reference, type SceneInput } from 'm2d-editor-core';
 import type { Session } from './session.ts';
 import type { Assets } from './assets.ts';
+import type { M2D } from 'm2d-engine';
 
 export async function projectScenes(session: Session): Promise<SceneInput[]> {
   const entries = await session.project.scenes();
@@ -18,7 +19,7 @@ export async function projectScenes(session: Session): Promise<SceneInput[]> {
   })));
 }
 
-export async function runAudit(session: Session, assets: Assets, game: unknown): Promise<Audit> {
+export async function runAudit(session: Session, assets: Assets, game: M2D | null): Promise<Audit> {
   const files = await assets.list();
   return audit.auditProject(await projectScenes(session), files.map((file) => file.url), game);
 }
@@ -29,7 +30,7 @@ export interface Uses {
   count: number;
 }
 
-export async function findUses(session: Session, scope: string, name: string, game: unknown): Promise<Uses> {
+export async function findUses(session: Session, scope: string, name: string, game: M2D | null): Promise<Uses> {
   const scenes = await projectScenes(session);
   const refs: Array<Pick<Reference, 'scene' | 'at'>> = scope === 'file'
     ? scenes.flatMap((scene) => audit.fileUses(scene)).filter((use) => use.url === name)

@@ -1,7 +1,5 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Hover } from 'm2d-engine/constraints/hover.js';
-import { Collectable } from 'm2d-engine/constraints/collectable.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { Entity, type M2D } from 'm2d-engine';
+import { Hover, Collectable } from 'm2d-engine/constraints';
 import type { ActorBody, ActorSprite } from '../engineTypes.ts';
 
 

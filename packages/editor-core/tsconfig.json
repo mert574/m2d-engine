@@ -12,5 +12,6 @@
     // concern); until then the base's `noEmit` makes this legal.
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": ["src/**/*", "test/**/*"],
+  "references": [{ "path": "../engine/tsconfig.build.json" }]
 }

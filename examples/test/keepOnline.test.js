@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { NetClient } from 'm2d-engine/net/client.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { M2D } from 'm2d-engine';
+import { NetClient } from 'm2d-engine/net';
 import { createServer, issueTicket } from 'm2d-server';
 import { KEEP_INPUT, KEEP_GAME, registerKeep, sceneHooks } from '../src/iso/game.js';
 import { purse } from '../src/iso/keepIntents.js';

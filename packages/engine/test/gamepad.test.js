@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { makeTestGame } from './helpers/testGame.js';
+import { makeTestGame } from '../src/testing/testGame.js';
 import { GamepadSource, GAMEPAD_KEYS } from '../src/core/input/gamepad.js';
 
 /**

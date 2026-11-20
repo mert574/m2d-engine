@@ -1,9 +1,7 @@
 import { TopDownPlayer } from './topDownPlayer.ts';
-import { Angle } from 'm2d-engine/core/math.js';
-import { s } from 'm2d-engine/core/schema.js';
-import type { Attack } from 'm2d-engine/constraints/attack.js';
-import type { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { Angle, type M2D } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
+import type { Attack, KeyboardControl } from 'm2d-engine/constraints';
 import type { ActorBody, ActorSprite } from '../engineTypes.ts';
 
 

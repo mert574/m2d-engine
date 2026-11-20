@@ -21,9 +21,9 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: ['test/**/*.test.js'],
+          include: ['test/**/*.test.{js,ts}'],
           exclude: ['test/browser/**', 'test/gpu/**', 'node_modules/**'],
-          setupFiles: ['./test/helpers/setupPhysics.js'],
+          setupFiles: ['./src/testing/setup.js'],
           // The Skia binding is a native CJS addon; let Node resolve it directly.
           server: {
             deps: {
@@ -37,7 +37,7 @@ export default defineConfig({
           name: 'gpu',
           environment: 'node',
           include: ['test/gpu/**/*.test.js'],
-          setupFiles: ['./test/helpers/gpuEnvironment.js', './test/helpers/setupPhysics.js'],
+          setupFiles: ['./test/helpers/gpuEnvironment.js', './src/testing/setup.js'],
           // A software GPU draws a 3D frame in tens of milliseconds and
           // compiles its pipelines in seconds.
           testTimeout: 30000,

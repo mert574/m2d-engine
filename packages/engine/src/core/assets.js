@@ -17,7 +17,7 @@
  * arrived. The format is `assetSchema.js`.
  */
 
-import { validate } from './schema.js';
+import { validate } from './schema.ts';
 import { MANIFEST_SCHEMA, MANIFEST_VERSION } from './assetSchema.js';
 
 /** An error carrying the path of the manifest field that caused it. */

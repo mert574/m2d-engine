@@ -1,9 +1,4 @@
-import { UIElement } from 'm2d-engine/core/ui/uiElement.js';
-import { UIScreen } from 'm2d-engine/core/ui/screen.js';
-import { UIPanel } from 'm2d-engine/core/ui/panel.js';
-import { UIText } from 'm2d-engine/core/ui/text.js';
-import { UIMenuItem } from 'm2d-engine/core/ui/menuItem.js';
-import { Stack, Spacer } from 'm2d-engine/core/ui/layout/stack.js';
+import { UIElement, UIScreen, UIPanel, UIText, UIMenuItem, Stack, Spacer } from 'm2d-engine/ui';
 import { WARES, WARE_IDS, SATCHEL_SIZE, purse } from './keepIntents.js';
 
 /**

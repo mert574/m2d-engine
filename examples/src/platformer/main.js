@@ -6,7 +6,7 @@
  * and leaves, its light, HUD, music and rules. The main menu is a scene too
  * (`scenes/mainMenu.json`): a low row across the valley.
  */
-import { bootProject } from 'm2d-engine/core/project.js';
+import { bootProject } from 'm2d-engine';
 import { audioOption } from 'm2d-kit/audio';
 import project from './m2d.project.json';
 import * as definition from './game.js';

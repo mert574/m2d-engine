@@ -1,5 +1,5 @@
 import { Entity } from './entity.js';
-import { Vec2 } from './math.js';
+import { Vec2 } from './math.ts';
 
 /**
  * Base class for projectiles (rockets, bullets, arrows, etc.)

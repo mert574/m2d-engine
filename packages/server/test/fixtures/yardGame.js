@@ -1,7 +1,7 @@
 // The shared half of a three-dimensional test game: a slab of ground, a
 // crate that tumbles, and heroes that walk on both ground axes.
-import { Entity } from 'm2d-engine/core/entity.js';
-import { InputSchema } from 'm2d-engine/net/input.js';
+import { Entity } from 'm2d-engine';
+import { InputSchema } from 'm2d-engine/net';
 
 export const INPUT = new InputSchema({ keys: ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'], heading: true });
 

@@ -22,13 +22,15 @@
     "editor:mcp": "node packages/editor-host/src/mcp.ts",
     "preview": "npm run preview --workspace examples",
     "generate-sprites": "npm run generate-sprites --workspace examples",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run typecheck && npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts",
+    "test": "npm run typecheck && npm run lint && npm run types:ratchet && npm run test --workspaces --if-present",
     "test:watch": "npm run test:watch --workspace packages/engine",
     "test:node": "npm run test:node --workspace packages/engine",
     "test:gpu": "npm run test:gpu --workspace packages/engine",
     "test:browser": "npm run test:browser --workspace packages/engine",
-    "test:editor": "node scripts/driveEditor.mjs"
+    "test:editor": "node scripts/driveEditor.mjs",
+    "types:ratchet": "node scripts/typesRatchet.ts",
+    "lint": "oxlint --quiet ."
   },
   "author": "Mert Yildiz",
   "license": "MIT",
@@ -38,6 +40,7 @@
     "@onirenaud/node-webgl@0.2.0": true
   },
   "devDependencies": {
+    "oxlint": "1.66.0",
     "typescript": "^7.0.2"
   }
 }

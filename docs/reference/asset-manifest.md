@@ -145,7 +145,7 @@ A name that is both used and declared inline is an error. A silent precedence ru
 
 ## Errors
 
-`game.loadAssets` throws `AssetManifestError` from `m2d-engine/core/assets.js`, with the message `Asset manifest at <path>: <problem>` and a `path` property. The checks:
+`game.loadAssets` throws `AssetManifestError` from `m2d-engine`, with the message `Asset manifest at <path>: <problem>` and a `path` property. The checks:
 
 - `version` is the current one
 - every key in `assets` is a well-formed uid, and every entry a known `type`

@@ -1,4 +1,4 @@
-import type { BaseRenderer } from 'm2d-engine/core/renderers/baseRenderer.js';
+import type { BaseRenderer } from 'm2d-engine/renderers';
 
 /** A world rectangle: its top-left corner and its size. */
 export interface Rect {

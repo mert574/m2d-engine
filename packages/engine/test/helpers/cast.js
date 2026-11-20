@@ -10,8 +10,8 @@ import { Hover } from '../../src/constraints/hover.js';
 import { Collectable } from '../../src/constraints/collectable.js';
 import { PathFollow } from '../../src/constraints/pathFollow.js';
 import { ProximityPrompt } from '../../src/constraints/proximityPrompt.js';
-import { Vec2 } from '../../src/core/math.js';
-import { s } from '../../src/core/schema.js';
+import { Vec2 } from '../../src/core/math.ts';
+import { s } from '../../src/core/schema.ts';
 
 /**
  * The engine's test cast: game-shaped actors composed from the engine's

@@ -5,7 +5,7 @@
  * a tool can import it without the engine. See project.js.
  */
 
-import { s, validate } from './schema.js';
+import { s, validate } from './schema.ts';
 import { qualityIssues } from './quality.js';
 
 /** The file that makes a folder a project. */

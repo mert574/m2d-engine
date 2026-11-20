@@ -34,7 +34,7 @@ const MOTE_DRAWS = 11;
 export class MoteField {
   /**
    * @param {Object} options - Field options
-   * @param {import('m2d-engine/core/renderers/baseRenderer.js').BaseRenderer} options.renderer - Backend
+   * @param {import('m2d-engine/renderers').BaseRenderer} options.renderer - Backend
    * @param {Object} options.sheet - Mote SpriteSheet
    * @param {{width: number, height: number}} options.bounds - World bounds motes wrap within
    * @param {number} options.waterline - World Y dividing bank from water

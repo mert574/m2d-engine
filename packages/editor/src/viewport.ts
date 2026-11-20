@@ -21,13 +21,10 @@
  * panic, not an error.
  */
 
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Constraint } from 'm2d-engine/core/constraint.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { initWebGPU, webgpuSupported } from 'm2d-engine/core/renderers/index.js';
-import { mapPointer, viewToClient, uiToView } from 'm2d-engine/core/viewport.js';
-import { ANCHOR_ORIGINS } from 'm2d-engine/core/ui/uiElement.js';
+import { M2D, Entity, Constraint } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { initWebGPU, webgpuSupported, mapPointer, viewToClient, uiToView } from 'm2d-engine/renderers';
+import { ANCHOR_ORIGINS } from 'm2d-engine/ui';
 import { isPlainObject, validateScene, rotation, type SceneDocument, type Op, type ValidationIssue, type Quaternion } from 'm2d-editor-core';
 import { attachCameraControls, type CameraControls } from './cameraControls.ts';
 import { rayShape, isBackdrop3D, bestHit, slopOffsets, type Hit, type Shape } from './picking.ts';
@@ -230,12 +227,11 @@ function placeholderActor(): unknown {
   return class Placeholder extends Entity {
     declare sprite: unknown;
     declare size: { x: number; y: number };
-    declare renderPosition: { x: number; y: number };
     declare game: { renderer: { drawRect(options: Record<string, unknown>): void } };
 
-    draw(deltaTime: number): void {
+    override draw(deltaTime: number): void {
       if (this.sprite) {
-        (Entity.prototype as unknown as { draw(dt: number): void }).draw.call(this, deltaTime);
+        super.draw(deltaTime);
         return;
       }
       const { x, y } = this.renderPosition;

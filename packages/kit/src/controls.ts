@@ -1,4 +1,4 @@
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import type { M2D } from 'm2d-engine';
 import { WallSlip } from './controls/wallSlip.ts';
 import { GlideControl } from './controls/glideControl.ts';
 import { CarControl } from './controls/carControl.ts';

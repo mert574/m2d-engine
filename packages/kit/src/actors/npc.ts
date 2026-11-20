@@ -1,8 +1,6 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { ProximityPrompt } from 'm2d-engine/constraints/proximityPrompt.js';
-import { Angle } from 'm2d-engine/core/math.js';
-import { s } from 'm2d-engine/core/schema.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { Entity, Angle, type M2D } from 'm2d-engine';
+import { ProximityPrompt } from 'm2d-engine/constraints';
+import { s } from 'm2d-engine/schema';
 import type { ActorBody, ActorSprite } from '../engineTypes.ts';
 
 

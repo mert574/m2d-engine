@@ -1,4 +1,4 @@
-import { InputSchema } from 'm2d-engine/net/input.js';
+import { InputSchema } from 'm2d-engine/net';
 
 /**
  * A match definition: the server entry's half of a game. It lives in a

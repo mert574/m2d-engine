@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from './helpers/environment.js';
-import { RecordingRenderer } from './helpers/recordingRenderer.js';
-import { holdKeys, releaseKeys } from './helpers/input.js';
+import { createCanvasElement, displayCanvas, installWindowStub, stubDocumentListeners } from '../src/testing/environment.js';
+import { RecordingRenderer } from '../src/testing/recordingRenderer.js';
+import { holdKeys, releaseKeys } from '../src/testing/input.js';
 import { M2D } from '../src/core/m2d.js';
 import { Camera } from '../src/core/camera.js';
 import {

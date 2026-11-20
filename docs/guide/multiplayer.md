@@ -116,7 +116,7 @@ The ticket names the player and the match, expires (the server refuses one good 
 ## The client
 
 ```javascript
-import { NetClient } from 'm2d-engine/net/client.js';
+import { NetClient } from 'm2d-engine/net';
 
 const net = await NetClient.connect(game, { url: 'wss://play.example.com/play', ticket, schema: KEEP_INPUT });
 net.on('close', ({ code, reason }) => { /* back to the menu */ });

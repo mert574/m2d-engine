@@ -1,5 +1,5 @@
 import { Constraint, KEY_BINDINGS } from '../core/constraint.js';
-import { s } from '../core/schema.js';
+import { s } from '../core/schema.ts';
 
 /**
  * Default bindings, as physical key codes. Codes rather than characters

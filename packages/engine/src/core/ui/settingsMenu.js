@@ -1,4 +1,4 @@
-import { sameResolution } from '../viewport.js';
+import { sameResolution } from '../viewport.ts';
 import { UIScreen } from './screen.js';
 import { UIPanel } from './panel.js';
 import { UIText } from './text.js';

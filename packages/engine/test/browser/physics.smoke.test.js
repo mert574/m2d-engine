@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
-import { initPhysics, createPhysicsWorld } from '../../src/core/physics/index.js';
+import { initPhysics, createPhysicsWorld } from '../../src/core/physics/index.ts';
 
 /**
  * Rapier ships as WASM, and Node loading it proves nothing about the path

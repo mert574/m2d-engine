@@ -15,7 +15,8 @@ The repository's memory — the only one an agent has, and the place to write an
   - [[3d]];
   - [[engine-surface]]: what stays first-class in the engine, and the `m2d-kit` package for what is reusable but opinionated (shipped Nov 2026);
   - [[canvas-removal]]: one renderer per dimension, no capability flags, and the GPU tests in Node (shipped Nov 2026);
-  - planned: [[types]] (the engine's own, and the hand-written stand-ins it deletes); [[pathfinding]], then [[npc-ai]]; [[scripting]]; [[upscaling]]; [[asset-caching]]; [[asset-import]].
+  - in progress: [[types]] (the whole repo in strict TypeScript, phase 0 done);
+  - planned: [[pathfinding]], then [[npc-ai]]; [[scripting]]; [[upscaling]]; [[asset-caching]]; [[asset-import]].
 
 ## Layout
 

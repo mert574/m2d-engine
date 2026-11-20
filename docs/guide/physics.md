@@ -5,7 +5,7 @@ The simulation runs on Rapier 2D, compiled to WebAssembly, behind an engine-owne
 Call `initPhysics()` once before constructing the engine. It fetches and compiles the WASM module. Pass `{ dimensions: 3 }` for a 3D world; the two solvers are separate modules, so a game only downloads the one it uses. See [Three dimensions](../reference/physics#three-dimensions).
 
 ```javascript
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
+import { initPhysics } from 'm2d-engine/physics';
 
 await initPhysics();
 const game = new M2D(canvas, { width: 1280, height: 720 });

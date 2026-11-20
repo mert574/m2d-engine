@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
+import { M2D, Entity } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { SCENE_VERSION } from 'm2d-engine/schema';
 import { GravityDial } from '../src/actors.ts';
 
 /** The world's gravity along one axis, following a counter the rules turn. */

@@ -1,4 +1,3 @@
-/// <reference path="./engine.d.ts" />
 /**
  * Walking the engine's schema descriptors alongside a document.
  *
@@ -10,7 +9,7 @@
  * once.
  */
 
-import type { SchemaDescriptor } from 'm2d-engine/core/schema.js';
+import type { SchemaDescriptor } from 'm2d-engine/schema';
 
 /** One step into a document: an object key or an array index. */
 export type PathSegment = string | number;

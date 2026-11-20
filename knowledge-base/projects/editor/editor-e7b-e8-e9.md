@@ -44,7 +44,7 @@ instances into batches shared by geometry and material; model props go
 through `#addModelBatches(key)`, each batch tagged `modelKey`, and
 `#dropModel(key)` filters them out — the streaming pair is the only
 rebuild by key that exists. Lights, colliders and `#propSpots` are
-build-once lists with no key. `StaticBatch` (`renderers/frame3d.js`) can
+build-once lists with no key. `StaticBatch` (`renderers/frame3d.ts`) can
 only push. No index maps an instance to the `(batch, slot)` records it
 produced, so the editor's comment in `viewport.ts` is honest: any `props`
 op rebuilds the whole game. `Viewport.pick` loops over `entitiesById`

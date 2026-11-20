@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { Entity } from 'm2d-engine/core/entity.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { SCENE_VERSION } from 'm2d-engine/core/sceneLoader.js';
-import { RecordingRenderer } from 'm2d-engine/test/helpers/recordingRenderer.js';
-import { displayCanvas, installWindowStub, stubDocumentListeners } from 'm2d-engine/test/helpers/environment.js';
+import { M2D, Entity } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { SCENE_VERSION } from 'm2d-engine/schema';
+import {
+  RecordingRenderer,
+  displayCanvas,
+  installWindowStub,
+  stubDocumentListeners
+} from 'm2d-engine/testing';
 import { registerKitScenery, SCENERY_TEMPLATES } from '../src/scenery.ts';
 import { PREFAB_TEMPLATES } from '../src/actors.ts';
 

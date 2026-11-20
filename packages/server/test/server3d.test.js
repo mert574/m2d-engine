@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { NetClient } from 'm2d-engine/net/client.js';
+import { initPhysics } from 'm2d-engine/physics';
+import { M2D } from 'm2d-engine';
+import { NetClient } from 'm2d-engine/net';
 import { startServer, until } from './helpers.js';
 import { INPUT, GAME_OPTIONS, registerYard } from './fixtures/yardGame.js';
 

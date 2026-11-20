@@ -1,4 +1,4 @@
-import { Angle } from './math.js';
+import { Angle } from './math.ts';
 
 /**
  * Sight for the simulation: pure queries over the physics world, so an NPC

@@ -1,4 +1,4 @@
-import { InputSchema } from 'm2d-engine/net/input.js';
+import { InputSchema } from 'm2d-engine/net';
 import { Meadow, ForeMeadow } from './meadowScenery.js';
 import { ScrollFront, Bee, Flower, Pollen, Thistle, Wasp, Web, Hive } from './meadowActors.js';
 import { BeeStatus } from './beeHud.js';

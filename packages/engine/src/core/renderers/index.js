@@ -1,7 +1,7 @@
-import { BaseRenderer } from './baseRenderer.js';
-import { WebGLRenderer } from './webglRenderer.js';
+import { BaseRenderer } from './baseRenderer.ts';
+import { WebGLRenderer } from './webglRenderer.ts';
 import { WebGPURenderer } from './webgpuRenderer.js';
-import { UIRenderer } from './uiRenderer.js';
+import { UIRenderer } from './uiRenderer.ts';
 
 const registry = new Map([
   ['webgl', WebGLRenderer],

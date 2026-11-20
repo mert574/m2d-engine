@@ -32,9 +32,9 @@ import {
   sceneOutline, inspectNode, uniqueId, isPlainObject, validateScene, parsePath, structure, paths, rotation, stage, SceneDocument,
   type Variant, type OutlineNode, type PathSegment, type Op, type Edit, type ValidationIssue, type Quaternion
 } from 'm2d-editor-core';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { ANCHOR_ORIGINS } from 'm2d-engine/core/ui/uiElement.js';
+import { M2D, combineSceneHooks } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { ANCHOR_ORIGINS } from 'm2d-engine/ui';
 import {
   loadProject, assetBase, loadDefinition, loadHooks, onHost, post, get, fetchDocument, projectGameOptions,
   type HostProject, type SceneEntry, type GameDefinition, type HooksModule
@@ -47,7 +47,6 @@ import { createAnimationEditor } from './animationEditor.ts';
 import { createViewHelpers, type Helper } from './viewHelpers.ts';
 import { createPathTool } from './pathEditor.ts';
 import { createLookPanel } from './lookPanel.ts';
-import { combineSceneHooks } from 'm2d-engine/core/project.js';
 import { createProjectPanel } from './projectPanel.ts';
 import { renderThumbnail } from './thumbnails.ts';
 import { createTree, type SelectMode } from './tree.ts';
@@ -151,7 +150,7 @@ let definition: GameDefinition | null = null;
 /** The game's presentation hooks module, for play. */
 let hooksModule: HooksModule | null = null;
 /** A headless game with the definition's classes: what problems are checked against. */
-let validator: unknown = null;
+let validator: M2D | null = null;
 /** Bumped per code change; makes the next definition import fresh. */
 let generation = 0;
 /**
@@ -762,9 +761,8 @@ async function buildValidator(): Promise<void> {
     // The project's scene names, so a button's onClick or a rule's switch
     // naming a sibling scene checks as registered — the viewport's game
     // knows them the same way.
-    const manager = (game as { sceneManager?: { addScene(name: string, scene: object): void } }).sceneManager;
     for (const scene of project?.scenes ?? []) {
-      if (scene.name) manager?.addScene(scene.name, { fetch: async () => ({}) });
+      if (scene.name) game.sceneManager.addScene(scene.name, { fetch: async () => ({}) });
     }
     validator = game;
   } catch (error) {

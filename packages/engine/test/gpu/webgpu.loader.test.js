@@ -3,7 +3,7 @@ import { WebGPURenderer } from '../../src/core/renderers/webgpuRenderer.js';
 import { initWebGPU } from '../../src/core/renderers/webgpu/device.js';
 import { loadModel, destroyModelLoader } from '../../src/core/modelLoader.js';
 import { Camera3D } from '../../src/core/camera3d.js';
-import { createCanvasElement } from '../helpers/environment.js';
+import { createCanvasElement } from '../../src/testing/environment.js';
 
 // Streaming loads models mid-game, and a parse plus a KTX2 transcode on
 // the main thread is a dropped frame per model. `modelLoader` does it in a

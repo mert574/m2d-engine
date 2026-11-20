@@ -70,7 +70,7 @@ A `pointerup` is the one event that reaches every subscriber whether or not a ba
 Entities take part in hit testing only when they carry the `Interactive` constraint. A scene without one never asks the physics world what is under the pointer.
 
 ```javascript
-import { Interactive } from 'm2d-engine/constraints/interactive.js';
+import { Interactive } from 'm2d-engine/constraints';
 
 crate.addConstraint('grab', new Interactive(crate, {
   hitArea: 'body',        // the physics collider, or { width, height } or { radius }

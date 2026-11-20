@@ -1,4 +1,3 @@
-/// <reference path="./engine.d.ts" />
 /**
  * The canonical scene and manifest writer.
  *
@@ -34,10 +33,8 @@
  * nothing — which is what makes "saved byte for byte" a meaningful test.
  */
 
-import type { SchemaDescriptor } from 'm2d-engine/core/schema.js';
+import { type SchemaDescriptor, schemaForType, MANIFEST_SCHEMA } from 'm2d-engine/schema';
 import { resolveDescriptor, isPlainObject } from './descriptors.ts';
-import { schemaForType } from 'm2d-engine/core/sceneSchema.js';
-import { MANIFEST_SCHEMA } from 'm2d-engine/core/assetSchema.js';
 
 /** Lines try to stay within this, indentation included. */
 const WIDTH = 100;

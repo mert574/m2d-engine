@@ -1,10 +1,7 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { s } from 'm2d-engine/core/schema.js';
-import { Projectile } from 'm2d-engine/core/projectile.js';
-import { Trigger } from 'm2d-engine/actors/trigger.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { Chase } from 'm2d-engine/constraints/chase.js';
-import { Hover } from 'm2d-engine/constraints/hover.js';
+import { Entity, Projectile } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
+import { Trigger } from 'm2d-engine/actors';
+import { Health, Chase, Hover } from 'm2d-engine/constraints';
 import { HitBurst } from 'm2d-kit/effects';
 import { ThrustControl } from 'm2d-kit/controls';
 

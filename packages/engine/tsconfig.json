@@ -1,12 +1,17 @@
 {
-  // Placeholder. The engine is plain JavaScript with JSDoc that nothing
-  // checks; this file exists so the Types roadmap item is one flag
-  // (`checkJs: true`) rather than a toolchain decision. Until then the
-  // typecheck run only proves the config chain resolves.
+  // The engine's source: TypeScript modules checked under the shared strict
+  // config, beside JavaScript modules that are parsed but not checked until
+  // their phase converts them (knowledge-base/projects/types). A `.ts` file
+  // is fully strict from its first commit; nothing here relaxes a flag.
+  //
+  // Relative imports say `.ts` for a TypeScript module and `.js` for a
+  // JavaScript one; the build rewrites the former (tsconfig.build.json).
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2025", "DOM", "DOM.Iterable"],
-    "checkJs": false
+    "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.js"]
+  "include": ["src/**/*"],
+  // Vendored, shipped as is; `basis_transcoder.d.ts` describes it.
+  "exclude": ["src/core/renderers/webgpu/basis/basis_transcoder.js"]
 }

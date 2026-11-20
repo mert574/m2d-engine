@@ -31,7 +31,7 @@ export default defineConfig({
   test: {
     name: 'browser',
     include: ['test/browser/**/*.test.js', 'test/gpu/*.test.js'],
-    setupFiles: ['./test/helpers/setupPhysics.js'],
+    setupFiles: ['./src/testing/setup.js'],
     browser: {
       enabled: true,
       provider: playwright({

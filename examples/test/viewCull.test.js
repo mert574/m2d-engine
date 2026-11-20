@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { projectOptions } from 'm2d-engine/core/project.js';
-import { RecordingRenderer } from 'm2d-engine/test/helpers/recordingRenderer.js';
-import { displayCanvas, installWindowStub, stubDocumentListeners } from 'm2d-engine/test/helpers/environment.js';
+import { M2D, projectOptions } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import {
+  RecordingRenderer,
+  displayCanvas,
+  installWindowStub,
+  stubDocumentListeners
+} from 'm2d-engine/testing';
 import { extentOf } from './drawExtent.js';
 
 /**

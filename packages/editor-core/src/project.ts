@@ -7,7 +7,7 @@
  * edit either leaves a valid file or is refused whole, naming the field.
  */
 
-import { PROJECT_SCHEMA, projectIssues, sceneNameOf } from 'm2d-engine/core/projectSchema.js';
+import { PROJECT_SCHEMA, projectIssues, sceneNameOf } from 'm2d-engine/schema';
 import { write } from './writer.ts';
 import { applyOps, type Op } from './edits.ts';
 import { inspectWith, type InspectedRow } from './inspect.ts';

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Time } from '../src/core/time.js';
-import { createPhysicsWorld } from '../src/core/physics/index.js';
+import { createPhysicsWorld } from '../src/core/physics/index.ts';
 
 /**
  * `game.time`: the two clocks, the fixed-step tick and the scheduler on

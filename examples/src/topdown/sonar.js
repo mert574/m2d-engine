@@ -1,5 +1,5 @@
-import { Constraint } from 'm2d-engine/core/constraint.js';
-import { s } from 'm2d-engine/core/schema.js';
+import { Constraint } from 'm2d-engine';
+import { s } from 'm2d-engine/schema';
 
 /**
  * The scanner's echo: every `period` seconds a ring leaves from wherever

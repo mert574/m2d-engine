@@ -1,10 +1,7 @@
-import { Entity } from 'm2d-engine/core/entity.js';
-import { Health } from 'm2d-engine/constraints/health.js';
-import { Attack } from 'm2d-engine/constraints/attack.js';
-import { KeyboardControl } from 'm2d-engine/constraints/keyboardControl.js';
+import { Entity, type M2D } from 'm2d-engine';
+import { Health, Attack, KeyboardControl } from 'm2d-engine/constraints';
 import { WallSlip } from '../controls/wallSlip.ts';
-import { s } from 'm2d-engine/core/schema.js';
-import type { M2D } from 'm2d-engine/core/m2d.js';
+import { s } from 'm2d-engine/schema';
 import type { ActorBody, ActorSprite } from '../engineTypes.ts';
 
 export interface PlayerOptions {
@@ -85,8 +82,8 @@ export class Player extends Entity {
   }
 
 
-  override draw(): void {
-    super.draw();
+  override draw(deltaTime: number): void {
+    super.draw(deltaTime);
 
     if (this.game.renderer.isDebugEnabled()) {
       // Debug annotations go to the world overlay: world coordinates, but

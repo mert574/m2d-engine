@@ -6,5 +6,6 @@
     "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": ["src/**/*", "test/**/*"],
+  "references": [{ "path": "../engine/tsconfig.build.json" }]
 }

@@ -1,4 +1,4 @@
-import { InputSchema } from 'm2d-engine/net/input.js';
+import { InputSchema } from 'm2d-engine/net';
 import { registerEffects } from 'm2d-kit/effects';
 import { Wall, Torch, Ember, Stair, Creature, Knight, Quartermaster } from './keepActors.js';
 import { keepIntents, newPurse } from './keepIntents.js';
@@ -63,7 +63,7 @@ function everyone(game) {
  * that open the stair, the stair that tells a knight what it found.
  * Presentation is the hooks module's.
  *
- * @param {import('m2d-engine/core/m2d.js').M2D} game
+ * @param {import('m2d-engine').M2D} game
  */
 export function sceneHooks(game) {
   return { keep: {

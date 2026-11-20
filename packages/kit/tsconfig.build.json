@@ -14,5 +14,7 @@
     "allowImportingTsExtensions": false,
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  // Not inherited from tsconfig.json: `references` never travels through `extends`.
+  "references": [{ "path": "../engine/tsconfig.build.json" }]
 }

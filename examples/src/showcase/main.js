@@ -1,6 +1,6 @@
-import { M2D } from 'm2d-engine/core/m2d.js';
-import { initPhysics } from 'm2d-engine/core/physics/index.js';
-import { SettingsMenu } from 'm2d-engine/core/ui/settingsMenu.js';
+import { M2D } from 'm2d-engine';
+import { initPhysics } from 'm2d-engine/physics';
+import { SettingsMenu } from 'm2d-engine/ui';
 import { Showcase } from './showcase.js';
 import { HOUR_MODES, FRONT_MODES } from './weather.js';
 import moteSprite from './assets/mote.png';

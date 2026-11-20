@@ -1,4 +1,4 @@
-import { defineIntents, reject, slot, oneOf, entity } from 'm2d-engine/net/intents.js';
+import { defineIntents, reject, slot, oneOf, entity } from 'm2d-engine/net';
 
 /**
  * Cinder Keep's satchel and its quartermaster: what a player carries and
