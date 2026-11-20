@@ -2,9 +2,9 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { initPhysics } from '../src/core/physics/index.ts';
 import { SCENE_VERSION } from '../src/core/sceneLoader.js';
 import { M2D } from '../src/core/m2d.js';
-import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.js';
-import { Replicator } from '../src/net/replication.js';
-import { NetClient } from '../src/net/client.js';
+import { InputSchema, InputGate, ViolationMeter } from '../src/net/input.ts';
+import { Replicator } from '../src/net/replication.ts';
+import { NetClient } from '../src/net/client.ts';
 import { ObliquePlayer, Platform } from './helpers/cast.js';
 
 /**
@@ -63,13 +63,13 @@ function build(scene, netLog = 0) {
  * runs n ticks on both sides, carrying messages across the wire as their
  * delay expires.
  */
-async function pair({ delay = 9, scene = ROOM, predict = true, sendEvery = 2, netLog = 0 } = {}) {
+async function pair({ delay = 9, scene = ROOM, predict = true, sendEvery = 2, netLog = 0, maxAhead = 120 } = {}) {
   const server = build(scene, netLog);
   await server.sceneManager.switchTo('room');
   server.setupCollisionHandlers();
   const meter = new ViolationMeter();
   const player = server.players.add('ann', { meter });
-  const gate = new InputGate(SCHEMA, { meter, startTick: server.time.steps, maxAhead: 120 });
+  const gate = new InputGate(SCHEMA, { meter, startTick: server.time.steps, maxAhead });
   player.setSnapshotSource(() => gate.take(server.time.steps));
   const avatar = server.spawn({ type: 'ObliquePlayer', x: 200, y: 400, width: 28, height: 28,
     physics: scene === DYNAMIC_ROOM
@@ -203,6 +203,27 @@ describe('client prediction', () => {
     expect(net.gate.late).toBe(lateSoFar);
     expect(net.gate.margin).toBeGreaterThanOrEqual(0);
     expect(net.lead).toBeLessThanOrEqual(120);
+  });
+
+  it('backs the lead off when input lands past the server\'s window, instead of locking the player out', async () => {
+    // The real server's gate files input at most 30 ticks ahead (its
+    // default). A stall can push the lead past that; every message is then
+    // dropped as early, the server misses those ticks and measures no
+    // margin, and a client that read the misses as "send further ahead"
+    // climbed to its maximum and never reached the server again.
+    const { avatar, net, held, advance, gate } = await pair({ delay: 3, maxAhead: 30 });
+    held.codes = ['ArrowRight'];
+    advance(20);
+    net.lead = 60;
+    const start = { ...avatar.position };
+    advance(240);
+    // Back inside the window: the early drops stopped, and the server's
+    // knight walked on the input that now reaches it.
+    expect(net.lead).toBeLessThanOrEqual(30);
+    const earlySoFar = gate.counts.early;
+    advance(60);
+    expect(gate.counts.early).toBe(earlySoFar);
+    expect(avatar.position.x).toBeGreaterThan(start.x + 50);
   });
 
   it('takes the server\'s word on a disagreement and replays the input sent since', async () => {

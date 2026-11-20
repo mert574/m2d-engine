@@ -410,6 +410,21 @@ export class NetClient {
       missed: this.gate.missed + missed, late: this.gate.late + late, early: this.gate.early + early,
       margin: margin ?? this.gate.margin
     };
+    // Input past the server's window: the lead is longer than the gate will
+    // file (its `maxAhead`), so everything is dropped as early, the server
+    // misses those ticks, and no margin is measured. Those misses are this
+    // client's own doing and must never lengthen the lead further — that
+    // was a lock-out: one stall that pushed the lead past the window made
+    // every later message early, each report then asked for more lead, and
+    // the player's input never reached the server again. Back off by half
+    // until messages land inside the window and the margin steers again.
+    if (early > 0 && late === 0) {
+      this.calm = 0;
+      const was = this.lead;
+      this.lead = Math.max(MIN_LEAD, Math.floor(this.lead / 2));
+      if (this.lead !== was) this.log(2, `lead ${was} → ${this.lead} (${early} input${early === 1 ? '' : 's'} arrived past the server's window)`);
+      return;
+    }
     if (typeof margin !== 'number') {
       // Nothing arrived to measure. Input the server had to do without is
       // still a reason to send further ahead.
@@ -440,7 +455,6 @@ export class NetClient {
     } else {
       this.calm = 0;
     }
-    void (late + early);
   }
 
   /**

@@ -114,26 +114,29 @@ function route(from, to) {
 }
 
 /**
- * Click from cell to cell along a route, the way a player clicks to walk.
- * The click is re-issued while the knight has not arrived — as a player
- * re-clicks — because one click's input snapshot can be lost when the
- * machine is loaded, and a single click followed by a bare wait then
- * stalls forever.
+ * Click a point and wait for the knight to arrive, re-clicking while it
+ * has not — as a player would. A click is one tick's input, and on a
+ * loaded machine that tick can reach the server's gate late and be
+ * dropped; a single click followed by a bare wait then stalls forever
+ * (and every later test, which starts from where this one left the
+ * knight, fails with it). Every click in this suite goes through here.
  */
+async function clickTo(client, point, reach = 20) {
+  let lastClick = 0;
+  await until(() => {
+    if (distance(client.game.player.position, point) < reach) return true;
+    if (Date.now() - lastClick > 300) {
+      lastClick = Date.now();
+      client.click(point);
+    }
+    return false;
+  });
+}
+
+/** Click from cell to cell along a route, the way a player clicks to walk. */
 async function walk(client, to, near = 20) {
-  const step = async (waypoint, reach) => {
-    let lastClick = 0;
-    await until(() => {
-      if (distance(client.game.player.position, waypoint) < reach) return true;
-      if (Date.now() - lastClick > 300) {
-        lastClick = Date.now();
-        client.click(waypoint);
-      }
-      return false;
-    });
-  };
-  for (const waypoint of route(client.game.player.position, to)) await step(waypoint, 24);
-  await step(to, near);
+  for (const waypoint of route(client.game.player.position, to)) await clickTo(client, waypoint, 24);
+  await clickTo(client, to, near);
 }
 
 describe('Cinder Keep online', () => {
@@ -166,8 +169,7 @@ describe('Cinder Keep online', () => {
   it('a click walks the knight, and the other player watches it go', async () => {
     const [ann, bob] = clients;
     const target = { x: 300, y: 2600 };
-    ann.click(target);
-    await until(() => distance(ann.game.player.position, target) < 20);
+    await clickTo(ann, target);
     const seen = bob.game.entityById(ann.game.player.netId);
     await until(() => distance(seen.position, target) < 20);
   }, 120000);
