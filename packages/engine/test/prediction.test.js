@@ -226,6 +226,25 @@ describe('client prediction', () => {
     expect(avatar.position.x).toBeGreaterThan(start.x + 50);
   });
 
+  it('backs off past zero when an inflated round-trip estimate alone puts input past the window', async () => {
+    // The tick a client aims for adds its round-trip estimate, so a spike
+    // in that estimate can put input past the window with no lead at all.
+    // Halving a lead of 0 leaves it at 0 (and halving a negative one moves
+    // it up), so the lead has to step down by at least one every time.
+    const { avatar, net, held, advance, gate } = await pair({ delay: 3, maxAhead: 30 });
+    held.codes = ['ArrowRight'];
+    advance(20);
+    net.lead = 0;
+    net.rtt = 800;
+    const start = { ...avatar.position };
+    advance(300);
+    expect(net.lead).toBeLessThan(0);
+    const earlySoFar = gate.counts.early;
+    advance(60);
+    expect(gate.counts.early).toBe(earlySoFar);
+    expect(avatar.position.x).toBeGreaterThan(start.x + 50);
+  });
+
   it('takes the server\'s word on a disagreement and replays the input sent since', async () => {
     const { avatar, clientAvatar, held, advance, net } = await pair({ delay: 9 });
     const mine = clientAvatar();

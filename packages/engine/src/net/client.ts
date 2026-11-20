@@ -421,7 +421,9 @@ export class NetClient {
     if (early > 0 && late === 0) {
       this.calm = 0;
       const was = this.lead;
-      this.lead = Math.max(MIN_LEAD, Math.floor(this.lead / 2));
+      // Halve, but always by at least one: a lead of 0 (or below) has to keep
+      // stepping down while the round-trip estimate alone overshoots.
+      this.lead = Math.max(MIN_LEAD, Math.min(this.lead - 1, Math.floor(this.lead / 2)));
       if (this.lead !== was) this.log(2, `lead ${was} → ${this.lead} (${early} input${early === 1 ? '' : 's'} arrived past the server's window)`);
       return;
     }
