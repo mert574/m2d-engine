@@ -444,7 +444,9 @@ export class RapierBody extends RapierBodyMaterial {
   }
 
   get angle(): number {
-    return this.rigidBody ? this.rigidBody.rotation() : this.spec.angle;
+    // Keep the WASM result explicitly f32. Safari can trap on a nonzero
+    // Rapier handle when it reads the rotation through this getter.
+    return this.rigidBody ? Math.fround(this.rigidBody.rotation()) : this.spec.angle;
   }
 
   /** Area, for the density-derived mass in RapierBodyMaterial. */

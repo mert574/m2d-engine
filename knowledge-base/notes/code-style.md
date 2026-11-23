@@ -20,4 +20,6 @@ The rules for code itself. What a game's code should contain is in [[idiomatic-m
 - **A log line in engine code is a line in every game's console.** `Creating Platform at 0, 0`, `Setting up level scene`, `Game Over!`: traces left in the engine fire on every entity, every scene and every fall, filling the player's developer console and drowning a CI log (16 Nov 2026: 2 600 lines of a 2 800-line test run). What the engine says out loud is a refusal or a warning the developer must act on; progress is the asset build's business, and detail belongs behind a level, as `net_log` keeps it. A test that provokes such a warning silences it — see `docs/contributing/testing.md`.
 - **Fixes come with a repro.** Pin a rendering fix with a small scene that reproduces it, rather than growing the showcase.
 
+- **Keep the 2D Rapier rotation result explicitly single precision.** On iOS Safari 27.2, reading the f32 WASM result through `RapierBody.angle` could trap on the second body (the first nonzero handle). `Math.fround` preserves the solver value and avoids the trap. The same bundle could pass over LAN HTTP, so compare the original and fixed code in the failing HTTPS context.
+
 Related: [[working-style]]

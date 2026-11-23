@@ -28,6 +28,23 @@ describe('physics in the browser', () => {
     world.destroy();
   });
 
+  it('reads the rotation of multiple bodies before and after stepping', () => {
+    const world = createPhysicsWorld({ gravity: { x: 0, y: 0 } });
+    try {
+      const first = world.add(world.createBox({ x: 0, y: 0, width: 16, height: 16, angle: 0.25 }));
+      const second = world.add(world.createBox({ x: 40, y: 0, width: 16, height: 16, angle: -0.5 }));
+      expect(first.angle).toBeCloseTo(0.25);
+      expect(second.angle).toBeCloseTo(-0.5);
+
+      second.setAngularVelocity(1);
+      world.step(1 / 60);
+      expect(first.angle).toBeCloseTo(0.25);
+      expect(second.angle).toBeGreaterThan(-0.5);
+    } finally {
+      world.destroy();
+    }
+  });
+
   it('stops a bullet body at a thin wall (CCD)', () => {
     const world = createPhysicsWorld({ gravity: { x: 0, y: 0 } });
     const wall = world.createBox({ x: 100, y: 0, width: 4, height: 200, bodyType: 'static' });
